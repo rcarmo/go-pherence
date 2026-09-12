@@ -16,6 +16,8 @@ The speech port is being implemented in go-pherence on `feat/speech-simd-vulkan`
 
 - `models/speaker/community1.SincNet`: experimental 16 kHz frontend with learned even/odd sinc filters, convolution/pooling/instance-norm stages and frame-grid metadata. Its narrow-band float32 oracle gate fails; it is not qualified or connected to a segmentation model.
 
+- `models/speaker/community1.SegmentationHead`: owned hidden Linear/leaky-ReLU layers, classifier and stable log-softmax, tested with the LSTM and powerset on synthetic recurrent features. It does not consume PCM or bypass the SincNet hold.
+
 This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan execution layer, new assembly kernels, the integrated job service, real-checkpoint quality tests and performance targets are not complete. Neither existing service has been restarted or deployed from this branch.
 
 ## Ownership and boundaries
@@ -25,7 +27,7 @@ This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan exe
 | `loader/audio/media` | Temporary FFmpeg adapter and future pure-Go adapter; output PCM frame count and media contract |
 | `loader/audio` | Exact Whisper/WeSpeaker model-specific features; canonical PCM input |
 | `models/whisper` | Encoder/decoder, model formats, language/task policy, state and word timestamps |
-| `models/speaker/community1` | Powerset component started; SincNet/BiLSTM, WeSpeaker/ResNet, masked pooling, PLDA/VBx and global full/exclusive turns still planned |
+| `models/speaker/community1` | Tested LSTM/head/powerset components; SincNet on parity hold; checkpoint binding, WeSpeaker/ResNet, masked pooling, PLDA/VBx and global full/exclusive turns unfinished |
 | `backends/simd/runtime`, existing FFT/half owners | Checked dispatch and reusable Go/Plan 9 assembly microkernels; scalar oracles and ISA fallbacks |
 | `backends/vulkan` | Device/features/FFI correctness, typed arenas, owned command/descriptor/fence state, resident multi-op graphs and shaders |
 | `cmd/audio` and a narrow job package (planned) | CLI/HTTP integration, resource scheduling, durable uploads, checkpoints, retry/cancel and VTT/JSON |
@@ -125,7 +127,7 @@ The output concatenates forward then reverse features at the same chronological 
 
 Six [synthetic PyTorch fixtures](../models/speaker/community1/testdata/lstm-reference.json) cover uni/bidirectionality, one to three layers, odd widths, nonzero initial state and sequences up to 65 frames. Both Go modes match every layer output, full sequence and terminal hidden/cell states within `2e-6`. A separate three-frame 60-input/128-hidden/two-layer synthetic case checks scalar/SIMD parity at representative PyanNet constructor dimensions; it is not checkpoint validation. The [offline generator](../scripts/community1_lstm_reference.py) pins PyanNet and Torch RNN source hashes, records the Torch build commit, runs CPU/one thread with MKLDNN disabled and loads no trained weights or audio. Regeneration produces identical JSON.
 
-Tests cover bad shapes/modes/states, NaN/Inf, affine overflow, source/output ownership, state reset, concurrent immutable-model calls, per-layer cancellation and fixed allocation counts. Deterministic fault injection reaches 78 scalar and 58 SIMD forward checkpoints in the small bidirectional fixture. A narrow delegated source review found no blocking issue. The [verification record](../benchmarks/speech-foundations/lstm-verification.json) separates these component checks from unmeasured model quality and performance. The SincNet qualification gap below, segmentation head/log-softmax, actual checkpoint binding and the remaining Community-1 pipeline still require work.
+Tests cover bad shapes/modes/states, NaN/Inf, affine overflow, source/output ownership, state reset, concurrent immutable-model calls, per-layer cancellation and fixed allocation counts. Deterministic fault injection reaches 78 scalar and 58 SIMD forward checkpoints in the small bidirectional fixture. A narrow delegated source review found no blocking issue. The [verification record](../benchmarks/speech-foundations/lstm-verification.json) separates these component checks from unmeasured model quality and performance. The SincNet qualification gap below, actual checkpoint binding and the remaining Community-1 pipeline still require work. The head/log-softmax component is tested separately below.
 
 ## Experimental SincNet frontend — qualification failed
 
@@ -150,6 +152,18 @@ GO_PHERENCE_TEST_SINCNET_STRICT=1 GOMAXPROCS=2 CGO_ENABLED=0 \
 Diagnostics using exact oracle filter coefficients still differ after convolution/normalisation. A separate Torch float64 calculation using those coefficients differs from Torch float32 by about `0.0065` for the stride-10 narrow-band case, whose first-stage minimum channel variance is about `3e-11`. Matching Torch's float32 affine scale/shift/FMA ordering improved results; it did not close the gate. The remaining discrepancy needs kernel/reduction analysis and actual model-level quality evidence before integration, not an automatic tolerance increase.
 
 Boundary/ownership tests and a narrow delegated source review found no additional blocking defect. Cancellation checks cover stages, channels and bounded loops; running scalar/SIMD dots and observers are synchronous. There is no model or input mutation. The compressed [fixtures](../models/speaker/community1/testdata/sincnet-reference.json.gz) and [offline generator](../scripts/community1_sincnet_reference.py) pin pyannote/filterbank sources, use only synthetic weights/PCM and regenerate byte-identically. The [verification record](../benchmarks/speech-foundations/sincnet-verification.json) keeps passing development checks separate from failing qualification. No trained model, GPU, private audio, service change or production default change occurred.
+
+## Segmentation head and recurrent-feature composition
+
+`NewSegmentationHead(ctx, cfg, layers, classifier)` validates and copies row-major weights and biases for zero to four hidden Linear/leaky-ReLU layers, then a classifier over the configured powerset classes. Input/hidden width is bounded to 512; output geometry derives from 1..8 local speaker slots. Every hidden layer uses negative slope `0.01`. The classifier has no activation before last-axis log-softmax. Zero hidden layers map recurrent features directly through the classifier. No checkpoint geometry is inferred.
+
+`Forward` accepts immutable frame-major recurrent output with 1..4096 frames and returns owned normalised log probabilities. It uses two alternating hidden buffers, one classifier/output buffer, and no per-frame allocation. The tested two-hidden-layer path allocates six times per call for either one or seven frames, including shape validation. Both explicit scalar and existing checked Plan 9 `GemvRows` paths are supported; no new assembly or throughput claim. Stable shifted log-sum-exp avoids large common-offset loss. Extreme finite logits may produce individual `-Inf` probabilities, which the powerset component accepts; the maximum class remains finite. Non-finite inputs, weights and affine outputs are rejected.
+
+Observers see transient hidden activations and raw classifier logits. Cancellation returns no partial result, though a completed observer call remains visible. Independent calls share only immutable owned weights and keep scratch local. Deterministic fault injection exercises 77 scalar and 56 SIMD forward checkpoints; weight/result ownership, concurrent calls, extreme logits, exact leaky-ReLU semantics and allocation bounds are tested.
+
+Four [head fixtures](../models/speaker/community1/testdata/head-reference.json) from pinned pyannote/PyTorch rules match hidden outputs, raw logits and log probabilities within `2e-6` in both modes. A separate synthetic LSTM → head → powerset comparison matches intermediate recurrent features, log probabilities and soft activities at `2e-6`, with exact hard activities. The [offline generator](../scripts/community1_head_reference.py) pins the PyanNet, default-activation, powerset, Torch RNN and prior LSTM fixture hashes; it regenerates identical JSON using one CPU thread, MKLDNN disabled and no trained weights or audio.
+
+This is a composition test from synthetic recurrent features, not the PCM segmentation graph or a diarization-quality result. SincNet's four strict failures remain open; the new head has no PCM entry point. A narrow delegated review found no blocking issue. [Head verification](../benchmarks/speech-foundations/head-verification.json) records component checks separately from the held frontend. No services, GPU workloads, private audio or production defaults changed.
 
 ## Frozen references and proposed acceptance
 
