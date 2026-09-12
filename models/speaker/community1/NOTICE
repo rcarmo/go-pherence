@@ -110,3 +110,19 @@ Changes: bounded Go fixed-size per-call workspace, maximise-only solve,
 context cancellation and direct original-row label output; reverse candidates,
 free-sink ties, transpose and dual-update arithmetic retained. No native call.
 The full BSD copyright, conditions and disclaimer are in LICENSE-BSD-SCIPY.
+
+BSD-3-Clause centroid AHC (ahc.go, ahc_heap.go)
+--------------------------------------------------------
+Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
+All rights reserved.
+Copyright (c) 2026 Rui Carmo (Go adaptation).
+Based on SciPy cluster/hierarchy at the same revision, source SHA256:
+_hierarchy.pyx: 50141ab68a04ee82d51bbba906afdf29a7a79877223f9e89699500e926dabf9f
+_hierarchy_distance_update.pxi: 64d6c695524fc08fc1d4c9679bd4424b28c15232b9776df4224ce432b8ee725f
+_structures.pxi: 1bf594add2b5f92d07a0649cf8fd54ae5b2352a75ce07dcc462d82a821493e3d
+The source cites Daniel Mullner, Modern hierarchical, agglomerative clustering
+algorithms, arXiv:1109.2378v1 for fast_linkage.
+Changes: bounded Go-owned float64 API, centroid-only generic linkage/heap,
+context cancellation, finite-update rejection, bottom-up subtree maxima and
+zero-based distance-cut labels. Source tie/merge/traversal ordering retained.
+No native SciPy runtime. Full BSD terms are in LICENSE-BSD-SCIPY.
