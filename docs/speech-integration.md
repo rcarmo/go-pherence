@@ -526,6 +526,14 @@ The shader evaluates the erf GELU form using the A&S 7.1.26 erfc approximation, 
 
 The offline selection passes 108 top-level tests/415 events; 41 relevant tests pass 30 shuffled repeats. All 14 embedded and 14 rebuilt shaders pass static validation; the final GELU rebuild is byte-identical. [GELU evidence](../benchmarks/speech-foundations/vulkan-gelu-20260912/README.md) includes source-model limitations, narrow source review, grammar provenance and boundary/retention tests. Attention, quantised formats, encoder graph/weights and device/model qualification are unfinished. No GPU or model ran.
 
+### Vulkan fused F32 attention
+
+`NewVkAttentionF32` adds non-causal equal-head attention over time-major Q/output `[seqQ,heads*headDim]` and K/V `[seqKV,heads*headDim]`. The fixed scale is `1/sqrt(headDim)`. A fused 16-query/16-key tile uses online softmax and 9408 shared bytes, with no quadratic score buffer. Sequence lengths are 1–4096, heads 1–32 and head dimensions 1–64. Empty keys, mismatched extents, excess limits and all output/input overlap are rejected; read inputs may alias. There is no mask, causal mode, GQA or quantised format.
+
+The offline suite passes 115 top-level tests/423 events; 48 relevant tests pass 30 shuffled repeats. Twelve shapes across four lane/group orders yield 53,280 source-model comparisons against an independent float64 full-score oracle, maximum absolute error `7.073017253000913e-7`. Large-logit/rescaling stress yields maximum error `1.8180898553321612e-6` over 306 values. These source models do not execute the shader or qualify device arithmetic/race-freedom.
+
+Fifteen embedded and fifteen rebuilt shaders pass static validation; attention rebuilds byte-identically. A shader-only review found no scoped issue for positive key length; the wrapper enforces that requirement. Mock tests cover attention→projection plan retention and safe later reuse of Q storage. [Attention evidence](../benchmarks/speech-foundations/vulkan-attention-20260912/README.md) records limits, numerical budgets and review scope. The full encoder graph, weights, quantised execution and hardware/model qualification are unfinished. Existing model defaults are unchanged; no GPU ran.
+
 ## Frozen references and proposed acceptance
 
 `speech-reference-manifest.json` records the analysed sources, installed reference weight hashes and historical comparisons. The source of the old performance numbers is the separately deployed `projects/whisper-stt` measurement record. They are historical targets; no Go throughput result exists yet.
