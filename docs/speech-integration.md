@@ -642,6 +642,12 @@ Model-free tests cover every pinned synthetic block layout, exact tensor shapes 
 
 No Vulkan device or trained checkpoint ran. Native parity, recovery and CPU/full-Vulkan/hybrid whole-job measurement remain open.
 
+### Vulkan LSTM cell foundation
+
+`NewVkLSTMCellF32` performs one unprojected PyTorch-IFGO recurrent state update from caller-precombined gates and prior cell state. It supports exact in-place cell update, rejects unsafe output overlap and uses branch-stable sigmoid/tanh formulas. Six hidden sizes, four shuffled schedules and5,280 hidden/cell outputs pass the source model; all20 embedded shader contracts pass. [Evidence](../benchmarks/speech-foundations/vulkan-lstm-cell-20260912/README.md) records the numerical and ownership envelope.
+
+This is not a complete sequence owner. Input/hidden projections, separate PyTorch bias additions, forward/reverse ordering, multi-layer state, native transcendental parity and placement measurements remain open. No model/default selects the kernel.
+
 ### Experimental lowered SincNet filters and ordered FMA
 
 `NewSincNetWithFilters` owns an explicitly lowered `[80,251]` filter tensor; callers must verify checkpoint identity and lowering metadata. New `SincNetScalarFMA` / `SincNetSIMDFMA` modes use serial-K FMA order. The reusable checked Plan 9 kernel vectorises independent frame columns, preserving exact scalar output. Existing constructors and mode defaults are unchanged.

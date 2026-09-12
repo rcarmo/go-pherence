@@ -39,7 +39,7 @@ speech-vulkan-offline-check:
 # Model-free Community-1 operator foundations: checked CHW 3x3/1x1 convolution
 # and channel-major prepared BatchNorm affine+ReLU. No device/model execution.
 speech-vulkan-community-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW)|TestVulkanOfflineShaderContractEmbedded)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW|LSTMCell)|TestVulkanOfflineShaderContractEmbedded)'
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding)'
 	bun test scripts/check-vulkan-shaders.test.ts
 

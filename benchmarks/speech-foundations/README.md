@@ -104,6 +104,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
 
+- [vulkan-lstm-cell-20260912](vulkan-lstm-cell-20260912/README.md): model-free precombined-IFGO recurrent state primitive; stable sigmoid/tanh, exact cell alias, six sizes/four schedules/5,280 outputs plus ABI/plan/static20 PASS. No sequence owner/GPU/trained/performance/default change.
+
 - [vulkan-community-hybrid-20260912](vulkan-community-hybrid-20260912/README.md): explicit fixed-frame hybrid embedding owner; resident Vulkan trunk plus existing CPU StatsPool/checked projection, copied projection and shared serialized close. Model-free admission/lifetime PASS; no GPU/trained/quality/performance/default change.
 
 - [vulkan-community-trunk-owner-20260912](vulkan-community-trunk-owner-20260912/README.md): complete fixed-frame resident WeSpeaker stem+16-block trunk owner;17plans/104stages,13 reusable scratch tensors, copied weights/preparedBN, serial upload→plans→download and retry close. Model-free PASS; no GPU/trained/pooling/performance/default change.
