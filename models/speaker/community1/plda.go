@@ -19,9 +19,9 @@ type PLDAConfig struct{ InputDim, ProjectedDim, OutputDim int }
 // Transform[ProjectedDim,ProjectedDim], all row-major. Transform rows and Phi
 // must be in the SAME descending-eigenvalue order from the generalised B,W
 // eigensystem in pinned vbx_setup. Phi must be finite/nonnegative/descending.
-// Raw checkpoint tr/psi are NOT these prepared arrays. This API does not solve
-// eigenproblems, invert covariance matrices or read npz/pickle. Provenance and
-// prepared-vs-raw validation belong to a future checked checkpoint adapter.
+// Raw checkpoint tr/psi are NOT necessarily these ordered arrays. Use
+// PrepareRawPLDA or LoadRawPLDANPZ for checked raw numeric preparation. This
+// constructor expects explicitly prepared coefficients and does no file I/O.
 type PreparedPLDAWeights struct{ Mean1, Mean2, LDA, Mu, Transform, Phi []float64 }
 
 // PreparedPLDA owns immutable coefficients and is safe for concurrent calls.

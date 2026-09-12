@@ -83,8 +83,11 @@ https://github.com/BUTSpeechFIT/VBx/blob/e39af548bb41143a7136d08310765746192e34d
 Copyright (c) 2026 Rui Carmo (Go adaptation).
 Changes: explicit owned prepared-coefficient API, float64 scalar transforms
 and GMM updates, checked geometry/work bounds, deterministic labels, context
-cancellation and transient observers. No NPZ/eigen setup, random initialisation,
-HMM, plots or external inference runtime. Source functions are extracted only
+cancellation and transient observers. plda_raw.go/load_plda.go add algebraic
+raw preparation using sorted tr rows, rank/conditioning and truncation checks,
+and bounded numeric NPZ input through loader/numpy (original Go MIT code).
+No eigensolver, random initialisation, HMM, plots or external inference runtime.
+Source functions are extracted only
 by the offline synthetic oracle generator; no trained parameters are bundled.
 
 Licensed under the Apache License, Version 2.0 (the "License");

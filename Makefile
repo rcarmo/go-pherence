@@ -19,10 +19,10 @@ all: build
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
 .PHONY: speech-foundations-check speech-media-integration
 speech-foundations-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
-	go vet -p=1 ./loader/audio ./loader/audio/media ./models/whisper ./models/speaker/community1
+	go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
 
 speech-media-integration:
 	GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
