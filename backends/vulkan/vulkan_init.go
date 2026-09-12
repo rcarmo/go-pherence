@@ -147,6 +147,7 @@ func vkSymbols() []vkSymbol {
 		{&vkAllocateDescriptorSets, "vkAllocateDescriptorSets"},
 		{&vkUpdateDescriptorSets, "vkUpdateDescriptorSets"},
 		{&vkAllocateCommandBuffers, "vkAllocateCommandBuffers"},
+		{&vkResetCommandBuffer, "vkResetCommandBuffer"},
 		{&vkBeginCommandBuffer, "vkBeginCommandBuffer"},
 		{&vkEndCommandBuffer, "vkEndCommandBuffer"},
 		{&vkCmdBindPipeline, "vkCmdBindPipeline"},

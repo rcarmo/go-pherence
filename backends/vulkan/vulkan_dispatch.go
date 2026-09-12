@@ -389,6 +389,14 @@ func (k *VkComputeKernel) dispatchBindingsLocked(ctx context.Context, groupsX, g
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Explicit reset makes reuse valid after both successful execution and a
+	// prior recording failure. Reset precedes descriptor mutation/recording.
+	if r := vkResetCommandBuffer(k.cmdBuf, 0); r != VK_SUCCESS {
+		return vkDriverError("vkResetCommandBuffer", r)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	k.updateBindingsLocked(k.descSet, bindings)
 	// Record command buffer
 	beginInfo := vkCommandBufferBeginInfo{sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT}
@@ -463,7 +471,7 @@ func (k *VkComputeKernel) validateBindingsLocked(groupsX, groupsY, groupsZ uint3
 	if k.pushSize < 0 || k.pushSize > 128 || k.pushSize%4 != 0 || (k.pushSize > 0 && pushData == nil) {
 		return fmt.Errorf("missing/invalid Vulkan push constants")
 	}
-	if vkUpdateDescriptorSets == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkCmdPipelineBarrier == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
+	if vkUpdateDescriptorSets == nil || vkResetCommandBuffer == nil || vkBeginCommandBuffer == nil || vkCmdBindPipeline == nil || vkCmdBindDescriptorSets == nil || vkCmdDispatch == nil || vkCmdPipelineBarrier == nil || vkEndCommandBuffer == nil || vkResetFences == nil || vkQueueSubmit == nil || vkWaitForFences == nil || (k.pushSize > 0 && vkCmdPushConstants == nil) {
 		return fmt.Errorf("Vulkan dispatch functions unavailable")
 	}
 
@@ -572,7 +580,7 @@ func vkSubmitLocked(ctx context.Context, device VkDevice, queue VkQueue, cmd VkC
 }
 
 func vkKernelFunctionsReady() bool {
-	return vkCreateShaderModule != nil && vkCreateDescriptorSetLayout != nil && vkCreatePipelineLayout != nil && vkCreateComputePipelines != nil && vkCreateDescriptorPool != nil && vkAllocateDescriptorSets != nil && vkAllocateCommandBuffers != nil && vkCreateFence != nil && vkDestroyShaderModule != nil && vkDestroyDescriptorSetLayout != nil && vkDestroyPipelineLayout != nil && vkDestroyPipeline != nil && vkDestroyDescriptorPool != nil && vkFreeCommandBuffers != nil && vkDestroyFence != nil
+	return vkCreateShaderModule != nil && vkCreateDescriptorSetLayout != nil && vkCreatePipelineLayout != nil && vkCreateComputePipelines != nil && vkCreateDescriptorPool != nil && vkAllocateDescriptorSets != nil && vkAllocateCommandBuffers != nil && vkResetCommandBuffer != nil && vkCreateFence != nil && vkDestroyShaderModule != nil && vkDestroyDescriptorSetLayout != nil && vkDestroyPipelineLayout != nil && vkDestroyPipeline != nil && vkDestroyDescriptorPool != nil && vkFreeCommandBuffers != nil && vkDestroyFence != nil
 }
 
 // vkCmdPushConstants — needs to be registered

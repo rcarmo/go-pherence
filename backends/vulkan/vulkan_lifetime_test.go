@@ -33,6 +33,7 @@ func newLifetimeMock(t *testing.T) (*lifetimeMock, *VkComputeKernel, *VkBuf) {
 			t.Errorf("wrong device: %d", d)
 		}
 	}
+	mockVK(t, &vkResetCommandBuffer, func(VkCommandBuffer, uint32) VkResult { step("command-reset"); return VK_SUCCESS })
 	mockVK(t, &vkUpdateDescriptorSets, func(d VkDevice, n uint32, p unsafe.Pointer, c uint32, q unsafe.Pointer) {
 		owner(d)
 		step("descriptors")
@@ -65,7 +66,7 @@ func newLifetimeMock(t *testing.T) (*lifetimeMock, *VkComputeKernel, *VkBuf) {
 		}
 	})
 	mockVK(t, &vkEndCommandBuffer, func(VkCommandBuffer) VkResult { step("end"); return VK_SUCCESS })
-	mockVK(t, &vkResetFences, func(d VkDevice, n uint32, f *VkFence) VkResult { owner(d); step("reset"); return VK_SUCCESS })
+	mockVK(t, &vkResetFences, func(d VkDevice, n uint32, f *VkFence) VkResult { owner(d); step("fence-reset"); return VK_SUCCESS })
 	mockVK(t, &vkQueueSubmit, func(q VkQueue, n uint32, p unsafe.Pointer, f VkFence) VkResult {
 		if q != 103 {
 			t.Error("queue owner")
@@ -199,7 +200,7 @@ func TestVulkanOfflineLifetimeTimeoutDrain(t *testing.T) {
 }
 
 func TestVulkanOfflineLifetimeCancellationBoundaries(t *testing.T) {
-	for _, boundary := range []string{"preflight", "descriptors", "begin", "acquire", "release", "end", "reset", "submit", "wait"} {
+	for _, boundary := range []string{"preflight", "command-reset", "descriptors", "begin", "acquire", "release", "end", "fence-reset", "submit", "wait"} {
 		t.Run(boundary, func(t *testing.T) {
 			m, k, b := newLifetimeMock(t)
 			m.wait = VK_TIMEOUT
@@ -350,7 +351,7 @@ func TestVulkanOfflineLifetimeSuccessfulReuseAndClose(t *testing.T) {
 			t.Fatal(out, err)
 		}
 	}
-	if vkPending != nil || eventCount(m, "submit") != 3 || eventCount(m, "reset") != 3 {
+	if vkPending != nil || eventCount(m, "submit") != 3 || eventCount(m, "command-reset") != 3 || eventCount(m, "fence-reset") != 3 {
 		t.Fatal("reuse failed")
 	}
 	n := len(m.events)
@@ -469,7 +470,7 @@ func TestVulkanOfflineLifetimeParallelDispatch(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	unit := []string{"descriptors", "begin", "acquire", "pipeline", "bindings", "dispatch", "release", "end", "reset", "submit", "wait"}
+	unit := []string{"command-reset", "descriptors", "begin", "acquire", "pipeline", "bindings", "dispatch", "release", "end", "fence-reset", "submit", "wait"}
 	if len(m.events) != workers*len(unit) {
 		t.Fatal("event count", len(m.events))
 	}

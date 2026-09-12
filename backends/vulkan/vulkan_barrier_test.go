@@ -67,7 +67,7 @@ func TestVulkanOfflineBarrierRecording(t *testing.T) {
 						t.Error("not a global memory dependency")
 					}
 					if barriers == 0 {
-						if !reflect.DeepEqual(m.events[start:], []string{"descriptors", "begin"}) {
+						if !reflect.DeepEqual(m.events[start:], []string{"command-reset", "descriptors", "begin"}) {
 							t.Error("acquire is not first command", m.events[start:])
 						}
 					} else if barriers == 1 {
@@ -85,7 +85,7 @@ func TestVulkanOfflineBarrierRecording(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				expected := []string{"descriptors", "begin", "acquire", "pipeline", "bindings", "dispatch", "release", "end", "reset", "submit", "wait"}
+				expected := []string{"command-reset", "descriptors", "begin", "acquire", "pipeline", "bindings", "dispatch", "release", "end", "fence-reset", "submit", "wait"}
 				if barriers != 2 || !reflect.DeepEqual(m.events[start:], expected) {
 					t.Fatal("dispatch dependencies", m.events[start:])
 				}

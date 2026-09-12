@@ -125,6 +125,7 @@ var (
 	vkAllocateDescriptorSets                 func(VkDevice, unsafe.Pointer, *VkDescriptorSet) VkResult
 	vkUpdateDescriptorSets                   func(VkDevice, uint32, unsafe.Pointer, uint32, unsafe.Pointer)
 	vkAllocateCommandBuffers                 func(VkDevice, unsafe.Pointer, *VkCommandBuffer) VkResult
+	vkResetCommandBuffer                     func(VkCommandBuffer, uint32) VkResult
 	vkBeginCommandBuffer                     func(VkCommandBuffer, unsafe.Pointer) VkResult
 	vkEndCommandBuffer                       func(VkCommandBuffer) VkResult
 	vkCmdBindPipeline                        func(VkCommandBuffer, uint32, VkPipeline)

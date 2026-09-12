@@ -37,14 +37,16 @@ func TestVulkanWrapperStubsRejectInvalidInputs(t *testing.T) {
 // TestVulkanWrapperStubsValidBuffers checks behavior with valid-sized buffers.
 //
 // Two cases depending on the host:
-//   - Vulkan NOT ready: kernels are nil → ops return "not available"
+//   - Vulkan NOT ready: operations fail closed before dispatch
 //   - Vulkan ready: allocate real device buffers → ops should succeed (no error)
 func TestVulkanWrapperStubsValidBuffers(t *testing.T) {
 	const n = 2
 	const floatsPerBuf = 4096 // well over any n*sizeof(float32) needed
 
 	if !VulkanReady() {
-		// Offline / CI path: use bare VkBuf, expect "not available"
+		// Offline / CI path: use bare VkBuf and require a fail-closed state.
+		// Whether initialization or optional cache construction is reached first is
+		// intentionally not part of this wrapper contract.
 		bare := &VkBuf{size: floatsPerBuf * 4}
 		cases := []struct {
 			name string
@@ -63,8 +65,8 @@ func TestVulkanWrapperStubsValidBuffers(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				err := tc.fn()
-				if err == nil || !strings.Contains(err.Error(), "not available") {
-					t.Fatalf("err=%v, want 'not available'", err)
+				if err == nil || !strings.Contains(err.Error(), "not initialized") && !strings.Contains(err.Error(), "not available") {
+					t.Fatalf("err=%v, want unavailable Vulkan state", err)
 				}
 			})
 		}

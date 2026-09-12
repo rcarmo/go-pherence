@@ -88,7 +88,7 @@ func NewVkF32Plan(ctx context.Context, stages []VkF32Stage) (*VkF32Plan, error) 
 		}
 		descriptorCount += uint32(len(s.bindings))
 	}
-	if vkCreateDescriptorPool == nil || vkAllocateDescriptorSets == nil || vkAllocateCommandBuffers == nil || vkCreateFence == nil || vkDestroyDescriptorPool == nil || vkFreeCommandBuffers == nil || vkDestroyFence == nil {
+	if vkCreateDescriptorPool == nil || vkAllocateDescriptorSets == nil || vkAllocateCommandBuffers == nil || vkResetCommandBuffer == nil || vkCreateFence == nil || vkDestroyDescriptorPool == nil || vkFreeCommandBuffers == nil || vkDestroyFence == nil {
 		return nil, fmt.Errorf("Vulkan plan construction/cleanup functions unavailable")
 	}
 	committed := false
@@ -205,6 +205,14 @@ func (p *VkF32Plan) Run(ctx context.Context) error {
 				pending.buffers = append(pending.buffers, b.buffer)
 			}
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// Explicit reset makes reuse valid after both successful execution and a
+	// prior recording failure. Reset precedes descriptor mutation/recording.
+	if r := vkResetCommandBuffer(s.command, 0); r != VK_SUCCESS {
+		return vkDriverError("vkResetCommandBuffer(plan)", r)
 	}
 	if err := ctx.Err(); err != nil {
 		return err

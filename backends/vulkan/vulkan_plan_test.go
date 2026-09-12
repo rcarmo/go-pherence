@@ -96,6 +96,12 @@ func newPlanMock(t *testing.T) (*planMock, *VkComputeKernel, *VkTensorArena, *Vk
 		event("free-command")
 	})
 	mockVK(t, &vkDestroyDescriptorPool, func(d VkDevice, h VkDescriptorPool, p unsafe.Pointer) { event("free-pool") })
+	mockVK(t, &vkResetCommandBuffer, func(c VkCommandBuffer, flags uint32) VkResult {
+		if c != 500 || flags != 0 {
+			t.Error("reset command ABI")
+		}
+		return result("command-reset")
+	})
 	mockVK(t, &vkUpdateDescriptorSets, func(d VkDevice, n uint32, p unsafe.Pointer, c uint32, q unsafe.Pointer) {
 		set := *(*VkDescriptorSet)(unsafe.Add(p, 16))
 		if set == k.descSet {
@@ -170,7 +176,7 @@ func newPlanMock(t *testing.T) (*planMock, *VkComputeKernel, *VkTensorArena, *Vk
 		if d != 100 || n != 1 || *f != 600 {
 			t.Error("reset plan fence")
 		}
-		return result("reset")
+		return result("fence-reset")
 	})
 	mockVK(t, &vkQueueSubmit, func(q VkQueue, n uint32, p unsafe.Pointer, f VkFence) VkResult {
 		if q != 103 || n != 1 || f != 600 || *(*uint32)(unsafe.Add(p, 40)) != 1 {
@@ -224,7 +230,7 @@ func TestVulkanOfflinePlanRecordAndOwnership(t *testing.T) {
 	if err := p.Run(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{"update", "update", "begin", "acquire", "pipeline", "bind", "push", "dispatch", "between", "pipeline", "bind", "push", "dispatch", "release", "end", "reset", "submit", "wait"}
+	expected := []string{"command-reset", "update", "update", "begin", "acquire", "pipeline", "bind", "push", "dispatch", "between", "pipeline", "bind", "push", "dispatch", "release", "end", "fence-reset", "submit", "wait"}
 	if !reflect.DeepEqual(m.events[start:], expected) {
 		t.Fatal("record order", m.events[start:])
 	}
@@ -354,7 +360,7 @@ func TestVulkanOfflinePlanRetainsAllOwners(t *testing.T) {
 	assertMemory(t, 0, 0)
 }
 func TestVulkanOfflinePlanCancellationBoundaries(t *testing.T) {
-	for _, boundary := range []string{"preflight", "update", "begin", "acquire", "dispatch", "between", "release", "end", "reset", "submit", "wait"} {
+	for _, boundary := range []string{"preflight", "command-reset", "update", "begin", "acquire", "dispatch", "between", "release", "end", "fence-reset", "submit", "wait"} {
 		t.Run(boundary, func(t *testing.T) {
 			m, k, _, x := newPlanMock(t)
 			p := mustPlan(t, onePlanStage(k, x), onePlanStage(k, x))
@@ -385,8 +391,26 @@ func TestVulkanOfflinePlanCancellationBoundaries(t *testing.T) {
 		})
 	}
 }
+func TestVulkanOfflinePlanRecordingFailureRetry(t *testing.T) {
+	m, k, _, x := newPlanMock(t)
+	p := mustPlan(t, onePlanStage(k, x))
+	m.failure = "end"
+	if err := p.Run(context.Background()); err == nil {
+		t.Fatal("recording failure accepted")
+	}
+	m.failure = ""
+	start := len(m.events)
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal("retry after recording failure", err)
+	}
+	if !reflect.DeepEqual(m.events[start:], []string{"command-reset", "update", "begin", "acquire", "pipeline", "bind", "dispatch", "release", "end", "fence-reset", "submit", "wait"}) {
+		t.Fatal("plan recording retry order", m.events[start:])
+	}
+	p.Close()
+}
+
 func TestVulkanOfflinePlanNativeErrors(t *testing.T) {
-	for _, failure := range []string{"begin", "end", "reset", "submit", "wait", "timeout"} {
+	for _, failure := range []string{"command-reset", "begin", "end", "fence-reset", "submit", "wait", "timeout"} {
 		t.Run(failure, func(t *testing.T) {
 			m, k, _, x := newPlanMock(t)
 			p := mustPlan(t, onePlanStage(k, x), onePlanStage(k, x))

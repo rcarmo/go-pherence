@@ -1,6 +1,7 @@
 package vulkan
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -27,6 +28,7 @@ func offlineVK(t *testing.T) {
 	mockVK(t, &vkLimits, offlineLimits())
 	mockVK(t, &vkMemoryBudget, VulkanMemoryBudget{})
 	mockVK(t, &vkMemoryUsed, vkMemoryLedger{})
+	mockVK(t, &vkResetCommandBuffer, func(VkCommandBuffer, uint32) VkResult { return VK_SUCCESS })
 	mockVK(t, &vkDevice, VkDevice(100))
 	mockVK(t, &vkPhysDev, VkPhysicalDevice(101))
 	mockVK(t, &vkCmdPool, VkCommandPool(102))
@@ -333,8 +335,51 @@ func TestVulkanOfflineDispatchPreflight(t *testing.T) {
 	}
 }
 
+func TestVulkanOfflineDispatchRecordingFailureRetry(t *testing.T) {
+	offlineVK(t)
+	var events []string
+	failEnd := true
+	mockVK(t, &vkResetCommandBuffer, func(VkCommandBuffer, uint32) VkResult { events = append(events, "command-reset"); return VK_SUCCESS })
+	mockVK(t, &vkUpdateDescriptorSets, func(VkDevice, uint32, unsafe.Pointer, uint32, unsafe.Pointer) { events = append(events, "descriptors") })
+	mockVK(t, &vkBeginCommandBuffer, func(VkCommandBuffer, unsafe.Pointer) VkResult { events = append(events, "begin"); return VK_SUCCESS })
+	mockVK(t, &vkCmdBindPipeline, func(VkCommandBuffer, uint32, VkPipeline) {})
+	mockVK(t, &vkCmdBindDescriptorSets, func(VkCommandBuffer, uint32, VkPipelineLayout, uint32, uint32, *VkDescriptorSet, uint32, unsafe.Pointer) {
+	})
+	mockVK(t, &vkCmdDispatch, func(VkCommandBuffer, uint32, uint32, uint32) {})
+	mockVK(t, &vkCmdPipelineBarrier, func(VkCommandBuffer, uint32, uint32, uint32, uint32, unsafe.Pointer, uint32, unsafe.Pointer, uint32, unsafe.Pointer) {
+	})
+	mockVK(t, &vkEndCommandBuffer, func(VkCommandBuffer) VkResult {
+		events = append(events, "end")
+		if failEnd {
+			failEnd = false
+			return -3
+		}
+		return VK_SUCCESS
+	})
+	mockVK(t, &vkResetFences, func(VkDevice, uint32, *VkFence) VkResult { events = append(events, "fence-reset"); return VK_SUCCESS })
+	mockVK(t, &vkQueueSubmit, func(VkQueue, uint32, unsafe.Pointer, VkFence) VkResult {
+		events = append(events, "submit")
+		return VK_SUCCESS
+	})
+	mockVK(t, &vkWaitForFences, func(VkDevice, uint32, *VkFence, uint32, uint64) VkResult {
+		events = append(events, "wait")
+		return VK_SUCCESS
+	})
+	kernel := &VkComputeKernel{device: 100, queue: 103, commandPool: 102, pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1}
+	buffer := &VkBuf{device: 100, buf: 1, mem: 2, size: 4}
+	if err := kernel.DispatchContext(context.Background(), 1, 1, 1, []*VkBuf{buffer}, nil); err == nil {
+		t.Fatal("recording failure accepted")
+	}
+	if err := kernel.DispatchContext(context.Background(), 1, 1, 1, []*VkBuf{buffer}, nil); err != nil {
+		t.Fatal("retry after recording failure", err)
+	}
+	if !reflect.DeepEqual(events, []string{"command-reset", "descriptors", "begin", "end", "command-reset", "descriptors", "begin", "end", "fence-reset", "submit", "wait"}) {
+		t.Fatal("recording retry order", events)
+	}
+}
+
 func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
-	for _, failure := range []string{"begin", "end", "reset", "submit", "wait", "success"} {
+	for _, failure := range []string{"command-reset", "begin", "end", "fence-reset", "submit", "wait", "success"} {
 		t.Run(failure, func(t *testing.T) {
 			offlineVK(t)
 			var calls []string
@@ -345,6 +390,12 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 				}
 				return VK_SUCCESS
 			}
+			mockVK(t, &vkResetCommandBuffer, func(c VkCommandBuffer, flags uint32) VkResult {
+				if c != 4 || flags != 0 {
+					t.Fatal("reset command ABI")
+				}
+				return step("command-reset")
+			})
 			mockVK(t, &vkUpdateDescriptorSets, func(VkDevice, uint32, unsafe.Pointer, uint32, unsafe.Pointer) { calls = append(calls, "descriptors") })
 			mockVK(t, &vkBeginCommandBuffer, func(c VkCommandBuffer, p unsafe.Pointer) VkResult {
 				v := (*vkCommandBufferBeginInfo)(p)
@@ -367,7 +418,7 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 				calls = append(calls, "barrier")
 			})
 			mockVK(t, &vkEndCommandBuffer, func(VkCommandBuffer) VkResult { return step("end") })
-			mockVK(t, &vkResetFences, func(VkDevice, uint32, *VkFence) VkResult { return step("reset") })
+			mockVK(t, &vkResetFences, func(VkDevice, uint32, *VkFence) VkResult { return step("fence-reset") })
 			mockVK(t, &vkQueueSubmit, func(VkQueue, uint32, unsafe.Pointer, VkFence) VkResult { return step("submit") })
 			mockVK(t, &vkWaitForFences, func(VkDevice, uint32, *VkFence, uint32, uint64) VkResult { return step("wait") })
 			kernel := &VkComputeKernel{device: 100, queue: 103, commandPool: 102, pipeline: 1, pipelineLayout: 2, descSet: 3, cmdBuf: 4, fence: 5, numBuffers: 1, pushSize: 4}
@@ -392,8 +443,11 @@ func TestVulkanOfflineDispatchBeginAndFenceErrors(t *testing.T) {
 				}
 			}
 			want := 2
-			if failure == "begin" {
+			if failure == "command-reset" || failure == "begin" {
 				want = 0
+			}
+			if failure == "command-reset" && !reflect.DeepEqual(calls, []string{"command-reset"}) {
+				t.Fatal("command reset failure mutated later state", calls)
 			}
 			if barriers != want {
 				t.Fatalf("barriers=%d want%d after%s", barriers, want, failure)
