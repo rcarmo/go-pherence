@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -102,6 +103,179 @@ func trainedCompare(t *testing.T, name string, got, want []float32) float64 {
 // Endpoint and local-mask gates are mandatory. Every intermediate boundary is
 // recorded; a separate opt-in strict mode enforces them and retains failures.
 // No performance claim: reference and Go traces are separate functional runs.
+func TestCommunity1TrainedSincNetStage1Boundary(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_COMMUNITY1_STAGE1") != "1" {
+		t.Skip("explicit trained stage1 diagnostic opt-in")
+	}
+	dir, manifest := trainedSegmentationAssets(t)
+	ctx := context.Background()
+	src, e := safetensors.Open(filepath.Join(dir, "segmentation.safetensors"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	checkpoint, e := LoadSegmentationSource(ctx, src, manifest.Config)
+	e = errors.Join(e, src.Close())
+	if e != nil {
+		t.Fatal(e)
+	}
+	fs, e := safetensors.Open(filepath.Join(dir, "filters.safetensors"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	filters := trainedTensor(t, fs, "sincnet.filters")
+	e = fs.Close()
+	if e != nil {
+		t.Fatal(e)
+	}
+	model, e := NewExperimentalSegmentation(ctx, checkpoint, filters)
+	if e != nil {
+		t.Fatal(e)
+	}
+	compare := func(a, b []float32) (float64, int) {
+		if len(a) != len(b) {
+			t.Fatal("shape", len(a), len(b))
+		}
+		mx := 0.
+		bits := 0
+		for i, v := range a {
+			d := math.Abs(float64(v) - float64(b[i]))
+			mx = math.Max(mx, d)
+			if math.Float32bits(v) != math.Float32bits(b[i]) {
+				bits++
+			}
+		}
+		return mx, bits
+	}
+	for _, c := range manifest.Cases {
+		if c.Name != "silence-1s" && c.Name != "public-10-20s" {
+			continue
+		}
+		t.Run(c.Name, func(t *testing.T) {
+			o, e := safetensors.Open(filepath.Join(dir, c.File))
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer o.Close()
+			input := trainedTensor(t, o, "sincnet.0")
+			want := trainedTensor(t, o, "sincnet.1")
+			if len(input)%80 != 0 {
+				t.Fatal("input shape")
+			}
+			n := len(input) / 80
+			wantConv, wantPool := trainedTensor(t, o, "conv.1"), trainedTensor(t, o, "pool.1")
+			for _, mode := range []struct {
+				name string
+				mode SincNetMode
+			}{{"scalar", SincNetScalar}, {"simd-dot", SincNetSIMD}, {"scalar-fma", SincNetScalarFMA}, {"simd-fma", SincNetSIMDFMA}} {
+				conv, frames, e := sincNetConvolve(ctx, input, 80, n, model.frontend.weights.Conv[0].Weight, model.frontend.weights.Conv[0].Bias, 60, 5, 1, mode.mode)
+				if e != nil {
+					t.Fatal(e)
+				}
+				convErr, convBits := compare(conv, wantConv)
+				pooled, pframes, e := sincNetPool(ctx, conv, 60, frames)
+				if e != nil {
+					t.Fatal(e)
+				}
+				poolErr, poolBits := compare(pooled, wantPool)
+				if e = sincNetNormMode(ctx, pooled, 60, pframes, model.frontend.weights.Norm[1], mode.mode); e != nil {
+					t.Fatal(e)
+				}
+				for i, v := range pooled {
+					if v < 0 {
+						pooled[i] = v * .01
+					}
+				}
+				mx, bits := compare(pooled, want)
+				t.Logf("COMMUNITY_STAGE1 fixture=%s mode=%s conv_max=%g conv_bits=%d pool_max=%g pool_bits=%d output_max=%g output_bits=%d", c.Name, mode.name, convErr, convBits, poolErr, poolBits, mx, bits)
+			}
+		})
+	}
+}
+
+func TestCommunity1TrainedSegmentationModeBoundary(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_COMMUNITY1_BOUNDARY") != "1" {
+		t.Skip("explicit trained boundary diagnostic opt-in")
+	}
+	dir, manifest := trainedSegmentationAssets(t)
+	ctx := context.Background()
+	src, e := safetensors.Open(filepath.Join(dir, "segmentation.safetensors"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	m, e := LoadSegmentationSource(ctx, src, manifest.Config)
+	e = errors.Join(e, src.Close())
+	if e != nil {
+		t.Fatal(e)
+	}
+	fs, e := safetensors.Open(filepath.Join(dir, "filters.safetensors"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	filters := trainedTensor(t, fs, "sincnet.filters")
+	e = fs.Close()
+	if e != nil {
+		t.Fatal(e)
+	}
+	model, e := NewExperimentalSegmentation(ctx, m, filters)
+	if e != nil {
+		t.Fatal(e)
+	}
+	maxdiff := func(a, b []float32) (float64, int) {
+		if len(a) != len(b) {
+			t.Fatal("shape")
+		}
+		mx := 0.
+		bits := 0
+		for i, v := range a {
+			d := math.Abs(float64(v) - float64(b[i]))
+			mx = math.Max(mx, d)
+			if math.Float32bits(v) != math.Float32bits(b[i]) {
+				bits++
+			}
+		}
+		return mx, bits
+	}
+	for _, c := range manifest.Cases {
+		if c.Name != "silence-1s" && c.Name != "public-10-20s" {
+			continue
+		}
+		t.Run(c.Name, func(t *testing.T) {
+			o, e := safetensors.Open(filepath.Join(dir, c.File))
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer o.Close()
+			pcm := trainedTensor(t, o, "pcm")
+			runs := map[string]map[string][]float32{}
+			for _, mode := range []struct {
+				name string
+				s    SincNetMode
+				l    LSTMMode
+				h    HeadMode
+			}{{"scalar", SincNetScalarFMA, LSTMScalar, HeadScalar}, {"simd", SincNetSIMDFMA, LSTMSIMD, HeadSIMD}} {
+				values := map[string][]float32{}
+				_, e := model.ForwardPCMObserved(ctx, pcm, SegmentationModes{mode.s, mode.l, mode.h}, SegmentationObservers{SincNet: func(stage, _, _ int, v []float32) {
+					values[fmt.Sprintf("sincnet.%d", stage)] = append([]float32(nil), v...)
+				}, LSTM: func(layer, _, _ int, v []float32) {
+					values[fmt.Sprintf("lstm.%d", layer)] = append([]float32(nil), v...)
+				}, Head: func(layer, _, _ int, v []float32) {
+					values[fmt.Sprintf("head.%d", layer)] = append([]float32(nil), v...)
+				}})
+				if e != nil {
+					t.Fatal(e)
+				}
+				runs[mode.name] = values
+			}
+			for _, name := range []string{"sincnet.0", "sincnet.1", "sincnet.2", "lstm.0", "lstm.1", "lstm.2", "lstm.3", "head.0", "head.1", "head.2"} {
+				a, b := runs["scalar"][name], runs["simd"][name]
+				modeErr, bits := maxdiff(a, b)
+				oracleErr, _ := maxdiff(b, trainedTensor(t, o, name))
+				t.Logf("COMMUNITY_BOUNDARY fixture=%s stage=%s scalar_simd_max=%g differing_bits=%d oracle_max=%g", c.Name, name, modeErr, bits, oracleErr)
+			}
+		})
+	}
+}
+
 func TestCommunity1TrainedSegmentation(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION") != "1" {
 		t.Skip("explicit trained Community1 CPU qualification opt-in required")
