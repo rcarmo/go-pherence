@@ -68,6 +68,21 @@ with explicit model geometry and mask-support reporting. load_resnet.go adds
 source-derived tensor-name/shape binding, metadata-first checks and owned copies;
 actual trained checkpoint provenance and quality remain unqualified.
 
+Apache-2.0 prepared PLDA and deterministic VBx (plda.go, vbx.go)
+--------------------------------------------------------
+Based on pyannote.audio utils/vbx.py at commit
+b749285c5cdd4636b2edc7f766f1352c8dde9369, SHA256
+a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e.
+The source revision history attributes L. Burget (20 January 2021),
+P. Palka (28 April 2025) and H. Bredin (12 August 2025), derived from
+https://github.com/BUTSpeechFIT/VBx/blob/e39af548bb41143a7136d08310765746192e34da/VBx/VB_diarization.py.
+Copyright (c) 2026 Rui Carmo (Go adaptation).
+Changes: explicit owned prepared-coefficient API, float64 scalar transforms
+and GMM updates, checked geometry/work bounds, deterministic labels, context
+cancellation and transient observers. No NPZ/eigen setup, random initialisation,
+HMM, plots or external inference runtime. Source functions are extracted only
+by the offline synthetic oracle generator; no trained parameters are bundled.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
