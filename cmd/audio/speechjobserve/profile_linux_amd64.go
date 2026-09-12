@@ -1,0 +1,244 @@
+//go:build linux && amd64
+
+package main
+
+import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"runtime"
+	"strings"
+
+	"github.com/rcarmo/go-pherence/loader/safetensors"
+	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/runtime/speechjob"
+	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
+)
+
+// Runtime flags are read at package init by legacy Whisper. They MUST be set in
+// the launching environment, not changed after startup. In particular Whisper
+// import probes NVIDIA at init; DISABLE_NVIDIA must already be 1 before exec.
+func validateRuntime(c ServerConfig) error {
+	if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "1" || os.Getenv("GOMAXPROCS") != fmt.Sprint(c.Threads) || runtime.GOMAXPROCS(0) != c.Threads {
+		return fmt.Errorf("launch with GO_PHERENCE_DISABLE_NVIDIA=1 and GOMAXPROCS equal to configured threads")
+	}
+	for _, env := range os.Environ() {
+		key, v, _ := strings.Cut(env, "=")
+		if (strings.HasPrefix(key, "WHISPER_") || strings.HasPrefix(key, "GO_PHERENCE_WHISPER_") || key == "GO_PHERENCE_A100_NOINIT") && v != "" && v != "0" {
+			return fmt.Errorf("non-default Whisper runtime flags are unsupported by this profile")
+		}
+	}
+	return nil
+}
+
+type preparedModel struct {
+	cfg                   whisper.Config
+	modelJSON, generation []byte
+	tokenizer             *whisper.Tokenizer
+	source                *safetensors.File
+}
+
+func prepareModel(ctx context.Context, c ServerConfig) (*preparedModel, error) {
+	if e := validateRuntime(c); e != nil {
+		return nil, e
+	}
+	// Preflight small pinned metadata before tensor payload hashing/opening.
+	for _, x := range []struct {
+		a    Asset
+		cap  int64
+		exec bool
+	}{{c.ModelConfig, 1 << 20, false}, {c.Generation, 16 << 10, false}, {c.Tokenizer, 32 << 20, false}, {c.FFmpeg, 1 << 30, true}, {c.FFprobe, 1 << 30, true}} {
+		if e := verifyAsset(ctx, x.a, x.cap, x.exec); e != nil {
+			return nil, e
+		}
+	}
+	modelJSON, e := boundedFile(ctx, c.ModelConfig.Path, 1<<20)
+	if e != nil {
+		return nil, e
+	}
+	cfg, e := whisper.ParseModelConfigChecked(modelJSON)
+	if e != nil {
+		return nil, fmt.Errorf("model configuration rejected")
+	}
+	generation, e := boundedFile(ctx, c.Generation.Path, 16<<10)
+	if e != nil {
+		return nil, e
+	}
+	tokenizerBytes, e := boundedFile(ctx, c.Tokenizer.Path, 32<<20)
+	if e != nil {
+		return nil, e
+	}
+	if e = uniqueJSON(tokenizerBytes, 16, false, true); e != nil {
+		return nil, fmt.Errorf("tokenizer JSON rejected")
+	}
+	// Pinned, bounded, immutable local tokenizer: loader and checked generation
+	// validate full multilingual vocabulary before any tensor payload is loaded.
+	tokenizer, e := whisper.LoadTokenizer(c.Tokenizer.Path)
+	if e != nil {
+		return nil, fmt.Errorf("tokenizer load rejected")
+	}
+	if _, e = whisper.ParseGenerationConfigChecked(generation, cfg, tokenizer); e != nil {
+		return nil, fmt.Errorf("generation policy rejected")
+	}
+	var generationBounds struct {
+		MaxLength int `json:"max_length"`
+	}
+	if e = json.Unmarshal(generation, &generationBounds); e != nil {
+		return nil, fmt.Errorf("generation policy rejected")
+	}
+	p := c.Profile
+	if p.MaxInitialTimestampIndex != 0 || p.MaxNewTokens > generationBounds.MaxLength-3 {
+		return nil, fmt.Errorf("generation document owns initial timestamp and token bounds")
+	}
+	if _, e = whisper.NewWindowPlan(0, int64(cfg.MaxLength)*160, p.OverlapSamples); e != nil || p.OverlapSamples > int64(cfg.MaxLength)*80 || p.MaxNewTokens > cfg.MaxDecoderLength-3 {
+		return nil, fmt.Errorf("profile exceeds model geometry")
+	}
+	languageFound := false
+	for _, s := range tokenizer.Vocab {
+		if s == "<|"+p.Language+"|>" {
+			languageFound = true
+		}
+	}
+	if !languageFound {
+		return nil, fmt.Errorf("profile language not in tokenizer")
+	}
+	if _, e = speechjob.NewFFmpegDecodeStage(decodeConfig(c)); e != nil {
+		return nil, fmt.Errorf("decode configuration rejected")
+	}
+	if e = preflightSafetensors(ctx, c.Weights, c.Limits.WeightBytes, c.Limits.OwnedWeightBytes); e != nil {
+		return nil, e
+	}
+	if e = verifyAsset(ctx, c.Weights, c.Limits.WeightBytes, false); e != nil {
+		return nil, e
+	}
+	source, e := safetensors.Open(c.Weights.Path)
+	if e != nil {
+		return nil, fmt.Errorf("safetensors metadata rejected")
+	}
+	return &preparedModel{cfg, modelJSON, generation, tokenizer, source}, nil
+}
+
+// Preflight the bounded header before safetensors.Open unmarshals it. Widened
+// tensor storage + one source materialisation are admitted conservatively as
+// 2*sum(F32 bytes). This is a loading allocation estimate, not a process RSS cap.
+func preflightSafetensors(ctx context.Context, a Asset, fileLimit, ownedLimit int64) error {
+	f, e := regularFile(a.Path, fileLimit)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil {
+		return e
+	}
+	var length [8]byte
+	if _, e = io.ReadFull(f, length[:]); e != nil {
+		return fmt.Errorf("short safetensors header")
+	}
+	n := binary.LittleEndian.Uint64(length[:])
+	if n < 2 || n > 4<<20 || n > uint64(st.Size()-8) {
+		return fmt.Errorf("safetensors header exceeds bounds")
+	}
+	b := make([]byte, int(n))
+	if _, e = io.ReadFull(f, b); e != nil {
+		return fmt.Errorf("short safetensors header")
+	}
+	if e = ctx.Err(); e != nil {
+		return e
+	}
+	if e = uniqueJSON(b, 8, false, false); e != nil {
+		return fmt.Errorf("ambiguous safetensors header")
+	}
+	var fields map[string]json.RawMessage
+	if e = json.Unmarshal(b, &fields); e != nil || len(fields) < 1 || len(fields) > 2048 {
+		return fmt.Errorf("invalid safetensors inventory")
+	}
+	var owned int64
+	for name, raw := range fields {
+		if e = ctx.Err(); e != nil {
+			return e
+		}
+		if name == "__metadata__" {
+			continue
+		}
+		var info safetensors.TensorInfo
+		if e = json.Unmarshal(raw, &info); e != nil {
+			return fmt.Errorf("invalid tensor metadata")
+		}
+		width := int64(0)
+		switch info.DType {
+		case "F32":
+			width = 4
+		case "F16", "BF16":
+			width = 2
+		default:
+			return fmt.Errorf("unsupported weight dtype")
+		}
+		elements := int64(1)
+		if len(info.Shape) < 1 || len(info.Shape) > 4 {
+			return fmt.Errorf("invalid tensor rank")
+		}
+		for _, d := range info.Shape {
+			if d < 1 || int64(d) > ownedLimit/4/elements {
+				return fmt.Errorf("tensor allocation exceeds cap")
+			}
+			elements *= int64(d)
+		}
+		start, end := int64(info.DataOffsets[0]), int64(info.DataOffsets[1])
+		if start < 0 || end < start || end > st.Size()-8-int64(n) || end-start != elements*width {
+			return fmt.Errorf("invalid tensor extent")
+		}
+		if elements*8 > ownedLimit-owned {
+			return fmt.Errorf("widened model allocation exceeds configured cap")
+		}
+		owned += elements * 8
+	}
+	return ctx.Err()
+}
+func decodeConfig(c ServerConfig) speechjob.FFmpegDecodeConfig {
+	return speechjob.FFmpegDecodeConfig{FFmpegPath: c.FFmpeg.Path, FFprobePath: c.FFprobe.Path, FFmpegSHA256: c.FFmpeg.SHA256, FFprobeSHA256: c.FFprobe.SHA256, InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)}
+}
+func buildProfile(ctx context.Context, c ServerConfig, load bool) ([]httpapi.Profile, error) {
+	p, e := prepareModel(ctx, c)
+	if e != nil {
+		return nil, e
+	}
+	defer p.source.Close()
+	if !load {
+		return nil, nil
+	}
+	model, _, e := whisper.LoadConfiguredModelSourceChecked(ctx, p.source, p.modelJSON, p.generation, p.tokenizer)
+	if e != nil {
+		return nil, fmt.Errorf("checked model loading failed")
+	}
+	if e = model.ValidatePCMHostOnly(); e != nil {
+		return nil, e
+	}
+	decode, e := speechjob.NewFFmpegDecodeStage(decodeConfig(c))
+	if e != nil {
+		return nil, e
+	}
+	opts := c.Profile
+	asr, e := speechjob.NewWhisperWindowStage(model, p.tokenizer, speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes})
+	if e != nil {
+		return nil, e
+	}
+	text, e := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
+	if e != nil {
+		return nil, e
+	}
+	identity, e := json.Marshal(struct {
+		Schema                                int
+		Runtime                               string
+		Weights, Model, Tokenizer, Generation Asset
+		Profile                               ProfileSettings
+		Threads                               int
+	}{1, c.RuntimeSHA256, c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.Profile, c.Threads})
+	if e != nil {
+		return nil, e
+	}
+	return []httpapi.Profile{{ID: opts.ID, Configuration: identity, Stages: []speechjob.Stage{decode, asr, text, speechjob.NewVTTStage()}}}, nil
+}

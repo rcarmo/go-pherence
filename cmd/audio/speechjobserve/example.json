@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "allow_execution": false,
+  "store": "/srv/speech/private-jobs",
+  "runtime_sha256": "REPLACE_WITH_BUILD_ISA_RUNTIME_IDENTITY_SHA256",
+  "threads": 2,
+  "limits": {
+    "jobs": 32,
+    "upload_bytes": 268435456,
+    "artifact_bytes": 536870912,
+    "store_bytes": 4294967296,
+    "weight_bytes": 536870912,
+    "owned_weight_bytes": 1073741824
+  },
+  "http": {
+    "listen": "127.0.0.1:8099",
+    "hosts": ["127.0.0.1:8099"],
+    "origin": "",
+    "tls_cert": "",
+    "tls_key": "",
+    "allow_loopback_http": true,
+    "request_seconds": 3600,
+    "header_seconds": 10,
+    "idle_seconds": 30,
+    "shutdown_seconds": 30,
+    "max_requests": 4,
+    "max_connections": 8
+  },
+  "weights": {"path": "/srv/speech/assets/model.safetensors", "sha256": "REPLACE_WITH_SHA256"},
+  "model_config": {"path": "/srv/speech/assets/config.json", "sha256": "REPLACE_WITH_SHA256"},
+  "tokenizer": {"path": "/srv/speech/assets/tokenizer.json", "sha256": "REPLACE_WITH_SHA256"},
+  "generation": {"path": "/srv/speech/assets/generation_config.json", "sha256": "REPLACE_WITH_SHA256"},
+  "ffmpeg": {"path": "/usr/bin/ffmpeg", "sha256": "REPLACE_WITH_SHA256"},
+  "ffprobe": {"path": "/usr/bin/ffprobe", "sha256": "REPLACE_WITH_SHA256"},
+  "profile": {
+    "id": "asr-pt-wav",
+    "language": "pt",
+    "extension": ".wav",
+    "max_duration_seconds": 3600,
+    "decode_bytes": 115265536,
+    "overlap_samples": 0,
+    "max_new_tokens": 0,
+    "max_initial_timestamp_index": 0,
+    "skip_digital_silence": false,
+    "window_bytes": 1048576,
+    "result_bytes": 16777216
+  }
+}

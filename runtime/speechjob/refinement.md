@@ -143,3 +143,26 @@ Transcript schema 1 stores already reconciled sample-indexed cues. JSON requires
 18. Export: only JSON/VTT allowed by HTTP API; experimental provenance preserved.
 19. Proof: real fixture-handler flow, hash/length/MIME/redirection/race/cancel tests and actual SIGTERM child cleanup.
 20. Closure: scoped tests/vet/cross-build/commit/evidence; no production service or trained-quality/performance completion.
+
+## Explicit server/profile continuation
+
+1. Problem: the HTTP handler/client need a real caller that binds trusted local model assets, store and listener lifetimes.
+2. User: operator of one explicitly authorised local ASR profile.
+3. Success: metadata checks before payload load/listen; owned store/model/HTTP shutdown; no implicit job execution.
+4. Minimum: Linuxamd64 CPUWhisper+FFmpeg→rawjournal→conservativetranscript/VTT profile and command.
+5. Exclusions: trainedqualification, Community/Vulkan serving, browser UI, queue, shared host resource controller and deployment.
+6. Scope: cmd/audio/speechjobserve with Make/docs/tests; existing inference math unchanged.
+7. Platforms: Linuxamd64 model execution/check; other builds fail explicit profile support, help available.
+8. Errors: fail startup before listener on invalid metadata/config/token/TLS; close store on load failure; do not leak paths/tokens.
+9. Persistence: existing private store lock before weights; recover interrupted jobs but never run automatically.
+10. Pattern: checked model/config/generation loader and existing four-stage job pipeline; preserve FFmpeg default.
+11. First change: strict config/pinned asset/metadata caps, then owned bounded HTTP server.
+12. Avoid: downloads, implicit language/runtime modes, post-init GPU disable claims, arbitrary client model configuration.
+13. Names: explicit local assets and profile ID; template has invalid hashes and allow_execution false.
+14. IO:64KiBconfig,hashpinnedmodel/tokenizer/generation/executables;oneHTTP profile;metadata-only --check.
+15. Compatibility: existing services untouched;NVIDIA disabled before exec,GOMAXPROCSmatchesconfig;nondefaultWhisperflags rejected.
+16. Limits: store/file/header/tokenizer/widenedweights/network caps and separate header/socket/handler timers;not RSS orpreemptivekernelcontrol.
+17. Trust: adminimmutable paths/hashreopen boundary,TLSvalidity+hostcoverage,envtoken,exactHost/Origin;sharedcompute external.
+18. Export: existing allowlisted transcript/VTT APIs;not trainedqualified output.
+19. Proof: generatedtoy safetensors/vocabulary+realFFmpeg,inprocessTLS/cap/deadline/drain,realSIGTERMchild lock/listenerrelease.
+20. Closure: scoped tests/vet/build/commit/evidence;no productionlistener/service/model/performance acceptance claim.
