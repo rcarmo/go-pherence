@@ -25,6 +25,7 @@ func offlineVK(t *testing.T) {
 	mockVK(t, &vkPending, (*vkPendingSubmission)(nil))
 	mockVK(t, &vkLost, false)
 	mockVK(t, &vkReady, true)
+	mockVK(t, &vkLimits, offlineLimits())
 	mockVK(t, &vkDevice, VkDevice(100))
 	mockVK(t, &vkPhysDev, VkPhysicalDevice(101))
 	mockVK(t, &vkCmdPool, VkCommandPool(102))
@@ -204,7 +205,7 @@ func TestVulkanOfflineKernelPreflight(t *testing.T) {
 }
 
 func TestVulkanOfflineBufferRollback(t *testing.T) {
-	for _, failure := range []string{"buffer", "requirements", "typecount", "heapcount", "heapindex", "no-type", "allocate", "bind", "map", "nil-map", "success"} {
+	for _, failure := range []string{"buffer", "requirements", "typecount", "heapcount", "heapindex", "no-type", "small-heap", "allocate", "bind", "map", "nil-map", "success"} {
 		t.Run(failure, func(t *testing.T) {
 			offlineVK(t)
 			var freed []string
@@ -238,6 +239,8 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 					v.memoryTypes[0].heapIndex = 1
 				case "no-type":
 					v.memoryTypes[0].propertyFlags = 1
+				case "small-heap":
+					v.memoryHeaps[0].size = 32
 				}
 			})
 			mockVK(t, &vkAllocateMemory, func(d VkDevice, p, a unsafe.Pointer, out *VkDeviceMemory) VkResult {

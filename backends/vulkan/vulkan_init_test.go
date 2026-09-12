@@ -14,6 +14,7 @@ func offlineInitState(t *testing.T) {
 	t.Helper()
 	offlineVK(t)
 	mockVK(t, &vkReady, false)
+	mockVK(t, &vkLimits, VulkanDeviceLimits{})
 	mockVK(t, &vkLib, uintptr(0))
 	mockVK(t, &vkInstance, VkInstance(0))
 	mockVK(t, &vkPhysDev, VkPhysicalDevice(0))
@@ -34,7 +35,7 @@ func initMock(t *testing.T, failure string) (vkLoader, *[]string) {
 	t.Helper()
 	var events []string
 	unpublished := func() {
-		if vkReady || vkLib != 0 || vkInstance != 0 || vkDevice != 0 || vkQueue != 0 || vkCmdPool != 0 || vkPhysDev != 0 || vkDevName != "" {
+		if vkReady || vkLib != 0 || vkInstance != 0 || vkDevice != 0 || vkQueue != 0 || vkCmdPool != 0 || vkPhysDev != 0 || vkDevName != "" || vkLimits != (VulkanDeviceLimits{}) {
 			t.Error("partial publication")
 		}
 	}
@@ -105,7 +106,8 @@ func initMock(t *testing.T, failure string) (vkLoader, *[]string) {
 			if uintptr(p)%8 != 0 {
 				t.Error("property alignment")
 			}
-			v := (*vkDevicePropertiesPrefix)(p)
+			v := (*vkDeviceProperties)(p)
+			*v = offlineProperties()
 			v.deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
 			copy(v.deviceName[:], "mock-integrated")
 			if d == 12 {
@@ -381,7 +383,7 @@ func TestVulkanOfflineInitAdmissionAndLayouts(t *testing.T) {
 	if len(*events) != 0 {
 		t.Fatal("admission called loader")
 	}
-	var p vkDevicePropertiesPrefix
+	var p vkDeviceProperties
 	var q vkQueueFamilyProperties
 	if unsafe.Alignof(p) != 8 || unsafe.Offsetof(p.deviceName) != 20 || unsafe.Sizeof(p) < 824 || unsafe.Sizeof(q) != 24 {
 		t.Fatal("property ABI")

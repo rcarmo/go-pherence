@@ -42,6 +42,10 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 	if sizeBytes <= 0 {
 		return nil, fmt.Errorf("invalid vulkan buffer size=%d", sizeBytes)
 	}
+	// The current API binds the entire buffer as one storage descriptor.
+	if err := vkCheckBufferLimitLocked(uint64(sizeBytes)); err != nil {
+		return nil, err
+	}
 
 	if vkCreateBuffer == nil || vkGetBufferMemoryRequirements == nil || vkGetPhysicalDeviceMemoryProperties == nil || vkAllocateMemory == nil || vkBindBufferMemory == nil || vkMapMemory == nil || vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
 		return nil, fmt.Errorf("Vulkan buffer construction/cleanup functions unavailable")
@@ -103,7 +107,7 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		if props.memoryTypes[i].heapIndex >= props.memoryHeapCount {
 			return nil, fmt.Errorf("invalid Vulkan memory heap index")
 		}
-		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags {
+		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags && props.memoryHeaps[props.memoryTypes[i].heapIndex].size >= reqs.size {
 			memTypeIdx = i
 			break
 		}

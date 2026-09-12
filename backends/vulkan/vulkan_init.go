@@ -52,15 +52,6 @@ type vkSymbol struct {
 	name   string
 }
 
-// VkPhysicalDeviceProperties has eight-byte alignment on the supported ABI.
-// Only its fixed prefix is decoded. The aligned opaque tail is intentionally
-// larger than limits+sparseProperties; feature/limit negotiation is separate.
-type vkDevicePropertiesPrefix struct {
-	_                                                         [0]uint64
-	apiVersion, driverVersion, vendorID, deviceID, deviceType uint32
-	deviceName                                                [256]byte
-	opaque                                                    [1024]byte
-}
 type vkQueueFamilyProperties struct {
 	queueFlags, queueCount, timestampValidBits uint32
 	minImageTransferGranularity                [3]uint32
@@ -253,12 +244,17 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 	bestIdx := -1
 	bestPriority := uint32(999)
 	bestName := ""
+	var bestLimits VulkanDeviceLimits
 	for i := uint32(0); i < devCount; i++ {
 		if devs[i] == 0 {
 			return false
 		}
-		var props vkDevicePropertiesPrefix
+		var props vkDeviceProperties
 		vkGetPhysicalDeviceProperties(devs[i], unsafe.Pointer(&props))
+		limits, err := vkLimitsFromProperties(props)
+		if err != nil {
+			continue
+		} // skip unsupported/incomplete devices before preference
 		name := string(props.deviceName[:])
 		for j, b := range props.deviceName {
 			if b == 0 {
@@ -288,6 +284,7 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 			bestIdx = int(i)
 			bestPriority = priority
 			bestName = name
+			bestLimits = limits
 		}
 	}
 	if bestIdx < 0 {
@@ -391,12 +388,12 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 	if *pool == 0 {
 		return false
 	}
-	vkPublishInitialState(lib, *instance, physical, *device, queue, *pool, family, deviceName)
+	vkPublishInitialState(lib, *instance, physical, *device, queue, *pool, family, deviceName, bestLimits)
 	*committed = true
 	return true
 }
 
-func vkPublishInitialState(lib uintptr, instance VkInstance, physical VkPhysicalDevice, device VkDevice, queue VkQueue, pool VkCommandPool, family uint32, name string) {
+func vkPublishInitialState(lib uintptr, instance VkInstance, physical VkPhysicalDevice, device VkDevice, queue VkQueue, pool VkCommandPool, family uint32, name string, limits VulkanDeviceLimits) {
 	vkLib = lib
 	vkInstance = instance
 	vkPhysDev = physical
@@ -405,5 +402,6 @@ func vkPublishInitialState(lib uintptr, instance VkInstance, physical VkPhysical
 	vkCmdPool = pool
 	vkComputeQueueFamily = family
 	vkDevName = name
+	vkLimits = limits
 	vkReady = true
 }

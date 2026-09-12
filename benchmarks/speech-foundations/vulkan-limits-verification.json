@@ -1,0 +1,97 @@
+{
+  "checkpoint": "Vulkan queried core compute-limit admission (mock-only)",
+  "created": "2026-09-12T04:26:22.403Z",
+  "baseline": "6400c85",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 210,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 43,
+    "uniqueTopLevelTests": 43
+  },
+  "shuffle30": {
+    "passEvents": 3810,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 420,
+    "uniqueTopLevelTests": 14
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact barrier-baseline output",
+    "backendCompileOnly": "FAIL with exact barrier-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 65
+  },
+  "reference": {
+    "headers": {
+      "commit": "29f979ee5aa58b7b005f805ea8df7a855c39ff37",
+      "path": "include/vulkan/vulkan_core.h",
+      "sha256": "50af5a157c8aab7d90dcd929a05758b4dc3e78a619f46552bfd5cde67b2d46c1"
+    }
+  },
+  "coverage": [
+    "Full core VkPhysicalDeviceLimits504B/properties824B ABI, selected field offsets and raw byte decoding fixture",
+    "Value-copy queried snapshot; pending may inspect, lost/uncertain blocked",
+    "Incomplete limits, older API and nonzero variants rejected before device preference",
+    "Limit publication only with successful init; skip invalid discrete/use valid integrated; rollback leaves empty snapshot",
+    "Storage descriptors <= min(perStageStorageBuffers,perStageResources,descriptorSetStorageBuffers), >=1 bound set",
+    "Push bytes <= existing128 cap and queriedPushConstantSize",
+    "Buffer allocation and every bound range <= maxStorageBufferRange; exact explicit descriptor range",
+    "Coherent memory-type heap must fit native requirement (not free-memory budgeting)",
+    "Dispatch X/Y/Z <= maxComputeWorkGroupCount before descriptor/native mutation; exact limits pass",
+    "ErrVulkanLimit host rejection leaves device usable and unquarantined"
+  ],
+  "review": {
+    "initial": "Read-only broad review timed out; not approval.",
+    "narrow": "Live source review found no concrete bug in core-limit admission, transactional snapshot or subset ABI. Could not inspect git diff with delegate tools. Nonzero API variant rejection noted as deliberate stricter policy."
+  },
+  "limitations": [
+    "All Vulkan calls mocked: no native driver/validation-layer/shader/model/performance qualification.",
+    "No SPIRV local-size/sharedmemory analysis or optional-feature negotiation/enablement. WorkgroupSize/Invocations/SharedMemoryBytes metadata only.",
+    "No allocation-count tracking/free-memory budgets/maxMemoryAllocationSize or typed arena/suballocation qualification.",
+    "Current API binds whole buffers; limits intentionally constrain entire allocation descriptor range.",
+    "No successful-device shutdown/recreation, runtime device-loss recovery or multi-operation resident models.",
+    "Current FFI64bit; arm64 is cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/service integration."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_limits.go": "ab9488c3db90bb25e632f5182db081711e2919c7aaf61d134c4142fb28343d91",
+    "backends/vulkan/vulkan_limits_abi.go": "7887bad3967c275d4c3e8a2b7f65055d11f68f611022b4c9eae3071f28166090",
+    "backends/vulkan/vulkan_limits_test.go": "99ab5036865a2256042911e860189673348cb657d44264c07a6c5f9c0d56aba7",
+    "backends/vulkan/vulkan_buf.go": "a67bb7fa9f626b50f3b0f0ec6768e96b52947ef60f9d3bbb7aa6eee559f58cad",
+    "backends/vulkan/vulkan_dispatch.go": "4b6d5e83bb5cc50a14e378e39f5c695a8e47633550fce6374fbe04437e2c37b9",
+    "backends/vulkan/vulkan_init.go": "6a5ddd35deba9d6023c33f123d05d5e4698b12643945f90e67d4ffc6d676dcfa",
+    "backends/vulkan/vulkan_init_test.go": "cc5420fe7dd7fbdf99c46d0e6b2353ee7cfc50022eb32329b26a09ea79f66141",
+    "backends/vulkan/vulkan_offline_test.go": "55aef7f6b293914fcac9d0494265c62418e2a2bc0130ab00ef584c42a56d4b94",
+    "backends/vulkan/vulkan_spirv.go": "7af71c28b3ecf8ba1458fe46d6419fcca431a72fe96341df71a3a9b477b9a6f6",
+    "docs/speech-integration.md": "1404afda93074996704799429666c9c45b8f94b053ada2f3c8278a46113ef3fc",
+    "benchmarks/speech-foundations/README.md": "29a804cf3a1c88e070d32baba65cc3957fd16ec867d2969ca116caf5f3443c5a"
+  },
+  "evidenceHashes": {
+    "vulkan-limits-focused-check.txt": "7dd2cdd29c7ca8766cc6223a9134b29c05d4400cc386c8498d3c60735e081960",
+    "vulkan-limits-tests.jsonl": "9a979c05e12ee00a83dc0f8ff2f6e068c9fede7ff1f1b528943d35a398e740d0",
+    "vulkan-limits-media.txt": "d7b9b5b8d2a1ee031a1509afea4e888c3f4b91bdbb3cfce00750806236304c6e",
+    "vulkan-limits-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-limits-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-limits-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-limits-repeat-tests.jsonl.gz": "b019e3b72d31ff370e56e37b1470f76525db48d973dc1b252c2330f4edd0f6ca",
+    "vulkan-limits-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

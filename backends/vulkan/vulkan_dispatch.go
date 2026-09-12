@@ -45,8 +45,8 @@ type VkComputeKernel struct {
 // VkKernelCreate builds a compute kernel with1..16 buffers and0..128 push bytes
 // (multiple of4). Partial construction rolls back resources; Close releases a
 // successful completed kernel. Resource objects must not be copied. These bounds
-// are host admission only: device/shader feature and descriptor limits are not
-// negotiated here. VulkanInit must already have completed without concurrent
+// also obey queried core descriptor/push limits. Shader local-size, shared-memory
+// and optional-feature requirements are not negotiated here. VulkanInit must already have completed without concurrent
 // device/function-pointer replacement.
 func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
 	if err := vkAcquire(context.Background()); err != nil {
@@ -79,6 +79,9 @@ func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*
 
 	if len(spirv) < 20 || len(spirv) > 16<<20 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
 		return nil, fmt.Errorf("invalid SPIR-V header/bound")
+	}
+	if err := vkCheckPipelineLimitsLocked(numBuffers, pushConstantSize); err != nil {
+		return nil, err
 	}
 	if !vkKernelFunctionsReady() {
 		return nil, fmt.Errorf("Vulkan kernel construction/cleanup functions unavailable")
@@ -390,6 +393,9 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 			return ErrVulkanClosed
 		}
 	}
+	if err := vkCheckDispatchLimitsLocked(k, groupsX, groupsY, groupsZ, bufs); err != nil {
+		return err
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -415,7 +421,7 @@ func (k *VkComputeKernel) DispatchContext(ctx context.Context, groupsX, groupsY,
 	writes := make([]writeDS, len(bufs))
 	bufInfos := make([]bufInfo, len(bufs))
 	for i, buf := range bufs {
-		bufInfos[i] = bufInfo{buffer: buf.buf, rng: 0xFFFFFFFFFFFFFFFF}
+		bufInfos[i] = bufInfo{buffer: buf.buf, rng: buf.size} // explicit checked range
 		writes[i] = writeDS{
 			sType:           VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			dstSet:          k.descSet,
