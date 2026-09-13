@@ -164,3 +164,47 @@ empty/null merges, whitespace, escaped strings, nested JSON sizing and malformed
 mixed arrays. The sizing helper also passed a 10-second fuzz run (321,269
 executions). A focused review found no new correctness issue. Affected-package
 tests, vet, race/no-CGo tests and the ARM64 CLI cross-build pass.
+
+## Exact amd64 SIMD panel packing (2026-09-13)
+
+The full native CPU profile attributed 7.65 seconds (8.90%) to scalar B-panel
+packing. The amd64 packer now transposes four columns from each of sixteen rows
+with AVX loads/shuffles/stores. It performs no floating-point arithmetic and
+preserves all input bits. Full panels use SIMD; partial panels retain scalar
+zero-fill and the final one to three columns use bounded scalar loads. Dispatch
+requires the same AVX2/FMA runtime gate as the GEMM backend.
+
+| K | Scalar panel | SIMD panel | Allocations |
+| --- | ---: | ---: | ---: |
+| 128 | 1.79–1.81 µs | 0.228 µs | 0 |
+| 1024 | 14.64–15.49 µs | 3.87–3.97 µs | 0 |
+| 3072 | 41.82–42.05 µs | 11.88–11.89 µs | 0 |
+
+Benchmark: `go test ./backends/simd/runtime -run '^$' -bench '^BenchmarkPackBNT$'`.
+The direct speedup ranges from 3.5× to 7.9×. These hot-cache panel measurements
+are distinct from full-model performance.
+
+The same raw-reference native synthesis run produced a byte-identical three-second
+WAV: SHA-256 `560fe8ae07d6af712f51f64f553d8e8a0b6146778d31a3a944a6db90b61a1e0e`.
+Packing consumed 3.58 seconds (4.22%) in the new CPU profile. Whole-command time
+was 85.78 seconds versus 85.95 seconds previously, so no whole-model speedup is
+established. Generation took 69.55 seconds; reference encoding took 9.91 seconds.
+The full allocation profile totals 1,152,269.29 KiB (1,125.3 MiB), including native
+reference encoding and the preceding tokenizer-load optimisation. The packer
+itself adds no allocations.
+
+Artifacts: `/workspace/tmp/omnivoice-full-native-pack-v7.{cpu,mem,json}` and
+`/workspace/tmp/synthetic-spock-full-native-pack-v7.wav`.
+
+Validation includes bitwise layouts with signed zero, NaN payloads, subnormals,
+strides, offsets and tails; GEMM boundary shapes and nonzero output accumulation;
+Linux/amd64 PROT_NONE guard pages immediately after each independent source row
+and destination; race/no-CGo tests; CPU-feature-disabled fallback tests; and ARM64
+cross-builds. Review found no new correctness issue. OmniVoice vet passes; direct
+SIMD-runtime vet reports existing `q8dot_amd64.s` return-offset warnings in untouched
+code. Full-repository builds retain the known SpacemiT/DiffusionGemma failures.
+
+An alternating-broadcast scheduling experiment for the 6×16 GEMM microkernel
+showed no consistent throughput improvement and was not enabled. Representative
+finite inputs are required for throughput benchmarks: subnormal test values caused
+FP assists to dominate the first experiment. Correctness tests still include them.

@@ -51,3 +51,32 @@ func TestPackedGEMMRejectsShort(t *testing.T) {
 		t.Fatal("short buffers accepted")
 	}
 }
+
+func TestPackedGEMMBoundaries(t *testing.T) {
+	for _, m := range []int{gebpMR - 1, gebpMR, gebpMR + 1} {
+		for _, n := range []int{15, 16, 17, 31, 32, 33} {
+			for _, k := range []int{1, 3, 4, 7, 8, 15, 16, 17} {
+				a, b, c, want := make([]float32, m*k), make([]float32, n*k), make([]float32, m*n), make([]float32, m*n)
+				for i := range a {
+					a[i] = float32(i%7-3) / 8
+				}
+				for i := range b {
+					b[i] = float32(i%11-5) / 16
+				}
+				for i := range c {
+					c[i] = 0.25
+					want[i] = 0.25
+				}
+				SgemmNTTo(want, a, b, m, n, k, -0.5, k, k, n)
+				if !SgemmNTPackedTo(c, a, b, make([]float32, k*gebpNR), m, n, k, -0.5, k, k, n) {
+					t.Fatal("rejected shape")
+				}
+				for i := range c {
+					if c[i] != want[i] {
+						t.Fatalf("m%d n%d k%d index%d got%g want%g", m, n, k, i, c[i], want[i])
+					}
+				}
+			}
+		}
+	}
+}

@@ -417,3 +417,15 @@ from 112.2 MiB to 60.2 MiB per real-tokenizer load. Token IDs are unchanged acro
 all 24 real-checkpoint fixtures. See [PROFILING.md](PROFILING.md) for the isolated
 benchmark and validation. No new end-to-end synthesis measurement was made for
 this loader-only change.
+
+## Exact SIMD packing (2026-09-13)
+
+On AVX2/FMA amd64 hosts, sixteen-row GEMM panels now use an exact four-column SIMD
+transpose. Partial panels and column tails remain bounded; scalar fallback runs
+when CPU features are disabled. This removes the scalar full-panel hotspot without
+changing model arithmetic or adding allocations. The complete native WAV matches
+the previous raw-reference baseline byte for byte. Direct panel benchmarks improve
+3.5–7.9×; whole synthesis remains about 86 seconds in the measured run. See
+[PROFILING.md](PROFILING.md) for details and limits. The GEMM microkernel is still the
+largest CPU cost; a scheduling-only candidate failed to establish a gain and was
+not enabled. Scalar sine, erf and some exponential/division paths still exist.
