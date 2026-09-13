@@ -88,6 +88,13 @@ class CorpusScorerContract(unittest.TestCase):
             self.assertEqual(turns["full"], [(0.0, 1.0, "0")])
             turns, _ = MODULE.load_saved_turns(ref_path, 2, False, expected_hash=MODULE.sha256(ref_path))
             self.assertEqual(turns["full"], [(0.0, 1.0, "A")])
+            reference["num_speakers"] = 1
+            ref_path.write_text(json.dumps(reference))
+            MODULE.load_saved_turns(ref_path, 2, False)
+            reference["num_speakers"] = 0
+            ref_path.write_text(json.dumps(reference))
+            with self.assertRaisesRegex(ValueError, "reference speaker count"):
+                MODULE.load_saved_turns(ref_path, 2, False)
             with self.assertRaisesRegex(ValueError, "tie policy"):
                 MODULE.load_saved_turns(go_path, 2, True, tie_policy=0)
             for invalid in (True, 1.0):

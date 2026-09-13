@@ -243,7 +243,9 @@ def load_saved_turns(path, duration, go_format, expected_hash=None, tie_policy=N
         except (KeyError, TypeError) as exc:
             raise ValueError("invalid Go result shape") from exc
     try:
-        exact_keys(data, ("schema", "model_revision", "source_hashes", "threads", "mkldnn", "batch_sizes", "constrained", "minimum_embedding_samples", "full", "exclusive", "artifacts"))
+        exact_keys(data, ("schema", "model_revision", "source_hashes", "threads", "mkldnn", "batch_sizes", "constrained", "minimum_embedding_samples", "full", "exclusive", "artifacts"), ("num_speakers",))
+        if "num_speakers" in data:
+            exact_int(data["num_speakers"], "reference speaker count", 1, 64)
         if exact_int(data["schema"], "reference schema") != 1 or data["model_revision"] != MODEL_REVISION:
             raise ValueError("saved reference identity changed")
         return {"full": parse_turns(data["full"], duration, False), "exclusive": parse_turns(data["exclusive"], duration, False, True, exclusive_may_overlap)}, data

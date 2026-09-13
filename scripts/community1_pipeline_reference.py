@@ -110,8 +110,9 @@ def main():
     def turns(annotation):
         return [dict(start=float(s.start),end=float(s.end),speaker=str(label)) for s,_,label in annotation.itertracks(yield_label=True)]
     data=dict(schema=1,model_revision="3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",source_hashes=SOURCE_HASHES,
-              threads=1,mkldnn=False,batch_sizes=1,constrained=True,num_speakers=args.num_speakers,minimum_embedding_samples=pipeline._embedding.min_num_samples,
+              threads=1,mkldnn=False,batch_sizes=1,constrained=True,minimum_embedding_samples=pipeline._embedding.min_num_samples,
               full=turns(result.speaker_diarization),exclusive=turns(result.exclusive_speaker_diarization),artifacts=artifacts)
+    if args.num_speakers is not None: data["num_speakers"] = args.num_speakers
     (output/"reference.json").write_text(json.dumps(data,indent=2)+"\n")
     print(json.dumps(data))
 
