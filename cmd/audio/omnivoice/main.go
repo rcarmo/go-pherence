@@ -87,6 +87,9 @@ func run(args []string) error {
 	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
+	if err := validatePreparationFlags(*mode, *input, *output, *text, *ref, *transcript, *cachedReference, *frames, *steps); err != nil {
+		return err
+	}
 	if *path == "" {
 		return fmt.Errorf("model directory required")
 	}

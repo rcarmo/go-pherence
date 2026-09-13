@@ -70,4 +70,19 @@ func TestRealReferenceParity(t *testing.T) {
 	if mismatch != 0 {
 		t.Fatal("reference code parity failed")
 	}
+	codes := make([]int, len(got.Codes))
+	allocs := testing.AllocsPerRun(1, func() {
+		if _, err := e.EncodeInto(context.Background(), codes, f.Wave); err != nil {
+			panic(err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("reference EncodeInto allocations=%g", allocs)
+	}
+	for i := range codes {
+		if codes[i] != got.Codes[i] {
+			t.Fatal("reused reference changed codes")
+		}
+	}
+	t.Logf("complete reference EncodeInto allocations=%g", allocs)
 }

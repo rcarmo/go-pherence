@@ -34,3 +34,19 @@ func TestGenerationPromptPreservesRMS(t *testing.T) {
 		t.Fatal("lost prompt metadata")
 	}
 }
+
+func TestPreparationPreflight(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "new.wav")
+	if err := validatePreparationFlags("synthesize", "", output, "text", "voice.wav", "transcript", "", 75, 8); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"-mode", "synthesize", "-model", "/nonexistent", "-output", output, "-reference", "a.wav", "-text", "text", "-steps", "0"},
+		{"-mode", "prepare", "-model", "/nonexistent", "-output", output},
+		{"-mode", "encode-reference", "-model", "/nonexistent", "-output", ""},
+	} {
+		if err := run(args); err == nil {
+			t.Fatal("accepted invalid flags")
+		}
+	}
+}

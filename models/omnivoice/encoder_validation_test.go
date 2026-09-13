@@ -27,3 +27,20 @@ func TestEncoderNilValidation(t *testing.T) {
 		t.Fatal("nil codec into")
 	}
 }
+
+func TestCodecIntoNilWithValidShapes(t *testing.T) {
+	var c *CodecEncoder
+	if err := c.EncodeFeaturesInto(context.Background(), make([]int, 8), make([]float32, 960), make([]float32, 768), 1); err == nil {
+		t.Fatal("nil codec accepted")
+	}
+}
+
+func TestReferenceBufferCapacityReuse(t *testing.T) {
+	b := make([]float32, 100)
+	p := &b[0]
+	b = reuseReferenceBuffer(b, 50)
+	b = reuseReferenceBuffer(b, 100)
+	if &b[0] != p {
+		t.Fatal("buffer capacity not reused")
+	}
+}

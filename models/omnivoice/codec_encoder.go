@@ -15,16 +15,57 @@ import (
 // calls can reuse activations and convolution packing buffers without changing
 // the allocating convenience API. Instances are single-caller.
 type CodecEncoder struct {
-	ops               map[string]codecOperator
-	weights           *loader.CodecWeights
-	pad               int
-	codebookNorms     [8][]float32
-	quantizerNames    [8]string
-	acousticBlocks    [5]string
-	acousticResiduals [5][3]string
-	semanticBlocks    [2]string
-	semanticResiduals [2][2]string
-	scratch           *codecEncoderScratch
+	ops                   map[string]codecOperator
+	weights               *loader.CodecWeights
+	pad                   int
+	semanticStem          codecOperator
+	semanticBlocks        [2]codecEncoderSemanticBlock
+	acousticStem          codecOperator
+	acousticBlocks        [5]codecEncoderAcousticBlock
+	acousticTailSnake     []float32
+	acousticTail          codecOperator
+	fusion                codecOperator
+	quantizers            [8]codecEncoderQuantizer
+	preparedWaveSamples   int
+	preparedSemanticFrame int
+	preparedAlignedFrames int
+	preparedSignalCap     int
+	preparedPackedCap     int
+	preparedResultCap     int
+	scratch               *codecEncoderScratch
+}
+
+type codecEncoderSemanticResidual struct {
+	conv1 codecOperator
+	conv2 codecOperator
+}
+
+type codecEncoderSemanticBlock struct {
+	conv      codecOperator
+	residuals [2]codecEncoderSemanticResidual
+}
+
+type codecEncoderAcousticResidual struct {
+	snake1   []float32
+	snake2   []float32
+	conv1    codecOperator
+	conv2    codecOperator
+	dilation int
+}
+
+type codecEncoderAcousticBlock struct {
+	snake1    []float32
+	conv1     codecOperator
+	stride    int
+	residuals [3]codecEncoderAcousticResidual
+}
+
+type codecEncoderQuantizer struct {
+	projectIn  codecOperator
+	projectOut codecOperator
+	codebook   []float32
+	shape      []int
+	norms      []float32
 }
 
 type codecEncoderScratch struct {
@@ -42,35 +83,6 @@ func NewCodecEncoder(w *loader.CodecWeights) (*CodecEncoder, error) {
 		return nil, err
 	}
 	e := &CodecEncoder{weights: w, ops: map[string]codecOperator{}, pad: 480}
-	for i := range e.quantizerNames {
-		e.quantizerNames[i] = fmt.Sprintf("quantizer.quantizers.%d.", i)
-		name := e.quantizerNames[i] + "codebook.embed"
-		shape := w.Shapes[name]
-		norms := make([]float32, shape[0])
-		embed := w.Tensors[name]
-		for code := 0; code < shape[0]; code++ {
-			base := code * shape[1]
-			sum := float32(0)
-			for j := 0; j < shape[1]; j++ {
-				v := embed[base+j]
-				sum += v * v
-			}
-			norms[code] = sum
-		}
-		e.codebookNorms[i] = norms
-	}
-	for i := range e.acousticBlocks {
-		e.acousticBlocks[i] = fmt.Sprintf("acoustic_encoder.block.%d.", i)
-		for j := range e.acousticResiduals[i] {
-			e.acousticResiduals[i][j] = fmt.Sprintf("%sres_unit%d.", e.acousticBlocks[i], j+1)
-		}
-	}
-	for i := range e.semanticBlocks {
-		e.semanticBlocks[i] = fmt.Sprintf("encoder_semantic.conv_blocks.%d.", i)
-		for j := range e.semanticResiduals[i] {
-			e.semanticResiduals[i][j] = fmt.Sprintf("%sres_units.%d.", e.semanticBlocks[i], j)
-		}
-	}
 	for name, shape := range w.Shapes {
 		if len(shape) >= 2 && len(shape) <= 3 {
 			if weight := w.Tensors[name]; len(weight) > 0 && nameHasWeight(name) {
@@ -78,6 +90,94 @@ func NewCodecEncoder(w *loader.CodecWeights) (*CodecEncoder, error) {
 				e.ops[base] = codecOperator{weight: weight, bias: w.Tensors[base+".bias"], shape: shape}
 			}
 		}
+	}
+	opFor := func(name string) (codecOperator, error) {
+		op, ok := e.ops[name]
+		if !ok {
+			return codecOperator{}, fmt.Errorf("omnivoice: missing encoder op %s", name)
+		}
+		return op, nil
+	}
+	var err error
+	e.semanticStem, err = opFor("encoder_semantic.conv")
+	if err != nil {
+		return nil, err
+	}
+	for i := range e.semanticBlocks {
+		prefix := fmt.Sprintf("encoder_semantic.conv_blocks.%d.", i)
+		block := &e.semanticBlocks[i]
+		if block.conv, err = opFor(prefix + "conv"); err != nil {
+			return nil, err
+		}
+		for j := range block.residuals {
+			residualPrefix := fmt.Sprintf("%sres_units.%d.", prefix, j)
+			residual := &block.residuals[j]
+			if residual.conv1, err = opFor(residualPrefix + "conv1"); err != nil {
+				return nil, err
+			}
+			if residual.conv2, err = opFor(residualPrefix + "conv2"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	e.acousticStem, err = opFor("acoustic_encoder.conv1")
+	if err != nil {
+		return nil, err
+	}
+	for i := range e.acousticBlocks {
+		prefix := fmt.Sprintf("acoustic_encoder.block.%d.", i)
+		block := &e.acousticBlocks[i]
+		block.snake1 = w.Tensors[prefix+"snake1.alpha"]
+		block.stride = e.weights.Rates[i]
+		if block.conv1, err = opFor(prefix + "conv1"); err != nil {
+			return nil, err
+		}
+		for j, dilation := range [...]int{1, 3, 9} {
+			residualPrefix := fmt.Sprintf("%sres_unit%d.", prefix, j+1)
+			residual := &block.residuals[j]
+			residual.snake1 = w.Tensors[residualPrefix+"snake1.alpha"]
+			residual.snake2 = w.Tensors[residualPrefix+"snake2.alpha"]
+			residual.dilation = dilation
+			if residual.conv1, err = opFor(residualPrefix + "conv1"); err != nil {
+				return nil, err
+			}
+			if residual.conv2, err = opFor(residualPrefix + "conv2"); err != nil {
+				return nil, err
+			}
+		}
+	}
+	e.acousticTailSnake = w.Tensors["acoustic_encoder.snake1.alpha"]
+	e.acousticTail, err = opFor("acoustic_encoder.conv2")
+	if err != nil {
+		return nil, err
+	}
+	e.fusion, err = opFor("fc")
+	if err != nil {
+		return nil, err
+	}
+	for i := range e.quantizers {
+		prefix := fmt.Sprintf("quantizer.quantizers.%d.", i)
+		quantizer := &e.quantizers[i]
+		if quantizer.projectIn, err = opFor(prefix + "project_in"); err != nil {
+			return nil, err
+		}
+		if quantizer.projectOut, err = opFor(prefix + "project_out"); err != nil {
+			return nil, err
+		}
+		name := prefix + "codebook.embed"
+		quantizer.codebook = w.Tensors[name]
+		quantizer.shape = w.Shapes[name]
+		norms := make([]float32, quantizer.shape[0])
+		for code := 0; code < quantizer.shape[0]; code++ {
+			base := code * quantizer.shape[1]
+			sum := float32(0)
+			for j := 0; j < quantizer.shape[1]; j++ {
+				v := quantizer.codebook[base+j]
+				sum += v * v
+			}
+			norms[code] = sum
+		}
+		quantizer.norms = norms
 	}
 	return e, nil
 }
@@ -90,18 +190,27 @@ func (e *CodecEncoder) Prepare(waveSamples, semanticFrames int) error {
 	if e == nil || e.weights == nil {
 		return fmt.Errorf("omnivoice: nil codec encoder")
 	}
-	if waveSamples < 1 || semanticFrames < 1 {
+	if waveSamples < 1 || waveSamples > 480000 || semanticFrames < 1 || semanticFrames > 500 {
 		return fmt.Errorf("omnivoice: invalid codec encoder input")
 	}
 	alignedFrames, err := e.alignedWaveLengthFor(waveSamples, semanticFrames)
 	if err != nil {
 		return err
 	}
+	if e.scratch != nil && waveSamples == e.preparedWaveSamples && semanticFrames == e.preparedSemanticFrame && alignedFrames == e.preparedAlignedFrames {
+		return nil
+	}
 	signalCap, packedCap, resultCap, err := e.workspaceCaps(alignedFrames, semanticFrames)
 	if err != nil {
 		return err
 	}
 	if e.scratch != nil && signalCap <= len(e.scratch.slots[0]) && packedCap <= len(e.scratch.packed) && resultCap <= len(e.scratch.result) {
+		e.preparedWaveSamples = waveSamples
+		e.preparedSemanticFrame = semanticFrames
+		e.preparedAlignedFrames = alignedFrames
+		e.preparedSignalCap = signalCap
+		e.preparedPackedCap = packedCap
+		e.preparedResultCap = resultCap
 		return nil
 	}
 	s := &codecEncoderScratch{packed: make([]float32, packedCap), result: make([]float32, resultCap)}
@@ -109,6 +218,12 @@ func (e *CodecEncoder) Prepare(waveSamples, semanticFrames int) error {
 		s.slots[i] = make([]float32, signalCap)
 	}
 	e.scratch = s
+	e.preparedWaveSamples = waveSamples
+	e.preparedSemanticFrame = semanticFrames
+	e.preparedAlignedFrames = alignedFrames
+	e.preparedSignalCap = signalCap
+	e.preparedPackedCap = packedCap
+	e.preparedResultCap = resultCap
 	return nil
 }
 
@@ -130,7 +245,7 @@ func (e *CodecEncoder) EncodeFeatures(ctx context.Context, wave []float32, seman
 }
 
 func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave []float32, semantic []float32, semanticFrames int) error {
-	if ctx == nil || semanticFrames < 1 || len(wave) < 1 || len(semantic) != semanticFrames*768 || len(dst) != e.weights.Quantizers*semanticFrames {
+	if e == nil || e.weights == nil || ctx == nil || semanticFrames < 1 || semanticFrames > 500 || len(wave) < 1 || len(wave) > 480000 || len(semantic) != semanticFrames*768 || len(dst) != e.weights.Quantizers*semanticFrames {
 		return fmt.Errorf("omnivoice: invalid codec encoder input")
 	}
 	if err := ctx.Err(); err != nil {
@@ -140,7 +255,6 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 		return err
 	}
 	e.scratch.used = [8]bool{}
-	defer func() { e.scratch.used = [8]bool{} }()
 
 	semanticInput := signal{data: e.buffer(768 * semanticFrames), channels: 768, frames: semanticFrames}
 	for t := 0; t < semanticFrames; t++ {
@@ -152,25 +266,31 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 	eSemantic, err := e.encodeSemantic(ctx, semanticInput)
 	e.release(semanticInput)
 	if err != nil {
+		e.scratch.used = [8]bool{}
 		return err
 	}
 	if eSemantic.frames != semanticFrames {
+		e.release(eSemantic)
+		e.scratch.used = [8]bool{}
 		return fmt.Errorf("omnivoice: semantic encoder length mismatch")
 	}
 	waveInput, err := e.alignWaveLength(wave, semanticFrames)
 	if err != nil {
 		e.release(eSemantic)
+		e.scratch.used = [8]bool{}
 		return err
 	}
 	eAcoustic, err := e.encodeAcoustic(ctx, waveInput)
 	e.release(waveInput)
 	if err != nil {
 		e.release(eSemantic)
+		e.scratch.used = [8]bool{}
 		return err
 	}
 	if eAcoustic.frames != eSemantic.frames {
 		e.release(eAcoustic)
 		e.release(eSemantic)
+		e.scratch.used = [8]bool{}
 		return fmt.Errorf("omnivoice: acoustic/semantic frame mismatch")
 	}
 	embeddings := signal{data: e.buffer((eAcoustic.channels + eSemantic.channels) * semanticFrames), channels: eAcoustic.channels + eSemantic.channels, frames: semanticFrames}
@@ -179,16 +299,19 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 	e.release(eAcoustic)
 	e.release(eSemantic)
 	prev := embeddings
-	embeddings, err = e.conv(embeddings, "fc", 1, 0, 1)
+	embeddings, err = e.conv(embeddings, e.fusion, 1, 0, 1)
 	e.release(prev)
 	if err != nil {
+		e.scratch.used = [8]bool{}
 		return err
 	}
 	if err := e.quantizeInto(ctx, dst, embeddings); err != nil {
 		e.release(embeddings)
+		e.scratch.used = [8]bool{}
 		return err
 	}
 	e.release(embeddings)
+	e.scratch.used = [8]bool{}
 	return nil
 }
 
@@ -220,15 +343,15 @@ func (e *CodecEncoder) release(x signal) {
 }
 
 func (e *CodecEncoder) workspaceCaps(alignedWaveFrames, semanticFrames int) (signalCap, packedCap, resultCap int, err error) {
+	const (
+		convTile      = 64
+		packedPanelNR = 16
+	)
 	signalCap = max(768*semanticFrames, alignedWaveFrames)
-	trackConv := func(name string, in signal, stride, padding, dilation int) (signal, error) {
-		op, ok := e.ops[name]
-		if !ok {
-			return signal{}, fmt.Errorf("omnivoice: missing encoder op %s", name)
-		}
+	trackConv := func(op codecOperator, in signal, stride, padding, dilation int) (signal, error) {
 		shape := op.shape
 		if len(shape) < 2 || len(shape) > 3 || shape[1] != in.channels {
-			return signal{}, fmt.Errorf("omnivoice: invalid encoder conv %s", name)
+			return signal{}, fmt.Errorf("omnivoice: invalid encoder conv")
 		}
 		kernel := 1
 		if len(shape) == 3 {
@@ -239,80 +362,84 @@ func (e *CodecEncoder) workspaceCaps(alignedWaveFrames, semanticFrames int) (sig
 			return signal{}, fmt.Errorf("omnivoice: short encoder conv input")
 		}
 		out := signal{channels: shape[0], frames: length}
+		k := in.channels * kernel
 		signalCap = max(signalCap, out.channels*out.frames)
-		packedCap = max(packedCap, in.channels*kernel*64)
-		resultCap = max(resultCap, out.channels*64)
+		packedCap = max(packedCap, k*convTile)
+		resultCap = max(resultCap, k*packedPanelNR)
 		return out, nil
 	}
 
 	semantic := signal{channels: 768, frames: semanticFrames}
-	semantic, err = trackConv("encoder_semantic.conv", semantic, 1, 1, 1)
+	semantic, err = trackConv(e.semanticStem, semantic, 1, 1, 1)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	for i := range e.semanticBlocks {
-		for j := range e.semanticResiduals[i] {
-			semanticResidual, convErr := trackConv(e.semanticResiduals[i][j]+"conv1", semantic, 1, 1, 1)
+		block := &e.semanticBlocks[i]
+		for j := range block.residuals {
+			residual := &block.residuals[j]
+			semanticResidual, convErr := trackConv(residual.conv1, semantic, 1, 1, 1)
 			if convErr != nil {
 				return 0, 0, 0, convErr
 			}
-			semanticResidual, convErr = trackConv(e.semanticResiduals[i][j]+"conv2", semanticResidual, 1, 0, 1)
+			semanticResidual, convErr = trackConv(residual.conv2, semanticResidual, 1, 0, 1)
 			if convErr != nil {
 				return 0, 0, 0, convErr
 			}
 			signalCap = max(signalCap, semanticResidual.channels*semanticResidual.frames)
 		}
-		semantic, err = trackConv(e.semanticBlocks[i]+"conv", semantic, 1, 1, 1)
+		semantic, err = trackConv(block.conv, semantic, 1, 1, 1)
 		if err != nil {
 			return 0, 0, 0, err
 		}
 	}
 
 	acoustic := signal{channels: 1, frames: alignedWaveFrames}
-	acoustic, err = trackConv("acoustic_encoder.conv1", acoustic, 1, 3, 1)
+	acoustic, err = trackConv(e.acousticStem, acoustic, 1, 3, 1)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	for i, stride := range e.weights.Rates {
-		for j, dilation := range []int{1, 3, 9} {
-			acousticResidual, convErr := trackConv(e.acousticResiduals[i][j]+"conv1", acoustic, 1, 3*dilation, dilation)
+	for i := range e.acousticBlocks {
+		block := &e.acousticBlocks[i]
+		for j := range block.residuals {
+			residual := &block.residuals[j]
+			acousticResidual, convErr := trackConv(residual.conv1, acoustic, 1, 3*residual.dilation, residual.dilation)
 			if convErr != nil {
 				return 0, 0, 0, convErr
 			}
-			acousticResidual, convErr = trackConv(e.acousticResiduals[i][j]+"conv2", acousticResidual, 1, 0, 1)
+			acousticResidual, convErr = trackConv(residual.conv2, acousticResidual, 1, 0, 1)
 			if convErr != nil {
 				return 0, 0, 0, convErr
 			}
 			signalCap = max(signalCap, acousticResidual.channels*acousticResidual.frames)
 		}
-		acoustic, err = trackConv(e.acousticBlocks[i]+"conv1", acoustic, stride, (stride+1)/2, 1)
+		acoustic, err = trackConv(block.conv1, acoustic, block.stride, (block.stride+1)/2, 1)
 		if err != nil {
 			return 0, 0, 0, err
 		}
 	}
-	acoustic, err = trackConv("acoustic_encoder.conv2", acoustic, 1, 1, 1)
+	acoustic, err = trackConv(e.acousticTail, acoustic, 1, 1, 1)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 
 	embeddings := signal{channels: acoustic.channels + semantic.channels, frames: semanticFrames}
 	signalCap = max(signalCap, embeddings.channels*embeddings.frames)
-	embeddings, err = trackConv("fc", embeddings, 1, 0, 1)
+	embeddings, err = trackConv(e.fusion, embeddings, 1, 0, 1)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	for book := 0; book < e.weights.Quantizers; book++ {
-		prefix := e.quantizerNames[book]
-		projected, convErr := trackConv(prefix+"project_in", embeddings, 1, 0, 1)
+		quantizer := &e.quantizers[book]
+		projected, convErr := trackConv(quantizer.projectIn, embeddings, 1, 0, 1)
 		if convErr != nil {
 			return 0, 0, 0, convErr
 		}
-		shape := e.weights.Shapes[prefix+"codebook.embed"]
-		if len(shape) != 2 || shape[1] != projected.channels {
+		if len(quantizer.shape) != 2 || quantizer.shape[1] != projected.channels {
 			return 0, 0, 0, fmt.Errorf("omnivoice: invalid encoder codebook")
 		}
-		signalCap = max(signalCap, shape[1]*semanticFrames)
-		decoded, convErr := trackConv(prefix+"project_out", signal{channels: shape[1], frames: semanticFrames}, 1, 0, 1)
+		signalCap = max(signalCap, quantizer.shape[1]*semanticFrames)
+		decoded, convErr := trackConv(quantizer.projectOut, signal{channels: quantizer.shape[1], frames: semanticFrames}, 1, 0, 1)
 		if convErr != nil {
 			return 0, 0, 0, convErr
 		}
@@ -362,25 +489,26 @@ func (e *CodecEncoder) encodeSemantic(ctx context.Context, x signal) (signal, er
 	if err := ctx.Err(); err != nil {
 		return signal{}, err
 	}
-	out, err := e.conv(x, "encoder_semantic.conv", 1, 1, 1)
+	out, err := e.conv(x, e.semanticStem, 1, 1, 1)
 	if err != nil {
 		return signal{}, err
 	}
 	for i := range e.semanticBlocks {
-		for j := range e.semanticResiduals[i] {
+		block := &e.semanticBlocks[i]
+		for j := range block.residuals {
 			if err = ctx.Err(); err != nil {
 				e.release(out)
 				return signal{}, err
 			}
 			prev := out
-			out, err = e.semanticResidual(out, e.semanticResiduals[i][j])
+			out, err = e.semanticResidual(out, &block.residuals[j])
 			e.release(prev)
 			if err != nil {
 				return signal{}, err
 			}
 		}
 		prev := out
-		out, err = e.conv(out, e.semanticBlocks[i]+"conv", 1, 1, 1)
+		out, err = e.conv(out, block.conv, 1, 1, 1)
 		e.release(prev)
 		if err != nil {
 			return signal{}, err
@@ -389,18 +517,18 @@ func (e *CodecEncoder) encodeSemantic(ctx context.Context, x signal) (signal, er
 	return out, nil
 }
 
-func (e *CodecEncoder) semanticResidual(x signal, prefix string) (signal, error) {
+func (e *CodecEncoder) semanticResidual(x signal, residual *codecEncoderSemanticResidual) (signal, error) {
 	work := signal{data: e.buffer(len(x.data)), channels: x.channels, frames: x.frames}
 	copy(work.data, x.data)
 	e.elu(work)
-	out, err := e.conv(work, prefix+"conv1", 1, 1, 1)
+	out, err := e.conv(work, residual.conv1, 1, 1, 1)
 	e.release(work)
 	if err != nil {
 		return signal{}, err
 	}
 	e.elu(out)
 	prev := out
-	out, err = e.conv(out, prefix+"conv2", 1, 0, 1)
+	out, err = e.conv(out, residual.conv2, 1, 0, 1)
 	e.release(prev)
 	if err != nil {
 		return signal{}, err
@@ -425,40 +553,41 @@ func (e *CodecEncoder) encodeAcoustic(ctx context.Context, x signal) (signal, er
 	if err := ctx.Err(); err != nil {
 		return signal{}, err
 	}
-	out, err := e.conv(x, "acoustic_encoder.conv1", 1, 3, 1)
+	out, err := e.conv(x, e.acousticStem, 1, 3, 1)
 	if err != nil {
 		return signal{}, err
 	}
-	for i, stride := range e.weights.Rates {
-		for j, dilation := range []int{1, 3, 9} {
+	for i := range e.acousticBlocks {
+		block := &e.acousticBlocks[i]
+		for j := range block.residuals {
 			if err = ctx.Err(); err != nil {
 				e.release(out)
 				return signal{}, err
 			}
 			prev := out
-			out, err = e.acousticResidual(out, e.acousticResiduals[i][j], dilation)
+			out, err = e.acousticResidual(out, &block.residuals[j])
 			e.release(prev)
 			if err != nil {
 				return signal{}, err
 			}
 		}
-		if err = e.snake(out, e.acousticBlocks[i]+"snake1.alpha"); err != nil {
+		if err = e.snake(out, block.snake1); err != nil {
 			e.release(out)
 			return signal{}, err
 		}
 		prev := out
-		out, err = e.conv(out, e.acousticBlocks[i]+"conv1", stride, (stride+1)/2, 1)
+		out, err = e.conv(out, block.conv1, block.stride, (block.stride+1)/2, 1)
 		e.release(prev)
 		if err != nil {
 			return signal{}, err
 		}
 	}
-	if err = e.snake(out, "acoustic_encoder.snake1.alpha"); err != nil {
+	if err = e.snake(out, e.acousticTailSnake); err != nil {
 		e.release(out)
 		return signal{}, err
 	}
 	prev := out
-	out, err = e.conv(out, "acoustic_encoder.conv2", 1, 1, 1)
+	out, err = e.conv(out, e.acousticTail, 1, 1, 1)
 	e.release(prev)
 	if err != nil {
 		return signal{}, err
@@ -466,24 +595,24 @@ func (e *CodecEncoder) encodeAcoustic(ctx context.Context, x signal) (signal, er
 	return out, nil
 }
 
-func (e *CodecEncoder) acousticResidual(x signal, prefix string, dilation int) (signal, error) {
+func (e *CodecEncoder) acousticResidual(x signal, residual *codecEncoderAcousticResidual) (signal, error) {
 	work := signal{data: e.buffer(len(x.data)), channels: x.channels, frames: x.frames}
 	copy(work.data, x.data)
-	if err := e.snake(work, prefix+"snake1.alpha"); err != nil {
+	if err := e.snake(work, residual.snake1); err != nil {
 		e.release(work)
 		return signal{}, err
 	}
-	out, err := e.conv(work, prefix+"conv1", 1, 3*dilation, dilation)
+	out, err := e.conv(work, residual.conv1, 1, 3*residual.dilation, residual.dilation)
 	e.release(work)
 	if err != nil {
 		return signal{}, err
 	}
-	if err = e.snake(out, prefix+"snake2.alpha"); err != nil {
+	if err = e.snake(out, residual.snake2); err != nil {
 		e.release(out)
 		return signal{}, err
 	}
 	prev := out
-	out, err = e.conv(out, prefix+"conv2", 1, 0, 1)
+	out, err = e.conv(out, residual.conv2, 1, 0, 1)
 	e.release(prev)
 	if err != nil {
 		return signal{}, err
@@ -496,10 +625,9 @@ func (e *CodecEncoder) acousticResidual(x signal, prefix string, dilation int) (
 	return out, nil
 }
 
-func (e *CodecEncoder) snake(x signal, name string) error {
-	alpha := e.weights.Tensors[name]
+func (e *CodecEncoder) snake(x signal, alpha []float32) error {
 	if len(alpha) != x.channels {
-		return fmt.Errorf("omnivoice: invalid snake %s", name)
+		return fmt.Errorf("omnivoice: invalid snake")
 	}
 	for c, a := range alpha {
 		for t := 0; t < x.frames; t++ {
@@ -512,65 +640,67 @@ func (e *CodecEncoder) snake(x signal, name string) error {
 	return nil
 }
 
-func (e *CodecEncoder) conv(x signal, name string, stride, padding, dilation int) (signal, error) {
-	op, ok := e.ops[name]
-	if !ok {
-		op = codecOperator{weight: e.weights.Tensors[name+".weight"], bias: e.weights.Tensors[name+".bias"], shape: e.weights.Shapes[name+".weight"]}
-	}
+func (e *CodecEncoder) conv(x signal, op codecOperator, stride, padding, dilation int) (signal, error) {
 	weight, shape, bias := op.weight, op.shape, op.bias
 	if len(shape) < 2 || len(shape) > 3 || shape[1] != x.channels {
-		return signal{}, fmt.Errorf("omnivoice: invalid encoder conv %s", name)
+		return signal{}, fmt.Errorf("omnivoice: invalid encoder conv")
 	}
 	outChannels, kernel := shape[0], 1
 	if len(shape) == 3 {
 		kernel = shape[2]
+	}
+	if len(bias) > 0 && len(bias) != outChannels {
+		return signal{}, fmt.Errorf("omnivoice: invalid encoder bias")
 	}
 	length := convOutputLength(x.frames, kernel, stride, padding, dilation)
 	if length <= 0 {
 		return signal{}, fmt.Errorf("omnivoice: short encoder conv input")
 	}
 	y := signal{data: e.buffer(outChannels * length), channels: outChannels, frames: length}
-	const tile = 64
+	const (
+		tile          = 64
+		packedPanelNR = 16
+	)
 	k := x.channels * kernel
-	var packed, result []float32
-	if e.scratch != nil && k*tile <= len(e.scratch.packed) && outChannels*tile <= len(e.scratch.result) {
+	scratchNeed := k * packedPanelNR
+	var packed, scratch []float32
+	if e.scratch != nil && k*tile <= len(e.scratch.packed) && scratchNeed <= len(e.scratch.result) {
 		packed = e.scratch.packed[:k*tile]
-		result = e.scratch.result[:outChannels*tile]
+		scratch = e.scratch.result[:scratchNeed]
 	} else {
 		packed = make([]float32, k*tile)
-		result = make([]float32, outChannels*tile)
+		scratch = make([]float32, scratchNeed)
 	}
 	for start := 0; start < length; start += tile {
 		n := min(tile, length-start)
 		p := packed[:k*n]
 		clear(p)
-		for c := 0; c < x.channels; c++ {
-			for j := 0; j < kernel; j++ {
-				for t := 0; t < n; t++ {
-					source := (start+t)*stride - padding + j*dilation
+		for t := 0; t < n; t++ {
+			row := p[t*k : (t+1)*k]
+			sourceBase := (start+t)*stride - padding
+			fan := 0
+			for c := 0; c < x.channels; c++ {
+				channelBase := c * x.frames
+				for j := 0; j < kernel; j++ {
+					source := sourceBase + j*dilation
 					if source >= 0 && source < x.frames {
-						p[(c*kernel+j)*n+t] = x.data[c*x.frames+source]
+						row[fan] = x.data[channelBase+source]
 					}
+					fan++
 				}
 			}
 		}
-		r := result[:outChannels*n]
-		clear(r)
-		if !simd.SgemmNNTo(r, weight, p, outChannels, n, k, 1, k, n, n) {
+		if !simd.SgemmNTPackedTo(y.data[start:], weight, p, scratch, outChannels, n, k, 1, k, k, length) {
 			e.release(y)
 			return signal{}, fmt.Errorf("omnivoice: encoder conv GEMM shape")
 		}
-		for c := 0; c < outChannels; c++ {
-			b := float32(0)
-			if len(bias) > 0 {
-				if len(bias) != outChannels {
-					e.release(y)
-					return signal{}, fmt.Errorf("omnivoice: invalid encoder bias")
-				}
-				b = bias[c]
-			}
-			for t := 0; t < n; t++ {
-				y.data[c*length+start+t] = r[c*n+t] + b
+		if len(bias) == 0 {
+			continue
+		}
+		for c, b := range bias {
+			row := y.data[c*length+start : c*length+start+n]
+			for t := range row {
+				row[t] += b
 			}
 		}
 	}
@@ -587,22 +717,22 @@ func (e *CodecEncoder) quantizeInto(ctx context.Context, dst []int, embeddings s
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		prefix := e.quantizerNames[book]
-		projected, err := e.conv(residual, prefix+"project_in", 1, 0, 1)
+		quantizer := &e.quantizers[book]
+		projected, err := e.conv(residual, quantizer.projectIn, 1, 0, 1)
 		if err != nil {
 			return err
 		}
 		codes := dst[book*frames : (book+1)*frames]
-		if err := e.nearestCodesInto(ctx, book, projected, codes); err != nil {
+		if err := e.nearestCodesInto(ctx, quantizer, projected, codes); err != nil {
 			e.release(projected)
 			return err
 		}
-		quantized, err := e.lookupCodebook(book, codes)
+		quantized, err := e.lookupCodebook(quantizer, codes)
 		if err != nil {
 			e.release(projected)
 			return err
 		}
-		decoded, err := e.conv(quantized, prefix+"project_out", 1, 0, 1)
+		decoded, err := e.conv(quantized, quantizer.projectOut, 1, 0, 1)
 		e.release(quantized)
 		e.release(projected)
 		if err != nil {
@@ -614,14 +744,13 @@ func (e *CodecEncoder) quantizeInto(ctx context.Context, dst []int, embeddings s
 	return nil
 }
 
-func (e *CodecEncoder) nearestCodesInto(ctx context.Context, book int, projected signal, dst []int) error {
-	name := e.quantizerNames[book] + "codebook.embed"
-	embed := e.weights.Tensors[name]
-	shape := e.weights.Shapes[name]
+func (e *CodecEncoder) nearestCodesInto(ctx context.Context, quantizer *codecEncoderQuantizer, projected signal, dst []int) error {
+	embed := quantizer.codebook
+	shape := quantizer.shape
 	if len(shape) != 2 || shape[1] != projected.channels || len(dst) != projected.frames {
 		return fmt.Errorf("omnivoice: invalid encoder codebook")
 	}
-	norms := e.codebookNorms[book]
+	norms := quantizer.norms
 	for t := 0; t < projected.frames; t++ {
 		if t&31 == 0 {
 			if err := ctx.Err(); err != nil {
@@ -647,10 +776,9 @@ func (e *CodecEncoder) nearestCodesInto(ctx context.Context, book int, projected
 	return nil
 }
 
-func (e *CodecEncoder) lookupCodebook(book int, codes []int) (signal, error) {
-	name := e.quantizerNames[book] + "codebook.embed"
-	embed := e.weights.Tensors[name]
-	shape := e.weights.Shapes[name]
+func (e *CodecEncoder) lookupCodebook(quantizer *codecEncoderQuantizer, codes []int) (signal, error) {
+	embed := quantizer.codebook
+	shape := quantizer.shape
 	if len(shape) != 2 {
 		return signal{}, fmt.Errorf("omnivoice: invalid encoder codebook")
 	}

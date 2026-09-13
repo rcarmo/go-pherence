@@ -186,11 +186,14 @@ Verification:
 - Nil receivers/context and bounded HuBERT input checks reject invalid calls.
   HuBERT/CodecEncoder instances own scratch and are single-caller.
 
-`Prepare`/`ExtractInto` and `Prepare`/`EncodeFeaturesInto` reuse activation and
-convolution buffers. Current convenience calls still report 194 HuBERT and 251
-codec-encoder allocations on the small real fixtures, mainly operator metadata;
-these are not zero-allocation APIs yet. Fixed workspace capacities and loaded
-float32 weights account for most whole-command memory.
+`Prepare`/`ExtractInto`, `Prepare`/`EncodeFeaturesInto` and the complete
+`ReferenceEncoder.Prepare`/`EncodeInto` now pass zero-allocation tests after setup.
+Constructors cache immutable operator names/weights; frame-specific capacity
+checks are cached. Reference normalisation, sinc resampling and semantic frame
+selection reuse staging buffers. Convenience APIs still allocate returned codes
+or features. Instances are single-caller; input slices must not alias scratch.
+Fixed workspace capacities and loaded float32 weights account for most
+whole-command memory.
 
 Full raw-reference synthesis, three seconds, eight steps, seed 42, two threads:
 97.91 seconds from CLI entry, including 14.69 seconds reference loading/encoding,
@@ -208,10 +211,35 @@ Latest private profiles: `/workspace/tmp/omnivoice-full-native-v2.{cpu,mem}`.
 Output: `/workspace/tmp/synthetic-spock-full-native-v2.wav`. Listening acceptance
 and fresh ASR verification of this raw-reference sample have not been performed.
 
+## Prepared encoder optimisation (2026-09-13)
+
+HuBERT linear projections and codec encoder convolutions now use caller-scratch
+packed SIMD GEMM. HuBERT attention retains its existing layout. The codec
+convolution im2col layout is time-major for packed multiplication; scratch
+capacity includes the required `fan * 16` panel. Shape, nil-receiver and input
+limits are validated before allocation. CLI preparation validates output suffix,
+existing paths, required transcript/text, source selection, frames and steps
+before loading models.
+
+A real two-second HuBERT benchmark measured 3.23 s with the old linear path and
+1.55 s packed, both 0 B/op and 0 allocs/op. Packed-vs-old max error was 9.78e-6.
+Real raw chess reference codes remain exactly 896/896; synthetic full reference
+codes remain 400/400. Zero-allocation regression tests cover both compute stages
+and the full prepared reference pipeline. Default tests remain opt-in for models
+and Python; the real benchmark needs `GO_PHERENCE_REAL_CODEC`.
+
+Latest raw-reference full synthesis: 91.80 s from CLI entry, including 9.91 s
+reference loading/encoding, 74.96 s generation and 4.13 s decode/save. Previous
+run: 97.91 s, including 14.69 s reference preparation. These are single runs.
+The output SHA-256 is unchanged. Profile `/workspace/tmp/omnivoice-full-native-v3`
+(`.cpu`, `.mem`, `.json`); output `/workspace/tmp/synthetic-spock-full-native-v3.wav`.
+Sampled cumulative allocation remains 1316.5 MB, dominated by model weights and
+scratch setup. Prepared zero-allocation execution does not remove those costs.
+
 ## Still required for completion
 
-1. Further encoder workspace optimisation: successful calls still allocate small
-   operator-key strings/metadata; loaded weights and reserved scratch dominate setup.
+1. Reduce setup memory (loaded weights and conservatively sized scratch) and
+   evaluate resident-service reuse; successful prepared reference calls allocate zero.
 2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
 3. Remaining SIMD work: packing, exponential/sine kernels and codec scatter.
 4. Text/reference → native speech listening acceptance against approved sample 3.

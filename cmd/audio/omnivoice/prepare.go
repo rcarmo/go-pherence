@@ -70,3 +70,42 @@ func generationPrompt(p loader.PreparedPrompt) preparedPrompt {
 		Target:        p.TargetFrames, Text: p.Text, RefRMS: p.RefRMS,
 	}
 }
+
+// Validate cheap input/output constraints before model loading or reference encoding.
+func validatePreparationFlags(mode, input, output, text, reference, transcript, cached string, frames, steps int) error {
+	if mode != "prepare" && mode != "synthesize" && mode != "encode-reference" {
+		return nil
+	}
+	ext := ".json"
+	if mode == "synthesize" {
+		ext = ".wav"
+	}
+	if output == "" || filepath.Ext(output) != ext {
+		return fmt.Errorf("%s requires a new -output %s", mode, ext)
+	}
+	if _, err := os.Lstat(output); !os.IsNotExist(err) {
+		return fmt.Errorf("output exists or cannot be checked")
+	}
+	if input != "" {
+		return fmt.Errorf("%s does not accept -input", mode)
+	}
+	if mode == "encode-reference" {
+		if reference == "" || strings.TrimSpace(transcript) == "" || cached != "" {
+			return fmt.Errorf("encode-reference requires reference and transcript, without cached tokens")
+		}
+		return nil
+	}
+	if strings.TrimSpace(text) == "" || frames < 1 || frames > 250 {
+		return fmt.Errorf("target text and frames 1..250 required")
+	}
+	if mode == "synthesize" && (steps < 1 || steps > 128) {
+		return fmt.Errorf("steps must be 1..128")
+	}
+	if (reference == "") == (cached == "") {
+		return fmt.Errorf("choose exactly one of -reference and -reference-tokens")
+	}
+	if reference != "" && strings.TrimSpace(transcript) == "" {
+		return fmt.Errorf("raw reference requires transcript")
+	}
+	return nil
+}

@@ -24,12 +24,33 @@ const (
 
 // Hubert owns mutable scratch and is single-caller.
 type Hubert struct {
-	weights    *loader.HubertWeights
-	ops        map[string]codecOperator
-	posWeight  []float32
-	posBias    []float32
-	layerNames [hubertLayers]string
-	workspace  *hubertWorkspace
+	weights               *loader.HubertWeights
+	ops                   map[string]codecOperator
+	posWeight             []float32
+	posBias               []float32
+	featureProjNormWeight []float32
+	featureProjNormBias   []float32
+	featureProjection     codecOperator
+	encoderNormWeight     []float32
+	encoderNormBias       []float32
+	layers                [hubertLayers]hubertLayer
+	preparedSamples       int
+	preparedFrames        int
+	preparedSignalCap     int
+	preparedPackedCap     int
+	preparedResultCap     int
+	workspace             *hubertWorkspace
+}
+
+type hubertLayer struct {
+	qProj, kProj, vProj codecOperator
+	outProj             codecOperator
+	layerNormWeight     []float32
+	layerNormBias       []float32
+	ffIntermediate      codecOperator
+	ffOutput            codecOperator
+	finalNormWeight     []float32
+	finalNormBias       []float32
 }
 
 type hubertWorkspace struct {
@@ -60,15 +81,58 @@ func NewHubert(w *loader.HubertWeights) (*Hubert, error) {
 	if err := validateHubertWeights(w); err != nil {
 		return nil, err
 	}
-	h := &Hubert{weights: w, ops: map[string]codecOperator{}, posBias: w.Tensors["semantic_model.encoder.pos_conv_embed.conv.bias"]}
-	for i := range h.layerNames {
-		h.layerNames[i] = fmt.Sprintf("semantic_model.encoder.layers.%d.", i)
+	h := &Hubert{
+		weights:               w,
+		ops:                   map[string]codecOperator{},
+		posBias:               w.Tensors["semantic_model.encoder.pos_conv_embed.conv.bias"],
+		featureProjNormWeight: w.Tensors["semantic_model.feature_projection.layer_norm.weight"],
+		featureProjNormBias:   w.Tensors["semantic_model.feature_projection.layer_norm.bias"],
+		encoderNormWeight:     w.Tensors["semantic_model.encoder.layer_norm.weight"],
+		encoderNormBias:       w.Tensors["semantic_model.encoder.layer_norm.bias"],
 	}
 	for name, shape := range w.Shapes {
 		if strings.HasSuffix(name, ".weight") {
 			base := strings.TrimSuffix(name, ".weight")
 			h.ops[base] = codecOperator{weight: w.Tensors[name], bias: w.Tensors[base+".bias"], shape: shape}
 		}
+	}
+	opFor := func(name string) (codecOperator, error) {
+		op, ok := h.ops[name]
+		if !ok {
+			return codecOperator{}, fmt.Errorf("omnivoice: missing hubert op %s", name)
+		}
+		return op, nil
+	}
+	var err error
+	h.featureProjection, err = opFor("semantic_model.feature_projection.projection")
+	if err != nil {
+		return nil, err
+	}
+	for i := range h.layers {
+		prefix := fmt.Sprintf("semantic_model.encoder.layers.%d.", i)
+		layer := &h.layers[i]
+		if layer.qProj, err = opFor(prefix + "attention.q_proj"); err != nil {
+			return nil, err
+		}
+		if layer.kProj, err = opFor(prefix + "attention.k_proj"); err != nil {
+			return nil, err
+		}
+		if layer.vProj, err = opFor(prefix + "attention.v_proj"); err != nil {
+			return nil, err
+		}
+		if layer.outProj, err = opFor(prefix + "attention.out_proj"); err != nil {
+			return nil, err
+		}
+		layer.layerNormWeight = w.Tensors[prefix+"layer_norm.weight"]
+		layer.layerNormBias = w.Tensors[prefix+"layer_norm.bias"]
+		if layer.ffIntermediate, err = opFor(prefix + "feed_forward.intermediate_dense"); err != nil {
+			return nil, err
+		}
+		if layer.ffOutput, err = opFor(prefix + "feed_forward.output_dense"); err != nil {
+			return nil, err
+		}
+		layer.finalNormWeight = w.Tensors[prefix+"final_layer_norm.weight"]
+		layer.finalNormBias = w.Tensors[prefix+"final_layer_norm.bias"]
 	}
 	pos, err := buildHubertPosWeight(w)
 	if err != nil {
@@ -113,6 +177,14 @@ func buildHubertPosWeight(w *loader.HubertWeights) ([]float32, error) {
 	return out, nil
 }
 
+func hubertOutputFrames(samples int) int {
+	length := convOutputLength(samples, 10, 5, 0, 1)
+	for i := 0; i < 6; i++ {
+		length = convOutputLength(length, 3, 2, 0, 1)
+	}
+	return length
+}
+
 func newHubertScratch(frames int) hubertScratch {
 	return hubertScratch{
 		q:        make([]float32, frames*hubertHidden),
@@ -136,6 +208,10 @@ func (h *Hubert) Prepare(samples int) (int, error) {
 	if samples < 400 || samples > 20*16000+320 {
 		return 0, fmt.Errorf("omnivoice: invalid hubert input")
 	}
+	frames := hubertOutputFrames(samples)
+	if h.workspace != nil && samples == h.preparedSamples {
+		return h.preparedFrames, nil
+	}
 	frames, signalCap, packedCap, resultCap, err := h.workspaceCaps(samples)
 	if err != nil {
 		return 0, err
@@ -146,6 +222,11 @@ func (h *Hubert) Prepare(samples int) (int, error) {
 	scoresCap := frames * frames
 	headCap := frames * hubertHeadDim
 	if h.workspace != nil && signalCap <= len(h.workspace.slots[0]) && packedCap <= len(h.workspace.packed) && resultCap <= len(h.workspace.result) && rowsCap <= len(h.workspace.rows) && hiddenCap <= len(h.workspace.current) && hiddenCap <= len(h.workspace.next) && hiddenCap <= len(h.workspace.scratch.q) && ffCap <= len(h.workspace.scratch.ff) && scoresCap <= len(h.workspace.scratch.scores) && headCap <= len(h.workspace.scratch.qhead) {
+		h.preparedSamples = samples
+		h.preparedFrames = frames
+		h.preparedSignalCap = signalCap
+		h.preparedPackedCap = packedCap
+		h.preparedResultCap = resultCap
 		return frames, nil
 	}
 	w := &hubertWorkspace{
@@ -160,6 +241,11 @@ func (h *Hubert) Prepare(samples int) (int, error) {
 		w.slots[i] = make([]float32, signalCap)
 	}
 	h.workspace = w
+	h.preparedSamples = samples
+	h.preparedFrames = frames
+	h.preparedSignalCap = signalCap
+	h.preparedPackedCap = packedCap
+	h.preparedResultCap = resultCap
 	return frames, nil
 }
 
@@ -185,6 +271,10 @@ func (h *Hubert) Extract(ctx context.Context, input16k []float32) ([]float32, in
 }
 
 func (h *Hubert) ExtractInto(ctx context.Context, dst []float32, input16k []float32) error {
+	return h.extractInto(ctx, dst, input16k, true)
+}
+
+func (h *Hubert) extractInto(ctx context.Context, dst []float32, input16k []float32, usePackedLinear bool) error {
 	if h == nil || h.weights == nil || ctx == nil || len(input16k) == 0 {
 		return fmt.Errorf("omnivoice: invalid hubert input")
 	}
@@ -199,40 +289,45 @@ func (h *Hubert) ExtractInto(ctx context.Context, dst []float32, input16k []floa
 		return fmt.Errorf("omnivoice: invalid hubert output")
 	}
 	h.workspace.used = [2]bool{}
-	defer func() { h.workspace.used = [2]bool{} }()
 
 	features, err := h.featureExtractor(signal{data: input16k, channels: 1, frames: len(input16k)})
 	if err != nil {
+		h.workspace.used = [2]bool{}
 		return err
 	}
 	current := h.workspace.current[:len(dst)]
-	if err := h.featureProjectionInto(current, features); err != nil {
+	if err := h.featureProjectionInto(current, features, usePackedLinear); err != nil {
 		h.release(features)
+		h.workspace.used = [2]bool{}
 		return err
 	}
 	h.release(features)
 	position := h.workspace.next[:len(dst)]
 	if err := h.positionalConvInto(position, current, frames); err != nil {
+		h.workspace.used = [2]bool{}
 		return err
 	}
 	simd.VecAdd(current, current, position)
-	layerNormRows(current, current, h.weights.Tensors["semantic_model.encoder.layer_norm.weight"], h.weights.Tensors["semantic_model.encoder.layer_norm.bias"], frames, hubertHidden, hubertLayerNormE)
+	layerNormRows(current, current, h.encoderNormWeight, h.encoderNormBias, frames, hubertHidden, hubertLayerNormE)
 	copy(dst, current)
 	next := h.workspace.next[:len(dst)]
 	scratch := &h.workspace.scratch
-	for i, prefix := range h.layerNames {
+	for i := range h.layers {
 		if i&1 == 0 {
 			if err = ctx.Err(); err != nil {
+				h.workspace.used = [2]bool{}
 				return err
 			}
 		}
-		if err = h.layerInto(ctx, next, current, prefix, frames, scratch); err != nil {
+		if err = h.layerInto(ctx, next, current, &h.layers[i], frames, scratch, usePackedLinear); err != nil {
+			h.workspace.used = [2]bool{}
 			return err
 		}
 		simd.VecAdd(dst, dst, next)
 		current, next = next, current
 	}
 	simd.VecScale(dst, dst, float32(1.0/13.0))
+	h.workspace.used = [2]bool{}
 	return nil
 }
 
@@ -303,6 +398,7 @@ func (h *Hubert) workspaceCaps(samples int) (frames, signalCap, packedCap, resul
 		posTile   = 16
 	)
 	packedCap = max(packedCap, (hubertHidden/posGroups)*posKernel*posTile)
+	packedCap = max(packedCap, hubertFFN*16)
 	resultCap = max(resultCap, (hubertHidden/posGroups)*posTile)
 	return frames, signalCap, packedCap, resultCap, nil
 }
@@ -326,21 +422,23 @@ func (h *Hubert) featureExtractor(x signal) (signal, error) {
 	return out, nil
 }
 
-func (h *Hubert) featureProjectionInto(dst []float32, x signal) error {
+func (h *Hubert) featureProjectionInto(dst []float32, x signal, usePackedLinear bool) error {
 	if x.channels != hubertConvWidth || len(dst) != x.frames*hubertHidden {
 		return fmt.Errorf("omnivoice: invalid hubert feature channels")
 	}
-	rows := make([]float32, x.frames*x.channels)
-	if h.workspace != nil && len(rows) <= len(h.workspace.rows) {
+	var rows []float32
+	if h.workspace != nil && x.frames*x.channels <= len(h.workspace.rows) {
 		rows = h.workspace.rows[:x.frames*x.channels]
+	} else {
+		rows = make([]float32, x.frames*x.channels)
 	}
 	for t := 0; t < x.frames; t++ {
 		for c := 0; c < x.channels; c++ {
 			rows[t*x.channels+c] = x.data[c*x.frames+t]
 		}
 	}
-	layerNormRows(rows, rows, h.weights.Tensors["semantic_model.feature_projection.layer_norm.weight"], h.weights.Tensors["semantic_model.feature_projection.layer_norm.bias"], x.frames, hubertConvWidth, hubertLayerNormE)
-	if err := linearRows(dst, rows, h.weights.Tensors["semantic_model.feature_projection.projection.weight"], h.weights.Tensors["semantic_model.feature_projection.projection.bias"], x.frames, hubertConvWidth, hubertHidden); err != nil {
+	layerNormRows(rows, rows, h.featureProjNormWeight, h.featureProjNormBias, x.frames, hubertConvWidth, hubertLayerNormE)
+	if err := h.linearRows(dst, rows, h.featureProjection.weight, h.featureProjection.bias, x.frames, hubertConvWidth, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
 	return nil
@@ -401,33 +499,33 @@ func (h *Hubert) positionalConvInto(dst, x []float32, frames int) error {
 	return nil
 }
 
-func (h *Hubert) layerInto(ctx context.Context, dst, src []float32, prefix string, frames int, s *hubertScratch) error {
-	if err := linearRows(s.q, src, h.weights.Tensors[prefix+"attention.q_proj.weight"], h.weights.Tensors[prefix+"attention.q_proj.bias"], frames, hubertHidden, hubertHidden); err != nil {
+func (h *Hubert) layerInto(ctx context.Context, dst, src []float32, layer *hubertLayer, frames int, s *hubertScratch, usePackedLinear bool) error {
+	if err := h.linearRows(s.q, src, layer.qProj.weight, layer.qProj.bias, frames, hubertHidden, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
-	if err := linearRows(s.k, src, h.weights.Tensors[prefix+"attention.k_proj.weight"], h.weights.Tensors[prefix+"attention.k_proj.bias"], frames, hubertHidden, hubertHidden); err != nil {
+	if err := h.linearRows(s.k, src, layer.kProj.weight, layer.kProj.bias, frames, hubertHidden, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
-	if err := linearRows(s.v, src, h.weights.Tensors[prefix+"attention.v_proj.weight"], h.weights.Tensors[prefix+"attention.v_proj.bias"], frames, hubertHidden, hubertHidden); err != nil {
+	if err := h.linearRows(s.v, src, layer.vProj.weight, layer.vProj.bias, frames, hubertHidden, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
 	if err := h.attentionInto(ctx, s.attended, s.q, s.k, s.v, frames, s); err != nil {
 		return err
 	}
-	if err := linearRows(dst, s.attended, h.weights.Tensors[prefix+"attention.out_proj.weight"], h.weights.Tensors[prefix+"attention.out_proj.bias"], frames, hubertHidden, hubertHidden); err != nil {
+	if err := h.linearRows(dst, s.attended, layer.outProj.weight, layer.outProj.bias, frames, hubertHidden, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
 	simd.VecAdd(dst, dst, src)
-	layerNormRows(s.norm, dst, h.weights.Tensors[prefix+"layer_norm.weight"], h.weights.Tensors[prefix+"layer_norm.bias"], frames, hubertHidden, hubertLayerNormE)
-	if err := linearRows(s.ff, s.norm, h.weights.Tensors[prefix+"feed_forward.intermediate_dense.weight"], h.weights.Tensors[prefix+"feed_forward.intermediate_dense.bias"], frames, hubertHidden, hubertFFN); err != nil {
+	layerNormRows(s.norm, dst, layer.layerNormWeight, layer.layerNormBias, frames, hubertHidden, hubertLayerNormE)
+	if err := h.linearRows(s.ff, s.norm, layer.ffIntermediate.weight, layer.ffIntermediate.bias, frames, hubertHidden, hubertFFN, usePackedLinear); err != nil {
 		return err
 	}
 	geluSlice(s.ff)
-	if err := linearRows(dst, s.ff, h.weights.Tensors[prefix+"feed_forward.output_dense.weight"], h.weights.Tensors[prefix+"feed_forward.output_dense.bias"], frames, hubertFFN, hubertHidden); err != nil {
+	if err := h.linearRows(dst, s.ff, layer.ffOutput.weight, layer.ffOutput.bias, frames, hubertFFN, hubertHidden, usePackedLinear); err != nil {
 		return err
 	}
 	simd.VecAdd(dst, dst, s.norm)
-	layerNormRows(dst, dst, h.weights.Tensors[prefix+"final_layer_norm.weight"], h.weights.Tensors[prefix+"final_layer_norm.bias"], frames, hubertHidden, hubertLayerNormE)
+	layerNormRows(dst, dst, layer.finalNormWeight, layer.finalNormBias, frames, hubertHidden, hubertLayerNormE)
 	return nil
 }
 
@@ -464,12 +562,37 @@ func (h *Hubert) attentionInto(ctx context.Context, dst, q, k, v []float32, fram
 	return nil
 }
 
-func linearRows(dst, x, weight, bias []float32, rows, in, out int) error {
+func (h *Hubert) linearRows(dst, x, weight, bias []float32, rows, in, out int, usePackedLinear bool) error {
+	if usePackedLinear && h.workspace != nil {
+		scratch := h.workspace.packed[:in*16]
+		if err := linearRowsPacked(dst, x, weight, bias, scratch, rows, in, out); err == nil {
+			return nil
+		}
+	}
+	return linearRowsNT(dst, x, weight, bias, rows, in, out)
+}
+
+func linearRowsPacked(dst, x, weight, bias, scratch []float32, rows, in, out int) error {
+	if len(scratch) < in*16 {
+		return fmt.Errorf("omnivoice: invalid hubert linear scratch")
+	}
+	return linearRowsGEMM(dst, x, weight, bias, rows, in, out, func() bool {
+		return simd.SgemmNTPackedTo(dst, x, weight, scratch[:in*16], rows, out, in, 1, in, in, out)
+	})
+}
+
+func linearRowsNT(dst, x, weight, bias []float32, rows, in, out int) error {
+	return linearRowsGEMM(dst, x, weight, bias, rows, in, out, func() bool {
+		return simd.SgemmNTTo(dst, x, weight, rows, out, in, 1, in, in, out)
+	})
+}
+
+func linearRowsGEMM(dst, x, weight, bias []float32, rows, in, out int, gemm func() bool) error {
 	if len(dst) != rows*out || len(x) != rows*in || len(weight) != out*in || (len(bias) != 0 && len(bias) != out) {
 		return fmt.Errorf("omnivoice: invalid hubert linear")
 	}
 	clear(dst)
-	if !simd.SgemmNTTo(dst, x, weight, rows, out, in, 1, in, in, out) {
+	if !gemm() {
 		return fmt.Errorf("omnivoice: hubert linear GEMM shape")
 	}
 	if len(bias) != 0 {
