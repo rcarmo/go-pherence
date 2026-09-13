@@ -8,6 +8,6 @@ require (
 )
 
 require (
-	github.com/rcarmo/go-264 v0.0.0-20260912122853-a47077edc589
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	github.com/rcarmo/go-264 v0.0.0-20260913104523-48ff0ca8272a
+	gopkg.in/yaml.v3 v3.0.1
 )
