@@ -7,7 +7,7 @@ The standalone per-row Q8 weight operator reduces the tested projection storage 
 `NewVkLinearQ8WeightF32` quantises each complete output row with:
 
 - `scale[row] = max(abs(weight[row])) / 127`;
-- nearest-even integer rounding through Go `math.Round` for non-halfway generated inputs;
+- nearest-even integer rounding through Go `math.RoundToEven`;
 - signed values clamped to `[-127,127]`;
 - four little-byte-first signed values per `uint32`.
 
