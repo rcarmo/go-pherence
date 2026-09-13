@@ -74,6 +74,21 @@ func product(a, b int) (int, bool) {
 // at least one finite edge. Unlike autoregressive LLMs, no causal mask is added.
 // Input and output never alias. No KV cache is retained across denoising steps.
 func (b *Block) Forward(x []float32, tokens int, positions []int, mask []float32) ([]float32, error) {
+	if err := b.validateInput(x, tokens, positions, mask); err != nil {
+		return nil, err
+	}
+	scratch, err := b.NewWorkspace(tokens)
+	if err != nil {
+		return nil, err
+	}
+	dst := make([]float32, len(x))
+	if err = b.ForwardInto(dst, x, tokens, positions, mask, scratch); err != nil {
+		return nil, err
+	}
+	return dst, nil
+}
+
+func (b *Block) validateInput(x []float32, tokens int, positions []int, mask []float32) error {
 	c := b.config
 	h := c.HiddenSize
 	d := c.HeadDim
@@ -81,56 +96,72 @@ func (b *Block) Forward(x []float32, tokens int, positions []int, mask []float32
 	nkv := c.NumKeyValueHeads
 	n, ok := product(tokens, h)
 	if !ok || len(x) != n {
-		return nil, fmt.Errorf("omnivoice: invalid input shape")
+		return fmt.Errorf("omnivoice: invalid input shape")
 	}
 	square, ok := product(tokens, tokens)
 	if !ok {
-		return nil, fmt.Errorf("omnivoice: sequence size overflow")
+		return fmt.Errorf("omnivoice: sequence size overflow")
 	}
 	if positions != nil && len(positions) != tokens {
-		return nil, fmt.Errorf("omnivoice: position length mismatch")
+		return fmt.Errorf("omnivoice: position length mismatch")
 	}
 	for _, p := range positions {
 		if p < 0 {
-			return nil, fmt.Errorf("omnivoice: negative position")
+			return fmt.Errorf("omnivoice: negative position")
 		}
 	}
 	if mask != nil {
 		if len(mask) != square {
-			return nil, fmt.Errorf("omnivoice: mask shape mismatch")
+			return fmt.Errorf("omnivoice: mask shape mismatch")
 		}
 		for i := 0; i < tokens; i++ {
 			finite := false
 			for _, v := range mask[i*tokens : (i+1)*tokens] {
 				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 1) {
-					return nil, fmt.Errorf("omnivoice: invalid mask")
+					return fmt.Errorf("omnivoice: invalid mask")
 				}
 				finite = finite || !math.IsInf(float64(v), -1)
 			}
 			if !finite {
-				return nil, fmt.Errorf("omnivoice: entirely masked query")
+				return fmt.Errorf("omnivoice: entirely masked query")
 			}
 		}
 	}
 	for _, dim := range []int{nh * d, nkv * d, c.IntermediateSize} {
 		if _, ok := product(tokens, dim); !ok {
-			return nil, fmt.Errorf("omnivoice: intermediate shape overflow")
+			return fmt.Errorf("omnivoice: intermediate shape overflow")
 		}
 	}
+	return nil
+}
+
+// ForwardInto is the allocation-free block path after workspace construction.
+// Scratch is exclusive to this call; dst may equal x exactly, but must not
+// otherwise overlap inputs, weights, or workspace. Errors leave dst unspecified.
+func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask []float32, s *Workspace) error {
+	if err := b.validateInput(x, tokens, positions, mask); err != nil {
+		return err
+	}
+	if !s.matches(b, tokens) || len(dst) != len(x) {
+		return fmt.Errorf("omnivoice: workspace/output shape mismatch")
+	}
+	c := b.config
+	h, d, nh, nkv := c.HiddenSize, c.HeadDim, c.NumAttentionHeads, c.NumKeyValueHeads
 	w := b.weights
-	norm := normalize(x, w["input_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	q := linear(norm, w["self_attn.q_proj.weight"], tokens, h, nh*d)
-	k := linear(norm, w["self_attn.k_proj.weight"], tokens, h, nkv*d)
-	v := linear(norm, w["self_attn.v_proj.weight"], tokens, h, nkv*d)
-	q = normalize(q, w["self_attn.q_norm.weight"], tokens*nh, d, float32(c.RMSNormEps))
-	k = normalize(k, w["self_attn.k_norm.weight"], tokens*nkv, d, float32(c.RMSNormEps))
-	rope(q, tokens, nh, d, positions, c.RopeParameters.RopeTheta)
-	rope(k, tokens, nkv, d, positions, c.RopeParameters.RopeTheta)
-	attended := make([]float32, tokens*nh*d)
+	norm, q, k, v, attended := s.norm, s.q, s.k, s.v, s.attended
+	normalizeInto(norm, x, w["input_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
+	linearInto(q, norm, w["self_attn.q_proj.weight"], tokens, h, nh*d)
+	linearInto(k, norm, w["self_attn.k_proj.weight"], tokens, h, nkv*d)
+	linearInto(v, norm, w["self_attn.v_proj.weight"], tokens, h, nkv*d)
+	normalizeInto(q, q, w["self_attn.q_norm.weight"], tokens*nh, d, float32(c.RMSNormEps))
+	normalizeInto(k, k, w["self_attn.k_norm.weight"], tokens*nkv, d, float32(c.RMSNormEps))
+	s.prepareRoPE(positions)
+	s.rotate(q, nh)
+	s.rotate(k, nkv)
 	// Pack each head contiguously so QK^T and PV use existing SIMD GEMM.
 	// Only one tokens^2 score buffer is live, not heads*tokens^2.
-	qhead, khead, vhead := make([]float32, tokens*d), make([]float32, tokens*d), make([]float32, tokens*d)
-	scores, headout := make([]float32, square), make([]float32, tokens*d)
+	qhead, khead, vhead := s.qhead, s.khead, s.vhead
+	scores, headout := s.scores, s.headout
 	for head := 0; head < nh; head++ {
 		kh := head / (nh / nkv)
 		for t := 0; t < tokens; t++ {
@@ -140,14 +171,12 @@ func (b *Block) Forward(x []float32, tokens int, positions []int, mask []float32
 		}
 		clear(scores)
 		simd.SgemmNTTo(scores, qhead, khead, tokens, tokens, d, float32(1/math.Sqrt(float64(d))), d, d, tokens)
-		for i := range scores {
-			if mask != nil {
-				scores[i] += mask[i]
-			}
+		if mask != nil {
+			simd.VecAdd(scores, scores, mask)
 		}
 		for t := 0; t < tokens; t++ {
 			if !simd.SoftmaxInPlace(scores[t*tokens : (t+1)*tokens]) {
-				return nil, fmt.Errorf("omnivoice: attention softmax failed")
+				return fmt.Errorf("omnivoice: attention softmax failed")
 			}
 		}
 		clear(headout)
@@ -156,52 +185,13 @@ func (b *Block) Forward(x []float32, tokens int, positions []int, mask []float32
 			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
 		}
 	}
-	out := linear(attended, w["self_attn.o_proj.weight"], tokens, nh*d, h)
-	for i := range out {
-		out[i] += x[i]
-	}
-	norm = normalize(out, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	gate := linear(norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
-	up := linear(norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
-	simd.SiLUMul(gate, gate, up)
-	down := linear(gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
-	for i := range out {
-		out[i] += down[i]
-	}
-	return out, nil
-}
-
-func linear(x, w []float32, rows, in, out int) []float32 {
-	y := make([]float32, rows*out)
-	if !simd.SgemmNTTo(y, x, w, rows, out, in, 1, in, in, out) {
-		panic("omnivoice: internal linear shape error")
-	}
-	return y
-}
-func normalize(x, w []float32, rows, width int, eps float32) []float32 {
-	y := make([]float32, len(x))
-	for r := 0; r < rows; r++ {
-		copy(y[r*width:(r+1)*width], x[r*width:(r+1)*width])
-		simd.RMSNorm(y[r*width:(r+1)*width], w, eps)
-	}
-	return y
-}
-func rope(x []float32, tokens, heads, dim int, positions []int, theta float64) {
-	for t := 0; t < tokens; t++ {
-		p := t
-		if positions != nil {
-			p = positions[t]
-		}
-		for j := 0; j < dim/2; j++ {
-			angle := float32(p) * float32(1/math.Pow(theta, float64(2*j)/float64(dim)))
-			co, si := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
-			for head := 0; head < heads; head++ {
-				a := (t*heads+head)*dim + j
-				b := a + dim/2
-				u, v := x[a], x[b]
-				x[a] = u*co - v*si
-				x[b] = v*co + u*si
-			}
-		}
-	}
+	linearInto(s.down, attended, w["self_attn.o_proj.weight"], tokens, nh*d, h)
+	simd.VecAdd(dst, s.down, x)
+	normalizeInto(norm, dst, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
+	linearInto(s.gate, norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
+	linearInto(s.up, norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
+	simd.SiLUMul(s.gate, s.gate, s.up)
+	linearInto(s.down, s.gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
+	simd.VecAdd(dst, dst, s.down)
+	return nil
 }

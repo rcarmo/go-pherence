@@ -14,6 +14,7 @@ import (
 
 	audio "github.com/rcarmo/go-264/audio"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	model "github.com/rcarmo/go-pherence/models/omnivoice"
 )
@@ -27,11 +28,15 @@ func main() {
 func run(args []string) error {
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, or audio; no speech generation yet")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, capabilities, or audio; no speech generation yet")
 	ref := flags.String("reference", "", "reference audio path for audio mode (WAV or supported MP4/AAC)")
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
 	threads := flags.Int("threads", 2, "Go execution threads")
+	backend := flags.String("backend", "cpu", "cpu, auto, or vulkan (Vulkan dispatch not implemented)")
+	iterations := flags.Int("iterations", 1, "resident block repetitions (1..1000)")
+	cpuProfile := flags.String("cpuprofile", "", "exclusive-create CPU profile for the whole command")
+	memProfile := flags.String("memprofile", "", "exclusive-create allocation profile for the whole command")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -42,13 +47,32 @@ func run(args []string) error {
 		return fmt.Errorf("threads out of range")
 	}
 	runtime.GOMAXPROCS(*threads)
+	if *mode == "vulkan-probe-internal" {
+		available := vk.VulkanInit()
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"available": available, "name": vk.VulkanDeviceName()})
+	}
+	if *iterations < 1 || *iterations > 1000 {
+		return fmt.Errorf("iterations must be 1..1000")
+	}
+	stop, err := startProfiles(*cpuProfile, *memProfile)
+	if err != nil {
+		return err
+	}
+	defer stop()
+	backendMode, err := model.ParseBackendMode(*backend)
+	if err != nil {
+		return err
+	}
+	if *mode == "capabilities" {
+		return json.NewEncoder(os.Stdout).Encode(model.DiscoverBackend(backendMode))
+	}
 	if *mode == "audio" {
 		if *ref == "" {
 			return fmt.Errorf("reference path required")
 		}
 		return inspectAudio(*ref)
 	}
-	if *mode != "inspect" && *mode != "block" {
+	if *mode != "inspect" && *mode != "block" && *mode != "stack" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
 	if *path == "" {
@@ -74,6 +98,10 @@ func run(args []string) error {
 		}
 		return nil
 	}
+	selection, err := model.SelectBackend(backendMode)
+	if err != nil {
+		return err
+	}
 	if *tokens < 1 || *tokens > 256 {
 		return fmt.Errorf("tokens must be 1..256")
 	}
@@ -83,6 +111,9 @@ func run(args []string) error {
 		return err
 	}
 	defer weights.Close()
+	if *mode == "stack" {
+		return profileStack(weights, *tokens, selection)
+	}
 	w, err := weights.Layer(*layer)
 	if err != nil {
 		return err
@@ -95,12 +126,21 @@ func run(args []string) error {
 	for i := range x {
 		x[i] = float32(math.Sin(float64(i)*0.01) * 0.1)
 	}
-	loaded := time.Now()
-	out, err := b.Forward(x, *tokens, nil, nil)
+	scratch, err := b.NewWorkspace(*tokens)
 	if err != nil {
 		return err
 	}
+	out := make([]float32, len(x))
+	loaded := time.Now()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	for i := 0; i < *iterations; i++ {
+		if err = b.ForwardInto(out, x, *tokens, nil, nil, scratch); err != nil {
+			return err
+		}
+	}
 	elapsed := time.Since(loaded)
+	runtime.ReadMemStats(&after)
 	peak := float32(0)
 	sum := float64(0)
 	for _, v := range out {
@@ -110,7 +150,7 @@ func run(args []string) error {
 		sum += float64(v)
 		peak = max(peak, float32(math.Abs(float64(v))))
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": "block", "speech_generation": false, "layer": *layer, "tokens": *tokens, "hidden_size": cfg.LLMConfig.HiddenSize, "sgemm_asm": simd.HasSgemmAsm, "load_seconds": loaded.Sub(start).Seconds(), "forward_seconds": elapsed.Seconds(), "sum": sum, "peak": peak, "first_values": out[:min(8, len(out))]})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": "block", "speech_generation": false, "layer": *layer, "tokens": *tokens, "hidden_size": cfg.LLMConfig.HiddenSize, "sgemm_asm": simd.HasSgemmAsm, "load_seconds": loaded.Sub(start).Seconds(), "forward_seconds": elapsed.Seconds() / float64(*iterations), "iterations": *iterations, "hot_allocations": after.Mallocs - before.Mallocs, "hot_allocated_bytes": after.TotalAlloc - before.TotalAlloc, "scratch_bytes": scratch.ScratchBytes(), "backend": selection.Backend, "sum": sum, "peak": peak, "first_values": out[:min(8, len(out))]})
 }
 func inspectAudio(path string) error {
 	f, err := os.Open(path)

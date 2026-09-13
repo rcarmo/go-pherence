@@ -1,0 +1,108 @@
+# Native-path profiling, 2026-09-13
+
+## Scope
+
+These measurements cover checkpoint loading, a resident Qwen3 block, all 28
+streamed decoder layers plus final norm, and go-264 reference-audio decoding.
+They do **not** cover text-to-waveform generation: token embeddings, sampler and
+learned audio codec are still missing. The stack starts with synthetic hidden
+states, not accepted voice-conditioning tokens.
+
+Hardware: Intel N100 VM, two vCPUs, ~5.8 GiB RAM, Go 1.26.2. Main benchmark: real
+OmniVoice layer 0, 128 tokens, float32 compute from stored float16 weights.
+
+## Measured results
+
+| Case | Before | After |
+|---|---:|---:|
+| Resident block allocated bytes/call | 10,289,152 | 0 |
+| Resident block allocations/call | 17 | 0 |
+| Resident block time, sampled runs | 782.8 ms | 766.1 ms |
+| 28-layer pass allocated bytes | 1,769,854,480 | 70,781,256 |
+| 28-layer pass total time with profiling | 23.71 s | 21.57 s |
+| 28-layer forward allocations | 0 after scratch reuse | 0 |
+
+The stack before/after figures compare reusable activations with newly allocated
+per-layer weights versus reusable activations **and** a reusable weight arena.
+The process allocation counts were 829 vs 1,345: fewer bytes does not mean fewer
+setup objects. The new count includes precomputed per-layer tensor-name strings.
+These are allocated once, not in the conversion/forward hot paths. Timing is
+noisy and not a controlled speedup claim. CPU profiles place ~86–89% of samples
+in assembly `SgemmNT`; allocation removal cannot eliminate that compute cost.
+
+After: weight arena 62,923,776 bytes; float scratch and position cache 7,734,784
+bytes. These numbers exclude mmap checkpoint pages, Go/runtime overhead, output,
+and the future codec. Stack sum was unchanged: 70117.40918272076.
+
+## Changes
+
+- `Block.NewWorkspace(tokens)` reserves one flat scratch arena.
+- `Block.ForwardInto` reuses scratch, supports exact input/output alias for layer
+  chaining, and has a zero-allocation regression test. No implicit growth.
+- `Forward` remains the allocating convenience API; profiling uses `ForwardInto`.
+- RoPE tables are cached by position and reused across Q/K and all heads. Rotation
+  arithmetic uses existing vector dispatch. Norms operate in place where safe.
+- Residual and mask adds use vector dispatch. Clear GEMM destinations before
+  accumulation; all scratch is overwritten or cleared on each invocation.
+- `Weights.NewLayerBuffer` precomputes names and slices. `LayerBuffer.Load`
+  converts F16/F32/BF16 directly into the same float32 arena with zero successful
+  call allocations. The canonical `half` package owns numerical conversions.
+- Blocks referencing arena weights must finish before the next load. Workspaces
+  and weight arenas are single-owner; concurrent inference needs separate ones.
+
+## SIMD coverage
+
+Assembly-backed projections, QK/PV GEMMs, RMSNorm, vector residual/mask/rotary
+arithmetic and MLP multiplication use existing runtime dispatch. Head packing is
+Go `copy`. Softmax exponentials and SiLU exponentials still use scalar `math.Exp`
+on amd64. Weight conversion also remains scalar. No full-SIMD claim is made.
+Profiles show these nonlinearities are a small fraction of present runtime;
+approximate vector exponential work needs explicit numerical and voice-quality
+validation rather than silently relaxing tolerances.
+
+## Vulkan
+
+`-mode capabilities -backend auto` distinguishes hardware from software Vulkan.
+This VM has a loader/ICDs but no `/dev/dri`, and only llvmpipe is usable. Auto
+selects CPU. Explicit Vulkan fails rather than pretending CPU fallback is GPU
+execution. Hardware detection does not mean the OmniVoice Vulkan graph exists;
+`implemented=false` and `native_dispatch=false` remain explicit.
+
+Explicit CPU mode skips Vulkan initialization. Audio and checkpoint inspection
+also skip compute selection. Auto probing is cached once per process and runs
+inside short-lived CLI child processes, with a five-second timeout per attempt.
+Hardware-only and software-allowed probes use separate children, so Vulkan's
+global state, partial initialization leaks and allow-CPU policy do not affect the
+parent. The CLI implements the private helper mode; generic library hosts that
+do not implement that helper report no detected runtime rather than initializing
+Vulkan themselves. These subprocesses only inspect devices, never run inference.
+
+## Reproduce
+
+```sh
+make test-omnivoice vet-omnivoice build-omnivoice
+bin/omnivoice -mode capabilities -backend auto
+bin/omnivoice -mode block -backend cpu -model "$MODEL" -tokens 128 -iterations 5
+bin/omnivoice -mode stack -backend cpu -model "$MODEL" -tokens 128 \
+  -cpuprofile stack.cpu -memprofile stack.allocs
+bin/omnivoice -mode audio -reference "$REFERENCE" -cpuprofile audio.cpu
+GO_PHERENCE_REAL_OMNIVOICE="$MODEL" go test ./models/omnivoice -run '^$' \
+  -bench BenchmarkRealBlockInto -benchmem -benchtime=5x
+go tool pprof -top stack.cpu
+go tool pprof -alloc_space -top stack.allocs
+```
+
+Profiles use exclusive-create files and refuse to overwrite existing paths.
+CPU profiling spans the command. Allocation profiling uses rate 1 and perturbs
+runtime, so use profile-free repeated runs for latency comparisons. CLI hot-path
+allocation counters are process-wide snapshots; benchmark tests give the more
+isolated allocation check.
+
+## Validation
+
+Tiny PyTorch fixtures still match every output within 9e-8 with and without a
+blocked-key mask. Workspace reuse, in-place output, custom-position cache
+invalidation, invalid sizes and zero-allocation calls are tested. Real layer 0
+at 128 tokens: first-eight error 2.24e-7, peak error 9.85e-7, sum error 4.42e-5.
+This real probe compares prefix and aggregates, not every full-stack element.
+Full-waveform parity remains a later gate.

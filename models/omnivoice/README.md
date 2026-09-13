@@ -9,7 +9,9 @@ This is a partial port, not an end-to-end TTS engine. It does not invoke Python 
 - Batch-one Qwen3 decoder block: input RMSNorm, Q/K head RMSNorm, default split-half RoPE, non-causal grouped-query attention with optional additive mask, output projection, residuals, SiLU-gated MLP.
 - Existing `backends/simd/runtime` GEMM, normalization and SiLU dispatch. No custom assembly added. Go orchestrates token/head packing and rotary positions; this is not an all-operations SIMD implementation.
 - `go-264/audio` frontend, pinned at `48ff0ca8272a`, for bounded reference decoding/channel conversion/resampling to 24 kHz mono.
-- Development CLI with `inspect`, `block`, and `audio` modes. There is intentionally no `speak` mode yet.
+- Development CLI with `inspect`, `block`, `stack`, `audio` and `capabilities` modes. There is intentionally no `speak` mode yet.
+- Allocation-free `ForwardInto` and reusable layer-weight arena; full 28-layer synthetic-input profiling with CPU/allocation profiles. See [PROFILING.md](PROFILING.md) for measurements, limits and commands.
+- Explicit `-backend auto|cpu|vulkan` policy; hardware/software Vulkan detection, CPU fallback in auto and rejection of unimplemented explicit Vulkan execution.
 
 ## Build and test
 
@@ -37,8 +39,8 @@ The approved Charlie X reference decodes through go-264 to 108,000 samples (4.5 
 
 ## Remaining work, in dependency order
 
-1. Full backbone assembly: mixed text/audio embeddings, codebook offsets, final norm and audio heads; tokenizer/prompt parity.
-2. Full-model output parity on captured inputs; bounded scratch buffers and weight residency strategy for this VM.
+1. Complete backbone inputs/outputs: mixed text/audio embeddings, codebook offsets and audio heads; tokenizer/prompt parity. The profiling stack already chains layers and final norm.
+2. Full-model output parity on captured inputs; reusable scratch and streamed weight arenas are implemented, but persistent weight/quantization performance remains to be evaluated.
 3. OmniVoice confidence sampling, classifier-free guidance, timestep schedule, mask updates and deterministic RNG tests.
 4. Learned audio tokenizer encoder/decoder, including reference conditioning and waveform reconstruction. `go-264` handles container/PCM I/O, not this neural codec.
 5. End-to-end fixed-seed samples compared with the accepted Nimoy voice reference; only then performance tuning and integration.

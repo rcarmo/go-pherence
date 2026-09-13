@@ -14,6 +14,7 @@ type tensorReader interface {
 	Names() []string
 	TensorInfos() map[string]safetensors.TensorInfo
 	GetFloat32(string) ([]float32, []int, error)
+	GetRaw(string) ([]byte, string, []int, error)
 }
 
 // Weights owns a memory mapped single-file or sharded checkpoint. Float32 materializes only
