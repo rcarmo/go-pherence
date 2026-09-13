@@ -126,7 +126,7 @@ speech-vulkan-turbo-profile:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboProfile$$' -v
 
 # Explicit candidate kernels; neither target changes encoder defaults.
-.PHONY: speech-vulkan-linear-regtile-check speech-vulkan-linear-f16-weight-check speech-vulkan-turbo-regtile-check
+.PHONY: speech-vulkan-linear-regtile-check speech-vulkan-linear-f16-weight-check speech-vulkan-linear-q8-weight-check speech-vulkan-turbo-regtile-check
 speech-vulkan-linear-regtile-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_LINEAR_REGTILE=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeLinearRegTile$$' -v
 
@@ -135,6 +135,12 @@ speech-vulkan-linear-regtile-check:
 speech-vulkan-linear-f16-weight-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_LINEAR_F16_WEIGHT=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeLinearF16Weight$$' -v
+
+# Per-output-row symmetric Q8 weights with F32 activation/accumulation/output.
+# No optional 8-bit Vulkan feature and no model/default integration.
+speech-vulkan-linear-q8-weight-check:
+	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_LINEAR_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeLinearQ8Weight$$' -v
 
 speech-vulkan-turbo-regtile-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboRegTile$$' -v
