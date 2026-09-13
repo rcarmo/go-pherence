@@ -16,12 +16,14 @@ import (
 // performs all iterative inference and waveform decoding natively; prompt
 // tokenization/reference encoding are explicitly outside this input contract.
 type preparedPrompt struct {
-	Conditional   logitsInput `json:"conditional"`
-	Unconditional logitsInput `json:"unconditional"`
-	Target        int         `json:"target_frames"`
-	Text          string      `json:"text"`
-	Reference     string      `json:"reference"`
-	RefRMS        *float64    `json:"ref_rms,omitempty"`
+	CommandStarted  time.Time   `json:"-"`
+	NativeReference bool        `json:"-"`
+	Conditional     logitsInput `json:"conditional"`
+	Unconditional   logitsInput `json:"unconditional"`
+	Target          int         `json:"target_frames"`
+	Text            string      `json:"text"`
+	Reference       string      `json:"reference"`
+	RefRMS          *float64    `json:"ref_rms,omitempty"`
 }
 
 func runGenerate(weights *loader.Weights, input, output, codecPath string, steps int) error {
@@ -114,5 +116,9 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": false, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
+	commandSeconds := time.Since(started).Seconds()
+	if !p.CommandStarted.IsZero() {
+		commandSeconds = time.Since(p.CommandStarted).Seconds()
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"command_seconds": commandSeconds, "silence_preprocessing": false, "mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": p.NativeReference, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
 }

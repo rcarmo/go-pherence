@@ -27,9 +27,10 @@ func main() {
 	}
 }
 func run(args []string) error {
+	commandStarted := time.Now()
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize (cached reference), generate (prepared prompt), capabilities, or audio")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, encode-reference, generate (prepared prompt), capabilities, or audio")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
@@ -39,7 +40,8 @@ func run(args []string) error {
 	language := flags.String("language", "en", "prompt language")
 	instruct := flags.String("instruct", "", "optional style instruction")
 	denoise := flags.Bool("denoise", true, "request denoised voice reference")
-	ref := flags.String("reference", "", "reference audio path for audio mode (WAV or supported MP4/AAC)")
+	ref := flags.String("reference", "", "reference audio path (WAV or supported MP4/AAC)")
+	transcript := flags.String("transcript", "", "exact transcript for native reference encoding")
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
 	threads := flags.Int("threads", 2, "Go execution threads")
@@ -82,7 +84,7 @@ func run(args []string) error {
 		}
 		return inspectAudio(*ref)
 	}
-	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" {
+	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
 	if *path == "" {
@@ -108,12 +110,41 @@ func run(args []string) error {
 		}
 		return nil
 	}
+	if *mode == "encode-reference" {
+		if *output == "" || filepath.Ext(*output) != ".json" {
+			return fmt.Errorf("encode-reference requires new -output .json")
+		}
+		if *ref == "" || *transcript == "" || *cachedReference != "" {
+			return fmt.Errorf("encode-reference requires -reference and -transcript")
+		}
+		if _, err := model.SelectBackend(backendMode); err != nil {
+			return err
+		}
+		if _, err := os.Lstat(*output); !os.IsNotExist(err) {
+			return fmt.Errorf("output exists or cannot be checked")
+		}
+		encoded, err := encodeReference(*path, *ref, *transcript)
+		if err != nil {
+			return err
+		}
+		return writeReference(*output, encoded)
+	}
 	var prompt loader.PreparedPrompt
 	if *mode == "prepare" || *mode == "synthesize" {
 		if *input != "" {
 			return fmt.Errorf("prepare/synthesize use -text and -reference-tokens, not -input")
 		}
-		prompt, err = prepareCachedPrompt(*path, *cachedReference, *text, *frames, *language, *instruct, *denoise)
+		if *ref != "" {
+			if *cachedReference != "" || *transcript == "" {
+				return fmt.Errorf("raw reference requires -transcript and no -reference-tokens")
+			}
+			if _, err := model.SelectBackend(backendMode); err != nil {
+				return err
+			}
+			prompt, err = prepareRawPrompt(*path, *ref, *transcript, *text, *frames, *language, *instruct, *denoise)
+		} else {
+			prompt, err = prepareCachedPrompt(*path, *cachedReference, *text, *frames, *language, *instruct, *denoise)
+		}
 		if err != nil {
 			return err
 		}
@@ -135,7 +166,11 @@ func run(args []string) error {
 	}
 	defer weights.Close()
 	if *mode == "synthesize" {
-		return generatePrompt(weights, generationPrompt(prompt), *output, filepath.Join(*path, "audio_tokenizer"), *steps, false)
+		p := generationPrompt(prompt)
+		p.NativeReference = *ref != ""
+		p.CommandStarted = commandStarted
+		p.Reference = *ref
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false)
 	}
 	if *mode == "generate" {
 		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps)

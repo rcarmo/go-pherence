@@ -83,7 +83,7 @@ bin/omnivoice -mode synthesize -model "$MODEL" -reference-tokens voice-codes.jso
 ```
 
 Cache fields: `books`, `frames`, flattened `[book,frame]` `codes`, exact reference
-`transcript`, optional original `ref_rms`. Reference encoding is still external.
+`transcript`, optional original `ref_rms`. Native encoding is available as described below.
 Use matching codes/transcript from the same recording. Language defaults to `en`,
 denoise to true; `-instruct` is optional. Maximum combined prompt is 512 positions.
 Qwen single-digit splitting and cached merge ranks pass a nine-case tokenizer
@@ -149,10 +149,69 @@ all 65,536 values, tails, NaN blocks, malformed inputs and allocations. ARM64
 cross-build and no-CGo tests pass. Large finite conversion benchmark measured
 about 8.3x scalar throughput on this host; small in-cache buffers measured more.
 
+## Native reference encoding (2026-09-13)
+
+`encode-reference` imports mono reference audio through `go-264/audio`, normalises
+quiet references to RMS 0.1, trims to the 960-sample hop boundary, resamples to
+16 kHz with Hann-windowed sinc, pads 160 samples on both sides, runs HuBERT and
+averages its 13 hidden states. It selects every second semantic frame, then runs
+DAC acoustic encoding, semantic convolutions, fusion and eight RVQ stages.
+
+```sh
+bin/omnivoice -mode encode-reference -model "$MODEL" \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -output reference-codes.json
+bin/omnivoice -mode synthesize -model "$MODEL" \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic-native.wav
+```
+
+The complete raw-reference path runs without Python. It requires 2–20 seconds
+and an explicit transcript. Silence removal and ASR are absent. Upstream's
+preprocessed chess cache has 104 frames; the raw 4.5-second recording has 112.
+Compare matching raw waveforms, not those two different preprocessing paths.
+Non-24-kHz source import uses go-264's resampler; exact import parity is verified
+for the approved 24-kHz PCM16 recording, not all source codecs/rates.
+
+Verification:
+- HuBERT, five output frames: maximum error 4.77e-6 against PyTorch.
+- Complete two-second synthetic reference: all 400 codes match exactly;
+  resampler maximum error 4.47e-8.
+- Complete approved raw chess recording: all 896 codes match exactly.
+- Opt-in real tests require `GO_PHERENCE_REAL_CODEC` and
+  `GO_PHERENCE_REFERENCE_PYTHON`; default tests never load private models/Python.
+- Reference-derived JSON and audio stay outside the repository.
+- Native package tests/vet, race/no-CGo checks and ARM64 cross-build pass.
+- Nil receivers/context and bounded HuBERT input checks reject invalid calls.
+  HuBERT/CodecEncoder instances own scratch and are single-caller.
+
+`Prepare`/`ExtractInto` and `Prepare`/`EncodeFeaturesInto` reuse activation and
+convolution buffers. Current convenience calls still report 194 HuBERT and 251
+codec-encoder allocations on the small real fixtures, mainly operator metadata;
+these are not zero-allocation APIs yet. Fixed workspace capacities and loaded
+float32 weights account for most whole-command memory.
+
+Full raw-reference synthesis, three seconds, eight steps, seed 42, two threads:
+97.91 seconds from CLI entry, including 14.69 seconds reference loading/encoding,
+76.27 seconds generation and 4.23 seconds decode/save. The generation JSON's
+`command_seconds` includes reference preparation; `total_seconds` retains the
+older generation/decode/save boundary. Two native output runs were byte-identical:
+`560fe8ae07d6af712f51f64f553d8e8a0b6146778d31a3a944a6db90b61a1e0e`.
+
+Whole-command sampled cumulative allocations fell from 1350.7 to 1317.2 MB after
+removing allocate-then-replace scratch calls. The latter includes 704.3 MB codec/
+HuBERT/decoder weights, 212.3 MB encoder scratch, 120.1 MB backbone weight arenas,
+64.8 MB HuBERT scratch and 37.4 MB decoder scratch. These figures are not peak RSS.
+Timing varied between runs; no controlled speedup is attributed to this change.
+Latest private profiles: `/workspace/tmp/omnivoice-full-native-v2.{cpu,mem}`.
+Output: `/workspace/tmp/synthetic-spock-full-native-v2.wav`. Listening acceptance
+and fresh ASR verification of this raw-reference sample have not been performed.
+
 ## Still required for completion
 
-1. Native reference encoder: DAC acoustic encoder, HuBERT semantic feature path,
-   semantic encoder and RVQ quantization. The current codec is decode-only.
+1. Further encoder workspace optimisation: successful calls still allocate small
+   operator-key strings/metadata; loaded weights and reserved scratch dominate setup.
 2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
 3. Remaining SIMD work: packing, exponential/sine kernels and codec scatter.
 4. Text/reference → native speech listening acceptance against approved sample 3.
