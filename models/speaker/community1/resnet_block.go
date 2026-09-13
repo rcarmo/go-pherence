@@ -290,16 +290,28 @@ func weSpeakerBlockConv(ctx context.Context, x []float32, in, out CHWShape, w []
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			clear(patch)
-			index := 0
+			// Spatial coordinates do not depend on the input channel. Compute the
+			// at-most-nine offsets once per output position, then retain the exact
+			// channel/tap patch order and positive-zero padding used previously.
+			var offsets [9]int
+			for kf := 0; kf < kernel; kf++ {
+				for kt := 0; kt < kernel; kt++ {
+					tap := kf*kernel + kt
+					sf, st := f*stride+kf-padding, t*stride+kt-padding
+					offsets[tap] = -1
+					if sf >= 0 && sf < in.Frequency && st >= 0 && st < in.Frames {
+						offsets[tap] = sf*in.Frames + st
+					}
+				}
+			}
+			taps := kernel * kernel
 			for c := 0; c < in.Channels; c++ {
-				for kf := 0; kf < kernel; kf++ {
-					for kt := 0; kt < kernel; kt++ {
-						sf, st := f*stride+kf-padding, t*stride+kt-padding
-						if sf >= 0 && sf < in.Frequency && st >= 0 && st < in.Frames {
-							patch[index] = x[(c*in.Frequency+sf)*in.Frames+st]
-						}
-						index++
+				source := x[c*in.Frequency*in.Frames : (c+1)*in.Frequency*in.Frames]
+				row := patch[c*taps : (c+1)*taps]
+				for tap, offset := range offsets[:taps] {
+					row[tap] = 0
+					if offset >= 0 {
+						row[tap] = source[offset]
 					}
 				}
 			}

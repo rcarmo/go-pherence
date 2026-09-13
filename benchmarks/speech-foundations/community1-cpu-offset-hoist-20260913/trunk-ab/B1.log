@@ -1,0 +1,4 @@
+=== RUN   TestConvOffsetABTemporary
+    conv_offset_ab_tmp_test.go:20: CONV_OFFSET_AB ns=736098736 hash=dc9121878f784e986fe6cb87b0f4c6a93293ec8c7152311295b0655588ee2a6d values=161280 shape=256,10,63
+--- PASS: TestConvOffsetABTemporary (0.84s)
+PASS
