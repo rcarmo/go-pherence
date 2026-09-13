@@ -26,6 +26,9 @@ type Weights struct {
 }
 
 func OpenWeights(path string) (*Weights, error) {
+	if strings.EqualFold(filepath.Ext(path), ".gguf") {
+		return openGGUFWeights(path)
+	}
 	c, err := LoadConfig(path)
 	if err != nil {
 		return nil, err

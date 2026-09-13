@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
+	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
 // Config is the typed OmniVoice model config.json shape needed to derive the
@@ -67,6 +68,14 @@ type RopeParameters struct {
 // LoadConfig loads and validates an OmniVoice config. path may be either a
 // config.json path or a model directory containing config.json.
 func LoadConfig(path string) (Config, error) {
+	if strings.EqualFold(filepath.Ext(path), ".gguf") {
+		g, err := gguf.Open(path)
+		if err != nil {
+			return Config{}, err
+		}
+		defer g.Close()
+		return ggufOmniVoiceConfig(g)
+	}
 	configPath, err := resolveConfigPath(path)
 	if err != nil {
 		return Config{}, err

@@ -9,8 +9,11 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"syscall"
 	"time"
 
 	audio "github.com/rcarmo/go-264/audio"
@@ -30,7 +33,9 @@ func run(args []string) error {
 	commandStarted := time.Now()
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), capabilities, or audio")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), export-gguf, capabilities, or audio")
+	ggufPath := flags.String("weights-gguf", "", "GGUF backbone override for generate/logits/block/stack; -model still supplies codec assets and matching config")
+	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16 or f32")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
@@ -107,6 +112,25 @@ func run(args []string) error {
 			return fmt.Errorf("reference path required")
 		}
 		return inspectAudio(*ref)
+	}
+	if *mode == "export-gguf" {
+		if *path == "" || *output == "" || filepath.Ext(*output) != ".gguf" || *ggufPath != "" {
+			return fmt.Errorf("export-gguf requires -model and new -output .gguf, without -weights-gguf")
+		}
+		w, err := loader.OpenWeights(*path)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+		if err := loader.ExportGGUF(ctx, w, *output, *ggufFormat); err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"output": *output, "storage": *ggufFormat, "backbone_only": true, "seconds": time.Since(commandStarted).Seconds()})
+	}
+	if *ggufPath != "" && *mode != "generate" && *mode != "logits" && *mode != "block" && *mode != "stack" {
+		return fmt.Errorf("weights-gguf applies only to generate/logits/block/stack")
 	}
 	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" && *mode != "plan-chunks" && *mode != "synthesize-long" {
 		return fmt.Errorf("unknown mode %q", *mode)
@@ -206,11 +230,18 @@ func run(args []string) error {
 		return fmt.Errorf("tokens must be 1..256")
 	}
 	start := time.Now()
-	weights, err := loader.OpenWeights(*path)
+	weightPath := *path
+	if *ggufPath != "" {
+		weightPath = *ggufPath
+	}
+	weights, err := loader.OpenWeights(weightPath)
 	if err != nil {
 		return err
 	}
 	defer weights.Close()
+	if !reflect.DeepEqual(cfg, weights.Config) {
+		return fmt.Errorf("weights config differs from model config")
+	}
 	if *mode == "synthesize" {
 		p := generationPrompt(prompt)
 		p.NativeReference = *ref != ""

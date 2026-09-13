@@ -692,3 +692,58 @@ Local evidence: `/workspace/tmp/omnivoice-steps{4,6,8}-workers2-v{1,2}.json`,
 `omnivoice-steps-validation.json`, `omnivoice-quality-steps{4,6,8}-asr.json` and
 `synthetic-spock-steps{4,6,8}-workers2-v{1,2}.wav`. Audio and reference-derived
 prompts remain private and are not committed.
+
+## GGUF storage compatibility (2026-09-13)
+
+Native F16/F32 GGUF export and backbone loading are implemented. This initial
+path uses the existing float32 SIMD compute kernels after weight conversion;
+quantised inference is not implemented yet.
+
+```sh
+bin/omnivoice -mode export-gguf -model "$MODEL" -gguf-format f16 \
+  -output /new/path/omnivoice-f16.gguf
+bin/omnivoice -mode generate -model "$MODEL" \
+  -weights-gguf /new/path/omnivoice-f16.gguf -input prepared-prompt.json \
+  -steps 8 -threads 2 -gemm-workers 2 -output synthetic-gguf.wav
+```
+
+The model directory still supplies the codec and matching configuration.
+`-weights-gguf` applies to generate/logits/block/stack. Direct raw-reference and
+long synthesis overrides are not wired yet. `OpenWeights` and `LoadConfig`
+accept GGUF paths at the library level. The export includes the backbone only;
+codec and tokenizer files remain separate. Original tensor names are preserved,
+with dimensions reversed to GGUF order. Metadata records `general.architecture`
+(`omnivoice`), `omnivoice.schema_version` (1), and `omnivoice.config_json`.
+Derived integer codebook offsets are reconstructed from that configuration.
+This is a go-pherence OmniVoice schema, not a claim of llama.cpp compatibility.
+
+Export streams one tensor at a time, supports cancellation and exclusively
+creates the destination; errors remove the partial file. The initial reader
+retains the raw encoded tensors in RAM and converts into the existing reusable
+arenas. It is not mmap-backed. Residency/prepacking allocate additional memory
+on top of those retained bytes. The F16 real file is about 1.2 GiB; F32 would
+roughly double its floating-point payload. No file-size saving over an F16
+safetensors source is expected.
+
+The real F16 export took 21.60 s. Its eight-step prepared-prompt generation took
+59.54 s with two SIMD workers, no resident float32 cache, and low process
+priority. The WAV hash is
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`,
+identical to the safetensors baseline. This verifies storage compatibility;
+these runs do not establish a format speedup. Tiny F32 export matches all
+backbone logits exactly and retains zero successful-forward allocations.
+F16 export tests compare against explicit F16 rounding.
+
+GGUF parsing now bounds header allocations/counts/strings/arrays/rank, rejects
+nested arrays and duplicate metadata, validates tensor spans and quantised block
+sizes, and prevents `MetaUint32` truncation. OmniVoice additionally checks
+architecture/schema, model-derived allocation counts, exact tensor names,
+shapes, dtypes, overlap and 32-byte alignment before loading payloads. This
+reader currently accepts only F16/F32 backbone tensors. Other quantisation types
+are rejected explicitly. Generic GGUF header limits are 128 MiB, 16 MiB per
+string, one million collection entries and eight dimensions per tensor.
+
+All loader tests, affected model/CLI tests, vet, race tests, no-CGo tests and
+Linux ARM64 builds pass. Local evidence: `/workspace/tmp/omnivoice-f16-export-v1.json`,
+`omnivoice-gguf-f16-generate-v1.json`, `omnivoice-gguf-tests.log` and the
+corresponding GGUF/WAV. The real checkpoint export is private and uncommitted.
