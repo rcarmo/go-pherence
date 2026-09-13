@@ -55,6 +55,9 @@ func TestTrainedCombinedHTTPCorpus(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg, _, _ := trainedCombinedConfig(t, listen)
+	if os.Getenv("SPEECHJOB_TRAINED_CORPUS_OVERLAP") == "1" {
+		cfg.Profile.Community.Modes.OverlapBranches = true
+	}
 	cfg.Store = filepath.Join(t.TempDir(), "store")
 	cfg.Limits.Jobs = 1
 	cfg.Profile.MaxDurationSeconds = int((corpusSamples + 15999) / 16000)
@@ -181,7 +184,7 @@ func TestTrainedCombinedHTTPCorpus(t *testing.T) {
 	if err != nil || diarization.TotalSamples != corpusSamples || len(diarization.AmbiguousFrames) == 0 {
 		t.Fatal("retained diarization", diarization.TotalSamples, len(diarization.AmbiguousFrames), err)
 	}
-	summary := map[string]any{"schema": 1, "job": created.ID, "run_ns": runElapsed.Nanoseconds(), "samples": corpusSamples, "cues": len(transcript.Cues), "words": len(transcript.Words), "clusters": diarization.Clusters, "ambiguous_frames": len(diarization.AmbiguousFrames), "checkpoints": len(manifest.Checkpoints), "speaker_publication": false, "tie_policy": "lowest-index-diagnostic", "qualified": false}
+	summary := map[string]any{"schema": 1, "job": created.ID, "run_ns": runElapsed.Nanoseconds(), "samples": corpusSamples, "cues": len(transcript.Cues), "words": len(transcript.Words), "clusters": diarization.Clusters, "ambiguous_frames": len(diarization.AmbiguousFrames), "checkpoints": len(manifest.Checkpoints), "overlap_branches": cfg.Profile.Community.Modes.OverlapBranches, "speaker_publication": false, "tie_policy": "lowest-index-diagnostic", "qualified": false}
 	out := os.Getenv("SPEECHJOB_TRAINED_CORPUS_OUTPUT")
 	if out != "" {
 		out, err = filepath.Abs(out)
