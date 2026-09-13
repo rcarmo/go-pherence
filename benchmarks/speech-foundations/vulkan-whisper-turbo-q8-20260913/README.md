@@ -74,8 +74,8 @@ Projection-family dequantised screens localize the timestamp shift to Q and O in
 |---|---:|---:|---:|---|
 | F32 | 2,548,039,680 | 46.456s | 1.000× | yes |
 | Full Q8 | 662,077,440 | 27.924s | 1.664× | no |
-| MLP-only Q8 | 1,290,567,680 | 33.791s | 1.375× | yes |
-| K+V+MLP Q8 | 976,322,560 | 30.790s | 1.509× | yes |
+| MLP-only Q8 | 1,290,567,680 | 33.791s | 1.375× | yes (retained synthetic fixture only) |
+| K+V+MLP Q8 | 976,322,560 | 30.790s | 1.509× | yes (retained synthetic fixture only) |
 
 The final four-path robustness process used `5,805,996KiB` maximum RSS and zero process swaps. Full-Q8 timestamp shift is retained as a hold, not hidden by a looser comparison.
 
@@ -83,9 +83,21 @@ Final robustness log SHA-256: `960ec87bf871eaf3d02ad003af07a58c488511241138fa8a8
 
 ## Decision
 
-Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit K+V+MLP Q8 is the broadest retained exact-output candidate at `1.509×` and 61.7% lower reported encoder-weight storage. MLP-only Q8 remains a narrower exact comparison. Commit `26cb176` adds an explicit `speechjobserve` selector only for K+V+MLP; F32 remains the default and full Q8 has no server selector.
+Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the synthetic multi-window timestamp change. K+V+MLP and MLP-only preserve that retained fixture, but the natural podcast result below shows neither is broadly exact. All Q8 encoder placements therefore remain explicit research APIs. The `speechjobserve` selector added by `26cb176` is reverted; F32 remains the sole serving path.
 
-A separate opt-in `speech-vulkan-turbo-q8-podcast-check` target is prepared for the repository's tracked `testdata/podcast.wav` (SHA-256 `8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601`). It reads 90 seconds from offset 300 seconds, requires three complete non-empty windows, and compares F32 with K+V+MLP for exact token/timestamp parity under the same physical-device and 4 GiB/40-allocation gates. It has not been executed in this checkpoint. The clip has no pinned transcript for that interval, so the target can establish natural long-form parity but not WER or source-quality acceptance. Broader labeled/noisy quality, energy/stress, recovery and Community-1 placement remain open.
+The opt-in `speech-vulkan-turbo-q8-podcast-check` uses the repository's tracked `testdata/podcast.wav` (SHA-256 `8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601`). It reads 90 seconds from offset 300 seconds and requires three complete non-empty windows under the physical Intel Iris and 4 GiB/40-allocation gates. The first attempt failed closed on F32 window 0 because the harness reused the 96-token short-fixture cap; Q8 never ran. That diagnostic is retained. The corrected harness uses the unchanged pinned 445-token policy ceiling.
+
+F32 and both selective placements are exact for windows 0 and 1. In window 2, both first diverge at the same boundary: F32 emits `60–62.0s`, while K+V+MLP and MLP-only emit `60–62.4s` for the same first text/tokens. Later boundaries and filler tokens differ, and 11 F32 segments become 10. K+V+MLP records `57.443s→41.059s` (`1.399×`); MLP-only records `57.252s→44.153s` (`1.297×`). Both strict gates fail. K+V+MLP ran in 109.75s wall with 5,742,064KiB peak RSS, 108 one-second samples, 21,721,504KiB minimum MemAvailable and zero swap-counter delta. MLP-only ran in 112.13s wall with 5,741,552KiB peak RSS, 110 samples and 21,708,676KiB minimum MemAvailable; `pswpin` rose by one page and `pswpout` did not change, so no zero-swap claim is made for that run. The clip has no pinned reference transcript, so this is backend-parity evidence rather than WER/source-quality acceptance. Broader labeled/noisy quality, energy/stress, recovery and Community-1 placement remain open.
+
+Evidence SHA-256 values:
+
+- K+V+MLP failure log: `b11aaa7e05283ba7aa28b85061aa8509cbaf52f80221a6c21a61b960eb563124`
+- K+V+MLP time: `9ccbb3b17e2674db9c12a1fbe13949a68baa14515bbe4366f8bd553665650955`
+- K+V+MLP monitor: `a39222792afe70195aeac721c7c00644764a5962b12f3cde72b3f0fd163d44e4`
+- MLP-only failure log: `78287aeb06ddc8f0d310477e562fcaacd20cb7fee67f81fad174bb422872878a`
+- MLP-only time: `a0b282f043d65ed3fabc77d925c97999fbc2ad3bb2c7dbf360887c0a7618a0c3`
+- MLP-only monitor: `9f6f9105054246c76c6567f34bd5f07accd50ebd77cd3fc98fa3d877125fe56b`
+- Initial F32-only 96-token-cap diagnostic: log `944ce66f74a845305f0ab6bb4cb4209d85f6bacf6ae7db0fe7d9cf059bd2f0e4`, time `d43969cd4f3ec1eef4949e186437564fe0e58ff8688e0304a8f7d6ae0cdf8717`, monitor `c42fa0c9b8fc1f52449c30519ca3e807a6fbfda6ab3bddf3873fd5f16385881e`
 
 ## Reproduce
 

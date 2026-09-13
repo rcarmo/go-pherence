@@ -194,7 +194,8 @@ func TestVulkanTurboQ8Robustness(t *testing.T) {
 }
 
 func TestVulkanTurboQ8Podcast(t *testing.T) {
-	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_PODCAST") != "1" {
+	mode := os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_PODCAST")
+	if mode != "1" && mode != "mlp" {
 		t.Skip("explicit Turbo selective-Q8 natural long-form qualification required")
 	}
 	deadline, bounded := t.Deadline()
@@ -253,7 +254,9 @@ func TestVulkanTurboQ8Podcast(t *testing.T) {
 		}
 		var windows []WindowTranscript
 		start := time.Now()
-		err = model.TranscribePCMWindows(ctx, reader, samples, tok, PCMTranscribeOptions{Language: "en", Generation: policy, MaxNewTokens: 96, VulkanEncoder: enc}, func(w WindowTranscript) error {
+		// Natural dense speech can exceed the short-fixture 96-token cap. Zero uses
+		// the pinned generation policy's 445-token ceiling without changing decode.
+		err = model.TranscribePCMWindows(ctx, reader, samples, tok, PCMTranscribeOptions{Language: "en", Generation: policy, MaxNewTokens: 0, VulkanEncoder: enc}, func(w WindowTranscript) error {
 			windows = append(windows, w)
 			return nil
 		})
@@ -274,12 +277,18 @@ func TestVulkanTurboQ8Podcast(t *testing.T) {
 	if err = base.Close(); err != nil {
 		t.Fatal(err)
 	}
-	q8, err := NewVulkanEncoderQ8KVMLPWeight(ctx, model.Encoder, 3000)
+	constructor := NewVulkanEncoderQ8KVMLPWeight
+	candidate := "q8-kv-mlp"
+	if mode == "mlp" {
+		constructor = NewVulkanEncoderQ8MLPWeight
+		candidate = "q8-mlp"
+	}
+	q8, err := constructor(ctx, model.Encoder, 3000)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q8.Close()
-	quantized, q8NS := run("q8-kv-mlp", q8)
+	quantized, q8NS := run(candidate, q8)
 	stats := q8.Stats()
 	if err = q8.Close(); err != nil {
 		t.Fatal(err)
@@ -290,7 +299,7 @@ func TestVulkanTurboQ8Podcast(t *testing.T) {
 	if !reflect.DeepEqual(baseline, quantized) {
 		baselineJSON, _ := json.Marshal(baseline)
 		candidateJSON, _ := json.Marshal(quantized)
-		t.Fatalf("selective Q8 podcast transcript changed\nf32=%s\nq8_kv_mlp=%s", baselineJSON, candidateJSON)
+		t.Fatalf("selective Q8 podcast transcript changed mode=%s\nf32=%s\ncandidate=%s", candidate, baselineJSON, candidateJSON)
 	}
 	segments, tokens := 0, 0
 	for _, window := range quantized {
@@ -302,7 +311,7 @@ func TestVulkanTurboQ8Podcast(t *testing.T) {
 	if segments == 0 || tokens == 0 {
 		t.Fatal("podcast gate produced no speech", segments, tokens)
 	}
-	result, _ := json.Marshal(map[string]any{"device": device, "source_sha256": sourceSHA, "start_samples": startSample, "samples": samples, "windows": len(quantized), "segments": segments, "tokens": tokens, "exact_tokens_timestamps": true, "f32_ns": baseNS, "q8_kv_mlp_ns": q8NS, "speedup": float64(baseNS) / float64(q8NS), "q8_kv_mlp_stats": stats, "labeled_quality": false})
+	result, _ := json.Marshal(map[string]any{"device": device, "source_sha256": sourceSHA, "start_samples": startSample, "samples": samples, "windows": len(quantized), "segments": segments, "tokens": tokens, "candidate": candidate, "exact_tokens_timestamps": true, "f32_ns": baseNS, "candidate_ns": q8NS, "speedup": float64(baseNS) / float64(q8NS), "candidate_stats": stats, "labeled_quality": false})
 	t.Log("TURBO_Q8_PODCAST_RESULT " + string(result))
 }
 

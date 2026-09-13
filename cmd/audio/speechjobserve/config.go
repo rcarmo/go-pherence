@@ -54,7 +54,6 @@ type VulkanSettings struct {
 	AllowExperimental bool   `json:"allow_experimental"`
 	DeviceContains    string `json:"device_contains"`
 	BackendSHA256     string `json:"backend_sha256"`
-	EncoderWeights    string `json:"encoder_weights,omitempty"`
 	DrainMilliseconds int    `json:"drain_milliseconds"`
 }
 type CommunityLSTMSettings struct {
@@ -363,7 +362,7 @@ func (c ServerConfig) validate() error {
 	}
 	f := c.Profile
 	if v := f.Vulkan; v != nil {
-		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.EncoderWeights != "" && v.EncoderWeights != "f32" && v.EncoderWeights != "q8-kv-mlp" || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
+		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}
 	}

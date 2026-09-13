@@ -4,7 +4,6 @@ package speechjob
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"path/filepath"
@@ -205,25 +204,6 @@ func TestVulkanJobCloseSerialisesAndRetainsFailedResources(t *testing.T) {
 		t.Fatal("zero owner")
 	}
 }
-func TestVulkanWhisperEncoderWeightIdentity(t *testing.T) {
-	backend := hash([]byte("backend"))
-	stats := whisper.VulkanEncoderStats{Frames: 3000, Rows: 1500, Width: 1280, Layers: 32, Plans: 34, Stages: 390, WeightBytes: 976322560, ScratchBytes: 93696000}
-	f32, e := vulkanWhisperIdentity(backend, "", stats)
-	if e != nil {
-		t.Fatal(e)
-	}
-	legacy, e := json.Marshal(struct {
-		Backend string
-		Stats   whisper.VulkanEncoderStats
-	}{backend, stats})
-	if e != nil || f32 != hash(legacy) {
-		t.Fatal("F32 identity changed", e, f32)
-	}
-	q8, e := vulkanWhisperIdentity(backend, "q8-kv-mlp", stats)
-	if e != nil || q8 == f32 {
-		t.Fatal("precision identity not separated", e, f32, q8)
-	}
-}
 func TestVulkanJobBindingIdentityAndHostJournalUnchanged(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
 	t.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "0")
@@ -237,20 +217,12 @@ func TestVulkanJobBindingIdentityAndHostJournalUnchanged(t *testing.T) {
 	// Private test seam only uses CPU toy inference; public constructor requires a
 	// concrete whisper.VulkanEncoder and cannot inject another neural runtime.
 	s := newVulkanWhisperOwner(time.Millisecond, func(context.Context, time.Duration) error { return nil }, func() error { return nil })
-	backend := hash([]byte("device-v1"))
-	f32Identity, e := vulkanWhisperIdentity(backend, "", whisper.VulkanEncoderStats{Frames: 8, WeightBytes: 1024})
-	if e != nil {
-		t.Fatal(e)
-	}
-	binding := &residentStageBinding{identity: f32Identity, validate: model.ValidatePCMHostOnly, wrap: s.wrap}
+	binding := &residentStageBinding{identity: hash([]byte("device-v1")), validate: model.ValidatePCMHostOnly, wrap: s.wrap}
 	a, e := newWhisperWindowStage(model, tok, cfg, binding)
 	if e != nil || a.Version == host.Version {
 		t.Fatal(e)
 	}
-	binding.identity, e = vulkanWhisperIdentity(backend, "q8-kv-mlp", whisper.VulkanEncoderStats{Frames: 8, WeightBytes: 1024})
-	if e != nil {
-		t.Fatal(e)
-	}
+	binding.identity = hash([]byte("device-v2"))
 	changed, e := newWhisperWindowStage(model, tok, cfg, binding)
 	if e != nil || a.Version == changed.Version {
 		t.Fatal(e)
@@ -268,7 +240,7 @@ func TestVulkanJobBindingIdentityAndHostJournalUnchanged(t *testing.T) {
 		t.Fatal("changed backend accepted", e)
 	}
 	good := VulkanWhisperStageConfig{Whisper: cfg, AllowExperimental: true, BackendSHA256: hash([]byte("backend")), DrainPoll: time.Millisecond}
-	for _, kind := range []string{"nil", "zero", "no-consent", "hash", "weights", "poll", "nilmodel"} {
+	for _, kind := range []string{"nil", "zero", "no-consent", "hash", "poll", "nilmodel"} {
 		c := good
 		encoder := &whisper.VulkanEncoder{}
 		m := model
@@ -279,8 +251,6 @@ func TestVulkanJobBindingIdentityAndHostJournalUnchanged(t *testing.T) {
 			c.AllowExperimental = false
 		case "hash":
 			c.BackendSHA256 = "bad"
-		case "weights":
-			c.EncoderWeights = "q8-all"
 		case "poll":
 			c.DrainPoll = 0
 		case "nilmodel":
