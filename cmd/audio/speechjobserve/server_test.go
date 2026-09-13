@@ -286,7 +286,7 @@ func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
 		return &whisper.VulkanEncoder{}, nil
 	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
 		return owner, nil
-	}}
+	}, drain: noPendingVulkan}
 	ctx, cancel := context.WithCancel(context.Background())
 	out := &statusWriter{ready: make(chan struct{})}
 	done := make(chan error, 1)
@@ -326,7 +326,7 @@ func TestVulkanServerStartupFailureDrainsOwner(t *testing.T) {
 		return &whisper.VulkanEncoder{}, nil
 	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
 		return owner, nil
-	}}
+	}, drain: noPendingVulkan}
 	if e = startWithRuntime(context.Background(), asset.Path, false, io.Discard, runtime); e == nil {
 		t.Fatal("occupied listener")
 	}

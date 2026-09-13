@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 	"github.com/rcarmo/go-pherence/models/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
@@ -428,6 +429,33 @@ func testStartQueueWorkerConsent(t *testing.T, resources bool) {
 	}
 }
 
+func noPendingVulkan(context.Context, time.Duration) error { return nil }
+
+type fakeVulkanEncoderCloser struct{ calls int }
+
+func (c *fakeVulkanEncoderCloser) Close() error {
+	c.calls++
+	if c.calls == 1 {
+		return vk.ErrVulkanInFlight
+	}
+	return nil
+}
+
+func TestCloseVulkanEncoderDrainsBeforeRetry(t *testing.T) {
+	closer := &fakeVulkanEncoderCloser{}
+	drains := 0
+	closeVulkanEncoder(closer, 5*time.Millisecond, func(ctx context.Context, poll time.Duration) error {
+		drains++
+		if ctx == nil || poll != 5*time.Millisecond {
+			t.Fatal("invalid drain call", ctx, poll)
+		}
+		return nil
+	})
+	if closer.calls != 2 || drains != 1 {
+		t.Fatal("cleanup did not drain and retry", closer.calls, drains)
+	}
+}
+
 type fakeProfileOwner struct {
 	stage    speechjob.Stage
 	closed   int
@@ -469,7 +497,7 @@ func TestVulkanProfileOwnedConstructionAndIdentity(t *testing.T) {
 			t.Fatal(cfg)
 		}
 		return owner, nil
-	}}
+	}, drain: noPendingVulkan}
 	built, e := buildProfileOwned(context.Background(), c, true, runtime)
 	if e != nil {
 		t.Fatal(e)
@@ -498,9 +526,13 @@ func TestVulkanProfileOwnedConstructionAndIdentity(t *testing.T) {
 	}
 }
 func TestVulkanProfileRejectsRuntimeAndClosesEncoder(t *testing.T) {
-	for _, kind := range []string{"init", "device", "encoder", "stage"} {
+	for _, kind := range []string{"init", "device", "encoder", "stage", "drain"} {
 		t.Run(kind, func(t *testing.T) {
 			c := vulkanToyConfig(t)
+			drain := noPendingVulkan
+			if kind == "drain" {
+				drain = nil
+			}
 			r := vulkanProfileRuntime{init: func() bool { return kind != "init" }, deviceName: func() string {
 				if kind == "device" {
 					return "other"
@@ -516,7 +548,7 @@ func TestVulkanProfileRejectsRuntimeAndClosesEncoder(t *testing.T) {
 					return nil, io.ErrClosedPipe
 				}
 				return &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("x")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}, nil
-			}}
+			}, drain: drain}
 			if _, e := buildProfileOwned(context.Background(), c, true, r); e == nil {
 				t.Fatal(kind)
 			}

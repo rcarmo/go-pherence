@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/runtime/resourcebudget"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
@@ -56,10 +57,16 @@ func closeBuiltProfiles(b *builtProfiles) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
-func closeVulkanEncoder(e interface{ Close() error }) {
+func closeVulkanEncoder(e interface{ Close() error }, poll time.Duration, drain func(context.Context, time.Duration) error) {
 	for {
 		if err := e.Close(); err == nil {
 			return
+		}
+		// A partially constructed encoder can retain an accepted submission. Prove
+		// it idle with a fresh context before retrying destruction. Fatal/uncertain
+		// device state deliberately blocks startup return until process teardown.
+		if err := drain(context.Background(), poll); errors.Is(err, vk.ErrVulkanDeviceLost) || errors.Is(err, vk.ErrVulkanUncertain) {
+			select {}
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
