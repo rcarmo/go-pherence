@@ -1,0 +1,172 @@
+{
+  "deltas_pp": {
+    "exclusive": [
+      {
+        "collar": 0.0,
+        "der_pp": 0.0,
+        "jer_pp": 0.0
+      },
+      {
+        "collar": 0.25,
+        "der_pp": 0.0,
+        "jer_pp": 0.0
+      }
+    ],
+    "full": [
+      {
+        "collar": 0.0,
+        "der_pp": 0.0,
+        "jer_pp": 0.0
+      },
+      {
+        "collar": 0.25,
+        "der_pp": 0.0,
+        "jer_pp": 0.0
+      }
+    ]
+  },
+  "qualified": false,
+  "schema": 1,
+  "scores": {
+    "go": {
+      "exclusive": [
+        {
+          "collar": 0.0,
+          "der": {
+            "confusion": 5.471375000000004,
+            "correct": 33.577375,
+            "diarization error rate": 0.590109927000171,
+            "false alarm": 0.0,
+            "missed detection": 42.86925000000001,
+            "total": 81.918
+          },
+          "jer": {
+            "jaccard error rate": 0.6759815347800294,
+            "speaker count": 4.0,
+            "speaker error": 2.7039261391201177
+          }
+        },
+        {
+          "collar": 0.25,
+          "der": {
+            "confusion": 4.485125000000004,
+            "correct": 25.936624999999992,
+            "diarization error rate": 0.5692735319516411,
+            "false alarm": 0.0,
+            "missed detection": 29.794250000000023,
+            "total": 60.216000000000015
+          },
+          "jer": {
+            "jaccard error rate": 0.6687970227109464,
+            "speaker count": 4.0,
+            "speaker error": 2.6751880908437857
+          }
+        }
+      ],
+      "full": [
+        {
+          "collar": 0.0,
+          "der": {
+            "confusion": 7.887062500000004,
+            "correct": 39.66153125000001,
+            "diarization error rate": 0.5282614932005177,
+            "false alarm": 1.0176562500000017,
+            "missed detection": 34.369406250000004,
+            "total": 81.918
+          },
+          "jer": {
+            "jaccard error rate": 0.6101124565867961,
+            "speaker count": 4.0,
+            "speaker error": 2.4404498263471845
+          }
+        },
+        {
+          "collar": 0.25,
+          "der": {
+            "confusion": 6.239843750000004,
+            "correct": 30.458281249999995,
+            "diarization error rate": 0.5090071575660957,
+            "false alarm": 0.8926562500000017,
+            "missed detection": 23.517875000000018,
+            "total": 60.216000000000015
+          },
+          "jer": {
+            "jaccard error rate": 0.5994056256880718,
+            "speaker count": 4.0,
+            "speaker error": 2.397622502752287
+          }
+        }
+      ]
+    },
+    "reference": {
+      "exclusive": [
+        {
+          "collar": 0.0,
+          "der": {
+            "confusion": 5.471375000000004,
+            "correct": 33.577375,
+            "diarization error rate": 0.590109927000171,
+            "false alarm": 0.0,
+            "missed detection": 42.86925000000001,
+            "total": 81.918
+          },
+          "jer": {
+            "jaccard error rate": 0.6759815347800294,
+            "speaker count": 4.0,
+            "speaker error": 2.7039261391201177
+          }
+        },
+        {
+          "collar": 0.25,
+          "der": {
+            "confusion": 4.485125000000004,
+            "correct": 25.936624999999992,
+            "diarization error rate": 0.5692735319516411,
+            "false alarm": 0.0,
+            "missed detection": 29.794250000000023,
+            "total": 60.216000000000015
+          },
+          "jer": {
+            "jaccard error rate": 0.6687970227109464,
+            "speaker count": 4.0,
+            "speaker error": 2.6751880908437857
+          }
+        }
+      ],
+      "full": [
+        {
+          "collar": 0.0,
+          "der": {
+            "confusion": 7.887062500000004,
+            "correct": 39.66153125000001,
+            "diarization error rate": 0.5282614932005177,
+            "false alarm": 1.0176562500000017,
+            "missed detection": 34.369406250000004,
+            "total": 81.918
+          },
+          "jer": {
+            "jaccard error rate": 0.6101124565867961,
+            "speaker count": 4.0,
+            "speaker error": 2.4404498263471845
+          }
+        },
+        {
+          "collar": 0.25,
+          "der": {
+            "confusion": 6.239843750000004,
+            "correct": 30.458281249999995,
+            "diarization error rate": 0.5090071575660957,
+            "false alarm": 0.8926562500000017,
+            "missed detection": 23.517875000000018,
+            "total": 60.216000000000015
+          },
+          "jer": {
+            "jaccard error rate": 0.5994056256880718,
+            "speaker count": 4.0,
+            "speaker error": 2.397622502752287
+          }
+        }
+      ]
+    }
+  }
+}
