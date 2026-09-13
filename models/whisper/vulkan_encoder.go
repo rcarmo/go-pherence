@@ -66,6 +66,13 @@ func NewVulkanEncoderQ8MLPWeight(ctx context.Context, source *Encoder, frames in
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearQ8MLPWeight)
 }
 
+// NewVulkanEncoderQ8KVMLPWeight adds K/V projections to MLP-only Q8 while
+// retaining Q/O projections in F32. This broad selective placement preserves
+// strict timestamps on retained robustness gates and remains explicit/non-default.
+func NewVulkanEncoderQ8KVMLPWeight(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearQ8KVMLPWeight)
+}
+
 // Private plan-construction seam for fault injection and opt-in diagnostics.
 // The public constructor always uses NewVkF32Plan; no stages escape its owner.
 func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (*VulkanEncoder, error) {
@@ -88,13 +95,18 @@ const (
 	vulkanLinearF32RegTile
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
+	vulkanLinearQ8KVMLPWeight
 )
 
 func vulkanQ8WeightSelected(mode vulkanLinearMode, name string) bool {
 	if mode == vulkanLinearQ8Weight {
 		return true
 	}
-	return mode == vulkanLinearQ8MLPWeight && (strings.HasSuffix(name, ".fc1.w") || strings.HasSuffix(name, ".fc2.w"))
+	mlp := strings.HasSuffix(name, ".fc1.w") || strings.HasSuffix(name, ".fc2.w")
+	if mode == vulkanLinearQ8MLPWeight {
+		return mlp
+	}
+	return mode == vulkanLinearQ8KVMLPWeight && (mlp || strings.HasSuffix(name, ".k.w") || strings.HasSuffix(name, ".v.w"))
 }
 
 func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (result *VulkanEncoder, err error) {
@@ -112,7 +124,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 	weightSpecs := layout.weights
 	linearWeights := map[string]vkEncoderTensor{}
 	linearIndexes := map[string]int{}
-	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight {
+	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
 		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
@@ -172,7 +184,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.norm)
-	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight {
+	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
 		matrices := make([]vk.VkLinearQ8WeightMatrix, 0, len(linearWeights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {

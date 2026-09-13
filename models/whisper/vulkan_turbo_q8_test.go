@@ -143,19 +143,29 @@ func TestVulkanTurboQ8Robustness(t *testing.T) {
 	if err := mlp.Close(); err != nil {
 		t.Fatal(err)
 	}
+	kvmlp, err := NewVulkanEncoderQ8KVMLPWeight(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer kvmlp.Close()
+	kvmlpStats := kvmlp.Stats()
+	kvmlpQuantized, kvmlpNS := run("q8-kv-mlp", kvmlp)
+	if err := kvmlp.Close(); err != nil {
+		t.Fatal(err)
+	}
 	fullExact := true
 	for _, fixture := range fixtures {
-		bw, qw, mw := baseline[fixture.name], quantized[fixture.name], mlpQuantized[fixture.name]
-		q8Exact, mlpExact := reflect.DeepEqual(bw, qw), reflect.DeepEqual(bw, mw)
+		bw, qw, mw, kw := baseline[fixture.name], quantized[fixture.name], mlpQuantized[fixture.name], kvmlpQuantized[fixture.name]
+		q8Exact, mlpExact, kvmlpExact := reflect.DeepEqual(bw, qw), reflect.DeepEqual(bw, mw), reflect.DeepEqual(bw, kw)
 		fullExact = fullExact && q8Exact
-		if !mlpExact {
+		if !mlpExact || !kvmlpExact {
 			baselineJSON, _ := json.Marshal(bw)
-			mlpJSON, _ := json.Marshal(mw)
-			t.Fatalf("MLP Q8 robustness transcript changed %s\nf32=%s\nq8_mlp=%s", fixture.name, baselineJSON, mlpJSON)
+			candidateJSON, _ := json.Marshal(kw)
+			t.Fatalf("selective Q8 robustness transcript changed %s mlp=%t kvmlp=%t\nf32=%s\nq8_kv_mlp=%s", fixture.name, mlpExact, kvmlpExact, baselineJSON, candidateJSON)
 		}
 		wantWindows := int((fixture.samples + 479999) / 480000)
-		if len(qw) != wantWindows || len(mw) != wantWindows {
-			t.Fatal("robustness window count", fixture.name, len(qw), len(mw), wantWindows)
+		if len(qw) != wantWindows || len(mw) != wantWindows || len(kw) != wantWindows {
+			t.Fatal("robustness window count", fixture.name, len(qw), len(mw), len(kw), wantWindows)
 		}
 		text := func(windows []WindowTranscript) string {
 			value := ""
@@ -166,19 +176,20 @@ func TestVulkanTurboQ8Robustness(t *testing.T) {
 			}
 			return strings.TrimSpace(value)
 		}
-		q8Text, mlpText := text(qw), text(mw)
+		q8Text, mlpText, kvmlpText := text(qw), text(mw), text(kw)
 		q8Edits, words := speechFixtureWER(fixture.reference, q8Text)
 		mlpEdits, _ := speechFixtureWER(fixture.reference, mlpText)
-		if fixture.skip && fixture.reference == "" && (mlpText != "" || len(mw[0].Segments) != 0 || q8Text != "" || len(qw[0].Segments) != 0) {
+		kvmlpEdits, _ := speechFixtureWER(fixture.reference, kvmlpText)
+		if fixture.skip && fixture.reference == "" && (mlpText != "" || len(mw[0].Segments) != 0 || kvmlpText != "" || len(kw[0].Segments) != 0 || q8Text != "" || len(qw[0].Segments) != 0) {
 			t.Fatal("silence skip emitted output")
 		}
-		if fixture.name == "jfk-three-windows-63s" && (q8Edits != 0 || mlpEdits != 0 || words != 44 || len(qw[2].Segments) != 0 || len(mw[2].Segments) != 0) {
-			t.Fatal("multi-window content regression", q8Edits, mlpEdits, words)
+		if fixture.name == "jfk-three-windows-63s" && (q8Edits != 0 || mlpEdits != 0 || kvmlpEdits != 0 || words != 44 || len(qw[2].Segments) != 0 || len(mw[2].Segments) != 0 || len(kw[2].Segments) != 0) {
+			t.Fatal("multi-window content regression", q8Edits, mlpEdits, kvmlpEdits, words)
 		}
-		entry, _ := json.Marshal(map[string]any{"fixture": fixture.name, "skip_digital_silence": fixture.skip, "windows": len(qw), "full_q8_exact_tokens_timestamps": q8Exact, "mlp_q8_exact_tokens_timestamps": mlpExact, "full_q8_word_edits": q8Edits, "mlp_q8_word_edits": mlpEdits, "reference_words": words, "full_q8_text": q8Text, "mlp_q8_text": mlpText})
+		entry, _ := json.Marshal(map[string]any{"fixture": fixture.name, "skip_digital_silence": fixture.skip, "windows": len(qw), "full_q8_exact_tokens_timestamps": q8Exact, "mlp_q8_exact_tokens_timestamps": mlpExact, "kv_mlp_q8_exact_tokens_timestamps": kvmlpExact, "full_q8_word_edits": q8Edits, "mlp_q8_word_edits": mlpEdits, "kv_mlp_q8_word_edits": kvmlpEdits, "reference_words": words, "full_q8_text": q8Text, "mlp_q8_text": mlpText, "kv_mlp_q8_text": kvmlpText})
 		t.Log("TURBO_Q8_ROBUSTNESS " + string(entry))
 	}
-	result, _ := json.Marshal(map[string]any{"device": device, "fixtures": len(fixtures), "f32_ns": baseNS, "q8_all_ns": q8NS, "q8_mlp_ns": mlpNS, "q8_all_speedup": float64(baseNS) / float64(q8NS), "q8_mlp_speedup": float64(baseNS) / float64(mlpNS), "full_q8_all_exact": fullExact, "mlp_q8_all_exact": true, "full_q8_stats": fullStats, "mlp_q8_stats": mlpStats})
+	result, _ := json.Marshal(map[string]any{"device": device, "fixtures": len(fixtures), "f32_ns": baseNS, "q8_all_ns": q8NS, "q8_mlp_ns": mlpNS, "q8_kv_mlp_ns": kvmlpNS, "q8_all_speedup": float64(baseNS) / float64(q8NS), "q8_mlp_speedup": float64(baseNS) / float64(mlpNS), "q8_kv_mlp_speedup": float64(baseNS) / float64(kvmlpNS), "full_q8_all_exact": fullExact, "mlp_q8_all_exact": true, "kv_mlp_q8_all_exact": true, "full_q8_stats": fullStats, "mlp_q8_stats": mlpStats, "kv_mlp_q8_stats": kvmlpStats})
 	t.Log("TURBO_Q8_ROBUSTNESS_RESULT " + string(result))
 }
 

@@ -68,21 +68,22 @@ A separate 63-second composition places JFK speech at 2s and 42s, producing thre
 
 Full projection Q8 preserves all text/tokens and 0 WER, but changes one first-window timestamp boundary from `11.0s` to `11.2s`; it therefore fails the strict exact-output gate. Default silence remains exactly equal to F32 but both paths hallucinate “Thank you.”. The opt-in exact-zero skip remains empty and exact.
 
-The attention-only dequantised screen reproduced the timestamp change. MLP-only Q8 (FC1/FC2 packed; attention projections F32) preserves every token and timestamp on all three robustness fixtures. In the final run:
+Projection-family dequantised screens localize the timestamp shift to Q and O independently. K and V remain exact, as does MLP-only Q8. The broad selective packed candidate therefore quantises K/V/FC1/FC2 and retains Q/O in F32. It preserves every token and timestamp on all three robustness fixtures.
 
-| Path | Reported encoder weight bytes | Three-fixture time | Speedup |
-|---|---:|---:|---:|
-| F32 | 2,548,039,680 | 46.515s | 1.000× |
-| Full Q8 | 662,077,440 | 27.876s | 1.669× |
-| MLP-only Q8 | 1,290,567,680 | 33.795s | 1.376× |
+| Path | Reported encoder weight bytes | Three-fixture time | Speedup | Exact timestamps |
+|---|---:|---:|---:|---|
+| F32 | 2,548,039,680 | 46.456s | 1.000× | yes |
+| Full Q8 | 662,077,440 | 27.924s | 1.664× | no |
+| MLP-only Q8 | 1,290,567,680 | 33.791s | 1.375× | yes |
+| K+V+MLP Q8 | 976,322,560 | 30.790s | 1.509× | yes |
 
-The final robustness process used `5,741,972KiB` maximum RSS and zero process swaps; host `pswpout` did not change and `pswpin` increased by one page. Full-Q8 timestamp shift is retained as a hold, not hidden by a looser comparison.
+The final four-path robustness process used `5,805,996KiB` maximum RSS and zero process swaps. Full-Q8 timestamp shift is retained as a hold, not hidden by a looser comparison.
 
-Robustness log SHA-256: `b1285a073a29ffa1b882d2897d57bbf58e44ef4469abd96ada96aaac30b8ae79`. Time SHA-256: `5d5868eec92d88ba163c7305e3658dee567ae61c998436ac9af0063f7196bc4f`.
+Final robustness log SHA-256: `960ec87bf871eaf3d02ad003af07a58c488511241138fa8a80ab0c722266396d`. Time SHA-256: `3ea33d6081af337e88393ba774a59ca10319bc41b2db8ec97900564223a1b772`. The earlier full/MLP comparison remains retained for provenance.
 
 ## Decision
 
-Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit MLP-only Q8 passes the retained exact-output robustness gate at `1.376×` and is the conservative placement candidate. Neither changes serving/default selection. Natural noisy/long-form inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
+Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit K+V+MLP Q8 is the broadest retained exact-output candidate at `1.509×` and 61.7% lower reported encoder-weight storage. MLP-only Q8 remains a narrower exact comparison. None changes serving/default selection. Natural noisy/long-form inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
 
 ## Reproduce
 

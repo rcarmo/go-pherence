@@ -148,6 +148,11 @@ func TestVulkanEncoderQ8PlacementSelection(t *testing.T) {
 		{vulkanLinearQ8MLPWeight, "layer0.fc2.w", true},
 		{vulkanLinearQ8MLPWeight, "layer0.q.w", false},
 		{vulkanLinearQ8MLPWeight, "layer0.o.w", false},
+		{vulkanLinearQ8KVMLPWeight, "layer0.fc1.w", true},
+		{vulkanLinearQ8KVMLPWeight, "layer0.k.w", true},
+		{vulkanLinearQ8KVMLPWeight, "layer0.v.w", true},
+		{vulkanLinearQ8KVMLPWeight, "layer0.q.w", false},
+		{vulkanLinearQ8KVMLPWeight, "layer0.o.w", false},
 	} {
 		if got := vulkanQ8WeightSelected(tc.mode, tc.name); got != tc.want {
 			t.Fatal(tc, got)
