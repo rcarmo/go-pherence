@@ -53,7 +53,7 @@ Do not move codec ownership into go-pherence or wait for go-264 before developin
 
 ## Media contract and limits
 
-The [go-264 backend](go264-media.md) implements `media.Adapter` for the qualified PCM-WAV/progressive AAC-LC subset and is the explicit media choice in the shipped speech-job examples. FFmpeg remains an explicit rollback profile. The provider is publicly fetchable at `v0.0.0-20260913161458-9ed3d408e05d`, verified through the public Go checksum database, with no committed local replacement. Its `ProbeMetadata` contract keeps pre-trim and edited AAC extents distinct. The server requires `profile.media_backend` so existing checkpoint identities never silently change.
+The [go-264 backend](go264-media.md) implements `media.Adapter` for the qualified PCM-WAV/progressive AAC-LC subset and is the explicit media choice in the shipped speech-job examples. FFmpeg remains an explicit rollback profile. The provider is publicly fetchable at `v0.0.0-20260913172724-2db88745d0e5`, verified through the public Go checksum database, with no committed local replacement. Its `ProbeMetadata` contract keeps pre-trim and edited AAC extents distinct. The server requires `profile.media_backend` so existing checkpoint identities never silently change.
 
 `NewFFmpeg` requires configured executable paths. Zero limits receive defaults; negative limits and durations above four hours are rejected. Default input limit is 512 MiB; canonical output is bounded by four hours of s16 mono samples plus header allowance. Probe output and retained stderr are bounded; errors do not echo subprocess payloads.
 

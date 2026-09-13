@@ -1,6 +1,6 @@
 # Optional go-264 media backend
 
-`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260913161458-9ed3d408e05d`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `speechjobserve` now requires an explicit `profile.media_backend`: `go264` is the shipped pure-Go profile choice and `ffmpeg` remains an explicit rollback. There is no native codec or subprocess inside the go-264 backend.
+`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260913172724-2db88745d0e5`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `speechjobserve` now requires an explicit `profile.media_backend`: `go264` is the shipped pure-Go profile choice and `ffmpeg` remains an explicit rollback. There is no native codec or subprocess inside the go-264 backend.
 
 ## Import and use
 
@@ -30,7 +30,7 @@ For direct decoder/resampler access without go-pherence, import `github.com/rcar
 ## Contract
 
 - Same caller-owned immutable local regular-file/private-directory policy and supported filename/signature checks as the current adapter.
-- PCM WAV and a narrow progressive AAC-LC MP4/M4A/MOV subset; no μ-law/float/extensible WAV, HE-AAC, encrypted/fragmented media, correlated PNS, fractional edits or unqualified tools. Unsupported data returns `ErrUnsupportedInput`.
+- PCM WAV and a narrow progressive AAC-LC MP4/M4A/MOV subset, including qualified common-window masked stereo PNS; no μ-law/float/extensible WAV, HE-AAC, encrypted/fragmented media, fractional edits or unqualified tools. Unsupported data returns `ErrUnsupportedInput`.
 - Canonical output is16kHz mono signed16-bit WAV. Actual `DecodeResult.Timeline.Samples` counts emitted frames; probe metadata is structural and does not certify payload validity.
 - Input retained; mode0600 same-directory temporary output; strict frame/byte validation and atomic no-clobber publication. Cancellation and non-EOF decode failure remove the temporary artifact. Final context is checked before publication. A syscall already running is not forcibly interruptible.
 - Publication has atomic visibility, not fsync/power-loss durability. The separate go-264 PCM segment store is available to a future job layer; it is not silently substituted here.

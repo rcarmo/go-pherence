@@ -9,7 +9,7 @@ The audited baseline passes the supported Linux model-free release checks and th
 - Physical device: `Intel(R) Iris(R) Xe Graphics (RPL-P)` through `/usr/share/vulkan/icd.d/intel_icd.x86_64.json`.
 - `GO_PHERENCE_DISABLE_NVIDIA=1`, `GOMAXPROCS=2`, `CGO_ENABLED=0`.
 - Model assets: pinned Whisper Tiny `169d4a4`, Turbo `41f01f3`, and Community-1 `3533c8` conversions.
-- Media during the baseline qualification: FFmpeg 8.1.2. The supplemental P8 qualification pins pure-Go `github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d`. The MINDS-14 rows were restored from the pinned `40ce77c…` dataset-viewer records and checked against committed hashes.
+- Media during the baseline qualification: FFmpeg 8.1.2. The supplemental P8 qualification now pins pure-Go `github.com/rcarmo/go-264@v0.0.0-20260913172724-2db88745d0e5`; this includes the earlier `ProbeMetadata` repair and qualified common-window masked stereo PNS. The MINDS-14 rows were restored from the pinned `40ce77c…` dataset-viewer records and checked against committed hashes.
 - The three speech/LLM user services stayed inactive. Every timed process reports zero swaps. No process remained after the native runs.
 - The host exposes no thermal-zone or RAPL energy counters to this session. GPU frequency and host memory/swap were sampled at 250 ms; those samples are diagnostic, not energy evidence.
 
@@ -75,7 +75,7 @@ These failures prevent calling Community-1 graph fidelity qualified, even though
 | P5 Community acceleration | Partial/failed target | Vulkan convolution/LSTM and Plan 9 SincNet are measured and preserve final output. The 13.33 s speaker run misses the ≤2.1 s historical target. |
 | P6 integrated service | Partial | Durable queue, recovery, HTTP/CLI/UI, explicit Vulkan profiles and model-free lifecycle tests pass. The trained combined server path, general word alignment, long-file Community resume and host-wide resource coordination are not qualified. |
 | P7 performance qualification | Failed/incomplete | No comparable ≥5× complete-pipeline result, no authorised private long-file run, no broad long/multilingual corpus, and no energy/thermal measurement. The only Community timing misses its target. |
-| P8 pure-Go media replacement | Pass for declared subset | Provider timing API `ProbeMetadata` corrected the consumer's pre-trim/edited-extent misuse. Schema 2 requires an explicit backend; shipped profiles select the pinned pure-Go WAV/progressive AAC-LC provider, while FFmpeg remains explicit rollback. All six public WAV/AAC arms, durable resume/cancellation, profile-to-VTT, amd64 race/oracles and native ARM64 default/pure-Go/vet/NEON gates pass. Correlated PNS and undeclared containers remain fail-closed. See `../go264-default-promotion-20260913/README.md` and provider Actions run 34768016963. |
+| P8 pure-Go media replacement | Pass for declared subset | Provider timing API `ProbeMetadata` corrected the consumer's pre-trim/edited-extent misuse. Schema 2 requires an explicit backend; shipped profiles select the pinned pure-Go WAV/progressive AAC-LC provider, while FFmpeg remains explicit rollback. All six consumer WAV/AAC arms and durable resume/cancellation/profile-to-VTT gates pass. Provider CI run 34771655148 adds a second 8-case FFmpeg matrix, qualified common-window masked stereo PNS, and native ARM64 race coverage. Undeclared containers/codecs remain fail-closed. See `../go264-default-promotion-20260913/README.md`. |
 
 ## Release decision
 
