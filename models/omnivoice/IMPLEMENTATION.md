@@ -486,3 +486,41 @@ It was not enabled. Representative projection benchmarks remain in the test suit
 Backend discovery now lists scalar fallback categories and whether approximate
 nonlinear SIMD is active. The full graph is not SIMD-only; Vulkan still has no
 native OmniVoice dispatch. See [PROFILING.md](PROFILING.md) for experiment results.
+
+## Post-optimisation speech validation (2026-09-13)
+
+The four-chunk paragraph was regenerated with the current kernels and the same
+cached preprocessed reference, eight steps per chunk, 100-frame cap, five-ms
+boundary fades and 100-ms gaps. It produced 13.42 seconds in 341.48 seconds.
+Compared with the pre-nonlinear-optimisation long baseline, exactly 307 of 322,080
+PCM16 samples differ, each by one integer step. No samples are clipped. External
+Azure Speech recognition recovered the entire five-sentence paragraph exactly.
+The run is not a demonstrated speedup over the earlier 335.17-second measurement.
+
+A Portuguese sample used language `pt`, the same English reference/transcript,
+eight steps and a 125-frame target with output post-processing:
+
+> A evidência é insuficiente, capitão. Precisamos de investigar.
+
+It produced 4.13 seconds in 114.22 seconds. No samples are clipped. Azure Speech
+with `pt-PT` recovered the expected words, replacing the sentence break with a
+comma. This tests one accented Portuguese sentence and cross-language reference
+conditioning. It does not establish coverage for all supported languages or
+regional pronunciation quality.
+
+Validation artifacts (private local files, not distributed with source):
+
+- `/workspace/tmp/omnivoice-long-optimized-v13.json`
+- `/workspace/tmp/synthetic-spock-long-optimized-v13.wav`
+- `/workspace/tmp/omnivoice-portuguese-v1.json`
+- `/workspace/tmp/synthetic-spock-portuguese-v1.wav`
+- `/workspace/tmp/omnivoice-quality-validation.json`
+- `/workspace/tmp/omnivoice-quality-long-asr.json`
+- `/workspace/tmp/omnivoice-quality-portuguese-asr.json`
+
+Both synthetic WAVs were delivered for user listening review. Voice similarity,
+Portuguese pronunciation and long-chunk transitions still require listening
+acceptance. Assistant integration remains out of scope until that review. Current
+performance is slower than real time, Vulkan inference is unimplemented, and
+scalar range/architecture fallbacks remain. The measured optimisation round is
+complete; subjective quality acceptance is not.

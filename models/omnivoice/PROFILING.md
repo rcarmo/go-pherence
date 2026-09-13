@@ -427,3 +427,18 @@ Artifact: `/workspace/tmp/omnivoice-capabilities-audit.json`.
 
 No inference kernel was changed in this audit stage. Runtime/model tests, race,
 no-CGo, CPU-feature-disabled reporting and ARM64 CLI cross-builds pass.
+
+## Long and Portuguese end-to-end checks (2026-09-13)
+
+| Sample | Audio | Command time | Real-time factor | Clipped PCM16 samples |
+| --- | ---: | ---: | ---: | ---: |
+| English, four chunks | 13.42 s | 341.48 s | 25.4× | 0 |
+| Portuguese, one utterance | 4.13 s | 114.22 s | 27.7× | 0 |
+
+Both runs use cached reference codes and eight steps; reference encoding is not
+included in these timings. English chunk times were 78.02, 77.51, 84.08 and 101.33
+seconds. The English waveform differs from the prior long baseline by one PCM16
+step at 307 positions out of 322,080; RMS delta is 0.03087 integer units. Whole-run
+throughput did not improve conclusively. ASR recovered the expected words in
+English and Portuguese; listening quality remains unaccepted. See
+[IMPLEMENTATION.md](IMPLEMENTATION.md) for settings, evidence and artifact paths.
