@@ -1,6 +1,8 @@
 # Vulkan Q8 linear weights — 13 September 2026
 
-The standalone per-row Q8 weight operator reduces the tested projection storage by about 75% and passes native Iris Xe kernel-parity gates. It is slightly slower than the F32 operator and has measurable weight-quantisation error, so no model graph or default selects it.
+> Historical first implementation. The later [register-tiled Q8 checkpoint](../vulkan-linear-q8-regtile-20260913/README.md) preserves this format, passes the same scoped numerical contract and measures faster than both F32 kernels. The measurements below remain the evidence for the original 16×16 shader.
+
+The standalone per-row Q8 weight operator reduces the tested projection storage by about 75% and passes native Iris Xe kernel-parity gates. This first shader is slightly slower than the F32 operator and has measurable weight-quantisation error, so no model graph or default selects it.
 
 ## Format
 

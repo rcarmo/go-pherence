@@ -184,7 +184,7 @@ func (op *VkLinearQ8WeightF32) Forward(ctx context.Context, out, x, bias *VkTens
 			return fmt.Errorf("Vulkan LinearQ8WeightF32: output overlaps input")
 		}
 	}
-	groups := [3]uint32{(uint32(op.outDim) + 15) / 16, (uint32(rows) + 15) / 16, 1}
+	groups := [3]uint32{(uint32(op.outDim) + 31) / 32, (uint32(rows) + 31) / 32, 1}
 	push := []uint32{uint32(rows), uint32(op.inDim), uint32(op.outDim)}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], 1, bindings, unsafePushWords(push)); err != nil {
 		return err

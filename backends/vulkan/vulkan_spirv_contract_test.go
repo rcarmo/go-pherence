@@ -44,11 +44,11 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 				want.LocalSize = [3]uint32{16, 16, 1}
 				want.SharedBytes = 9408
 			}
-			if name == "linear_regtile" {
+			if name == "linear_regtile" || name == "linear_q8_weight" {
 				want.LocalSize = [3]uint32{16, 16, 1}
 				want.SharedBytes = 8192
 			}
-			if name == "linear_f16_weight" || name == "linear_q8_weight" || name == "linear" || name == "conv1d3" || name == "conv2d_chw" {
+			if name == "linear_f16_weight" || name == "linear" || name == "conv1d3" || name == "conv2d_chw" {
 				want.LocalSize = [3]uint32{16, 16, 1}
 				want.SharedBytes = 2048
 			}

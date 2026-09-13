@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -21,6 +22,52 @@ func unpackLinearQ8Weights(packed []uint32, scales []float32, outDim, inDim int)
 		}
 	}
 	return out
+}
+
+func linearQ8RegTileModel(t *testing.T, x []float32, packed []uint32, scales, bias []float32, m, k, n int, seed int64) ([]float32, []int) {
+	t.Helper()
+	out, writers := make([]float32, m*n), make([]int, m*n)
+	groupsX, groupsY := (n+31)/32, (m+31)/32
+	rng := rand.New(rand.NewSource(seed))
+	for _, group := range rng.Perm(groupsX * groupsY) {
+		rowBase, colBase := (group/groupsX)*32, (group%groupsX)*32
+		var sums [256][4]float32
+		for base := 0; base < k; base += 32 {
+			var xt, wt [1024]float32
+			for i := 0; i < 1024; i++ {
+				r, kk := i/32, base+i%32
+				if kk < k && rowBase+r < m {
+					xt[i] = x[(rowBase+r)*k+kk]
+				}
+				if kk < k && colBase+r < n {
+					index := (colBase+r)*k + kk
+					wt[i] = float32(int8(uint8(packed[index/4] >> (8 * uint(index&3)))))
+				}
+			}
+			for _, lane := range rng.Perm(256) {
+				cx, ry := lane%16, lane/16
+				for kk := 0; kk < 32; kk++ {
+					a0, a1 := xt[ry*32+kk], xt[(ry+16)*32+kk]
+					b0, b1 := wt[cx*32+kk], wt[(cx+16)*32+kk]
+					sums[lane][0] += a0 * b0
+					sums[lane][1] += a0 * b1
+					sums[lane][2] += a1 * b0
+					sums[lane][3] += a1 * b1
+				}
+			}
+		}
+		for lane := 0; lane < 256; lane++ {
+			cx, ry := lane%16, lane/16
+			for q := 0; q < 4; q++ {
+				r, c := rowBase+ry+(q/2)*16, colBase+cx+(q%2)*16
+				if r < m && c < n {
+					out[r*n+c] = sums[lane][q]*scales[c] + bias[c]
+					writers[r*n+c]++
+				}
+			}
+		}
+	}
+	return out, writers
 }
 
 func TestVulkanOfflineLinearQ8WeightPackingAndModel(t *testing.T) {
@@ -73,18 +120,22 @@ func TestVulkanOfflineLinearQ8WeightPackingAndModel(t *testing.T) {
 			t.Fatal("invalid pack", bad)
 		}
 	}
-	m, k, n := 3, 65, 17
-	x, weight, bias := nativeData(m*k, 101, .5), nativeData(n*k, 102, .5), nativeData(n, 103, .1)
-	packed, scales, err = packLinearQ8Weights(weight, n, k)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dequant := unpackLinearQ8Weights(packed, scales, n, k)
-	got, writers := linearTileModel(x, dequant, bias, m, k, n, 7)
-	want := nativeLinearRef(x, dequant, bias, m, k, n)
-	for i, v := range got {
-		if writers[i] != 1 || math.Abs(float64(v)-want[i]) > 2e-5+2e-5*math.Abs(want[i]) {
-			t.Fatal("source model", i, v, want[i], writers[i])
+	for _, dims := range [][3]int{{1, 1, 1}, {2, 3, 5}, {15, 16, 17}, {17, 31, 19}, {33, 65, 63}, {3, 384, 9}, {2, 1280, 7}} {
+		m, k, n := dims[0], dims[1], dims[2]
+		x, weight, bias := nativeData(m*k, 101, .5), nativeData(n*k, 102, .5), nativeData(n, 103, .1)
+		packed, scales, err = packLinearQ8Weights(weight, n, k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dequant := unpackLinearQ8Weights(packed, scales, n, k)
+		want := nativeLinearRef(x, dequant, bias, m, k, n)
+		for seed := int64(0); seed < 4; seed++ {
+			got, writers := linearQ8RegTileModel(t, x, packed, scales, bias, m, k, n, seed)
+			for i, v := range got {
+				if writers[i] != 1 || math.Abs(float64(v)-want[i]) > 2e-5+2e-5*math.Abs(want[i]) {
+					t.Fatal("source model", dims, seed, i, v, want[i], writers[i])
+				}
+			}
 		}
 	}
 }
@@ -157,7 +208,7 @@ func TestVulkanOfflineLinearQ8WeightBindingsAndLifetime(t *testing.T) {
 
 func TestVulkanOfflineLinearQ8WeightAdmissionAndContract(t *testing.T) {
 	contract, err := InspectVulkanShader(spirv_linear_q8_weight_f32)
-	if err != nil || contract != (VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 2048, StorageBindings: 31, PushBytes: 12}) {
+	if err != nil || contract != (VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 8192, StorageBindings: 31, PushBytes: 12}) {
 		t.Fatal(contract, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

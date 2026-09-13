@@ -81,77 +81,101 @@ func TestVulkanNativeLinearQ8Weight(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_VULKAN_LINEAR_Q8_TIMING") != "1" {
 		return
 	}
-	m, k, n := 1500, 1280, 1280
-	x, weight, bias := nativeData(m*k, 121, .125), nativeData(n*k, 122, .05), nativeData(n, 123, .125)
-	packed, scales, err := packLinearQ8Weights(weight, n, k)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dequant := unpackLinearQ8Weights(packed, scales, n, k)
-	candidate, err := NewVkLinearQ8WeightF32(context.Background(), weight, n, k)
-	if err != nil {
-		t.Fatal(err)
-	}
-	baseline, err := NewVkLinearF32(context.Background())
-	if err != nil {
-		candidate.Close()
-		t.Fatal(err)
-	}
-	a, err := NewVkTensorArena(context.Background(), 32<<20)
-	if err != nil {
-		candidate.Close()
-		baseline.Close()
-		t.Fatal(err)
-	}
-	tx, tw, tb := nativeTensor(t, a, x, m, k), nativeTensor(t, a, dequant, n, k), nativeTensor(t, a, bias, n)
-	out := nativeTensor(t, a, nil, m, n)
-	run := func(name string) int64 {
-		start := time.Now()
-		var err error
-		if name == "q8_weight" {
-			err = candidate.Forward(context.Background(), out, tx, tb)
-		} else {
-			err = baseline.Forward(context.Background(), out, tx, tw, tb)
-		}
+	for _, dims := range [][3]int{{1500, 1280, 1280}, {1500, 1280, 5120}, {1500, 5120, 1280}} {
+		m, k, n := dims[0], dims[1], dims[2]
+		x, weight, bias := nativeData(m*k, 121, .125), nativeData(n*k, 122, .05), nativeData(n, 123, .125)
+		packed, scales, err := packLinearQ8Weights(weight, n, k)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return time.Since(start).Nanoseconds()
-	}
-	run("f32")
-	reference := nativeDownload(t, out)
-	run("q8_weight")
-	got := nativeDownload(t, out)
-	maxAbs := 0.0
-	for i, v := range got {
-		d := math.Abs(float64(v) - float64(reference[i]))
-		maxAbs = math.Max(maxAbs, d)
-		if d > 2e-5+2e-5*math.Abs(float64(reference[i])) {
-			t.Fatal("Q8/F32 dequant-weight mismatch", i, v, reference[i])
+		dequant := unpackLinearQ8Weights(packed, scales, n, k)
+		candidate, err := NewVkLinearQ8WeightF32(context.Background(), weight, n, k)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	samples := map[string][]int64{"f32": {}, "q8_weight": {}}
-	for block := 0; block < 3; block++ {
-		order := []string{"f32", "q8_weight", "q8_weight", "f32"}
-		if block&1 != 0 {
-			order = []string{"q8_weight", "f32", "f32", "q8_weight"}
+		baseline, err := NewVkLinearF32(context.Background())
+		if err != nil {
+			candidate.Close()
+			t.Fatal(err)
 		}
-		for _, name := range order {
-			samples[name] = append(samples[name], run(name))
+		regtile, err := NewVkLinearRegTileF32(context.Background())
+		if err != nil {
+			candidate.Close()
+			baseline.Close()
+			t.Fatal(err)
 		}
-	}
-	medians := map[string]int64{}
-	for name, values := range samples {
-		sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
-		medians[name] = (values[2] + values[3]) / 2
-	}
-	record, _ := json.Marshal(map[string]any{"device": device, "shape": []int{m, k, n}, "f32_weight_bytes": len(weight) * 4, "q8_storage_bytes": candidate.storage.size, "median_ns": medians, "speedup": float64(medians["f32"]) / float64(medians["q8_weight"]), "max_dequant_f32_baseline_abs": maxAbs, "gpu_timestamps": false})
-	t.Log("Q8_WEIGHT_TIMING " + string(record))
-	candidate.Close()
-	baseline.Close()
-	a.Close()
-	final := VulkanMemoryStats()
-	if final.Bytes != before.Bytes || final.Allocations != before.Allocations {
-		t.Fatal("timed Q8 leak", before, final)
+		a, err := NewVkTensorArena(context.Background(), 96<<20)
+		if err != nil {
+			candidate.Close()
+			baseline.Close()
+			regtile.Close()
+			t.Fatal(err)
+		}
+		tx, tw, tb := nativeTensor(t, a, x, m, k), nativeTensor(t, a, dequant, n, k), nativeTensor(t, a, bias, n)
+		out := nativeTensor(t, a, nil, m, n)
+		run := func(name string) int64 {
+			start := time.Now()
+			var err error
+			switch name {
+			case "q8_weight":
+				err = candidate.Forward(context.Background(), out, tx, tb)
+			case "f32_regtile":
+				err = regtile.Forward(context.Background(), out, tx, tw, tb)
+			default:
+				err = baseline.Forward(context.Background(), out, tx, tw, tb)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			return time.Since(start).Nanoseconds()
+		}
+		run("f32")
+		reference := nativeDownload(t, out)
+		maxAbs := map[string]float64{}
+		for _, name := range []string{"f32_regtile", "q8_weight"} {
+			run(name)
+			got := nativeDownload(t, out)
+			for i, v := range got {
+				d := math.Abs(float64(v) - float64(reference[i]))
+				maxAbs[name] = math.Max(maxAbs[name], d)
+				if d > 2e-5+2e-5*math.Abs(float64(reference[i])) {
+					t.Fatal(name+"/F32 dequant-weight mismatch", dims, i, v, reference[i])
+				}
+			}
+		}
+		samples := map[string][]int64{"f32": {}, "f32_regtile": {}, "q8_weight": {}}
+		orders := [][]string{
+			{"f32", "f32_regtile", "q8_weight", "q8_weight", "f32_regtile", "f32"},
+			{"q8_weight", "f32_regtile", "f32", "f32", "f32_regtile", "q8_weight"},
+			{"f32_regtile", "q8_weight", "f32", "f32", "q8_weight", "f32_regtile"},
+			{"f32", "q8_weight", "f32_regtile", "f32_regtile", "q8_weight", "f32"},
+		}
+		for _, order := range orders {
+			for _, name := range order {
+				samples[name] = append(samples[name], run(name))
+			}
+		}
+		medians := map[string]int64{}
+		for name, values := range samples {
+			sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
+			medians[name] = (values[3] + values[4]) / 2
+		}
+		record, _ := json.Marshal(map[string]any{
+			"device": device, "shape": dims, "f32_weight_bytes": len(weight) * 4,
+			"q8_storage_bytes": candidate.storage.size, "median_ns": medians,
+			"q8_vs_f32":                    float64(medians["f32"]) / float64(medians["q8_weight"]),
+			"q8_vs_f32_regtile":            float64(medians["f32_regtile"]) / float64(medians["q8_weight"]),
+			"f32_regtile_vs_f32":           float64(medians["f32"]) / float64(medians["f32_regtile"]),
+			"max_dequant_f32_baseline_abs": maxAbs, "gpu_timestamps": false,
+		})
+		t.Log("Q8_WEIGHT_TIMING " + string(record))
+		candidate.Close()
+		baseline.Close()
+		regtile.Close()
+		a.Close()
+		final := VulkanMemoryStats()
+		if final.Bytes != before.Bytes || final.Allocations != before.Allocations {
+			t.Fatal("timed Q8 leak", dims, before, final)
+		}
 	}
 }
