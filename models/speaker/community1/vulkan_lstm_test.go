@@ -27,12 +27,14 @@ func TestVulkanLSTMLayout(t *testing.T) {
 		}
 		defined := map[string]bool{layout.inputName: true}
 		shapes := map[string][]int{}
+		data := map[string][]float32{}
 		for _, tensor := range layout.weights {
 			if defined[tensor.name] {
 				t.Fatal("duplicate Vulkan LSTM weight")
 			}
 			defined[tensor.name] = true
 			shapes[tensor.name] = tensor.shape
+			data[tensor.name] = tensor.data
 		}
 		for _, tensor := range layout.scratch {
 			shapes[tensor.name] = tensor.shape
@@ -42,6 +44,20 @@ func TestVulkanLSTMLayout(t *testing.T) {
 				t.Fatal("Vulkan LSTM directions", layer)
 			}
 			for direction, step := range plan {
+				weights := model.layers[layer].Forward
+				if direction == 1 {
+					weights = model.layers[layer].Reverse
+				}
+				for name, source := range map[string][]float32{step.weightIH: weights.WeightIH, step.weightHH: weights.WeightHH} {
+					rows, columns := shapes[name][0], shapes[name][1]
+					for row := 0; row < rows; row++ {
+						for column := 0; column < columns; column++ {
+							if data[name][column*rows+row] != source[row*columns+column] {
+								t.Fatal("Vulkan LSTM packed weight", layer, direction, name, row, column)
+							}
+						}
+					}
+				}
 				for _, name := range []string{step.input, step.weightIH, step.weightHH, step.biasIH, step.biasHH, step.hidden, step.cell} {
 					if !defined[name] && shapes[name] == nil {
 						t.Fatal("Vulkan LSTM read before definition", layer, direction, name)

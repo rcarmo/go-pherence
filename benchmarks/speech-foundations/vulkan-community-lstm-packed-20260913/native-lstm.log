@@ -1,0 +1,9 @@
+=== RUN   TestVulkanCommunityNative
+=== RUN   TestVulkanCommunityNative/lstm
+    vulkan_native_test.go:180: lstm-output values=42 max_abs=5.21540641784668e-08
+    vulkan_native_test.go:181: lstm-hidden values=12 max_abs=2.9802322387695312e-08
+    vulkan_native_test.go:182: lstm-cell values=12 max_abs=7.450580596923828e-08
+--- PASS: TestVulkanCommunityNative (0.04s)
+    --- PASS: TestVulkanCommunityNative/lstm (0.02s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.057s

@@ -15,10 +15,13 @@ layout(push_constant) uniform P {
     uint outputWidth;
     uint outputOffset;
     uint reverse;
+    uint packedWeights;
 };
 
 // Complete one-direction PyTorch-IFGO recurrence. One workgroup owns a sequence;
 // hidden<=256. Distinct input/hidden projections and biases preserve composition.
+// Packed weights retain the declared [rows,columns] shape but store columns first,
+// so adjacent lanes read adjacent rows while each lane preserves its column order.
 shared float previous_hidden[256];
 float stable_sigmoid(float value) {
     if (value >= 0.0) return 1.0 / (1.0 + exp(-value));
@@ -54,17 +57,21 @@ void main() {
             uint inputBase=frame*inputDim;
             for (uint k=0;k<inputDim;k++) {
                 float v=input_data[inputBase+k];
-                ii+=v*weight_ih[r0*inputDim+k];
-                fi+=v*weight_ih[r1*inputDim+k];
-                gi+=v*weight_ih[r2*inputDim+k];
-                oi+=v*weight_ih[r3*inputDim+k];
+                uint b=packedWeights!=0 ? k*(4*hidden) : k;
+                uint s=packedWeights!=0 ? 1 : inputDim;
+                ii+=v*weight_ih[b+r0*s];
+                fi+=v*weight_ih[b+r1*s];
+                gi+=v*weight_ih[b+r2*s];
+                oi+=v*weight_ih[b+r3*s];
             }
             for (uint k=0;k<hidden;k++) {
                 float v=previous_hidden[k];
-                ih+=v*weight_hh[r0*hidden+k];
-                fh+=v*weight_hh[r1*hidden+k];
-                gh+=v*weight_hh[r2*hidden+k];
-                oh+=v*weight_hh[r3*hidden+k];
+                uint b=packedWeights!=0 ? k*(4*hidden) : k;
+                uint s=packedWeights!=0 ? 1 : hidden;
+                ih+=v*weight_hh[b+r0*s];
+                fh+=v*weight_hh[b+r1*s];
+                gh+=v*weight_hh[b+r2*s];
+                oh+=v*weight_hh[b+r3*s];
             }
             ii=(ii+bias_ih[r0])+(ih+bias_hh[r0]);
             fi=(fi+bias_ih[r1])+(fh+bias_hh[r1]);

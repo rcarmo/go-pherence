@@ -1,0 +1,6 @@
+=== RUN   TestVulkanCommunity1TrainedDiarization
+    vulkan_trained_diarization_test.go:34: TRAINED_PLDA condition=56.00115466461734 residual=1.7763568394002505e-15
+    vulkan_trained_diarization_test.go:66: TRAINED_VULKAN_DIARIZATION device="Intel(R) Iris(R) Xe Graphics (RPL-P)" construct=35.957456ms run=21.463589946s close=643.307µs live_bytes=87219248 live_allocations=2
+--- PASS: TestVulkanCommunity1TrainedDiarization (21.68s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	21.705s

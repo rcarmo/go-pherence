@@ -17,7 +17,7 @@ func NewVkLSTMSequenceF32(ctx context.Context) (*VkLSTMSequenceF32, error) {
 		return nil, err
 	}
 	defer vkRelease()
-	kernel, err := vkKernelCreateLocked(spirv_lstm_sequence_f32, 8, 24)
+	kernel, err := vkKernelCreateLocked(spirv_lstm_sequence_f32, 8, 28)
 	if err != nil {
 		return nil, err
 	}
@@ -32,14 +32,21 @@ func (op *VkLSTMSequenceF32) Close() error {
 }
 
 func (op *VkLSTMSequenceF32) Stage(ctx context.Context, output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell *VkTensorF32, outputOffset int, reverse bool) (VkF32Stage, error) {
+	return op.StagePacked(ctx, output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell, outputOffset, reverse, false)
+}
+
+// StagePacked records the sequence with either ordinary row-major weights or
+// column-major packed weights. Packed storage keeps adjacent output rows
+// contiguous without changing any lane's reduction order.
+func (op *VkLSTMSequenceF32) StagePacked(ctx context.Context, output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell *VkTensorF32, outputOffset int, reverse, packedWeights bool) (VkF32Stage, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return VkF32Stage{}, err
 	}
 	defer vkRelease()
-	return op.stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell, outputOffset, reverse)
+	return op.stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell, outputOffset, reverse, packedWeights)
 }
 
-func (op *VkLSTMSequenceF32) stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell *VkTensorF32, outputOffset int, reverse bool) (VkF32Stage, error) {
+func (op *VkLSTMSequenceF32) stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell *VkTensorF32, outputOffset int, reverse, packedWeights bool) (VkF32Stage, error) {
 	fail := func(reason string) (VkF32Stage, error) {
 		return VkF32Stage{}, fmt.Errorf("Vulkan LSTMSequenceF32: %s", reason)
 	}
@@ -103,7 +110,11 @@ func (op *VkLSTMSequenceF32) stageLocked(output, input, weightIH, weightHH, bias
 	if reverse {
 		flag = 1
 	}
-	push := []uint32{uint32(frames), uint32(inputDim), uint32(hiddenSize), uint32(outputWidth), uint32(outputOffset), flag}
+	packed := uint32(0)
+	if packedWeights {
+		packed = 1
+	}
+	push := []uint32{uint32(frames), uint32(inputDim), uint32(hiddenSize), uint32(outputWidth), uint32(outputOffset), flag, packed}
 	if err := op.kernel.validateBindingsLocked(1, 1, 1, bindings, unsafePushWords(push)); err != nil {
 		return VkF32Stage{}, err
 	}
@@ -115,7 +126,7 @@ func (op *VkLSTMSequenceF32) Forward(ctx context.Context, output, input, weightI
 		return err
 	}
 	defer vkRelease()
-	stage, err := op.stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell, outputOffset, reverse)
+	stage, err := op.stageLocked(output, input, weightIH, weightHH, biasIH, biasHH, hidden, cell, outputOffset, reverse, false)
 	if err != nil {
 		return err
 	}

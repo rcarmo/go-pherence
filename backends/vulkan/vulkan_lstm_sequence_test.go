@@ -78,7 +78,7 @@ func TestVulkanOfflineLSTMSequenceNumerics(t *testing.T) {
 func TestVulkanOfflineLSTMSequenceBindingsAndAdmission(t *testing.T) {
 	_, kernel, _ := newLifetimeMock(t)
 	mockAttentionMemory(t)
-	kernel.numBuffers, kernel.pushSize = 8, 24
+	kernel.numBuffers, kernel.pushSize = 8, 28
 	op := &VkLSTMSequenceF32{kernel: kernel}
 	arena := mustArena(t, 2048)
 	input := mustTensor(t, arena, 3, 2)
@@ -90,21 +90,25 @@ func TestVulkanOfflineLSTMSequenceBindingsAndAdmission(t *testing.T) {
 	var push []uint32
 	var groups [3]uint32
 	mockVK(t, &vkCmdPushConstants, func(_ VkCommandBuffer, _ VkPipelineLayout, _ uint32, offset, size uint32, p unsafe.Pointer) {
-		if offset != 0 || size != 24 {
+		if offset != 0 || size != 28 {
 			t.Fatal("LSTM sequence push ABI")
 		}
-		push = append([]uint32(nil), unsafe.Slice((*uint32)(p), 6)...)
+		push = append([]uint32(nil), unsafe.Slice((*uint32)(p), 7)...)
 	})
 	mockVK(t, &vkCmdDispatch, func(_ VkCommandBuffer, x, y, z uint32) { groups = [3]uint32{x, y, z} })
 	if err := op.Forward(context.Background(), output, input, wih, whh, bih, bhh, hidden, cell, 3, true); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(push, []uint32{3, 2, 3, 6, 3, 1}) || groups != ([3]uint32{1, 1, 1}) {
+	if !reflect.DeepEqual(push, []uint32{3, 2, 3, 6, 3, 1, 0}) || groups != ([3]uint32{1, 1, 1}) {
 		t.Fatal(push, groups)
 	}
 	stage, err := op.Stage(context.Background(), output, input, wih, whh, bih, bhh, hidden, cell, 0, false)
-	if err != nil || stage.PushWords[5] != 0 || len(stage.Tensors) != 8 {
+	if err != nil || stage.PushWords[5] != 0 || stage.PushWords[6] != 0 || len(stage.Tensors) != 8 {
 		t.Fatal("forward stage", stage, err)
+	}
+	stage, err = op.StagePacked(context.Background(), output, input, wih, whh, bih, bhh, hidden, cell, 0, false, true)
+	if err != nil || stage.PushWords[6] != 1 {
+		t.Fatal("packed stage", stage, err)
 	}
 	for slot := 0; slot < 8; slot++ {
 		args := []*VkTensorF32{output, input, wih, whh, bih, bhh, hidden, cell}
@@ -150,7 +154,7 @@ func TestVulkanOfflineLSTMSequencePlanAndContract(t *testing.T) {
 	oldArena.Close()
 	mockAttentionMemory(t)
 	arena := mustArena(t, 2048)
-	kernel.numBuffers, kernel.pushSize = 8, 24
+	kernel.numBuffers, kernel.pushSize = 8, 28
 	op := &VkLSTMSequenceF32{kernel: kernel}
 	input := mustTensor(t, arena, 1, 1)
 	wih := mustTensor(t, arena, 4, 1)
@@ -183,7 +187,7 @@ func TestVulkanOfflineLSTMSequencePlanAndContract(t *testing.T) {
 
 	offlineVK(t)
 	contract, err := InspectVulkanShader(spirv_lstm_sequence_f32)
-	want := VulkanShaderContract{LocalSize: [3]uint32{256, 1, 1}, SharedBytes: 1024, StorageBindings: 255, PushBytes: 24}
+	want := VulkanShaderContract{LocalSize: [3]uint32{256, 1, 1}, SharedBytes: 1024, StorageBindings: 255, PushBytes: 28}
 	if err != nil || contract != want {
 		t.Fatal(contract, err)
 	}

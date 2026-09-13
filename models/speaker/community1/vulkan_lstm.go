@@ -95,7 +95,7 @@ func newVulkanLSTM(ctx context.Context, source *LSTM, frames int, makePlan func(
 	for _, steps := range layout.plans {
 		stages := make([]vk.VkF32Stage, 0, len(steps))
 		for _, step := range steps {
-			stage, stageErr := s.op.Stage(ctx, tensors[step.output], tensors[step.input], tensors[step.weightIH], tensors[step.weightHH], tensors[step.biasIH], tensors[step.biasHH], tensors[step.hidden], tensors[step.cell], step.outputOffset, step.reverse)
+			stage, stageErr := s.op.StagePacked(ctx, tensors[step.output], tensors[step.input], tensors[step.weightIH], tensors[step.weightHH], tensors[step.biasIH], tensors[step.biasHH], tensors[step.hidden], tensors[step.cell], step.outputOffset, step.reverse, true)
 			if stageErr != nil {
 				return nil, stageErr
 			}

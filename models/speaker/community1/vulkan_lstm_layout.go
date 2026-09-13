@@ -75,6 +75,20 @@ func describeVulkanLSTM(ctx context.Context, model *LSTM, frames int) (*vulkanLS
 		*dst = append(*dst, vulkanBlockTensor{name: name, shape: append([]int(nil), shape...), data: owned})
 		return nil
 	}
+	addPackedWeight := func(name string, data []float32, rows, columns int) error {
+		packed := make([]float32, len(data))
+		for row := 0; row < rows; row++ {
+			if row%256 == 0 {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
+			for column := 0; column < columns; column++ {
+				packed[column*rows+row] = data[row*columns+column]
+			}
+		}
+		return add(&layout.weights, name, packed, rows, columns)
+	}
 	if err := add(&layout.scratch, layout.inputName, nil, frames, model.cfg.InputSize); err != nil {
 		return nil, err
 	}
@@ -94,19 +108,17 @@ func describeVulkanLSTM(ctx context.Context, model *LSTM, frames int) (*vulkanLS
 				weights = layer.Reverse
 			}
 			prefix := fmt.Sprintf("layer%d.direction%d.", layerIndex, direction)
-			for _, spec := range []struct {
-				name  string
-				data  []float32
-				shape []int
-			}{
-				{"weight_ih", weights.WeightIH, []int{4 * hidden, inputDim}},
-				{"weight_hh", weights.WeightHH, []int{4 * hidden, hidden}},
-				{"bias_ih", weights.BiasIH, []int{4 * hidden}},
-				{"bias_hh", weights.BiasHH, []int{4 * hidden}},
-			} {
-				if err := add(&layout.weights, prefix+spec.name, spec.data, spec.shape...); err != nil {
-					return nil, err
-				}
+			if err := addPackedWeight(prefix+"weight_ih", weights.WeightIH, 4*hidden, inputDim); err != nil {
+				return nil, err
+			}
+			if err := addPackedWeight(prefix+"weight_hh", weights.WeightHH, 4*hidden, hidden); err != nil {
+				return nil, err
+			}
+			if err := add(&layout.weights, prefix+"bias_ih", weights.BiasIH, 4*hidden); err != nil {
+				return nil, err
+			}
+			if err := add(&layout.weights, prefix+"bias_hh", weights.BiasHH, 4*hidden); err != nil {
+				return nil, err
 			}
 			hiddenName, cellName := prefix+"hidden", prefix+"cell"
 			if err := add(&layout.scratch, hiddenName, nil, hidden); err != nil {

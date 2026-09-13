@@ -56,7 +56,7 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 				want.SharedBytes = 1024
 			}
 			interfaces := map[string][2]uint32{
-				"linear_regtile": {15, 12}, "linear_f16_weight": {15, 12}, "linear_q8_weight": {31, 12}, "conv1d3": {15, 24}, "conv2d_chw": {7, 36}, "channel_affine": {15, 12}, "attention_f32": {15, 20}, "gelu_erf": {3, 4}, "linear": {15, 12}, "lstm_cell": {15, 4}, "lstm_sequence": {255, 24}, "layernorm": {15, 12}, "attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
+				"linear_regtile": {15, 12}, "linear_f16_weight": {15, 12}, "linear_q8_weight": {31, 12}, "conv1d3": {15, 24}, "conv2d_chw": {7, 36}, "channel_affine": {15, 12}, "attention_f32": {15, 20}, "gelu_erf": {3, 4}, "linear": {15, 12}, "lstm_cell": {15, 4}, "lstm_sequence": {255, 28}, "layernorm": {15, 12}, "attention": {7, 20}, "gemv_f32": {7, 8}, "gemv_bf16": {7, 8},
 				"rms_f32": {3, 8}, "rms_bf16": {3, 8}, "rms_no_scale": {3, 8},
 				"gelu": {3, 4}, "rope": {3, 16}, "silu": {7, 4}, "add_f32": {7, 4}, "add_bf16": {7, 4},
 			}
