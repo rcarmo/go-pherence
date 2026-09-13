@@ -14,10 +14,11 @@ import (
 )
 
 // ExportGGUF writes a backbone-only GGUF v3 checkpoint. Codec/tokenizer assets
-// remain in the original model directory. format is f16, f32, or q8_0. q8_0
-// quantizes only the seven decoder projection matrices whose innermost source
-// dimension is a multiple of 32; all other tensors are written as F32 to retain
-// source precision without padding shapes. The destination must not exist. Only
+// remain in the original model directory. format is f16, f32, q8_0 or q8_0_f16.
+// Q8 formats quantize only the seven decoder projection matrices whose innermost
+// source dimension is a multiple of 32. Other tensors use F32 in q8_0 (preserving
+// source precision) or F16 in q8_0_f16 (rounding higher-precision sources).
+// Shapes are never padded. The destination must not exist. Only
 // one converted tensor is materialised at a time. The derived integer offsets
 // are stored implicitly in the validated config.
 func ExportGGUF(ctx context.Context, w *Weights, path, format string) error {

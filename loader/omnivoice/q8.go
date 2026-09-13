@@ -44,13 +44,16 @@ func exportQTypeForTensor(format, name string, shape []int) (gguf.QuantType, err
 		return gguf.QuantF16, nil
 	case "f32":
 		return gguf.QuantF32, nil
-	case "q8_0":
+	case "q8_0", "q8_0_f16":
 		if shouldQuantizeProjection(name, shape) {
 			return gguf.QuantQ8_0, nil
 		}
+		if format == "q8_0_f16" {
+			return gguf.QuantF16, nil
+		}
 		return gguf.QuantF32, nil
 	default:
-		return 0, fmt.Errorf("omnivoice: GGUF format must be f16, f32, or q8_0")
+		return 0, fmt.Errorf("omnivoice: GGUF format must be f16, f32, q8_0, or q8_0_f16")
 	}
 }
 

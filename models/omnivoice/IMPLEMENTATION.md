@@ -925,3 +925,33 @@ Evidence: `/workspace/tmp/omnivoice-validation-{en,pt}-steps{4,6,8}.jsonl`,
 `omnivoice-validation-pt125-steps8.json`, `omnivoice-pt125-validation.json`,
 `omnivoice-validation-pt-fixed-serve.jsonl`, `omnivoice-pt-fixed-validation.json`.
 Explicit-frame protocol tests include limit rejection and cache isolation.
+
+## Smaller mixed Q8/F16 export
+
+`-gguf-format q8_0_f16` uses the existing Q8 decoder projections and F16 for all
+other floating tensors. The original `q8_0` mode retains F32 non-projection
+tensors; neither default changed. F16 fallback also applies to projections whose
+input width is not divisible by 32. Embeddings/heads remain floating point.
+
+On the local F16 checkpoint, the new file is **812,302,304 bytes** versus
+1,225,179,104 for full F16 (33.7% smaller) and 1,156,653,024 for mixed Q8/F32
+(29.8% smaller). Export took 8.85 seconds. A matched four-step, two-worker,
+non-resident low-priority run measured **703,004 KiB peak RSS (686.5 MiB)**,
+versus 729,472 KiB for mapped Q8/F32 and 1,106,204 KiB for safetensors. This is
+36.4% lower peak RSS than the safetensors baseline; resident caches/codec remain
+additional components of other configurations. Wall time was 33.12 seconds, a
+single observation without a stable speedup claim.
+
+Four- and eight-step WAVs match the previous Q8/F32 outputs byte-for-byte:
+
+- Four: `f332bceeb0271b6841acd7acbca661ece7af842a86cddefcc94860aa545a3cb3`
+- Eight: `ee6b13d7ee12661426c03b7ed09097fd294e85f726bce4f2694bb5607b69599c`
+
+This equivalence applies to the local F16 source. F32/BF16 training exports can
+round when converted to F16, so future trained checkpoints need renewed quality
+validation. Synthetic tests check exact F16 rounding for non-projection tensors,
+unchanged Q8 projection payloads and non-block-aligned fallback. Affected tests,
+vet, race, no-CGo and Linux ARM64 build pass. Quantised voice quality remains a
+listening gate; no further integer quantisation of embeddings/heads is enabled.
+Evidence: `/workspace/tmp/omnivoice-q8f16-*.json`,
+`omnivoice-rss-q8f16.json`, `omnivoice-q8f16-checks.log` and private WAV/GGUF files.

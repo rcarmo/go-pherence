@@ -481,3 +481,68 @@ func TestGGUFQ8RejectsNonFiniteStoredScale(t *testing.T) {
 		t.Fatal("nonfinite scale accepted")
 	}
 }
+
+func TestExportGGUFQ8F16MixedRoundTrip(t *testing.T) {
+	source := newPatternedWeights(t, q8CompatibleConfig(t))
+	path := filepath.Join(t.TempDir(), "mixed.gguf")
+	if err := ExportGGUF(context.Background(), source, path, "q8_0_f16"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := OpenWeights(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	for _, name := range source.file.Names() {
+		if name == "codebook_layer_offsets" {
+			continue
+		}
+		raw, dtype, shape, err := source.file.GetRaw(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, stored, _, err := out.file.GetRaw(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shouldQuantizeProjection(name, shape) {
+			want, err := quantizeQ8_0Tensor(context.Background(), name, raw, dtype, shape)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stored != "Q8_0" || !bytes.Equal(actual, want) {
+				t.Fatalf("Q8 %s", name)
+			}
+		} else {
+			if stored != "F16" {
+				t.Fatalf("dtype %s %s", name, stored)
+			}
+			a, _, err := source.file.GetFloat32(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, _, err := out.file.GetFloat32(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range a {
+				if b[i] != half.F16ToF32(half.F32ToF16(a[i])) {
+					t.Fatalf("rounding %s[%d]", name, i)
+				}
+			}
+		}
+	}
+	for _, shape := range [][]int{{4, 31}, {4, 32}} {
+		q, err := exportQTypeForTensor("q8_0_f16", "llm.layers.0.self_attn.q_proj.weight", shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := gguf.QuantF16
+		if shape[1] == 32 {
+			want = gguf.QuantQ8_0
+		}
+		if q != want {
+			t.Fatal(q)
+		}
+	}
+}

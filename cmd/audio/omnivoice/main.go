@@ -38,7 +38,7 @@ func run(args []string) error {
 	cacheMiB := flags.Int64("cache-mib", 0, "serve: bounded process-local phrase cache payload MiB (0..256)")
 	firstFrames := flags.Int("first-frames", 0, "serve: shorter first-chunk frame limit (0 uses frames)")
 	ggufPath := flags.String("weights-gguf", "", "GGUF backbone override for generate/logits/block/stack; -model still supplies codec assets and matching config")
-	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16, f32 or q8_0")
+	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16, f32, q8_0 or q8_0_f16")
 	directQ8 := flags.Bool("direct-q8", false, "experimental direct Q8 SIMD projections for generate; excludes resident/prepack")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
