@@ -407,3 +407,13 @@ Affected tests, vet, race, no-CGo tests and the ARM64 CLI cross-build pass. The
 real-checkpoint decoder still matches all 1,920 reference samples with maximum
 absolute error 5.59e-7 and zero prepared `DecodeInto` allocations. The full repository
 build still fails in the previously identified SpacemiT and DiffusionGemma packages.
+
+## Tokenizer load memory reduction (2026-09-13)
+
+Merge format selection now precedes decoding, avoiding the failed string-array
+attempt for Qwen array-form merges. A sizing pass over validated JSON reserves the
+merge slices once; decoding still uses `encoding/json`. Measured allocations fall
+from 112.2 MiB to 60.2 MiB per real-tokenizer load. Token IDs are unchanged across
+all 24 real-checkpoint fixtures. See [PROFILING.md](PROFILING.md) for the isolated
+benchmark and validation. No new end-to-end synthesis measurement was made for
+this loader-only change.

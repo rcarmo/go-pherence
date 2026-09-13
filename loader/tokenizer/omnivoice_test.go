@@ -76,3 +76,20 @@ func TestSingleDigitPreTokenization(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkOmniVoiceTokenizerLoad(b *testing.B) {
+	path := os.Getenv("GO_PHERENCE_REAL_OMNIVOICE")
+	if path == "" {
+		b.Skip("set GO_PHERENCE_REAL_OMNIVOICE to a model dir")
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		tok, err := Load(filepath.Join(path, "tokenizer.json"))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(tok.Merges) == 0 || tok.VocabSize() == 0 {
+			b.Fatal("empty tokenizer")
+		}
+	}
+}

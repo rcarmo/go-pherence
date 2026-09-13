@@ -1,8 +1,11 @@
 package tokenizer
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -109,5 +112,73 @@ func TestLoadTokenizerAppliesNFCNormalizer(t *testing.T) {
 	}
 	if got := tok.Encode("é"); len(got) != 1 || got[0] != 1 {
 		t.Fatalf("Encode=%v, want [1]", got)
+	}
+}
+
+func TestJSONMergeArraySizing(t *testing.T) {
+	for _, input := range []string{
+		`[]`, ` [ ] `, `["a b", "c d"]`, `[["a","b"],["c","d"]]`,
+		`["a, b", "a\" b", "a\\ b", "[x] y"]`,
+		`[null, true, 12, {"nested":[1,2]}, [[],{}]]`,
+		"[\n\t[\"a\", \"b\"]\r\n, [\"c\", \"d\"]\n]",
+	} {
+		var items []json.RawMessage
+		if err := json.Unmarshal([]byte(input), &items); err != nil {
+			t.Fatal(err)
+		}
+		if got := jsonArrayLen([]byte(input)); got != len(items) {
+			t.Fatalf("%s: count=%d want %d", input, got, len(items))
+		}
+	}
+}
+
+func FuzzJSONMergeArraySizing(f *testing.F) {
+	for _, seed := range []string{`[]`, `[["a","b"],["c","d"]]`, `["a\\ b","c\" d"]`, `[null,{"a":[1,2]}]`} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, input string) {
+		var items []json.RawMessage
+		if json.Unmarshal([]byte(input), &items) != nil || strings.TrimSpace(input) == "null" {
+			return
+		}
+		if got := jsonArrayLen([]byte(input)); got != len(items) {
+			t.Fatalf("%q: count=%d want %d", input, got, len(items))
+		}
+	})
+}
+
+func TestLoadMergeRepresentations(t *testing.T) {
+	want := [][2]string{{"a", "b"}, {"c", "d"}}
+	for _, merges := range []string{`["a b", "c d"]`, ` [ ["a", "b"], ["c", "d"] ] `} {
+		path := filepath.Join(t.TempDir(), "tokenizer.json")
+		if err := os.WriteFile(path, []byte(`{"model":{"merges":`+merges+`}}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		tok, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(tok.Merges, want) {
+			t.Fatalf("%s: got %v", merges, tok.Merges)
+		}
+	}
+	for _, merges := range []string{`null`, `[]`, ` [ ] `} {
+		path := filepath.Join(t.TempDir(), "tokenizer.json")
+		if err := os.WriteFile(path, []byte(`{"model":{"merges":`+merges+`}}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		tok, err := Load(path)
+		if err != nil || len(tok.Merges) != 0 {
+			t.Fatalf("%s: got %v %v", merges, tok, err)
+		}
+	}
+	for _, merges := range []string{`{}`, `1`, `"a b"`, `[null,"a b"]`, `[["a","b"],"c d"]`, `["a b",["c","d"]]`} {
+		path := filepath.Join(t.TempDir(), "tokenizer.json")
+		if err := os.WriteFile(path, []byte(`{"model":{"merges":`+merges+`}}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Load(path); err == nil {
+			t.Fatalf("accepted invalid merges %s", merges)
+		}
 	}
 }

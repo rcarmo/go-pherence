@@ -126,3 +126,41 @@ Profile: `/workspace/tmp/omnivoice-long-reuse-v2.mem`; run metadata:
 `/workspace/tmp/omnivoice-long-reuse-v2.json`. This cached-reference profile excludes
 native reference encoding; it must not be compared directly with raw-reference
 whole-run allocation totals.
+
+## Tokenizer loading allocations (2026-09-13)
+
+The isolated `BenchmarkOmniVoiceTokenizerLoad` measures the full real
+`tokenizer.json` load, including inverse vocabulary and merge-rank construction.
+It excludes token encoding and model inference.
+
+| Loader | Allocated bytes/call | Allocations/call |
+| --- | ---: | ---: |
+| Before | 117,615,170 | 732,879 |
+| Select merge representation before decoding | 86,414,285 | 581,456 |
+| Also pre-size merge storage | 63,078,699 | 581,426 |
+
+This reduces cumulative load allocations from 112.2 MiB to 60.2 MiB (46.4%).
+The old loader attempted string decoding for array-form merges, allocating an
+error for each entry before retrying. The loader now selects the format from the
+first entry and reserves storage with a non-allocating pass over already validated
+JSON. The standard JSON decoder still performs decoding and validation. Array
+merges go directly into their final storage; string merges use `strings.Cut`.
+
+Baseline timings ranged from 363 to 379 ms. Final five-iteration runs ranged
+from 307 to 329 ms; other intermediate runs were substantially noisier. These
+measurements do not establish an end-to-end synthesis speedup or a new whole-run
+allocation total. The previous long-run profile predates this loader change.
+
+Reproduce with:
+
+```sh
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/OmniVoice go test ./loader/tokenizer \
+  -run TestOmniVoiceRealTokenizerParity -bench BenchmarkOmniVoiceTokenizerLoad \
+  -benchtime=5x -count=3
+```
+
+All 24 real-tokenizer fixtures pass. Tests cover both merge representations,
+empty/null merges, whitespace, escaped strings, nested JSON sizing and malformed
+mixed arrays. The sizing helper also passed a 10-second fuzz run (321,269
+executions). A focused review found no new correctness issue. Affected-package
+tests, vet, race/no-CGo tests and the ARM64 CLI cross-build pass.

@@ -1,6 +1,7 @@
 package tokenizer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -111,34 +112,80 @@ func Load(path string) (*Tokenizer, error) {
 		return t, nil
 	}
 
-	// Merges can be ["a b", ...] (strings) or [["a","b"], ...] (arrays)
-	var mergeStrings []string
-	if err := json.Unmarshal(raw.Model.Merges, &mergeStrings); err == nil {
-		t.Merges = make([][2]string, 0, len(mergeStrings))
+	// Select the representation before decoding: attempting []string first
+	// allocates an error for every array entry in large Qwen tokenizers.
+	merges := bytes.TrimSpace(raw.Model.Merges)
+	if len(merges) < 2 || merges[0] != '[' {
+		return nil, fmt.Errorf("unsupported merges format")
+	}
+	first := bytes.TrimSpace(merges[1:])
+	count := jsonArrayLen(merges)
+	if len(first) > 0 && first[0] == '"' {
+		mergeStrings := make([]string, 0, count)
+		if err := json.Unmarshal(merges, &mergeStrings); err != nil {
+			return nil, fmt.Errorf("unsupported merges format: %w", err)
+		}
+		t.Merges = make([][2]string, len(mergeStrings))
 		for i, m := range mergeStrings {
-			parts := strings.SplitN(m, " ", 2)
-			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			a, b, ok := strings.Cut(m, " ")
+			if !ok || a == "" || b == "" {
 				return nil, fmt.Errorf("malformed merge at index %d", i)
 			}
-			t.Merges = append(t.Merges, [2]string{parts[0], parts[1]})
+			t.Merges[i] = [2]string{a, b}
 		}
 	} else {
-		var mergeArrays [][2]string
-		if err := json.Unmarshal(raw.Model.Merges, &mergeArrays); err == nil {
-			t.Merges = make([][2]string, 0, len(mergeArrays))
-			for i, m := range mergeArrays {
-				if m[0] == "" || m[1] == "" {
-					return nil, fmt.Errorf("malformed merge at index %d", i)
-				}
-				t.Merges = append(t.Merges, m)
+		t.Merges = make([][2]string, 0, count)
+		if err := json.Unmarshal(merges, &t.Merges); err != nil {
+			return nil, fmt.Errorf("unsupported merges format: %w", err)
+		}
+		for i, m := range t.Merges {
+			if m[0] == "" || m[1] == "" {
+				return nil, fmt.Errorf("malformed merge at index %d", i)
 			}
-		} else {
-			return nil, fmt.Errorf("unsupported merges format")
 		}
 	}
 
 	t.initMergeRank()
 	return t, nil
+}
+
+// jsonArrayLen counts top-level entries in an already validated JSON array.
+// Load's outer json.Unmarshal validates syntax before this allocation-sizing
+// pass. Strings (including escapes) and nested arrays/objects do not add entries.
+func jsonArrayLen(data []byte) int {
+	depth, count := 0, 0
+	quoted := false
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		if quoted {
+			if c == '\\' {
+				i++
+			} else if c == '"' {
+				quoted = false
+			}
+			continue
+		}
+		switch c {
+		case ' ', '\t', '\r', '\n':
+			continue
+		case ',':
+			if depth == 1 {
+				count++
+			}
+		case ']', '}':
+			depth--
+		default:
+			if depth == 1 && count == 0 {
+				count = 1
+			}
+			if c == '"' {
+				quoted = true
+			} else if c == '[' || c == '{' {
+				depth++
+			}
+		}
+	}
+	return count
 }
 
 func detectNormalizer(raw json.RawMessage) tokenizerNormalizer {
