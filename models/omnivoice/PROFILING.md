@@ -256,3 +256,35 @@ Simple K-chunk calls around the current packed GEMM API would store partial sums
 and change accumulation order. Cache blocking needs an accumulator-preserving
 kernel/epilogue design before exact-parity deployment; no K-blocking change was
 implemented or benchmarked in this stage.
+
+## SIMD SiLU finishing stage (2026-09-13)
+
+On AVX2/FMA amd64 hosts, `SiLUMulExpTo` now finishes with separate vector
+add/divide/multiply instructions. It uses hardware division, not a reciprocal
+estimate. The float32 rounding steps match the previous scalar division plus
+vector multiplication. Exact destination aliasing with gate/up is supported;
+partial overlaps and scratch overlap remain rejected. Other architectures and
+short tails use scalar finishing. Scratch is temporary and its final contents
+are not part of the API contract.
+
+The existing 128×3072 FFN benchmark fell from 4.441–4.448 ms to 3.908–4.006 ms
+(roughly 10–12%), with zero allocations. The generic SiLU baseline remains around
+6.08 ms. Logs: `/workspace/tmp/omnivoice-silu-div-{before,after}.log`.
+
+Full native synthesis took 78.38 seconds (66.90 generation, 3.12 decode/save),
+compared with 92.74 seconds in the preceding sine-enabled run. Run-to-run variance
+prevents attributing that whole difference to this change. The WAV is byte-identical
+to the sine-enabled baseline, SHA-256
+`1d8908e82a5af5c6c1cd191d94a32d4cf8ce1c811b420dcea009c726b2771ea5`.
+Artifacts: `/workspace/tmp/omnivoice-full-native-div-v9.{cpu,json}` and
+`/workspace/tmp/synthetic-spock-full-native-div-v9.wav`.
+
+Direct bitwise tests compare scalar and SIMD finishing across vector/tail sizes
+and exact aliases, including finite extremes, subnormals, signed zero, infinities
+and NaN classification. Contract tests verify rejection without mutation. Runtime
+and model tests, race/no-CGo checks, disabled-AVX2/FMA fallback, OmniVoice vet and
+ARM64 cross-builds pass. No new waveform attachment is needed for identical audio.
+
+Encoder ELU still uses scalar `float32(exp(float64(x))-1)` for negative inputs.
+Replacing it with float32 exp followed by subtraction loses small negative values
+near zero; it needs a separate near-zero-safe implementation and parity tests.

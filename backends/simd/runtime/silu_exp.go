@@ -12,9 +12,9 @@ import "unsafe"
 //   - scratch must be fully disjoint from dst, gate, and up
 //
 // The exp() stage uses ExpF32To so bounded SIMD kernels are reused when
-// available. The reciprocal/divide stage remains scalar because there is no
-// checked vector-divide helper yet, and this preserves the current SiLU
-// exceptional-value behaviour used by the scalar reference kernels.
+// available. On amd64 the finishing stage uses separate SIMD add/divide/multiply
+// instructions (not a reciprocal estimate), preserving float32 rounding steps.
+// Other architectures use the scalar finishing stage.
 func SiLUMulExpTo(dst, gate, up, scratch []float32) bool {
 	n := len(dst)
 	if n == 0 || len(gate) != n || len(up) != n || len(scratch) != n {
@@ -32,10 +32,8 @@ func SiLUMulExpTo(dst, gate, up, scratch []float32) bool {
 	if !ExpF32To(scratch, scratch) {
 		return false
 	}
-	for i, x := range gate {
-		scratch[i] = x / (1 + scratch[i])
-	}
-	return VecMulTo(dst, up, scratch)
+	siluFinish(dst, gate, up, scratch)
+	return true
 }
 
 func float32SlicesDisjoint(a, b []float32) bool {

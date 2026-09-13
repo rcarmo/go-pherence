@@ -440,3 +440,12 @@ out of 72,000 samples. The channel benchmark is about 3.4× faster; whole synthe
 did not improve in the measured run. See [PROFILING.md](PROFILING.md) for numerical
 bounds, artifacts and fallback coverage. HuBERT erf, encoder/sampler exponentials,
 SiLU division and unsupported-architecture sine remain scalar.
+
+## SIMD SiLU division (2026-09-13)
+
+The amd64 SiLU finishing stage uses explicit vector add/divide/multiply, preserving
+float32 rounding and exceptional-value classification. The full native WAV is
+byte-identical to the preceding sine-enabled version and prepared calls remain
+allocation-free. The representative FFN benchmark improves about 10–12%.
+Non-amd64 finishing, HuBERT erf and encoder/sampler exponentials still use scalar
+operations. See [PROFILING.md](PROFILING.md) for timings and validation.
