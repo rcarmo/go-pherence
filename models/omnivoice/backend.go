@@ -56,6 +56,8 @@ type CPUBackendInfo struct {
 	FullGraphSIMD   bool              `json:"full_graph_simd"`
 	LowAllocation   bool              `json:"low_allocation"`
 	Capabilities    simd.Capabilities `json:"capabilities"`
+	ApproximateSIMD bool              `json:"approximate_nonlinear_simd"`
+	ScalarFallbacks []string          `json:"scalar_fallbacks"`
 }
 
 // VulkanBackendInfo describes Vulkan availability and why OmniVoice does or does
@@ -132,6 +134,24 @@ var omnivoiceVulkanMissingPieces = []string{
 	"parity-tested end-to-end OmniVoice block execution on Vulkan",
 }
 
+func cpuScalarFallbacks() []string {
+	caps := simd.RuntimeCapabilities()
+	out := []string{
+		"GEMM partial tiles and packing/scatter orchestration",
+		"nonlinear range/exception/tail fallbacks",
+		"sequential reductions and log normalisers",
+		"Gumbel logarithms, top-k selection and token bookkeeping",
+		"audio preprocessing, tokenization and WAV I/O",
+	}
+	if caps.Arch != "amd64" || !caps.HasVec {
+		out = append(out, "bounded exp, sine, ELU, erf-GELU and SiLU finishing lack an active SIMD implementation on this host")
+	}
+	if !caps.HasSGEMM {
+		out = append(out, "SGEMM assembly unavailable on this host")
+	}
+	return out
+}
+
 func ParseBackendMode(s string) (BackendMode, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", string(BackendAuto):
@@ -160,6 +180,8 @@ func DiscoverBackend(mode BackendMode) BackendReport {
 			FullGraphSIMD:   false,
 			LowAllocation:   true,
 			Capabilities:    simd.RuntimeCapabilities(),
+			ApproximateSIMD: simd.RuntimeCapabilities().Arch == "amd64" && simd.RuntimeCapabilities().HasVec,
+			ScalarFallbacks: cpuScalarFallbacks(),
 		},
 		RecommendedFor: mode,
 	}
@@ -167,7 +189,7 @@ func DiscoverBackend(mode BackendMode) BackendReport {
 		report.Recommended = BackendRecommendation{
 			Backend:     ExecutionBackendCPU,
 			Implemented: true,
-			Reason:      "explicit CPU mode requested; current OmniVoice native execution is the CPU/SIMD block path",
+			Reason:      "explicit CPU mode requested; native reference encoding, generation and decoding use the CPU/SIMD path",
 		}
 		return report
 	}

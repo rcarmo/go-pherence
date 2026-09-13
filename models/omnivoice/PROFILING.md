@@ -388,3 +388,42 @@ Runtime/model tests, race/no-CGo checks, disabled-AVX2/FMA fallback, OmniVoice v
 and ARM64 CLI cross-build pass. Review found no scratch-use or exceptional-row bug;
 its requested mid-generation cancellation/reuse coverage was added. Full-repository
 build failures remain in unrelated packages.
+
+## Exact K-blocking experiment and fallback audit (2026-09-13)
+
+The latest full profile (`omnivoice-full-native-sampler-v12.cpu`) attributes 62.46%
+of sampled CPU time to the 6×16 GEMM microkernel. A continuation-kernel experiment
+stored raw accumulators between K tiles, preserving each element's FMA order and
+applying alpha/C only once. Bitwise tests covered K tails, strides and nonzero C.
+The candidate allocated nothing after caller scratch setup.
+
+It did not improve throughput on this N100:
+
+| Shape / K tile | Existing full-K | Exact K-blocked |
+| --- | ---: | ---: |
+| 126×1024×1024 / 128 | 6.16–6.21 ms | 6.42–6.98 ms |
+| 126×1024×1024 / 256 | 6.19–6.42 ms | 6.34–6.43 ms |
+| 126×3072×1024 / 128 | 19.45–19.47 ms | 20.12–20.54 ms |
+| 126×3072×1024 / 256 | 19.69–19.81 ms | 19.92–20.66 ms |
+
+For M=126 and K=1024, candidate scratch was 15.9/23.9 KiB at K tiles 128/256,
+versus 64 KiB packed scratch in the existing kernel. That local saving did not
+justify enabling a neutral/slower path. The candidate was removed from runtime
+source and archived at `/workspace/tmp/omnivoice-kblocked-experiment/`; measurements
+are in `/workspace/tmp/omnivoice-kblocked-benchmark.log`. This does not rule out
+other tiling, vector widths or parallel strategies; these tested variants failed
+the throughput gate.
+
+`BenchmarkPackedModelProjections` now provides ordinary finite-input baselines
+for representative projections, including row tails. It avoids subnormal-heavy
+inputs that previously obscured throughput with FP assists.
+
+The backend report now exposes `approximate_nonlinear_simd` and `scalar_fallbacks`.
+`full_graph_simd` remains false: reductions, selection, scatter/packing orchestration,
+preprocessing and range/architecture fallback paths still contain scalar work.
+The current host reports AVX2/FMA nonlinear SIMD, no hardware Vulkan device and
+software llvmpipe only. Auto selects CPU; explicit Vulkan execution is unsupported.
+Artifact: `/workspace/tmp/omnivoice-capabilities-audit.json`.
+
+No inference kernel was changed in this audit stage. Runtime/model tests, race,
+no-CGo, CPU-feature-disabled reporting and ARM64 CLI cross-builds pass.

@@ -141,3 +141,21 @@ func TestSelectBackendExplicitVulkanFailsLoudly(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestCPUReportsSIMDLimits(t *testing.T) {
+	report := DiscoverBackend(BackendCPU)
+	caps := simd.RuntimeCapabilities()
+	if report.CPU.FullGraphSIMD {
+		t.Fatal("full graph SIMD claimed despite scalar stages")
+	}
+	if report.CPU.ApproximateSIMD != (caps.Arch == "amd64" && caps.HasVec) {
+		t.Fatal("approximate SIMD flag disagrees with runtime")
+	}
+	if len(report.CPU.ScalarFallbacks) < 5 {
+		t.Fatal("missing fallback limits")
+	}
+	report.CPU.ScalarFallbacks[0] = "mutated"
+	if DiscoverBackend(BackendCPU).CPU.ScalarFallbacks[0] == "mutated" {
+		t.Fatal("report leaks shared mutable limits")
+	}
+}

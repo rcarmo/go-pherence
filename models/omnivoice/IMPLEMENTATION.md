@@ -477,3 +477,12 @@ the original scalar policy. Upstream fixture and full-generation checks pass; th
 native sample is byte-identical. The isolated 1,025-class benchmark improves about
 2.8× without allocations. Approximate probabilities may change near-tied selections
 on other inputs. See [PROFILING.md](PROFILING.md) for limits and evidence.
+
+## GEMM experiment and capability limits (2026-09-13)
+
+An exact accumulator-preserving K-blocked GEMM candidate passed parity tests but
+was neutral/slower than the current kernel on representative N100 projections.
+It was not enabled. Representative projection benchmarks remain in the test suite.
+Backend discovery now lists scalar fallback categories and whether approximate
+nonlinear SIMD is active. The full graph is not SIMD-only; Vulkan still has no
+native OmniVoice dispatch. See [PROFILING.md](PROFILING.md) for experiment results.

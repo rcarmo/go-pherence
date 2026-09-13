@@ -1,6 +1,7 @@
 package simd
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
@@ -78,5 +79,29 @@ func TestPackedGEMMBoundaries(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Representative model projection shapes; use finite ordinary inputs so
+// denormal FP assists do not obscure steady-state throughput.
+func BenchmarkPackedModelProjections(b *testing.B) {
+	for _, shape := range [][3]int{{126, 1024, 1024}, {126, 3072, 1024}, {128, 1024, 3072}} {
+		m, n, k := shape[0], shape[1], shape[2]
+		b.Run(fmt.Sprintf("%dx%dx%d", m, n, k), func(b *testing.B) {
+			a, w, c, p := make([]float32, m*k), make([]float32, n*k), make([]float32, m*n), make([]float32, k*gebpNR)
+			for i := range a {
+				a[i] = float32(i%31-15) / 32
+			}
+			for i := range w {
+				w[i] = float32(i%23-11) / 32
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				clear(c)
+				if !SgemmNTPackedTo(c, a, w, p, m, n, k, 1, k, k, n) {
+					b.Fatal("rejected projection")
+				}
+			}
+		})
 	}
 }
