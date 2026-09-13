@@ -94,7 +94,7 @@ func (op *VkConv2DCHWF32) stageLocked(out, x, weight *VkTensorF32, kernel, strid
 			return fail("output overlaps input")
 		}
 	}
-	groups := [3]uint32{uint32((outChannels + 15) / 16), uint32((outSpatial + 15) / 16), 1}
+	groups := [3]uint32{uint32((outChannels + 31) / 32), uint32((outSpatial + 31) / 32), 1}
 	push := []uint32{
 		uint32(inChannels), uint32(inFrequency), uint32(inFrames),
 		uint32(outChannels), uint32(outFrequency), uint32(outFrames),

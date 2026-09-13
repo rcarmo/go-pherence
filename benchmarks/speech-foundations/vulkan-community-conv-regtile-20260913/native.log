@@ -1,0 +1,12 @@
+=== RUN   TestVulkanCommunityNative
+=== RUN   TestVulkanCommunityNative/basic-block
+    vulkan_native_test.go:103: basic-block values=100 max_abs=7.450580596923828e-09
+=== RUN   TestVulkanCommunityNative/resnet-hybrid
+    vulkan_native_test.go:125: resnet-trunk values=24 max_abs=3.725290298461914e-09
+    vulkan_native_test.go:142: hybrid-embedding values=5 max_abs=9.313225746154785e-10
+    vulkan_native_test.go:142: hybrid-embedding values=15 max_abs=0
+--- PASS: TestVulkanCommunityNative (0.09s)
+    --- PASS: TestVulkanCommunityNative/basic-block (0.04s)
+    --- PASS: TestVulkanCommunityNative/resnet-hybrid (0.03s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.116s

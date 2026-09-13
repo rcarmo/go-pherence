@@ -43,7 +43,7 @@ func conv2DCHWTileModel(t *testing.T, x, weight []float32, inChannels, inFrequen
 	outFrames := (inFrames + stride - 1) / stride
 	outSpatial := outFrequency * outFrames
 	reduction := inChannels * kernel * kernel
-	groupsX, groupsY := (outChannels+15)/16, (outSpatial+15)/16
+	groupsX, groupsY := (outChannels+31)/32, (outSpatial+31)/32
 	out := make([]float32, outChannels*outSpatial+4)
 	for i := outChannels * outSpatial; i < len(out); i++ {
 		out[i] = 123
@@ -53,40 +53,50 @@ func conv2DCHWTileModel(t *testing.T, x, weight []float32, inChannels, inFrequen
 	lanes := rng.Perm(256)
 	for _, group := range rng.Perm(groupsX * groupsY) {
 		groupX, groupY := group%groupsX, group/groupsX
-		var sums, inputTile, weightTile [256]float32
-		for base := 0; base < reduction; base += 16 {
+		var sums [256][4]float32
+		var inputTile, weightTile [1024]float32
+		for base := 0; base < reduction; base += 32 {
 			for _, lane := range lanes {
-				cx, ry := lane%16, lane/16
-				position, ri := groupY*16+ry, base+cx
-				inputTile[lane], weightTile[lane] = 0, 0
-				if position < outSpatial && ri < reduction {
-					of, ot := position/outFrames, position%outFrames
-					tapArea := kernel * kernel
-					ic, tap := ri/tapArea, ri%tapArea
-					inf, intm := of*stride+tap/kernel-padding, ot*stride+tap%kernel-padding
-					if inf >= 0 && inf < inFrequency && intm >= 0 && intm < inFrames {
-						inputTile[lane] = x[(ic*inFrequency+inf)*inFrames+intm]
+				for i := lane; i < 1024; i += 256 {
+					row, ri := i/32, base+i%32
+					position := groupY*32 + row
+					inputTile[i], weightTile[i] = 0, 0
+					if position < outSpatial && ri < reduction {
+						of, ot := position/outFrames, position%outFrames
+						tapArea := kernel * kernel
+						ic, tap := ri/tapArea, ri%tapArea
+						inf, intm := of*stride+tap/kernel-padding, ot*stride+tap%kernel-padding
+						if inf >= 0 && inf < inFrequency && intm >= 0 && intm < inFrames {
+							inputTile[i] = x[(ic*inFrequency+inf)*inFrames+intm]
+						}
 					}
-				}
-				oc := groupX*16 + ry
-				if oc < outChannels && ri < reduction {
-					weightTile[lane] = weight[oc*reduction+ri]
+					oc := groupX*32 + row
+					if oc < outChannels && ri < reduction {
+						weightTile[i] = weight[oc*reduction+ri]
+					}
 				}
 			}
 			for _, lane := range lanes {
 				cx, ry := lane%16, lane/16
-				for j := 0; j < 16; j++ {
-					sums[lane] = float32(sums[lane] + float32(inputTile[ry*16+j]*weightTile[cx*16+j]))
+				for j := 0; j < 32; j++ {
+					sums[lane][0] += inputTile[ry*32+j] * weightTile[cx*32+j]
+					sums[lane][1] += inputTile[ry*32+j] * weightTile[(cx+16)*32+j]
+					sums[lane][2] += inputTile[(ry+16)*32+j] * weightTile[cx*32+j]
+					sums[lane][3] += inputTile[(ry+16)*32+j] * weightTile[(cx+16)*32+j]
 				}
 			}
 		}
 		for _, lane := range lanes {
 			cx, ry := lane%16, lane/16
-			position, oc := groupY*16+ry, groupX*16+cx
-			if position < outSpatial && oc < outChannels {
-				index := oc*outSpatial + position
-				out[index] = sums[lane]
-				writers[index]++
+			for positionHalf := 0; positionHalf < 2; positionHalf++ {
+				for channelHalf := 0; channelHalf < 2; channelHalf++ {
+					position, oc := groupY*32+ry+16*positionHalf, groupX*32+cx+16*channelHalf
+					if position < outSpatial && oc < outChannels {
+						index := oc*outSpatial + position
+						out[index] = sums[lane][2*positionHalf+channelHalf]
+						writers[index]++
+					}
+				}
 			}
 		}
 	}
@@ -206,7 +216,7 @@ func TestVulkanOfflineConv2DCHWAdmission(t *testing.T) {
 		weight := linearMetadataTensor(2, 256, 256, kernelSize, kernelSize)
 		out := linearMetadataTensor(3, 256, (80+stride-1)/stride, (204+stride-1)/stride)
 		stage, err := op.Stage(context.Background(), out, x, weight, kernelSize, stride, padding)
-		if err != nil || stage.Groups[0] != 16 || stage.Groups[1] != uint32((((80+stride-1)/stride)*((204+stride-1)/stride)+15)/16) {
+		if err != nil || stage.Groups[0] != 8 || stage.Groups[1] != uint32((((80+stride-1)/stride)*((204+stride-1)/stride)+31)/32) {
 			t.Fatal("valid Community-1 geometry", geometry, err)
 		}
 	}
@@ -327,7 +337,7 @@ func TestVulkanOfflineConv2DCHWPlanAndContract(t *testing.T) {
 
 	offlineVK(t)
 	contract, err := InspectVulkanShader(spirv_conv2d_chw_f32)
-	want := VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 2048, StorageBindings: 7, PushBytes: 36}
+	want := VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 8192, StorageBindings: 7, PushBytes: 36}
 	if err != nil || contract != want {
 		t.Fatal(contract, err)
 	}
@@ -335,7 +345,7 @@ func TestVulkanOfflineConv2DCHWPlanAndContract(t *testing.T) {
 	cancel()
 	_, err = NewVkConv2DCHWF32(ctx)
 	expectErrorIs(t, err, context.Canceled)
-	vkLimits.SharedMemoryBytes = 2047
+	vkLimits.SharedMemoryBytes = 8191
 	_, err = NewVkConv2DCHWF32(context.Background())
 	expectErrorIs(t, err, ErrVulkanLimit)
 }
@@ -346,7 +356,7 @@ func TestVulkanOfflineConv2DCHWCreation(t *testing.T) {
 		size := *(*uint64)(unsafe.Add(info, 24))
 		code := *(*unsafe.Pointer)(unsafe.Add(info, 32))
 		contract, err := vkInspectSPIRV(unsafe.Slice((*uint32)(code), int(size)/4))
-		want := VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 2048, StorageBindings: 7, PushBytes: 36}
+		want := VulkanShaderContract{LocalSize: [3]uint32{16, 16, 1}, SharedBytes: 8192, StorageBindings: 7, PushBytes: 36}
 		if err != nil || contract != want {
 			t.Fatal("conv2d native shader", contract, err)
 		}

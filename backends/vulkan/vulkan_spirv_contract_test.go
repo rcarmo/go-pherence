@@ -48,9 +48,13 @@ func TestVulkanOfflineShaderContractEmbedded(t *testing.T) {
 				want.LocalSize = [3]uint32{16, 16, 1}
 				want.SharedBytes = 8192
 			}
-			if name == "linear_f16_weight" || name == "linear" || name == "conv1d3" || name == "conv2d_chw" {
+			if name == "linear_f16_weight" || name == "linear" || name == "conv1d3" {
 				want.LocalSize = [3]uint32{16, 16, 1}
 				want.SharedBytes = 2048
+			}
+			if name == "conv2d_chw" {
+				want.LocalSize = [3]uint32{16, 16, 1}
+				want.SharedBytes = 8192
 			}
 			if name == "lstm_sequence" {
 				want.SharedBytes = 1024
