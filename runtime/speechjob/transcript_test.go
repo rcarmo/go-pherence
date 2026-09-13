@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if got.Cues[0] != in.Cues[0] || got.SampleRate != 16000 || got.SourceTiming != in.SourceTiming {
+	if !reflect.DeepEqual(got.Cues[0], in.Cues[0]) || got.SampleRate != 16000 || got.SourceTiming != in.SourceTiming {
 		t.Fatal("round trip")
 	}
 	var vtt bytes.Buffer
@@ -50,6 +51,33 @@ func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 		t.Fatal("hours")
 	}
 }
+func TestTranscriptWordTimelineRoundTripAndValidation(t *testing.T) {
+	tr := transcriptFixture()
+	tr.Words = []WordCue{{StartSample: 200, EndSample: 400, Speaker: -1, Text: "Olá"}, {StartSample: 500, EndSample: 700, Speaker: 1, Text: "mundo"}}
+	var out bytes.Buffer
+	if err := WriteTranscriptJSON(context.Background(), &out, tr); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadTranscriptJSON(context.Background(), bytes.NewReader(out.Bytes()))
+	if err != nil || !reflect.DeepEqual(got.Words, tr.Words) {
+		t.Fatal(out.String(), got.Words, err)
+	}
+	for _, mutate := range []func(*Transcript){
+		func(t *Transcript) { t.Words[0].StartSample = -1 },
+		func(t *Transcript) { t.Words[0].EndSample = t.Words[0].StartSample },
+		func(t *Transcript) { t.Words[1].StartSample = 100 },
+		func(t *Transcript) { t.Words[0].Speaker = 64 },
+		func(t *Transcript) { t.Words[0].Text = " \n" },
+	} {
+		bad := tr
+		bad.Words = append([]WordCue(nil), tr.Words...)
+		mutate(&bad)
+		if err := WriteTranscriptJSON(context.Background(), io.Discard, bad); err == nil {
+			t.Fatal("invalid word timeline accepted", bad.Words)
+		}
+	}
+}
+
 func TestTranscriptRejectsBeforeWriting(t *testing.T) {
 	for _, kind := range []string{"schema", "rate", "duration", "language", "start", "end", "extent", "ordering", "speaker", "empty", "control", "utf8", "size"} {
 		tr := transcriptFixture()

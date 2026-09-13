@@ -123,7 +123,7 @@ The combined stage order is:
 
 `decode → asr-windows → transcript → vtt → diarization → speaker-transcript → speaker-vtt`
 
-Plain transcript/VTT commits before experimental diarization. A diarization failure therefore leaves plain text downloadable. Speaker outputs remain separately marked experimental and require conservative complete-cue coverage. Shutdown drains handlers/queue and closes owners in reverse construction order before store/resource release.
+Plain transcript/VTT commits before experimental diarization. A diarization failure therefore leaves plain text downloadable. `profile.word_timestamps:true` opts into checked Whisper cross-attention word timing and requires `alignment_heads` in the pinned generation document. Speaker output assigns each checked word from maximum positive overlap with Community-1 exclusive turns; an exact tie or no overlap remains unlabelled. Legacy profiles retain conservative complete-cue coverage. Speaker outputs remain separately marked experimental. Shutdown drains handlers/queue and closes owners in reverse construction order before store/resource release.
 
 `--check` verifies complete hashes, safetensors inventories and NPZ signatures, but does not construct Community models or execute PCM. This profile has model-free reduced-container server tests only. Strict trained SincNet/embedding and ambiguous-tie failures remain unchanged; no trained quality, long-file scaling, Community Vulkan graph or production deployment is claimed.
 

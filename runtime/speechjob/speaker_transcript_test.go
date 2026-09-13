@@ -63,12 +63,54 @@ func TestSpeakerCompleteCoverage(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if out.Transcript.Cues[0].Speaker != tc.want || tr.Cues[0] != before || !out.Experimental || out.LabelledCues+out.UnlabelledCues != 1 {
+			if out.Transcript.Cues[0].Speaker != tc.want || !reflect.DeepEqual(tr.Cues[0], before) || !out.Experimental || out.LabelledCues+out.UnlabelledCues != 1 {
 				t.Fatal(out)
 			}
 		})
 	}
 }
+func TestSpeakerWordAttributionUsesExclusiveMaximumOverlap(t *testing.T) {
+	tr := speakerCue()
+	tr.Words = []WordCue{
+		{StartSample: 320, EndSample: 640, Speaker: -1, Text: "Olá"},
+		{StartSample: 640, EndSample: 960, Speaker: -1, Text: "mundo"},
+		{StartSample: 960, EndSample: 1280, Speaker: -1, Text: "!"},
+	}
+	d := speakerDocument(t, []c1.SpeakerTurn{{Start: .01, End: .1, Speaker: 0}})
+	d.SourceTiming = tr.SourceTiming
+	d.ExclusiveTurns = []c1.SpeakerTurn{
+		{Start: .02, End: .04, Speaker: 0},
+		{Start: .02, End: .04, Speaker: 1}, // word0 exact overlap tie: unknown
+		{Start: .04, End: .045, Speaker: 0},
+		{Start: .045, End: .06, Speaker: 1}, // word1 speaker1 has greater total overlap
+	}
+	out, err := labelSpeakerTranscript(context.Background(), tr, d, hash([]byte("text")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := out.Transcript.Cues[0]
+	if len(out.Transcript.Words) != 3 || out.Transcript.Words[0].Speaker != -1 || out.Transcript.Words[1].Speaker != 1 || out.Transcript.Words[2].Speaker != -1 || out.LabelledWords != 1 || out.UnlabelledWords != 2 {
+		t.Fatalf("word attribution=%+v cue=%+v", out.Transcript.Words, got)
+	}
+	if tr.Words[1].Speaker != -1 {
+		t.Fatal("input mutated")
+	}
+}
+
+func TestSpeakerWordVTTUsesPerWordLabels(t *testing.T) {
+	tr := speakerCue()
+	tr.Words = []WordCue{{StartSample: 320, EndSample: 640, Speaker: 0, Text: "Olá"}, {StartSample: 640, EndSample: 1280, Speaker: 1, Text: "mundo"}}
+	doc := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: hash([]byte("text")), DiarizationKey: hash([]byte("diar")), Policy: speakerCoveragePolicy, LabelledCues: 0, UnlabelledCues: 1, LabelledWords: 2, Transcript: tr}
+	var body bytes.Buffer
+	if err := WriteSpeakerTranscriptVTT(context.Background(), &body, doc); err != nil {
+		t.Fatal(err)
+	}
+	vtt := body.String()
+	if !strings.Contains(vtt, "NOTE Experimental Community-1 speaker labels; exclusive-turn word attribution when available.") || !strings.Contains(vtt, "00:00:00.020 --> 00:00:00.040\n<v SPEAKER_00>Olá</v>") || !strings.Contains(vtt, "00:00:00.040 --> 00:00:00.080\n<v SPEAKER_01>mundo</v>") {
+		t.Fatal(vtt)
+	}
+}
+
 func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 	ctx := context.Background()
 	key := hash([]byte("text"))
@@ -85,7 +127,7 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 	if e != nil || !reflect.DeepEqual(read, good) {
 		t.Fatal(read, e)
 	}
-	for _, kind := range []string{"gap-fill", "tie", "extent", "source", "already-labelled", "constraint"} {
+	for _, kind := range []string{"gap-fill", "tie", "extent", "source", "already-labelled", "word-labelled", "constraint"} {
 		c := d
 		tt := speakerCue()
 		switch kind {
@@ -100,6 +142,8 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 			tt.SourceTiming.Start++
 		case "already-labelled":
 			tt.Cues[0].Speaker = 0
+		case "word-labelled":
+			tt.Words = []WordCue{{StartSample: 320, EndSample: 640, Speaker: 0, Text: "Olá"}}
 		case "constraint":
 			c.Path = "single-training-row"
 			c.TrainingRows = 1
@@ -112,10 +156,12 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 		}
 	}
 	for _, b := range [][]byte{
-		[]byte("null"), bytes.Replace(raw, []byte(`"schema":1`), []byte(`"schema":1,"schema":1`), 1),
+		[]byte("null"), bytes.Replace(raw, []byte(`"schema":2`), []byte(`"schema":2,"schema":2`), 1),
 		bytes.Replace(raw, []byte(`"experimental":true`), []byte(`"experimental":false`), 1),
 		bytes.Replace(raw, []byte(`"labelled_cues":1`), []byte(`"labelled_cues":0`), 1),
 		bytes.Replace(raw, []byte(`"unlabelled_cues":0,`), nil, 1),
+		bytes.Replace(raw, []byte(`"labelled_words":0,`), nil, 1),
+		bytes.Replace(raw, []byte(`"labelled_words":0`), []byte(`"labelled_words":1`), 1),
 		append([]byte(" "), raw...), bytes.Repeat([]byte{'x'}, MaxTranscriptBytes+1),
 	} {
 		if _, e = ReadSpeakerTranscriptJSON(ctx, bytes.NewReader(b)); e == nil {

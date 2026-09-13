@@ -148,6 +148,7 @@ type ProfileSettings struct {
 	MaxNewTokens             int                `json:"max_new_tokens"`
 	MaxInitialTimestampIndex int                `json:"max_initial_timestamp_index"`
 	SkipDigitalSilence       bool               `json:"skip_digital_silence"`
+	WordTimestamps           bool               `json:"word_timestamps"`
 	WindowBytes              int64              `json:"window_bytes"`
 	ResultBytes              int64              `json:"result_bytes"`
 }

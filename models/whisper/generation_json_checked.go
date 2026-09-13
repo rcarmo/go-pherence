@@ -221,6 +221,12 @@ func ParseGenerationConfigChecked(data []byte, cfg Config, tokenizer *Tokenizer)
 	return &CheckedGenerationConfig{cfg: cfg, vocabulary: v, languages: languages, suppress: suppress, beginSuppress: begin, alignmentHeads: alignmentHeads, maxLength: maxLength, maxInitial: maxInitial}, nil
 }
 
+// SupportsWordAlignment reports whether this checked immutable policy carries
+// at least one validated alignment head for the same model/tokenizer contract.
+func (g *CheckedGenerationConfig) SupportsWordAlignment() bool {
+	return g != nil && len(g.alignmentHeads) > 0
+}
+
 func validateSuppressionLists(v timestampVocabulary, lists ...[]int) error {
 	for _, ids := range lists {
 		if len(ids) > v.vocabSize {

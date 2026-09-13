@@ -51,6 +51,10 @@ This is a foundation checkpoint. Community-1 porting, the model-ready Vulkan exe
 
 Do not move codec ownership into go-pherence or wait for go-264 before developing the neural pipeline. Keep the `media.Adapter` contract narrow so a separately qualified go-264 backend can replace FFmpeg later. Do not conceal whisper.cpp/PyTorch/ONNX inference underneath the final Go service. Offline model/fixture conversion and the temporary media subprocess are explicitly separate from inference.
 
+## Checked word timing and speaker attribution
+
+`profile.word_timestamps` is opt-in and requires validated `alignment_heads` in the pinned Whisper generation metadata. It performs a second CPU decoder pass over the generated text, observes real cross-attention probabilities, and applies the Transformers 4.57.1 normalization, median-filter and DTW contract. Word times are persisted independently from segment timestamp boundaries. When Community-1 is enabled, each word is labelled from maximum positive overlap with exclusive turns; ties and uncovered words remain unlabelled. The plain transcript and VTT remain available if diarization fails.
+
 ## Media contract and limits
 
 The [go-264 backend](go264-media.md) implements `media.Adapter` for the qualified PCM-WAV/progressive AAC-LC subset and is the explicit media choice in the shipped speech-job examples. FFmpeg remains an explicit rollback profile. The provider is publicly fetchable at `v0.0.0-20260913172724-2db88745d0e5`, verified through the public Go checksum database, with no committed local replacement. Its `ProbeMetadata` contract keeps pre-trim and edited AAC extents distinct. The server requires `profile.media_backend` so existing checkpoint identities never silently change.

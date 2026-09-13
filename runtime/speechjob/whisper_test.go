@@ -202,7 +202,7 @@ func TestWhisperWindowPublicationRetryAndConflict(t *testing.T) {
 }
 
 func TestWhisperJournalAdmissionValidationCancel(t *testing.T) {
-	for _, kind := range []string{"quota", "window-limit", "result-limit", "bad-order", "bad-geometry", "bad-time", "bad-token", "incomplete", "cancel"} {
+	for _, kind := range []string{"quota", "window-limit", "result-limit", "bad-order", "bad-geometry", "bad-time", "bad-token", "bad-word", "incomplete", "cancel"} {
 		t.Run(kind, func(t *testing.T) {
 			s, _ := openTest(t)
 			job := createTest(t, s)
@@ -224,6 +224,8 @@ func TestWhisperJournalAdmissionValidationCancel(t *testing.T) {
 						w.Segments[0].End = 999
 					case "bad-token":
 						w.Segments[0].Tokens[0] = -1
+					case "bad-word":
+						w.Words = []whisper.WordTiming{{Word: "window", Start: w.Segments[0].Start, End: w.Segments[0].End, TokenStart: 1, TokenEnd: 2}}
 					case "cancel":
 						cancel()
 					}
@@ -413,6 +415,14 @@ func TestWhisperJournalIgnoredCallbackErrorFailsClosed(t *testing.T) {
 	job, e := s.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(1001), st}, nil)
 	if e == nil || job.Status != Failed || len(job.Checkpoints) != 1 {
 		t.Fatal(job, e)
+	}
+}
+
+func TestWhisperConstructorRejectsWordTimingWithoutGeneration(t *testing.T) {
+	model, tok := jobToyWhisper()
+	cfg := WhisperStageConfig{ModelSHA256: hash([]byte("toy")), RuntimeSHA256: hash([]byte("host")), Language: "pt", WordTimestamps: true, MaxWindowBytes: 4096, MaxResultBytes: 128 << 10}
+	if _, err := NewWhisperWindowStage(model, tok, cfg); !errors.Is(err, ErrConfiguration) {
+		t.Fatal(err)
 	}
 }
 

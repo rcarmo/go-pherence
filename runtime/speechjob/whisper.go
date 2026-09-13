@@ -31,6 +31,7 @@ type WhisperStageConfig struct {
 	OverlapSamples                         int64
 	MaxNewTokens, MaxInitialTimestampIndex int
 	SkipDigitalSilence                     bool
+	WordTimestamps                         bool
 	GenerationJSON                         []byte
 	MaxWindowBytes, MaxResultBytes         int64
 }
@@ -65,14 +66,20 @@ func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 	if e := validate(); e != nil {
 		return Stage{}, e
 	}
-	opts := whisper.PCMTranscribeOptions{Language: cfg.Language, OverlapSamples: cfg.OverlapSamples, MaxNewTokens: cfg.MaxNewTokens, MaxInitialTimestampIndex: cfg.MaxInitialTimestampIndex, SkipDigitalSilence: cfg.SkipDigitalSilence}
+	opts := whisper.PCMTranscribeOptions{Language: cfg.Language, OverlapSamples: cfg.OverlapSamples, MaxNewTokens: cfg.MaxNewTokens, MaxInitialTimestampIndex: cfg.MaxInitialTimestampIndex, SkipDigitalSilence: cfg.SkipDigitalSilence, WordTimestamps: cfg.WordTimestamps}
 	if resident != nil {
 		opts.VulkanEncoder = resident.encoder
+	}
+	if cfg.WordTimestamps && len(cfg.GenerationJSON) == 0 {
+		return Stage{}, ErrConfiguration
 	}
 	if len(cfg.GenerationJSON) > 0 {
 		generation, e := whisper.ParseGenerationConfigChecked(cfg.GenerationJSON, model.Config, tokenizer)
 		if e != nil {
 			return Stage{}, e
+		}
+		if cfg.WordTimestamps && !generation.SupportsWordAlignment() {
+			return Stage{}, ErrConfiguration
 		}
 		opts.Generation = generation
 	}
@@ -285,6 +292,16 @@ func validateWindow(result whisper.WindowTranscript, plan whisper.WindowPlan, ma
 			}
 		}
 		last = s.End
+	}
+	wordTokenEnd, wordEnd := 0, float64(expected.Start)/16000
+	for _, word := range result.Words {
+		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < wordEnd || word.End <= word.Start || word.End > float64(expected.End)/16000 || word.TokenStart != wordTokenEnd || word.TokenEnd <= word.TokenStart || word.TokenEnd > tokens || len(word.Word) == 0 || len(word.Word) > 65536 || !utf8.ValidString(word.Word) || strings.TrimSpace(word.Word) == "" {
+			return fmt.Errorf("%w: window word", ErrCorrupt)
+		}
+		wordTokenEnd, wordEnd = word.TokenEnd, word.End
+	}
+	if len(result.Words) > 0 && wordTokenEnd != tokens {
+		return fmt.Errorf("%w: incomplete window word tokens", ErrCorrupt)
 	}
 	return nil
 }

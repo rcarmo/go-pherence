@@ -86,6 +86,20 @@ func TestCheckedConfigModelMappingAndRejections(t *testing.T) {
 	}
 }
 
+func TestCheckedGenerationWordAlignmentCapability(t *testing.T) {
+	cfg := Tiny()
+	tok, raw := generationJSONFixture(t, cfg)
+	g, err := ParseGenerationConfigChecked(marshalConfig(t, raw), cfg, tok)
+	if err != nil || g.SupportsWordAlignment() {
+		t.Fatal("unexpected alignment capability", err)
+	}
+	raw["alignment_heads"] = [][]int{{0, 0}}
+	g, err = ParseGenerationConfigChecked(marshalConfig(t, raw), cfg, tok)
+	if err != nil || !g.SupportsWordAlignment() {
+		t.Fatal("missing alignment capability", err)
+	}
+}
+
 func TestCheckedConfigGenerationImportAndPrecedence(t *testing.T) {
 	cfg := Tiny()
 	tok, m := generationJSONFixture(t, cfg)

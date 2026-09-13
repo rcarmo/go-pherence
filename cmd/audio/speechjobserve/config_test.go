@@ -24,9 +24,18 @@ func baseConfig(t *testing.T) ServerConfig {
 func TestConfigStrictAndSafeListener(t *testing.T) {
 	good := baseConfig(t)
 	b, _ := json.Marshal(good)
-	if _, e := parseConfig(b); e != nil {
+	parsed, e := parseConfig(b)
+	if e != nil || parsed.Profile.WordTimestamps {
 		t.Fatal(e)
 	}
+	good.Profile.WordTimestamps = true
+	b, _ = json.Marshal(good)
+	parsed, e = parseConfig(b)
+	if e != nil || !parsed.Profile.WordTimestamps {
+		t.Fatal("word timestamp profile option", e)
+	}
+	good.Profile.WordTimestamps = false
+	b, _ = json.Marshal(good)
 	for _, raw := range [][]byte{[]byte("null"), append(b, []byte(" {}")...), bytes.Replace(b, []byte(`"schema":2`), []byte(`"schema":2,"schema":2`), 1), bytes.Replace(b, []byte(`"schema":2`), []byte(`"Schema":2`), 1), bytes.Replace(b, []byte(`"threads":2`), []byte(`"threads":null`), 1), bytes.Replace(b, []byte(`"profile":{`), []byte(`"profile":{"vulkan":{"encoder_weights":"q8-kv-mlp"},`), 1), append([]byte(strings.Repeat(" ", 64<<10)), b...)} {
 		if _, e := parseConfig(raw); e == nil {
 			t.Fatal("ambiguous config")

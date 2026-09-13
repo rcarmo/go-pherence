@@ -94,5 +94,24 @@ func TestWhisperTinyJFKWordAlignment(t *testing.T) {
 	if delta := words[len(words)-1].End - 10.98; delta < -0.02 || delta > 0.02 {
 		t.Fatalf("last word end=%.2f want 10.98 (+/-0.02): %+v", words[len(words)-1].End, words[len(words)-1])
 	}
+	var windows []WindowTranscript
+	err = model.TranscribePCMWindows(context.Background(), reader, int64(len(pcm)), tok, PCMTranscribeOptions{Language: "en", Generation: generation, MaxNewTokens: 96, WordTimestamps: true}, func(window WindowTranscript) error {
+		windows = append(windows, window)
+		return nil
+	})
+	if err != nil || len(windows) != 1 {
+		t.Fatal("integrated word alignment", len(windows), err)
+	}
+	var integrated []WordTiming
+	integrated = append(integrated, windows[0].Words...)
+	if len(integrated) != len(want) || integrated[0].Word != "And" || integrated[len(integrated)-1].Word != "country." {
+		t.Fatalf("integrated windows=%+v words=%+v", windows, integrated)
+	}
+	integratedStarts := []float64{0, 1.08, 1.34, 1.70, 2.28, 3.80, 4.70, 5.70, 5.96, 6.42, 6.72, 6.96, 7.24, 8.24, 8.60, 8.98, 9.22, 9.42, 9.70, 9.88, 10.10, 10.56}
+	for i := range integrated {
+		if delta := integrated[i].Start - integratedStarts[i]; delta < -0.02 || delta > 0.02 {
+			t.Fatalf("integrated word %d start=%.2f want %.2f (+/-0.02)", i, integrated[i].Start, integratedStarts[i])
+		}
+	}
 	t.Logf("WHISPER_WORD_ALIGNMENT words=%d first=%.2f last=%.2f", len(words), words[0].Start, words[len(words)-1].End)
 }

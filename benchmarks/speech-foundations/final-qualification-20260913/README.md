@@ -56,7 +56,7 @@ Whisper Windows test compilation still fails in pre-existing Unix-only Vulkan, N
 
 ## Failed gates retained without tolerance changes
 
-- Strict lowered SincNet: two wave/stride-10 cases fail at index 1717 with max absolute error `0.00038086623` against the fixed `0.0002` gate. Twelve related cases pass. Scalar and SIMD FMA remain bit-identical.
+- Strict lowered SincNet: two wave/stride-10 cases fail at index 1717 with max absolute error `0.00038086623` against the fixed `0.0002` gate. Twelve related cases pass. Scalar and SIMD FMA remain bit-identical. A source and independent review classify the residual as unsupported backend-specific PyTorch 2.14/MKL blocked-tail arithmetic: reproducing it would require non-portable kernel emulation or a forbidden shape correction.
 - Strict trained segmentation: `silence-1s` and `public-10-20s` fail intermediate gates. Endpoint hard-mask disagreement remains zero.
 - Strict trained embedding: all four retained cases fail one or more frontend/trunk/support intermediate gates. Endpoint embedding checks used by the saved end-to-end comparison remain within their separate limits.
 - Strict default tie policy rejects 84 ambiguous frames in the only trained diarization fixture. The complete result uses the explicit `LowestIndexTies` diagnostic policy.

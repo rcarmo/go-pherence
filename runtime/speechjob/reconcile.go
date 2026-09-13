@@ -104,6 +104,7 @@ func NewTranscriptStage(cfg TranscriptStageConfig) (Stage, error) {
 
 type rawCue struct {
 	segment whisper.Segment
+	words   []whisper.WordTiming
 	window  int64
 }
 
@@ -175,6 +176,8 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 		if e = validateWindow(record.Result, plan, 448, 51866); e != nil {
 			return zero, e
 		}
+		words := record.Result.Words
+		windowTokenOffset := 0
 		for _, s := range record.Result.Segments {
 			if len(raw) >= MaxTranscriptCues {
 				return zero, ErrLimit
@@ -183,7 +186,20 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 			if textBytes > MaxTranscriptBytes {
 				return zero, ErrLimit
 			}
-			raw = append(raw, rawCue{s, i})
+			segmentWords := make([]whisper.WordTiming, 0)
+			segmentTokens := len(s.Tokens)
+			for len(words) > 0 && words[0].TokenStart < windowTokenOffset+segmentTokens {
+				if words[0].TokenStart < windowTokenOffset {
+					return zero, ErrCorrupt
+				}
+				segmentWords = append(segmentWords, words[0])
+				words = words[1:]
+			}
+			windowTokenOffset += segmentTokens
+			raw = append(raw, rawCue{segment: s, words: segmentWords, window: i})
+		}
+		if len(words) != 0 {
+			return zero, ErrCorrupt
 		}
 	}
 	if _, e = readASRLine(ctx, r, &consumed); e != io.EOF {
@@ -209,6 +225,7 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 		return zero, e
 	}
 	result := Transcript{Schema: 2, SampleRate: 16000, TotalSamples: total, Language: cfg.Language, Cues: []Cue{}}
+	accepted := make([]rawCue, 0, len(raw))
 	var previous whisper.Segment
 	for i, c := range raw {
 		if i%256 == 0 {
@@ -235,7 +252,24 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 			return zero, ErrTranscriptSampleGrid
 		}
 		result.Cues = append(result.Cues, Cue{StartSample: start, EndSample: end, Speaker: -1, Text: s.Text})
+		accepted = append(accepted, c)
 		previous = s
+	}
+	if slices.ContainsFunc(accepted, func(c rawCue) bool { return c.words != nil }) {
+		result.Words = []WordCue{}
+	}
+	for _, c := range accepted {
+		for _, word := range c.words {
+			start, e := sampleTimestamp(word.Start, total)
+			if e != nil {
+				return zero, e
+			}
+			end, e := sampleTimestamp(word.End, total)
+			if e != nil || end <= start {
+				return zero, ErrTranscriptSampleGrid
+			}
+			result.Words = append(result.Words, WordCue{StartSample: start, EndSample: end, Speaker: -1, Text: word.Word})
+		}
 	}
 	if e = validateTranscript(ctx, result); e != nil {
 		return zero, e

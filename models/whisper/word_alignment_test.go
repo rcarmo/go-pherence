@@ -42,14 +42,26 @@ func TestAlignmentCostAndDTWPinnedOracle(t *testing.T) {
 }
 
 func TestWordGroupsPreserveWhitespaceAndUTF8(t *testing.T) {
-	tok := &Tokenizer{Vocab: map[int]string{1: "Hello", 2: "Ġworld", 3: "!", 4: "ĠTelefÃ", 5: "³nica"}, VocabSize: 6}
-	got, err := tok.wordGroups([]int{1, 2, 3, 4, 5})
+	tok := &Tokenizer{Vocab: map[int]string{1: "Hello", 2: "Ġworld", 3: "!", 4: "ĠTelefÃ", 5: "³nica", 6: "Ġ\"", 7: "again"}, VocabSize: 8}
+	got, err := tok.wordGroups("en", []int{1, 2, 3, 4, 5, 6, 7})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []wordGroup{{"Hello", 0, 1}, {"world!", 1, 3}, {"Telefónica", 3, 5}}
+	want := []wordGroup{{"Hello", 0, 1}, {"world!", 1, 3}, {"Telefónica", 3, 5}, {`"again`, 5, 7}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("groups=%+v want %+v", got, want)
+	}
+	cjk := &Tokenizer{Vocab: map[int]string{1: "ä½", 2: "ł", 3: "å¥½"}, VocabSize: 4}
+	got, err = cjk.wordGroups("zh", []int{1, 2, 3})
+	if err != nil || !reflect.DeepEqual(got, []wordGroup{{"你", 0, 2}, {"好", 2, 3}}) {
+		t.Fatalf("unicode groups=%+v err=%v", got, err)
+	}
+}
+
+func TestDynamicTimeWarpUsesNumPyFirstMinimumTies(t *testing.T) {
+	text, times, err := dynamicTimeWarp(context.Background(), []float64{0}, 1, 1)
+	if err != nil || !reflect.DeepEqual(text, []int{0}) || !reflect.DeepEqual(times, []int{0}) {
+		t.Fatal(text, times, err)
 	}
 }
 

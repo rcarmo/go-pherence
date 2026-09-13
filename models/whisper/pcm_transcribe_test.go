@@ -23,7 +23,7 @@ func TestPCMTranscribePlanAllWindowsAndFailures(t *testing.T) {
 		}
 		return len(dst), nil
 	})
-	infer := func(samples []float32) ([]Segment, error) {
+	infer := func(samples []float32, _ int) ([]Segment, []WordTiming, error) {
 		inferences++
 		if scratchBase == nil {
 			scratchBase = &samples[0]
@@ -33,7 +33,7 @@ func TestPCMTranscribePlanAllWindowsAndFailures(t *testing.T) {
 		if inferences == 131 && (samples[0] != 0.5 || samples[1] != 0) {
 			t.Fatal("final-tail padding")
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err := transcribePCMPlan(context.Background(), source, plan, func(r WindowTranscript) error {
 		if r.Window.Index != int64(emits) {
@@ -65,14 +65,14 @@ func TestPCMTranscribePlanAllWindowsAndFailures(t *testing.T) {
 				}
 				return len(dst), nil
 			})
-			infer := func([]float32) ([]Segment, error) {
+			infer := func([]float32, int) ([]Segment, []WordTiming, error) {
 				if stage == "infer" {
-					return nil, failure
+					return nil, nil, failure
 				}
 				if stage == "cancel" {
 					cancel()
 				}
-				return nil, nil
+				return nil, nil, nil
 			}
 			err := transcribePCMPlan(ctx, s, plan, func(WindowTranscript) error { emits++; return failure }, infer)
 			if reads != 1 || ((stage == "emit") != (emits == 1)) {
@@ -99,11 +99,27 @@ func TestPCMTranscribeTimestampMapping(t *testing.T) {
 	if len(segs) != 2 || segs[0].Start != 29 || segs[0].End != 29.5 || segs[1].End != float64(480001)/16000 {
 		t.Fatalf("bad canonical times %+v", segs)
 	}
+	_, worded, err := canonicalWindowOutput(w, []Segment{{Start: 0, End: 1, Text: "two words", Tokens: []int{1, 2}}}, []WordTiming{{Word: "two", Start: .1, End: .4, TokenStart: 0, TokenEnd: 1}, {Word: "words", Start: .4, End: .9, TokenStart: 1, TokenEnd: 2}})
+	if err != nil || len(worded) != 2 || worded[0].Start != 29.1 || worded[1].End != 29.9 {
+		t.Fatal("word timestamp mapping", worded, err)
+	}
 	for _, segs := range [][]Segment{
 		{{Start: -1, End: 1}}, {{Start: 1, End: 1}}, {{Start: 0, End: 31}}, {{Start: 0, End: math.Inf(1)}}, {{Start: math.NaN(), End: 1}}, {{Start: 0, End: 1}, {Start: 0.5, End: 2}},
 	} {
 		if _, err := canonicalWindowSegments(w, segs); err == nil {
 			t.Fatalf("accepted malformed timestamps %+v", segs)
+		}
+	}
+	for _, words := range [][]WordTiming{
+		{{Word: "x", Start: -1, End: .1, TokenStart: 0, TokenEnd: 1}},
+		{{Word: "x", Start: .1, End: .1, TokenStart: 0, TokenEnd: 1}},
+		{{Word: "x", Start: .1, End: 2, TokenStart: 0, TokenEnd: 1}},
+		{{Word: "x", Start: .1, End: .3, TokenStart: 1, TokenEnd: 2}},
+		{{Word: " ", Start: .1, End: .3, TokenStart: 0, TokenEnd: 1}},
+		{{Word: "x", Start: .1, End: .4, TokenStart: 0, TokenEnd: 1}, {Word: "y", Start: .3, End: .5, TokenStart: 1, TokenEnd: 2}},
+	} {
+		if _, _, err := canonicalWindowOutput(w, nil, words); err == nil {
+			t.Fatalf("accepted malformed word timestamps %+v", words)
 		}
 	}
 }
@@ -214,7 +230,9 @@ func TestPCMResumePlanKeepsAbsoluteGeometry(t *testing.T) {
 		return len(dst), nil
 	})
 	var results []WindowTranscript
-	infer := func([]float32) ([]Segment, error) { return []Segment{{Start: 0, End: 0.01, Text: "synthetic"}}, nil }
+	infer := func([]float32, int) ([]Segment, []WordTiming, error) {
+		return []Segment{{Start: 0, End: 0.01, Text: "synthetic"}}, nil, nil
+	}
 	if e := transcribePCMPlanFrom(context.Background(), source, plan, 2, func(w WindowTranscript) error { results = append(results, w); return nil }, infer); e != nil {
 		t.Fatal(e)
 	}

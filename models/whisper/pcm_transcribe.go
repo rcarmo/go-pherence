@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 )
 
 // PCMTranscribeOptions configures the opt-in checked path. Language is an
 // explicit tokenizer language code (e.g. "pt"); this path transcribes rather
-// than translates. Automatic detection, temperature fallback, word alignment
-// and cross-window text reconciliation are not implemented here.
+// than translates. Automatic detection, temperature fallback and cross-window
+// text reconciliation are not implemented here. Word alignment is explicit.
 type PCMTranscribeOptions struct {
 	Language                 string
 	OverlapSamples           int64
@@ -20,6 +21,10 @@ type PCMTranscribeOptions struct {
 	// exact PCM zeros (including signed zero and padding), before frontend/model
 	// execution. Opt-in; no energy threshold, VAD or quiet-speech classification.
 	SkipDigitalSilence bool
+	// WordTimestamps runs the checked CPU cross-attention alignment pass for each
+	// decoded segment. It is explicit because it consumes an additional decoder
+	// state and cannot observe the resident Vulkan encoder itself.
+	WordTimestamps bool
 	// Optional caller-owned fixed-MaxLength resident encoder. Host w.Encoder
 	// may be released/nil after resident construction. Pair with the
 	// decoder from the same checkpoint; geometry admission cannot prove identity.
@@ -36,6 +41,9 @@ type PCMTranscribeOptions struct {
 type WindowTranscript struct {
 	Window   Window
 	Segments []Segment
+	// Words is an independent checked alignment over all generated text tokens.
+	// Segment timestamp boundaries are not used to clip or invent word timing.
+	Words []WordTiming `json:",omitempty"`
 }
 
 // Serialize the checked entry point: existing kernels have package-level timers,
@@ -109,6 +117,9 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	if opts.MaxNewTokens < 0 || opts.MaxNewTokens > w.Config.MaxDecoderLength-3 || opts.MaxInitialTimestampIndex < 0 || opts.MaxInitialTimestampIndex > 1500 {
 		return fmt.Errorf("invalid checked generation bounds")
 	}
+	if opts.WordTimestamps && (opts.Generation == nil || len(opts.Generation.alignmentHeads) == 0) {
+		return fmt.Errorf("checked word timestamps require generation alignment heads")
+	}
 	windowSamples := int64(w.Config.MaxLength) * 160
 	if opts.OverlapSamples > windowSamples/2 {
 		return fmt.Errorf("checked PCM overlap must not exceed half a window")
@@ -120,22 +131,22 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	if plan.Count() > 10000 {
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
-	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emit, func(samples []float32) ([]Segment, error) {
+	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emit, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
 		if opts.SkipDigitalSilence {
 			zero, err := pcmDigitalSilence(ctx, samples)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if zero {
-				return nil, nil
+				return nil, nil, nil
 			}
 		}
 		mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		var output []float32
 		if opts.VulkanEncoder != nil {
@@ -144,34 +155,54 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 			output, err = w.Encoder.ForwardContext(ctx, mel, frames)
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if len(output) != ((frames+1)/2)*w.Config.EncoderDModel {
-			return nil, fmt.Errorf("invalid encoder output shape")
+			return nil, nil, fmt.Errorf("invalid encoder output shape")
 		}
 		for index, value := range output {
 			if index%16384 == 0 {
 				if err := ctx.Err(); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 			}
 			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-				return nil, fmt.Errorf("non-finite encoder output")
+				return nil, nil, fmt.Errorf("non-finite encoder output")
 			}
 		}
 		state, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
+		segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
 			if state.Pos >= w.Config.MaxDecoderLength {
 				return nil, ErrGenerationLimit
 			}
 			return w.Decoder.ForwardToken(token, state), nil
 		})
+		if err != nil || !opts.WordTimestamps {
+			return segments, nil, err
+		}
+		allTokens := make([]int, 0)
+		for _, segment := range segments {
+			allTokens = append(allTokens, segment.Tokens...)
+		}
+		if len(allTokens) > 0 {
+			alignmentState, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
+			if err != nil {
+				return nil, nil, err
+			}
+			audioFrames := (validSamples + 159) / 160
+			words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, opts.Generation, opts.Language, allTokens, audioFrames)
+			if err != nil {
+				return nil, nil, fmt.Errorf("align window: %w", err)
+			}
+			return segments, words, nil
+		}
+		return segments, nil, nil
 	})
 }
 
@@ -196,11 +227,11 @@ func pcmDigitalSilence(ctx context.Context, samples []float32) (bool, error) {
 
 // Separate orchestration allows testing every sample/window and failure boundary
 // with a fake infer function without representing those tests as neural quality.
-func transcribePCMPlan(ctx context.Context, source SampleReader, plan WindowPlan, emit func(WindowTranscript) error, infer func([]float32) ([]Segment, error)) error {
+func transcribePCMPlan(ctx context.Context, source SampleReader, plan WindowPlan, emit func(WindowTranscript) error, infer func([]float32, int) ([]Segment, []WordTiming, error)) error {
 	return transcribePCMPlanFrom(ctx, source, plan, 0, emit, infer)
 }
 
-func transcribePCMPlanFrom(ctx context.Context, source SampleReader, plan WindowPlan, firstWindow int64, emit func(WindowTranscript) error, infer func([]float32) ([]Segment, error)) error {
+func transcribePCMPlanFrom(ctx context.Context, source SampleReader, plan WindowPlan, firstWindow int64, emit func(WindowTranscript) error, infer func([]float32, int) ([]Segment, []WordTiming, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -220,18 +251,18 @@ func transcribePCMPlanFrom(ctx context.Context, source SampleReader, plan Window
 		if err != nil {
 			return err
 		}
-		segments, err := infer(scratch)
+		segments, words, err := infer(scratch, int(window.End-window.Start))
 		if err != nil {
 			return fmt.Errorf("infer PCM window %d: %w", i, err)
 		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		mapped, err := canonicalWindowSegments(window, segments)
+		mapped, mappedWords, err := canonicalWindowOutput(window, segments, words)
 		if err != nil {
 			return err
 		}
-		if err := emit(WindowTranscript{Window: window, Segments: mapped}); err != nil {
+		if err := emit(WindowTranscript{Window: window, Segments: mapped, Words: mappedWords}); err != nil {
 			return fmt.Errorf("emit PCM window %d: %w", i, err)
 		}
 		if err := ctx.Err(); err != nil {
@@ -242,6 +273,11 @@ func transcribePCMPlanFrom(ctx context.Context, source SampleReader, plan Window
 }
 
 func canonicalWindowSegments(window Window, segments []Segment) ([]Segment, error) {
+	mapped, _, err := canonicalWindowOutput(window, segments, nil)
+	return mapped, err
+}
+
+func canonicalWindowOutput(window Window, segments []Segment, words []WordTiming) ([]Segment, []WordTiming, error) {
 	valid := float64(window.End-window.Start) / float64(SpeechSampleRate)
 	duration := float64(window.InputSamples) / float64(SpeechSampleRate)
 	offset := float64(window.Start) / float64(SpeechSampleRate)
@@ -249,7 +285,7 @@ func canonicalWindowSegments(window Window, segments []Segment) ([]Segment, erro
 	lastEnd := 0.0
 	for _, segment := range segments {
 		if math.IsNaN(segment.Start) || math.IsNaN(segment.End) || math.IsInf(segment.Start, 0) || math.IsInf(segment.End, 0) || segment.Start < lastEnd || segment.End <= segment.Start || segment.End > duration {
-			return nil, fmt.Errorf("invalid timestamps in PCM window %d", window.Index)
+			return nil, nil, fmt.Errorf("invalid timestamps in PCM window %d", window.Index)
 		}
 		lastEnd = segment.End
 		if segment.Start >= valid {
@@ -259,5 +295,19 @@ func canonicalWindowSegments(window Window, segments []Segment) ([]Segment, erro
 		segment.Start += offset
 		out = append(out, segment)
 	}
-	return out, nil
+	var mappedWords []WordTiming
+	if words != nil {
+		mappedWords = make([]WordTiming, 0, len(words))
+	}
+	previousEnd, previousTokenEnd := 0.0, 0
+	for _, word := range words {
+		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < previousEnd || word.End <= word.Start || word.End > valid || word.TokenStart != previousTokenEnd || word.TokenEnd <= word.TokenStart || strings.TrimSpace(word.Word) == "" {
+			return nil, nil, fmt.Errorf("invalid word timestamps in PCM window %d", window.Index)
+		}
+		previousEnd, previousTokenEnd = word.End, word.TokenEnd
+		word.Start += offset
+		word.End += offset
+		mappedWords = append(mappedWords, word)
+	}
+	return out, mappedWords, nil
 }

@@ -45,6 +45,31 @@ func asrRecords(t *testing.T, total int64, key string, cfg TranscriptStageConfig
 	}
 	return b.Bytes()
 }
+func TestReconcileCheckedWordTimings(t *testing.T) {
+	ctx := context.Background()
+	cfg := reconcileConfig()
+	key := hash([]byte("word key"))
+	segment := whisper.Segment{Start: .0125, End: .02, Text: "Olá mundo", Tokens: []int{42, 43}}
+	words := []whisper.WordTiming{{Word: "Olá", Start: .0125, End: .015, TokenStart: 0, TokenEnd: 1}, {Word: "mundo", Start: .015, End: .02, TokenStart: 1, TokenEnd: 2}}
+	raw := asrRecords(t, 480, key, cfg, [][]whisper.Segment{{segment}})
+	lines := bytes.Split(bytes.TrimSpace(raw), []byte{'\n'})
+	var record windowRecord
+	if err := json.Unmarshal(lines[0], &record); err != nil {
+		t.Fatal(err)
+	}
+	record.Result.Words = words
+	lines[0], _ = json.Marshal(record)
+	raw = append(bytes.Join(lines, []byte{'\n'}), '\n')
+	got, err := reconcileASR(ctx, bytes.NewReader(raw), 480, key, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []WordCue{{StartSample: 200, EndSample: 240, Speaker: -1, Text: "Olá"}, {StartSample: 240, EndSample: 320, Speaker: -1, Text: "mundo"}}
+	if len(got.Cues) != 1 || !reflect.DeepEqual(got.Words, want) {
+		t.Fatalf("words=%+v", got.Words)
+	}
+}
+
 func TestReconcileExactDuplicateAndDisjoint(t *testing.T) {
 	ctx := context.Background()
 	cfg := reconcileConfig()

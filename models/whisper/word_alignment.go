@@ -145,13 +145,15 @@ func AlignWordsChecked(ctx context.Context, dec *Decoder, state *DecoderState, t
 	if at != len(tokens) {
 		return nil, fmt.Errorf("%w: incomplete DTW token timestamps", ErrWordAlignmentInput)
 	}
+	// Match Transformers' generated-EOT rule: the final non-EOT token and EOT
+	// share the final observed timestamp. The caller supplies text tokens only.
 	starts[len(tokens)] = starts[len(tokens)-1]
 	for i := 1; i < len(starts); i++ {
 		if starts[i] < starts[i-1] {
 			return nil, fmt.Errorf("%w: decreasing token timestamps", ErrWordAlignmentInput)
 		}
 	}
-	groups, err := tokenizer.wordGroups(tokens)
+	groups, err := tokenizer.wordGroups(language, tokens)
 	if err != nil {
 		return nil, fmt.Errorf("token-to-word grouping: %w", err)
 	}
@@ -253,9 +255,11 @@ func dynamicTimeWarp(ctx context.Context, matrix []float64, rows, cols int) ([]i
 			c2 := cost[row*stride+col-1]
 			var c float32
 			var direction uint8
-			if c0 < c1 && c0 < c2 {
+			// Match NumPy argmin([diagonal, up, left]): equal costs select
+			// the first candidate rather than preferring the left move.
+			if c0 <= c1 && c0 <= c2 {
 				c, direction = c0, 0
-			} else if c1 < c0 && c1 < c2 {
+			} else if c1 <= c2 {
 				c, direction = c1, 1
 			} else {
 				c, direction = c2, 2
@@ -301,54 +305,94 @@ type wordGroup struct {
 	start, end int
 }
 
-func (t *Tokenizer) wordGroups(tokens []int) ([]wordGroup, error) {
+func (t *Tokenizer) wordGroups(language string, tokens []int) ([]wordGroup, error) {
 	if t == nil || len(tokens) == 0 {
 		return nil, ErrWordAlignmentInput
 	}
-	var groups []wordGroup
-	start := 0
-	previous := ""
-	for i := range tokens {
-		if tokens[i] < 0 || tokens[i] >= TokenSOT {
-			return nil, ErrWordAlignmentInput
-		}
-		piece := t.decodeRaw(tokens[i : i+1])
-		decoded := t.decodeRaw(tokens[start : i+1])
-		if decoded == "" {
-			continue
-		}
-		spaceBoundary := i > start && strings.HasPrefix(piece, " ")
-		punctuation := allPunctuation([]rune(strings.TrimSpace(piece)))
-		if spaceBoundary {
-			if previous == "" {
-				return nil, ErrWordAlignmentInput
-			}
-			groups = append(groups, wordGroup{word: strings.TrimSpace(previous), start: start, end: i})
-			start = i
-			decoded = t.decodeRaw(tokens[start : i+1])
-		} else if punctuation {
-			if previous == "" {
-				if len(groups) == 0 {
-					return nil, ErrWordAlignmentInput
-				}
-				groups[len(groups)-1].word += strings.TrimSpace(piece)
-				groups[len(groups)-1].end = i + 1
+	subwords, err := t.unicodeTokenGroups(tokens)
+	if err != nil {
+		return nil, err
+	}
+	if language != "zh" && language != "ja" && language != "th" && language != "lo" && language != "my" && language != "yue" {
+		words := make([]wordGroup, 0, len(subwords))
+		for _, subword := range subwords {
+			punctuation := allPunctuation([]rune(strings.TrimSpace(subword.word)))
+			if len(words) == 0 || strings.HasPrefix(subword.word, " ") || punctuation {
+				words = append(words, subword)
 			} else {
-				groups = append(groups, wordGroup{word: strings.TrimSpace(previous) + strings.TrimSpace(piece), start: start, end: i + 1})
+				words[len(words)-1].word += subword.word
+				words[len(words)-1].end = subword.end
 			}
-			start = i + 1
-			previous = ""
-			continue
 		}
-		previous = decoded
+		subwords = words
 	}
-	if previous != "" {
-		groups = append(groups, wordGroup{word: strings.TrimSpace(previous), start: start, end: len(tokens)})
-	}
+	groups := mergeWordPunctuation(subwords)
 	if len(groups) == 0 || groups[len(groups)-1].end != len(tokens) {
 		return nil, ErrWordAlignmentInput
 	}
+	for i := range groups {
+		groups[i].word = strings.TrimSpace(groups[i].word)
+		if groups[i].word == "" || i > 0 && groups[i].start != groups[i-1].end || i == 0 && groups[i].start != 0 {
+			return nil, ErrWordAlignmentInput
+		}
+	}
 	return groups, nil
+}
+
+func (t *Tokenizer) unicodeTokenGroups(tokens []int) ([]wordGroup, error) {
+	for _, token := range tokens {
+		if token < 0 || token >= TokenSOT {
+			return nil, ErrWordAlignmentInput
+		}
+	}
+	full := []rune(t.decodeRaw(tokens))
+	groups := make([]wordGroup, 0, len(tokens))
+	start, unicodeOffset := 0, 0
+	for i := range tokens {
+		decoded := t.decodeRaw(tokens[start : i+1])
+		runes := []rune(decoded)
+		replacement := slices.Index(runes, '\ufffd')
+		complete := replacement < 0 || unicodeOffset+replacement < len(full) && full[unicodeOffset+replacement] == '\ufffd'
+		if complete {
+			groups = append(groups, wordGroup{word: decoded, start: start, end: i + 1})
+			start = i + 1
+			unicodeOffset += len(runes)
+		}
+	}
+	if start != len(tokens) {
+		return nil, ErrWordAlignmentInput
+	}
+	return groups, nil
+}
+
+func mergeWordPunctuation(groups []wordGroup) []wordGroup {
+	const prepend = `"'“¿([{-`
+	const appendToPrevious = `"'.。,，!！?？:：”)]}、`
+	for i, j := len(groups)-2, len(groups)-1; i >= 0; i-- {
+		if strings.HasPrefix(groups[i].word, " ") && strings.Contains(prepend, strings.TrimSpace(groups[i].word)) {
+			groups[j].word = groups[i].word + groups[j].word
+			groups[j].start = groups[i].start
+			groups[i].word = ""
+		} else {
+			j = i
+		}
+	}
+	for i, j := 0, 1; j < len(groups); j++ {
+		if groups[i].word != "" && !strings.HasSuffix(groups[i].word, " ") && strings.Contains(appendToPrevious, groups[j].word) {
+			groups[i].word += groups[j].word
+			groups[i].end = groups[j].end
+			groups[j].word = ""
+		} else if groups[j].word != "" {
+			i = j
+		}
+	}
+	out := groups[:0]
+	for _, group := range groups {
+		if group.word != "" {
+			out = append(out, group)
+		}
+	}
+	return out
 }
 
 func allPunctuation(value []rune) bool {

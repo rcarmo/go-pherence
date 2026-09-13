@@ -23,6 +23,8 @@ const MaxTranscriptCues = 100000
 // do not invent word timing, perform deduplication or identify speaker voices.
 // Speaker=-1 denotes unlabelled text;0..63 are already assigned local job IDs.
 // Cues may overlap, but starts are nondecreasing and all spans lie within input.
+// Words are an independent checked timeline because cross-attention boundaries
+// need not be contained by Whisper segment timestamp boundaries.
 type Transcript struct {
 	Schema       int                `json:"schema"`
 	SampleRate   int                `json:"sample_rate"`
@@ -30,8 +32,18 @@ type Transcript struct {
 	Language     string             `json:"language"`
 	SourceTiming media.SourceTiming `json:"source_timing"`
 	Cues         []Cue              `json:"cues"`
+	Words        []WordCue          `json:"words,omitempty"`
 }
 type Cue struct {
+	StartSample int64  `json:"start_sample"`
+	EndSample   int64  `json:"end_sample"`
+	Speaker     int    `json:"speaker"`
+	Text        string `json:"text"`
+}
+
+// WordCue is a checked word boundary on the canonical 16 kHz sample timeline.
+// Speaker=-1 means that exclusive diarization did not uniquely cover the word.
+type WordCue struct {
 	StartSample int64  `json:"start_sample"`
 	EndSample   int64  `json:"end_sample"`
 	Speaker     int    `json:"speaker"`
@@ -74,6 +86,22 @@ func validateTranscript(ctx context.Context, t Transcript) error {
 			return ErrLimit
 		}
 		previous = c.StartSample
+	}
+	previous = 0
+	for i, word := range t.Words {
+		if word.StartSample < 0 || word.EndSample <= word.StartSample || word.EndSample > t.TotalSamples || i > 0 && word.StartSample < previous || word.Speaker < -1 || word.Speaker > 63 || len(word.Text) == 0 || len(word.Text) > 65536 || !utf8.ValidString(word.Text) || strings.TrimSpace(word.Text) == "" {
+			return fmt.Errorf("invalid transcript word%d", i)
+		}
+		for _, r := range word.Text {
+			if unicode.IsControl(r) {
+				return fmt.Errorf("invalid control character in word%d", i)
+			}
+		}
+		totalText += len(word.Text)
+		if totalText > MaxTranscriptBytes {
+			return ErrLimit
+		}
+		previous = word.StartSample
 	}
 	return ctx.Err()
 }
@@ -235,6 +263,7 @@ func NewVTTStage() Stage {
 func validateTranscriptJSONShape(ctx context.Context, b []byte) error {
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.UseNumber()
+	var objectIndex int
 	var value func(int) error
 	value = func(depth int) error {
 		if e := ctx.Err(); e != nil {
@@ -256,16 +285,16 @@ func validateTranscriptJSONShape(ctx context.Context, b []byte) error {
 		}
 		switch delimiter {
 		case '{':
+			index := objectIndex
+			objectIndex++
 			var required map[string]bool
-			switch depth {
+			switch index {
 			case 0:
-				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "source_timing": true, "cues": true}
+				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "source_timing": true, "cues": true, "words": false}
 			case 1:
 				required = map[string]bool{"start_ns": true, "duration_ns": true, "exact": true, "has_edits": true, "source_rate": true, "priming": true, "padding": true, "leading_silence": true}
-			case 2:
-				required = map[string]bool{"start_sample": true, "end_sample": true, "speaker": true, "text": true}
 			default:
-				return fmt.Errorf("unexpected transcript object")
+				required = map[string]bool{"start_sample": true, "end_sample": true, "speaker": true, "text": true}
 			}
 			seen := map[string]bool{}
 			for d.More() {
@@ -277,16 +306,19 @@ func validateTranscriptJSONShape(ctx context.Context, b []byte) error {
 					return e
 				}
 				name, ok := key.(string)
-				if !ok || !required[name] || seen[name] {
-					return fmt.Errorf("duplicate/invalid transcript key")
+				_, allowed := required[name]
+				if !ok || !allowed || seen[name] {
+					return fmt.Errorf("duplicate/invalid transcript key %q in object %d", name, index)
 				}
 				seen[name] = true
 				if e = value(depth + 1); e != nil {
 					return e
 				}
 			}
-			if len(seen) != len(required) {
-				return fmt.Errorf("missing transcript key")
+			for name, mandatory := range required {
+				if mandatory && !seen[name] {
+					return fmt.Errorf("missing transcript key")
+				}
 			}
 			end, e := d.Token()
 			if e != nil || end != json.Delim('}') {

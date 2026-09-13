@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"sort"
+	"math"
 )
 
 // SpeakerTranscriptConfig pins both input stage versions. Experimental source
@@ -22,24 +22,26 @@ type SpeakerTranscriptConfig struct {
 // SpeakerTranscript retains provenance/experimental status outside the plain
 // transcript schema. Raw diarization is never relabelled as qualified output.
 type SpeakerTranscript struct {
-	Schema         int        `json:"schema"`
-	Experimental   bool       `json:"experimental"`
-	TranscriptKey  string     `json:"transcript_key"`
-	DiarizationKey string     `json:"diarization_key"`
-	Policy         string     `json:"policy"`
-	LabelledCues   int        `json:"labelled_cues"`
-	UnlabelledCues int        `json:"unlabelled_cues"`
-	Transcript     Transcript `json:"transcript"`
+	Schema          int        `json:"schema"`
+	Experimental    bool       `json:"experimental"`
+	TranscriptKey   string     `json:"transcript_key"`
+	DiarizationKey  string     `json:"diarization_key"`
+	Policy          string     `json:"policy"`
+	LabelledCues    int        `json:"labelled_cues"`
+	UnlabelledCues  int        `json:"unlabelled_cues"`
+	LabelledWords   int        `json:"labelled_words"`
+	UnlabelledWords int        `json:"unlabelled_words"`
+	Transcript      Transcript `json:"transcript"`
 }
 
-const speakerCoveragePolicy = "full-turns-unique-complete-cue-source-timing-v2"
+const speakerCoveragePolicy = "exclusive-turns-maximum-positive-overlap-per-word-v3"
 
 // NewSpeakerTranscriptStage creates "speaker-transcript" separately from the
 // unlabelled "transcript" so failed diarization never erases downloadable text.
-// A cue receives a cluster ID only if full turns cover its entire duration with
-// one speaker and no other speaker intersects it. Partial coverage, gaps, speaker
-// changes and overlaps leave Speaker=-1. No cue splitting or word interpolation.
-// Comparisons use raw float64 seconds; no widening tolerance or tail clipping.
+// Checked words receive the exclusive-turn speaker with maximum positive overlap.
+// An exact overlap tie or no overlap leaves Speaker=-1. Legacy cues without word
+// timings retain the conservative full-turn complete-coverage policy. No timing
+// interpolation, nearest-speaker fallback, or identity recognition is performed.
 func NewSpeakerTranscriptStage(cfg SpeakerTranscriptConfig) (Stage, error) {
 	if !cfg.AllowExperimental || !validHash(cfg.TranscriptVersion) || !validHash(cfg.DiarizationVersion) {
 		return Stage{}, ErrConfiguration
@@ -134,8 +136,48 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 		}
 		spans[turn.Speaker] = row
 	}
-	result := SpeakerTranscript{Schema: 1, Experimental: true, TranscriptKey: textKey, DiarizationKey: d.StageKey, Policy: speakerCoveragePolicy, Transcript: t}
-	result.Transcript.Cues = append([]Cue{}, t.Cues...)
+	result := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: textKey, DiarizationKey: d.StageKey, Policy: speakerCoveragePolicy, Transcript: t}
+	result.Transcript.Cues = append([]Cue(nil), t.Cues...)
+	if t.Words != nil {
+		result.Transcript.Words = append([]WordCue(nil), t.Words...)
+	}
+	label := func(start, end float64, source [64][]speakerSpan, requireFull bool) int {
+		bestSpeaker := -1
+		bestOverlap := 0.0
+		tied := false
+		intersecting := 0
+		for speaker, row := range source {
+			var overlap float64
+			for _, span := range row {
+				left, right := math.Max(start, span.start), math.Min(end, span.end)
+				if right > left {
+					overlap += right - left
+				}
+			}
+			if overlap > 0 {
+				intersecting++
+			}
+			if requireFull && overlap != end-start {
+				continue
+			}
+			if overlap > bestOverlap {
+				bestSpeaker, bestOverlap, tied = speaker, overlap, false
+			} else if overlap > 0 && overlap == bestOverlap {
+				tied = true
+			}
+		}
+		if requireFull && intersecting != 1 || tied || bestOverlap <= 0 || bestSpeaker >= d.Clusters {
+			return -1
+		}
+		return bestSpeaker
+	}
+	var exclusive [64][]speakerSpan
+	for _, turn := range d.ExclusiveTurns {
+		exclusive[turn.Speaker] = append(exclusive[turn.Speaker], speakerSpan{turn.Start, turn.End})
+	}
+	if len(result.Transcript.Words) > 0 && d.Path == "silence" {
+		return zero, ErrConfiguration
+	}
 	for i, cue := range result.Transcript.Cues {
 		if e := ctx.Err(); e != nil {
 			return zero, e
@@ -144,23 +186,23 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 			return zero, ErrConfiguration
 		}
 		start, end := float64(cue.StartSample)/16000, float64(cue.EndSample)/16000
-		candidate := -1
-		intersecting := 0
-		for speaker, row := range spans {
-			j := sort.Search(len(row), func(j int) bool { return row[j].end > start })
-			if j == len(row) || row[j].start >= end {
-				continue
-			}
-			intersecting++
-			if row[j].start <= start && row[j].end >= end {
-				candidate = speaker
-			}
-		}
-		if intersecting == 1 && candidate >= 0 && candidate < d.Clusters {
-			result.Transcript.Cues[i].Speaker = candidate
+		result.Transcript.Cues[i].Speaker = label(start, end, spans, true)
+		if result.Transcript.Cues[i].Speaker >= 0 {
 			result.LabelledCues++
 		} else {
 			result.UnlabelledCues++
+		}
+	}
+	for i := range result.Transcript.Words {
+		word := &result.Transcript.Words[i]
+		if word.Speaker != -1 {
+			return zero, ErrConfiguration
+		}
+		word.Speaker = label(float64(word.StartSample)/16000, float64(word.EndSample)/16000, exclusive, false)
+		if word.Speaker >= 0 {
+			result.LabelledWords++
+		} else {
+			result.UnlabelledWords++
 		}
 	}
 	return result, ctx.Err()
@@ -204,29 +246,79 @@ func ReadSpeakerTranscriptJSON(ctx context.Context, r io.Reader) (SpeakerTranscr
 		return SpeakerTranscript{}, ErrCorrupt
 	}
 	canonical = append(canonical, '\n')
-	if !bytes.Equal(canonical, b.Bytes()) || d.Schema != 1 || !d.Experimental || !validHash(d.TranscriptKey) || !validHash(d.DiarizationKey) || d.Policy != speakerCoveragePolicy || d.Transcript.Cues == nil {
+	if !bytes.Equal(canonical, b.Bytes()) {
 		return SpeakerTranscript{}, ErrCorrupt
 	}
-	if e = validateTranscript(ctx, d.Transcript); e != nil {
+	if e = validateSpeakerTranscript(ctx, d); e != nil {
 		return SpeakerTranscript{}, e
 	}
-	labelled := 0
+	return d, ctx.Err()
+}
+
+func validateSpeakerTranscript(ctx context.Context, d SpeakerTranscript) error {
+	if d.Schema != 2 || !d.Experimental || !validHash(d.TranscriptKey) || !validHash(d.DiarizationKey) || d.Policy != speakerCoveragePolicy || d.Transcript.Cues == nil {
+		return ErrCorrupt
+	}
+	if e := validateTranscript(ctx, d.Transcript); e != nil {
+		return e
+	}
+	labelled, labelledWords, words := 0, 0, 0
 	for _, c := range d.Transcript.Cues {
 		if c.Speaker >= 0 {
 			labelled++
 		}
 	}
-	if d.LabelledCues != labelled || d.UnlabelledCues != len(d.Transcript.Cues)-labelled {
-		return SpeakerTranscript{}, ErrCorrupt
+	for _, word := range d.Transcript.Words {
+		words++
+		if word.Speaker >= 0 {
+			labelledWords++
+		}
 	}
-	return d, ctx.Err()
+	if d.LabelledCues != labelled || d.UnlabelledCues != len(d.Transcript.Cues)-labelled || d.LabelledWords != labelledWords || d.UnlabelledWords != words-labelledWords {
+		return ErrCorrupt
+	}
+	return ctx.Err()
+}
+
+// WriteSpeakerTranscriptVTT emits one VTT cue per checked word when present and
+// preserves legacy cue-level output otherwise.
+func WriteSpeakerTranscriptVTT(ctx context.Context, w io.Writer, d SpeakerTranscript) error {
+	if w == nil {
+		return ErrConfiguration
+	}
+	if err := validateSpeakerTranscript(ctx, d); err != nil {
+		return err
+	}
+	transcript := d.Transcript
+	if len(transcript.Words) > 0 {
+		cues := make([]Cue, len(transcript.Words))
+		for i, word := range transcript.Words {
+			cues[i] = Cue{StartSample: word.StartSample, EndSample: word.EndSample, Speaker: word.Speaker, Text: word.Text}
+		}
+		transcript.Cues = cues
+		transcript.Words = nil
+	}
+	var body bytes.Buffer
+	if err := WriteWebVTT(ctx, &body, transcript); err != nil {
+		return err
+	}
+	const header = "WEBVTT\n\n"
+	note := "NOTE Experimental Community-1 speaker labels; exclusive-turn word attribution when available.\n\n"
+	if body.Len()+len(note) > MaxTranscriptBytes {
+		return ErrLimit
+	}
+	if err := writeContext(ctx, w, []byte(header+note)); err != nil {
+		return err
+	}
+	return writeContext(ctx, w, body.Bytes()[len(header):])
 }
 
 // NewSpeakerVTTStage emits a distinct VTT with an explicit experimental NOTE.
-// Source provenance is also retained in speaker-transcript; the original plain
-// transcript/VTT are untouched. No new inference or speaker mapping is performed.
+// Source provenance is retained in speaker-transcript and the original plain
+// transcript/VTT are untouched. Checked words become individual cues so each
+// may carry its exclusive-turn speaker; legacy cue-level output is preserved.
 func NewSpeakerVTTStage() Stage {
-	return Stage{Name: "speaker-vtt", Version: hash([]byte("speaker-vtt-v2:" + speakerCoveragePolicy + ":transcript-schema2-source-timing:namedrefs-experimental-note")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
+	return Stage{Name: "speaker-vtt", Version: hash([]byte("speaker-vtt-v3:" + speakerCoveragePolicy + ":transcript-schema2-source-timing:namedrefs-experimental-note")), Run: func(ctx context.Context, in *Input, w io.Writer) error {
 		r, e := in.OpenCheckpoint(ctx, "speaker-transcript")
 		if e != nil {
 			return e
@@ -249,21 +341,9 @@ func NewSpeakerVTTStage() Stage {
 		if d.TranscriptKey != textKey || d.DiarizationKey != diarKey {
 			return ErrCorrupt
 		}
-		var body bytes.Buffer
-		if e = WriteWebVTT(ctx, &body, d.Transcript); e != nil {
-			return e
-		}
-		const header = "WEBVTT\n\n"
-		note := "NOTE Experimental Community-1 speaker labels; complete-cue coverage only.\n\n"
-		if body.Len()+len(note) > MaxTranscriptBytes {
-			return ErrLimit
-		}
 		if e = in.store.hit("speaker-vtt-output-ready"); e != nil {
 			return e
 		}
-		if e = writeContext(ctx, w, []byte(header+note)); e != nil {
-			return e
-		}
-		return writeContext(ctx, w, body.Bytes()[len(header):])
+		return WriteSpeakerTranscriptVTT(ctx, w, d)
 	}}
 }

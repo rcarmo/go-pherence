@@ -42,6 +42,7 @@
     "max_new_tokens": 0,
     "max_initial_timestamp_index": 0,
     "skip_digital_silence": false,
+    "word_timestamps": false,
     "window_bytes": 1048576,
     "result_bytes": 16777216
   }
