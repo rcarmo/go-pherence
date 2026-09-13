@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -109,6 +110,74 @@ func diarizationFixture(t *testing.T, speech bool) (*ExperimentalDiarization, Di
 	}
 	return m, DiarizationPCMConfig{WindowSamples: 2960, StepSamples: 1600, MinimumEmbeddingSamples: 400, ExcludeOverlap: true, MinSpeakers: 1, MaxSpeakers: 4, AHCThreshold: .6, Fa: .07, Fb: .8, TiePolicy: LowestIndexTies}, SegmentationModes{SincNetSIMDFMA, LSTMSIMD, HeadSIMD}
 }
+func TestDiarizationOverlappedBranches(t *testing.T) {
+	ctx := context.Background()
+	seg := &SegmentationPCMResult{Classes: 1}
+	trunk := &EmbeddingPCMFrames{samples: 1}
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	type branchResult struct {
+		branches diarizationBranches
+		err      error
+	}
+	finished := make(chan branchResult, 1)
+	go func() {
+		branches, err := runDiarizationBranches(ctx,
+			func(context.Context) (*SegmentationPCMResult, error) {
+				started <- "segmentation"
+				<-release
+				return seg, nil
+			},
+			func(context.Context) (*EmbeddingPCMFrames, error) {
+				started <- "embedding"
+				<-release
+				return trunk, nil
+			})
+		finished <- branchResult{branches, err}
+	}()
+	first, second := <-started, <-started
+	close(release)
+	joined := <-finished
+	if joined.err != nil || joined.branches.segmentation != seg || joined.branches.trunk != trunk || first == second {
+		t.Fatal("branches did not overlap/join", first, second, joined)
+	}
+	cause := errors.New("branch failed")
+	cancelled := make(chan error, 1)
+	branches, err := runDiarizationBranches(ctx,
+		func(context.Context) (*SegmentationPCMResult, error) { return nil, cause },
+		func(branchCtx context.Context) (*EmbeddingPCMFrames, error) {
+			<-branchCtx.Done()
+			cancelled <- branchCtx.Err()
+			return nil, branchCtx.Err()
+		})
+	if branches != (diarizationBranches{}) || !errors.Is(err, cause) || !errors.Is(err, context.Canceled) || !errors.Is(<-cancelled, context.Canceled) {
+		t.Fatal("branch cancellation/error lost", branches, err)
+	}
+	for _, test := range []struct {
+		ctx       context.Context
+		segNil    bool
+		embedNil  bool
+		wantError bool
+	}{{nil, false, false, true}, {ctx, true, false, true}, {ctx, false, true, true}} {
+		branches, err = runDiarizationBranches(test.ctx,
+			func(context.Context) (*SegmentationPCMResult, error) {
+				if test.segNil {
+					return nil, nil
+				}
+				return seg, nil
+			},
+			func(context.Context) (*EmbeddingPCMFrames, error) {
+				if test.embedNil {
+					return nil, nil
+				}
+				return trunk, nil
+			})
+		if (err != nil) != test.wantError || err != nil && branches != (diarizationBranches{}) {
+			t.Fatal("invalid branch input/result", test, branches, err)
+		}
+	}
+}
+
 func TestExperimentalDiarizationComposition(t *testing.T) {
 	for _, speech := range []bool{false, true} {
 		for _, samples := range []int{2960, 3361} {
@@ -164,6 +233,22 @@ func TestExperimentalDiarizationComposition(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got.Segmentations, segments) || !reflect.DeepEqual(got.Embeddings, embeddings) {
 				t.Fatal("manual neural/mask composition")
+			}
+			overlappedReader := &diarizationTestReader{samples: pcm}
+			overlapped, e := m.RunPCMOverlapped(context.Background(), overlappedReader, int64(samples), cfg, modes, WeSpeakerBlockSIMD)
+			if e != nil || !reflect.DeepEqual(overlapped, got) || !reflect.DeepEqual(overlappedReader.starts, reader.starts) || !reflect.DeepEqual(before, pcm) {
+				t.Fatal("overlapped parity/read/ownership", e)
+			}
+			var observed []string
+			var observedMu sync.Mutex
+			overlapped, e = m.RunPCMOverlappedObserved(context.Background(), &diarizationTestReader{samples: pcm}, int64(samples), cfg, modes, WeSpeakerBlockSIMD, func(stage string, _ int) error {
+				observedMu.Lock()
+				observed = append(observed, stage)
+				observedMu.Unlock()
+				return nil
+			})
+			if e != nil || !reflect.DeepEqual(overlapped, got) || !reflect.DeepEqual(observed, stages) {
+				t.Fatal("overlapped observed parity/order", observed, stages, e)
 			}
 			post := PostprocessConfig{Reconstruction: ReconstructionConfig{len(got.Windows), got.Grid.Frames, 3, 0, float64(cfg.WindowSamples) / 16000, float64(cfg.StepSamples) / 16000, float64(got.Grid.ReceptiveField) / 16000, float64(got.Grid.Step) / 16000, 4, LowestIndexTies}, EmbeddingDimension: got.EmbeddingDimension, MinSpeakers: 1, AHCThreshold: .6, Fa: .07, Fb: .8}
 			want, e := PostprocessCommunity1(context.Background(), segments, embeddings, m.plda, post)

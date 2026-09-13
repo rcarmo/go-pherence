@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
 )
@@ -148,10 +149,75 @@ type DiarizationPCMResult struct {
 // is preserved and prevents later work. No partial result escapes cancellation.
 type DiarizationPCMObserver func(stage string, window int) error
 
+type diarizationBranches struct {
+	segmentation *SegmentationPCMResult
+	trunk        *EmbeddingPCMFrames
+}
+
+// runDiarizationBranches joins two independent read-only model branches. The
+// child context prevents avoidable sibling work after failure. Wait establishes
+// ownership of both result pointers before return; callers publish neither on
+// any error. This helper owns no model or PCM storage.
+func runDiarizationBranches(ctx context.Context, segmentation func(context.Context) (*SegmentationPCMResult, error), embedding func(context.Context) (*EmbeddingPCMFrames, error)) (diarizationBranches, error) {
+	var zero diarizationBranches
+	if ctx == nil || segmentation == nil || embedding == nil {
+		return zero, fmt.Errorf("invalid diarization branch input")
+	}
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
+	branchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var result diarizationBranches
+	var segmentationErr, embeddingErr error
+	var branches sync.WaitGroup
+	branches.Add(2)
+	go func() {
+		defer branches.Done()
+		result.segmentation, segmentationErr = segmentation(branchCtx)
+		if segmentationErr != nil {
+			cancel()
+		}
+	}()
+	go func() {
+		defer branches.Done()
+		result.trunk, embeddingErr = embedding(branchCtx)
+		if embeddingErr != nil {
+			cancel()
+		}
+	}()
+	branches.Wait()
+	if err := errors.Join(segmentationErr, embeddingErr); err != nil {
+		return zero, err
+	}
+	if result.segmentation == nil || result.trunk == nil {
+		return zero, fmt.Errorf("diarization branch returned nil")
+	}
+	return result, ctx.Err()
+}
+
 func (m *ExperimentalDiarization) RunPCM(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, segModes SegmentationModes, embeddingMode WeSpeakerBlockMode) (*DiarizationPCMResult, error) {
-	return m.RunPCMObserved(ctx, reader, samples, cfg, segModes, embeddingMode, nil)
+	return m.runPCMObserved(ctx, reader, samples, cfg, segModes, embeddingMode, nil, false)
 }
 func (m *ExperimentalDiarization) RunPCMObserved(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, segModes SegmentationModes, embeddingMode WeSpeakerBlockMode, observe DiarizationPCMObserver) (*DiarizationPCMResult, error) {
+	return m.runPCMObserved(ctx, reader, samples, cfg, segModes, embeddingMode, observe, false)
+}
+
+// RunPCMOverlapped executes the independent segmentation and embedding-trunk
+// branches concurrently for each immutable PCM window. Mask selection and
+// pooling/projection still wait for segmentation and use the completed trunk.
+// This is explicit and does not change RunPCM placement. Both branches retain
+// their exact arithmetic; an error cancels the sibling and no partial result is
+// returned. Callers must admit two CPU slots and exclude concurrent model use.
+func (m *ExperimentalDiarization) RunPCMOverlapped(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, segModes SegmentationModes, embeddingMode WeSpeakerBlockMode) (*DiarizationPCMResult, error) {
+	return m.runPCMObserved(ctx, reader, samples, cfg, segModes, embeddingMode, nil, true)
+}
+
+func (m *ExperimentalDiarization) RunPCMOverlappedObserved(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, segModes SegmentationModes, embeddingMode WeSpeakerBlockMode, observe DiarizationPCMObserver) (*DiarizationPCMResult, error) {
+	return m.runPCMObserved(ctx, reader, samples, cfg, segModes, embeddingMode, observe, true)
+}
+
+func (m *ExperimentalDiarization) runPCMObserved(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, segModes SegmentationModes, embeddingMode WeSpeakerBlockMode, observe DiarizationPCMObserver, overlap bool) (*DiarizationPCMResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -230,9 +296,26 @@ func (m *ExperimentalDiarization) RunPCMObserved(ctx context.Context, reader Dia
 		if err = notify("read", index); err != nil {
 			return nil, err
 		}
-		scores, e := m.segmentation.ForwardPCM(ctx, pcm, segModes)
-		if e != nil {
-			return nil, e
+		var scores *SegmentationPCMResult
+		var trunk *EmbeddingPCMFrames
+		if overlap {
+			branches, e := runDiarizationBranches(ctx,
+				func(branchCtx context.Context) (*SegmentationPCMResult, error) {
+					return m.segmentation.ForwardPCM(branchCtx, pcm, segModes)
+				},
+				func(branchCtx context.Context) (*EmbeddingPCMFrames, error) {
+					return m.embedding.ForwardPCMFrames(branchCtx, pcm, embeddingMode)
+				})
+			if e != nil {
+				return nil, e
+			}
+			scores, trunk = branches.segmentation, branches.trunk
+		} else {
+			var e error
+			scores, e = m.segmentation.ForwardPCM(ctx, pcm, segModes)
+			if e != nil {
+				return nil, e
+			}
 		}
 		if scores.Grid != grid || scores.Classes != powerset.Classes() {
 			return nil, fmt.Errorf("diarization segmentation geometry changed")
@@ -254,9 +337,11 @@ func (m *ExperimentalDiarization) RunPCMObserved(ctx context.Context, reader Dia
 		if err = notify("masks", index); err != nil {
 			return nil, err
 		}
-		trunk, e := m.embedding.ForwardPCMFrames(ctx, pcm, embeddingMode)
-		if e != nil {
-			return nil, e
+		if !overlap {
+			trunk, e = m.embedding.ForwardPCMFrames(ctx, pcm, embeddingMode)
+			if e != nil {
+				return nil, e
+			}
 		}
 		embedded, e := m.embedding.EmbedFrames(ctx, trunk, masks.Masks, local, grid.Frames, embeddingMode)
 		if e != nil {
