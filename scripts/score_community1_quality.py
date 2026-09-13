@@ -30,7 +30,15 @@ def load_result(path, expected_audio_hash, expected_samples):
     CORPUS.exact_keys(data["Config"], CORPUS.GO_CONFIG_KEYS)
     CORPUS.exact_keys(data["Result"], CORPUS.GO_RESULT_KEYS)
     post = data["Result"]["Postprocess"]
-    CORPUS.exact_keys(post, CORPUS.GO_POSTPROCESS_KEYS)
+    CORPUS.exact_keys(post, CORPUS.GO_POSTPROCESS_KEYS, ("KMeansLabels",))
+    kmeans = post.get("KMeansLabels")
+    if kmeans is not None:
+        if not isinstance(kmeans, list) or any(CORPUS.exact_int(value, "KMeans label", 0, 63) < 0 for value in kmeans):
+            raise ValueError("invalid KMeans labels")
+        if post["Path"] == "clustered-kmeans" and len(kmeans) != post["TrainingRows"] or post["Path"] != "clustered-kmeans" and len(kmeans) != 0:
+            raise ValueError("KMeans labels/path mismatch")
+    elif post["Path"] == "clustered-kmeans":
+        raise ValueError("missing KMeans labels")
     timeline = post["Timeline"]
     CORPUS.exact_keys(timeline, CORPUS.GO_TIMELINE_KEYS)
     tie_policy = CORPUS.exact_int(data["Config"]["TiePolicy"], "tie policy")
