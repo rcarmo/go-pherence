@@ -62,7 +62,14 @@ func TestCommunity1TrainedCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := DiarizationPCMConfig{WindowSamples: 160000, StepSamples: 16000, MinimumEmbeddingSamples: 400, ExcludeOverlap: true, MinSpeakers: 1, MaxSpeakers: 64, AHCThreshold: .6, Fa: .07, Fb: .8, Constrained: true, TiePolicy: RejectAmbiguousTies}
+	numSpeakers := 0
+	if raw := os.Getenv("GO_PHERENCE_COMMUNITY1_CORPUS_NUM_SPEAKERS"); raw != "" {
+		numSpeakers, err = strconv.Atoi(raw)
+		if err != nil || numSpeakers < 1 || numSpeakers > 64 {
+			t.Fatal("invalid explicit corpus speaker count")
+		}
+	}
+	cfg := DiarizationPCMConfig{WindowSamples: 160000, StepSamples: 16000, MinimumEmbeddingSamples: 400, ExcludeOverlap: true, MinSpeakers: 1, MaxSpeakers: 64, NumSpeakers: numSpeakers, AHCThreshold: .6, Fa: .07, Fb: .8, Constrained: true, TiePolicy: RejectAmbiguousTies}
 	if os.Getenv("GO_PHERENCE_DIARIZATION_LOWEST_TIES") == "1" {
 		cfg.TiePolicy = LowestIndexTies
 	}

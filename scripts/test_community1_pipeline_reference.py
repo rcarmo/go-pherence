@@ -25,7 +25,7 @@ class PipelineReferenceContract(unittest.TestCase):
         text=(ROOT/"community1_pipeline_reference.py").read_text();tree=ast.parse(text)
         parser_calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="add_argument"]
         flags={ast.literal_eval(n.args[0]) for n in parser_calls if n.args and isinstance(n.args[0],ast.Constant)}
-        self.assertTrue({"--public-wav-sha256","--samples","--uri"}.issubset(flags))
+        self.assertTrue({"--public-wav-sha256","--samples","--uri","--num-speakers"}.issubset(flags))
         self.assertIn("160000 + 127 * 16000", text)
         self.assertIn("args.samples * 2", text)
     def test_scorer_no_inference(self):
