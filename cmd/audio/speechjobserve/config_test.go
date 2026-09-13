@@ -19,7 +19,7 @@ func baseConfig(t *testing.T) ServerConfig {
 	t.Helper()
 	root := t.TempDir()
 	a := Asset{Path: filepath.Join(root, "asset"), SHA256: hashBytes([]byte("asset"))}
-	return ServerConfig{Schema: 1, Store: filepath.Join(root, "store"), RuntimeSHA256: hashBytes([]byte("runtime")), Threads: 2, Limits: Limits{Jobs: 8, UploadBytes: 1 << 20, ArtifactBytes: 1 << 20, StoreBytes: 8 << 20, WeightBytes: 8 << 20, OwnedWeightBytes: 16 << 20}, HTTP: HTTPSettings{Listen: "127.0.0.1:8099", Hosts: []string{"127.0.0.1:8099"}, AllowLoopbackHTTP: true, RequestSeconds: 10, HeaderSeconds: 1, IdleSeconds: 1, ShutdownSeconds: 1, MaxRequests: 2, MaxConnections: 4}, Weights: a, ModelConfig: a, Tokenizer: a, Generation: a, FFmpeg: a, FFprobe: a, Profile: ProfileSettings{ID: "asr-pt", Language: "pt", Extension: ".wav", MaxDurationSeconds: 1, DecodeBytes: 90000, WindowBytes: 4096, ResultBytes: 128 << 10}}
+	return ServerConfig{Schema: 2, Store: filepath.Join(root, "store"), RuntimeSHA256: hashBytes([]byte("runtime")), Threads: 2, Limits: Limits{Jobs: 8, UploadBytes: 1 << 20, ArtifactBytes: 1 << 20, StoreBytes: 8 << 20, WeightBytes: 8 << 20, OwnedWeightBytes: 16 << 20}, HTTP: HTTPSettings{Listen: "127.0.0.1:8099", Hosts: []string{"127.0.0.1:8099"}, AllowLoopbackHTTP: true, RequestSeconds: 10, HeaderSeconds: 1, IdleSeconds: 1, ShutdownSeconds: 1, MaxRequests: 2, MaxConnections: 4}, Weights: a, ModelConfig: a, Tokenizer: a, Generation: a, Profile: ProfileSettings{ID: "asr-pt", Language: "pt", Extension: ".wav", MediaBackend: "go264", MaxDurationSeconds: 1, DecodeBytes: 90000, WindowBytes: 4096, ResultBytes: 128 << 10}}
 }
 func TestConfigStrictAndSafeListener(t *testing.T) {
 	good := baseConfig(t)
@@ -27,16 +27,16 @@ func TestConfigStrictAndSafeListener(t *testing.T) {
 	if _, e := parseConfig(b); e != nil {
 		t.Fatal(e)
 	}
-	for _, raw := range [][]byte{[]byte("null"), append(b, []byte(" {}")...), bytes.Replace(b, []byte(`"schema":1`), []byte(`"schema":1,"schema":1`), 1), bytes.Replace(b, []byte(`"schema":1`), []byte(`"Schema":1`), 1), bytes.Replace(b, []byte(`"threads":2`), []byte(`"threads":null`), 1), bytes.Replace(b, []byte(`"profile":{`), []byte(`"profile":{"vulkan":{"encoder_weights":"q8-kv-mlp"},`), 1), append([]byte(strings.Repeat(" ", 64<<10)), b...)} {
+	for _, raw := range [][]byte{[]byte("null"), append(b, []byte(" {}")...), bytes.Replace(b, []byte(`"schema":2`), []byte(`"schema":2,"schema":2`), 1), bytes.Replace(b, []byte(`"schema":2`), []byte(`"Schema":2`), 1), bytes.Replace(b, []byte(`"threads":2`), []byte(`"threads":null`), 1), bytes.Replace(b, []byte(`"profile":{`), []byte(`"profile":{"vulkan":{"encoder_weights":"q8-kv-mlp"},`), 1), append([]byte(strings.Repeat(" ", 64<<10)), b...)} {
 		if _, e := parseConfig(raw); e == nil {
 			t.Fatal("ambiguous config")
 		}
 	}
-	for _, kind := range []string{"schema", "store", "hash", "thread", "weight", "owned", "upload", "jobs", "listen", "public-http", "http-optin", "tls-pair", "hosts", "origin", "request", "header", "connections", "language", "extension", "result", "overlap"} {
+	for _, kind := range []string{"schema", "store", "hash", "thread", "weight", "owned", "upload", "jobs", "listen", "public-http", "http-optin", "tls-pair", "hosts", "origin", "request", "header", "connections", "language", "extension", "media-backend", "media-backend-missing", "ffmpeg-missing", "ffmpeg-assets-with-go264", "result", "overlap"} {
 		c := good
 		switch kind {
 		case "schema":
-			c.Schema = 2
+			c.Schema = 1
 		case "store":
 			c.Store = "relative"
 		case "hash":
@@ -73,6 +73,14 @@ func TestConfigStrictAndSafeListener(t *testing.T) {
 			c.Profile.Language = "P!"
 		case "extension":
 			c.Profile.Extension = ".mp3"
+		case "media-backend":
+			c.Profile.MediaBackend = "unknown"
+		case "media-backend-missing":
+			c.Profile.MediaBackend = ""
+		case "ffmpeg-missing":
+			c.Profile.MediaBackend = "ffmpeg"
+		case "ffmpeg-assets-with-go264":
+			c.FFmpeg = Asset{Path: "/ffmpeg", SHA256: hashBytes([]byte("ffmpeg"))}
 		case "result":
 			c.Profile.ResultBytes = 1
 		case "overlap":

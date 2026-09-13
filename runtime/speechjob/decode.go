@@ -16,7 +16,19 @@ import (
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 )
 
-// FFmpegDecodeConfig is the complete decode-stage identity. Executable hashes
+// Go264DecodeConfig is the complete pure-Go decode-stage identity. The pinned
+// go-264 module version is part of the stage version below; the caller supplies
+// only the media contract and resource limits. No executable or native codec is
+// opened.
+type Go264DecodeConfig struct {
+	InputExtension                string
+	MaxInputBytes, MaxOutputBytes int64
+	MaxDuration                   time.Duration
+}
+
+const go264DecodeProvider = "github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d"
+
+// FFmpegDecodeConfig is the complete FFmpeg decode-stage identity. Executable hashes
 // are required and checked before each execution; a detected change fails closed.
 // The binaries/parent paths MUST be administrator-controlled and immutable for
 // the entire job: execution is by path after hashing, not from a pinned inode.
@@ -47,27 +59,88 @@ func NewFFmpegDecodeStage(cfg FFmpegDecodeConfig) (Stage, error) {
 	if !filepath.IsAbs(cfg.FFmpegPath) || !filepath.IsAbs(cfg.FFprobePath) || !validHash(cfg.FFmpegSHA256) || !validHash(cfg.FFprobeSHA256) {
 		return Stage{}, fmt.Errorf("decode requires absolute paths and executable SHA256s")
 	}
-	if cfg.MaxInputBytes < 1 || cfg.MaxInputBytes > media.DefaultMaxInputBytes || cfg.MaxOutputBytes < 46 || cfg.MaxOutputBytes > 8<<30 || cfg.MaxDuration < time.Second/16000 || cfg.MaxDuration > media.DefaultMaxDuration {
-		return Stage{}, fmt.Errorf("invalid decode limits")
-	}
-	switch cfg.InputExtension {
-	case ".wav", ".m4a", ".mp4", ".mov":
-	default:
-		return Stage{}, media.ErrUnsupportedInput
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	if err := validateDecodeStageConfig(common); err != nil {
+		return Stage{}, err
 	}
 	adapter, e := media.NewFFmpeg(media.Config{FFmpegPath: cfg.FFmpegPath, FFprobePath: cfg.FFprobePath, MaxInputBytes: cfg.MaxInputBytes, MaxDecodeOutputBytes: cfg.MaxOutputBytes, MaxDuration: cfg.MaxDuration})
 	if e != nil {
 		return Stage{}, e
 	}
-	return newDecodeStage(cfg, adapter), nil
-}
-
-// Internal injection is only for contract tests. No hidden alternative backend.
-func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config FFmpegDecodeConfig
 	}{"ffmpeg-canonical-wav-source-timing-v2", cfg})
+	return newAdapterDecodeStage(identity, common, adapter, func(ctx context.Context) error {
+		for _, b := range []struct{ path, digest string }{{cfg.FFmpegPath, cfg.FFmpegSHA256}, {cfg.FFprobePath, cfg.FFprobeSHA256}} {
+			if err := verifyExecutable(ctx, b.path, b.digest); err != nil {
+				return err
+			}
+		}
+		return nil
+	}), nil
+}
+
+// NewGo264DecodeStage constructs the pure-Go "decode" stage. Its stage identity
+// pins the provider module version and complete media/resource contract. The
+// FFmpeg constructor remains available as an explicit rollback path.
+func NewGo264DecodeStage(cfg Go264DecodeConfig) (Stage, error) {
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	if err := validateDecodeStageConfig(common); err != nil {
+		return Stage{}, err
+	}
+	// The provider rejects a configured output cap above its exact canonical
+	// maximum. Store profiles may use a looser artifact cap, so pass the tighter
+	// provider bound while the stage independently enforces cfg.MaxOutputBytes.
+	maxSamples := int64(cfg.MaxDuration)/int64(time.Second)*16000 + (int64(cfg.MaxDuration)%int64(time.Second))*16000/int64(time.Second)
+	providerOutputBytes := min(cfg.MaxOutputBytes, int64(64<<10)+2*maxSamples)
+	adapter, err := media.NewGo264(media.Go264Config{MaxInputBytes: cfg.MaxInputBytes, MaxDecodeOutputBytes: providerOutputBytes, MaxDuration: cfg.MaxDuration})
+	if err != nil {
+		return Stage{}, err
+	}
+	identity, _ := json.Marshal(struct {
+		Schema, Provider string
+		Config           Go264DecodeConfig
+	}{"go264-canonical-wav-source-timing-v1", go264DecodeProvider, cfg})
+	return newAdapterDecodeStage(identity, common, adapter, nil), nil
+}
+
+type decodeStageConfig struct {
+	InputExtension                string
+	MaxInputBytes, MaxOutputBytes int64
+	MaxDuration                   time.Duration
+}
+
+func validateDecodeStageConfig(cfg decodeStageConfig) error {
+	if cfg.MaxInputBytes < 1 || cfg.MaxInputBytes > media.DefaultMaxInputBytes || cfg.MaxOutputBytes < 46 || cfg.MaxOutputBytes > 8<<30 || cfg.MaxDuration < time.Second/16000 || cfg.MaxDuration > media.DefaultMaxDuration {
+		return fmt.Errorf("invalid decode limits")
+	}
+	switch cfg.InputExtension {
+	case ".wav", ".m4a", ".mp4", ".mov":
+		return nil
+	default:
+		return media.ErrUnsupportedInput
+	}
+}
+
+// Internal injection is only for contract tests. No hidden alternative backend.
+func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	identity, _ := json.Marshal(struct {
+		Schema string
+		Config FFmpegDecodeConfig
+	}{"ffmpeg-canonical-wav-source-timing-v2", cfg})
+	return newAdapterDecodeStage(identity, common, adapter, func(ctx context.Context) error {
+		for _, b := range []struct{ path, digest string }{{cfg.FFmpegPath, cfg.FFmpegSHA256}, {cfg.FFprobePath, cfg.FFprobeSHA256}} {
+			if err := verifyExecutable(ctx, b.path, b.digest); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func newAdapterDecodeStage(identity []byte, cfg decodeStageConfig, adapter media.Adapter, preflight func(context.Context) error) Stage {
 	return Stage{Name: "decode", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		if e := ctx.Err(); e != nil {
 			return e
@@ -75,8 +148,8 @@ func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
 		if in.job.Input.Bytes > cfg.MaxInputBytes {
 			return media.ErrSizeLimit
 		}
-		for _, b := range []struct{ path, digest string }{{cfg.FFmpegPath, cfg.FFmpegSHA256}, {cfg.FFprobePath, cfg.FFprobeSHA256}} {
-			if e := verifyExecutable(ctx, b.path, b.digest); e != nil {
+		if preflight != nil {
+			if e := preflight(ctx); e != nil {
 				return e
 			}
 		}

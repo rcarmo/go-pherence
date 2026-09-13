@@ -52,7 +52,7 @@ func prepareModel(ctx context.Context, c ServerConfig) (*preparedModel, error) {
 		a    Asset
 		cap  int64
 		exec bool
-	}{{c.ModelConfig, 1 << 20, false}, {c.Generation, 16 << 10, false}, {c.Tokenizer, 32 << 20, false}, {c.FFmpeg, 1 << 30, true}, {c.FFprobe, 1 << 30, true}} {
+	}{{c.ModelConfig, 1 << 20, false}, {c.Generation, 16 << 10, false}, {c.Tokenizer, 32 << 20, false}} {
 		if e := verifyAsset(ctx, x.a, x.cap, x.exec); e != nil {
 			return nil, e
 		}
@@ -107,7 +107,14 @@ func prepareModel(ctx context.Context, c ServerConfig) (*preparedModel, error) {
 	if !languageFound {
 		return nil, fmt.Errorf("profile language not in tokenizer")
 	}
-	if _, e = speechjob.NewFFmpegDecodeStage(decodeConfig(c)); e != nil {
+	if c.Profile.MediaBackend == "ffmpeg" {
+		for _, x := range []Asset{c.FFmpeg, c.FFprobe} {
+			if e = verifyAsset(ctx, x, 1<<30, true); e != nil {
+				return nil, e
+			}
+		}
+	}
+	if _, e = newDecodeStage(c); e != nil {
 		return nil, fmt.Errorf("decode configuration rejected")
 	}
 	if e = preflightSafetensors(ctx, c.Weights, c.Limits.WeightBytes, c.Limits.OwnedWeightBytes); e != nil {
@@ -200,8 +207,15 @@ func preflightSafetensors(ctx context.Context, a Asset, fileLimit, ownedLimit in
 	}
 	return ctx.Err()
 }
-func decodeConfig(c ServerConfig) speechjob.FFmpegDecodeConfig {
-	return speechjob.FFmpegDecodeConfig{FFmpegPath: c.FFmpeg.Path, FFprobePath: c.FFprobe.Path, FFmpegSHA256: c.FFmpeg.SHA256, FFprobeSHA256: c.FFprobe.SHA256, InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)}
+func newDecodeStage(c ServerConfig) (speechjob.Stage, error) {
+	switch c.Profile.MediaBackend {
+	case "go264":
+		return speechjob.NewGo264DecodeStage(speechjob.Go264DecodeConfig{InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)})
+	case "ffmpeg":
+		return speechjob.NewFFmpegDecodeStage(speechjob.FFmpegDecodeConfig{FFmpegPath: c.FFmpeg.Path, FFprobePath: c.FFprobe.Path, FFmpegSHA256: c.FFmpeg.SHA256, FFprobeSHA256: c.FFprobe.SHA256, InputExtension: c.Profile.Extension, MaxInputBytes: c.Limits.UploadBytes, MaxOutputBytes: c.Profile.DecodeBytes, MaxDuration: duration(c.Profile.MaxDurationSeconds)})
+	default:
+		return speechjob.Stage{}, fmt.Errorf("invalid media backend")
+	}
 }
 
 type profileRuntimes struct {
@@ -251,7 +265,7 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	if e = model.ValidatePCMHostOnly(); e != nil {
 		return nil, e
 	}
-	decode, e := speechjob.NewFFmpegDecodeStage(decodeConfig(c))
+	decode, e := newDecodeStage(c)
 	if e != nil {
 		return nil, e
 	}

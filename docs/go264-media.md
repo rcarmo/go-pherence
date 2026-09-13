@@ -1,6 +1,6 @@
 # Optional go-264 media backend
 
-`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260912122853-a47077edc589`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `NewFFmpeg` and existing serving defaults are unchanged. There is no native codec or subprocess inside this optional backend.
+`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260913161458-9ed3d408e05d`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `speechjobserve` now requires an explicit `profile.media_backend`: `go264` is the shipped pure-Go profile choice and `ffmpeg` remains an explicit rollback. There is no native codec or subprocess inside the go-264 backend.
 
 ## Import and use
 
@@ -37,7 +37,7 @@ For direct decoder/resampler access without go-pherence, import `github.com/rcar
 - `OpenCanonicalPCM` is unchanged. It owns/closes its descriptor, serialises positional float32 reads and retains the file. The new backend writes files conforming to that reader; it does not replace it with a stateful decoder wrapper.
 - Limits are inclusive for the pure-Go output. FFmpeg's `-fs` ceiling has different truncation semantics and is still rejected at equality in that backend.
 
-The provider's exact seek/priming/padding metadata is not exposed as original container PTS in this Adapter interface. Output timeline remains canonical PCM. Unsupported source timeline forms fail instead of being guessed.
+The provider's `ProbeMetadata` exposes pre-trim and edited source-rate extents plus priming, padding and leading silence. The adapter uses the pre-trim extent when validating the provider-owned MP4 timing plan, then persists the exact mapping in the canonical checkpoint. Output timeline remains canonical PCM. Unsupported source timeline forms fail instead of being guessed.
 
 ## Public-fixture qualification
 
@@ -71,4 +71,4 @@ make speech-go264-public-check
 make speech-go264-paired-check
 ```
 
-The provider is published. Integrating the adapter does not publish the consumer branch or a release tag; no service/backend switch or model download was performed.
+Provider API commit `a109fec` is included in the qualified provider release `9ed3d40`. It adds `audio.ProbeMetadata`, which fixes the consumer's former misuse of the edited `Probe` frame count as the pre-trim input to `Track.TimingPlan`. The public three-clip WAV/AAC media matrix and speech-job WAV/AAC decode checks now pass with the new pin. Promoting the server profile changes only new explicitly configured profile identities; existing deployed services were not changed or restarted.

@@ -263,7 +263,7 @@ speech-job-http-check:
 	go vet ./runtime/speechjob/httpapi ./runtime/speechjob
 
 speech-job-media-integration:
-	GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./runtime/speechjob -run '^TestFFmpegJob' -v
+	GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./runtime/speechjob -run '^Test(Go264|FFmpeg)Job' -v
 
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
