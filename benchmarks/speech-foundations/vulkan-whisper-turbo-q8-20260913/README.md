@@ -1,6 +1,6 @@
 # Whisper Turbo Vulkan Q8 projection placement — 13 September 2026
 
-An aggregate packed-weight owner scales projection-only Q8 to the full 32-layer Whisper Turbo encoder. The pinned JFK transcript remains exact while whole-request time improves by 1.648–1.667× and reported resident encoder weight storage falls by 74.2%. Existing F32 constructors and serving defaults remain unchanged.
+An aggregate packed-weight owner scales projection-only Q8 to the full 32-layer Whisper Turbo encoder. Pinned English, Portuguese and French transcripts remain exact while request time improves by 1.648–1.673× and reported resident encoder weight storage falls by 74.2%. Existing F32 constructors and serving defaults remain unchanged.
 
 ## Aggregate ownership
 
@@ -56,9 +56,15 @@ The final stricter resource run reports F32 `15.824s`, Q8 `9.494s`, and `1.667×
 
 Repeated native log SHA-256: `ac3fdf42cf728100df124ec439af90948571b2f65b841c2f68eb779353c7033e`. Final native log SHA-256: `a7316cb1ea0cd169999e763af5f616bfb437c0e090cecdf105a734add1c366fe`. Time output SHA-256: `cbbe2a5b57bc875462b27c330475cd06be5beb5222e51aa617008af8ed10889b`.
 
+## Multilingual quality
+
+The same aggregate owner was run sequentially against F32 on all three retained MINDS-14 source WAVs: Portuguese rows 0/1 and French row 0. Every Q8 `WindowTranscript` matches F32 exactly, including tokens and timestamps, and every transcript has 0 WER against its reference (20, 9 and 5 words). Combined three-clip request time is `46.014s` F32 versus `27.509s` Q8 (`1.673×`).
+
+The multilingual run completed in `132.68s`, used `6,779,472KiB` maximum RSS and reported zero process swaps. Multilingual log SHA-256: `908fbe8e062ddde14e9a72bf957646d67242ac6cfe29fda0e21d0e3261b95e35`. Time SHA-256: `b74d72f1067e36d6ea48d61d3dc26ae0ef434918fa8b7a186701e270b4165827`.
+
 ## Decision
 
-Turbo projection-only Q8 passes this pinned English short-quality and performance checkpoint. It remains an explicit constructor, not a serving/default promotion. Multilingual MINDS fixtures, longer/noisy/silent inputs, broad WER, energy/stress, recovery and Community-1 placement remain open.
+Turbo projection-only Q8 passes this pinned English/PT/FR quality and performance checkpoint. It remains an explicit constructor, not a serving/default promotion. Longer/noisy/silent inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
 
 ## Reproduce
 
@@ -72,10 +78,12 @@ export GO_PHERENCE_WHISPER_TURBO_DIR=/path/to/pinned/whisper-turbo
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-turbo-q8-weight-check
 ```
 
-Add the full pinned JFK phase:
+Add the full pinned JFK and MINDS phases:
 
 ```sh
 export GO_PHERENCE_WHISPER_JFK_PATH=/path/to/pinned/jfk.wav
+export GO_PHERENCE_MINDS_FIXTURE_DIR=/path/to/pinned/MINDS-cache
 export GO_PHERENCE_TEST_VULKAN_TURBO_Q8_SPEECH=1
+export GO_PHERENCE_TEST_VULKAN_TURBO_Q8_MULTILINGUAL=1
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-turbo-q8-weight-check
 ```

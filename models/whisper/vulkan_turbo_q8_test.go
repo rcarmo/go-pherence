@@ -3,8 +3,11 @@ package whisper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -197,4 +200,95 @@ func TestVulkanTurboQ8Weight(t *testing.T) {
 	}
 	result, _ := json.Marshal(map[string]any{"device": device, "exact_tokens_timestamps": true, "word_edits": edits, "reference_words": words, "f32_ns": bns, "q8_ns": qns, "speedup": float64(bns) / float64(qns), "text": strings.TrimSpace(text)})
 	t.Log("TURBO_Q8_JFK " + string(result))
+	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_MULTILINGUAL") != "1" {
+		return
+	}
+	root := os.Getenv("GO_PHERENCE_MINDS_FIXTURE_DIR")
+	if root == "" {
+		t.Fatal("MINDS fixture directory required")
+	}
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ffprobe, err := exec.LookPath("ffprobe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := media.NewFFmpeg(media.Config{FFmpegPath: ffmpeg, FFprobePath: ffprobe})
+	if err != nil {
+		t.Fatal(err)
+	}
+	type decodedFixture struct {
+		fixture publicSpeechFixture
+		path    string
+	}
+	decoded := make([]decodedFixture, 0, len(mindsSpeechFixtures))
+	for i, fixture := range mindsSpeechFixtures {
+		fixture.File = filepath.Join(root, fixture.File)
+		pinnedSpeechFile(t, fixture.File, fixture.SHA256)
+		result, err := adapter.DecodeToFile(ctx, fixture.File, filepath.Join(t.TempDir(), fmt.Sprintf("minds-%d.wav", i)))
+		if err != nil || int64(result.Timeline.Samples) != fixture.Samples || result.Timeline.SampleRate != 16000 {
+			t.Fatal("MINDS decode", fixture.Name, result.Timeline, err)
+		}
+		decoded = append(decoded, decodedFixture{fixture: fixture, path: result.Path})
+	}
+	runCorpus := func(name string, enc *VulkanEncoder) (map[string][]WindowTranscript, int64) {
+		outputs := map[string][]WindowTranscript{}
+		start := time.Now()
+		for _, item := range decoded {
+			r, err := media.OpenCanonicalPCM(ctx, item.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var windows []WindowTranscript
+			err = model.TranscribePCMWindows(ctx, r, item.fixture.Samples, tok, PCMTranscribeOptions{Language: item.fixture.Language, Generation: policy, MaxNewTokens: 96, VulkanEncoder: enc}, func(w WindowTranscript) error { windows = append(windows, w); return nil })
+			closeErr := r.Close()
+			if err != nil || closeErr != nil {
+				t.Fatal(item.fixture.Name, err, closeErr)
+			}
+			outputs[item.fixture.Name] = windows
+		}
+		ns := time.Since(start).Nanoseconds()
+		t.Logf("TURBO_Q8_MULTILINGUAL_SAMPLE path=%s wall_ns=%d", name, ns)
+		return outputs, ns
+	}
+	base, e = NewVulkanEncoder(ctx, model.Encoder, 3000)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer base.Close()
+	baselineCorpus, baseNS := runCorpus("f32", base)
+	if e = base.Close(); e != nil {
+		t.Fatal(e)
+	}
+	q8, e = NewVulkanEncoderQ8Weight(ctx, model.Encoder, 3000)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer q8.Close()
+	q8Corpus, q8NS := runCorpus("q8", q8)
+	if e = q8.Close(); e != nil {
+		t.Fatal(e)
+	}
+	for _, item := range decoded {
+		bw, qw := baselineCorpus[item.fixture.Name], q8Corpus[item.fixture.Name]
+		if !reflect.DeepEqual(bw, qw) {
+			t.Fatal("multilingual transcript changed", item.fixture.Name)
+		}
+		text := ""
+		for _, w := range qw {
+			for _, s := range w.Segments {
+				text += " " + s.Text
+			}
+		}
+		edits, words := speechFixtureWER(item.fixture.Reference, strings.TrimSpace(text))
+		if edits != 0 {
+			t.Fatal("Turbo multilingual WER", item.fixture.Name, edits, words, text)
+		}
+		entry, _ := json.Marshal(map[string]any{"fixture": item.fixture.Name, "language": item.fixture.Language, "exact_tokens_timestamps": true, "word_edits": edits, "reference_words": words, "text": strings.TrimSpace(text)})
+		t.Log("TURBO_Q8_MULTILINGUAL " + string(entry))
+	}
+	corpusResult, _ := json.Marshal(map[string]any{"fixtures": len(decoded), "f32_ns": baseNS, "q8_ns": q8NS, "speedup": float64(baseNS) / float64(q8NS), "all_exact": true, "all_zero_wer": true})
+	t.Log("TURBO_Q8_MULTILINGUAL_RESULT " + string(corpusResult))
 }
