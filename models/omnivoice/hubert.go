@@ -652,10 +652,7 @@ func groupNormSignal(x signal, weight, bias []float32, eps float32) {
 }
 
 func geluSlice(x []float32) {
-	const invSqrt2 = 0.7071067811865476
-	for i, v := range x {
-		x[i] = 0.5 * v * (1 + float32(math.Erf(float64(v)*invSqrt2)))
-	}
+	simd.GELUErfF32To(x, x)
 }
 
 func (h *Hubert) convSignal(x signal, name string, stride, padding, dilation, groups int) (signal, error) {

@@ -458,3 +458,13 @@ Representative mixed-sign benchmarks improve about 3.2×; prepared calls allocat
 zero bytes. Raw and preprocessed native reference codes are unchanged (896 and
 832 codes respectively). See [PROFILING.md](PROFILING.md) for numerical limits and
 fallback-heavy performance. HuBERT erf and sampler exponentials remain scalar.
+
+## HuBERT SIMD erf-GELU (2026-09-13)
+
+HuBERT's convolutional and FFN activations now use a bounded SIMD approximation
+to erf-GELU on AVX2/FMA hosts. Scalar fallback covers tiny, exceptional and
+out-of-range inputs. Five- and 100-frame real-checkpoint parity tests pass with
+zero prepared allocations, and all raw/preprocessed reference codes remain
+unchanged. Direct eligible-input benchmarks improve roughly 10×; fallback-heavy
+inputs may be slower. Sampler exponentials and the documented architecture/range
+fallbacks remain scalar. See [PROFILING.md](PROFILING.md) for bounds and evidence.

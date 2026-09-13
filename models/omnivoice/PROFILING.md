@@ -322,3 +322,39 @@ Runtime/model tests, race/no-CGo checks, disabled-AVX2/FMA fallback, OmniVoice v
 and ARM64 CLI cross-build pass. Focused review found and prompted a fix for NaN
 payload preservation; explicit tests now cover positive/negative quiet and
 signalling NaNs. Full-repository build failures remain unrelated to these changes.
+
+## HuBERT SIMD erf-GELU (2026-09-13)
+
+`GELUErfF32To` approximates the erf formula used by HuBERT; it does not substitute
+tanh-GELU. The AVX2/FMA path uses Abramowitz–Stegun 7.1.26 for erf and the existing
+bounded exp reduction/polynomial pattern. Its window is 2^-12 <= |x| <= 8.
+Tiny/exceptional values, out-of-range inputs, short tails and unsupported CPUs
+retain scalar `math.Erf`. Exact in-place operation is supported; partial overlap
+is rejected. No scratch allocation is required.
+
+Dense/random tests observed maximum absolute GELU error 4.77e-7, below the 2e-6
+acceptance limit. Tests also cover window boundaries, signed zero, exceptional
+values and float32 neighbours around internal exp range-reduction transitions.
+
+| Inputs | Scalar | Dispatch | Allocations |
+| --- | ---: | ---: | ---: |
+| 1024, eligible | 63.10 us | 6.40 us | 0 |
+| 3072, eligible | 189.78 us | 18.04 us | 0 |
+| 1024, fallback-heavy | 29.90 us | 30.50 us | 0 |
+| 3072, fallback-heavy | 90.81 us | 100.99 us | 0 |
+
+The roughly 10× direct gain applies to eligible runs; fallback-heavy input can be
+slower. Log: `/workspace/tmp/omnivoice-gelu-benchmark.log`.
+
+All HuBERT GELU sites now use the kernel. Real-checkpoint parity passes at five
+frames (max 3.81e-6, RMS 4.40e-7) and 100 frames (max 9.51e-6, RMS 3.66e-7).
+Prepared `ExtractInto` remains allocation-free. Native raw and preprocessed
+reference codes remain unchanged: 896 and 832 codes respectively. Artifacts:
+`/workspace/tmp/omnivoice-reference-gelu-raw-v11.json`,
+`/workspace/tmp/omnivoice-reference-gelu-v11.json`, and
+`/workspace/tmp/omnivoice-gelu-hubert-parity.log`.
+
+No backbone or decoder math changed; no full synthesis timing was repeated.
+Runtime/model tests, race/no-CGo checks, CPU-feature-disabled fallback, OmniVoice
+vet and ARM64 test/CLI cross-builds pass. Focused review found no functional issue.
+Whole-repository builds still fail in the previously identified unrelated packages.
