@@ -90,8 +90,8 @@ q8dotx4_reduce:
     VHADDPS X3, X3, X3
 
     VMOVSS  X0, ret+56(FP)
-    VMOVSS  X1, ret+60(FP)
-    VMOVSS  X2, ret+64(FP)
-    VMOVSS  X3, ret+68(FP)
+    VMOVSS  X1, ret1+60(FP)
+    VMOVSS  X2, ret2+64(FP)
+    VMOVSS  X3, ret3+68(FP)
     VZEROUPPER
     RET
