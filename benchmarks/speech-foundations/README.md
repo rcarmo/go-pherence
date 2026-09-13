@@ -106,6 +106,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [vulkan-linear-regtile-20260912](vulkan-linear-regtile-20260912/README.md): explicitF32 32x32output/K32/4acc candidate,default16x16unchanged;3kernelruns2.055–2.151×/all144timedoutputsbitexact. IsolatedTurboencoder14.244→8.298s1.716×/bitexact/publictokens-timespreserved,notwholejobspeedgate. 438offlinepass/30shuffle4710/34staticval. Earlierpairedprocesssetupoverlap+55pageswapoutretained;exclusiveconfirmationzeroswapdelta/min17.96GiBavailable. Noautomaticpromotion/restart/push.
 
+- [vulkan-community-host-tail-20260913](vulkan-community-host-tail-20260913/README.md): saved-trained-trace measurement of the CPU stages after resident Vulkan ResNet. Three-mask pooling+256×5120 projection is only1.339–1.374ms per5s trace; conservative all21-window estimate~58ms/~0.21% of the27.5s hybrid. Keep dynamic pooling/projection on CPU; profile CNN/LSTM/frontend instead.
+
 - [vulkan-community-native-harness-20260912](vulkan-community-native-harness-20260912/README.md): explicit expected-device synthetic parity harness for block/trunk/hybrid embedding/LSTM/feature+PCM segmentation with fixed diagnostic tolerances and per-subtest memory-state checks. Default skip verified; NOT RUN on GPU.
 
 - [vulkan-community-server-profile-20260912](vulkan-community-server-profile-20260912/README.md): explicit nested opt-in Community-1 hybrid Vulkan server profile; backend/device/graph-bound stage identity, fresh-context drain, process quarantine, reverse retryable close, and model-free injected server/lifecycle tests pass. No GPU/trained/deployment/default change.
