@@ -33,7 +33,7 @@ type vulkanEncoderState struct {
 	add              *vk.VkAddF32
 	norm             *vk.VkLayerNormF32
 	linear           *vk.VkLinearF32
-	q8Linear         []*vk.VkLinearQ8WeightF32
+	q8Linear         *vk.VkLinearQ8WeightSet
 	gelu             *vk.VkGELUErfF32
 	attention        *vk.VkAttentionF32
 }
@@ -95,20 +95,8 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 	}
 	weightSpecs := layout.weights
 	linearWeights := map[string]vkEncoderTensor{}
+	linearIndexes := map[string]int{}
 	if linearMode == vulkanLinearQ8Weight {
-		// One buffer/pipeline per projection is intentionally bounded to the
-		// qualified Tiny-sized graph. Larger encoders need aggregated ownership.
-		projectionCount := 0
-		for _, plan := range layout.plans {
-			for _, step := range plan {
-				if step.op == "linear" {
-					projectionCount++
-				}
-			}
-		}
-		if projectionCount > 64 {
-			return nil, fmt.Errorf("whisper Vulkan: Q8 projection count %d exceeds64; aggregated ownership required", projectionCount)
-		}
 		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
@@ -168,7 +156,30 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.norm)
-	if linearMode != vulkanLinearQ8Weight {
+	if linearMode == vulkanLinearQ8Weight {
+		matrices := make([]vk.VkLinearQ8WeightMatrix, 0, len(linearWeights))
+		for _, plan := range layout.plans {
+			for _, step := range plan {
+				if step.op != "linear" {
+					continue
+				}
+				weight := linearWeights[step.in[1]]
+				if len(weight.shape) != 2 || len(weight.data) == 0 {
+					return nil, fmt.Errorf("whisper Vulkan: missing Q8 weight %q", step.in[1])
+				}
+				linearIndexes[step.in[1]] = len(matrices)
+				matrices = append(matrices, vk.VkLinearQ8WeightMatrix{Weights: weight.data, OutDim: weight.shape[0], InDim: weight.shape[1]})
+			}
+		}
+		s.q8Linear, err = vk.NewVkLinearQ8WeightSet(ctx, matrices)
+		if s.q8Linear != nil {
+			s.resources = append(s.resources, s.q8Linear)
+			s.stats.WeightBytes += s.q8Linear.StorageBytes()
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		if linearMode == vulkanLinearF32RegTile {
 			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
 		} else {
@@ -235,20 +246,11 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
 			case "linear":
 				if linearMode == vulkanLinearQ8Weight {
-					weight, ok := linearWeights[step.in[1]]
-					if !ok || len(weight.shape) != 2 || len(weight.data) == 0 {
-						return nil, fmt.Errorf("whisper Vulkan: missing Q8 weight %q", step.in[1])
+					index, ok := linearIndexes[step.in[1]]
+					if !ok {
+						return nil, fmt.Errorf("whisper Vulkan: missing Q8 weight index %q", step.in[1])
 					}
-					var op *vk.VkLinearQ8WeightF32
-					op, err = vk.NewVkLinearQ8WeightF32(ctx, weight.data, weight.shape[0], weight.shape[1])
-					if op != nil {
-						s.q8Linear = append(s.q8Linear, op)
-						s.resources = append(s.resources, op)
-						s.stats.WeightBytes += op.StorageBytes()
-					}
-					if err == nil {
-						stage, err = op.Stage(ctx, out, in[0], in[2])
-					}
+					stage, err = s.q8Linear.Stage(ctx, index, out, in[0], in[2])
 				} else {
 					stage, err = s.linear.Stage(ctx, out, in[0], in[1], in[2])
 				}

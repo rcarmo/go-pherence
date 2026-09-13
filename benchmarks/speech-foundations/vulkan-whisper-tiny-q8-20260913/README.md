@@ -6,7 +6,7 @@ An explicit resident Whisper encoder now supports per-output-row symmetric Q8 fo
 
 `NewVulkanEncoderQ8Weight` replaces only each encoder layer's Q/K/V/O/FC1/FC2 projection storage and dispatch. Stem convolutions, positions, biases, LayerNorm, GELU, attention arithmetic, residuals, accumulation, outputs, cross-K/V generation and decoder remain F32.
 
-Every projection owns one immutable packed-weight allocation plus row scales and a Q8 pipeline. A private validated plan-stage binding carries those ranges into `VkF32Plan`; callers cannot forge private bindings across packages. Plan preflight retains both arena and packed buffers through submission. Cancellation, drain, copied owners and reverse teardown are covered. F32 projection tensors are omitted from Q8 weight arenas rather than duplicated.
+All projections share one immutable aligned packed-weight allocation and one Q8 pipeline. Each matrix has separate packed-byte and F32-scale descriptor ranges. A private validated plan-stage binding carries those ranges into `VkF32Plan`; callers cannot forge private bindings across packages. Plan preflight retains both arena and packed buffers through submission. Cancellation, drain, copied owners and reverse teardown are covered. F32 projection tensors are omitted from Q8 weight arenas rather than duplicated.
 
 The existing `NewVulkanEncoder` path is unchanged. No environment toggle, implicit fallback or server/default selection is added.
 
@@ -55,7 +55,7 @@ Repeated native log SHA-256: `e89ebb9618f23078f65dc9827230dca3c6b44946a7baab818a
 
 ## Decision
 
-Tiny projection-only Q8 passes this first trained quality/performance checkpoint and remains an explicit candidate. It is not a production/default promotion: the full plan still requires broader multilingual quality, long/noisy/silent inputs, resource scaling, and a Turbo ownership design that does not allocate one Vulkan buffer/pipeline per projection.
+Tiny projection-only Q8 passes this first trained quality/performance checkpoint and remains an explicit candidate. It is not a production/default promotion: the full plan still requires broader multilingual quality, long/noisy/silent inputs and resource scaling. The later Turbo checkpoint replaces the original per-projection ownership with one aggregate allocation/pipeline; this report's numerical and timing results remain valid.
 
 ## Reproduce
 
