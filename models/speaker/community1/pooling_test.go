@@ -52,6 +52,41 @@ func closePool(t *testing.T, got, want []float32) {
 	}
 }
 
+func TestTorchSumF32PinnedReduction(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   []float32
+		want uint32
+	}{
+		{"five", []float32{1, .3, 0, .8, 1}, 0x40466666},
+		{"thirteen", []float32{1, 1, .3, .3, 0, 0, .8, .8, 1, 1, .2, .2, .7}, 0x40e9999c},
+		{"sixty-three", func() []float32 {
+			base := []float32{1, .3, 0, .8, 1, .2, .7}
+			out := make([]float32, 63)
+			for i := range out {
+				out[i] = base[poolMaskIndex(i, len(base), len(out))]
+			}
+			return out
+		}(), 0x42100000},
+		{"large-tail", func() []float32 {
+			out := make([]float32, 4095)
+			for i := range out {
+				value := float32((int64(i)*1103515245 + 12345) % 65536)
+				value = value / float32(32768)
+				value = value - float32(1)
+				out[i] = value * float32(.2)
+			}
+			return out
+		}(), 0xbed4a32e},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := math.Float32bits(torchSumF32(tc.in)); got != tc.want {
+				t.Fatalf("torch sum bits=%08x want=%08x", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestStatsPoolPinnedOracle(t *testing.T) {
 	for _, c := range loadPoolFixtures(t) {
 		input := append([]float32(nil), c.Input...)
@@ -65,6 +100,11 @@ func TestStatsPoolPinnedOracle(t *testing.T) {
 		}
 		closePool(t, result.Statistics, c.Output)
 		closePool(t, result.WeightSum, c.WeightSum)
+		for i, value := range result.WeightSum {
+			if math.Float32bits(value) != math.Float32bits(c.WeightSum[i]) {
+				t.Fatalf("weight sum[%d] bits=%08x want=%08x", i, math.Float32bits(value), math.Float32bits(c.WeightSum[i]))
+			}
+		}
 		if !reflect.DeepEqual(result.NonzeroFrames, c.NonzeroFrames) {
 			t.Fatal("support", result.NonzeroFrames, c.NonzeroFrames)
 		}

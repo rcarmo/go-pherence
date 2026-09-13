@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/bits"
 )
 
 // StatsPoolConfig describes one window of channel-major [Features,Frames]
@@ -68,10 +69,15 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 		return nil, err
 	}
 	result := &StatsPoolResult{Statistics: make([]float32, speakers*2*c.Features), WeightSum: make([]float32, speakers), NonzeroFrames: make([]int, speakers)}
-	// One reusable mask row. Feature arrays are never broadcast/copied per mask.
-	var weights []float32
+	// Reusable mask/product rows. Feature arrays are never broadcast/copied per
+	// mask. PyTorch materialises each product then reduces it with its pinned
+	// float32 CPU sum tree; preserving that explicit order avoids ISA-dependent
+	// compiler reduction choices while producing the same result on every Go
+	// architecture.
+	var weights, products []float32
 	if weighted {
 		weights = make([]float32, c.Frames)
+		products = make([]float32, c.Frames)
 	}
 	for speaker := 0; speaker < speakers; speaker++ {
 		if err := ctx.Err(); err != nil {
@@ -79,7 +85,6 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 		}
 		v1, v2 := float32(c.Frames), float32(c.Frames)
 		if weighted {
-			var sum, square float32
 			support := 0
 			for frame := 0; frame < c.Frames; frame++ {
 				if frame%256 == 0 {
@@ -89,16 +94,16 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 				}
 				value := masks[speaker*c.MaskFrames+poolMaskIndex(frame, c.MaskFrames, c.Frames)]
 				weights[frame] = value
-				sum += value
-				square += value * value
+				products[frame] = value * value
 				if value > 0 {
 					support++
 				}
 			}
+			sum := torchSumF32(weights)
 			result.WeightSum[speaker] = sum
 			result.NonzeroFrames[speaker] = support
 			v1 = sum + float32(1e-8)
-			v2 = square
+			v2 = torchSumF32(products)
 		} else {
 			result.WeightSum[speaker] = float32(c.Frames)
 			result.NonzeroFrames[speaker] = c.Frames
@@ -118,16 +123,15 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 			row := features[feature*c.Frames : (feature+1)*c.Frames]
 			mean := float64(0)
 			if weighted {
-				var total float32
 				for i, value := range row {
 					if i%256 == 0 {
 						if err := ctx.Err(); err != nil {
 							return nil, err
 						}
 					}
-					total += value * weights[i]
+					products[i] = value * weights[i]
 				}
-				mean = float64(total / v1)
+				mean = float64(torchSumF32(products) / v1)
 			} else {
 				for i, value := range row {
 					if i%256 == 0 {
@@ -141,7 +145,6 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 			}
 			variance := float64(0)
 			if weighted {
-				var total float32
 				for i, value := range row {
 					if i%256 == 0 {
 						if err := ctx.Err(); err != nil {
@@ -149,9 +152,9 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 						}
 					}
 					delta := value - float32(mean)
-					total += (delta * delta) * weights[i]
+					products[i] = (delta * delta) * weights[i]
 				}
-				variance = float64(total / float32(denominator))
+				variance = float64(torchSumF32(products) / float32(denominator))
 			} else {
 				for i, value := range row {
 					if i%256 == 0 {
@@ -178,6 +181,102 @@ func StatsPool(ctx context.Context, features, masks []float32, cfg StatsPoolConf
 		return nil, err
 	}
 	return result, nil
+}
+
+// torchSumF32 reproduces the pinned PyTorch CPU contiguous float32 sum tree:
+// eight scalar lanes per vector, four interleaved vector accumulators, and the
+// four-level cascade from ATen/native/cpu/SumKernel.cpp. Scalar remainder values
+// are accumulated before the eight lanes. The explicit tree is architecture
+// independent and is bounded here to the StatsPool limit of 4096 elements.
+func torchSumF32(values []float32) float32 {
+	const (
+		lanes  = 8
+		rows   = 4
+		levels = 4
+	)
+	// Below one hardware vector, ATen takes scalar_inner_sum. row_sum still
+	// uses four interleaved accumulators rather than a single serial total.
+	if len(values) < lanes {
+		var partial [rows]float32
+		groups := len(values) / rows
+		for group := 0; group < groups; group++ {
+			for row := 0; row < rows; row++ {
+				partial[row] += values[group*rows+row]
+			}
+		}
+		for i := groups * rows; i < len(values); i++ {
+			partial[0] += values[i]
+		}
+		for row := 1; row < rows; row++ {
+			partial[0] += partial[row]
+		}
+		return partial[0]
+	}
+	vectors := len(values) / lanes
+	groups := vectors / rows
+	levelPower := max(4, bits.Len(uint(max(groups-1, 0)))/levels)
+	levelStep := 1 << levelPower
+	levelMask := levelStep - 1
+	var sums [levels][rows][lanes]float32
+	group := 0
+	for group+levelStep <= groups {
+		for end := group + levelStep; group < end; group++ {
+			for row := 0; row < rows; row++ {
+				base := (group*rows + row) * lanes
+				for lane := 0; lane < lanes; lane++ {
+					sums[0][row][lane] += values[base+lane]
+				}
+			}
+		}
+		for level := 1; level < levels; level++ {
+			for row := 0; row < rows; row++ {
+				for lane := 0; lane < lanes; lane++ {
+					sums[level][row][lane] += sums[level-1][row][lane]
+					sums[level-1][row][lane] = 0
+				}
+			}
+			if group&(levelMask<<(level*levelPower)) != 0 {
+				break
+			}
+		}
+	}
+	for ; group < groups; group++ {
+		for row := 0; row < rows; row++ {
+			base := (group*rows + row) * lanes
+			for lane := 0; lane < lanes; lane++ {
+				sums[0][row][lane] += values[base+lane]
+			}
+		}
+	}
+	// multi_row_sum folds its cascade levels before row_sum adds vectors that
+	// did not fill a complete four-vector group. Keep that order exactly: the
+	// two additions do not commute under float32 rounding.
+	for level := 1; level < levels; level++ {
+		for row := 0; row < rows; row++ {
+			for lane := 0; lane < lanes; lane++ {
+				sums[0][row][lane] += sums[level][row][lane]
+			}
+		}
+	}
+	for vector := groups * rows; vector < vectors; vector++ {
+		base := vector * lanes
+		for lane := 0; lane < lanes; lane++ {
+			sums[0][0][lane] += values[base+lane]
+		}
+	}
+	for row := 1; row < rows; row++ {
+		for lane := 0; lane < lanes; lane++ {
+			sums[0][0][lane] += sums[0][row][lane]
+		}
+	}
+	var result float32
+	for i := vectors * lanes; i < len(values); i++ {
+		result += values[i]
+	}
+	for lane := 0; lane < lanes; lane++ {
+		result += sums[0][0][lane]
+	}
+	return result
 }
 
 func finitePool(ctx context.Context, values []float32, mask bool) error {
