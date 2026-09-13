@@ -72,6 +72,12 @@ type DecoderLayer struct {
 }
 
 // DecoderState holds cached KV for incremental decoding.
+// CrossAttentionObserver receives one normalised attention row for one decoder
+// layer/head at the token position just consumed by ForwardToken. The values are
+// transient and must be copied by the caller. It is a diagnostic/word-alignment
+// hook; nil preserves the hot path and GPU cross-attention cannot be observed.
+type CrossAttentionObserver func(layer, head, tokenPosition int, weights []float32)
+
 type DecoderState struct {
 	// Self-attention KV cache per layer: [layer][pos * dModel]
 	SelfKCache [][]float32
@@ -94,6 +100,9 @@ type DecoderState struct {
 	Pos       int          // Current token position
 	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
 	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
+	// CrossAttentionObserver is invoked synchronously only on the CPU
+	// cross-attention path. Callers must not mutate or retain weights.
+	CrossAttentionObserver CrossAttentionObserver
 }
 
 // NewDecoder creates a Decoder with allocated layers.
@@ -251,8 +260,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		if !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
-			crossAttentionHeadMajor(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores)
+		if state.CrossAttentionObserver != nil || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
+			// Alignment explicitly observes the same CPU probabilities used for
+			// this attention result; it never combines hidden GPU output with a
+			// separately reconstructed diagnostic row.
+			crossAttentionHeadMajorObserved(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver)
 		}
 		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
@@ -366,6 +378,10 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 // frames are contiguous — the [seqKV,dModel] cache layout otherwise forces a
 // stride-dModel cache miss on every frame (the decode's dominant cost).
 func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32) {
+	crossAttentionHeadMajorObserved(out, q, kHead, vHead, seqKV, numHeads, headDim, scores, 0, 0, nil)
+}
+
+func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver) {
 	dModel := numHeads * headDim
 	zeroFloat32s(out[:dModel])
 	if seqKV <= 0 {
@@ -396,6 +412,9 @@ func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, he
 			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
 		}
 		softmax(scores[:seqKV])
+		if observe != nil {
+			observe(layer, h, position, scores[:seqKV])
+		}
 		outHead := out[hOff : hOff+headDim]
 		for tkv := 0; tkv < seqKV; tkv++ {
 			w := scores[tkv]

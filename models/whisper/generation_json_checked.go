@@ -16,6 +16,7 @@ type CheckedGenerationConfig struct {
 	vocabulary              timestampVocabulary
 	languages               map[string]int
 	suppress, beginSuppress []int
+	alignmentHeads          [][2]int
 	maxLength, maxInitial   int
 }
 
@@ -24,7 +25,7 @@ type CheckedGenerationConfig struct {
 // timestamps override forced_decoder_ids and return_timestamps. Those source
 // defaults are validated but never appended to the prompt. Unknown generation
 // controls and non-default sampling/beam/repetition modes are rejected. Alignment
-// heads are validated metadata only; word alignment is not implemented.
+// heads are validated and retained for the separate checked word-timing path.
 func ParseGenerationConfigChecked(data []byte, cfg Config, tokenizer *Tokenizer) (*CheckedGenerationConfig, error) {
 	if err := validatePCMConfig(cfg); err != nil {
 		return nil, err
@@ -174,6 +175,7 @@ func ParseGenerationConfigChecked(data []byte, cfg Config, tokenizer *Tokenizer)
 			}
 		}
 	}
+	var alignmentHeads [][2]int
 	if _, ok := fields["alignment_heads"]; ok {
 		heads, err := configField[[][]int](fields, "alignment_heads")
 		if err != nil {
@@ -182,10 +184,17 @@ func ParseGenerationConfigChecked(data []byte, cfg Config, tokenizer *Tokenizer)
 		if len(heads) > cfg.DecoderLayers*cfg.DecoderHeads {
 			return nil, fmt.Errorf("too many alignment heads")
 		}
+		seenHeads := make(map[[2]int]bool, len(heads))
 		for _, head := range heads {
 			if len(head) != 2 || head[0] < 0 || head[0] >= cfg.DecoderLayers || head[1] < 0 || head[1] >= cfg.DecoderHeads {
 				return nil, fmt.Errorf("invalid alignment head")
 			}
+			pair := [2]int{head[0], head[1]}
+			if seenHeads[pair] {
+				return nil, fmt.Errorf("duplicate alignment head")
+			}
+			seenHeads[pair] = true
+			alignmentHeads = append(alignmentHeads, pair)
 		}
 	}
 	suppress, err := configField[[]int](fields, "suppress_tokens")
@@ -209,7 +218,7 @@ func ParseGenerationConfigChecked(data []byte, cfg Config, tokenizer *Tokenizer)
 			return nil, fmt.Errorf("initial timestamp suppression unsupported")
 		}
 	}
-	return &CheckedGenerationConfig{cfg: cfg, vocabulary: v, languages: languages, suppress: suppress, beginSuppress: begin, maxLength: maxLength, maxInitial: maxInitial}, nil
+	return &CheckedGenerationConfig{cfg: cfg, vocabulary: v, languages: languages, suppress: suppress, beginSuppress: begin, alignmentHeads: alignmentHeads, maxLength: maxLength, maxInitial: maxInitial}, nil
 }
 
 func validateSuppressionLists(v timestampVocabulary, lists ...[]int) error {
