@@ -32,6 +32,43 @@ func TestCodecConvAndTranspose(t *testing.T) {
 		}
 	}
 }
+
+func TestCodecPrepareReuseAndBounds(t *testing.T) {
+	d := &CodecDecoder{weights: &loader.CodecWeights{}}
+	if err := d.Prepare(3); err != nil {
+		t.Fatal(err)
+	}
+	first := d.scratch
+	if first == nil || first.frames != 3 || first.maxFrames != 3 {
+		t.Fatal("scratch not prepared")
+	}
+	if err := d.Prepare(1); err != nil {
+		t.Fatal(err)
+	}
+	if d.scratch != first || d.scratch.frames != 1 || d.scratch.maxFrames != 3 {
+		t.Fatal("smaller prepare reallocated scratch")
+	}
+	allocs := testing.AllocsPerRun(50, func() {
+		if err := d.Prepare(2); err != nil {
+			panic(err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("prepare reuse allocs=%g", allocs)
+	}
+	if err := d.Prepare(4); err != nil {
+		t.Fatal(err)
+	}
+	if d.scratch == first || d.scratch.frames != 4 || d.scratch.maxFrames != 4 {
+		t.Fatal("larger prepare did not replace scratch")
+	}
+	for _, frames := range []int{0, 251} {
+		if err := d.Prepare(frames); err == nil {
+			t.Fatalf("accepted frames=%d", frames)
+		}
+	}
+}
+
 func TestRealCodecDecode(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_REAL_CODEC")
 	if path == "" {
@@ -83,5 +120,27 @@ func TestRealCodecDecode(t *testing.T) {
 	t.Logf("DecodeInto allocations=%g", allocations)
 	if allocations != 0 {
 		t.Fatalf("decoder still allocates %g", allocations)
+	}
+	first := d.scratch
+	if err := d.Prepare(1); err != nil {
+		t.Fatal(err)
+	}
+	if d.scratch != first {
+		t.Fatal("smaller real prepare reallocated scratch")
+	}
+	if err := d.Prepare(2); err != nil {
+		t.Fatal(err)
+	}
+	ctx := &cancelAfterChecks{Context: context.Background(), remaining: 3}
+	if err := d.DecodeInto(ctx, out, codes, 8, 2); err != context.Canceled {
+		t.Fatalf("mid-decode cancellation: %v", err)
+	}
+	if err := d.DecodeInto(context.Background(), out, codes, 8, 2); err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range out {
+		if diff := math.Abs(float64(v - f.Waveform[i])); diff > 2e-5 || math.IsNaN(diff) {
+			t.Fatalf("decode retry mismatch at %d", i)
+		}
 	}
 }

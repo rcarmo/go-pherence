@@ -106,3 +106,23 @@ invalidation, invalid sizes and zero-allocation calls are tested. Real layer 0
 at 128 tokens: first-eight error 2.24e-7, peak error 9.85e-7, sum error 4.42e-5.
 This real probe compares prefix and aggregates, not every full-stack element.
 Full-waveform parity remains a later gate.
+
+## Long-chunk reservation reuse (2026-09-13)
+
+The same four-chunk, 13.42-second prepared-reference utterance now reserves inference
+workspaces once at the largest planned shape. Smaller chunks use active views,
+without padded attention. The old and new WAV files have identical SHA-256 hashes
+(`bd1f3ec5a2bc5ece889b53d2462e0ab782274aa0b7953ebd0090b03ee90b79f9`).
+
+The saved run took 335.17 seconds; the prior run took 344.46 seconds. This timing
+pair is insufficient to establish a speedup. The `alloc_space` profile totals
+368,551.84 KiB (359.9 MiB). Largest flat contributions include codec weight
+conversion (82.2 MiB), the layer arena (60.0 MiB), decoder scratch (45.4 MiB), and
+JSON slice growth (40.5 MiB). Tokenizer loading accounts for about 112.2 MiB
+cumulatively. Post-processing and output assembly still allocate. Prepared
+backbone/generation resizing and decoder calls retain zero-allocation tests.
+
+Profile: `/workspace/tmp/omnivoice-long-reuse-v2.mem`; run metadata:
+`/workspace/tmp/omnivoice-long-reuse-v2.json`. This cached-reference profile excludes
+native reference encoding; it must not be compared directly with raw-reference
+whole-run allocation totals.

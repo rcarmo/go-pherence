@@ -18,7 +18,7 @@ type Backbone struct {
 	block                               *Block
 	scratch                             *Workspace
 	hidden, row, head, headOutput, norm []float32
-	tokens, chunk                       int
+	tokens, maxTokens, chunk            int
 }
 
 // NewBackbone borrows weights; caller must keep it open until all calls finish.
@@ -69,7 +69,37 @@ func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer)
 	}
 	const chunk = 128
 	h := c.LLMConfig.HiddenSize
-	return &Backbone{weights: weights, layer: arena, block: block, scratch: scratch, tokens: tokens, chunk: chunk, hidden: make([]float32, tokens*h), row: make([]float32, h), head: make([]float32, chunk*h), headOutput: make([]float32, tokens*chunk), norm: norm}, nil
+	b := &Backbone{weights: weights, layer: arena, block: block, scratch: scratch, maxTokens: tokens, chunk: chunk, hidden: make([]float32, tokens*h), row: make([]float32, h), head: make([]float32, chunk*h), headOutput: make([]float32, tokens*chunk), norm: norm}
+	if err = b.Reconfigure(tokens); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// Reconfigure narrows or restores the active token views within the original
+// reservation. It never grows activations or workspace beyond construction.
+func (b *Backbone) Reconfigure(tokens int) error {
+	if b == nil {
+		return fmt.Errorf("omnivoice: nil backbone")
+	}
+	if tokens <= 0 || tokens > b.maxTokens {
+		return fmt.Errorf("omnivoice: token capacity %d exceeds backbone bound %d", tokens, b.maxTokens)
+	}
+	if err := b.scratch.Reconfigure(tokens); err != nil {
+		return err
+	}
+	b.tokens = tokens
+	h := b.weights.Config.LLMConfig.HiddenSize
+	b.hidden = b.hidden[:tokens*h]
+	b.headOutput = b.headOutput[:tokens*b.chunk]
+	return nil
+}
+
+func (b *Backbone) tokenCapacity() int {
+	if b == nil {
+		return 0
+	}
+	return b.maxTokens
 }
 
 // ForwardInto fills logits in [codebook,time,vocabulary] order, as in upstream.
@@ -79,7 +109,7 @@ func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer)
 // Cancellation is checked between layers and audio-head chunks; partial output
 // after cancellation or any other error must be discarded.
 func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32) error {
-	if ctx == nil {
+	if b == nil || b.weights == nil || ctx == nil {
 		return fmt.Errorf("omnivoice: nil context")
 	}
 	c := b.weights.Config

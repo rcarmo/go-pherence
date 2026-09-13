@@ -10,10 +10,10 @@ import (
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 )
 
-// CodecDecoder is an initial decode-only HiggsAudioV2 RVQ/DAC implementation.
-// Convolutions use SIMD GEMM with bounded 64-position im2col tiles. Activation
-// buffers are currently allocated per operator; optimization follows parity.
-// Snake sine and transposed-convolution scatter are scalar. Not concurrent safe.
+// CodecDecoder implements HiggsAudioV2 RVQ/DAC decoding. Convolutions use
+// SIMD GEMM with bounded 64-position im2col tiles. Prepare reserves reusable
+// activation slots for allocation-free DecodeInto calls. Snake sine and
+// transposed-convolution scatter are scalar. Not concurrent safe.
 type CodecDecoder struct {
 	ops            map[string]codecOperator
 	names          map[string]map[string]string

@@ -163,3 +163,186 @@ func TestGenerationSharedWeightArena(t *testing.T) {
 		t.Fatal("nil parent accepted")
 	}
 }
+
+func TestGenerationReconfigureParityAndZeroAllocs(t *testing.T) {
+	w, err := loader.OpenWeights("../../testdata/omnivoice/backbone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	cond, err := NewBackbone(w, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uncond, err := NewBackboneSibling(cond, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultGenerationConfig()
+	cfg.Steps = 4
+	reused, err := NewGeneration(cond, uncond, 2, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cond4 := []int{2, 3, 4, 4, 2, 3, 4, 4}
+	mask4 := []bool{false, false, true, true}
+	uncond2 := []int{4, 4, 4, 4}
+	umask2 := []bool{true, true}
+	cond3 := sliceBookMajor(cond4, 2, 4, 3)
+	mask3 := append([]bool(nil), mask4[:3]...)
+	uncond1 := sliceBookMajor(uncond2, 2, 2, 1)
+	umask1 := append([]bool(nil), umask2[:1]...)
+	cases := []struct {
+		condTokens   int
+		uncondTokens int
+		target       int
+		condIDs      []int
+		condAudio    []bool
+		uncondIDs    []int
+		uncondAudio  []bool
+	}{
+		{condTokens: 4, uncondTokens: 2, target: 2, condIDs: cond4, condAudio: mask4, uncondIDs: uncond2, uncondAudio: umask2},
+		{condTokens: 3, uncondTokens: 1, target: 1, condIDs: cond3, condAudio: mask3, uncondIDs: uncond1, uncondAudio: umask1},
+		{condTokens: 4, uncondTokens: 2, target: 2, condIDs: cond4, condAudio: mask4, uncondIDs: uncond2, uncondAudio: umask2},
+	}
+	for i, tc := range cases {
+		indCond, err := NewBackbone(w, tc.condTokens)
+		if err != nil {
+			t.Fatal(err)
+		}
+		indUncond, err := NewBackboneSibling(indCond, tc.uncondTokens)
+		if err != nil {
+			t.Fatal(err)
+		}
+		independent, err := NewGeneration(indCond, indUncond, tc.target, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := make([]int, 2*tc.target)
+		got := make([]int, len(want))
+		condIDs := append([]int(nil), tc.condIDs...)
+		uncondIDs := append([]int(nil), tc.uncondIDs...)
+		if err = independent.GenerateInto(context.Background(), want, condIDs, tc.condAudio, uncondIDs, tc.uncondAudio); err != nil {
+			t.Fatal(err)
+		}
+		condIDs = append([]int(nil), tc.condIDs...)
+		uncondIDs = append([]int(nil), tc.uncondIDs...)
+		if err = cond.Reconfigure(tc.condTokens); err != nil {
+			t.Fatal(err)
+		}
+		if err = uncond.Reconfigure(tc.uncondTokens); err != nil {
+			t.Fatal(err)
+		}
+		if err = reused.Reconfigure(tc.target); err != nil {
+			t.Fatal(err)
+		}
+		if err = reused.GenerateInto(context.Background(), got, condIDs, tc.condAudio, uncondIDs, tc.uncondAudio); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("case %d got %v want %v", i, got, want)
+		}
+	}
+	if err := reused.Reconfigure(0); err == nil {
+		t.Fatal("zero target accepted")
+	}
+	if err := cond.Reconfigure(3); err != nil {
+		t.Fatal(err)
+	}
+	if err := uncond.Reconfigure(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := reused.Reconfigure(2); err == nil {
+		t.Fatal("target above active unconditional tokens accepted")
+	}
+	if err := cond.Reconfigure(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := uncond.Reconfigure(2); err != nil {
+		t.Fatal(err)
+	}
+	workCond4 := make([]int, len(cond4))
+	workUncond2 := make([]int, len(uncond2))
+	workCond3 := make([]int, len(cond3))
+	workUncond1 := make([]int, len(uncond1))
+	out2 := make([]int, 4)
+	out1 := make([]int, 2)
+	var allocErr error
+	allocs := testing.AllocsPerRun(10, func() {
+		if allocErr = cond.Reconfigure(4); allocErr != nil {
+			return
+		}
+		if allocErr = uncond.Reconfigure(2); allocErr != nil {
+			return
+		}
+		if allocErr = reused.Reconfigure(2); allocErr != nil {
+			return
+		}
+		copy(workCond4, cond4)
+		copy(workUncond2, uncond2)
+		allocErr = reused.GenerateInto(context.Background(), out2, workCond4, mask4, workUncond2, umask2)
+		if allocErr != nil {
+			return
+		}
+		if allocErr = cond.Reconfigure(3); allocErr != nil {
+			return
+		}
+		if allocErr = uncond.Reconfigure(1); allocErr != nil {
+			return
+		}
+		if allocErr = reused.Reconfigure(1); allocErr != nil {
+			return
+		}
+		copy(workCond3, cond3)
+		copy(workUncond1, uncond1)
+		allocErr = reused.GenerateInto(context.Background(), out1, workCond3, mask3, workUncond1, umask1)
+		if allocErr != nil {
+			return
+		}
+		if allocErr = cond.Reconfigure(4); allocErr != nil {
+			return
+		}
+		if allocErr = uncond.Reconfigure(2); allocErr != nil {
+			return
+		}
+		if allocErr = reused.Reconfigure(2); allocErr != nil {
+			return
+		}
+		copy(workCond4, cond4)
+		copy(workUncond2, uncond2)
+		allocErr = reused.GenerateInto(context.Background(), out2, workCond4, mask4, workUncond2, umask2)
+	})
+	if allocErr != nil {
+		t.Fatal(allocErr)
+	}
+	if allocs != 0 {
+		t.Fatalf("reuse allocs %g", allocs)
+	}
+}
+
+func TestGenerationRejectsStaleBackboneShape(t *testing.T) {
+	b, f := loadBackboneFixture(t)
+	cfg := DefaultGenerationConfig()
+	cfg.Guidance = 0
+	g, err := NewGeneration(b, nil, 2, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Reconfigure(1); err != nil {
+		t.Fatal(err)
+	}
+	ids := sliceBookMajor(f.IDs, g.books, f.Tokens, 1)
+	if err := g.GenerateInto(context.Background(), make([]int, g.books*2), ids, []bool{true}, nil, nil); err == nil {
+		t.Fatal("accepted stale generation target larger than active backbone")
+	}
+	if err := g.Reconfigure(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.GenerateInto(context.Background(), make([]int, g.books), ids, []bool{true}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	var empty Generation
+	if err := empty.Reconfigure(1); err == nil {
+		t.Fatal("accepted uninitialised generation")
+	}
+}

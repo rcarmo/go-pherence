@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
@@ -17,6 +19,8 @@ import (
 
 func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool) error {
 	started := time.Now()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	if strings.TrimSpace(text) == "" || maxFrames < 1 || maxFrames > 250 || steps < 1 || steps > 128 {
 		return fmt.Errorf("chunk mode requires text, frames 1..250 and steps 1..128")
 	}
@@ -91,8 +95,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	if err != nil {
 		return err
 	}
-	// Keep one small backbone as arena owner; all per-chunk branches are siblings.
-	owner, err := model.NewBackbone(weights, 1)
+	runner, err := newChunkRunner(weights, decoder, prompts, steps)
 	if err != nil {
 		return err
 	}
@@ -100,7 +103,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	timings := make([]float64, 0, len(prompts))
 	for i, p := range prompts {
 		at := time.Now()
-		wave, e := generateChunk(owner, decoder, p, steps, postprocess)
+		wave, e := runner.Generate(ctx, p, postprocess)
 		if e != nil {
 			return fmt.Errorf("chunk %d: %w", i+1, e)
 		}
@@ -120,49 +123,98 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": mode, "synthetic": true, "native_inference": true, "reference_encoding_native": reference != "", "silence_preprocessing": preprocess, "output_postprocessing": postprocess, "chunks": len(prompts), "chunk_texts": chunkTexts(prompts), "target_frames": totalFrames, "chunk_seconds": timings, "audio_seconds": float64(len(joined)) / 24000, "command_seconds": time.Since(started).Seconds(), "steps": steps, "seed_per_chunk": 42, "boundary_fade_ms": 5, "boundary_gap_ms": 100, "gain": gain, "output": output})
 }
 
-func generateChunk(owner *model.Backbone, decoder *model.CodecDecoder, p loader.PreparedPrompt, steps int, postprocess bool) ([]float32, error) {
-	cond, err := model.NewBackboneSibling(owner, p.Conditional.Tokens)
+type chunkRunner struct {
+	books      int
+	cond       *model.Backbone
+	uncond     *model.Backbone
+	generation *model.Generation
+	decoder    *model.CodecDecoder
+	codes      []int
+	wave       []float32
+}
+
+func newChunkRunner(weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int) (*chunkRunner, error) {
+	if weights == nil || decoder == nil || len(prompts) == 0 {
+		return nil, fmt.Errorf("invalid chunk runner inputs")
+	}
+	maxCond, maxUncond, maxTarget := 0, 0, 0
+	for _, p := range prompts {
+		maxCond = max(maxCond, p.Conditional.Tokens)
+		maxUncond = max(maxUncond, p.Unconditional.Tokens)
+		maxTarget = max(maxTarget, p.TargetFrames)
+	}
+	cond, err := model.NewBackbone(weights, maxCond)
 	if err != nil {
 		return nil, err
 	}
-	uncond, err := model.NewBackboneSibling(owner, p.Unconditional.Tokens)
+	uncond, err := model.NewBackboneSibling(cond, maxUncond)
 	if err != nil {
 		return nil, err
 	}
 	cfg := model.DefaultGenerationConfig()
 	cfg.Steps = steps
-	g, err := model.NewGeneration(cond, uncond, p.TargetFrames, cfg)
+	generation, err := model.NewGeneration(cond, uncond, maxTarget, cfg)
 	if err != nil {
 		return nil, err
 	}
-	codes := make([]int, 8*p.TargetFrames)
-	if err = g.GenerateInto(context.Background(), codes, p.Conditional.IDs, p.Conditional.AudioMask, p.Unconditional.IDs, p.Unconditional.AudioMask); err != nil {
+	if err = decoder.Prepare(maxTarget); err != nil {
 		return nil, err
 	}
-	wave, err := decoder.Decode(context.Background(), codes, 8, p.TargetFrames)
-	if err != nil {
+	books := weights.Config.NumAudioCodebook
+	return &chunkRunner{books: books, cond: cond, uncond: uncond, generation: generation, decoder: decoder, codes: make([]int, books*maxTarget), wave: make([]float32, maxTarget*960)}, nil
+}
+
+func (r *chunkRunner) Generate(ctx context.Context, p loader.PreparedPrompt, postprocess bool) ([]float32, error) {
+	if r == nil || ctx == nil {
+		return nil, fmt.Errorf("nil chunk runner/context")
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := r.cond.Reconfigure(p.Conditional.Tokens); err != nil {
+		return nil, err
+	}
+	if err := r.uncond.Reconfigure(p.Unconditional.Tokens); err != nil {
+		return nil, err
+	}
+	if err := r.generation.Reconfigure(p.TargetFrames); err != nil {
+		return nil, err
+	}
+	if err := r.decoder.Prepare(p.TargetFrames); err != nil {
+		return nil, err
+	}
+	codes := r.codes[:r.books*p.TargetFrames]
+	if err := r.generation.GenerateInto(ctx, codes, p.Conditional.IDs, p.Conditional.AudioMask, p.Unconditional.IDs, p.Unconditional.AudioMask); err != nil {
+		return nil, err
+	}
+	wave := r.wave[:p.TargetFrames*960]
+	if err := r.decoder.DecodeInto(ctx, wave, codes, r.books, p.TargetFrames); err != nil {
+		return nil, err
+	}
+	generated := wave
+	var err error
 	if postprocess {
 		o := loader.DefaultSilenceOptions()
 		o.MidSilenceMS = 500
 		o.LeadingKeepMS = 100
 		o.TrailingKeepMS = 100
-		wave, err = loader.RemoveSilenceMono24k(wave, o)
+		generated, err = loader.RemoveSilenceMono24k(generated, o)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if p.RefRMS != nil && *p.RefRMS < .1 {
 		gain := float32(*p.RefRMS / .1)
-		for i := range wave {
-			wave[i] *= gain
+		for i := range generated {
+			generated[i] *= gain
 		}
 	}
-	if len(wave) == 0 {
+	if len(generated) == 0 {
 		return nil, fmt.Errorf("empty generated chunk")
 	}
-	return wave, nil
+	out := make([]float32, len(generated))
+	copy(out, generated)
+	return out, nil
 }
 
 func joinChunkWaves(waves [][]float32, fade, gap int) ([]float32, error) {

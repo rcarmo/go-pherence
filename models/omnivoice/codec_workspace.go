@@ -11,18 +11,22 @@ type codecScratch struct {
 	slots                            [4][]float32
 	used                             [4]bool
 	packed, result, input, projected []float32
-	frames                           int
+	frames, maxFrames                int
 }
 
 func (d *CodecDecoder) Prepare(frames int) error {
+	if d == nil || d.weights == nil {
+		return fmt.Errorf("omnivoice: nil decoder")
+	}
 	if frames < 1 || frames > 250 {
 		return fmt.Errorf("omnivoice: codec frame limit 1..250")
 	}
 	maxElements := 32 * 960 * frames
-	if d.scratch != nil && d.scratch.frames == frames {
+	if d.scratch != nil && frames <= d.scratch.maxFrames {
+		d.scratch.frames = frames
 		return nil
 	}
-	s := &codecScratch{frames: frames, packed: make([]float32, 512*7*64), result: make([]float32, 1024*64), input: make([]float32, 32*1024), projected: make([]float32, 32*512*16)}
+	s := &codecScratch{frames: frames, maxFrames: frames, packed: make([]float32, 512*7*64), result: make([]float32, 1024*64), input: make([]float32, 32*1024), projected: make([]float32, 32*512*16)}
 	for i := range s.slots {
 		s.slots[i] = make([]float32, maxElements)
 	}
@@ -59,10 +63,11 @@ func (d *CodecDecoder) release(x signal) {
 // DecodeInto uses caller output plus prepared scratch. Output has frames*960
 // samples for the supported codec. Decode remains the allocating wrapper.
 func (d *CodecDecoder) DecodeInto(ctx context.Context, dst []float32, codes []int, books, frames int) error {
-	if d.scratch == nil || d.scratch.frames != frames || len(dst) != frames*960 {
+	if d == nil || d.weights == nil || ctx == nil || d.scratch == nil || d.scratch.frames != frames || len(dst) != frames*960 {
 		return fmt.Errorf("omnivoice: prepare codec and provide exact output size")
 	}
 	d.scratch.used = [4]bool{}
+	defer func() { d.scratch.used = [4]bool{} }()
 	out, err := d.decode(ctx, codes, books, frames)
 	if err != nil {
 		return err

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Tokenizer handles BPE tokenization for LLaMA-style models.
@@ -20,8 +22,16 @@ type Tokenizer struct {
 
 	mergeRankOnce sync.Once
 	mergeRank     map[[2]string]int
+	normalizer    tokenizerNormalizer
 	byteLevelMode byteLevelPretokenizer
 }
+
+type tokenizerNormalizer uint8
+
+const (
+	normalizerNone tokenizerNormalizer = iota
+	normalizerNFC
+)
 
 type byteLevelPretokenizer uint8
 
@@ -58,7 +68,8 @@ func Load(path string) (*Tokenizer, error) {
 				} `json:"pattern"`
 			} `json:"pretokenizers"`
 		} `json:"pre_tokenizer"`
-		Model struct {
+		Normalizer json.RawMessage `json:"normalizer"`
+		Model      struct {
 			Vocab  map[string]int  `json:"vocab"`
 			Merges json.RawMessage `json:"merges"`
 		} `json:"model"`
@@ -76,9 +87,10 @@ func Load(path string) (*Tokenizer, error) {
 		raw.Model.Vocab = map[string]int{}
 	}
 	t := &Tokenizer{
-		Vocab:        raw.Model.Vocab,
-		InvVocab:     make(map[int]string, len(raw.Model.Vocab)),
-		AddedSpecial: make(map[string]int),
+		Vocab:         raw.Model.Vocab,
+		InvVocab:      make(map[int]string, len(raw.Model.Vocab)),
+		AddedSpecial:  make(map[string]int),
+		normalizer:    detectNormalizer(raw.Normalizer),
 		byteLevelMode: detectByteLevelPretokenizer(raw.PreTokenizer.Pretokenizers),
 	}
 	for k, v := range raw.Model.Vocab {
@@ -129,6 +141,35 @@ func Load(path string) (*Tokenizer, error) {
 	return t, nil
 }
 
+func detectNormalizer(raw json.RawMessage) tokenizerNormalizer {
+	if len(raw) == 0 || string(raw) == "null" {
+		return normalizerNone
+	}
+	var probe struct {
+		Type        string            `json:"type"`
+		Normalizers []json.RawMessage `json:"normalizers"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return normalizerNone
+	}
+	switch probe.Type {
+	case "NFC":
+		return normalizerNFC
+	case "Sequence":
+		if len(probe.Normalizers) == 0 {
+			return normalizerNone
+		}
+		for _, part := range probe.Normalizers {
+			if detectNormalizer(part) != normalizerNFC {
+				return normalizerNone
+			}
+		}
+		return normalizerNFC
+	default:
+		return normalizerNone
+	}
+}
+
 func detectByteLevelPretokenizer(parts []struct {
 	Type    string `json:"type"`
 	Pattern struct {
@@ -148,6 +189,21 @@ func detectByteLevelPretokenizer(parts []struct {
 		}
 	}
 	return byteLevelDefault
+}
+
+func (t *Tokenizer) normalizeOrdinary(text string) string {
+	if t == nil || text == "" {
+		return text
+	}
+	switch t.normalizer {
+	case normalizerNFC:
+		if norm.NFC.IsNormalString(text) {
+			return text
+		}
+		return norm.NFC.String(text)
+	default:
+		return text
+	}
 }
 
 func (t *Tokenizer) initMergeRank() {
@@ -195,6 +251,10 @@ func (t *Tokenizer) Encode(text string) []int {
 }
 
 func (t *Tokenizer) encodeOrdinary(text string) []int {
+	if text == "" {
+		return nil
+	}
+	text = t.normalizeOrdinary(text)
 	if text == "" {
 		return nil
 	}
@@ -257,9 +317,8 @@ func (t *Tokenizer) byteLevelPattern() *regexp.Regexp {
 // per-byte unicode mapping, then rank-ordered merges over the byte symbols
 // (matching the inverse applied by Decode).
 func (t *Tokenizer) encodeByteLevel(text string) []int {
-	mergeRank := t.mergeRank
 	t.initMergeRank()
-	mergeRank = t.mergeRank
+	mergeRank := t.mergeRank
 	byteEncoder := getByteEncoder()
 
 	pieces := splitWhitespaceRuns(t.byteLevelPattern().FindAllString(text, -1))

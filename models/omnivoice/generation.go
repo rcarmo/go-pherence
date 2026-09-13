@@ -28,7 +28,7 @@ type Generation struct {
 	source                                                                   *rand.PCG
 	conditional, unconditional                                               *Backbone
 	config                                                                   GenerationConfig
-	target, books, vocab                                                     int
+	target, maxTarget, books, vocab                                          int
 	sampler                                                                  *SamplerWorkspace
 	condLogits, uncondLogits, condTarget, uncondTarget, logProbs, confidence []float32
 	pred, output, schedule                                                   []int
@@ -51,34 +51,99 @@ func NewGeneration(conditional, unconditional *Backbone, target int, c Generatio
 	if c.Guidance != 0 && (unconditional == nil || target > unconditional.tokens || unconditional.weights != conditional.weights) {
 		return nil, fmt.Errorf("omnivoice: guidance requires compatible unconditional backbone")
 	}
-	rows := target * cfg.NumAudioCodebook
-	size := rows * cfg.AudioVocabSize
+	rows, ok := product(target, cfg.NumAudioCodebook)
+	if !ok {
+		return nil, fmt.Errorf("omnivoice: generation shape overflow")
+	}
+	size, ok := product(rows, cfg.AudioVocabSize)
+	if !ok {
+		return nil, fmt.Errorf("omnivoice: generation shape overflow")
+	}
 	sampler, err := NewSamplerWorkspace(cfg.NumAudioCodebook, target, cfg.AudioVocabSize)
 	if err != nil {
 		return nil, err
 	}
-	g := &Generation{conditional: conditional, unconditional: unconditional, config: c, target: target, books: cfg.NumAudioCodebook, vocab: cfg.AudioVocabSize, sampler: sampler, condLogits: make([]float32, cfg.NumAudioCodebook*conditional.tokens*cfg.AudioVocabSize), condTarget: make([]float32, size), uncondTarget: make([]float32, size), logProbs: make([]float32, size), confidence: make([]float32, rows), pred: make([]int, rows), output: make([]int, rows), schedule: make([]int, c.Steps), times: make([]float32, c.Steps+1), classNoise: make([]float32, size), positionNoise: make([]float32, rows)}
+	condLogits, ok := product(cfg.NumAudioCodebook, conditional.tokenCapacity())
+	if !ok {
+		return nil, fmt.Errorf("omnivoice: generation shape overflow")
+	}
+	condLogits, ok = product(condLogits, cfg.AudioVocabSize)
+	if !ok {
+		return nil, fmt.Errorf("omnivoice: generation shape overflow")
+	}
+	g := &Generation{conditional: conditional, unconditional: unconditional, config: c, target: target, maxTarget: target, books: cfg.NumAudioCodebook, vocab: cfg.AudioVocabSize, sampler: sampler, condLogits: make([]float32, condLogits), condTarget: make([]float32, size), uncondTarget: make([]float32, size), logProbs: make([]float32, size), confidence: make([]float32, rows), pred: make([]int, rows), output: make([]int, rows), schedule: make([]int, c.Steps), times: make([]float32, c.Steps+1), classNoise: make([]float32, size), positionNoise: make([]float32, rows)}
 	if c.Guidance != 0 {
-		g.uncondLogits = make([]float32, cfg.NumAudioCodebook*unconditional.tokens*cfg.AudioVocabSize)
+		uncondLogits, ok := product(cfg.NumAudioCodebook, unconditional.tokenCapacity())
+		if !ok {
+			return nil, fmt.Errorf("omnivoice: generation shape overflow")
+		}
+		uncondLogits, ok = product(uncondLogits, cfg.AudioVocabSize)
+		if !ok {
+			return nil, fmt.Errorf("omnivoice: generation shape overflow")
+		}
+		g.uncondLogits = make([]float32, uncondLogits)
 	}
 	g.source = rand.NewPCG(c.Seed, c.Seed^0x9e3779b97f4a7c15)
 	g.rng = rand.New(g.source)
 	if err = TimeStepsInto(g.times, 0, 1, c.Steps, c.TimeShift); err != nil {
 		return nil, err
 	}
-	if err = BuildUnmaskScheduleInto(g.schedule, target, cfg.NumAudioCodebook, g.times); err != nil {
+	if err = g.Reconfigure(target); err != nil {
 		return nil, err
 	}
 	return g, nil
+}
+
+// Reconfigure narrows or restores the active target-frame views within the
+// original reservation and recomputes the schedule for the new target length.
+func (g *Generation) Reconfigure(target int) error {
+	if g == nil || g.conditional == nil {
+		return fmt.Errorf("omnivoice: nil generation/backbone")
+	}
+	if target <= 0 || target > g.maxTarget || target > g.conditional.tokens {
+		return fmt.Errorf("omnivoice: target=%d outside [1,%d] or conditional tokens=%d", target, g.maxTarget, g.conditional.tokens)
+	}
+	if g.config.Guidance != 0 {
+		if g.unconditional == nil {
+			return fmt.Errorf("omnivoice: nil unconditional backbone")
+		}
+		if target > g.unconditional.tokens {
+			return fmt.Errorf("omnivoice: target=%d exceeds unconditional tokens=%d", target, g.unconditional.tokens)
+		}
+	}
+	rows, ok := product(target, g.books)
+	if !ok {
+		return fmt.Errorf("omnivoice: generation shape overflow")
+	}
+	size, ok := product(rows, g.vocab)
+	if !ok {
+		return fmt.Errorf("omnivoice: generation shape overflow")
+	}
+	g.target = target
+	g.condTarget = g.condTarget[:size]
+	g.uncondTarget = g.uncondTarget[:size]
+	g.logProbs = g.logProbs[:size]
+	g.confidence = g.confidence[:rows]
+	g.pred = g.pred[:rows]
+	g.output = g.output[:rows]
+	g.classNoise = g.classNoise[:size]
+	g.positionNoise = g.positionNoise[:rows]
+	return BuildUnmaskScheduleInto(g.schedule, target, g.books, g.times)
 }
 
 // GenerateInto updates conditional/unconditional target IDs in place and fills
 // dst [codebook,target]. Prompt IDs are preserved. Each invocation restarts the
 // seed and mask state; output after failure/cancellation must be discarded.
 func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condAudio []bool, uncondIDs []int, uncondAudio []bool) error {
+	if g == nil || g.conditional == nil || ctx == nil {
+		return fmt.Errorf("omnivoice: nil generation/context")
+	}
 	c := g.config
+	if g.target <= 0 || g.target > g.conditional.tokens || (c.Guidance != 0 && (g.unconditional == nil || g.target > g.unconditional.tokens)) {
+		return fmt.Errorf("omnivoice: target exceeds active backbone; reconfigure generation after backbones")
+	}
 	maskID := g.conditional.weights.Config.AudioMaskID
-	if ctx == nil || len(dst) != len(g.output) || len(condIDs) != g.books*g.conditional.tokens || len(condAudio) != g.conditional.tokens {
+	if len(dst) != len(g.output) || len(condIDs) != g.books*g.conditional.tokens || len(condAudio) != g.conditional.tokens {
 		return fmt.Errorf("omnivoice: generation input shape mismatch")
 	}
 	if c.Guidance != 0 && (len(uncondIDs) != g.books*g.unconditional.tokens || len(uncondAudio) != g.unconditional.tokens) {
@@ -105,16 +170,21 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 	}
 	g.source.Seed(c.Seed, c.Seed^0x9e3779b97f4a7c15)
 	rng := g.rng
+	condLogits := g.condLogits[:g.books*g.conditional.tokens*g.vocab]
+	var uncondLogits []float32
+	if c.Guidance != 0 {
+		uncondLogits = g.uncondLogits[:g.books*g.unconditional.tokens*g.vocab]
+	}
 	for _, k := range g.schedule {
-		if err := g.conditional.ForwardInto(ctx, g.condLogits, condIDs, condAudio, nil, nil); err != nil {
+		if err := g.conditional.ForwardInto(ctx, condLogits, condIDs, condAudio, nil, nil); err != nil {
 			return err
 		}
-		g.targetLogits(g.condTarget, g.condLogits, g.conditional.tokens)
+		g.targetLogits(g.condTarget, condLogits, g.conditional.tokens)
 		if c.Guidance != 0 {
-			if err := g.unconditional.ForwardInto(ctx, g.uncondLogits, uncondIDs, uncondAudio, nil, nil); err != nil {
+			if err := g.unconditional.ForwardInto(ctx, uncondLogits, uncondIDs, uncondAudio, nil, nil); err != nil {
 				return err
 			}
-			g.targetLogits(g.uncondTarget, g.uncondLogits, g.unconditional.tokens)
+			g.targetLogits(g.uncondTarget, uncondLogits, g.unconditional.tokens)
 		}
 		if k <= 0 {
 			continue

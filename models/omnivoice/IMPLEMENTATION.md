@@ -370,3 +370,40 @@ Native tests/vet, race/no-CGo checks and ARM64 cross-build pass.
 
 The goal remains active. This is a working staged implementation, not a completed
 fully native replacement or a full-SIMD graph.
+
+## Multilingual tokenization and chunk workspace reuse (2026-09-13)
+
+The 24 tokenizer fixtures cover accented/decomposed Latin, CJK, Arabic, Indic
+scripts, emoji, digits and whitespace. The fixture generator preserves the source
+NFC normalizer and pre-tokenizer configuration; expected IDs come from upstream
+`tokenizers`. Both the reduced fixture and the full model tokenizer pass the same
+cases. `golang.org/x/text/unicode/norm` handles NFC before ordinary BPE encoding;
+special-token matching still happens first. This supports OmniVoice's NFC and
+Qwen-style split configuration, not arbitrary Hugging Face normalizer pipelines.
+Mixed normalizer sequences and standalone Split pre-tokenizers are not implemented.
+The tests establish token IDs, not multilingual pronunciation quality.
+
+Long synthesis constructs backbone, generation and decoder reservations once from
+the maximum planned shape. `Reconfigure` changes active tensor views without
+padding attention or allocating new inference workspaces. Reconfigure both
+backbones before the generation workspace. The API rejects stale targets larger
+than the active backbone. Generation resets the seed and mask state per chunk.
+Post-processing, retained chunk copies and final WAV assembly still allocate.
+
+Tests cover larger/smaller/larger shapes against independent runners, zero-allocation
+backbone/generation resizing, decoder scratch reuse, cancellation during backbone
+and decoder execution, and recovery after cancellation. The CLI passes SIGINT and
+SIGTERM cancellation through generation and decoding. Partial results from a failed
+call must be discarded; the same workspace can be retried.
+
+The saved four-chunk 13.42-second sample took 335.17 seconds, compared with 344.46
+seconds before workspace reuse. Both WAVs have SHA-256
+`bd1f3ec5a2bc5ece889b53d2462e0ab782274aa0b7953ebd0090b03ee90b79f9`.
+A single timing pair does not establish a speedup. The allocation profile totals
+359.9 MiB, including tokenizer/model loading, post-processing and output storage.
+This run used cached reference codes; native reference encoding was tested separately.
+
+Affected tests, vet, race, no-CGo tests and the ARM64 CLI cross-build pass. The
+real-checkpoint decoder still matches all 1,920 reference samples with maximum
+absolute error 5.59e-7 and zero prepared `DecodeInto` allocations. The full repository
+build still fails in the previously identified SpacemiT and DiffusionGemma packages.

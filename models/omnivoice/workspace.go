@@ -13,14 +13,15 @@ import (
 // with the same dimensions, epsilon and RoPE theta. No model weights live here.
 // ForwardInto supports dst == x; dst must not otherwise overlap x or mask.
 type Workspace struct {
-	packed                                            []float32
-	tokens, hidden, intermediate, heads, kvheads, dim int
-	theta                                             float64
-	arena                                             []float32
-	norm, q, k, v, attended, gate, up, down           []float32
-	scores, headout, qhead, khead, vhead              []float32
-	cos, sin, rotA, rotB                              []float32
-	positions                                         []int
+	packed                                  []float32
+	tokens, maxTokens, hidden, intermediate int
+	heads, kvheads, dim                     int
+	theta                                   float64
+	arena                                   []float32
+	norm, q, k, v, attended, gate, up, down []float32
+	scores, headout, qhead, khead, vhead    []float32
+	cos, sin, rotA, rotB                    []float32
+	positions                               []int
 }
 
 // NewWorkspace reserves scratch once. The hot path does not grow it implicitly.
@@ -44,7 +45,7 @@ func (b *Block) NewWorkspace(tokens int) (*Workspace, error) {
 		return nil, fmt.Errorf("omnivoice: packed scratch overflow")
 	}
 	total += packedSize
-	w := &Workspace{tokens: tokens, hidden: c.HiddenSize, intermediate: c.IntermediateSize, heads: c.NumAttentionHeads, kvheads: c.NumKeyValueHeads, dim: c.HeadDim, theta: c.RopeParameters.RopeTheta, arena: make([]float32, total), positions: make([]int, tokens)}
+	w := &Workspace{tokens: tokens, maxTokens: tokens, hidden: c.HiddenSize, intermediate: c.IntermediateSize, heads: c.NumAttentionHeads, kvheads: c.NumKeyValueHeads, dim: c.HeadDim, theta: c.RopeParameters.RopeTheta, arena: make([]float32, total), positions: make([]int, tokens)}
 	offset := 0
 	take := func(n int) []float32 { r := w.arena[offset : offset+n : offset+n]; offset += n; return r }
 	fields := []*[]float32{&w.norm, &w.q, &w.k, &w.v, &w.attended, &w.gate, &w.up, &w.down, &w.scores, &w.headout, &w.qhead, &w.khead, &w.vhead, &w.cos, &w.sin}
@@ -61,11 +62,40 @@ func (b *Block) NewWorkspace(tokens int) (*Workspace, error) {
 	return w, nil
 }
 
+// Reconfigure narrows or restores the active token views within the original
+// reservation. It never grows the workspace beyond the construction bound.
+func (w *Workspace) Reconfigure(tokens int) error {
+	if w == nil {
+		return fmt.Errorf("omnivoice: nil workspace")
+	}
+	if tokens <= 0 || tokens > w.maxTokens {
+		return fmt.Errorf("omnivoice: token capacity %d exceeds workspace bound %d", tokens, w.maxTokens)
+	}
+	w.tokens = tokens
+	w.norm = w.norm[:tokens*w.hidden]
+	w.q = w.q[:tokens*w.heads*w.dim]
+	w.k = w.k[:tokens*w.kvheads*w.dim]
+	w.v = w.v[:tokens*w.kvheads*w.dim]
+	w.attended = w.attended[:tokens*w.heads*w.dim]
+	w.gate = w.gate[:tokens*w.intermediate]
+	w.up = w.up[:tokens*w.intermediate]
+	w.down = w.down[:tokens*w.hidden]
+	w.scores = w.scores[:tokens*tokens]
+	w.headout = w.headout[:tokens*w.dim]
+	w.qhead = w.qhead[:tokens*w.dim]
+	w.khead = w.khead[:tokens*w.dim]
+	w.vhead = w.vhead[:tokens*w.dim]
+	half := w.dim / 2
+	w.cos = w.cos[:tokens*half]
+	w.sin = w.sin[:tokens*half]
+	return nil
+}
+
 // ScratchBytes returns float scratch plus position-cache storage, excluding Go headers.
 func (w *Workspace) ScratchBytes() int { return len(w.arena)*4 + len(w.positions)*strconv.IntSize/8 }
 func (w *Workspace) matches(b *Block, tokens int) bool {
 	c := b.config
-	return w != nil && w.tokens == tokens && w.hidden == c.HiddenSize && w.intermediate == c.IntermediateSize && w.heads == c.NumAttentionHeads && w.kvheads == c.NumKeyValueHeads && w.dim == c.HeadDim && w.theta == c.RopeParameters.RopeTheta
+	return w != nil && w.tokens == tokens && tokens <= w.maxTokens && w.hidden == c.HiddenSize && w.intermediate == c.IntermediateSize && w.heads == c.NumAttentionHeads && w.kvheads == c.NumKeyValueHeads && w.dim == c.HeadDim && w.theta == c.RopeParameters.RopeTheta
 }
 func (w *Workspace) prepareRoPE(positions []int) {
 	half := w.dim / 2

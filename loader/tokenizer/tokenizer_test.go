@@ -96,3 +96,18 @@ func TestTokenizerNilVocabSizeAndByteMaps(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadTokenizerAppliesNFCNormalizer(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tokenizer.json")
+	body := `{"normalizer":{"type":"NFC"},"model":{"vocab":{"Ã©":1},"merges":null}}`
+	if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tok, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tok.Encode("é"); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("Encode=%v, want [1]", got)
+	}
+}
