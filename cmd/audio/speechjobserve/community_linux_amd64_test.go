@@ -224,6 +224,19 @@ func TestPrepareCommunityPositiveProductionIO(t *testing.T) {
 	if e != nil || got != owner || strings.Join(calls, ",") != "load-seg,new-seg,load-emb,new-emb,load-plda,new-model,new-owner" {
 		t.Fatal(got, e, calls)
 	}
+	runtime.newOwner = func(*c1.ExperimentalDiarization, speechjob.Community1StageConfig) (stageOwner, error) {
+		return nil, nil
+	}
+	if got, e = prepareCommunity(context.Background(), c, runtime); e == nil || got != nil {
+		t.Fatal("nil CPU owner accepted", got, e)
+	}
+	partial := &fakeCommunityOwner{}
+	runtime.newOwner = func(*c1.ExperimentalDiarization, speechjob.Community1StageConfig) (stageOwner, error) {
+		return partial, io.ErrClosedPipe
+	}
+	if got, e = prepareCommunity(context.Background(), c, runtime); !errors.Is(e, io.ErrClosedPipe) || got != nil || partial.close != 1 {
+		t.Fatal("partial CPU owner not closed", got, e, partial.close)
+	}
 }
 
 func TestCombinedProfileStagesAndReverseOwners(t *testing.T) {
@@ -335,6 +348,19 @@ func TestCommunityVulkanConfigAndInjectedConstruction(t *testing.T) {
 	got, e := prepareCommunity(context.Background(), c, runtime)
 	if e != nil || got != owner || strings.Join(calls, ",") != "load-seg,load-emb,load-plda,init,device,new-vulkan-model,new-vulkan-owner" {
 		t.Fatal(got, e, calls)
+	}
+	runtime.newVulkanOwner = func(*c1.VulkanDiarization, speechjob.VulkanCommunity1StageConfig) (stageOwner, error) {
+		return nil, nil
+	}
+	if got, e = prepareCommunity(context.Background(), c, runtime); e == nil || got != nil {
+		t.Fatal("nil Vulkan owner accepted", got, e)
+	}
+	partial := &fakeCommunityOwner{}
+	runtime.newVulkanOwner = func(*c1.VulkanDiarization, speechjob.VulkanCommunity1StageConfig) (stageOwner, error) {
+		return partial, io.ErrClosedPipe
+	}
+	if got, e = prepareCommunity(context.Background(), c, runtime); !errors.Is(e, io.ErrClosedPipe) || got != nil || partial.close != 1 {
+		t.Fatal("partial Vulkan owner not closed", got, e, partial.close)
 	}
 }
 

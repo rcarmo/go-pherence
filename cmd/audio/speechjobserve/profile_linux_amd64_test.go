@@ -526,10 +526,11 @@ func TestVulkanProfileOwnedConstructionAndIdentity(t *testing.T) {
 	}
 }
 func TestVulkanProfileRejectsRuntimeAndClosesEncoder(t *testing.T) {
-	for _, kind := range []string{"init", "device", "encoder", "stage", "drain"} {
+	for _, kind := range []string{"init", "device", "encoder", "stage", "stage-nil", "stage-partial", "drain"} {
 		t.Run(kind, func(t *testing.T) {
 			c := vulkanToyConfig(t)
 			drain := noPendingVulkan
+			partialOwner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("partial"))}}
 			if kind == "drain" {
 				drain = nil
 			}
@@ -544,13 +545,21 @@ func TestVulkanProfileRejectsRuntimeAndClosesEncoder(t *testing.T) {
 				}
 				return &whisper.VulkanEncoder{}, nil
 			}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
-				if kind == "stage" {
+				switch kind {
+				case "stage":
 					return nil, io.ErrClosedPipe
+				case "stage-nil":
+					return nil, nil
+				case "stage-partial":
+					return partialOwner, io.ErrClosedPipe
 				}
 				return &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("x")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}, nil
 			}, drain: drain}
 			if _, e := buildProfileOwned(context.Background(), c, true, r); e == nil {
 				t.Fatal(kind)
+			}
+			if kind == "stage-partial" && partialOwner.closed != 1 {
+				t.Fatal("partial stage owner not closed", partialOwner.closed)
 			}
 		})
 	}

@@ -175,9 +175,16 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 		// owns these source graphs and will never use the CPU path in this profile.
 		c1.ReleaseVulkanHostWeights(seg, embModel)
 		owner, ownerErr := r.newVulkanOwner(model, speechjob.VulkanCommunity1StageConfig{Community: cfg, AllowExperimental: true, BackendSHA256: vulkanSettings.BackendSHA256, DeviceIdentity: deviceName, DrainPoll: time.Duration(vulkanSettings.DrainMilliseconds) * time.Millisecond})
-		if ownerErr != nil {
-			closeCommunityVulkanModel(model, time.Duration(vulkanSettings.DrainMilliseconds)*time.Millisecond, vk.VulkanDrain)
-			return nil, ownerErr
+		if ownerErr != nil || owner == nil {
+			if owner != nil {
+				closeBuiltProfiles(&builtProfiles{owners: []stageOwner{owner}})
+			} else {
+				closeCommunityVulkanModel(model, time.Duration(vulkanSettings.DrainMilliseconds)*time.Millisecond, vk.VulkanDrain)
+			}
+			if ownerErr != nil {
+				return nil, ownerErr
+			}
+			return nil, fmt.Errorf("Community-1 Vulkan owner constructor returned nil")
 		}
 		return owner, nil
 	}
@@ -187,9 +194,16 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 		return nil, e
 	}
 	owner, e := r.newOwner(model, cfg)
-	if e != nil {
-		model.ReleaseOwnedModels()
-		return nil, e
+	if e != nil || owner == nil {
+		if owner != nil {
+			closeBuiltProfiles(&builtProfiles{owners: []stageOwner{owner}})
+		} else {
+			model.ReleaseOwnedModels()
+		}
+		if e != nil {
+			return nil, e
+		}
+		return nil, fmt.Errorf("Community-1 owner constructor returned nil")
 	}
 	return owner, nil
 }

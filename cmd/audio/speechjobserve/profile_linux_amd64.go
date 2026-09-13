@@ -286,9 +286,16 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		model.Encoder.ReleaseHostWeights()
 		model.Encoder = nil
 		owner, e := runtime.newStage(model, p.tokenizer, encoder, speechjob.VulkanWhisperStageConfig{Whisper: speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes}, AllowExperimental: true, BackendSHA256: v.BackendSHA256, DrainPoll: time.Duration(v.DrainMilliseconds) * time.Millisecond})
-		if e != nil {
-			closeVulkanEncoder(encoder, time.Duration(v.DrainMilliseconds)*time.Millisecond, runtime.drain)
-			return nil, e
+		if e != nil || owner == nil {
+			if owner != nil {
+				closeBuiltProfiles(&builtProfiles{owners: []stageOwner{owner}})
+			} else {
+				closeVulkanEncoder(encoder, time.Duration(v.DrainMilliseconds)*time.Millisecond, runtime.drain)
+			}
+			if e != nil {
+				return nil, e
+			}
+			return nil, fmt.Errorf("Vulkan stage constructor returned nil")
 		}
 		result.owners = append(result.owners, owner)
 		asr = owner.Stage()
@@ -302,9 +309,12 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	stages := []speechjob.Stage{decode, asr, text, vtt}
 	if opts.Community != nil {
 		owner, e := prepareCommunity(ctx, c, runtimes.Community)
-		if e != nil {
+		if e != nil || owner == nil {
 			closeBuiltProfiles(result)
-			return nil, e
+			if e != nil {
+				return nil, e
+			}
+			return nil, fmt.Errorf("Community-1 stage constructor returned nil")
 		}
 		result.owners = append(result.owners, owner)
 		diar := owner.Stage()
