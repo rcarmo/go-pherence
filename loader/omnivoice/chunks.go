@@ -81,6 +81,7 @@ type chunkPlanner struct {
 	ref       CachedReferenceTokens
 	opts      PreparePromptOptions
 	maxFrames int
+	firstMax  int
 
 	runes         []rune
 	offsets       []int
@@ -99,6 +100,13 @@ type chunkPlanner struct {
 // the remaining content into contiguous slices. Concatenating prompt.Text for
 // all returned prompts reconstructs that trimmed text exactly.
 func PlanChunks(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedReferenceTokens, opts PreparePromptOptions, maxFrames int) ([]PreparedPrompt, error) {
+	return PlanChunksWithFirstLimit(cfg, tok, text, ref, opts, maxFrames, 0)
+}
+
+// PlanChunksWithFirstLimit prepares one or more inference prompts for long
+// target text, optionally applying a stricter frame budget to only the first
+// chunk. When firstFrames is zero, behavior matches PlanChunks exactly.
+func PlanChunksWithFirstLimit(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedReferenceTokens, opts PreparePromptOptions, maxFrames, firstFrames int) ([]PreparedPrompt, error) {
 	if !utf8.ValidString(text) {
 		return nil, fmt.Errorf("omnivoice: invalid UTF-8 text")
 	}
@@ -107,6 +115,9 @@ func PlanChunks(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedRef
 	}
 	if maxFrames <= 0 || maxFrames > 250 {
 		return nil, fmt.Errorf("omnivoice: max_frames must be 1..250")
+	}
+	if firstFrames != 0 && (firstFrames < 1 || firstFrames > maxFrames) {
+		return nil, fmt.Errorf("omnivoice: first_frames must be 1..max_frames")
 	}
 	if err := ref.Validate(); err != nil {
 		return nil, err
@@ -118,11 +129,11 @@ func PlanChunks(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedRef
 	if utf8.RuneCountInString(trimmed) > maxChunkPlanRunes {
 		return nil, fmt.Errorf("omnivoice: target text exceeds %d runes", maxChunkPlanRunes)
 	}
-	planner := newChunkPlanner(cfg, tok, trimmed, ref, opts, maxFrames)
+	planner := newChunkPlanner(cfg, tok, trimmed, ref, opts, maxFrames, firstFrames)
 	return planner.plan()
 }
 
-func newChunkPlanner(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedReferenceTokens, opts PreparePromptOptions, maxFrames int) *chunkPlanner {
+func newChunkPlanner(cfg Config, tok *tokenizer.Tokenizer, text string, ref CachedReferenceTokens, opts PreparePromptOptions, maxFrames, firstFrames int) *chunkPlanner {
 	runes := []rune(text)
 	offsets := make([]int, 0, len(runes)+1)
 	for at := range text {
@@ -152,6 +163,7 @@ func newChunkPlanner(cfg Config, tok *tokenizer.Tokenizer, text string, ref Cach
 		ref:           ref,
 		opts:          opts,
 		maxFrames:     maxFrames,
+		firstMax:      firstFrames,
 		runes:         runes,
 		offsets:       offsets,
 		prefixWeights: prefixWeights,
@@ -165,8 +177,9 @@ func newChunkPlanner(cfg Config, tok *tokenizer.Tokenizer, text string, ref Cach
 }
 
 func (p *chunkPlanner) plan() ([]PreparedPrompt, error) {
-	wholeFrames := p.targetFrames(0, len(p.runes))
-	if p.estimateFrames(0, len(p.runes)) <= p.maxFrames {
+	wholeLimit := p.frameLimit(0)
+	wholeFrames := p.targetFrames(0, len(p.runes), wholeLimit)
+	if p.estimateFrames(0, len(p.runes)) <= wholeLimit {
 		prompt, err := p.prepare(0, len(p.runes), wholeFrames)
 		if err == nil {
 			return []PreparedPrompt{prompt}, nil
@@ -178,7 +191,7 @@ func (p *chunkPlanner) plan() ([]PreparedPrompt, error) {
 		if len(chunks) >= maxChunkPlanChunks {
 			return nil, fmt.Errorf("omnivoice: chunk planning exceeded %d chunks", maxChunkPlanChunks)
 		}
-		end, prompt, err := p.planOne(start)
+		end, prompt, err := p.planOne(start, p.frameLimit(start))
 		if err != nil {
 			return nil, err
 		}
@@ -188,8 +201,15 @@ func (p *chunkPlanner) plan() ([]PreparedPrompt, error) {
 	return chunks, nil
 }
 
-func (p *chunkPlanner) planOne(start int) (int, PreparedPrompt, error) {
-	limit := p.maxEndWithinFrameBudget(start)
+func (p *chunkPlanner) frameLimit(start int) int {
+	if start == 0 && p.firstMax > 0 {
+		return p.firstMax
+	}
+	return p.maxFrames
+}
+
+func (p *chunkPlanner) planOne(start, frameLimit int) (int, PreparedPrompt, error) {
+	limit := p.maxEndWithinFrameBudget(start, frameLimit)
 	if limit <= start {
 		limit = p.nextSafeEnd(start)
 		if limit <= start {
@@ -203,22 +223,22 @@ func (p *chunkPlanner) planOne(start int) (int, PreparedPrompt, error) {
 		p.boundaryWindow(p.safeEnds, start, limit),
 		p.boundaryWindow(p.allEnds, start, limit),
 	} {
-		if end, prompt, ok := p.searchBestFit(start, ends); ok {
+		if end, prompt, ok := p.searchBestFit(start, ends, frameLimit); ok {
 			return end, prompt, nil
 		}
 	}
 
 	for end := start + 1; end <= minInt(len(p.runes), maxInt(limit, start+1)); end++ {
-		prompt, err := p.prepare(start, end, p.targetFrames(start, end))
+		prompt, err := p.prepare(start, end, p.targetFrames(start, end, frameLimit))
 		if err == nil {
 			return end, prompt, nil
 		}
 	}
 
-	return 0, PreparedPrompt{}, fmt.Errorf("omnivoice: no prompt capacity for chunk starting at rune %d (reference frames=%d, max_frames=%d)", start, p.ref.Frames, p.maxFrames)
+	return 0, PreparedPrompt{}, fmt.Errorf("omnivoice: no prompt capacity for chunk starting at rune %d (reference frames=%d, max_frames=%d)", start, p.ref.Frames, frameLimit)
 }
 
-func (p *chunkPlanner) searchBestFit(start int, ends []int) (int, PreparedPrompt, bool) {
+func (p *chunkPlanner) searchBestFit(start int, ends []int, frameLimit int) (int, PreparedPrompt, bool) {
 	if len(ends) == 0 {
 		return 0, PreparedPrompt{}, false
 	}
@@ -228,7 +248,7 @@ func (p *chunkPlanner) searchBestFit(start int, ends []int) (int, PreparedPrompt
 	for lo <= hi {
 		mid := (lo + hi) / 2
 		end := ends[mid]
-		prompt, err := p.prepare(start, end, p.targetFrames(start, end))
+		prompt, err := p.prepare(start, end, p.targetFrames(start, end, frameLimit))
 		if err == nil {
 			bestIdx = mid
 			bestPrompt = prompt
@@ -241,7 +261,7 @@ func (p *chunkPlanner) searchBestFit(start int, ends []int) (int, PreparedPrompt
 		return 0, PreparedPrompt{}, false
 	}
 	for i := bestIdx + 1; i < len(ends) && i <= bestIdx+4; i++ {
-		prompt, err := p.prepare(start, ends[i], p.targetFrames(start, ends[i]))
+		prompt, err := p.prepare(start, ends[i], p.targetFrames(start, ends[i], frameLimit))
 		if err == nil {
 			bestIdx = i
 			bestPrompt = prompt
@@ -255,12 +275,12 @@ func (p *chunkPlanner) prepare(start, end, frames int) (PreparedPrompt, error) {
 	return PrepareInferenceInputs(p.cfg, p.tok, text, frames, p.ref, p.opts)
 }
 
-func (p *chunkPlanner) maxEndWithinFrameBudget(start int) int {
+func (p *chunkPlanner) maxEndWithinFrameBudget(start, frameLimit int) int {
 	lo, hi := start+1, len(p.runes)
 	best := start
 	for lo <= hi {
 		mid := (lo + hi) / 2
-		if p.estimateFrames(start, mid) <= p.maxFrames {
+		if p.estimateFrames(start, mid) <= frameLimit {
 			best = mid
 			lo = mid + 1
 		} else {
@@ -293,13 +313,13 @@ func (p *chunkPlanner) boundaryWindow(ends []int, start, limit int) []int {
 	return ends[lo:hi]
 }
 
-func (p *chunkPlanner) targetFrames(start, end int) int {
+func (p *chunkPlanner) targetFrames(start, end, frameLimit int) int {
 	frames := p.estimateFrames(start, end)
 	if frames < 1 {
 		frames = 1
 	}
-	if frames > p.maxFrames {
-		frames = p.maxFrames
+	if frames > frameLimit {
+		frames = frameLimit
 	}
 	return frames
 }

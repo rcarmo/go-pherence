@@ -813,3 +813,17 @@ runtime AVX2/FMA gate. Affected tests/vet, race checks, no-CGo checks and ARM64
 cross-build pass. The independent review attempt timed out; it supplied no
 review verdict. Local evidence: `/workspace/tmp/omnivoice-q8-*.json`,
 `omnivoice-q8-bench-v1.log` and `synthetic-spock-q8-{dequant,direct}-v1.wav`.
+
+## Persistent worker and progressive output
+
+The local `-mode serve` NDJSON worker reuses the backbone, codec, generation
+buffers and optional resident/prepacked weights across sequential requests.
+It emits each chunk WAV before generating the next, supports a bounded LRU
+phrase cache and an opt-in shorter-first-chunk policy. Configuration/reference
+are fixed per process. See [protocol, limits and measurements](../../cmd/audio/omnivoice/SERVE.md).
+
+Real repeated cached and uncached requests produce byte-identical chunk files.
+Cache hits avoid inference; warm uncached timings remain noisy. Short-first has
+not demonstrated a latency benefit or received listening acceptance. New stage
+counters support the final measured timing chart. No network/service deployment
+was performed, and per-request planning/output/cache copies still allocate.

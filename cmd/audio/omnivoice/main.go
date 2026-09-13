@@ -33,7 +33,10 @@ func run(args []string) error {
 	commandStarted := time.Now()
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), export-gguf, capabilities, or audio")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), export-gguf, serve (NDJSON stdin/stdout), capabilities, or audio")
+	serveDir := flags.String("output-dir", "", "serve: existing directory for private per-process chunk files")
+	cacheMiB := flags.Int64("cache-mib", 0, "serve: bounded process-local phrase cache payload MiB (0..256)")
+	firstFrames := flags.Int("first-frames", 0, "serve: shorter first-chunk frame limit (0 uses frames)")
 	ggufPath := flags.String("weights-gguf", "", "GGUF backbone override for generate/logits/block/stack; -model still supplies codec assets and matching config")
 	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16, f32 or q8_0")
 	directQ8 := flags.Bool("direct-q8", false, "experimental direct Q8 SIMD projections for generate; excludes resident/prepack")
@@ -69,7 +72,7 @@ func run(args []string) error {
 	if *residentMiB < 0 || *residentMiB > 65536 {
 		return fmt.Errorf("resident-mib must be 0..65536")
 	}
-	if *residentMiB != 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" {
+	if *residentMiB != 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" && *mode != "serve" {
 		return fmt.Errorf("resident-mib applies only to synthesize, synthesize-long or generate")
 	}
 	if *prepacked && !model.DiscoverBackend(model.BackendCPU).CPU.Capabilities.HasSGEMM {
@@ -85,7 +88,7 @@ func run(args []string) error {
 	if *workers < 0 || *workers > 64 {
 		return fmt.Errorf("gemm-workers must be 0..64")
 	}
-	if *workers > 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" {
+	if *workers > 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" && *mode != "serve" {
 		return fmt.Errorf("gemm-workers applies only to synthesis/generation")
 	}
 	if *threads < 1 || *threads > runtime.NumCPU() {
@@ -116,6 +119,21 @@ func run(args []string) error {
 			return fmt.Errorf("reference path required")
 		}
 		return inspectAudio(*ref)
+	}
+	if *mode == "serve" {
+		if *ref != "" || *preprocess || *input != "" || *text != "" || *output != "" {
+			return fmt.Errorf("serve uses cached reference and stdin requests; no raw reference/input/text/output flags")
+		}
+		if *cacheMiB < 0 || *cacheMiB > 256 {
+			return fmt.Errorf("cache-mib must be 0..256")
+		}
+		if _, err := model.SelectBackend(backendMode); err != nil {
+			return err
+		}
+		return runServe(serveOptions{modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
+	}
+	if *serveDir != "" || *cacheMiB != 0 || *firstFrames != 0 {
+		return fmt.Errorf("output-dir/cache-mib/first-frames apply only to serve")
 	}
 	if *mode == "export-gguf" {
 		if *path == "" || *output == "" || filepath.Ext(*output) != ".gguf" || *ggufPath != "" {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -84,6 +85,108 @@ func TestPlanChunksRejectsTooManyChunks(t *testing.T) {
 	}
 }
 
+func TestPlanChunksWithFirstLimitDefaultEquivalence(t *testing.T) {
+	text := "  Dr. Smith said hello. [laughter] Then he waved to everyone. 你好世界！  "
+	ref := testReference(80, "Reference voice sample.")
+	cfg := Config{NumAudioCodebook: 1, AudioVocabSize: 4096, AudioMaskID: 4095}
+	tok := testChunkTokenizer(ref.Transcript, text, "en", "None")
+	opts := PreparePromptOptions{Language: "en", Denoise: true}
+
+	got, err := PlanChunksWithFirstLimit(cfg, tok, text, ref, opts, 45, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := PlanChunks(cfg, tok, text, ref, opts, 45)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("default planning mismatch\n got: %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestPlanChunksWithFirstLimitBoundsFirstChunkOnly(t *testing.T) {
+	text := strings.Repeat("Alpha beta gamma delta. ", 30)
+	ref := testReference(40, "Reference voice sample.")
+	cfg := Config{NumAudioCodebook: 1, AudioVocabSize: 4096, AudioMaskID: 4095}
+	tok := testChunkTokenizer(ref.Transcript, text, "en", "None")
+
+	chunks, err := PlanChunksWithFirstLimit(cfg, tok, text, ref, PreparePromptOptions{Language: "en"}, 60, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) < 2 {
+		t.Fatalf("expected multiple chunks, got %d", len(chunks))
+	}
+	if chunks[0].TargetFrames > 20 {
+		t.Fatalf("first chunk target_frames=%d want <=20", chunks[0].TargetFrames)
+	}
+	seenLarger := false
+	for i, chunk := range chunks {
+		if chunk.TargetFrames <= 0 || chunk.TargetFrames > 60 {
+			t.Fatalf("chunk %d target_frames=%d", i, chunk.TargetFrames)
+		}
+		if i > 0 && chunk.TargetFrames > 20 {
+			seenLarger = true
+		}
+	}
+	if !seenLarger {
+		t.Fatalf("expected a later chunk to exceed first chunk limit; chunks=%v", chunkFrames(chunks))
+	}
+}
+
+func TestPlanChunksWithFirstLimitPreservesExactUnicodeText(t *testing.T) {
+	text := "  Olá, café — déjà vu? Niño! «Ça va?» 你好，世界！ Grüß Gott; smørrebrød...  "
+	ref := testReference(50, "Referência de voz.")
+	cfg := Config{NumAudioCodebook: 1, AudioVocabSize: 4096, AudioMaskID: 4095}
+	tok := testChunkTokenizer(ref.Transcript, text, "pt", "None")
+
+	chunks, err := PlanChunksWithFirstLimit(cfg, tok, text, ref, PreparePromptOptions{Language: "pt"}, 55, 18)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) < 2 {
+		t.Fatalf("expected multiple chunks, got %d", len(chunks))
+	}
+	if got, want := joinPromptText(chunks), strings.TrimSpace(text); got != want {
+		t.Fatalf("reconstructed text mismatch\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestPlanChunksWithFirstLimitRejectsInvalidLimits(t *testing.T) {
+	text := "hello world"
+	ref := testReference(20, "Reference voice sample.")
+	cfg := Config{NumAudioCodebook: 1, AudioVocabSize: 4096, AudioMaskID: 4095}
+	tok := testChunkTokenizer(ref.Transcript, text, "en", "None")
+
+	for _, first := range []int{-1, 21} {
+		if _, err := PlanChunksWithFirstLimit(cfg, tok, text, ref, PreparePromptOptions{Language: "en"}, 20, first); err == nil || !strings.Contains(err.Error(), "first_frames") {
+			t.Fatalf("first_frames=%d: want validation error, got %v", first, err)
+		}
+	}
+}
+
+func TestPlanChunksWithFirstLimitVeryShortText(t *testing.T) {
+	text := "  Hi  "
+	ref := testReference(80, "Reference voice sample.")
+	cfg := Config{NumAudioCodebook: 1, AudioVocabSize: 4096, AudioMaskID: 4095}
+	tok := testChunkTokenizer(ref.Transcript, text, "es", "None")
+
+	chunks, err := PlanChunksWithFirstLimit(cfg, tok, text, ref, PreparePromptOptions{Language: "es"}, 60, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("expected single chunk, got %d", len(chunks))
+	}
+	if chunks[0].TargetFrames > 30 {
+		t.Fatalf("target_frames=%d want <=30", chunks[0].TargetFrames)
+	}
+	if chunks[0].Text != strings.TrimSpace(text) {
+		t.Fatalf("text=%q want %q", chunks[0].Text, strings.TrimSpace(text))
+	}
+}
+
 func TestRealPlanChunksOptIn(t *testing.T) {
 	root := os.Getenv("GO_PHERENCE_REAL_OMNIVOICE")
 	fixture := os.Getenv("GO_PHERENCE_REAL_PROMPT")
@@ -126,6 +229,14 @@ func TestRealPlanChunksOptIn(t *testing.T) {
 func testReference(frames int, transcript string) CachedReferenceTokens {
 	codes := make([]int, frames)
 	return CachedReferenceTokens{Books: 1, Frames: frames, Codes: codes, Transcript: transcript}
+}
+
+func chunkFrames(prompts []PreparedPrompt) []int {
+	frames := make([]int, len(prompts))
+	for i, prompt := range prompts {
+		frames[i] = prompt.TargetFrames
+	}
+	return frames
 }
 
 func joinPromptText(prompts []PreparedPrompt) string {

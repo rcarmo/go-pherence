@@ -190,7 +190,22 @@ func newChunkRunnerWithResident(ctx context.Context, weights *loader.Weights, de
 	return &chunkRunner{books: books, cond: cond, uncond: uncond, generation: generation, decoder: decoder, codes: make([]int, books*maxTarget), wave: make([]float32, maxTarget*960)}, nil
 }
 
+type chunkTimings struct {
+	PrepareSeconds     float64 `json:"prepare_seconds"`
+	DenoiseSeconds     float64 `json:"denoise_seconds"`
+	DecodeSeconds      float64 `json:"decode_seconds"`
+	PostprocessSeconds float64 `json:"postprocess_seconds"`
+}
+
 func (r *chunkRunner) Generate(ctx context.Context, p loader.PreparedPrompt, postprocess bool) ([]float32, error) {
+	return r.generateTimed(ctx, p, postprocess, nil)
+}
+
+func (r *chunkRunner) generateTimed(ctx context.Context, p loader.PreparedPrompt, postprocess bool, timing *chunkTimings) ([]float32, error) {
+	started := time.Now()
+	if timing != nil {
+		*timing = chunkTimings{}
+	}
 	if r == nil || ctx == nil {
 		return nil, fmt.Errorf("nil chunk runner/context")
 	}
@@ -210,12 +225,24 @@ func (r *chunkRunner) Generate(ctx context.Context, p loader.PreparedPrompt, pos
 		return nil, err
 	}
 	codes := r.codes[:r.books*p.TargetFrames]
+	prepared := time.Now()
+	if timing != nil {
+		timing.PrepareSeconds = prepared.Sub(started).Seconds()
+	}
 	if err := r.generation.GenerateInto(ctx, codes, p.Conditional.IDs, p.Conditional.AudioMask, p.Unconditional.IDs, p.Unconditional.AudioMask); err != nil {
 		return nil, err
+	}
+	denoised := time.Now()
+	if timing != nil {
+		timing.DenoiseSeconds = denoised.Sub(prepared).Seconds()
 	}
 	wave := r.wave[:p.TargetFrames*960]
 	if err := r.decoder.DecodeInto(ctx, wave, codes, r.books, p.TargetFrames); err != nil {
 		return nil, err
+	}
+	decoded := time.Now()
+	if timing != nil {
+		timing.DecodeSeconds = decoded.Sub(denoised).Seconds()
 	}
 	generated := wave
 	var err error
@@ -240,6 +267,9 @@ func (r *chunkRunner) Generate(ctx context.Context, p loader.PreparedPrompt, pos
 	}
 	out := make([]float32, len(generated))
 	copy(out, generated)
+	if timing != nil {
+		timing.PostprocessSeconds = time.Since(decoded).Seconds()
+	}
 	return out, nil
 }
 
