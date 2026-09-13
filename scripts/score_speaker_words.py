@@ -117,6 +117,62 @@ def reference_words(value):
     return output
 
 
+def plain_transcript_words(value):
+    exact_keys(value, ("schema", "sample_rate", "total_samples", "language", "source_timing", "cues"), ("words",))
+    words = value.get("words")
+    if value["schema"] != 2 or value["sample_rate"] != 16000 or not isinstance(words, list) or len(words) > MAX_WORDS:
+        raise ValueError("invalid hypothesis words")
+    output = []
+    prior = -1
+    for item in words:
+        exact_keys(item, ("start_sample", "end_sample", "speaker", "text"))
+        start, end, speaker = item["start_sample"], item["end_sample"], item["speaker"]
+        if isinstance(start, bool) or not isinstance(start, int) or isinstance(end, bool) or not isinstance(end, int) or start < prior or start > end or end > value["total_samples"] or speaker != -1:
+            raise ValueError("invalid plain transcript word")
+        output.extend((start / 16000, end / 16000, -1, token) for token in normalize(item["text"]))
+        prior = start
+    return output
+
+
+def diagnostic_diarization_turns(value, total_samples):
+    required = ("schema", "experimental", "sample_rate", "total_samples", "stage_key", "source_timing", "policy", "windows", "segmentation_grid", "local_speakers", "embedding_dimension", "timeline", "path", "training_rows", "clusters", "constraint_satisfied", "ambiguous_frames", "full_turns", "exclusive_turns")
+    exact_keys(value, required)
+    if value["schema"] != 2 or value["experimental"] is not True or value["sample_rate"] != 16000 or value["total_samples"] != total_samples or not HEX64.fullmatch(value["stage_key"]):
+        raise ValueError("invalid diagnostic diarization")
+    if not isinstance(value["clusters"], int) or isinstance(value["clusters"], bool) or not 1 <= value["clusters"] <= 63 or value["constraint_satisfied"] is not True:
+        raise ValueError("invalid diagnostic clusters")
+    ambiguous = value["ambiguous_frames"]
+    if not isinstance(ambiguous, list) or not ambiguous or any(isinstance(item, bool) or not isinstance(item, int) or item < 0 for item in ambiguous):
+        raise ValueError("diagnostic diarization must retain ambiguous frames")
+    policy = value["policy"]
+    if not isinstance(policy, dict) or policy.get("TiePolicy") != 1 or policy.get("MinDurationOff") != 0:
+        raise ValueError("invalid diagnostic tie policy")
+    turns = []
+    previous = (-1.0, -1.0, -1)
+    for item in value["exclusive_turns"]:
+        exact_keys(item, ("Start", "End", "Speaker"))
+        start, end, speaker = finite(item["Start"], "turn start"), finite(item["End"], "turn end"), item["Speaker"]
+        if start < 0 or start >= end or isinstance(speaker, bool) or not isinstance(speaker, int) or not 0 <= speaker < value["clusters"] or (start, end, speaker) <= previous:
+            raise ValueError("invalid diagnostic exclusive turn")
+        turns.append((start, end, speaker))
+        previous = (start, end, speaker)
+    return turns, len(ambiguous)
+
+
+def label_diagnostic_words(words, turns):
+    output = []
+    for start, end, _, token in words:
+        overlaps = {}
+        for turn_start, turn_end, speaker in turns:
+            overlap = min(end, turn_end) - max(start, turn_start)
+            if overlap > 0:
+                overlaps[speaker] = overlaps.get(speaker, 0.0) + overlap
+        best = max(overlaps.values(), default=0.0)
+        speakers = [speaker for speaker, overlap in overlaps.items() if overlap == best and overlap > 0]
+        output.append((start, end, speakers[0] if len(speakers) == 1 else -1, token))
+    return output
+
+
 def hypothesis_words(value):
     exact_keys(value, ("schema", "experimental", "transcript_key", "diarization_key", "policy", "labelled_cues", "unlabelled_cues", "labelled_words", "unlabelled_words", "transcript"))
     if value["schema"] != 2 or value["experimental"] is not True or not HEX64.fullmatch(value["transcript_key"]) or not HEX64.fullmatch(value["diarization_key"]):
@@ -177,14 +233,33 @@ def assignment_cost(reference, hypothesis):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference-words", required=True)
-    parser.add_argument("--speaker-transcript", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--speaker-transcript")
+    source.add_argument("--transcript", help="plain transcript for private diagnostic attribution")
+    parser.add_argument("--diarization", help="required with --transcript; must retain explicit diagnostic ties")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     output = Path(args.output)
     if output.exists():
         raise ValueError("output already exists")
     reference = reference_words(read_json(args.reference_words))
-    hypothesis = hypothesis_words(read_json(args.speaker_transcript))
+    inputs = {"reference_words_sha256": sha256(args.reference_words)}
+    ambiguous_frames = 0
+    if args.speaker_transcript:
+        if args.diarization:
+            parser.error("--diarization is only valid with --transcript")
+        hypothesis = hypothesis_words(read_json(args.speaker_transcript))
+        inputs["speaker_transcript_sha256"] = sha256(args.speaker_transcript)
+        scope = "absolute pilot metrics only; no ratified corpus budget or pinned reference-system delta"
+    else:
+        if not args.diarization:
+            parser.error("--transcript requires --diarization")
+        transcript = read_json(args.transcript)
+        hypothesis = plain_transcript_words(transcript)
+        turns, ambiguous_frames = diagnostic_diarization_turns(read_json(args.diarization), transcript["total_samples"])
+        hypothesis = label_diagnostic_words(hypothesis, turns)
+        inputs.update({"transcript_sha256": sha256(args.transcript), "diarization_sha256": sha256(args.diarization)})
+        scope = "private diagnostic attribution from explicit lowest-index diarization; speaker labels were not published"
     lexical = edit_counts([word[3] for word in reference], [word[3] for word in hypothesis])
     stream_errors, mapping = assignment_cost(reference, hypothesis)
     unlabelled = sum(word[2] < 0 for word in hypothesis)
@@ -193,17 +268,17 @@ def main():
     result = {
         "schema": 1,
         "normalization": POLICY,
-        "reference_words_sha256": sha256(args.reference_words),
-        "speaker_transcript_sha256": sha256(args.speaker_transcript),
+        **inputs,
         "reference_words": denominator,
         "hypothesis_words": len(hypothesis),
         "reference_speakers": len({word[2] for word in reference}),
         "hypothesis_speakers": len({word[2] for word in hypothesis if word[2] >= 0}),
         "unlabelled_hypothesis_words": unlabelled,
+        "diagnostic_ambiguous_frames": ambiguous_frames,
         "wer": {**lexical, "rate": lexical["errors"] / denominator},
         "cp_sawer": {"errors": speaker_errors, "stream_errors": stream_errors, "unlabelled_errors": unlabelled, "rate": speaker_errors / denominator, "mapping": mapping},
         "qualified": False,
-        "scope": "absolute pilot metrics only; no ratified corpus budget or pinned reference-system delta",
+        "scope": scope,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")

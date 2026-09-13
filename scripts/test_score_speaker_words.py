@@ -53,6 +53,17 @@ def hypothesis(words):
     }
 
 
+def diarization(turns, ambiguous=None):
+    return {
+        "schema": 2, "experimental": True, "sample_rate": 16000, "total_samples": 160000,
+        "stage_key": "2" * 64, "source_timing": {}, "policy": {"TiePolicy": 1, "MinDurationOff": 0},
+        "windows": [], "segmentation_grid": {}, "local_speakers": 3, "embedding_dimension": 256,
+        "timeline": {}, "path": "clustered", "training_rows": 2, "clusters": 2, "constraint_satisfied": True,
+        "ambiguous_frames": [3] if ambiguous is None else ambiguous, "full_turns": [],
+        "exclusive_turns": [{"Start": start, "End": end, "Speaker": speaker} for start, end, speaker in turns],
+    }
+
+
 class SpeakerWordScorerContract(unittest.TestCase):
     def test_edit_counts(self):
         self.assertEqual(MODULE.edit_counts(["a", "b"], ["a", "b"]), {"errors": 0, "substitutions": 0, "deletions": 0, "insertions": 0})
@@ -78,6 +89,19 @@ class SpeakerWordScorerContract(unittest.TestCase):
         cost, _ = MODULE.assignment_cost(ref, wrong)
         self.assertGreater(cost, 0)
 
+    def test_private_diagnostic_attribution(self):
+        transcript = hypothesis([(-1, "one"), (-1, "two")])["transcript"]
+        words = MODULE.plain_transcript_words(transcript)
+        turns, ambiguous = MODULE.diagnostic_diarization_turns(diarization([(0, .75, 1), (1, 1.75, 0)]), 160000)
+        labelled = MODULE.label_diagnostic_words(words, turns)
+        self.assertEqual([word[2] for word in labelled], [1, 0])
+        self.assertEqual(ambiguous, 1)
+        with self.assertRaisesRegex(ValueError, "retain ambiguous"):
+            MODULE.diagnostic_diarization_turns(diarization([(0, 1, 0)], []), 160000)
+        value = diarization([(0, 1, 0)]); value["policy"]["TiePolicy"] = 0
+        with self.assertRaisesRegex(ValueError, "tie policy"):
+            MODULE.diagnostic_diarization_turns(value, 160000)
+
     def test_unlabelled_word_is_separate_error(self):
         ref = MODULE.reference_words(reference([("A", "one"), ("B", "two")]))
         hyp = MODULE.hypothesis_words(hypothesis([(3, "one"), (-1, "two")]))
@@ -101,6 +125,25 @@ class SpeakerWordScorerContract(unittest.TestCase):
             path.write_text('{"schema":1,"schema":1}', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
                 MODULE.read_json(path)
+
+    def test_cli_private_diagnostic_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            ref, transcript, diar, out = directory / "reference.json", directory / "transcript.json", directory / "diarization.json", directory / "result.json"
+            ref.write_text(json.dumps(reference([("A", "one"), ("B", "two")])), encoding="utf-8")
+            transcript.write_text(json.dumps(hypothesis([(-1, "one"), (-1, "two")])["transcript"]), encoding="utf-8")
+            diar.write_text(json.dumps(diarization([(0, .75, 1), (1, 1.75, 0)])), encoding="utf-8")
+            old = __import__("sys").argv
+            try:
+                __import__("sys").argv = ["score_speaker_words.py", "--reference-words", str(ref), "--transcript", str(transcript), "--diarization", str(diar), "--output", str(out)]
+                MODULE.main()
+            finally:
+                __import__("sys").argv = old
+            result = json.loads(out.read_text())
+            self.assertEqual(result["wer"]["rate"], 0)
+            self.assertEqual(result["cp_sawer"]["rate"], 0)
+            self.assertEqual(result["diagnostic_ambiguous_frames"], 1)
+            self.assertIn("not published", result["scope"])
 
     def test_cli_result_is_absolute_and_unqualified(self):
         with tempfile.TemporaryDirectory() as directory:
