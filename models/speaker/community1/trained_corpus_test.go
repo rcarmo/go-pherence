@@ -74,10 +74,19 @@ func TestCommunity1TrainedCorpus(t *testing.T) {
 		cfg.TiePolicy = LowestIndexTies
 	}
 	started := time.Now()
-	result, err := model.RunPCMObserved(ctx, reader, wantSamples, cfg, SegmentationModes{SincNetSIMDFMA, LSTMSIMD, HeadSIMD}, WeSpeakerBlockSIMD, func(stage string, window int) error {
-		t.Logf("CORPUS_STAGE %s window=%d", stage, window)
-		return nil
-	})
+	modes := SegmentationModes{SincNetSIMDFMA, LSTMSIMD, HeadSIMD}
+	var result *DiarizationPCMResult
+	if os.Getenv("GO_PHERENCE_COMMUNITY1_CORPUS_OVERLAP") == "1" {
+		result, err = model.RunPCMOverlappedObserved(ctx, reader, wantSamples, cfg, modes, WeSpeakerBlockSIMD, func(stage string, window int) error {
+			t.Logf("CORPUS_STAGE %s window=%d", stage, window)
+			return nil
+		})
+	} else {
+		result, err = model.RunPCMObserved(ctx, reader, wantSamples, cfg, modes, WeSpeakerBlockSIMD, func(stage string, window int) error {
+			t.Logf("CORPUS_STAGE %s window=%d", stage, window)
+			return nil
+		})
+	}
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatal(err)
