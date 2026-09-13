@@ -43,8 +43,8 @@ type vulkanEncoderState struct {
 // the complete F32 encoder before allocating, copies weights to owned arenas,
 // and snapshots geometry for exactly frames input columns. Source slices may be
 // released/changed after return, but must not be mutated during construction.
-// The default constructor uses F32 weights and has no implicit fallback. On
-// construction failure normal rollback returns nil; if cleanup also fails, a
+// The constructor uses the qualified register-tiled F32 linear kernel and has
+// no implicit fallback. On construction failure normal rollback returns nil; if cleanup also fails, a
 // nonnil stopping encoder is
 // returned with the error so the caller can retry Close after VulkanDrain.
 func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
@@ -73,13 +73,13 @@ func NewVulkanEncoderQ8KVMLPWeight(ctx context.Context, source *Encoder, frames 
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearQ8KVMLPWeight)
 }
 
-// Private plan-construction seam for fault injection and opt-in diagnostics.
-// The public constructor always uses NewVkF32Plan; no stages escape its owner.
+// Private plan-construction seam for fault injection. The public constructor
+// always uses NewVkF32Plan; no stages escape its owner.
 func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (*VulkanEncoder, error) {
-	return newVulkanEncoderMode(ctx, source, frames, makePlan, vulkanLinearF32)
+	return newVulkanEncoderMode(ctx, source, frames, makePlan, vulkanDefaultLinearMode)
 }
 
-// Experimental kernel selection stays private until whole-model qualification.
+// Legacy/candidate selection remains private for controlled comparisons.
 func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), registerTile bool) (result *VulkanEncoder, err error) {
 	mode := vulkanLinearF32
 	if registerTile {
@@ -97,6 +97,8 @@ const (
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
 )
+
+const vulkanDefaultLinearMode = vulkanLinearF32RegTile
 
 func vulkanQ8WeightSelected(mode vulkanLinearMode, name string) bool {
 	if mode == vulkanLinearQ8Weight {

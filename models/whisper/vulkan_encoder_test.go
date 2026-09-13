@@ -134,6 +134,12 @@ func TestVulkanEncoderLayoutFinalCancellationReturnsNil(t *testing.T) {
 	}
 }
 
+func TestVulkanEncoderDefaultLinearMode(t *testing.T) {
+	if vulkanDefaultLinearMode != vulkanLinearF32RegTile {
+		t.Fatal("Vulkan encoder default must use qualified F32 register tile")
+	}
+}
+
 func TestVulkanEncoderQ8PlacementSelection(t *testing.T) {
 	for _, tc := range []struct {
 		mode vulkanLinearMode

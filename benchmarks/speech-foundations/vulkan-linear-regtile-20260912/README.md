@@ -1,6 +1,6 @@
 # Register-tiled F32 linear candidate
 
-The explicit `NewVkLinearRegTileF32` candidate reduces the tested Turbo encoder median from 14.24 to 8.30 seconds in an isolated confirmation, with bit-exact output. The original `NewVkLinearF32` and public Whisper encoder defaults are unchanged. Turbo's overall performance target remains unmet.
+The explicit `NewVkLinearRegTileF32` candidate reduces the tested Turbo encoder median from 14.24 to 8.30 seconds in an isolated confirmation, with bit-exact output. The original `NewVkLinearF32` remains available. After later review of these results, `NewVulkanEncoder` selected the register tile on 13 September 2026; [PROMOTION.md](PROMOTION.md) records that narrow change. Turbo's overall performance target remains unmet.
 
 ## Kernel and API
 
@@ -8,7 +8,7 @@ The shader computes a 32×32 output tile with a 32-element reduction tile. Its 1
 
 Positive M/N/K remain bounded to 16384. Exact shapes/byte extents, queried device limits and output non-overlap are checked by the shared wrapper. Candidate dispatch uses ceil(N/32)×ceil(M/32); baseline uses ceil(N/16)×ceil(M/16). Output tails are individually guarded; zero-filled row/column/K tails still reach both barriers. The candidate introduces no new SPIR-V opcodes.
 
-The Whisper test selects the candidate through private `newVulkanEncoderVariant`; no public model option, environment-driven default or automatic device selection is added. Generic operator stages remain caller-owned as before. This is F32 execution, not F16/quantisation.
+The original Whisper test selects the candidate through private `newVulkanEncoderVariant`; the later promotion changes the explicit public Vulkan constructor's internal F32 kernel only. It adds no environment selector or automatic Vulkan device selection. Generic operator stages remain caller-owned as before. This is F32 execution, not F16/quantisation.
 
 ## Static, mock and native checks
 
@@ -45,7 +45,7 @@ Each encoder test creates both baseline and candidate resident encoders from the
 
 An earlier exploratory encoder run was 1.721×. The isolated confirmation is the primary timing result. All final processes preserve exact encoder output and all twelve final public-speech window/token/timestamp comparisons pass. Candidate public requests are roughly 9.2–9.9 seconds; these durations are diagnostics, not balanced public-request A/B claims.
 
-The isolated encoder speedup is material but insufficient for the planned ≥8× ASR target. Attention and remaining F32 projection costs still need work; there is no promotion to default or service rollout in this checkpoint.
+The isolated encoder speedup is material but insufficient for the planned ≥8× ASR target. Attention still needs work. The later promotion makes this the F32 kernel inside the explicit Vulkan encoder; it does not enable Vulkan by default or roll out a service.
 
 ## Resource and coordination caveats
 

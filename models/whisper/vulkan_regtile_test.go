@@ -17,7 +17,8 @@ import (
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 )
 
-// Candidate whole-encoder/speech check. Public encoder defaults remain baseline.
+// Qualified register-tile comparison. The public encoder uses the candidate;
+// this test retains the former linear kernel as an explicit control.
 func TestVulkanTurboRegTile(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE") != "1" {
 		t.Skip("explicit Turbo candidate compute window required")
@@ -49,7 +50,7 @@ func TestVulkanTurboRegTile(t *testing.T) {
 		}
 	})
 	t.Cleanup(func() { nativeEncoderMemory(t, before) })
-	baseline, err := NewVulkanEncoder(ctx, model.Encoder, 3000)
+	baseline, err := newVulkanEncoderMode(ctx, model.Encoder, 3000, vk.NewVkF32Plan, vulkanLinearF32)
 	if baseline != nil {
 		t.Cleanup(func() {
 			if err := baseline.Close(); err != nil {
