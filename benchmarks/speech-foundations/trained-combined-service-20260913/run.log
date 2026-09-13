@@ -1,0 +1,5 @@
+=== RUN   TestTrainedCombinedHTTPPublicSample
+    trained_combined_linux_amd64_test.go:329: TRAINED_COMBINED_SERVICE {"artifact_sha256":{"speaker-transcript":"b4aafac6d6cd1c7d95074c47cc2f4811eb78b8383de1f3272fadd315339aa55e","speaker-vtt":"e0db39a4b1b2e12367fc59080c9483d7163db880536c2131189895f7e4dfd99e","transcript":"0510bf2dfd8fc0e8844e630b035c4b60eda9a07acb3eb73d513ece3877a4e6b8","vtt":"5b539ef9cb47627d9ced09c419017cc3a8f998c1f80e2645f8fa7a581c7aef2a"},"cues":1,"internal_diarization_downloadable":false,"job":"c89a9a1d910fce7debd59b484efc8aa9","labelled_words":21,"public_ambiguous_checkpoints":5,"public_ambiguous_frames":84,"public_ambiguous_job":"a1b55cf7ec63b5ac42c2076fb19812d4","qualified":false,"repeat_artifacts_identical":true,"run_ns":[5507839394,5534695950,5516507570],"schema":1,"startup_ready_ns":575813598,"tie_policy":"lowest-index","total_samples":176000,"unlabelled_words":1,"words":22}
+--- PASS: TestTrainedCombinedHTTPPublicSample (63.03s)
+PASS
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	63.049s

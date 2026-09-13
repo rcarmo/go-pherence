@@ -1,0 +1,6 @@
+Linux/ARM64 compile-only status (expected boundary)
+
+Command:
+  GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go test -c ./cmd/audio/speechjobserve
+
+Result: unsupported at the current architecture boundary. The command references Community-1 server/runtime types implemented only in linux/amd64 build-tagged files, including ValidateCommunity1Config, Community1StageConfig and profileRuntimes. This is not treated as a regression or as ARM qualification. Shared transcript/alignment/scoring packages have separate Linux/ARM64 compile evidence. A later ARM port must add architecture-specific Community/server construction, kernels, ownership checks and real-device execution rather than bypassing the build boundary.

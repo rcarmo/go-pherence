@@ -234,7 +234,7 @@ speech-community-gemm-timing:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
 
-.PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration speech-job-ui-check
+.PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration speech-job-ui-check speech-job-trained-combined-check
 speech-job-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
@@ -249,6 +249,18 @@ speech-job-ui-check:
 speech-job-serve-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve
 	go vet ./cmd/audio/speechjobserve
+
+# Explicit trained CPU diagnostic: real seven-stage HTTP profile on the pinned
+# public 30 s sample. Requires local Tiny/Community assets and prior host/model
+# admission; does not qualify Tiny WER, LowestIndexTies or broad SA-WER/DER/JER.
+speech-job-trained-combined-check:
+	@test -n "$(SPEECHJOB_TRAINED_WHISPER_DIR)" || (echo 'Set SPEECHJOB_TRAINED_WHISPER_DIR'; exit 1)
+	@test -n "$(SPEECHJOB_TRAINED_SEGMENTATION_DIR)" || (echo 'Set SPEECHJOB_TRAINED_SEGMENTATION_DIR'; exit 1)
+	@test -n "$(SPEECHJOB_TRAINED_EMBEDDING_DIR)" || (echo 'Set SPEECHJOB_TRAINED_EMBEDDING_DIR'; exit 1)
+	@test -n "$(SPEECHJOB_TRAINED_PLDA_DIR)" || (echo 'Set SPEECHJOB_TRAINED_PLDA_DIR'; exit 1)
+	@test -n "$(SPEECHJOB_TRAINED_PUBLIC_WAV)" || (echo 'Set SPEECHJOB_TRAINED_PUBLIC_WAV'; exit 1)
+	@test -n "$(SPEECHJOB_TRAINED_JFK_WAV)" || (echo 'Set SPEECHJOB_TRAINED_JFK_WAV'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 GO_PHERENCE_TEST_TRAINED_COMBINED=1 go test -p=1 -count=1 -timeout=360s ./cmd/audio/speechjobserve -run '^TestTrainedCombinedHTTPPublicSample$$' -v
 
 speech-job-serve-integration:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 GO_PHERENCE_TEST_FFMPEG=1 go test -p=1 -count=3 -timeout=90s ./cmd/audio/speechjobserve -run '^Test(ServingProfile|StartQueue)' -v
