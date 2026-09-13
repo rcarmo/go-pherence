@@ -1,0 +1,5 @@
+=== speech-job-serve-check ===
++ GOMAXPROCS=2
++ go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.347s
++ go vet ./cmd/audio/speechjobserve

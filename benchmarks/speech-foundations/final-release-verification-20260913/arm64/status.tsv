@@ -1,0 +1,7 @@
+community1	./models/speaker/community1	0
+whisper	./models/whisper	0
+media	./loader/audio/media	0
+speechjob	./runtime/speechjob	0
+speechjob-http	./runtime/speechjob/httpapi	0
+speechjob-cli	./cmd/audio/speechjob	0
+speechjobserve	./cmd/audio/speechjobserve	1	expected-linux-amd64-boundary

@@ -1,0 +1,3 @@
+=== speech-vulkan-offline-check ===
++ go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.353s

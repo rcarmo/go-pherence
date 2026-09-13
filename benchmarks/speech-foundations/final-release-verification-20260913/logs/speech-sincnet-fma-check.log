@@ -1,0 +1,11 @@
+=== speech-sincnet-fma-check ===
++ go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.035s
++ GODEBUG=cpu.avx2=off,cpu.fma=off
++ go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns(Order|Invalid)'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.032s
++ go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.456s
++ GODEBUG=cpu.avx2=off,cpu.fma=off
++ go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.421s

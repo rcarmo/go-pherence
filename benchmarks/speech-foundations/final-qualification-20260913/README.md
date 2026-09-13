@@ -4,8 +4,9 @@ The audited baseline passes the supported Linux model-free release checks and th
 
 ## Revision and environment
 
-- Revision under test: `623a1a8a59cffe384fde1450a3e00f5ba92a910d` (`feat/speech-simd-vulkan`).
-- Final merged verification revision before this evidence-only commit: `e43dd6f` (audit `e6cf735`; P8 commits `a10ca83` and `5f1cf99`).
+- Baseline revision under the original audit: `623a1a8a59cffe384fde1450a3e00f5ba92a910d` (`feat/speech-simd-vulkan`).
+- Final supported release verification revision: `08213a40403951d4bd25ac2e99d8c901cc47604f`; see `../final-release-verification-20260913/README.md`.
+- Earlier merged verification revision before the final audit series: `e43dd6f` (audit `e6cf735`; P8 commits `a10ca83` and `5f1cf99`).
 - Physical device: `Intel(R) Iris(R) Xe Graphics (RPL-P)` through `/usr/share/vulkan/icd.d/intel_icd.x86_64.json`.
 - `GO_PHERENCE_DISABLE_NVIDIA=1`, `GOMAXPROCS=2`, `CGO_ENABLED=0`.
 - Model assets: pinned Whisper Tiny `169d4a4`, Turbo `41f01f3`, and Community-1 `3533c8` conversions.
@@ -91,9 +92,9 @@ These failures prevent calling Community-1 graph fidelity qualified, even though
 
 ## Post-merge verification
 
-The final merged speech branch was checked after the P8 merge with `CGO_ENABLED=0`, `GOMAXPROCS=2` and NVIDIA disabled:
+The final speech branch was checked through `08213a4` with `CGO_ENABLED=0`, `GOMAXPROCS=2` and NVIDIA disabled:
 
-- all 34 commands underlying the supported speech Makefile gates passed; `make` itself was unavailable in this host session, so the exact recipes were executed directly with the bundled Go toolchain;
+- all commands underlying the 14 supported speech Makefile gates passed; `make` itself was unavailable in this host session, so the exact recipes were executed directly with the bundled Go toolchain;
 - the final audit and P8 evidence manifests verify;
 - the pinned public provider module downloads from the Go proxy with module sum `h1:+LFcHlJ5LZzlbjHfNMmsHjHvv3hTXl2bF2idL95/Nsg=`;
 - Linux/ARM64 test binaries compiled for Community-1, Whisper, media and speech-job packages. The server command remains intentionally Linux/amd64-only and fails its cross-build because its profile references Linux/amd64-only trained runtime types;
