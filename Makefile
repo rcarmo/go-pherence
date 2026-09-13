@@ -208,7 +208,7 @@ speech-community-embedding-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
 
-.PHONY: speech-community-corpus-contract-check speech-community-diarization-check speech-community-diarization-lowest-ties
+.PHONY: speech-community-corpus-contract-check speech-community-diarization-check speech-community-diarization-lowest-ties speech-community-trained-corpus-check
 # Model-free manifest/parser checks. Scoring saved results requires a separate
 # pyannote.metrics environment and explicit hash-pinned local asset paths.
 speech-community-corpus-contract-check:
@@ -222,6 +222,14 @@ speech-community-diarization-check:
 # Explicit experimental deterministic tie policy, not NumPy tie identity parity.
 speech-community-diarization-lowest-ties:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 GO_PHERENCE_DIARIZATION_LOWEST_TIES=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
+
+# Explicit bounded arbitrary-corpus CPU run. The WAV must already be canonical
+# mono16k PCM and fit the experimental 128-window ceiling. No downloads.
+speech-community-trained-corpus-check:
+	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_WAV'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_WAV_SHA256)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_WAV_SHA256'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_SAMPLES)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_SAMPLES'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_CORPUS=1 go test -p=1 -count=1 -timeout=600s ./models/speaker/community1 -run '^TestCommunity1TrainedCorpus$$' -v
 
 .PHONY: speech-community-gemm-check speech-community-gemm-timing
 speech-community-gemm-check:
