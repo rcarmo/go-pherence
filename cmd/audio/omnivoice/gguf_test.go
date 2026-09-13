@@ -26,3 +26,15 @@ func TestGGUFCLIExport(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestDirectQ8FlagValidation(t *testing.T) {
+	for _, args := range [][]string{
+		{"-mode", "generate", "-direct-q8"},
+		{"-mode", "generate", "-direct-q8", "-weights-gguf", "x.gguf", "-resident-mib", "1700"},
+		{"-mode", "logits", "-direct-q8", "-weights-gguf", "x.gguf"},
+	} {
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "direct-q8 requires") {
+			t.Fatalf("args %v: %v", args, err)
+		}
+	}
+}

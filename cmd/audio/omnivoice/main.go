@@ -35,7 +35,8 @@ func run(args []string) error {
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
 	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), export-gguf, capabilities, or audio")
 	ggufPath := flags.String("weights-gguf", "", "GGUF backbone override for generate/logits/block/stack; -model still supplies codec assets and matching config")
-	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16 or f32")
+	ggufFormat := flags.String("gguf-format", "f16", "export-gguf storage: f16, f32 or q8_0")
+	directQ8 := flags.Bool("direct-q8", false, "experimental direct Q8 SIMD projections for generate; excludes resident/prepack")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
@@ -61,6 +62,9 @@ func run(args []string) error {
 	memProfile := flags.String("memprofile", "", "exclusive-create allocation profile for the whole command")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *directQ8 && (*mode != "generate" || *ggufPath == "" || *residentMiB != 0 || *prepacked) {
+		return fmt.Errorf("direct-q8 requires generate with weights-gguf and no resident/prepack")
 	}
 	if *residentMiB < 0 || *residentMiB > 65536 {
 		return fmt.Errorf("resident-mib must be 0..65536")
@@ -249,10 +253,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)

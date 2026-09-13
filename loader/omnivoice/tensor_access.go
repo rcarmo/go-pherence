@@ -9,6 +9,9 @@ func (w *Weights) MatrixRowsInto(dst []float32, name string, start, rows int) er
 	if err != nil {
 		return err
 	}
+	if dtype == "Q8_0" {
+		return fmt.Errorf("omnivoice: MatrixRowsInto does not support quantized tensor %s", name)
+	}
 	if len(shape) != 2 || start < 0 || rows <= 0 || start > shape[0]-rows {
 		return fmt.Errorf("omnivoice: matrix row range invalid: %s", name)
 	}
@@ -16,9 +19,9 @@ func (w *Weights) MatrixRowsInto(dst []float32, name string, start, rows int) er
 	if width <= 0 || rows > int(^uint(0)>>1)/width || len(dst) != rows*width {
 		return fmt.Errorf("omnivoice: matrix row output size mismatch")
 	}
-	size := 2
-	if dtype == "F32" {
-		size = 4
+	size, err := floatDTypeWidth(dtype)
+	if err != nil {
+		return err
 	}
 	// safetensors has already validated the complete payload shape and byte range.
 	begin, end := start*width*size, (start+rows)*width*size

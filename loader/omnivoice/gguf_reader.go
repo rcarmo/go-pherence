@@ -103,6 +103,7 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 	dataLen := fi.Size() - g.DataOffset
 
 	infos := make(map[string]safetensors.TensorInfo, len(g.Tensors)+1)
+	validationInfos := make(map[string]safetensors.TensorInfo, len(g.Tensors)+1)
 	byName := make(map[string]gguf.TensorInfo, len(g.Tensors))
 	spans := make([]ggufTensorSpan, 0, len(g.Tensors))
 	for _, t := range g.Tensors {
@@ -114,7 +115,7 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 		}
 		byName[t.Name] = t
 
-		dtype, elemSize, err := ggufTensorDType(t.QType)
+		dtype, err := ggufTensorDType(t.Name, t.Shape, t.QType)
 		if err != nil {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q: %w", t.Name, err)
 		}
@@ -122,7 +123,7 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q must be omitted from GGUF and synthesized from config", t.Name)
 		}
 
-		rawBytes, err := ggufTensorByteLen(t.Shape, elemSize)
+		rawBytes, err := ggufTensorRawByteLen(t.Shape, t.QType)
 		if err != nil {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q: %w", t.Name, err)
 		}
@@ -135,13 +136,8 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 		}
 		spans = append(spans, ggufTensorSpan{name: t.Name, start: start, end: end})
 
-		spec, ok := specs[t.Name]
-		if !ok {
-			infos[t.Name] = safetensors.TensorInfo{DType: dtype, DataOffsets: [2]int{0, int(rawBytes)}}
-			continue
-		}
 		info := safetensors.TensorInfo{DType: dtype, DataOffsets: [2]int{0, int(rawBytes)}}
-		if len(t.Shape) == len(spec.Shape) {
+		if spec, ok := specs[t.Name]; ok && len(t.Shape) == len(spec.Shape) {
 			shape := make([]int, len(spec.Shape))
 			for i := range spec.Shape {
 				dim := t.Shape[len(t.Shape)-1-i]
@@ -156,6 +152,9 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 			info.Shape = shape
 		}
 		infos[t.Name] = info
+		validationInfo := info
+		validationInfo.DType = validationDTypeForTensor(info.DType)
+		validationInfos[t.Name] = validationInfo
 	}
 	if err := validateNonOverlappingGGUFSpans(spans); err != nil {
 		return nil, err
@@ -166,8 +165,9 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 		return nil, err
 	}
 	infos["codebook_layer_offsets"] = codebookInfo
+	validationInfos["codebook_layer_offsets"] = codebookInfo
 
-	meta := ValidateTensorInfos(cfg, infos)
+	meta := ValidateTensorInfos(cfg, validationInfos)
 	if !meta.Valid {
 		return nil, fmt.Errorf("omnivoice gguf: checkpoint tensor layout mismatch: %+v", meta)
 	}
@@ -178,13 +178,24 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 			raws[name] = codebookRaw
 			continue
 		}
-		t := byName[name]
+		t, ok := byName[name]
+		if !ok {
+			continue
+		}
 		raw, err := g.Raw(t)
 		if err != nil {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q raw: %w", name, err)
 		}
 		if len(raw) != infos[name].DataOffsets[1] {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q raw length %d, want %d", name, len(raw), infos[name].DataOffsets[1])
+		}
+		if infos[name].DType == "Q8_0" {
+			for offset := 0; offset < len(raw); offset += q8_0BlockBytes {
+				bits := binary.LittleEndian.Uint16(raw[offset:])
+				if bits&0x7c00 == 0x7c00 {
+					return nil, fmt.Errorf("omnivoice gguf: non-finite Q8 scale in %s", name)
+				}
+			}
 		}
 		raws[name] = raw
 	}
@@ -212,18 +223,23 @@ func validateNonOverlappingGGUFSpans(spans []ggufTensorSpan) error {
 	return nil
 }
 
-func ggufTensorDType(qt gguf.QuantType) (string, int64, error) {
+func ggufTensorDType(name string, shape []uint64, qt gguf.QuantType) (string, error) {
 	switch qt {
 	case gguf.QuantF32:
-		return "F32", 4, nil
+		return "F32", nil
 	case gguf.QuantF16:
-		return "F16", 2, nil
+		return "F16", nil
+	case gguf.QuantQ8_0:
+		if err := validateQ8ProjectionTensor(name, shape); err != nil {
+			return "", err
+		}
+		return "Q8_0", nil
 	default:
-		return "", 0, fmt.Errorf("unsupported tensor type %s; only F32/F16 are supported", qt)
+		return "", fmt.Errorf("unsupported tensor type %s; only F32/F16 are supported for non-quant tensors, plus Q8_0 for decoder projections", qt)
 	}
 }
 
-func ggufTensorByteLen(shape []uint64, elemSize int64) (int64, error) {
+func ggufTensorRawByteLen(shape []uint64, qt gguf.QuantType) (int64, error) {
 	if len(shape) == 0 {
 		return 0, fmt.Errorf("empty shape")
 	}
@@ -238,10 +254,14 @@ func ggufTensorByteLen(shape []uint64, elemSize int64) (int64, error) {
 		}
 		numel *= dim
 	}
-	if numel > uint64(^uint(0)>>1)/uint64(elemSize) {
-		return 0, fmt.Errorf("shape %v byte size overflow", shape)
+	if numel > uint64(int(^uint(0)>>1)) {
+		return 0, fmt.Errorf("shape %v element count exceeds int", shape)
 	}
-	return int64(numel) * elemSize, nil
+	rawBytes, err := gguf.TensorRawBytes(qt, int(numel))
+	if err != nil {
+		return 0, err
+	}
+	return int64(rawBytes), nil
 }
 
 func ggufTensorBounds(offset uint64, rawBytes, dataLen int64) (int64, int64, error) {
@@ -321,6 +341,21 @@ func (r *ggufReader) TensorInfos() map[string]safetensors.TensorInfo {
 	return out
 }
 
+func (r *ggufReader) QuantizedProjection(name string) ([]byte, bool) {
+	if r == nil || r.closed || !IsQ8ProjectionName(name) {
+		return nil, false
+	}
+	info, ok := r.infos[name]
+	if !ok || info.DType != "Q8_0" {
+		return nil, false
+	}
+	raw, ok := r.raws[name]
+	if !ok {
+		return nil, false
+	}
+	return raw, true
+}
+
 func (r *ggufReader) GetRaw(name string) ([]byte, string, []int, error) {
 	if r == nil || r.closed {
 		return nil, "", nil, fmt.Errorf("omnivoice gguf: reader closed")
@@ -353,13 +388,10 @@ func (r *ggufReader) GetFloat32(name string) ([]float32, []int, error) {
 			out[i] = float32(int64(binary.LittleEndian.Uint64(raw[i*8:])))
 		}
 		return out, shape, nil
-	case "F16", "F32":
-		count := 1
-		for _, dim := range shape {
-			if dim <= 0 || count > int(^uint(0)>>1)/dim {
-				return nil, nil, fmt.Errorf("omnivoice gguf: tensor %q invalid shape %v", name, shape)
-			}
-			count *= dim
+	case "F16", "F32", "Q8_0":
+		count, err := tensorElementCount(shape)
+		if err != nil {
+			return nil, nil, fmt.Errorf("omnivoice gguf: tensor %q: %w", name, err)
 		}
 		out := make([]float32, count)
 		if err := convertInto(out, raw, dtype); err != nil {

@@ -23,6 +23,7 @@ import (
 // additionally synchronized for concurrent use.
 type Backbone struct {
 	weights                             *loader.Weights
+	directQ8                            []map[string][]byte
 	layer                               *loader.LayerBuffer
 	resident                            *residentCache
 	block                               *Block
@@ -55,6 +56,7 @@ func NewBackboneSibling(parent *Backbone, tokens int) (*Backbone, error) {
 	}
 	b.pool = parent.pool
 	b.poolWorkers = parent.poolWorkers
+	b.directQ8 = parent.directQ8
 	return b, nil
 }
 
@@ -194,7 +196,14 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if err := b.layer.Load(b.weights, i); err != nil {
+			var err error
+			if b.directQ8 != nil {
+				b.block.directQ8 = b.directQ8[i]
+				err = b.layer.LoadDirectQ8(b.weights, i)
+			} else {
+				err = b.layer.Load(b.weights, i)
+			}
+			if err != nil {
 				return err
 			}
 			if err := b.block.ForwardInto(b.hidden, b.hidden, b.tokens, positions, mask, b.scratch); err != nil {

@@ -59,7 +59,13 @@ func (b *LayerBuffer) Bytes() int { return len(b.arena) * 4 }
 
 // Load converts the requested layer in place without allocating on success.
 // On failure contents are unspecified: do not run the block until Load succeeds.
-func (b *LayerBuffer) Load(w *Weights, index int) error {
+func (b *LayerBuffer) Load(w *Weights, index int) error { return b.load(w, index, false) }
+
+// LoadDirectQ8 skips encoded projections. The caller must route skipped
+// matrices to direct Q8 kernels instead of reading their stale float32 views.
+func (b *LayerBuffer) LoadDirectQ8(w *Weights, index int) error { return b.load(w, index, true) }
+
+func (b *LayerBuffer) load(w *Weights, index int, skipQ8 bool) error {
 	if index < 0 || index >= len(b.names) {
 		return fmt.Errorf("omnivoice: layer index out of bounds")
 	}
@@ -68,6 +74,9 @@ func (b *LayerBuffer) Load(w *Weights, index int) error {
 		if err != nil {
 			return err
 		}
+		if skipQ8 && dtype == "Q8_0" {
+			continue
+		}
 		if err = convertInto(b.Tensors[b.suffixes[i]], raw, dtype); err != nil {
 			return err
 		}
@@ -75,9 +84,12 @@ func (b *LayerBuffer) Load(w *Weights, index int) error {
 	return nil
 }
 func convertInto(dst []float32, raw []byte, dtype string) error {
-	size := 2
-	if dtype == "F32" {
-		size = 4
+	if dtype == "Q8_0" {
+		return dequantQ8_0Into(dst, raw)
+	}
+	size, err := floatDTypeWidth(dtype)
+	if err != nil {
+		return err
 	}
 	if len(raw)%size != 0 || len(raw)/size != len(dst) {
 		return fmt.Errorf("omnivoice: weight conversion length mismatch")

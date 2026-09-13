@@ -747,3 +747,69 @@ All loader tests, affected model/CLI tests, vet, race tests, no-CGo tests and
 Linux ARM64 builds pass. Local evidence: `/workspace/tmp/omnivoice-f16-export-v1.json`,
 `omnivoice-gguf-f16-generate-v1.json`, `omnivoice-gguf-tests.log` and the
 corresponding GGUF/WAV. The real checkpoint export is private and uncommitted.
+
+## Q8_0 projection experiments (2026-09-13)
+
+`-gguf-format q8_0` now exports standard 32-element GGUF Q8_0 blocks (FP16 scale
+plus 32 signed bytes) for the seven decoder projections whose input width is
+divisible by 32. Other tensors use F32, preserving source precision. This
+includes the large text embeddings and audio heads. Unsupported/misaligned tiny
+projections remain F32; the exporter does not pad tensor shapes.
+
+Two paths consume these exports:
+
+- Default: dequantise each layer into the existing float32 arena, then use the
+  packed SIMD GEMM path and any configured worker pool. Resident/prepacked modes
+  can amortise conversion at their existing float32 memory cost.
+- `-direct-q8`: experimental four-input-row tiling, using AVX2/FMA int8×float32
+  dot kernels on supported AMD64 hosts. Other CPUs use scalar fallback. This
+  path skips projection dequantisation but keeps the float32 arena reserved.
+  Projection execution is single-threaded; `-gemm-workers` still applies to the
+  float audio head. Direct mode excludes resident/prepacked layers.
+
+```sh
+bin/omnivoice -mode export-gguf -model "$MODEL" -gguf-format q8_0 \
+  -output /new/path/omnivoice-q8.gguf
+bin/omnivoice -mode generate -model "$MODEL" \
+  -weights-gguf /new/path/omnivoice-q8.gguf -input prepared-prompt.json \
+  -steps 8 -threads 2 -gemm-workers 2 -output synthetic-q8.wav
+# Add -direct-q8 only to test the direct quantised kernel.
+```
+
+### Measurements
+
+The real mixed Q8/F32 export is **1,156,653,024 bytes**, versus
+**1,225,179,104 bytes** for F16: only **5.6% smaller**, because the non-projection
+tensors are promoted to F32. Decoder projection payload alone is 34/128 of its
+F32 size (73.4% less), but this is not the whole-model memory reduction.
+Reader-retained raw bytes follow the exported payload size; float32 arena,
+activations and codec memory are additional and remain allocated. Peak RSS was
+not measured for this comparison.
+
+| Path | 128×1024×1024 projection (two trials) | Real 3-second speech, eight steps |
+|---|---:|---:|
+| Direct Q8, four-row tiles | 26.53–26.55 ms | 232.43 s |
+| Pre-dequantised/prepacked SIMD | 6.53–6.59 ms | — |
+| Q8 streamed dequantisation + two SIMD workers | — | 65.25 s |
+
+The microbenchmark excludes dequantisation/prepacking setup from the float32
+path. Both paths allocate zero bytes per kernel call. Direct Q8 is about four
+times slower on this N100 benchmark and 3.6 times slower in these full runs;
+it remains opt-in. Real runs used low priority, no resident cache and the same
+prepared prompt/seed 42. Defaults are unchanged.
+
+Both Q8 execution paths produced byte-identical WAVs:
+`ee6b13d7ee12661426c03b7ed09097fd294e85f726bce4f2694bb5607b69599c`.
+Each contains 72,000 samples, peak 14,418 PCM16, RMS 1,090.13 and zero clipped
+samples. External ASR recovered “The evidence is insufficient, Captain.”
+The quantised waveform differs from the float baseline; voice similarity,
+prosody and multilingual quality require listening acceptance and further tests.
+
+Tests cover quantisation/dequantisation, non-finite/extreme scale rejection,
+projection whitelist/shape constraints, zero-allocation layer loads, direct
+kernel overwrite/tails/alias rejection, backbone logit agreement, sibling reuse,
+cancellation/retry and resident-mode incompatibility. Direct kernels use a
+runtime AVX2/FMA gate. Affected tests/vet, race checks, no-CGo checks and ARM64
+cross-build pass. The independent review attempt timed out; it supplied no
+review verdict. Local evidence: `/workspace/tmp/omnivoice-q8-*.json`,
+`omnivoice-q8-bench-v1.log` and `synthetic-spock-q8-{dequant,direct}-v1.wav`.

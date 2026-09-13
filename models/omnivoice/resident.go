@@ -85,6 +85,9 @@ func (b *Backbone) EnableResident(ctx context.Context, maxBytes int64) error {
 	if b == nil || b.weights == nil || ctx == nil {
 		return fmt.Errorf("omnivoice: nil context")
 	}
+	if b.directQ8 != nil {
+		return fmt.Errorf("omnivoice: resident layers incompatible with direct Q8")
+	}
 	if b.resident != nil {
 		return nil
 	}
@@ -113,6 +116,9 @@ func (b *Backbone) EnableResident(ctx context.Context, maxBytes int64) error {
 func (b *Backbone) EnableResidentPrepacked(ctx context.Context, maxBytes int64) error {
 	if b == nil || b.weights == nil || ctx == nil {
 		return fmt.Errorf("omnivoice: nil context")
+	}
+	if b.directQ8 != nil {
+		return fmt.Errorf("omnivoice: resident layers incompatible with direct Q8")
 	}
 	if b.resident != nil && b.resident.packedBytes != 0 {
 		return nil

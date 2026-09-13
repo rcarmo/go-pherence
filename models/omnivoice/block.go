@@ -43,6 +43,7 @@ type Block struct {
 	config    config.LLMConfig
 	weights   map[string][]float32
 	prepacked map[string][]float32
+	directQ8  map[string][]byte
 }
 
 // ValidateConfig checks native block support without loading any weights.
@@ -163,6 +164,12 @@ func (b *Block) validateInput(x []float32, tokens int, positions []int, mask []f
 }
 
 func (b *Block) linearInto(s *Workspace, y, x, w []float32, key string, rows, in, out int) error {
+	if raw := b.directQ8[key]; raw != nil {
+		if !simd.SgemmNTQ8_0To(y, x, raw, rows, out, in) {
+			return fmt.Errorf("omnivoice: invalid direct Q8 projection")
+		}
+		return nil
+	}
 	if s != nil && s.pool != nil && s.executionContext != nil {
 		clear(y)
 		return s.pool.Run(s.executionContext, y, x, w, b.prepacked[key], rows, out, in, 1, in, in, out)
