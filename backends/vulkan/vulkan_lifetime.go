@@ -30,6 +30,9 @@ func (e *VulkanCallError) Error() string { return fmt.Sprintf("%s: %d", e.Operat
 var vkLane = make(chan struct{}, 1)
 
 func vkAcquire(ctx context.Context) error {
+	if ctx == nil {
+		return fmt.Errorf("Vulkan: nil context")
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -134,6 +137,9 @@ func vkFinishPendingLocked() {
 // state and services deferred legacy Free requests, even when cancellation races
 // completion (Drain then returns the context error). No background worker.
 func VulkanDrain(ctx context.Context, budget time.Duration) error {
+	if ctx == nil {
+		return fmt.Errorf("Vulkan drain: nil context")
+	}
 	if budget <= 0 || budget > 30*time.Second {
 		return fmt.Errorf("invalid Vulkan drain budget")
 	}

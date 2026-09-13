@@ -199,6 +199,22 @@ func TestVulkanOfflineLifetimeTimeoutDrain(t *testing.T) {
 	expectErrorIs(t, k.Dispatch(1, 1, 1, []*VkBuf{b}, nil), ErrVulkanClosed)
 }
 
+func TestVulkanOfflineNilContextAdmission(t *testing.T) {
+	m, k, b := newLifetimeMock(t)
+	if err := vkAcquire(nil); err == nil {
+		t.Fatal("nil lane context accepted")
+	}
+	if err := k.DispatchContext(nil, 1, 1, 1, []*VkBuf{b}, nil); err == nil {
+		t.Fatal("nil dispatch context accepted")
+	}
+	if err := VulkanDrain(nil, time.Second); err == nil {
+		t.Fatal("nil drain context accepted")
+	}
+	if len(m.events) != 0 || vkPending != nil {
+		t.Fatal("nil context reached native work", m.events, vkPending)
+	}
+}
+
 func TestVulkanOfflineLifetimeCancellationBoundaries(t *testing.T) {
 	for _, boundary := range []string{"preflight", "command-reset", "descriptors", "begin", "acquire", "release", "end", "fence-reset", "submit", "wait"} {
 		t.Run(boundary, func(t *testing.T) {
