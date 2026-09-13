@@ -119,7 +119,7 @@
       "default tie rejection on the single diagnostic public sample",
       "no qualifying multilingual public-corpus run",
       "Whisper Portuguese/French Tiny quality failures and silence hallucination without explicit exact-zero skip",
-      "word alignment and SA-WER are not implemented",
+      "checked word alignment and cpSA-WER scoring are implemented, but no qualifying annotated corpus result exists",
       "long-file Community-1 inference exceeds the current 128-window contract"
     ]
   },
@@ -129,6 +129,8 @@
     "benchmarks/speech-foundations/community1-trained-segmentation-20260912/manifest.json",
     "benchmarks/speech-foundations/community1-trained-embedding-20260912/manifest.json",
     "benchmarks/speech-foundations/community1-pcm-diarization-20260912/evidence.json",
-    "benchmarks/speech-foundations/community1-corpus-qualification.md"
+    "benchmarks/speech-foundations/community1-corpus-qualification.md",
+    "benchmarks/speech-foundations/ami-pilot-contract-20260913/source.json",
+    "benchmarks/speech-foundations/ami-pilot-contract-20260913/scoring.md"
   ]
 }
