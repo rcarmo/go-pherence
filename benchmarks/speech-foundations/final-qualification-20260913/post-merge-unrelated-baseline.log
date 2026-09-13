@@ -1,0 +1,50 @@
+2048x4x2048: single=14.403883ms par=7.581955ms speedup=1.90x
+2048x4x1024: single=7.347775ms par=3.971162ms speedup=1.85x
+4096x4x1024: single=14.528141ms par=7.683903ms speedup=1.89x
+1024x4x4096: single=13.865793ms par=7.400622ms speedup=1.87x
+FFN 5632x4x2048: single=39.666042ms par=20.678332ms speedup=1.92x
+FFN 2048x4x5632: single=37.940816ms par=19.554074ms speedup=1.94x
+--- FAIL: TestGemmINT8Packed (0.00s)
+    gemm_test.go:166: C[0]: hw=13809 ref=4144
+    gemm_test.go:166: C[1]: hw=-6334 ref=-3671
+    gemm_test.go:166: C[2]: hw=3344 ref=1849
+    gemm_test.go:166: C[3]: hw=16348 ref=5845
+    gemm_test.go:166: C[4]: hw=-11999 ref=-3367
+    gemm_test.go:174: 64/64 errors
+--- FAIL: TestGemmINT8PackedLarge (0.00s)
+    gemm_test.go:207: 1024/1024 errors
+--- FAIL: TestGemmINT8PackedParallel (0.01s)
+    gemm_test.go:279: C[0]: par=-1712 ref=48480
+    gemm_test.go:279: C[1]: par=6072 ref=27672
+    gemm_test.go:279: C[2]: par=22656 ref=8464
+    gemm_test.go:287: 16384/16384 errors
+FAIL
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/ime2	4.695s
+--- FAIL: TestMatVecQ4K (0.00s)
+    inference_test.go:78: MatVecQ4K 32x64: maxErr=6.6289 avgErr=2.2104
+    inference_test.go:88: Relative error: 115.29%
+    inference_test.go:90: relative error too high: 115.29%
+FAIL
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/inference	0.002s
+--- FAIL: TestGGUFBackendGraphRejectsHostVisibleLMHead (0.00s)
+    backend_graph_tail_test.go:16: error=DiffusionGemma LM head missing tied embeddings, want device-resident LM-head/self-conditioning rejection
+--- FAIL: TestDenoiseGPUPromptPrefillPathIsUsed (0.00s)
+    denoiser_incremental_test.go:29: expected GPU prompt prefill path to reach encoder weight validation, got DiffusionGemma encoder: DiffusionGemma GPU prompt prefill requires CUDA SGEMM
+DiffusionGemma row_trace: stage=test layer=0 step=1 enc_seq=0 row=1 rms=6.59545298 max_abs=8 max_idx=3 first4=[5 6 7 8]
+FAIL
+FAIL	github.com/rcarmo/go-pherence/model/diffusiongemma	0.021s
+--- FAIL: TestQwen35BaseModelForwardOneLinearAttention (0.00s)
+    qwen35_test.go:174: load Qwen3.5 linear layer 0: load language_model.model.layers.0.linear_attn.in_proj_qkv.weight: no Qwen3.5 tensor-name candidate matched (model.layers.0.linear_attn.in_proj_qkv.weight: missing model.layers.0.linear_attn.in_proj_qkv.weight; model.language_model.model.layers.0.linear_attn.in_proj_qkv.weight: missing model.language_model.model.layers.0.linear_attn.in_proj_qkv.weight; model.language_model.layers.0.linear_attn.in_proj_qkv.weight: missing model.language_model.layers.0.linear_attn.in_proj_qkv.weight; language_model.model.layers.0.linear_attn.in_proj_qkv.weight: missing language_model.model.layers.0.linear_attn.in_proj_qkv.weight)
+--- FAIL: TestLoadQwen35BaseModelLayers (0.00s)
+    qwen35_test.go:203: LoadQwen35BaseModelLayers: load Qwen3.5 linear layer 0: load language_model.model.layers.0.linear_attn.in_proj_qkv.weight: no Qwen3.5 tensor-name candidate matched (model.layers.0.linear_attn.in_proj_qkv.weight: missing model.layers.0.linear_attn.in_proj_qkv.weight; model.language_model.model.layers.0.linear_attn.in_proj_qkv.weight: missing model.language_model.model.layers.0.linear_attn.in_proj_qkv.weight; model.language_model.layers.0.linear_attn.in_proj_qkv.weight: missing model.language_model.layers.0.linear_attn.in_proj_qkv.weight; language_model.model.layers.0.linear_attn.in_proj_qkv.weight: missing language_model.model.layers.0.linear_attn.in_proj_qkv.weight)
+--- FAIL: TestLoadQwen35LinearAttentionLayer (0.00s)
+    qwen35_test.go:287: LoadQwen35LinearAttentionLayer: load language_model.model.layers.1.linear_attn.in_proj_qkv.weight: no Qwen3.5 tensor-name candidate matched (model.layers.1.linear_attn.in_proj_qkv.weight: missing model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.layers.1.linear_attn.in_proj_qkv.weight; language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing language_model.model.layers.1.linear_attn.in_proj_qkv.weight)
+--- FAIL: TestLoadQwen35LinearAttentionLayerConvertsALog (0.00s)
+    qwen35_test.go:301: LoadQwen35LinearAttentionLayer: load language_model.model.layers.1.linear_attn.in_proj_qkv.weight: no Qwen3.5 tensor-name candidate matched (model.layers.1.linear_attn.in_proj_qkv.weight: missing model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.layers.1.linear_attn.in_proj_qkv.weight; language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing language_model.model.layers.1.linear_attn.in_proj_qkv.weight)
+--- FAIL: TestSplitQwen35LinearQKV (0.00s)
+    qwen35_test.go:324: parts lens Q/K/V=4/4/4
+--- FAIL: TestQwen35LinearAttentionForward (0.00s)
+    qwen35_test.go:488: load language_model.model.layers.1.linear_attn.in_proj_qkv.weight: no Qwen3.5 tensor-name candidate matched (model.layers.1.linear_attn.in_proj_qkv.weight: missing model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.model.layers.1.linear_attn.in_proj_qkv.weight; model.language_model.layers.1.linear_attn.in_proj_qkv.weight: missing model.language_model.layers.1.linear_attn.in_proj_qkv.weight; language_model.model.layers.1.linear_attn.in_proj_qkv.weight: missing language_model.model.layers.1.linear_attn.in_proj_qkv.weight)
+FAIL
+FAIL	github.com/rcarmo/go-pherence/model/qwen	0.020s
+FAIL
