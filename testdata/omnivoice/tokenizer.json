@@ -1,0 +1,233 @@
+{
+  "version": "1.0",
+  "cases": [
+    {
+      "text": "can't",
+      "ids": [
+        4814,
+        944
+      ]
+    },
+    {
+      "text": "we'll I'm",
+      "ids": [
+        896,
+        3278,
+        358,
+        2776
+      ]
+    },
+    {
+      "text": "1 23 456",
+      "ids": [
+        16,
+        220,
+        17,
+        18,
+        220,
+        19,
+        20,
+        21
+      ]
+    },
+    {
+      "text": "foo\t bar",
+      "ids": [
+        7975,
+        197,
+        3619
+      ]
+    },
+    {
+      "text": "a  b",
+      "ids": [
+        64,
+        220,
+        293
+      ]
+    },
+    {
+      "text": "a\t\tb",
+      "ids": [
+        64,
+        197,
+        2233
+      ]
+    },
+    {
+      "text": "\n ",
+      "ids": [
+        198,
+        220
+      ]
+    },
+    {
+      "text": "<|denoise|><|lang_start|>en<|lang_end|><|instruct_start|>None<|instruct_end|>",
+      "ids": [
+        151669,
+        151670,
+        268,
+        151671,
+        151672,
+        4064,
+        151673
+      ]
+    },
+    {
+      "text": "<|text_start|>can't 123\n[laughter]<|text_end|>",
+      "ids": [
+        151674,
+        4814,
+        944,
+        220,
+        16,
+        17,
+        18,
+        198,
+        58,
+        51783,
+        60,
+        151675
+      ]
+    }
+  ],
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [
+    {
+      "id": 151669,
+      "content": "<|denoise|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151670,
+      "content": "<|lang_start|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151671,
+      "content": "<|lang_end|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151672,
+      "content": "<|instruct_start|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151673,
+      "content": "<|instruct_end|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151674,
+      "content": "<|text_start|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 151675,
+      "content": "<|text_end|>",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    }
+  ],
+  "normalizer": {
+    "type": "NFC"
+  },
+  "pre_tokenizer": {
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": true,
+        "use_regex": false
+      }
+    ]
+  },
+  "post_processor": {
+    "type": "ByteLevel",
+    "add_prefix_space": false,
+    "trim_offsets": false,
+    "use_regex": false
+  },
+  "decoder": {
+    "type": "ByteLevel",
+    "add_prefix_space": true,
+    "trim_offsets": true,
+    "use_regex": true
+  },
+  "model": {
+    "type": "BPE",
+    "dropout": null,
+    "unk_token": null,
+    "continuing_subword_prefix": "",
+    "end_of_word_suffix": "",
+    "fuse_unk": false,
+    "byte_fallback": false,
+    "ignore_merges": false,
+    "vocab": {
+      "1": 16,
+      "2": 17,
+      "3": 18,
+      "4": 19,
+      "5": 20,
+      "6": 21,
+      "[": 58,
+      "]": 60,
+      "a": 64,
+      "\u0109": 197,
+      "\u010a": 198,
+      "\u0120": 220,
+      "en": 268,
+      "\u0120b": 293,
+      "\u0120I": 358,
+      "we": 896,
+      "'t": 944,
+      "\u0109b": 2233,
+      "'m": 2776,
+      "'ll": 3278,
+      "\u0120bar": 3619,
+      "None": 4064,
+      "can": 4814,
+      "foo": 7975,
+      "laughter": 51783
+    },
+    "merges": null
+  }
+}

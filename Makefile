@@ -209,10 +209,10 @@ test:
 # Native OmniVoice numerical core and audio frontend; no model download required.
 .PHONY: test-omnivoice vet-omnivoice build-omnivoice
 test-omnivoice:
-	go test -count=1 -timeout=120s ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+	go test -count=1 -timeout=120s ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
 
 vet-omnivoice:
-	go vet ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+	go vet ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
 
 build-omnivoice:
 	mkdir -p bin

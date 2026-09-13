@@ -75,4 +75,13 @@ func TestRealCodecDecode(t *testing.T) {
 		}
 	}
 	t.Logf("all %d samples parity; max error %g", len(out), maxError)
+	var decodeErr error
+	allocations := testing.AllocsPerRun(3, func() { decodeErr = d.DecodeInto(context.Background(), out, codes, 8, 2) })
+	if decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	t.Logf("DecodeInto allocations=%g", allocations)
+	if allocations != 0 {
+		t.Fatalf("decoder still allocates %g", allocations)
+	}
 }

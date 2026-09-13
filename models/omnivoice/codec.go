@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
@@ -13,7 +14,15 @@ import (
 // Convolutions use SIMD GEMM with bounded 64-position im2col tiles. Activation
 // buffers are currently allocated per operator; optimization follows parity.
 // Snake sine and transposed-convolution scatter are scalar. Not concurrent safe.
-type CodecDecoder struct{ weights *loader.CodecWeights }
+type CodecDecoder struct {
+	ops            map[string]codecOperator
+	names          map[string]map[string]string
+	weights        *loader.CodecWeights
+	scratch        *codecScratch
+	quantizerNames [8]string
+	blockNames     [5]string
+	residualNames  [5][3]string
+}
 
 func NewCodecDecoder(w *loader.CodecWeights) (*CodecDecoder, error) {
 	if w == nil || len(w.Tensors["fc2.weight"]) == 0 || len(w.Tensors["acoustic_decoder.conv2.weight"]) == 0 {
@@ -22,7 +31,39 @@ func NewCodecDecoder(w *loader.CodecWeights) (*CodecDecoder, error) {
 	if err := validateCodecWeights(w); err != nil {
 		return nil, err
 	}
-	return &CodecDecoder{weights: w}, nil
+	d := &CodecDecoder{weights: w, names: map[string]map[string]string{}, ops: map[string]codecOperator{}}
+	for i := range d.quantizerNames {
+		d.quantizerNames[i] = fmt.Sprintf("quantizer.quantizers.%d.", i)
+	}
+	for i := range d.blockNames {
+		d.blockNames[i] = fmt.Sprintf("acoustic_decoder.block.%d.", i)
+		for j := range d.residualNames[i] {
+			d.residualNames[i][j] = fmt.Sprintf("%sres_unit%d.", d.blockNames[i], j+1)
+		}
+	}
+	prefixes := append([]string(nil), d.quantizerNames[:]...)
+	prefixes = append(prefixes, d.blockNames[:]...)
+	for _, rows := range d.residualNames {
+		prefixes = append(prefixes, rows[:]...)
+	}
+	for _, p := range prefixes {
+		d.names[p] = map[string]string{}
+		for _, suffix := range []string{"codebook.embed", "project_out", "snake1.alpha", "snake2.alpha", "conv1", "conv2", "conv_t1"} {
+			d.names[p][suffix] = p + suffix
+		}
+	}
+	for name, shape := range w.Shapes {
+		if strings.HasSuffix(name, ".weight") {
+			base := strings.TrimSuffix(name, ".weight")
+			d.ops[base] = codecOperator{w.Tensors[name], w.Tensors[base+".bias"], shape}
+		}
+	}
+	return d, nil
+}
+
+type codecOperator struct {
+	weight, bias []float32
+	shape        []int
 }
 
 type signal struct {
@@ -31,6 +72,16 @@ type signal struct {
 }
 
 func (d *CodecDecoder) Decode(ctx context.Context, codes []int, books, frames int) ([]float32, error) {
+	if err := d.Prepare(frames); err != nil {
+		return nil, err
+	}
+	out := make([]float32, frames*960)
+	if err := d.DecodeInto(ctx, out, codes, books, frames); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+func (d *CodecDecoder) decode(ctx context.Context, codes []int, books, frames int) ([]float32, error) {
 	if ctx == nil || books < 1 || books > d.weights.Quantizers || frames < 1 || frames > 250 || len(codes) != books*frames {
 		return nil, fmt.Errorf("omnivoice: invalid codec input")
 	}
@@ -47,35 +98,40 @@ func (d *CodecDecoder) Decode(ctx context.Context, codes []int, books, frames in
 		return nil, fmt.Errorf("omnivoice: invalid codec projection")
 	}
 	hidden := shape[1]
-	sum := signal{make([]float32, hidden*frames), hidden, frames}
+	sum := signal{d.buffer(hidden * frames), hidden, frames}
 	for book := 0; book < books; book++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		prefix := fmt.Sprintf("quantizer.quantizers.%d.", book)
-		embedding := d.weights.Tensors[prefix+"codebook.embed"]
-		es := d.weights.Shapes[prefix+"codebook.embed"]
+		prefix := d.quantizerNames[book]
+		embedding := d.weights.Tensors[d.names[prefix]["codebook.embed"]]
+		es := d.weights.Shapes[d.names[prefix]["codebook.embed"]]
 		if len(es) != 2 {
 			return nil, fmt.Errorf("omnivoice: codebook missing")
 		}
-		x := signal{make([]float32, es[1]*frames), es[1], frames}
+		x := signal{d.buffer(es[1] * frames), es[1], frames}
 		for t := 0; t < frames; t++ {
 			code := codes[book*frames+t]
 			for c := 0; c < es[1]; c++ {
 				x.data[c*frames+t] = embedding[code*es[1]+c]
 			}
 		}
-		y, err := d.conv(x, prefix+"project_out", 1, 0, 1)
+		y, err := d.conv(x, d.names[prefix]["project_out"], 1, 0, 1)
 		if err != nil {
 			return nil, err
 		}
 		simd.VecAdd(sum.data, sum.data, y.data)
+		d.release(x)
+		d.release(y)
 	}
 	x, err := d.conv(sum, "fc2", 1, 0, 1)
 	if err != nil {
 		return nil, err
 	}
+	d.release(sum)
+	previous := x
 	x, err = d.conv(x, "acoustic_decoder.conv1", 1, 3, 1)
+	d.release(previous)
 	if err != nil {
 		return nil, err
 	}
@@ -83,29 +139,36 @@ func (d *CodecDecoder) Decode(ctx context.Context, codes []int, books, frames in
 		if err = ctx.Err(); err != nil {
 			return nil, err
 		}
-		prefix := fmt.Sprintf("acoustic_decoder.block.%d.", i)
-		if err = d.snake(x, prefix+"snake1.alpha"); err != nil {
+		prefix := d.blockNames[i]
+		if err = d.snake(x, d.names[prefix]["snake1.alpha"]); err != nil {
 			return nil, err
 		}
-		x, err = d.transpose(x, prefix+"conv_t1", stride, (stride+1)/2, stride%2)
+		previous = x
+		x, err = d.transpose(x, d.names[prefix]["conv_t1"], stride, (stride+1)/2, stride%2)
+		d.release(previous)
 		if err != nil {
 			return nil, err
 		}
 		for j, dilation := range []int{1, 3, 9} {
 			res := x
-			rp := fmt.Sprintf("%sres_unit%d.", prefix, j+1)
-			work := signal{append([]float32(nil), x.data...), x.channels, x.frames}
-			if err = d.snake(work, rp+"snake1.alpha"); err != nil {
+			rp := d.residualNames[i][j]
+			work := signal{d.buffer(len(x.data)), x.channels, x.frames}
+			copy(work.data, x.data)
+			if err = d.snake(work, d.names[rp]["snake1.alpha"]); err != nil {
 				return nil, err
 			}
-			work, err = d.conv(work, rp+"conv1", 1, 3*dilation, dilation)
+			previous = work
+			work, err = d.conv(work, d.names[rp]["conv1"], 1, 3*dilation, dilation)
+			d.release(previous)
 			if err != nil {
 				return nil, err
 			}
-			if err = d.snake(work, rp+"snake2.alpha"); err != nil {
+			if err = d.snake(work, d.names[rp]["snake2.alpha"]); err != nil {
 				return nil, err
 			}
-			work, err = d.conv(work, rp+"conv2", 1, 0, 1)
+			previous = work
+			work, err = d.conv(work, d.names[rp]["conv2"], 1, 0, 1)
+			d.release(previous)
 			if err != nil {
 				return nil, err
 			}
@@ -113,13 +176,16 @@ func (d *CodecDecoder) Decode(ctx context.Context, codes []int, books, frames in
 				return nil, fmt.Errorf("omnivoice: residual dimensions differ")
 			}
 			simd.VecAdd(work.data, work.data, res.data)
+			d.release(res)
 			x = work
 		}
 	}
 	if err = d.snake(x, "acoustic_decoder.snake1.alpha"); err != nil {
 		return nil, err
 	}
+	previous = x
 	x, err = d.conv(x, "acoustic_decoder.conv2", 1, 3, 1)
+	d.release(previous)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +208,11 @@ func (d *CodecDecoder) snake(x signal, name string) error {
 	return nil
 }
 func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int) (signal, error) {
-	weight, shape := d.weights.Tensors[name+".weight"], d.weights.Shapes[name+".weight"]
-	bias := d.weights.Tensors[name+".bias"]
+	op, ok := d.ops[name]
+	if !ok {
+		op = codecOperator{d.weights.Tensors[name+".weight"], d.weights.Tensors[name+".bias"], d.weights.Shapes[name+".weight"]}
+	}
+	weight, shape, bias := op.weight, op.shape, op.bias
 	if len(shape) < 2 || len(shape) > 3 || shape[1] != x.channels {
 		return signal{}, fmt.Errorf("omnivoice: invalid conv %s", name)
 	}
@@ -155,11 +224,17 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 	if length <= 0 {
 		return signal{}, fmt.Errorf("omnivoice: short conv input")
 	}
-	y := signal{make([]float32, out*length), out, length}
+	y := signal{d.buffer(out * length), out, length}
 	const tile = 64
 	k := x.channels * kernel
-	packed := make([]float32, k*tile)
-	result := make([]float32, out*tile)
+	var packed, result []float32
+	if d.scratch != nil {
+		packed = d.scratch.packed[:k*tile]
+		result = d.scratch.result[:out*tile]
+	} else {
+		packed = make([]float32, k*tile)
+		result = make([]float32, out*tile)
+	}
 	for start := 0; start < length; start += tile {
 		n := min(tile, length-start)
 		p := packed[:k*n]
@@ -195,18 +270,27 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 	return y, nil
 }
 func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputPadding int) (signal, error) {
-	w, s := d.weights.Tensors[name+".weight"], d.weights.Shapes[name+".weight"]
-	bias := d.weights.Tensors[name+".bias"]
+	op, ok := d.ops[name]
+	if !ok {
+		op = codecOperator{d.weights.Tensors[name+".weight"], d.weights.Tensors[name+".bias"], d.weights.Shapes[name+".weight"]}
+	}
+	w, s, bias := op.weight, op.shape, op.bias
 	if len(s) != 3 || s[0] != x.channels {
 		return signal{}, fmt.Errorf("omnivoice: invalid transposed conv")
 	}
 	out, kernel := s[1], s[2]
 	length := (x.frames-1)*stride - 2*padding + kernel + outputPadding
-	y := signal{make([]float32, out*length), out, length}
+	y := signal{d.buffer(out * length), out, length}
 	const tile = 32
 	ncols := out * kernel
-	input := make([]float32, tile*x.channels)
-	projected := make([]float32, tile*ncols)
+	var input, projected []float32
+	if d.scratch != nil {
+		input = d.scratch.input[:tile*x.channels]
+		projected = d.scratch.projected[:tile*ncols]
+	} else {
+		input = make([]float32, tile*x.channels)
+		projected = make([]float32, tile*ncols)
+	}
 	for start := 0; start < x.frames; start += tile {
 		n := min(tile, x.frames-start)
 		a := input[:n*x.channels]

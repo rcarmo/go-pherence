@@ -29,10 +29,16 @@ func main() {
 func run(args []string) error {
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, generate (prepared prompt), capabilities, or audio")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize (cached reference), generate (prepared prompt), capabilities, or audio")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
+	text := flags.String("text", "", "target speech text for prepare/synthesize")
+	cachedReference := flags.String("reference-tokens", "", "cached reference codes and transcript JSON (not raw audio)")
+	frames := flags.Int("frames", 75, "target codec frames, 25 per second (1..250)")
+	language := flags.String("language", "en", "prompt language")
+	instruct := flags.String("instruct", "", "optional style instruction")
+	denoise := flags.Bool("denoise", true, "request denoised voice reference")
 	ref := flags.String("reference", "", "reference audio path for audio mode (WAV or supported MP4/AAC)")
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
@@ -76,7 +82,7 @@ func run(args []string) error {
 		}
 		return inspectAudio(*ref)
 	}
-	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" {
+	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
 	if *path == "" {
@@ -102,6 +108,19 @@ func run(args []string) error {
 		}
 		return nil
 	}
+	var prompt loader.PreparedPrompt
+	if *mode == "prepare" || *mode == "synthesize" {
+		if *input != "" {
+			return fmt.Errorf("prepare/synthesize use -text and -reference-tokens, not -input")
+		}
+		prompt, err = prepareCachedPrompt(*path, *cachedReference, *text, *frames, *language, *instruct, *denoise)
+		if err != nil {
+			return err
+		}
+		if *mode == "prepare" {
+			return writePreparedPrompt(*output, prompt)
+		}
+	}
 	selection, err := model.SelectBackend(backendMode)
 	if err != nil {
 		return err
@@ -115,6 +134,9 @@ func run(args []string) error {
 		return err
 	}
 	defer weights.Close()
+	if *mode == "synthesize" {
+		return generatePrompt(weights, generationPrompt(prompt), *output, filepath.Join(*path, "audio_tokenizer"), *steps, false)
+	}
 	if *mode == "generate" {
 		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps)
 	}

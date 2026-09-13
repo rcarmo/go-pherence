@@ -17,7 +17,9 @@
   five transposed-convolution upsampling blocks, residual convolutions with
   dilations 1/3/9, Snake activations and output convolution. Final tanh is omitted
   as required by Higgs. SIMD GEMM handles convolutions using bounded im2col tiles;
-  scatter and sine remain scalar. Current decoder allocates per operator.
+  scatter and sine remain scalar. `Prepare` reserves reusable activation slots,
+  weight lookups and convolution scratch; `DecodeInto` allocates nothing after setup.
+  `Decode` remains an allocating convenience wrapper. A decoder is single-caller.
 - Validated fixed codec variant: 24 kHz, 8 quantizers, codebook size 1024,
   decoder rates 8/5/4/2/3. Decode limit is 250 frames (10 seconds).
 - WAV output exclusively creates PCM16 mono files and attenuates only to avoid
@@ -70,6 +72,29 @@ This is a development bridge, not part of the Go executable and not a claim of
 fully native arbitrary text/reference input. Go runs all subsequent iterative
 inference, codec decoding and WAV writing without Python subprocesses.
 
+`prepare` and `synthesize` now tokenize text natively using cached reference codes:
+
+```sh
+bin/omnivoice -mode prepare -model "$MODEL" -reference-tokens voice-codes.json \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -output prompt.json
+bin/omnivoice -mode synthesize -model "$MODEL" -reference-tokens voice-codes.json \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic.wav
+```
+
+Cache fields: `books`, `frames`, flattened `[book,frame]` `codes`, exact reference
+`transcript`, optional original `ref_rms`. Reference encoding is still external.
+Use matching codes/transcript from the same recording. Language defaults to `en`,
+denoise to true; `-instruct` is optional. Maximum combined prompt is 512 positions.
+Qwen single-digit splitting and cached merge ranks pass a nine-case tokenizer
+fixture. The complete real prompt matches the Python export at all 210 positions.
+Run that private test with `GO_PHERENCE_REAL_PROMPT` pointing to a JSON object
+containing `reference` (cache) and `expected` (Python-exported prepared prompt),
+plus `GO_PHERENCE_REAL_OMNIVOICE` pointing to the model directory.
+
+Generation restores reference loudness by multiplying by `ref_rms / 0.1` when
+below 0.1, before peak limiting. This matches upstream's RMS restoration.
+
 Keep reference-derived prepared prompts private just like reference recordings.
 They are not fixtures/source exports. The checked-in tiny checkpoint is random
 synthetic test data, and the decoder fixture uses synthetic code IDs.
@@ -96,19 +121,43 @@ Full `go test ./backends/...` was run because a reusable backend entry point was
 added. Existing SpacemiT package build/test failures reproduce on untouched
 `e4c24e6f`. SIMD runtime tests pass; no architecture assembly was changed.
 
+## Cached-reference profiling and FP16 conversion (2026-09-13)
+
+Same 3-second text, approved chess reference cache, eight steps, seed 42, two
+threads. Profiled generation/decode-save times exclude about three seconds of
+CLI tokenization/backend discovery/setup. Single runs, not statistical estimates:
+
+| Weight conversion | Generation | Decode/save | Combined |
+|---|---:|---:|---:|
+| Scalar | 94.75 s | 4.02 s | 98.77 s |
+| F16C plus scalar NaN scan | 82.80 s | 4.13 s | 86.93 s |
+| F16C plus vector NaN scan | 72.24 s | 4.26 s | 76.50 s |
+
+All three PCM WAVs have SHA-256
+`b38d9318dbdf478abdf7054d5da194799a4e5899dde91a6c2cb0661cb4cf3a4b`.
+The last CPU profile spans 79.44 seconds including whole-command setup.
+GEBP accounts for 58.5% of CPU samples, scalar B packing 9.5%, F16C conversion
+6.8%, scalar exponentials 4.2%. Whole-command sampled allocations in the scalar
+run were 395 MB, mainly tokenizer JSON, two streamed weight arenas and codec
+weights/scratch. This is cumulative allocation, not peak RSS. Backbone forward,
+weight reload and prepared codec decode still pass zero-allocation tests.
+
+`simd.F16LittleEndianToF32` uses detected AVX/F16C on amd64 and a scalar fallback.
+It validates byte lengths and preserves every scalar half-conversion bit pattern,
+including NaN payload/signalling bits via exceptional-block fallback. Tests cover
+all 65,536 values, tails, NaN blocks, malformed inputs and allocations. ARM64
+cross-build and no-CGo tests pass. Large finite conversion benchmark measured
+about 8.3x scalar throughput on this host; small in-cache buffers measured more.
+
 ## Still required for completion
 
-1. Native tokenizer/prompt contract validated against Qwen's exact regex and
-   special tokens. Existing generic tokenizer is close but its digit grouping
-   needs review for this model; do not claim arbitrary-text equivalence yet.
-2. Native reference encoder (DAC acoustic encoder, HuBERT semantic feature path,
-   semantic encoder, RVQ quantization) or a clearly scoped cached-voice import
-   contract approved by the user. The current codec is decode-only.
-3. Decoder scratch reuse, profiling of actual generation, matrix layout/packing
-   optimization and SIMD exponential/sine/conversion assessment.
+1. Native reference encoder: DAC acoustic encoder, HuBERT semantic feature path,
+   semantic encoder and RVQ quantization. The current codec is decode-only.
+2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
+3. Remaining SIMD work: packing, exponential/sine kernels and codec scatter.
 4. Text/reference → native speech listening acceptance against approved sample 3.
-5. Broader shape/error tests, long utterances/chunking, optional post-processing
-   matching upstream (silence removal, reference RMS gain, fades/padding).
+5. Broader shape/error tests, long utterances/chunking and optional upstream
+   post-processing (silence removal, fades/padding).
 
 The goal remains active. This is a working staged implementation, not a completed
 fully native replacement or a full-SIMD graph.

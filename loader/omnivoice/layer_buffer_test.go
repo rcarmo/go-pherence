@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/half"
 )
 
 func TestLayerBufferReuse(t *testing.T) {
@@ -66,5 +68,39 @@ func TestConvertInto(t *testing.T) {
 	}
 	if err := convertInto(make([]float32, 1), []byte{0}, "F16"); err == nil {
 		t.Fatal("bad size accepted")
+	}
+}
+
+func TestConvertIntoF16AllPatterns(t *testing.T) {
+	raw := make([]byte, 0x10000*2)
+	dst := make([]float32, 0x10000)
+	for i := range dst {
+		binary.LittleEndian.PutUint16(raw[i*2:], uint16(i))
+	}
+	if err := convertInto(dst, raw, "F16"); err != nil {
+		t.Fatal(err)
+	}
+	for i := range dst {
+		want := half.F16ToF32(uint16(i))
+		if math.Float32bits(dst[i]) != math.Float32bits(want) {
+			t.Fatalf("pattern 0x%04x got=%08x want=%08x", i, math.Float32bits(dst[i]), math.Float32bits(want))
+		}
+	}
+}
+
+func BenchmarkConvertIntoF16(b *testing.B) {
+	const n = 3584
+	raw := make([]byte, n*2)
+	dst := make([]float32, n)
+	for i := 0; i < n; i++ {
+		binary.LittleEndian.PutUint16(raw[i*2:], half.F32ToF16(float32(i%257)*0.03125-4))
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(raw)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := convertInto(dst, raw, "F16"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

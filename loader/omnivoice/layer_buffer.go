@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/half"
 )
 
@@ -83,8 +84,8 @@ func convertInto(dst []float32, raw []byte, dtype string) error {
 	}
 	switch dtype {
 	case "F16":
-		for i := range dst {
-			dst[i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+		if !simd.F16LittleEndianToF32(dst, raw) {
+			return fmt.Errorf("omnivoice: weight conversion length mismatch")
 		}
 	case "BF16":
 		for i := range dst {

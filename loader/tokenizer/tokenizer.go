@@ -17,7 +17,29 @@ type Tokenizer struct {
 	InvVocab     map[int]string // ID → token string
 	Merges       [][2]string    // BPE merge pairs in priority order
 	AddedSpecial map[string]int // Hugging Face added tokens with special=true
+
+	mergeRankOnce sync.Once
+	mergeRank     map[[2]string]int
+	byteLevelMode byteLevelPretokenizer
 }
+
+type byteLevelPretokenizer uint8
+
+const (
+	byteLevelDefault byteLevelPretokenizer = iota
+	byteLevelQwenSingleDigits
+)
+
+const (
+	qwenDigitsRunRegex    = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}+| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`
+	qwenSingleDigitSource = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`
+	qwenSingleDigitRegex  = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`
+)
+
+var (
+	qwenDigitsRunPattern   = regexp.MustCompile(qwenDigitsRunRegex)
+	qwenSingleDigitPattern = regexp.MustCompile(qwenSingleDigitRegex)
+)
 
 // Load loads a HuggingFace tokenizer.json.
 func Load(path string) (*Tokenizer, error) {
@@ -27,6 +49,15 @@ func Load(path string) (*Tokenizer, error) {
 	}
 
 	var raw struct {
+		PreTokenizer struct {
+			Type          string `json:"type"`
+			Pretokenizers []struct {
+				Type    string `json:"type"`
+				Pattern struct {
+					Regex string `json:"Regex"`
+				} `json:"pattern"`
+			} `json:"pretokenizers"`
+		} `json:"pre_tokenizer"`
 		Model struct {
 			Vocab  map[string]int  `json:"vocab"`
 			Merges json.RawMessage `json:"merges"`
@@ -48,6 +79,7 @@ func Load(path string) (*Tokenizer, error) {
 		Vocab:        raw.Model.Vocab,
 		InvVocab:     make(map[int]string, len(raw.Model.Vocab)),
 		AddedSpecial: make(map[string]int),
+		byteLevelMode: detectByteLevelPretokenizer(raw.PreTokenizer.Pretokenizers),
 	}
 	for k, v := range raw.Model.Vocab {
 		t.InvVocab[v] = k
@@ -93,7 +125,44 @@ func Load(path string) (*Tokenizer, error) {
 		}
 	}
 
+	t.initMergeRank()
 	return t, nil
+}
+
+func detectByteLevelPretokenizer(parts []struct {
+	Type    string `json:"type"`
+	Pattern struct {
+		Regex string `json:"Regex"`
+	} `json:"pattern"`
+}) byteLevelPretokenizer {
+	for _, part := range parts {
+		if part.Type != "Split" {
+			continue
+		}
+		switch part.Pattern.Regex {
+		case qwenSingleDigitSource, qwenSingleDigitRegex:
+			return byteLevelQwenSingleDigits
+		}
+		if strings.Contains(part.Pattern.Regex, `|\p{N}|`) {
+			return byteLevelQwenSingleDigits
+		}
+	}
+	return byteLevelDefault
+}
+
+func (t *Tokenizer) initMergeRank() {
+	if t == nil {
+		return
+	}
+	t.mergeRankOnce.Do(func() {
+		if len(t.Merges) == 0 {
+			return
+		}
+		t.mergeRank = make(map[[2]string]int, len(t.Merges))
+		for i, m := range t.Merges {
+			t.mergeRank[m] = i
+		}
+	})
 }
 
 // Encode tokenizes a string into token IDs.
@@ -138,12 +207,6 @@ func (t *Tokenizer) encodeOrdinary(text string) []int {
 	return t.encodeByteLevel(text)
 }
 
-// gpt2Pattern is the Qwen2/Qwen3 byte-level pre-tokenization regex. RE2 has no
-// lookahead, so the trailing-whitespace `\s+(?!\S)` clause is dropped and its
-// effect (handing the final space of an interior whitespace run to the
-// following token) is reproduced in splitWhitespaceRuns.
-var gpt2Pattern = regexp.MustCompile(`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}+| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`)
-
 // splitWhitespaceRuns emulates the `\s+(?!\S)` lookahead: for an interior
 // whitespace run that ends in a space and is followed by another token, the
 // trailing space is moved to the front of that next token (matching the
@@ -183,17 +246,23 @@ func isSpaceRun(s string) bool {
 	return len(s) > 0
 }
 
+func (t *Tokenizer) byteLevelPattern() *regexp.Regexp {
+	if t != nil && t.byteLevelMode == byteLevelQwenSingleDigits {
+		return qwenSingleDigitPattern
+	}
+	return qwenDigitsRunPattern
+}
+
 // encodeByteLevel performs faithful Qwen byte-level BPE: pre-tokenization,
 // per-byte unicode mapping, then rank-ordered merges over the byte symbols
 // (matching the inverse applied by Decode).
 func (t *Tokenizer) encodeByteLevel(text string) []int {
-	mergeRank := make(map[[2]string]int, len(t.Merges))
-	for i, m := range t.Merges {
-		mergeRank[m] = i
-	}
+	mergeRank := t.mergeRank
+	t.initMergeRank()
+	mergeRank = t.mergeRank
 	byteEncoder := getByteEncoder()
 
-	pieces := splitWhitespaceRuns(gpt2Pattern.FindAllString(text, -1))
+	pieces := splitWhitespaceRuns(t.byteLevelPattern().FindAllString(text, -1))
 	var ids []int
 	for _, piece := range pieces {
 		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
@@ -260,10 +329,8 @@ func (t *Tokenizer) encodeSentencePiece(text string) []int {
 	}
 
 	// For each piece, try direct vocab lookup first, then BPE
-	mergeRank := make(map[[2]string]int, len(t.Merges))
-	for i, m := range t.Merges {
-		mergeRank[m] = i
-	}
+	t.initMergeRank()
+	mergeRank := t.mergeRank
 
 	var ids []int
 	for _, piece := range pieces {
