@@ -1,6 +1,6 @@
 # Optional go-264 media backend
 
-`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260913160821-a109fec2a1db`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `speechjobserve` now requires an explicit `profile.media_backend`: `go264` is the shipped pure-Go profile choice and `ffmpeg` remains an explicit rollback. There is no native codec or subprocess inside the go-264 backend.
+`media.NewGo264(Go264Config{})` implements the existing `media.Adapter` with the pure-Go frontend pinned at `v0.0.0-20260913161458-9ed3d408e05d`. The entire go-264 project is MIT-licensed through its root `LICENSE`; upstream MIT notices and separate external dataset licences are retained. `speechjobserve` now requires an explicit `profile.media_backend`: `go264` is the shipped pure-Go profile choice and `ffmpeg` remains an explicit rollback. There is no native codec or subprocess inside the go-264 backend.
 
 ## Import and use
 
@@ -71,4 +71,4 @@ make speech-go264-public-check
 make speech-go264-paired-check
 ```
 
-Provider `a109fec` is published. It adds `audio.ProbeMetadata`, which fixes the consumer's former misuse of the edited `Probe` frame count as the pre-trim input to `Track.TimingPlan`. The public three-clip WAV/AAC media matrix and speech-job WAV/AAC decode checks now pass with the new pin. Promoting the server profile changes only new explicitly configured profile identities; existing deployed services were not changed or restarted.
+Provider API commit `a109fec` is included in the qualified provider release `9ed3d40`. It adds `audio.ProbeMetadata`, which fixes the consumer's former misuse of the edited `Probe` frame count as the pre-trim input to `Track.TimingPlan`. The public three-clip WAV/AAC media matrix and speech-job WAV/AAC decode checks now pass with the new pin. Promoting the server profile changes only new explicitly configured profile identities; existing deployed services were not changed or restarted.

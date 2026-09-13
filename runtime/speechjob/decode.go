@@ -26,7 +26,7 @@ type Go264DecodeConfig struct {
 	MaxDuration                   time.Duration
 }
 
-const go264DecodeProvider = "github.com/rcarmo/go-264@v0.0.0-20260913160821-a109fec2a1db"
+const go264DecodeProvider = "github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d"
 
 // FFmpegDecodeConfig is the complete FFmpeg decode-stage identity. Executable hashes
 // are required and checked before each execution; a detected change fails closed.

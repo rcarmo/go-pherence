@@ -52,7 +52,7 @@ func TestGo264DecodeStageIdentityAndValidation(t *testing.T) {
 }
 
 func TestGo264DecodeStageProviderIdentityPinned(t *testing.T) {
-	if go264DecodeProvider != "github.com/rcarmo/go-264@v0.0.0-20260913160821-a109fec2a1db" {
+	if go264DecodeProvider != "github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d" {
 		t.Fatal(go264DecodeProvider)
 	}
 }

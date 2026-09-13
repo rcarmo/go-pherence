@@ -6,7 +6,7 @@ The speech-job server now requires an explicit media backend and the shipped exa
 
 The initial audit at provider `48ff0ca` exposed a real consumer bug on all three public 48 kHz AAC-LC M4A fixtures. `audio.Probe` returns the edited source-rate extent, but the adapter passed that value to `Track.TimingPlan`, whose input is the pre-trim decoded extent. The result was `audio: malformed: decoded frames too short for timing`.
 
-Provider `a109fec2a1dbb70646c0ac649d67a83a1fe0d6af`, published as `v0.0.0-20260913160821-a109fec2a1db`, adds `audio.ProbeMetadata`. It exposes both extents plus priming, padding and leading silence. The adapter now uses that provider-owned metadata and no longer reconstructs the timing plan from the edited count.
+Provider API commit `a109fec2a1dbb70646c0ac649d67a83a1fe0d6af`, included in qualified release `9ed3d408e05dc95c8d016b76948d699da8843a0a` and pinned as `v0.0.0-20260913161458-9ed3d408e05d`, adds `audio.ProbeMetadata`. It exposes both extents plus priming, padding and leading silence. The adapter now uses that provider-owned metadata and no longer reconstructs the timing plan from the edited count.
 
 The failed pre-fix run is retained in `provider-public.log` with exit status 1. All PCM-WAV arms passed; all AAC arms failed before the correction.
 
@@ -33,3 +33,7 @@ With `GOMAXPROCS=2`, `CGO_ENABLED=0` and NVIDIA disabled:
 - `git diff --check` passes.
 
 Provider support stays narrow and fail-closed for unqualified AAC tools and container forms. Broader codec conformance and native ARM64 performance remain separate provider qualification work unless the provider owner reports otherwise.
+
+## Provider release qualification
+
+The final consumer pin is `github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d` (`9ed3d408e05dc95c8d016b76948d699da8843a0a`). Public GitHub Actions run [34768016963](https://github.com/rcarmo/go-264/actions/runs/34768016963) passed amd64 default, pure-Go, vet, race and FFmpeg-oracle coverage plus native ARM64 default, pure-Go, vet and exact NEON parity. ARM64 race instrumentation is not used as a numerical gate because it changes pinned scalar floating-point digests while assembly is uninstrumented; amd64 supplies the race evidence.
