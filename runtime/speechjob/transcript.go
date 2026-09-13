@@ -89,7 +89,7 @@ func validateTranscript(ctx context.Context, t Transcript) error {
 	}
 	previous = 0
 	for i, word := range t.Words {
-		if word.StartSample < 0 || word.EndSample <= word.StartSample || word.EndSample > t.TotalSamples || i > 0 && word.StartSample < previous || word.Speaker < -1 || word.Speaker > 63 || len(word.Text) == 0 || len(word.Text) > 65536 || !utf8.ValidString(word.Text) || strings.TrimSpace(word.Text) == "" {
+		if word.StartSample < 0 || word.EndSample < word.StartSample || word.EndSample > t.TotalSamples || i > 0 && word.StartSample < previous || word.Speaker < -1 || word.Speaker > 63 || len(word.Text) == 0 || len(word.Text) > 65536 || !utf8.ValidString(word.Text) || strings.TrimSpace(word.Text) == "" {
 			return fmt.Errorf("invalid transcript word%d", i)
 		}
 		for _, r := range word.Text {
@@ -197,7 +197,9 @@ func vttTime(ms int64) string {
 }
 
 // WriteWebVTT rounds starts down and ends up to milliseconds, preserving even
-// sub-ms spans without zero-length cues. Rounding can add <1ms to each boundary.
+// sub-ms spans without zero-length cues. Checked zero-duration word spans are
+// projected to one millisecond because WebVTT requires end>start; JSON retains
+// their exact equal sample boundaries. Rounding can add <1ms to each boundary.
 // Text is escaped (including '<', '&', '-->') before a generated voice tag; no
 // input HTML/VTT markup is trusted. Newlines/tabs become spaces to prevent blank
 // line injection of new cues or metadata. Empty transcripts produce WEBVTT only.
@@ -208,9 +210,15 @@ func WriteWebVTT(ctx context.Context, w io.Writer, t Transcript) error {
 	if e := validateTranscript(ctx, t); e != nil {
 		return e
 	}
+	return writeVTTCues(ctx, w, t.Cues)
+}
+
+// writeVTTCues renders already-validated cue-like spans. Speaker-word output
+// uses this after validating WordCue records, which may have equal boundaries.
+func writeVTTCues(ctx context.Context, w io.Writer, cues []Cue) error {
 	var b bytes.Buffer
 	b.WriteString("WEBVTT\n\n")
-	for i, c := range t.Cues {
+	for i, c := range cues {
 		if i%256 == 0 {
 			if e := ctx.Err(); e != nil {
 				return e
@@ -218,9 +226,17 @@ func WriteWebVTT(ctx context.Context, w io.Writer, t Transcript) error {
 		}
 		b.WriteString(strconv.Itoa(i + 1))
 		b.WriteByte('\n')
-		b.WriteString(vttTime(c.StartSample / 16))
+		startMS := c.StartSample / 16
+		endMS := (c.EndSample + 15) / 16
+		// Checked word alignment can legitimately put adjacent token boundaries
+		// on the same 20 ms frame. JSON preserves that zero-duration span; VTT
+		// requires end>start, so project it to the smallest representable cue.
+		if endMS <= startMS {
+			endMS = startMS + 1
+		}
+		b.WriteString(vttTime(startMS))
 		b.WriteString(" --> ")
-		b.WriteString(vttTime((c.EndSample + 15) / 16))
+		b.WriteString(vttTime(endMS))
 		b.WriteByte('\n')
 		if c.Speaker >= 0 {
 			fmt.Fprintf(&b, "<v SPEAKER_%02d>", c.Speaker)

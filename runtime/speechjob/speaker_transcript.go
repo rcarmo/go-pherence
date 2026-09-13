@@ -290,16 +290,15 @@ func WriteSpeakerTranscriptVTT(ctx context.Context, w io.Writer, d SpeakerTransc
 		return err
 	}
 	transcript := d.Transcript
+	cues := transcript.Cues
 	if len(transcript.Words) > 0 {
-		cues := make([]Cue, len(transcript.Words))
+		cues = make([]Cue, len(transcript.Words))
 		for i, word := range transcript.Words {
 			cues[i] = Cue{StartSample: word.StartSample, EndSample: word.EndSample, Speaker: word.Speaker, Text: word.Text}
 		}
-		transcript.Cues = cues
-		transcript.Words = nil
 	}
 	var body bytes.Buffer
-	if err := WriteWebVTT(ctx, &body, transcript); err != nil {
+	if err := writeVTTCues(ctx, &body, cues); err != nil {
 		return err
 	}
 	const header = "WEBVTT\n\n"

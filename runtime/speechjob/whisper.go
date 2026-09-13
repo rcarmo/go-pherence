@@ -100,7 +100,7 @@ func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 		Model           whisper.Config
 		Tokenizer       *whisper.Tokenizer
 		Suppress, Begin []int
-	}{"speechjob-go-whisper-windows-v1", cfg, model.Config, tokenizer, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens})
+	}{"speechjob-go-whisper-windows-word-zero-span-v2", cfg, model.Config, tokenizer, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens})
 	if e != nil {
 		return Stage{}, e
 	}
@@ -295,7 +295,7 @@ func validateWindow(result whisper.WindowTranscript, plan whisper.WindowPlan, ma
 	}
 	wordTokenEnd, wordEnd := 0, float64(expected.Start)/16000
 	for _, word := range result.Words {
-		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < wordEnd || word.End <= word.Start || word.End > float64(expected.End)/16000 || word.TokenStart != wordTokenEnd || word.TokenEnd <= word.TokenStart || word.TokenEnd > tokens || len(word.Word) == 0 || len(word.Word) > 65536 || !utf8.ValidString(word.Word) || strings.TrimSpace(word.Word) == "" {
+		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < wordEnd || word.End < word.Start || word.End > float64(expected.End)/16000 || word.TokenStart != wordTokenEnd || word.TokenEnd <= word.TokenStart || word.TokenEnd > tokens || len(word.Word) == 0 || len(word.Word) > 65536 || !utf8.ValidString(word.Word) || strings.TrimSpace(word.Word) == "" {
 			return fmt.Errorf("%w: window word", ErrCorrupt)
 		}
 		wordTokenEnd, wordEnd = word.TokenEnd, word.End

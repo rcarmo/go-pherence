@@ -53,7 +53,7 @@ func TestTranscriptJSONAndVTTEscaping(t *testing.T) {
 }
 func TestTranscriptWordTimelineRoundTripAndValidation(t *testing.T) {
 	tr := transcriptFixture()
-	tr.Words = []WordCue{{StartSample: 200, EndSample: 400, Speaker: -1, Text: "Olá"}, {StartSample: 500, EndSample: 700, Speaker: 1, Text: "mundo"}}
+	tr.Words = []WordCue{{StartSample: 200, EndSample: 400, Speaker: -1, Text: "Olá"}, {StartSample: 500, EndSample: 500, Speaker: -1, Text: "o"}, {StartSample: 500, EndSample: 700, Speaker: 1, Text: "mundo"}}
 	var out bytes.Buffer
 	if err := WriteTranscriptJSON(context.Background(), &out, tr); err != nil {
 		t.Fatal(err)
@@ -64,8 +64,8 @@ func TestTranscriptWordTimelineRoundTripAndValidation(t *testing.T) {
 	}
 	for _, mutate := range []func(*Transcript){
 		func(t *Transcript) { t.Words[0].StartSample = -1 },
-		func(t *Transcript) { t.Words[0].EndSample = t.Words[0].StartSample },
-		func(t *Transcript) { t.Words[1].StartSample = 100 },
+		func(t *Transcript) { t.Words[0].EndSample = t.Words[0].StartSample - 1 },
+		func(t *Transcript) { t.Words[2].StartSample = 100 },
 		func(t *Transcript) { t.Words[0].Speaker = 64 },
 		func(t *Transcript) { t.Words[0].Text = " \n" },
 	} {

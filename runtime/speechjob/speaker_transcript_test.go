@@ -74,6 +74,7 @@ func TestSpeakerWordAttributionUsesExclusiveMaximumOverlap(t *testing.T) {
 	tr.Words = []WordCue{
 		{StartSample: 320, EndSample: 640, Speaker: -1, Text: "Olá"},
 		{StartSample: 640, EndSample: 960, Speaker: -1, Text: "mundo"},
+		{StartSample: 960, EndSample: 960, Speaker: -1, Text: "o"},
 		{StartSample: 960, EndSample: 1280, Speaker: -1, Text: "!"},
 	}
 	d := speakerDocument(t, []c1.SpeakerTurn{{Start: .01, End: .1, Speaker: 0}})
@@ -89,7 +90,7 @@ func TestSpeakerWordAttributionUsesExclusiveMaximumOverlap(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.Transcript.Cues[0]
-	if len(out.Transcript.Words) != 3 || out.Transcript.Words[0].Speaker != -1 || out.Transcript.Words[1].Speaker != 1 || out.Transcript.Words[2].Speaker != -1 || out.LabelledWords != 1 || out.UnlabelledWords != 2 {
+	if len(out.Transcript.Words) != 4 || out.Transcript.Words[0].Speaker != -1 || out.Transcript.Words[1].Speaker != 1 || out.Transcript.Words[2].Speaker != -1 || out.Transcript.Words[3].Speaker != -1 || out.LabelledWords != 1 || out.UnlabelledWords != 3 {
 		t.Fatalf("word attribution=%+v cue=%+v", out.Transcript.Words, got)
 	}
 	if tr.Words[1].Speaker != -1 {
@@ -99,14 +100,14 @@ func TestSpeakerWordAttributionUsesExclusiveMaximumOverlap(t *testing.T) {
 
 func TestSpeakerWordVTTUsesPerWordLabels(t *testing.T) {
 	tr := speakerCue()
-	tr.Words = []WordCue{{StartSample: 320, EndSample: 640, Speaker: 0, Text: "Olá"}, {StartSample: 640, EndSample: 1280, Speaker: 1, Text: "mundo"}}
-	doc := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: hash([]byte("text")), DiarizationKey: hash([]byte("diar")), Policy: speakerCoveragePolicy, LabelledCues: 0, UnlabelledCues: 1, LabelledWords: 2, Transcript: tr}
+	tr.Words = []WordCue{{StartSample: 320, EndSample: 640, Speaker: 0, Text: "Olá"}, {StartSample: 640, EndSample: 640, Speaker: -1, Text: "o"}, {StartSample: 640, EndSample: 1280, Speaker: 1, Text: "mundo"}}
+	doc := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: hash([]byte("text")), DiarizationKey: hash([]byte("diar")), Policy: speakerCoveragePolicy, LabelledCues: 0, UnlabelledCues: 1, LabelledWords: 2, UnlabelledWords: 1, Transcript: tr}
 	var body bytes.Buffer
 	if err := WriteSpeakerTranscriptVTT(context.Background(), &body, doc); err != nil {
 		t.Fatal(err)
 	}
 	vtt := body.String()
-	if !strings.Contains(vtt, "NOTE Experimental Community-1 speaker labels; exclusive-turn word attribution when available.") || !strings.Contains(vtt, "00:00:00.020 --> 00:00:00.040\n<v SPEAKER_00>Olá</v>") || !strings.Contains(vtt, "00:00:00.040 --> 00:00:00.080\n<v SPEAKER_01>mundo</v>") {
+	if !strings.Contains(vtt, "NOTE Experimental Community-1 speaker labels; exclusive-turn word attribution when available.") || !strings.Contains(vtt, "00:00:00.020 --> 00:00:00.040\n<v SPEAKER_00>Olá</v>") || !strings.Contains(vtt, "00:00:00.040 --> 00:00:00.041\no") || !strings.Contains(vtt, "00:00:00.040 --> 00:00:00.080\n<v SPEAKER_01>mundo</v>") {
 		t.Fatal(vtt)
 	}
 }

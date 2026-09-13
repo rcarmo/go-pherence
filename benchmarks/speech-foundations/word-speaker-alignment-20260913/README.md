@@ -19,10 +19,12 @@ Go now exposes an opt-in checked Whisper word-timing path and preserves those ti
 With `CGO_ENABLED=0`, `GOMAXPROCS=2`, and `GO_PHERENCE_DISABLE_NVIDIA=1`:
 
 - Pinned Transformers `4.57.1` / PyTorch `2.14.0+cpu` teacher-forced JFK oracle produced token starts `0.00, 1.08, 1.34, 1.70, 2.28, 3.80, 4.70, 5.70, 5.96, 6.42, 6.72, 6.96, 7.24, 8.14, 8.62, 8.98, 9.22, 9.44, 9.70, 9.88, 10.10, 10.60, 10.98` seconds.
+- The same independent oracle plus hash-pinned MINDS inputs covers 19 Portuguese, 6 Portuguese, and 5 French words. The Go forced-token alignment matches every word, token span, and boundary within 20 ms. The oracle is reproducible with `transformers-oracle.py`; `multilingual-oracle.jsonl` retains exact inputs, tokens, words, and times.
+- One Portuguese oracle word has equal 4.30 s boundaries. The exact zero-duration span is retained in JSON, receives no speaker without positive overlap, and is projected to a one-millisecond cue only when serialising WebVTT.
 - `WHISPER_TINY_MODEL_DIR=... WHISPER_JFK_WAV=... go test ./models/whisper -run '^TestWhisperTinyJFKWordAlignment$' -count=1 -v` passed with 22 words, first `0.00`, final end `10.98`.
 - Focused matrix/DTW, UTF-8/punctuation/language grouping, validation, window mapping, reconciliation, attribution and word-VTT tests pass.
 - Full `models/whisper`, `runtime/speechjob`, and `cmd/audio/speechjobserve` packages pass; focused vet and Linux/ARM64 test compilation pass.
 
 ## Scope and holds
 
-Word timestamps are opt-in through `profile.word_timestamps`; the Community example opts in. A generation document without alignment heads is rejected before a job runs. Word alignment adds a second CPU decoder pass. No service was started or deployed. No private recording was used. Broad multilingual timestamp quality and annotated SA-WER/DER/JER remain release blockers.
+Word timestamps are opt-in through `profile.word_timestamps`; the Community example opts in. A generation document without alignment heads is rejected before a job runs. Word alignment adds a second CPU decoder pass. No service was started or deployed. No private recording was used. Tiny misrecognises substantial text in two Portuguese clips, so this is alignment parity rather than multilingual WER qualification. Broad multilingual timestamp quality and annotated SA-WER/DER/JER remain release blockers.

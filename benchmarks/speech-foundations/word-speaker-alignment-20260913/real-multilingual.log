@@ -1,0 +1,13 @@
+=== RUN   TestWhisperTinyMultilingualWordAlignment
+=== RUN   TestWhisperTinyMultilingualWordAlignment/minds-pt-0
+    word_alignment_real_test.go:111: WHISPER_MULTILINGUAL_WORD_ALIGNMENT fixture=minds-pt-0 words=19 first=0.00 last=6.64
+=== RUN   TestWhisperTinyMultilingualWordAlignment/minds-pt-1
+    word_alignment_real_test.go:111: WHISPER_MULTILINGUAL_WORD_ALIGNMENT fixture=minds-pt-1 words=6 first=0.00 last=4.68
+=== RUN   TestWhisperTinyMultilingualWordAlignment/minds-fr-0
+    word_alignment_real_test.go:111: WHISPER_MULTILINGUAL_WORD_ALIGNMENT fixture=minds-fr-0 words=5 first=0.00 last=3.16
+--- PASS: TestWhisperTinyMultilingualWordAlignment (3.68s)
+    --- PASS: TestWhisperTinyMultilingualWordAlignment/minds-pt-0 (1.23s)
+    --- PASS: TestWhisperTinyMultilingualWordAlignment/minds-pt-1 (1.15s)
+    --- PASS: TestWhisperTinyMultilingualWordAlignment/minds-fr-0 (1.10s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	3.697s

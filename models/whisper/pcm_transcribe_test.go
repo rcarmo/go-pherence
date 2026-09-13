@@ -110,9 +110,12 @@ func TestPCMTranscribeTimestampMapping(t *testing.T) {
 			t.Fatalf("accepted malformed timestamps %+v", segs)
 		}
 	}
+	_, zero, err := canonicalWindowOutput(w, nil, []WordTiming{{Word: "x", Start: .1, End: .1, TokenStart: 0, TokenEnd: 1}})
+	if err != nil || len(zero) != 1 || zero[0].Start != zero[0].End {
+		t.Fatal("checked zero-duration word rejected", zero, err)
+	}
 	for _, words := range [][]WordTiming{
 		{{Word: "x", Start: -1, End: .1, TokenStart: 0, TokenEnd: 1}},
-		{{Word: "x", Start: .1, End: .1, TokenStart: 0, TokenEnd: 1}},
 		{{Word: "x", Start: .1, End: 2, TokenStart: 0, TokenEnd: 1}},
 		{{Word: "x", Start: .1, End: .3, TokenStart: 1, TokenEnd: 2}},
 		{{Word: " ", Start: .1, End: .3, TokenStart: 0, TokenEnd: 1}},

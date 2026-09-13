@@ -59,7 +59,7 @@ func NewTranscriptStage(cfg TranscriptStageConfig) (Stage, error) {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config TranscriptStageConfig
-	}{"speechjob-transcript-exact-overlap-source-timing-v2", cfg})
+	}{"speechjob-transcript-exact-overlap-source-timing-word-zero-span-v3", cfg})
 	return Stage{Name: "transcript", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		var asr Checkpoint
 		var decoded Blob
@@ -265,7 +265,7 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 				return zero, e
 			}
 			end, e := sampleTimestamp(word.End, total)
-			if e != nil || end <= start {
+			if e != nil || end < start {
 				return zero, ErrTranscriptSampleGrid
 			}
 			result.Words = append(result.Words, WordCue{StartSample: start, EndSample: end, Speaker: -1, Text: word.Word})

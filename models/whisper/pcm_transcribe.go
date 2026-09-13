@@ -301,7 +301,7 @@ func canonicalWindowOutput(window Window, segments []Segment, words []WordTiming
 	}
 	previousEnd, previousTokenEnd := 0.0, 0
 	for _, word := range words {
-		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < previousEnd || word.End <= word.Start || word.End > valid || word.TokenStart != previousTokenEnd || word.TokenEnd <= word.TokenStart || strings.TrimSpace(word.Word) == "" {
+		if math.IsNaN(word.Start) || math.IsNaN(word.End) || math.IsInf(word.Start, 0) || math.IsInf(word.End, 0) || word.Start < previousEnd || word.End < word.Start || word.End > valid || word.TokenStart != previousTokenEnd || word.TokenEnd <= word.TokenStart || strings.TrimSpace(word.Word) == "" {
 			return nil, nil, fmt.Errorf("invalid word timestamps in PCM window %d", window.Index)
 		}
 		previousEnd, previousTokenEnd = word.End, word.TokenEnd
