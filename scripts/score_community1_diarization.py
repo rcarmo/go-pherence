@@ -29,7 +29,7 @@ def main():
         raise ValueError("output already exists")
     from pyannote.database.util import load_rttm
     from pyannote.core import Annotation, Segment, Timeline
-    from pyannote.metrics.diarization import DiarizationErrorRate
+    from pyannote.metrics.diarization import DiarizationErrorRate, JaccardErrorRate
     reference = load_rttm(args.rttm)["sample"]
     uem = Timeline([Segment(0, 30)], uri="sample")
     data = json.loads(Path(args.go_result).read_text())
@@ -45,9 +45,14 @@ def main():
             annotation[Segment(start, end), i] = str(speaker)
         scores = []
         for collar in (0., .25):
-            metric = DiarizationErrorRate(collar=collar, skip_overlap=False)
-            detail = metric(reference, annotation, uem=uem, detailed=True)
-            scores.append(dict(collar=collar, details={k: float(v) for k, v in detail.items()}))
+            der = DiarizationErrorRate(collar=collar, skip_overlap=False)
+            der_detail = der(reference, annotation, uem=uem, detailed=True)
+            jer = JaccardErrorRate(collar=collar, skip_overlap=False)
+            jer_detail = jer(reference, annotation, uem=uem, detailed=True)
+            scores.append(dict(collar=collar,
+                               details={k: float(v) for k, v in der_detail.items()},
+                               jer=float(jer_detail["jaccard error rate"]),
+                               jer_details={k: float(v) for k, v in jer_detail.items()}))
         return scores
     scores = {kind: score(result["Postprocess"][key], True) for kind, key in [("full", "FullTurns"), ("exclusive", "ExclusiveTurns")]}
     baseline = None
@@ -60,7 +65,8 @@ def main():
             raise ValueError("baseline common interval changed")
         ref_scores = score(matched[0]["turns"], False)
         baseline = dict(sha256=sha(args.baseline), scope="saved historical pyannote WAV/FF frontend reference, not a fresh matched-source neural run", scores=ref_scores,
-                        full_der_delta_pp=[100*(a["details"]["diarization error rate"]-b["details"]["diarization error rate"]) for a, b in zip(scores["full"], ref_scores)])
+                        full_der_delta_pp=[100*(a["details"]["diarization error rate"]-b["details"]["diarization error rate"]) for a, b in zip(scores["full"], ref_scores)],
+                        full_jer_delta_pp=[100*(a["jer"]-b["jer"]) for a, b in zip(scores["full"], ref_scores)])
     fresh = None
     if args.reference_dir:
         import itertools
@@ -95,6 +101,7 @@ def main():
         fresh_scores={kind:score(reference_data[kind],False) for kind in ("full","exclusive")}
         fresh=dict(reference_sha256=sha(directory/"reference.json"),scores=fresh_scores,
                    full_der_delta_pp=[100*(a["details"]["diarization error rate"]-b["details"]["diarization error rate"]) for a,b in zip(scores["full"],fresh_scores["full"])],
+                   full_jer_delta_pp=[100*(a["jer"]-b["jer"]) for a,b in zip(scores["full"],fresh_scores["full"])],
                    exact_segmentation_values=int((seg==go_seg).sum()),segmentation_values=int(seg.size),
                    embeddings_max_abs=float(np.max(np.abs(emb.astype(np.float64)-go_emb.astype(np.float64)))),
                    embeddings_values=int(emb.size), matching_turn_label_permutations=mappings,
@@ -108,7 +115,8 @@ def main():
     if args.require_reference_parity:
         if (fresh is None or fresh["exact_segmentation_values"] != fresh["segmentation_values"]
                 or fresh["embeddings_max_abs"] > 2e-4 or not fresh["matching_turn_label_permutations"]
-                or any(abs(delta) > 1e-9 for delta in fresh["full_der_delta_pp"])):
+                or any(abs(delta) > 1e-9 for delta in fresh["full_der_delta_pp"])
+                or any(abs(delta) > 1e-9 for delta in fresh["full_jer_delta_pp"])):
             raise SystemExit("fresh reference parity gate failed; evidence retained")
 
 

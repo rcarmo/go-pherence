@@ -42,16 +42,16 @@ A fresh one-thread, MKLDNN-off, batch-size1 pyannote source reference uses the s
 - Matching full and exclusive speaker turns after one global label mapping, with boundary tolerance1e-12seconds.
 - Repeated reference segmentation/embedding NPY arrays that are byte-identical. Two final-policy Go results are byte-identical, including retained diagnostics and turns.
 
-DER scoring uses the pinned RTTM, explicit UEM `[0,30]`, overlap included, and optimal speaker mapping:
+DER and JER scoring use the pinned RTTM, explicit UEM `[0,30]`, overlap included, and optimal speaker mapping:
 
-| Output | Collar | Go DER | Fresh reference DER | Delta |
+| Output | Collar | Go/reference DER | Go/reference JER | Delta |
 |---|---:|---:|---:|---:|
-| Full | 0s | 5.2073921971% | 5.2073921971% | 0pp |
-| Full | 0.25s | 1.3177976791% | 1.3177976791% | 0pp |
-| Exclusive | 0s | 10.2909394251% | 10.2909394251% | 0pp |
-| Exclusive | 0.25s | 4.9445005045% | 4.9445005045% | 0pp |
+| Full | 0s | 5.2073921971% | 6.2698658286% | 0pp |
+| Full | 0.25s | 1.3177976791% | 2.1829172432% | 0pp |
+| Exclusive | 0s | 10.2909394251% | 11.2870492000% | 0pp |
+| Exclusive | 0.25s | 4.9445005045% | 5.5840094996% | 0pp |
 
-Exclusive output is scored against the same overlapping reference, which explains its larger missed-speech contribution. The saved historical pyannote WAV/FF result also has identical full DER, but the fresh reference is the current comparison. The scorer's `--require-reference-parity` checks masks, embedding tolerance, turn mapping and full DER, writes evidence first, then exits nonzero on failure.
+Exclusive output is scored against the same overlapping reference, which explains its larger missed-speech contribution. The saved historical pyannote WAV/FF result also has identical full DER/JER, but the fresh reference is the current comparison. The scorer's `--require-reference-parity` checks masks, embedding tolerance, turn mapping, full DER and full JER, writes evidence first, then exits nonzero on failure. This audio has RTTM speaker regions but no independently annotated per-word speaker transcript, so SA-WER remains unavailable rather than being derived from a system's own ASR output.
 
 ## Retained failures and limits
 
