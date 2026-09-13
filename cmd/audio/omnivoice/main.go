@@ -49,6 +49,7 @@ func run(args []string) error {
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
 	threads := flags.Int("threads", 2, "Go execution threads")
+	workers := flags.Int("gemm-workers", 0, "persistent SIMD GEMM workers (0 keeps serial path; may exceed threads for oversubscription tests)")
 	backend := flags.String("backend", "cpu", "cpu, auto, or vulkan (Vulkan dispatch not implemented)")
 	iterations := flags.Int("iterations", 1, "resident block repetitions (1..1000)")
 	cpuProfile := flags.String("cpuprofile", "", "exclusive-create CPU profile for the whole command")
@@ -71,6 +72,12 @@ func run(args []string) error {
 	residentBytes := *residentMiB << 20
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *workers < 0 || *workers > 64 {
+		return fmt.Errorf("gemm-workers must be 0..64")
+	}
+	if *workers > 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" {
+		return fmt.Errorf("gemm-workers applies only to synthesis/generation")
 	}
 	if *threads < 1 || *threads > runtime.NumCPU() {
 		return fmt.Errorf("threads out of range")
@@ -111,7 +118,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked)
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers)
 	}
 
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
@@ -211,10 +218,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)

@@ -579,3 +579,70 @@ It remains available for combination with persistent serving and parallel SIMD
 workers; those combinations need their own measurements. Future phase-2 work
 also includes GGUF export/quantised inference and training-pipeline efficiency;
 GGUF alone does not accelerate training or supply quantised compute kernels.
+
+## Persistent parallel SIMD workers (2026-09-13)
+
+`-gemm-workers N` enables a fixed worker pool for decoder and audio-head
+projections. Zero preserves the serial default; one uses direct execution with
+pool-owned scratch. Counts up to 64 are accepted. `-threads` controls Go execution
+threads separately, so worker counts above that value test oversubscription.
+
+Workers own disjoint, complete microkernel row tiles (six rows on AMD64, four
+on other targets) and call the existing packed SIMD
+microkernel. Each dot product retains its accumulation order. The caller handles
+remaining rows after workers finish. Prepacked weights are shared read-only;
+streamed packing uses per-worker scratch allocated at construction. Attention
+and codec operators retain their existing execution paths.
+
+`EnableWorkers(N)` attaches a pool before constructing CFG siblings. Siblings
+borrow that pool and must finish before the owner calls `Close`. Backbone setup,
+inference and close all require exclusive access, following its single-caller
+contract. The lower-level `GEMMPool` serialises runs and supports concurrent,
+idempotent close. Cancellation waits for submitted jobs before returning; a
+running SIMD kernel cannot be interrupted. Reusing output after cancellation is
+safe, but its contents may contain completed rows.
+
+### Measured combinations
+
+This N100 VM exposes **two vCPUs**. Four workers are an oversubscription
+experiment, not a four-core measurement. The repeated microbenchmark used
+`m=128, n=1024, k=1024` with `GOMAXPROCS=4` on these two vCPUs; all paths
+reported **0 B/op, 0 allocs/op**:
+
+| Workers | Streamed packing | Prepacked |
+|---|---:|---:|
+| 1 | 6.46–6.59 ms | 6.91–6.97 ms |
+| 2 | 4.24–4.32 ms | 4.08–4.10 ms |
+| 4 | 4.77–4.80 ms | 4.36–4.72 ms |
+
+The same prepared three-second prompt, eight steps and seed 42 produced the
+following single-shot measurements with two execution threads:
+
+| Workers | Resident mode | Command | Generation incl. cache setup | Cache setup |
+|---|---|---:|---:|---:|
+| 2 | raw float32 | 65.50 s | 62.20 s | 2.07 s |
+| 2 | raw + prepacked | 66.01 s | 62.32 s | 7.41 s |
+| 4 | raw float32 | 61.34 s | 58.33 s | 1.37 s |
+| 4 | raw + prepacked | 68.78 s | 65.76 s | 13.66 s |
+
+All four WAV files have SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+These runs verify exact output preservation. Cache setup varied substantially;
+the end-to-end table does not establish a stable winning configuration. Two
+workers lead the isolated GEMM benchmark. Persistent-process comparisons are
+needed to measure amortised setup. Residency/prepacking retain their existing
+budgets; worker scratch adds `workers * maxK * 16 * 4` bytes for multiworker pools.
+
+Tests cover exact padded/tail GEMM output for 1/2/4 workers, streamed/prepacked
+zero allocations, short/aliased-buffer rejection, deterministic cancellation
+after submission with immediate retry, concurrent close during active Run,
+generation/backbone reuse, and sibling ownership. Owner-close-before-borrower-use
+fails explicitly with `ErrGEMMPoolClosed`. Affected tests, race tests, vet,
+no-CGo tests and Linux ARM64 build pass. Repository-wide backend tests and build
+still fail in unrelated SpacemiT/DiffusionGemma code; the same failures were
+reproduced in a clean `b669553d` worktree (build diagnostics identical).
+
+Local evidence is in `/workspace/tmp/omnivoice-workers-*.log`,
+`omnivoice-workers{2,4}-*-v*.json` and the corresponding synthetic WAVs. The
+initial four-worker attempt failed CLI validation before inference and is
+excluded. The successful four-worker results use suffix `v2`.

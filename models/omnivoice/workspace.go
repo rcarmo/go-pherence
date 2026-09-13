@@ -1,6 +1,7 @@
 package omnivoice
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
@@ -22,6 +23,8 @@ type Workspace struct {
 	scores, headout, qhead, khead, vhead    []float32
 	cos, sin, rotA, rotB                    []float32
 	positions                               []int
+	pool                                    *simd.GEMMPool
+	executionContext                        context.Context
 }
 
 // NewWorkspace reserves scratch once. The hot path does not grow it implicitly.
@@ -141,6 +144,14 @@ func (s *Workspace) linearInto(y, x, w []float32, rows, in, out int) {
 	if !simd.SgemmNTPackedTo(y, x, w, s.packed, rows, out, in, 1, in, in, out) {
 		panic("omnivoice: internal linear shape error")
 	}
+}
+func (s *Workspace) linearIntoWithPool(y, x, w []float32, rows, in, out int) error {
+	if s != nil && s.pool != nil && s.executionContext != nil {
+		clear(y)
+		return s.pool.Run(s.executionContext, y, x, w, nil, rows, out, in, 1, in, in, out)
+	}
+	s.linearInto(y, x, w, rows, in, out)
+	return nil
 }
 func normalizeInto(y, x, w []float32, rows, width int, eps float32) {
 	copy(y, x)

@@ -162,15 +162,20 @@ func (b *Block) validateInput(x []float32, tokens int, positions []int, mask []f
 	return nil
 }
 
-func (b *Block) linearInto(s *Workspace, y, x, w []float32, key string, rows, in, out int) {
+func (b *Block) linearInto(s *Workspace, y, x, w []float32, key string, rows, in, out int) error {
+	if s != nil && s.pool != nil && s.executionContext != nil {
+		clear(y)
+		return s.pool.Run(s.executionContext, y, x, w, b.prepacked[key], rows, out, in, 1, in, in, out)
+	}
 	if packed := b.prepacked[key]; len(packed) != 0 {
 		clear(y)
 		if !simd.SgemmNTPrepackedTo(y, x, w, packed, rows, out, in, 1, in, in, out) {
 			panic("omnivoice: internal linear shape error")
 		}
-		return
+		return nil
 	}
 	s.linearInto(y, x, w, rows, in, out)
+	return nil
 }
 
 // ForwardInto is the allocation-free block path after workspace construction.
@@ -188,9 +193,15 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 	w := b.weights
 	norm, q, k, v, attended := s.norm, s.q, s.k, s.v, s.attended
 	normalizeInto(norm, x, w["input_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	b.linearInto(s, q, norm, w["self_attn.q_proj.weight"], "self_attn.q_proj.weight", tokens, h, nh*d)
-	b.linearInto(s, k, norm, w["self_attn.k_proj.weight"], "self_attn.k_proj.weight", tokens, h, nkv*d)
-	b.linearInto(s, v, norm, w["self_attn.v_proj.weight"], "self_attn.v_proj.weight", tokens, h, nkv*d)
+	if err := b.linearInto(s, q, norm, w["self_attn.q_proj.weight"], "self_attn.q_proj.weight", tokens, h, nh*d); err != nil {
+		return err
+	}
+	if err := b.linearInto(s, k, norm, w["self_attn.k_proj.weight"], "self_attn.k_proj.weight", tokens, h, nkv*d); err != nil {
+		return err
+	}
+	if err := b.linearInto(s, v, norm, w["self_attn.v_proj.weight"], "self_attn.v_proj.weight", tokens, h, nkv*d); err != nil {
+		return err
+	}
 	normalizeInto(q, q, w["self_attn.q_norm.weight"], tokens*nh, d, float32(c.RMSNormEps))
 	normalizeInto(k, k, w["self_attn.k_norm.weight"], tokens*nkv, d, float32(c.RMSNormEps))
 	s.prepareRoPE(positions)
@@ -223,11 +234,17 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
 		}
 	}
-	b.linearInto(s, s.down, attended, w["self_attn.o_proj.weight"], "self_attn.o_proj.weight", tokens, nh*d, h)
+	if err := b.linearInto(s, s.down, attended, w["self_attn.o_proj.weight"], "self_attn.o_proj.weight", tokens, nh*d, h); err != nil {
+		return err
+	}
 	simd.VecAdd(dst, s.down, x)
 	normalizeInto(norm, dst, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	b.linearInto(s, s.gate, norm, w["mlp.gate_proj.weight"], "mlp.gate_proj.weight", tokens, h, c.IntermediateSize)
-	b.linearInto(s, s.up, norm, w["mlp.up_proj.weight"], "mlp.up_proj.weight", tokens, h, c.IntermediateSize)
+	if err := b.linearInto(s, s.gate, norm, w["mlp.gate_proj.weight"], "mlp.gate_proj.weight", tokens, h, c.IntermediateSize); err != nil {
+		return err
+	}
+	if err := b.linearInto(s, s.up, norm, w["mlp.up_proj.weight"], "mlp.up_proj.weight", tokens, h, c.IntermediateSize); err != nil {
+		return err
+	}
 	// GEMM packing scratch is idle during activation; process bounded tiles
 	// rather than reserving another full feed-forward activation tensor.
 	for start := 0; start < len(s.gate); start += len(s.packed) {
@@ -236,7 +253,9 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			return fmt.Errorf("omnivoice: SiLU scratch shape failed")
 		}
 	}
-	b.linearInto(s, s.down, s.gate, w["mlp.down_proj.weight"], "mlp.down_proj.weight", tokens, c.IntermediateSize, h)
+	if err := b.linearInto(s, s.down, s.gate, w["mlp.down_proj.weight"], "mlp.down_proj.weight", tokens, c.IntermediateSize, h); err != nil {
+		return err
+	}
 	simd.VecAdd(dst, dst, s.down)
 	return nil
 }

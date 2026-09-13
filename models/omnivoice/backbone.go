@@ -14,6 +14,11 @@ import (
 // tokenize text, sample new audio tokens or run the learned waveform codec.
 //
 // EnableResident optionally builds a shared immutable decoder-layer cache.
+// EnableWorkers optionally installs a persistent GEMM pool sized for the
+// backbone hidden/intermediate projections. Worker-pool borrowing follows the
+// same sequential sibling contract as resident caches: a sibling created after
+// workers are enabled borrows that pool, existing siblings are unchanged, and a
+// parent must not close an owned pool until borrowed siblings are done with it.
 // Resident sharing follows the existing sequential sibling contract and is not
 // additionally synchronized for concurrent use.
 type Backbone struct {
@@ -22,8 +27,11 @@ type Backbone struct {
 	resident                            *residentCache
 	block                               *Block
 	scratch                             *Workspace
+	pool                                *simd.GEMMPool
 	hidden, row, head, headOutput, norm []float32
 	tokens, maxTokens, chunk            int
+	poolWorkers                         int
+	ownsPool                            bool
 }
 
 // NewBackbone borrows weights; caller must keep it open until all calls finish.
@@ -34,13 +42,20 @@ func NewBackbone(weights *loader.Weights, tokens int) (*Backbone, error) {
 }
 
 // NewBackboneSibling shares the streamed weight arena, any enabled resident
-// cache, but owns all activations. Neither sibling may execute concurrently;
-// intended for sequential CFG branches.
+// cache, and any worker pool already attached to the parent, but owns all other
+// activations. Neither sibling may execute concurrently; intended for
+// sequential CFG branches.
 func NewBackboneSibling(parent *Backbone, tokens int) (*Backbone, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("omnivoice: nil parent backbone")
 	}
-	return newBackbone(parent.weights, tokens, parent.layer, parent.resident)
+	b, err := newBackbone(parent.weights, tokens, parent.layer, parent.resident)
+	if err != nil {
+		return nil, err
+	}
+	b.pool = parent.pool
+	b.poolWorkers = parent.poolWorkers
+	return b, nil
 }
 
 func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer, resident *residentCache) (*Backbone, error) {
@@ -132,6 +147,12 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 	if err := b.block.validateInput(b.hidden, b.tokens, positions, mask); err != nil {
 		return err
 	}
+	b.scratch.pool = b.pool
+	b.scratch.executionContext = ctx
+	defer func() {
+		b.scratch.pool = nil
+		b.scratch.executionContext = nil
+	}()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -195,7 +216,9 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 			return err
 		}
 		out := b.headOutput[:b.tokens*count]
-		b.scratch.linearInto(out, b.hidden, head, b.tokens, h, count)
+		if err := b.scratch.linearIntoWithPool(out, b.hidden, head, b.tokens, h, count); err != nil {
+			return err
+		}
 		for j := 0; j < count; j++ {
 			book, word := (first+j)/vocab, (first+j)%vocab
 			for t := 0; t < b.tokens; t++ {
