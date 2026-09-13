@@ -132,6 +132,8 @@ CPU-only implementation checkpoints on Go 1.26.2, linux/amd64. The PCM integrati
 
 - [sincnet-lowered-fma-20260912](sincnet-lowered-fma-20260912/README.md): explicit lowered filters and serial-order Go/Plan 9 FMA; seven synthetic endpoints pass unchanged `2e-4`, scalar/SIMD bit-exact. Stage-0 boundary still fails `3.81e-4`; original four strict failures retained. 627 scoped pass events, 390 shuffled repetitions; no trained integration or timing claim. `a778437` repairs two Vulkan test import boundaries.
 
+- [sincnet-tail-diagnosis-20260913](sincnet-tail-diagnosis-20260913/README.md): model-free closure of the retained `0.00038086623` intermediate mismatch. Pool winners and standalone normalization are exact; one `1.7314451e-6` pooled tail delta is amplified by whole-window normalization. Prefix sweeps show PyTorch CPU `conv1d` switches reduction behavior by output-count epilogue. No tolerance/runtime change.
+
 - [community1-trained-segmentation-20260912](community1-trained-segmentation-20260912/README.md): explicit experimental PCM→SincNet→four-layer LSTM→head on pinned3533c8/54F32tensors, deterministic offline conversion. Fourcases×3 endpoint2e-4/hardmasks pass;138/144 boundary comparisons pass, silence1.0526/public2.23e-4 failures retained. 630scoped/90shufflepass, no DER/timing/service default change; CC-BY4 weights not shipped.
 
 - [community1-trained-embedding-20260912](community1-trained-embedding-20260912/README.md): experimental PCM→Fbank→ResNet34→masked pooling, owner-bound reusable trunk;218tensor deterministic conversion. 48trained embedding endpoints pass(max3.10e-6),264/564strict frontend/trunk/support comparisons FAIL retained;668scoped+90shufflepass. No numerical/default changes, fullDER or timing claim.

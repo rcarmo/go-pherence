@@ -1,0 +1,22 @@
+=== RUN   TestZZZSincNetOutputSweep
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=112 first=-1 last=-1 changed=0 max=0
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=113 first=-1 last=-1 changed=0 max=0
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=114 first=112 last=113 changed=158 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=115 first=112 last=113 changed=158 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=116 first=112 last=115 changed=317 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=117 first=112 last=115 changed=317 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=118 first=112 last=117 changed=476 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=119 first=112 last=117 changed=476 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=120 first=-1 last=-1 changed=0 max=0
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=121 first=-1 last=-1 changed=0 max=0
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=122 first=120 last=121 changed=160 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=123 first=120 last=121 changed=160 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=124 first=120 last=123 changed=319 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=125 first=120 last=123 changed=319 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=126 first=120 last=125 changed=478 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=127 first=120 last=125 changed=478 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=128 first=120 last=127 changed=636 max=2.288818359375e-05
+    zzz_sincnet_sweep_test.go:46: SWEEP frames=129 first=120 last=127 changed=636 max=2.288818359375e-05
+--- PASS: TestZZZSincNetOutputSweep (0.29s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.299s
