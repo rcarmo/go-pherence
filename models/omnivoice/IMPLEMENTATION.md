@@ -646,3 +646,49 @@ Local evidence is in `/workspace/tmp/omnivoice-workers-*.log`,
 `omnivoice-workers{2,4}-*-v*.json` and the corresponding synthetic WAVs. The
 initial four-worker attempt failed CLI validation before inference and is
 excluded. The successful four-worker results use suffix `v2`.
+
+## Step-count comparison (2026-09-13)
+
+Four, six and eight denoising steps were compared using the same private prepared
+prompt, three-second target, seed 42, two SIMD workers, two execution threads,
+resident float32 decoder cache (1700 MiB budget), and no prepacking/postprocessing.
+Each measurement starts a new process. Runs execute serially in orders 4/6/8 and
+8/6/4; filesystem caches are not flushed. Timings include cache construction and
+codec loading and exclude reference encoding/text preparation.
+
+| Steps | Command, run 1 / 2 | Generation, run 1 / 2 | Decode/save, run 1 / 2 |
+|---|---:|---:|---:|
+| 4 | 24.67 / 30.11 s | 21.62 / 27.13 s | 3.05 / 2.99 s |
+| 6 | 44.01 / 43.68 s | 40.76 / 40.72 s | 3.25 / 2.96 s |
+| 8 | 56.93 / 52.02 s | 53.86 / 48.91 s | 3.07 / 3.11 s |
+
+Generation currently includes resident setup (1.03–1.18 s), sampler/backbone
+construction and denoising. Decode/save includes codec loading and preparation;
+these counters cannot yet separate every stage for the final timing chart.
+Four steps averaged 27.39 s versus 54.48 s at eight (about 2.0× faster) on this
+short prompt. Six averaged 43.84 s. Two runs establish a useful experiment,
+not a general speed/quality guarantee.
+
+All outputs contain 72,000 PCM16 samples at 24 kHz, with no clipped samples.
+Both runs at each step count are byte-identical. Eight steps reproduces the
+previous worker baseline exactly. Four/six steps change the waveform, as expected:
+
+| Steps | Peak PCM16 | RMS PCM16 | External ASR transcript |
+|---|---:|---:|---|
+| 4 | 11,917 | 892.48 | The evidence is insufficient, Captain. |
+| 6 | 13,809 | 1,122.85 | The evidence is insufficient, Captain. |
+| 8 | 15,953 | 1,080.48 | The evidence is insufficient, Captain. |
+
+SHA-256, respectively:
+
+- 4: `76a75b5c7a7476ceed1cb3df1e68c44269d050c51c47ea05e39359fc890c356d`
+- 6: `fe9363c4776742e1c2f73fbe89a9a2b31e0f94804885ebfb2393a3e3ede6c766`
+- 8: `e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`
+
+External ASR verifies the words only. Lower-step voice similarity, prosody and
+artifacts require listening; neither lower-step mode has quality approval.
+The CLI default is unchanged. Long/multilingual lower-step tests have not run.
+Local evidence: `/workspace/tmp/omnivoice-steps{4,6,8}-workers2-v{1,2}.json`,
+`omnivoice-steps-validation.json`, `omnivoice-quality-steps{4,6,8}-asr.json` and
+`synthetic-spock-steps{4,6,8}-workers2-v{1,2}.wav`. Audio and reference-derived
+prompts remain private and are not committed.
