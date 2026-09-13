@@ -193,6 +193,119 @@ func TestVulkanTurboQ8Robustness(t *testing.T) {
 	t.Log("TURBO_Q8_ROBUSTNESS_RESULT " + string(result))
 }
 
+func TestVulkanTurboQ8Podcast(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_PODCAST") != "1" {
+		t.Skip("explicit Turbo selective-Q8 natural long-form qualification required")
+	}
+	deadline, bounded := t.Deadline()
+	if !bounded || time.Until(deadline) > 3*time.Minute {
+		t.Fatal("Turbo selective-Q8 podcast qualification requires timeout<=3m")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 170*time.Second)
+	defer cancel()
+	model, tok, policy := pinnedTurboSpeechModel(t, ctx)
+	if !vk.VulkanInit() {
+		t.Fatal("Vulkan unavailable")
+	}
+	device := vk.VulkanDeviceName()
+	wantDevice := os.Getenv("GO_PHERENCE_VULKAN_DEVICE")
+	lower := strings.ToLower(device)
+	if wantDevice == "" || !strings.Contains(device, wantDevice) || strings.Contains(lower, "llvmpipe") || strings.Contains(lower, "lavapipe") {
+		t.Fatal("unexpected physical device", device)
+	}
+	before := vk.VulkanMemoryStats()
+	if before.Allocations != 0 || before.Bytes != 0 {
+		t.Fatal("isolated process required", before)
+	}
+	if err := vk.VulkanSetMemoryBudget(vk.VulkanMemoryBudget{MaxBytes: 4 << 30, MaxAllocations: 40}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := vk.VulkanSetMemoryBudget(before.Budget); err != nil {
+			t.Error(err)
+		}
+		after := vk.VulkanMemoryStats()
+		if after.Allocations != before.Allocations || after.Bytes != before.Bytes {
+			t.Error("Turbo selective-Q8 podcast leak", before, after)
+		}
+	}()
+	const sourceSHA = "8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601"
+	const startSample = int64(300 * 16000)
+	const samples = int64(90 * 16000)
+	podcast := os.Getenv("GO_PHERENCE_WHISPER_PODCAST_PATH")
+	pinnedSpeechFile(t, podcast, sourceSHA)
+	r, err := media.OpenCanonicalPCM(ctx, podcast)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pcm := make([]float32, samples)
+	n, readErr := r.ReadSamplesAt(ctx, pcm, startSample)
+	closeErr := r.Close()
+	if n != len(pcm) || readErr != nil || closeErr != nil {
+		t.Fatal("podcast window read", n, readErr, closeErr)
+	}
+	windowPath := filepath.Join(t.TempDir(), "podcast-300s-90s.wav")
+	writeSpeechFixturePCM(t, windowPath, pcm)
+	run := func(name string, enc *VulkanEncoder) ([]WindowTranscript, int64) {
+		reader, err := media.OpenCanonicalPCM(ctx, windowPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var windows []WindowTranscript
+		start := time.Now()
+		err = model.TranscribePCMWindows(ctx, reader, samples, tok, PCMTranscribeOptions{Language: "en", Generation: policy, MaxNewTokens: 96, VulkanEncoder: enc}, func(w WindowTranscript) error {
+			windows = append(windows, w)
+			return nil
+		})
+		ns := time.Since(start).Nanoseconds()
+		closeErr := reader.Close()
+		if err != nil || closeErr != nil {
+			t.Fatal(name, err, closeErr)
+		}
+		t.Logf("TURBO_Q8_PODCAST_SAMPLE path=%s wall_ns=%d", name, ns)
+		return windows, ns
+	}
+	base, err := NewVulkanEncoder(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer base.Close()
+	baseline, baseNS := run("f32", base)
+	if err = base.Close(); err != nil {
+		t.Fatal(err)
+	}
+	q8, err := NewVulkanEncoderQ8KVMLPWeight(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q8.Close()
+	quantized, q8NS := run("q8-kv-mlp", q8)
+	stats := q8.Stats()
+	if err = q8.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(baseline) != 3 || len(quantized) != 3 {
+		t.Fatal("incomplete podcast windows", len(baseline), len(quantized))
+	}
+	if !reflect.DeepEqual(baseline, quantized) {
+		baselineJSON, _ := json.Marshal(baseline)
+		candidateJSON, _ := json.Marshal(quantized)
+		t.Fatalf("selective Q8 podcast transcript changed\nf32=%s\nq8_kv_mlp=%s", baselineJSON, candidateJSON)
+	}
+	segments, tokens := 0, 0
+	for _, window := range quantized {
+		segments += len(window.Segments)
+		for _, segment := range window.Segments {
+			tokens += len(segment.Tokens)
+		}
+	}
+	if segments == 0 || tokens == 0 {
+		t.Fatal("podcast gate produced no speech", segments, tokens)
+	}
+	result, _ := json.Marshal(map[string]any{"device": device, "source_sha256": sourceSHA, "start_samples": startSample, "samples": samples, "windows": len(quantized), "segments": segments, "tokens": tokens, "exact_tokens_timestamps": true, "f32_ns": baseNS, "q8_kv_mlp_ns": q8NS, "speedup": float64(baseNS) / float64(q8NS), "q8_kv_mlp_stats": stats, "labeled_quality": false})
+	t.Log("TURBO_Q8_PODCAST_RESULT " + string(result))
+}
+
 func TestVulkanTurboQ8Weight(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_WEIGHT") != "1" {
 		t.Skip("explicit trained Turbo Q8-weight qualification required")

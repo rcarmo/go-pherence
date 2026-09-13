@@ -83,7 +83,9 @@ Final robustness log SHA-256: `960ec87bf871eaf3d02ad003af07a58c488511241138fa8a8
 
 ## Decision
 
-Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit K+V+MLP Q8 is the broadest retained exact-output candidate at `1.509×` and 61.7% lower reported encoder-weight storage. MLP-only Q8 remains a narrower exact comparison. None changes serving/default selection. Natural noisy/long-form inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
+Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit K+V+MLP Q8 is the broadest retained exact-output candidate at `1.509×` and 61.7% lower reported encoder-weight storage. MLP-only Q8 remains a narrower exact comparison. Commit `26cb176` adds an explicit `speechjobserve` selector only for K+V+MLP; F32 remains the default and full Q8 has no server selector.
+
+A separate opt-in `speech-vulkan-turbo-q8-podcast-check` target is prepared for the repository's tracked `testdata/podcast.wav` (SHA-256 `8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601`). It reads 90 seconds from offset 300 seconds, requires three complete non-empty windows, and compares F32 with K+V+MLP for exact token/timestamp parity under the same physical-device and 4 GiB/40-allocation gates. It has not been executed in this checkpoint. The clip has no pinned transcript for that interval, so the target can establish natural long-form parity but not WER or source-quality acceptance. Broader labeled/noisy quality, energy/stress, recovery and Community-1 placement remain open.
 
 ## Reproduce
 
@@ -105,4 +107,11 @@ export GO_PHERENCE_MINDS_FIXTURE_DIR=/path/to/pinned/MINDS-cache
 export GO_PHERENCE_TEST_VULKAN_TURBO_Q8_SPEECH=1
 export GO_PHERENCE_TEST_VULKAN_TURBO_Q8_MULTILINGUAL=1
 GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-turbo-q8-weight-check
+```
+
+Run the separate natural 90-second/three-window parity gate:
+
+```sh
+export GO_PHERENCE_WHISPER_PODCAST_PATH="$PWD/testdata/podcast.wav"
+GOMAXPROCS=2 CGO_ENABLED=0 make speech-vulkan-turbo-q8-podcast-check
 ```
