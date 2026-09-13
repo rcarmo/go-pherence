@@ -315,6 +315,48 @@ Private result `/workspace/tmp/synthetic-spock-native-processed-v1.wav`; timings
 parity, race/no-CGo checks and ARM64 cross-builds pass. Listening acceptance has
 not been recorded.
 
+## Bounded long-utterance generation (2026-09-13)
+
+`plan-chunks` writes private prepared chunk JSON without model inference.
+`synthesize-long` prepares the same plan, loads the model/reference/decoder once,
+then generates chunks sequentially using a shared streamed weight arena.
+Per-chunk activation and logits setup still allocates. `-frames` is the maximum
+per-chunk frame count in these modes, not the total output duration.
+
+```sh
+bin/omnivoice -mode plan-chunks -model "$MODEL" \
+  -reference-tokens reference-codes.json -text 'A longer paragraph...' \
+  -frames 100 -output private-chunk-plan.json
+bin/omnivoice -mode synthesize-long -model "$MODEL" -postprocess \
+  -reference-tokens reference-codes.json -text 'A longer paragraph...' \
+  -frames 100 -steps 8 -output synthetic-long.wav
+```
+
+The planner uses upstream-style character weighting and short-duration boost,
+with a native bounded partition policy: prefer punctuation, then words, then
+safe rune boundaries. Actual tokenisation must fit 512 positions. Bracketed tags
+and `<|...|>` control tokens cannot be split; oversized protected spans fail.
+Concatenating chunk text exactly reconstructs trimmed input. Input is bounded to
+16,000 runes, 128 chunks and 15,000 generated frames (10 minutes). UTF-8 errors
+are rejected. Candidate prompts are not retained in a large cache. Estimates
+are heuristic; they do not establish multilingual pronunciation quality.
+
+Chunks retain the same reference and restart seed 42. Assembly applies 5 ms
+edge fades and 100 ms gaps, even without `-postprocess`; with that flag, each
+chunk also gets output silence trimming and reference loudness restoration.
+It does not apply the single-shot 100 ms fades/padding to every chunk. This
+policy is not upstream chunk-equivalent and can affect inter-chunk prosody.
+
+Real checkpoint test: a five-sentence paragraph produced 13.42 seconds across
+four chunks (342 target frames) in 344.46 seconds at eight steps. Azure Speech
+recovered the entire paragraph exactly, including a word-boundary split inside
+one sentence (confidence 0.842). Listening acceptance has not been recorded.
+Private audio `/workspace/tmp/synthetic-spock-long-v1.wav`; metadata
+`/workspace/tmp/omnivoice-long-v1.json`; ASR `/workspace/tmp/omnivoice-long-asr.json`.
+Text/tag preservation, CJK boundaries, insufficient capacity, excessive chunks,
+invalid UTF-8 and wave-assembly tests pass, including real-tokenizer planning.
+Native tests/vet, race/no-CGo checks and ARM64 cross-build pass.
+
 ## Still required for completion
 
 1. Reduce setup memory (loaded weights and conservatively sized scratch) and
@@ -323,8 +365,8 @@ not been recorded.
 3. Remaining SIMD work: packing, SiLU division/GELU, sine and codec scatter;
    exponential/softmax SIMD currently accelerates amd64 only.
 4. Text/reference → native speech listening acceptance against approved sample 3.
-5. Broader shape/error tests and long utterances/chunking, including continuity
-   at generated chunk boundaries.
+5. Broader long-utterance quality tests and listening evaluation of continuity
+   at generated chunk boundaries; reduce per-chunk setup allocations.
 
 The goal remains active. This is a working staged implementation, not a completed
 fully native replacement or a full-SIMD graph.

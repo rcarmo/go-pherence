@@ -30,13 +30,13 @@ func run(args []string) error {
 	commandStarted := time.Now()
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, encode-reference, generate (prepared prompt), capabilities, or audio")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, prepare, synthesize, synthesize-long, plan-chunks, encode-reference, generate (prepared prompt), capabilities, or audio")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
 	text := flags.String("text", "", "target speech text for prepare/synthesize")
 	cachedReference := flags.String("reference-tokens", "", "cached reference codes and transcript JSON (not raw audio)")
-	frames := flags.Int("frames", 75, "target codec frames, 25 per second (1..250)")
+	frames := flags.Int("frames", 75, "target frames, or maximum per chunk in long modes, 25/sec (1..250)")
 	language := flags.String("language", "en", "prompt language")
 	instruct := flags.String("instruct", "", "optional style instruction")
 	denoise := flags.Bool("denoise", true, "request denoised voice reference")
@@ -86,9 +86,19 @@ func run(args []string) error {
 		}
 		return inspectAudio(*ref)
 	}
-	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" {
+	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" && *mode != "plan-chunks" && *mode != "synthesize-long" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
+	if *mode == "plan-chunks" || *mode == "synthesize-long" {
+		if *path == "" || *input != "" {
+			return fmt.Errorf("chunk mode requires -model and text/reference flags, not -input")
+		}
+		if _, err := model.SelectBackend(backendMode); err != nil {
+			return err
+		}
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess)
+	}
+
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
 		return fmt.Errorf("preprocess-reference requires raw reference preparation")
 	}

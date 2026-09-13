@@ -1,6 +1,6 @@
 # OmniVoice native CPU port
 
-Native text/reference-WAV→speech execution includes HuBERT/DAC reference encoding, Qwen3 denoising and HiggsAudioV2 decoding. The Go executable does not invoke Python. References require an explicit transcript. `-preprocess-reference` enables upstream-compatible reference silence trimming; `-postprocess` trims generated silence and applies fades/padding. Both default off for reproducible raw output. Long-utterance chunking is not yet implemented. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for parity, profiling and remaining work.
+Native text/reference-WAV→speech execution includes HuBERT/DAC reference encoding, Qwen3 denoising and HiggsAudioV2 decoding. The Go executable does not invoke Python. References require an explicit transcript. `-preprocess-reference` enables upstream-compatible reference silence trimming; `-postprocess` trims generated silence and applies fades/padding. Both default off for reproducible raw output. `plan-chunks` previews bounded text partitions; `synthesize-long` generates and joins them using a fixed reference, 5 ms edge fades and 100 ms gaps. This boundary policy is native and differs from upstream chunking. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for parity, profiling and remaining work.
 
 `NewBackboneSibling` shares a streamed weight arena for sequential classifier-free-guidance branches. Never run sibling forwards concurrently. Backbone, codec and reference workspaces are single-caller; output/input alias restrictions in each API are caller obligations.
 
@@ -11,7 +11,7 @@ Native text/reference-WAV→speech execution includes HuBERT/DAC reference encod
 - Batch-one Qwen3 decoder block: input RMSNorm, Q/K head RMSNorm, default split-half RoPE, non-causal grouped-query attention with optional additive mask, output projection, residuals, SiLU-gated MLP.
 - SIMD GEMM, normalization and SiLU dispatch, exact F16C conversion and bounded-error AVX2/FMA exponential for attention softmax. Go orchestrates token/head packing and rotary positions; SiLU uses SIMD exponential with scalar division; sine and erf remain scalar.
 - `go-264/audio` frontend, pinned at `48ff0ca8272a`, for bounded reference decoding/channel conversion/resampling to 24 kHz mono.
-- CLI modes include `prepare`, `encode-reference` and `synthesize` (raw or cached reference), plus `inspect`, `block`, `stack`, `logits`, `generate` (prepared prompt), `audio` and `capabilities`.
+- CLI modes include `plan-chunks`, `synthesize-long`, `prepare`, `encode-reference` and `synthesize` (raw or cached reference), plus `inspect`, `block`, `stack`, `logits`, `generate` (prepared prompt), `audio` and `capabilities`.
 - Allocation-free `ForwardInto` and reusable layer-weight arena; full 28-layer synthetic-input profiling with CPU/allocation profiles. See [PROFILING.md](PROFILING.md) for measurements, limits and commands.
 - Explicit `-backend auto|cpu|vulkan` policy; hardware/software Vulkan detection, CPU fallback in auto and rejection of unimplemented explicit Vulkan execution.
 
