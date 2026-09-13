@@ -19,6 +19,7 @@ type VkLinearQ8WeightF32 struct {
 	storage                       *VkBuf
 	inDim, outDim, weightValues   int
 	packedBytes, scaleOffsetBytes uint64
+	storageBytes                  uint64
 }
 
 func packLinearQ8Weights(weights []float32, outDim, inDim int) ([]uint32, []float32, error) {
@@ -80,7 +81,7 @@ func NewVkLinearQ8WeightF32(ctx context.Context, weights []float32, outDim, inDi
 		_ = kernel.closeLocked()
 		return nil, fmt.Errorf("Vulkan LinearQ8WeightF32: storage overflow")
 	}
-	owner := &VkLinearQ8WeightF32{kernel: kernel, inDim: inDim, outDim: outDim, weightValues: len(weights), packedBytes: packedBytes, scaleOffsetBytes: scaleOffset}
+	owner := &VkLinearQ8WeightF32{kernel: kernel, inDim: inDim, outDim: outDim, weightValues: len(weights), packedBytes: packedBytes, scaleOffsetBytes: scaleOffset, storageBytes: scaleOffset + scaleBytes}
 	defer func() {
 		if err != nil {
 			if closeErr := owner.closeLocked(); closeErr != nil {
@@ -89,7 +90,7 @@ func NewVkLinearQ8WeightF32(ctx context.Context, weights []float32, outDim, inDi
 			}
 		}
 	}()
-	owner.storage, err = vkBufAllocLocked(int(scaleOffset + scaleBytes))
+	owner.storage, err = vkBufAllocLocked(int(owner.storageBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -140,57 +141,88 @@ func (op *VkLinearQ8WeightF32) closeLocked() error {
 	return errors.Join(failures...)
 }
 
-func (op *VkLinearQ8WeightF32) Forward(ctx context.Context, out, x, bias *VkTensorF32) error {
+// Stage validates a Q8 projection for inclusion in VkF32Plan. The returned
+// stage privately retains the packed-weight and scale ranges; the operator must
+// outlive the plan and cannot Close while a submission is pending.
+func (op *VkLinearQ8WeightF32) Stage(ctx context.Context, out, x, bias *VkTensorF32) (VkF32Stage, error) {
 	if err := vkAcquire(ctx); err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	defer vkRelease()
+	return op.stageLocked(out, x, bias)
+}
+
+func (op *VkLinearQ8WeightF32) stageLocked(out, x, bias *VkTensorF32) (VkF32Stage, error) {
+	fail := func(s string) (VkF32Stage, error) {
+		return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ8WeightF32: %s", s)
+	}
 	if op == nil || op.kernel == nil || op.storage == nil {
-		return fmt.Errorf("Vulkan LinearQ8WeightF32: closed/uninitialized operator")
+		return fail("closed/uninitialized operator")
 	}
 	if err := vkStatusLocked(); err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	if op.kernel.closed || op.storage.closed || op.kernel.device != vkDevice || op.storage.device != vkDevice || op.storage.mapped == nil || op.storage.buf == 0 || op.storage.mem == 0 {
-		return ErrVulkanClosed
+		return VkF32Stage{}, ErrVulkanClosed
 	}
 	xb, err := x.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	bb, err := bias.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	ob, err := out.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	if x.rank != 2 || bias.rank != 1 || out.rank != 2 {
-		return fmt.Errorf("Vulkan LinearQ8WeightF32: rank mismatch")
+		return fail("rank mismatch")
 	}
 	rows := x.shape[0]
 	if rows < 1 || rows > 16384 || x.shape[1] != op.inDim || bias.shape[0] != op.outDim || out.shape[0] != rows || out.shape[1] != op.outDim {
-		return fmt.Errorf("Vulkan LinearQ8WeightF32: projection shapes mismatch")
+		return fail("projection shapes mismatch")
 	}
 	scaleBytes := uint64(op.outDim * 4)
 	bindings := []vkBufferBinding{xb, {buffer: op.storage, size: op.packedBytes}, {buffer: op.storage, offset: op.scaleOffsetBytes, size: scaleBytes}, bb, ob}
 	want := [5]uint64{uint64(rows * op.inDim * 4), uint64((op.weightValues + 3) / 4 * 4), scaleBytes, uint64(op.outDim * 4), uint64(rows * op.outDim * 4)}
 	for i, binding := range bindings {
 		if binding.size != want[i] {
-			return fmt.Errorf("Vulkan LinearQ8WeightF32: shape/storage size mismatch")
+			return fail("shape/storage size mismatch")
 		}
 		if i != 4 && vkBindingsOverlap(binding, ob) {
-			return fmt.Errorf("Vulkan LinearQ8WeightF32: output overlaps input")
+			return fail("output overlaps input")
 		}
 	}
 	groups := [3]uint32{(uint32(op.outDim) + 31) / 32, (uint32(rows) + 31) / 32, 1}
 	push := []uint32{uint32(rows), uint32(op.inDim), uint32(op.outDim)}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], 1, bindings, unsafePushWords(push)); err != nil {
+		return VkF32Stage{}, err
+	}
+	return VkF32Stage{Kernel: op.kernel, Groups: groups, PushWords: push, bindings: bindings}, nil
+}
+
+func (op *VkLinearQ8WeightF32) Forward(ctx context.Context, out, x, bias *VkTensorF32) error {
+	if err := vkAcquire(ctx); err != nil {
 		return err
 	}
-	err = op.kernel.dispatchBindingsLocked(ctx, groups[0], groups[1], 1, bindings, unsafePushWords(push))
-	runtime.KeepAlive(push)
+	defer vkRelease()
+	stage, err := op.stageLocked(out, x, bias)
+	if err != nil {
+		return err
+	}
+	err = op.kernel.dispatchBindingsLocked(ctx, stage.Groups[0], stage.Groups[1], stage.Groups[2], stage.bindings, unsafePushWords(stage.PushWords))
+	runtime.KeepAlive(stage.PushWords)
 	runtime.KeepAlive(op)
 	return err
+}
+
+// StorageBytes reports the immutable packed-weight allocation extent, including
+// descriptor-alignment padding and F32 row scales.
+func (op *VkLinearQ8WeightF32) StorageBytes() uint64 {
+	if op == nil {
+		return 0
+	}
+	return op.storageBytes
 }

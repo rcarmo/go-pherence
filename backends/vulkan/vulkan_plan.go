@@ -16,6 +16,10 @@ type VkF32Stage struct {
 	Groups    [3]uint32
 	Tensors   []*VkTensorF32
 	PushWords []uint32
+
+	// bindings is populated only by operators that own non-arena storage, such
+	// as packed weights. Callers cannot construct or mutate it across packages.
+	bindings []vkBufferBinding
 }
 
 // VkF32Plan owns descriptor sets (one per stage), one command buffer and fence.
@@ -65,7 +69,14 @@ func NewVkF32Plan(ctx context.Context, stages []VkF32Stage) (*VkF32Plan, error) 
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if in.Kernel == nil || in.Kernel.descSetLayout == 0 || len(in.Tensors) < 1 || len(in.Tensors) > 16 || len(in.PushWords) > 32 {
+		bindingCount := len(in.Tensors)
+		if len(in.bindings) != 0 {
+			if len(in.Tensors) != 0 {
+				return nil, fmt.Errorf("invalid Vulkan plan stage%d mixed bindings", i)
+			}
+			bindingCount = len(in.bindings)
+		}
+		if in.Kernel == nil || in.Kernel.descSetLayout == 0 || bindingCount < 1 || bindingCount > 16 || len(in.PushWords) > 32 {
 			return nil, fmt.Errorf("invalid Vulkan plan stage%d", i)
 		}
 		if len(in.PushWords)*4 != in.Kernel.pushSize {
@@ -75,13 +86,17 @@ func NewVkF32Plan(ctx context.Context, stages []VkF32Stage) (*VkF32Plan, error) 
 		s.kernel = in.Kernel
 		s.groups = in.Groups
 		s.push = append([]uint32(nil), in.PushWords...)
-		s.bindings = make([]vkBufferBinding, len(in.Tensors))
-		for j, t := range in.Tensors {
-			b, err := t.bindingLocked()
-			if err != nil {
-				return nil, err
+		if len(in.bindings) != 0 {
+			s.bindings = append([]vkBufferBinding(nil), in.bindings...)
+		} else {
+			s.bindings = make([]vkBufferBinding, len(in.Tensors))
+			for j, t := range in.Tensors {
+				b, err := t.bindingLocked()
+				if err != nil {
+					return nil, err
+				}
+				s.bindings[j] = b
 			}
-			s.bindings[j] = b
 		}
 		if err := s.kernel.validateBindingsLocked(s.groups[0], s.groups[1], s.groups[2], s.bindings, s.pushPointer()); err != nil {
 			return nil, err

@@ -164,6 +164,10 @@ func TestVulkanOfflineLinearQ8WeightBindingsAndLifetime(t *testing.T) {
 		push = append([]uint32(nil), unsafe.Slice((*uint32)(p), 3)...)
 	})
 	mockVK(t, &vkCmdDispatch, func(_ VkCommandBuffer, x, y, z uint32) { groups = [3]uint32{x, y, z} })
+	stage, err := op.Stage(context.Background(), out, x, bias)
+	if err != nil || len(stage.Tensors) != 0 || len(stage.bindings) != 5 || stage.Groups != ([3]uint32{1, 1, 1}) {
+		t.Fatal("Q8 plan stage", stage, err)
+	}
 	if err := op.Forward(context.Background(), out, x, bias); err != nil {
 		t.Fatal(err)
 	}
@@ -204,6 +208,55 @@ func TestVulkanOfflineLinearQ8WeightBindingsAndLifetime(t *testing.T) {
 		t.Fatal("cleanup", memory.frees)
 	}
 	a.Close()
+}
+
+func TestVulkanOfflineLinearQ8WeightPlanRetention(t *testing.T) {
+	lane, kernel, _, _ := newPlanMock(t)
+	memory := mockMemory(t)
+	kernel.numBuffers, kernel.pushSize = 5, 12
+	storage, err := VkBufAlloc(32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := &VkLinearQ8WeightF32{kernel: kernel, storage: storage, inDim: 2, outDim: 2, weightValues: 4, packedBytes: 4, scaleOffsetBytes: 16, storageBytes: 24}
+	a := mustArena(t, 64)
+	x, bias, out := mustTensor(t, a, 2, 2), mustTensor(t, a, 2), mustTensor(t, a, 2, 2)
+	stage, err := op.Stage(context.Background(), out, x, bias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewVkF32Plan(context.Background(), []VkF32Stage{stage})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	lane.hook = func(s string) {
+		if s == "submit" {
+			cancel()
+		}
+	}
+	expectErrorIs(t, plan.Run(ctx), ErrVulkanInFlight)
+	if vkPending == nil || len(vkPending.buffers) != 2 {
+		t.Fatal("Q8 plan did not retain arena and packed owner", vkPending)
+	}
+	expectErrorIs(t, op.Close(), ErrVulkanInFlight)
+	expectErrorIs(t, plan.Close(), ErrVulkanInFlight)
+	lane.hook = nil
+	if err := VulkanDrain(context.Background(), time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := op.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if memory.frees != 2 {
+		t.Fatal("Q8 plan cleanup", memory.frees)
+	}
 }
 
 func TestVulkanOfflineLinearQ8WeightAdmissionAndContract(t *testing.T) {

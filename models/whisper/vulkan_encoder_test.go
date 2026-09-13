@@ -134,6 +134,34 @@ func TestVulkanEncoderLayoutFinalCancellationReturnsNil(t *testing.T) {
 	}
 }
 
+func TestVulkanEncoderQ8RejectsBeforeDevice(t *testing.T) {
+	c := vulkanToyConfig()
+	enc := vulkanToyEncoder(t, c)
+	if result, err := NewVulkanEncoderQ8Weight(context.Background(), enc, 0); err == nil || result != nil {
+		t.Fatal("Q8 accepted invalid frames")
+	}
+	if result, err := NewVulkanEncoderQ8Weight(nil, enc, 17); err == nil || result != nil {
+		t.Fatal("Q8 accepted nil context")
+	}
+	if result, err := NewVulkanEncoderQ8Weight(context.Background(), nil, 17); err == nil || result != nil {
+		t.Fatal("Q8 accepted nil source")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if result, err := NewVulkanEncoderQ8Weight(ctx, enc, 17); !errors.Is(err, context.Canceled) || result != nil {
+		t.Fatal("Q8 precancel", result, err)
+	}
+	large := *enc
+	large.cfg.EncoderLayers = 11
+	large.Layers = make([]EncoderLayer, 11)
+	for i := range large.Layers {
+		large.Layers[i] = enc.Layers[0]
+	}
+	if result, err := NewVulkanEncoderQ8Weight(context.Background(), &large, 17); err == nil || result != nil {
+		t.Fatal("Q8 unaggregated large graph admitted")
+	}
+}
+
 func TestVulkanEncoderRejectsBeforeDevice(t *testing.T) {
 	c := vulkanToyConfig()
 	enc := vulkanToyEncoder(t, c)

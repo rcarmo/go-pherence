@@ -1,0 +1,16 @@
+=== RUN   TestVulkanWhisperQ8Weight
+    vulkan_q8_weight_test.go:173: WHISPER_Q8_QUALITY {"f32_projection_bytes":28311552,"max_abs":0.3406410217285156,"packed_vs_dequant_graph_max_abs":0.00002193450927734375,"q8_projection_bytes":7133184,"reference_rms":1.3752335319312137,"rms":0.058114724771534655,"rms_ratio":0.04225807720811263,"steps":[{"baseline_top":50362,"max_logit_abs":0.8628978729248047,"q8_top":50362,"step":0},{"baseline_top":50358,"max_logit_abs":0.15347909927368164,"q8_top":50358,"step":1},{"baseline_top":11,"max_logit_abs":0.5785255432128906,"q8_top":11,"step":2}],"values":6528}
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32-warm wall_ns=599242688
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8-warm wall_ns=487401630
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=550876810
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=483523249
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=484568558
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=550734988
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=477096133
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=541028577
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=564951420
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=486549568
+    vulkan_q8_weight_test.go:253: WHISPER_Q8_JFK {"baseline_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":32839680,"ScratchBytes":28608000},"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","exact_tokens_timestamps":true,"median_ns":{"f32":550805899,"q8":484045903},"q8_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":11661312,"ScratchBytes":28608000},"reference_words":22,"samples_per_path":4,"speedup":1.1379207954994301,"text":"And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.","windows":1,"word_edits":0}
+--- PASS: TestVulkanWhisperQ8Weight (5.88s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	5.919s

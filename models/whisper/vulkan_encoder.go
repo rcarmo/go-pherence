@@ -9,9 +9,10 @@ import (
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 )
 
-// VulkanEncoder is an explicit fixed-frame F32 encoder. It owns all uploaded
-// weights, scratch tensors, operators and private plans. No model default or
-// decoder/media path changes. Copies share ownership/serialisation. Call Close.
+// VulkanEncoder is an explicit fixed-frame encoder with F32 activations,
+// accumulation and output. It owns all uploaded/packed weights, scratch tensors,
+// operators and private plans. No model default or decoder/media path changes.
+// Copies share ownership/serialisation. Call Close.
 // Forward uploads mel once and downloads the final hidden state once; all
 // intermediate activations remain on the device, with a fence per layer.
 type VulkanEncoder struct{ s *vulkanEncoderState }
@@ -32,6 +33,7 @@ type vulkanEncoderState struct {
 	add              *vk.VkAddF32
 	norm             *vk.VkLayerNormF32
 	linear           *vk.VkLinearF32
+	q8Linear         []*vk.VkLinearQ8WeightF32
 	gelu             *vk.VkGELUErfF32
 	attention        *vk.VkAttentionF32
 }
@@ -40,21 +42,46 @@ type vulkanEncoderState struct {
 // the complete F32 encoder before allocating, copies weights to owned arenas,
 // and snapshots geometry for exactly frames input columns. Source slices may be
 // released/changed after return, but must not be mutated during construction.
-// No quantised checkpoints or implicit fallback. On construction failure normal
-// rollback returns nil; if cleanup also fails, a nonnil stopping encoder is
+// The default constructor uses F32 weights and has no implicit fallback. On
+// construction failure normal rollback returns nil; if cleanup also fails, a
+// nonnil stopping encoder is
 // returned with the error so the caller can retry Close after VulkanDrain.
 func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
 	return newVulkanEncoder(ctx, source, frames, vk.NewVkF32Plan)
 }
 
+// NewVulkanEncoderQ8Weight explicitly selects per-output-row symmetric Q8 for
+// transformer projection weights only. Stem convolutions, normalization,
+// activations, attention, accumulation and output remain F32. This candidate is
+// never selected by NewVulkanEncoder or a serving default.
+func NewVulkanEncoderQ8Weight(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearQ8Weight)
+}
+
 // Private plan-construction seam for fault injection and opt-in diagnostics.
 // The public constructor always uses NewVkF32Plan; no stages escape its owner.
 func newVulkanEncoder(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error)) (*VulkanEncoder, error) {
-	return newVulkanEncoderVariant(ctx, source, frames, makePlan, false)
+	return newVulkanEncoderMode(ctx, source, frames, makePlan, vulkanLinearF32)
 }
 
 // Experimental kernel selection stays private until whole-model qualification.
 func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), registerTile bool) (result *VulkanEncoder, err error) {
+	mode := vulkanLinearF32
+	if registerTile {
+		mode = vulkanLinearF32RegTile
+	}
+	return newVulkanEncoderMode(ctx, source, frames, makePlan, mode)
+}
+
+type vulkanLinearMode uint8
+
+const (
+	vulkanLinearF32 vulkanLinearMode = iota
+	vulkanLinearF32RegTile
+	vulkanLinearQ8Weight
+)
+
+func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (result *VulkanEncoder, err error) {
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
@@ -66,8 +93,43 @@ func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, m
 	if err != nil {
 		return nil, err
 	}
-	sizes := make([]uint64, len(layout.weights)+1)
-	for i, specs := range append(layout.weights, layout.scratch) {
+	weightSpecs := layout.weights
+	linearWeights := map[string]vkEncoderTensor{}
+	if linearMode == vulkanLinearQ8Weight {
+		// One buffer/pipeline per projection is intentionally bounded to the
+		// qualified Tiny-sized graph. Larger encoders need aggregated ownership.
+		projectionCount := 0
+		for _, plan := range layout.plans {
+			for _, step := range plan {
+				if step.op == "linear" {
+					projectionCount++
+				}
+			}
+		}
+		if projectionCount > 64 {
+			return nil, fmt.Errorf("whisper Vulkan: Q8 projection count %d exceeds64; aggregated ownership required", projectionCount)
+		}
+		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
+		for _, plan := range layout.plans {
+			for _, step := range plan {
+				if step.op == "linear" {
+					linearWeights[step.in[1]] = vkEncoderTensor{}
+				}
+			}
+		}
+		for i, specs := range layout.weights {
+			for _, spec := range specs {
+				if _, quantized := linearWeights[spec.name]; quantized {
+					linearWeights[spec.name] = spec
+				} else {
+					weightSpecs[i] = append(weightSpecs[i], spec)
+				}
+			}
+		}
+	}
+	allSpecs := append(append([][]vkEncoderTensor(nil), weightSpecs...), layout.scratch)
+	sizes := make([]uint64, len(allSpecs))
+	for i, specs := range allSpecs {
 		sizes[i], err = vkEncoderArenaBytes(specs, limits.StorageBufferOffsetAlignment)
 		if err != nil {
 			return nil, err
@@ -106,15 +168,17 @@ func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, m
 		return nil, err
 	}
 	s.resources = append(s.resources, s.norm)
-	if registerTile {
-		s.linear, err = vk.NewVkLinearRegTileF32(ctx)
-	} else {
-		s.linear, err = vk.NewVkLinearF32(ctx)
+	if linearMode != vulkanLinearQ8Weight {
+		if linearMode == vulkanLinearF32RegTile {
+			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
+		} else {
+			s.linear, err = vk.NewVkLinearF32(ctx)
+		}
+		if err != nil {
+			return nil, err
+		}
+		s.resources = append(s.resources, s.linear)
 	}
-	if err != nil {
-		return nil, err
-	}
-	s.resources = append(s.resources, s.linear)
 	if s.gelu, err = vk.NewVkGELUErfF32(ctx); err != nil {
 		return nil, err
 	}
@@ -124,7 +188,7 @@ func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, m
 	}
 	s.resources = append(s.resources, s.attention)
 	tensors := map[string]*vk.VkTensorF32{}
-	for i, specs := range append(layout.weights, layout.scratch) {
+	for i, specs := range allSpecs {
 		var arena *vk.VkTensorArena
 		arena, err = vk.NewVkTensorArena(ctx, int(sizes[i]))
 		if err != nil {
@@ -170,7 +234,24 @@ func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, m
 			case "norm":
 				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
 			case "linear":
-				stage, err = s.linear.Stage(ctx, out, in[0], in[1], in[2])
+				if linearMode == vulkanLinearQ8Weight {
+					weight, ok := linearWeights[step.in[1]]
+					if !ok || len(weight.shape) != 2 || len(weight.data) == 0 {
+						return nil, fmt.Errorf("whisper Vulkan: missing Q8 weight %q", step.in[1])
+					}
+					var op *vk.VkLinearQ8WeightF32
+					op, err = vk.NewVkLinearQ8WeightF32(ctx, weight.data, weight.shape[0], weight.shape[1])
+					if op != nil {
+						s.q8Linear = append(s.q8Linear, op)
+						s.resources = append(s.resources, op)
+						s.stats.WeightBytes += op.StorageBytes()
+					}
+					if err == nil {
+						stage, err = op.Stage(ctx, out, in[0], in[2])
+					}
+				} else {
+					stage, err = s.linear.Stage(ctx, out, in[0], in[1], in[2])
+				}
 			case "gelu":
 				stage, err = s.gelu.Stage(ctx, out, in[0])
 			case "attention":

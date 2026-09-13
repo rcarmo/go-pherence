@@ -160,7 +160,7 @@ func newPlanMock(t *testing.T) (*planMock, *VkComputeKernel, *VkTensorArena, *Vk
 	})
 	mockVK(t, &vkCmdPushConstants, func(c VkCommandBuffer, l VkPipelineLayout, stage, off, n uint32, p unsafe.Pointer) {
 		command(c)
-		if off != 0 || n != 4 {
+		if off != 0 || n < 4 || n > 128 || n%4 != 0 || p == nil {
 			t.Error("push ABI")
 		}
 		m.pushes = append(m.pushes, *(*uint32)(p))
@@ -263,6 +263,37 @@ func TestVulkanOfflinePlanRecordAndOwnership(t *testing.T) {
 	a.Close()
 	k.Close()
 }
+func TestVulkanOfflinePlanPrivateBindings(t *testing.T) {
+	m, k, a, x := newPlanMock(t)
+	y := mustTensor(t, a, 2)
+	xb, err := x.bindingLocked()
+	if err != nil {
+		t.Fatal(err)
+	}
+	yb, err := y.bindingLocked()
+	if err != nil {
+		t.Fatal(err)
+	}
+	k.numBuffers = 2
+	input := VkF32Stage{Kernel: k, Groups: [3]uint32{1, 1, 1}, bindings: []vkBufferBinding{xb, yb}}
+	p := mustPlan(t, input)
+	input.bindings[0] = vkBufferBinding{}
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.sets[400]; len(got) != 2 || got[0].offset != 0 || got[0].size != 4 || got[1].offset != 16 || got[1].size != 8 {
+		t.Fatal("private binding copy", got)
+	}
+	mixed := input
+	mixed.Tensors = []*VkTensorF32{x}
+	if result, err := NewVkF32Plan(context.Background(), []VkF32Stage{mixed}); err == nil || result != nil {
+		t.Fatal("mixed public/private bindings admitted")
+	}
+	p.Close()
+	a.Close()
+	k.Close()
+}
+
 func TestVulkanOfflinePlanConstructionRollback(t *testing.T) {
 	for _, failure := range []string{"pool", "null-pool", "sets", "null-set", "command", "null-command", "fence", "null-fence"} {
 		t.Run(failure, func(t *testing.T) {
