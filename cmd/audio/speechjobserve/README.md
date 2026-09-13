@@ -93,13 +93,14 @@ The CPU profile remains the default. Vulkan requires `resources` plus these prof
   "allow_experimental": true,
   "device_contains": "Intel(R) Iris(R) Xe",
   "backend_sha256": "REPLACE_WITH_DEVICE_DRIVER_SHADER_RUNTIME_SHA256",
+  "encoder_weights": "q8-kv-mlp",
   "drain_milliseconds": 10
 }
 ```
 
-All five values are mandatory. Device substring is checked against the selected Vulkan device after explicit `VulkanInit`. Backend SHA256 is an operator attestation and part of the job/profile checkpoint identity. Check mode validates config/assets/metadata but never initialises Vulkan. Execution takes the store and loading-resource lease before initialising the device or constructing the resident encoder.
+The original five values remain mandatory. `encoder_weights` is optional: absent or `"f32"` preserves the existing F32 encoder and checkpoint identity; only `"q8-kv-mlp"` selects the qualified K/V/FC1/FC2 Q8 placement. Full Q8 is deliberately unsupported because a retained 63-second gate shifted one timestamp. Device substring is checked against the selected Vulkan device after explicit `VulkanInit`. Backend SHA256 is an operator attestation and part of the job/profile checkpoint identity. The selected Q8 precision mode is additionally bound into that identity, so F32 and Q8 work cannot resume one another. Check mode validates config/assets/metadata but never initialises Vulkan. Execution takes the store and loading-resource lease before initialising the device or constructing the resident encoder.
 
-Resident construction copies encoder weights into owned Vulkan arenas. The server then clears the redundant host encoder tensor references; this makes Go storage eligible for GC but does not force RSS reduction. The host decoder remains resident. Resolved decode/ASR/transcript/VTT stage versions are embedded in the HTTP profile identity, so CPU/device or changed backend versions cannot share a configuration.
+Resident construction copies encoder weights into owned Vulkan arenas. The server then clears the redundant host encoder tensor references; this makes Go storage eligible for GC but does not force RSS reduction. The host decoder remains resident. Resolved decode/ASR/transcript/VTT stage versions are embedded in the HTTP profile identity, so CPU/device, F32/Q8, or changed backend versions cannot share a configuration.
 
 Handler/queue callbacks drain before resident encoder close, store close and resource release. A pending, uncertain, device-lost or panicked Vulkan owner can intentionally prevent graceful process exit until the operator terminates the isolated process; no in-process device reset exists. Startup failures after construction retry owner teardown with bounded sleeps rather than returning while native ownership is unresolved. No CPU fallback or automatic retry is provided. Read the [Vulkan job-owner contract](../../../runtime/speechjob/whisper-vulkan.md).
 

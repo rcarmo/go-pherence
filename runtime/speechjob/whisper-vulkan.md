@@ -1,10 +1,10 @@
 # Experimental resident Vulkan Whisper job stage
 
-`NewVulkanWhisperWindowStage` binds the existing resident F32 `whisper.VulkanEncoder` to durable `asr-windows` journals and a host-only Go decoder. It is Linux/amd64-only, explicit and experimental. The normal `NewWhisperWindowStage` remains CPU-only and unchanged. There is no hidden CPU fallback, Vulkan initialisation, model load, listener or worker startup.
+`NewVulkanWhisperWindowStage` binds an explicitly constructed resident `whisper.VulkanEncoder` to durable `asr-windows` journals and a host-only Go decoder. It is Linux/amd64-only, explicit and experimental. The normal `NewWhisperWindowStage` remains CPU-only and unchanged. There is no hidden CPU fallback, Vulkan initialisation, model load, listener or worker startup.
 
 ## Ownership
 
-The caller supplies one immutable `Whisper` host decoder, tokenizer and already constructed resident encoder. `AllowExperimental:true` is mandatory. `BackendSHA256` attests the exact device/driver/shader/runtime/precision contract; this package cannot derive it. The stage version binds that identity, resident geometry/statistics and the complete host model/tokenizer/generation configuration. Host and device journals cannot resume each other. Changing backend identity rejects old checkpoints.
+The caller supplies one immutable `Whisper` host decoder, tokenizer and already constructed resident encoder. `AllowExperimental:true` is mandatory. `BackendSHA256` attests the exact device/driver/shader/runtime contract; this package cannot derive it. `EncoderWeights` is empty for the historical F32 identity or `q8-kv-mlp` for the selective K/V/FC1/FC2 Q8 placement. The stage version binds backend identity, precision mode, resident geometry/statistics and the complete host model/tokenizer/generation configuration. Host/device and F32/Q8 journals cannot resume each other. Changing backend or precision identity rejects old checkpoints.
 
 After successful construction the `VulkanWhisperStage` owns exclusive encoder use and teardown. Other copies of the owner share state. The caller must not use/close another reference, mutate model/tokenizer/backend state, run another global Vulkan client or close the global Vulkan context while the owner is live. The host decoder remains caller-owned and immutable. `Stage()` returns a copy whose closure keeps the owner reachable; keep the owner handle for `Status` and `Close`.
 
@@ -26,7 +26,7 @@ A normal drain returns the original inference/cancellation error. Durable comple
 
 The existing stage window/file/4-hour limits and resourcebudget reservation apply. Resident and transient Vulkan bytes must be included in the operator's declared estimates. `VulkanEncoderStats` describe requested owned arenas, not actual device RSS/heap high-water. There is no current available-memory admission, device-memory budget, multi-device scheduler, general device-loss recovery or external LLM coordination.
 
-The resident encoder currently covers the Whisper encoder only. The decoder remains Go/CPU. Quantised/F16 encoder paths, Vulkan decoder, Community-1 Vulkan graph, general device recovery and whole-job placement are unfinished.
+The resident encoder currently covers the Whisper encoder only. The decoder remains Go/CPU. The server can explicitly select the qualified K/V/FC1/FC2 Q8-weight placement; full Q8 remains unsupported because it shifted one retained timestamp boundary. F16 encoder paths, Vulkan decoder, general device recovery and whole-job placement remain unfinished.
 
 ## Verification
 
@@ -34,7 +34,7 @@ Model-free tests use the private orchestration seam with synthetic window infere
 
 - queue cancellation retains resource admission and store/media ownership until drain;
 - per-window journal resume after pending native work drains;
-- host/device/backend checkpoint identity separation;
+- host/device/backend and F32/selective-Q8 checkpoint identity separation;
 - close serialisation, retry and idempotence;
 - context-independent drain and bounded polling;
 - fatal/panicked drain and close quarantine;

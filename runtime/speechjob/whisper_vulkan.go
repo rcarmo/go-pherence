@@ -14,15 +14,17 @@ import (
 	"github.com/rcarmo/go-pherence/models/whisper"
 )
 
-// VulkanWhisperStageConfig opts into the existing resident F32 encoder/host
-// decoder, never an automatic CPU fallback. BackendSHA256 attests immutable
-// device/driver/shader/kernel/precision identity; it is part of checkpoint keys.
+// VulkanWhisperStageConfig opts into a resident encoder/host decoder, never an
+// automatic CPU fallback. BackendSHA256 attests immutable device/driver/shader/
+// runtime identity. EncoderWeights is empty for the historical F32 path or the
+// explicit selective precision mode; both participate in checkpoint keys.
 // DrainPoll bounds EACH wait, not total shutdown. Device loss/uncertainty holds
 // the active job and admission until process teardown. No forced idle is inferred.
 type VulkanWhisperStageConfig struct {
 	Whisper           WhisperStageConfig
 	AllowExperimental bool
 	BackendSHA256     string
+	EncoderWeights    string
 	DrainPoll         time.Duration
 }
 
@@ -52,27 +54,44 @@ type vulkanWhisperStageState struct {
 }
 
 func NewVulkanWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer, encoder *whisper.VulkanEncoder, cfg VulkanWhisperStageConfig) (*VulkanWhisperStage, error) {
-	if !cfg.AllowExperimental || !validHash(cfg.BackendSHA256) || cfg.DrainPoll < time.Millisecond || cfg.DrainPoll > 30*time.Second || encoder == nil {
+	if !cfg.AllowExperimental || !validHash(cfg.BackendSHA256) || cfg.EncoderWeights != "" && cfg.EncoderWeights != "q8-kv-mlp" || cfg.DrainPoll < time.Millisecond || cfg.DrainPoll > 30*time.Second || encoder == nil {
 		return nil, ErrConfiguration
 	}
 	validate := func() error { return model.ValidatePCMVulkanHostDecoder(context.Background(), encoder) }
 	if e := validate(); e != nil {
 		return nil, e
 	}
-	identity, e := json.Marshal(struct {
-		Backend string
-		Stats   whisper.VulkanEncoderStats
-	}{cfg.BackendSHA256, encoder.Stats()})
+	identity, e := vulkanWhisperIdentity(cfg.BackendSHA256, cfg.EncoderWeights, encoder.Stats())
 	if e != nil {
 		return nil, e
 	}
 	s := newVulkanWhisperOwner(cfg.DrainPoll, vk.VulkanDrain, encoder.Close)
-	binding := &residentStageBinding{identity: hash(identity), validate: validate, encoder: encoder, wrap: s.wrap}
+	binding := &residentStageBinding{identity: identity, validate: validate, encoder: encoder, wrap: s.wrap}
 	st, e := newWhisperWindowStage(model, tokenizer, cfg.Whisper, binding)
 	if e != nil {
 		return nil, e
 	}
 	return &VulkanWhisperStage{s: s, stage: st}, nil
+}
+func vulkanWhisperIdentity(backend, encoderWeights string, stats whisper.VulkanEncoderStats) (string, error) {
+	var identity []byte
+	var err error
+	if encoderWeights == "" {
+		// Preserve the existing F32 checkpoint identity byte-for-byte.
+		identity, err = json.Marshal(struct {
+			Backend string
+			Stats   whisper.VulkanEncoderStats
+		}{backend, stats})
+	} else {
+		identity, err = json.Marshal(struct {
+			Backend, EncoderWeights string
+			Stats                   whisper.VulkanEncoderStats
+		}{backend, encoderWeights, stats})
+	}
+	if err != nil {
+		return "", err
+	}
+	return hash(identity), nil
 }
 func newVulkanWhisperOwner(poll time.Duration, drain func(context.Context, time.Duration) error, closeEncoder func() error) *vulkanWhisperStageState {
 	return &vulkanWhisperStageState{gate: make(chan struct{}, 1), drain: drain, closeEncoder: closeEncoder, poll: poll, quarantineHold: make(chan struct{})}

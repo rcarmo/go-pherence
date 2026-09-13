@@ -217,12 +217,21 @@ func TestVulkanConfigRequiresExplicitConsentAndResources(t *testing.T) {
 	if e := c.validate(); e != nil {
 		t.Fatal(e)
 	}
+	for _, mode := range []string{"f32", "q8-kv-mlp"} {
+		v := good
+		v.EncoderWeights = mode
+		c.Profile.Vulkan = &v
+		if e := c.validate(); e != nil {
+			t.Fatal(mode, e)
+		}
+	}
+	c.Profile.Vulkan = &good
 	b, _ := json.Marshal(c)
 	parsed, e := parseConfig(b)
 	if e != nil || parsed.Profile.Vulkan == nil || *parsed.Profile.Vulkan != good {
 		t.Fatal(parsed, e)
 	}
-	for _, kind := range []string{"disabled", "consent", "device", "device-control", "hash", "poll-zero", "poll-large", "resources"} {
+	for _, kind := range []string{"disabled", "consent", "device", "device-control", "hash", "weights", "poll-zero", "poll-large", "resources"} {
 		v := good
 		bad := c
 		switch kind {
@@ -236,6 +245,8 @@ func TestVulkanConfigRequiresExplicitConsentAndResources(t *testing.T) {
 			v.DeviceContains = "x\n"
 		case "hash":
 			v.BackendSHA256 = "bad"
+		case "weights":
+			v.EncoderWeights = "q8-all"
 		case "poll-zero":
 			v.DrainMilliseconds = 0
 		case "poll-large":

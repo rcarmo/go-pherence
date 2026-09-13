@@ -270,6 +270,7 @@ func TestStoreLockPrecedesModelAssetReads(t *testing.T) {
 
 func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
 	cfg := vulkanToyConfig(t)
+	cfg.Profile.Vulkan.EncoderWeights = "q8-kv-mlp"
 	cfg.AllowExecution = true
 	reserve, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
@@ -282,9 +283,12 @@ func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
 	asset := putAsset(t, t.TempDir(), "server.json", b, 0600)
 	t.Setenv("SPEECHJOB_TOKEN", serverToken)
 	owner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("device-stage")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}
-	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoder: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
+	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoderQ8: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
 		return &whisper.VulkanEncoder{}, nil
-	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+	}, newStage: func(_ *whisper.Whisper, _ *whisper.Tokenizer, _ *whisper.VulkanEncoder, cfg speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		if cfg.EncoderWeights != "q8-kv-mlp" {
+			t.Fatal(cfg)
+		}
 		return owner, nil
 	}, drain: noPendingVulkan}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -310,6 +314,7 @@ func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
 }
 func TestVulkanServerStartupFailureDrainsOwner(t *testing.T) {
 	cfg := vulkanToyConfig(t)
+	cfg.Profile.Vulkan.EncoderWeights = "q8-kv-mlp"
 	cfg.AllowExecution = true
 	occupied, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
@@ -322,9 +327,12 @@ func TestVulkanServerStartupFailureDrainsOwner(t *testing.T) {
 	asset := putAsset(t, t.TempDir(), "server.json", b, 0600)
 	t.Setenv("SPEECHJOB_TOKEN", serverToken)
 	owner := &fakeProfileOwner{stage: speechjob.Stage{Name: "asr-windows", Version: hashBytes([]byte("device-stage")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}, failOnce: true}
-	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoder: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
+	runtime := vulkanProfileRuntime{init: func() bool { return true }, deviceName: func() string { return "fixture-device-1" }, newEncoderQ8: func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error) {
 		return &whisper.VulkanEncoder{}, nil
-	}, newStage: func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+	}, newStage: func(_ *whisper.Whisper, _ *whisper.Tokenizer, _ *whisper.VulkanEncoder, cfg speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+		if cfg.EncoderWeights != "q8-kv-mlp" {
+			t.Fatal(cfg)
+		}
 		return owner, nil
 	}, drain: noPendingVulkan}
 	if e = startWithRuntime(context.Background(), asset.Path, false, io.Discard, runtime); e == nil {

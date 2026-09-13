@@ -209,15 +209,16 @@ type profileRuntimes struct {
 	Community communityRuntime
 }
 type vulkanProfileRuntime struct {
-	init       func() bool
-	deviceName func() string
-	newEncoder func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
-	newStage   func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error)
-	drain      func(context.Context, time.Duration) error
+	init         func() bool
+	deviceName   func() string
+	newEncoder   func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
+	newEncoderQ8 func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
+	newStage     func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error)
+	drain        func(context.Context, time.Duration) error
 }
 
 func defaultVulkanProfileRuntime() vulkanProfileRuntime {
-	return vulkanProfileRuntime{init: vk.VulkanInit, deviceName: vk.VulkanDeviceName, newEncoder: whisper.NewVulkanEncoder, newStage: func(m *whisper.Whisper, t *whisper.Tokenizer, e *whisper.VulkanEncoder, c speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+	return vulkanProfileRuntime{init: vk.VulkanInit, deviceName: vk.VulkanDeviceName, newEncoder: whisper.NewVulkanEncoder, newEncoderQ8: whisper.NewVulkanEncoderQ8KVMLPWeight, newStage: func(m *whisper.Whisper, t *whisper.Tokenizer, e *whisper.VulkanEncoder, c speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
 		return speechjob.NewVulkanWhisperWindowStage(m, t, e, c)
 	}, drain: vk.VulkanDrain}
 }
@@ -256,6 +257,11 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		return nil, e
 	}
 	opts := c.Profile
+	if opts.Vulkan != nil && opts.Vulkan.EncoderWeights == "f32" {
+		v := *opts.Vulkan
+		v.EncoderWeights = ""
+		opts.Vulkan = &v
+	}
 	asr, e := speechjob.NewWhisperWindowStage(model, p.tokenizer, speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes})
 	if e != nil {
 		return nil, e
@@ -268,13 +274,23 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	}
 	result := &builtProfiles{}
 	if v := opts.Vulkan; v != nil {
-		if runtime.init == nil || runtime.deviceName == nil || runtime.newEncoder == nil || runtime.newStage == nil || runtime.drain == nil || !runtime.init() {
+		newEncoder := runtime.newEncoder
+		encoderWeights := ""
+		switch v.EncoderWeights {
+		case "", "f32":
+		case "q8-kv-mlp":
+			newEncoder = runtime.newEncoderQ8
+			encoderWeights = v.EncoderWeights
+		default:
+			return nil, fmt.Errorf("unsupported Vulkan encoder weight mode")
+		}
+		if runtime.init == nil || runtime.deviceName == nil || newEncoder == nil || runtime.newStage == nil || runtime.drain == nil || !runtime.init() {
 			return nil, fmt.Errorf("experimental Vulkan initialisation failed")
 		}
 		if name := runtime.deviceName(); name == "" || !strings.Contains(name, v.DeviceContains) {
 			return nil, fmt.Errorf("configured Vulkan device identity rejected")
 		}
-		encoder, e := runtime.newEncoder(ctx, model.Encoder, model.Config.MaxLength)
+		encoder, e := newEncoder(ctx, model.Encoder, model.Config.MaxLength)
 		if e != nil {
 			if encoder != nil {
 				closeVulkanEncoder(encoder, time.Duration(v.DrainMilliseconds)*time.Millisecond, runtime.drain)
@@ -285,7 +301,7 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		// tensors before serving; host decoder remains required and checked.
 		model.Encoder.ReleaseHostWeights()
 		model.Encoder = nil
-		owner, e := runtime.newStage(model, p.tokenizer, encoder, speechjob.VulkanWhisperStageConfig{Whisper: speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes}, AllowExperimental: true, BackendSHA256: v.BackendSHA256, DrainPoll: time.Duration(v.DrainMilliseconds) * time.Millisecond})
+		owner, e := runtime.newStage(model, p.tokenizer, encoder, speechjob.VulkanWhisperStageConfig{Whisper: speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes}, AllowExperimental: true, BackendSHA256: v.BackendSHA256, EncoderWeights: encoderWeights, DrainPoll: time.Duration(v.DrainMilliseconds) * time.Millisecond})
 		if e != nil || owner == nil {
 			if owner != nil {
 				closeBuiltProfiles(&builtProfiles{owners: []stageOwner{owner}})
@@ -337,7 +353,7 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		Profile                               ProfileSettings
 		Threads                               int
 		Stages                                []stageIdentity
-	}{1, c.RuntimeSHA256, c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.Profile, c.Threads, versions})
+	}{1, c.RuntimeSHA256, c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, opts, c.Threads, versions})
 	if e != nil {
 		closeBuiltProfiles(result)
 		return nil, e
