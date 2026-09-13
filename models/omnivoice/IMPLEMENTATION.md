@@ -877,3 +877,51 @@ did not redirect the active tool turn, as confirmed by the returned hostname
 wake-up or deployment was attempted. Stronger-host/GPU execution needs an
 explicit target and working access before backend work can be validated.
 Local evidence: `/workspace/tmp/omnivoice-hardware-final.json`.
+
+## Long/multilingual step-count gates (2026-09-13)
+
+Matched persistent-worker tests used 4/6/8 steps, seed 42, two SIMD workers,
+resident float32 weights, postprocessing, a fixed cached reference, 100-frame
+chunk cap and no phrase cache. English used the existing paragraph, Portuguese
+used “A evidência é insuficiente, capitão. Precisamos de investigar.” All output
+PCM samples were concatenated unchanged for ASR. No clipped samples occurred.
+
+| Input / steps | Request seconds | First chunk seconds | Audio seconds | ASR gate |
+|---|---:|---:|---:|---|
+| English / 4 | 139.91 | 32.28 | 13.84 | Failed: insufficient → sufficient; Captain → capital; sensor → sensitive |
+| English / 6 | 214.26 | 53.37 | 13.94 | Failed: initial “The” omitted |
+| English / 8 | 272.13 | 67.98 | 13.80 | Exact words |
+| Portuguese / 4 | 36.29 | 36.29 | 3.20 | Failed: “é” omitted; investigar misrecognised |
+| Portuguese / 6 | 53.52 | 53.52 | 2.98 | Failed: “é” omitted; insuficiente misrecognised |
+| Portuguese / 8 | 69.21 | 69.21 | 3.03 | Failed: “é” omitted |
+
+These failures are recogniser observations, not definitive phonetic diagnoses.
+English chunk target frames were 99/93/99/77; Portuguese used 88 estimated frames.
+All English runs had identical chunk text and target frame counts. Startup was
+1.60–2.34 seconds and is excluded from request times. These experiments do not
+approve lower steps generally; the earlier short-sentence success was insufficient
+coverage. Defaults remain unchanged. The eight-step English transcription passes,
+but listening acceptance for these samples has not been supplied.
+
+### Explicit duration control
+
+An eight-step single-shot Portuguese test with 125 target frames recovered all
+expected words (punctuation differed). It took 97.02 seconds including startup,
+producing 4.01 seconds of unclipped audio. This suggests duration contributes to
+the estimated-frame omission; language/voice quality still needs listening.
+
+The worker now accepts optional request `frames`, bounded by its configured
+capacity, for a single explicit-duration utterance. Automatic planning remains
+the default. Invalid/oversized values are rejected before generation, and cache
+keys distinguish duration. An actual 125-frame worker request took 82.32 seconds,
+produced 3.81 seconds of unclipped audio and also recovered every expected word.
+Its shorter output reflects worker/CLI postprocessing differences (including
+padding), not bitwise waveform equivalence. Neither test verifies continental
+Portuguese pronunciation; the user's earlier Brazilian-accent finding remains
+unresolved without training/listening feedback.
+
+Evidence: `/workspace/tmp/omnivoice-validation-{en,pt}-steps{4,6,8}.jsonl`,
+`omnivoice-validation-matrix.json`, related ASR JSON and synthetic joined WAVs;
+`omnivoice-validation-pt125-steps8.json`, `omnivoice-pt125-validation.json`,
+`omnivoice-validation-pt-fixed-serve.jsonl`, `omnivoice-pt-fixed-validation.json`.
+Explicit-frame protocol tests include limit rejection and cache isolation.

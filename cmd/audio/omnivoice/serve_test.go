@@ -193,3 +193,29 @@ func TestServeErrorRetainedFiles(t *testing.T) {
 		t.Fatal(events)
 	}
 }
+
+func TestServeExplicitFramesAndCacheIsolation(t *testing.T) {
+	e, calls := testServeEngine(t)
+	e.maxFrames = 125
+	e.prepareFixed = func(text string, frames int) (loader.PreparedPrompt, error) {
+		return loader.PreparedPrompt{Text: text, TargetFrames: frames}, nil
+	}
+	var out bytes.Buffer
+	input := "{\"text\":\"fixed\",\"frames\":100}\n{\"text\":\"fixed\",\"frames\":125}\n{\"text\":\"fixed\",\"frames\":100}\n{\"text\":\"fixed\",\"frames\":126}\n{\"text\":\"fixed\",\"frames\":-1}\n"
+	if err := e.loop(context.Background(), strings.NewReader(input), &out); err != nil {
+		t.Fatal(err)
+	}
+	if *calls != 2 {
+		t.Fatal("cache frame isolation", *calls)
+	}
+	events := decodeEvents(t, out.Bytes())
+	if len(events) != 11 {
+		t.Fatal(len(events))
+	}
+	if events[7]["cache_hit"] != true || events[1]["target_frames"] != float64(100) || events[4]["target_frames"] != float64(125) {
+		t.Fatal(events)
+	}
+	if events[9]["event"] != "error" || events[10]["event"] != "error" {
+		t.Fatal(events)
+	}
+}

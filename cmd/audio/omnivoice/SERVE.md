@@ -17,6 +17,19 @@ Startup emits `ready`. Send one UTF-8 JSON object per line:
 {"id":"request-1","text":"The evidence is insufficient, Captain."}
 ```
 
+Optional `frames` requests a single utterance with an explicit target duration
+at 25 frames/second, bounded by the process `-frames` capacity:
+
+```json
+{"id":"fixed-duration","text":"A evidência é insuficiente, capitão.","frames":125}
+```
+
+Launch with `-frames 125` or greater for that request. Zero/omitted `frames` uses
+automatic planning; explicit values bypass the shorter-first policy. Inputs must
+still fit the 512-position prompt limit. Cache keys include target frames, so
+different durations never reuse the same cached audio. This is useful when the
+automatic estimator compresses pronunciation; it does not control regional accent.
+
 Each request emits `start`, one `chunk` event per completed WAV, then `done`.
 The `chunk.path` file is closed and usable before its event is written, and that
 event is written before the next chunk starts inference. Consume events as they
@@ -35,7 +48,7 @@ with completed chunks even when the in-memory cache is disabled.
 
 The model/reference, language, instructions, steps, denoise/postprocess settings,
 frame caps and worker/residency policy are fixed at launch. Requests accept only
-`id` and `text`. Restart to change voice or generation settings. Raw reference
+`id`, `text`, and optional `frames`. Restart to change voice or generation settings. Raw reference
 encoding is performed beforehand through the existing `encode-reference` mode.
 
 - `-weights-gguf`: optional matching GGUF backbone; codec assets stay in `-model`.

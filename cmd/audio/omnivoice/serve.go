@@ -85,15 +85,18 @@ func phraseKey(p loader.PreparedPrompt) [32]byte {
 }
 
 type serveRequest struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
+	ID     string `json:"id"`
+	Text   string `json:"text"`
+	Frames int    `json:"frames,omitempty"`
 }
 type serveEngine struct {
-	plan      func(string) ([]loader.PreparedPrompt, error)
-	generate  func(context.Context, loader.PreparedPrompt, *chunkTimings) ([]float32, error)
-	cache     phraseCache
-	outputDir string
-	retained  int
+	plan         func(string) ([]loader.PreparedPrompt, error)
+	prepareFixed func(string, int) (loader.PreparedPrompt, error)
+	maxFrames    int
+	generate     func(context.Context, loader.PreparedPrompt, *chunkTimings) ([]float32, error)
+	cache        phraseCache
+	outputDir    string
+	retained     int
 }
 
 // Sequential NDJSON protocol, backpressure via synchronous writes. Each emitted
@@ -162,7 +165,18 @@ func sendServe(enc *json.Encoder, v any) error {
 }
 func (e *serveEngine) request(ctx context.Context, enc *json.Encoder, req serveRequest, sequence int) error {
 	started := time.Now()
-	prompts, err := e.plan(req.Text)
+	var prompts []loader.PreparedPrompt
+	var err error
+	if req.Frames != 0 {
+		if req.Frames < 1 || req.Frames > e.maxFrames || e.prepareFixed == nil {
+			return fmt.Errorf("frames must be 1..configured frames, or omitted for automatic planning")
+		}
+		var p loader.PreparedPrompt
+		p, err = e.prepareFixed(req.Text, req.Frames)
+		prompts = []loader.PreparedPrompt{p}
+	} else {
+		prompts, err = e.plan(req.Text)
+	}
 	if err != nil {
 		return err
 	}
@@ -325,7 +339,12 @@ func runServe(o serveOptions) error {
 	if err != nil {
 		return err
 	}
-	engine := serveEngine{plan: plan, generate: func(ctx context.Context, p loader.PreparedPrompt, t *chunkTimings) ([]float32, error) {
+	engine := serveEngine{plan: plan, maxFrames: o.frames, prepareFixed: func(text string, frames int) (loader.PreparedPrompt, error) {
+		if utf8.RuneCountInString(text) > 16000 {
+			return loader.PreparedPrompt{}, fmt.Errorf("text exceeds 16000 runes")
+		}
+		return loader.PrepareInferenceInputs(cfg, tok, strings.TrimSpace(text), frames, ref, loader.PreparePromptOptions{Language: o.language, Instruct: o.instruct, Denoise: o.denoise})
+	}, generate: func(ctx context.Context, p loader.PreparedPrompt, t *chunkTimings) ([]float32, error) {
 		return runner.generateTimed(ctx, p, o.postprocess, t)
 	}, cache: phraseCache{budget: o.cacheBytes}, outputDir: dir}
 	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "ready", "protocol": 1, "transport": "ndjson-stdio", "synthetic": true, "output_dir": dir, "startup_seconds": time.Since(started).Seconds(), "reference_tokenizer_seconds": referenceSeconds, "weights_seconds": weightsSeconds, "codec_load_seconds": codecSeconds, "runner_setup_seconds": runnerSeconds, "resident_cache_bytes": runner.cond.ResidentBytes(), "prepacked_bytes": runner.cond.PrepackedBytes(), "cache_budget_bytes": o.cacheBytes, "first_frames": o.firstFrames, "max_frames": o.frames, "steps": o.steps, "gemm_workers": o.workers, "boundary_fade_ms": 5, "boundary_gap_ms": 100}); err != nil {
