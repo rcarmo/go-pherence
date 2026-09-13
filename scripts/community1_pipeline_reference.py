@@ -8,8 +8,12 @@ and reference annotations for comparison, never for Go runtime inference.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import wave
+
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+URI = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 
 SOURCE_HASHES = {
     "core/plda.py": "29674eb850f1a96ebd2c56a4a474801351b84129a02c17c5214258e5f6cdc809",
@@ -28,6 +32,9 @@ def main():
     p.add_argument("--raw-segmentation", required=True)
     p.add_argument("--plda-dir", required=True)
     p.add_argument("--public-wav", required=True)
+    p.add_argument("--public-wav-sha256", default="c319b4abca767b124e41432d364fd7df006cb26bb79d09326c487d606a134e6e")
+    p.add_argument("--samples", type=int, default=480000)
+    p.add_argument("--uri", default="sample")
     p.add_argument("--output-dir", required=True)
     args = p.parse_args()
     sha = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -44,7 +51,9 @@ def main():
         for name, info in manifest["files"].items():
             checked(Path(directory)/name,info["sha256"])
     checked(args.raw_segmentation,"7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e")
-    checked(args.public_wav,"c319b4abca767b124e41432d364fd7df006cb26bb79d09326c487d606a134e6e")
+    if not HEX64.fullmatch(args.public_wav_sha256) or not URI.fullmatch(args.uri) or not 1 <= args.samples <= 160000 + 127 * 16000:
+        raise ValueError("invalid PCM identity/geometry")
+    checked(args.public_wav,args.public_wav_sha256)
     for name,digest in [("xvec_transform.npz","325f1ce8e48f7e55e9c8aa47e05d2766b7c48c4b25b8de8dd751e7a4cc5fbe8f"),("plda.npz","9b77bcd840692710dd3496f62ecfeed8d8e5f002fd991b785079b244eab7d255")]:
         checked(Path(args.plda_dir)/name,digest)
     import torch
@@ -90,10 +99,12 @@ def main():
             np.save(output/(step+".npy"),values,allow_pickle=False)
             artifacts[step]=dict(shape=list(values.shape),sha256=sha(output/(step+".npy")))
     with wave.open(args.public_wav,"rb") as w:
-        if (w.getnchannels(),w.getsampwidth(),w.getframerate(),w.getnframes())!=(1,2,16000,480000):raise ValueError("PCM contract")
-        pcm=torch.from_numpy(np.frombuffer(w.readframes(480000),dtype="<i2").copy()).float()[None]/32768
+        if (w.getnchannels(),w.getsampwidth(),w.getframerate(),w.getnframes(),w.getcomptype())!=(1,2,16000,args.samples,"NONE"):raise ValueError("PCM contract")
+        raw=w.readframes(args.samples)
+        if len(raw) != args.samples * 2: raise ValueError("short PCM read")
+        pcm=torch.from_numpy(np.frombuffer(raw,dtype="<i2").copy()).float()[None]/32768
     with torch.no_grad():
-        result=pipeline({"waveform":pcm,"sample_rate":16000,"uri":"sample"},min_speakers=1,max_speakers=64,hook=hook)
+        result=pipeline({"waveform":pcm,"sample_rate":16000,"uri":args.uri},min_speakers=1,max_speakers=64,hook=hook)
     def turns(annotation):
         return [dict(start=float(s.start),end=float(s.end),speaker=str(label)) for s,_,label in annotation.itertracks(yield_label=True)]
     data=dict(schema=1,model_revision="3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",source_hashes=SOURCE_HASHES,

@@ -21,6 +21,13 @@ class PipelineReferenceContract(unittest.TestCase):
         self.assertIn("core/plda.py",pins)
         self.assertIn("utils/vbx.py",pins)
         for v in pins.values():self.assertEqual(len(v),64);int(v,16)
+    def test_pcm_identity_is_explicit_and_bounded(self):
+        text=(ROOT/"community1_pipeline_reference.py").read_text();tree=ast.parse(text)
+        parser_calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="add_argument"]
+        flags={ast.literal_eval(n.args[0]) for n in parser_calls if n.args and isinstance(n.args[0],ast.Constant)}
+        self.assertTrue({"--public-wav-sha256","--samples","--uri"}.issubset(flags))
+        self.assertIn("160000 + 127 * 16000", text)
+        self.assertIn("args.samples * 2", text)
     def test_scorer_no_inference(self):
         text=(ROOT/"score_community1_diarization.py").read_text();tree=ast.parse(text)
         imports=[]
