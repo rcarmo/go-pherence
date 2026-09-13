@@ -49,7 +49,7 @@ set +e
 status=$?
 set -e
 end=$(read_snapshot end)
-printf '%s\n%s\n' "$start" "$end" > "$output"
+printf '%s\n%s\n' "$start" "$end" | jq -c . > "$output"
 jq -cn --argjson start "$start" --argjson end "$end" --argjson command_status "$status" '
   def indexed(xs): reduce xs[] as $x ({}; .[$x.name]=$x);
   def delta($a;$b): if $b.energy_uj >= $a.energy_uj then $b.energy_uj-$a.energy_uj else $a.max_energy_range_uj-$a.energy_uj+$b.energy_uj end;
