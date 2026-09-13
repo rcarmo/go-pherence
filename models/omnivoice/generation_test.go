@@ -346,3 +346,34 @@ func TestGenerationRejectsStaleBackboneShape(t *testing.T) {
 		t.Fatal("accepted uninitialised generation")
 	}
 }
+
+func TestGenerationMidFlightCancelAndReuse(t *testing.T) {
+	b, f := loadBackboneFixture(t)
+	u, err := NewBackbone(b.weights, f.Tokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultGenerationConfig()
+	cfg.Steps = 4
+	g, err := NewGeneration(b, u, 2, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, ui := append([]int(nil), f.IDs...), append([]int(nil), f.IDs...)
+	want, out := make([]int, 4), make([]int, 4)
+	if err := g.GenerateInto(context.Background(), want, ids, f.AudioMask, ui, f.AudioMask); err != nil {
+		t.Fatal(err)
+	}
+	for _, checks := range []int{3, 10, 20} {
+		ctx := &cancelAfterChecks{Context: context.Background(), remaining: checks}
+		if err := g.GenerateInto(ctx, out, ids, f.AudioMask, ui, f.AudioMask); err != context.Canceled {
+			t.Fatalf("checks%d got%v", checks, err)
+		}
+		if err := g.GenerateInto(context.Background(), out, ids, f.AudioMask, ui, f.AudioMask); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(out, want) {
+			t.Fatalf("retry checks%d got%v want%v", checks, out, want)
+		}
+	}
+}

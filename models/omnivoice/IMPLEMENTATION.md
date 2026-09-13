@@ -468,3 +468,12 @@ zero prepared allocations, and all raw/preprocessed reference codes remain
 unchanged. Direct eligible-input benchmarks improve roughly 10×; fallback-heavy
 inputs may be slower. Sampler exponentials and the documented architecture/range
 fallbacks remain scalar. See [PROFILING.md](PROFILING.md) for bounds and evidence.
+
+## Sampler SIMD exponentials (2026-09-13)
+
+Conditional/unconditional guidance log-softmax uses existing scratch for bounded
+SIMD exponentials and retains sequential float64 summation. Exceptional rows keep
+the original scalar policy. Upstream fixture and full-generation checks pass; the
+native sample is byte-identical. The isolated 1,025-class benchmark improves about
+2.8× without allocations. Approximate probabilities may change near-tied selections
+on other inputs. See [PROFILING.md](PROFILING.md) for limits and evidence.

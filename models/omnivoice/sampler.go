@@ -183,13 +183,15 @@ func (w *SamplerWorkspace) GuidedLogProbsInto(dst, condLogits, uncondLogits []fl
 	for row := 0; row < rows; row++ {
 		off := row * w.vocabSize
 		dstRow := dst[off : off+w.vocabSize]
-		logSoftmaxInto(dstRow, condLogits[off:off+w.vocabSize])
+		copy(dstRow, condLogits[off:off+w.vocabSize])
+		logSoftmaxSIMDInPlace(dstRow, w.vocabScratch2)
 		if guidanceScale != 0 {
-			logSoftmaxInto(w.vocabScratch, uncondLogits[off:off+w.vocabSize])
+			copy(w.vocabScratch, uncondLogits[off:off+w.vocabSize])
+			logSoftmaxSIMDInPlace(w.vocabScratch, w.vocabScratch2)
 			for i := range dstRow {
 				dstRow[i] = dstRow[i] + guidanceScale*(dstRow[i]-w.vocabScratch[i])
 			}
-			logSoftmaxInPlace(dstRow)
+			logSoftmaxSIMDInPlace(dstRow, w.vocabScratch2)
 		}
 		dstRow[audioMaskID] = float32(math.Inf(-1))
 	}

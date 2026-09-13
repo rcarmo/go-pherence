@@ -41,7 +41,7 @@ The approved Charlie X reference decodes through go-264 to 108,000 samples (4.5 
 
 ## Remaining work, in dependency order
 
-1. Remaining scalar kernels: out-of-range/fallback Snake sine, sampler exponentials, GELU/ELU/Snake fallback regions and non-amd64 SiLU finishing. Hardware Vulkan execution is not implemented.
+1. Remaining scalar kernels: out-of-range/fallback Snake sine, exceptional/range-fallback sampler exponentials, GELU/ELU/Snake fallback regions and non-amd64 SiLU finishing. Hardware Vulkan execution is not implemented.
 2. Stochastic whole-loop equivalence under supplied noise and broader multilingual speech validation. Token IDs match the upstream multilingual fixtures, including NFC decomposition; pronunciation has not been evaluated across those languages.
 3. Listening acceptance of native samples and chunk transitions. Keep assistant integration out of scope until that gate passes.
 

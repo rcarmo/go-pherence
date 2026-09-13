@@ -358,3 +358,33 @@ No backbone or decoder math changed; no full synthesis timing was repeated.
 Runtime/model tests, race/no-CGo checks, CPU-feature-disabled fallback, OmniVoice
 vet and ARM64 test/CLI cross-builds pass. Focused review found no functional issue.
 Whole-repository builds still fail in the previously identified unrelated packages.
+
+## Sampler SIMD log-softmax (2026-09-13)
+
+Guidance log-softmax now reuses `vocabScratch2` for float32 max-shifted logits and
+bounded SIMD exponentials. Summation remains float64 and sequential; the final
+log normaliser uses the previous formula. Rows containing NaN or positive infinity,
+and all-negative-infinity rows, use the original scalar policy. Mixed finite/-Inf
+rows safely map masked entries to zero probability. No workspace was added.
+
+This approximates the former float64 exponential path. Near-tied confidence scores
+can change ordering on other inputs; deterministic seeds still reproduce this
+implementation, not the former scalar path or PyTorch RNG.
+
+A 1,025-class benchmark improved from 17.4–17.7 us to 6.1–6.4 us (about 2.8×),
+with zero allocations. Upstream guidance fixtures pass their existing tolerance,
+as do deterministic greedy generation and full guidance/prediction/selection
+allocation tests. Additional tests cover extreme finite values, exceptional rows,
+vector/tail lengths and mid-generation cancellation followed by deterministic reuse.
+
+The full raw-reference native sample is byte-identical to the preceding waveform,
+SHA-256 `1d8908e82a5af5c6c1cd191d94a32d4cf8ce1c811b420dcea009c726b2771ea5`.
+Whole-command time was 86.76 seconds (75.10 generation, 3.25 decode/save), compared
+with 78.38 seconds in an earlier run. Timing variation prevents a whole-model
+speedup claim. Artifacts: `/workspace/tmp/omnivoice-full-native-sampler-v12.{cpu,json}`
+and `/workspace/tmp/synthetic-spock-full-native-sampler-v12.wav`.
+
+Runtime/model tests, race/no-CGo checks, disabled-AVX2/FMA fallback, OmniVoice vet
+and ARM64 CLI cross-build pass. Review found no scratch-use or exceptional-row bug;
+its requested mid-generation cancellation/reuse coverage was added. Full-repository
+build failures remain in unrelated packages.
