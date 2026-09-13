@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -28,7 +29,10 @@ func main() {
 func run(args []string) error {
 	flags := flag.NewFlagSet("omnivoice", flag.ContinueOnError)
 	path := flags.String("model", "", "local OmniVoice model directory (required)")
-	mode := flags.String("mode", "inspect", "inspect, block, stack, capabilities, or audio; no speech generation yet")
+	mode := flags.String("mode", "inspect", "inspect, block, stack, logits, generate (prepared prompt), capabilities, or audio")
+	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
+	output := flags.String("output", "", "new synthetic WAV path for generate mode")
+	steps := flags.Int("steps", 16, "generation steps")
 	ref := flags.String("reference", "", "reference audio path for audio mode (WAV or supported MP4/AAC)")
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
@@ -72,7 +76,7 @@ func run(args []string) error {
 		}
 		return inspectAudio(*ref)
 	}
-	if *mode != "inspect" && *mode != "block" && *mode != "stack" {
+	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
 	if *path == "" {
@@ -111,6 +115,12 @@ func run(args []string) error {
 		return err
 	}
 	defer weights.Close()
+	if *mode == "generate" {
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps)
+	}
+	if *mode == "logits" {
+		return runLogits(weights, *input)
+	}
 	if *mode == "stack" {
 		return profileStack(weights, *tokens, selection)
 	}

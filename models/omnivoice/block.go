@@ -150,9 +150,9 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 	w := b.weights
 	norm, q, k, v, attended := s.norm, s.q, s.k, s.v, s.attended
 	normalizeInto(norm, x, w["input_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	linearInto(q, norm, w["self_attn.q_proj.weight"], tokens, h, nh*d)
-	linearInto(k, norm, w["self_attn.k_proj.weight"], tokens, h, nkv*d)
-	linearInto(v, norm, w["self_attn.v_proj.weight"], tokens, h, nkv*d)
+	s.linearInto(q, norm, w["self_attn.q_proj.weight"], tokens, h, nh*d)
+	s.linearInto(k, norm, w["self_attn.k_proj.weight"], tokens, h, nkv*d)
+	s.linearInto(v, norm, w["self_attn.v_proj.weight"], tokens, h, nkv*d)
 	normalizeInto(q, q, w["self_attn.q_norm.weight"], tokens*nh, d, float32(c.RMSNormEps))
 	normalizeInto(k, k, w["self_attn.k_norm.weight"], tokens*nkv, d, float32(c.RMSNormEps))
 	s.prepareRoPE(positions)
@@ -185,13 +185,13 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
 		}
 	}
-	linearInto(s.down, attended, w["self_attn.o_proj.weight"], tokens, nh*d, h)
+	s.linearInto(s.down, attended, w["self_attn.o_proj.weight"], tokens, nh*d, h)
 	simd.VecAdd(dst, s.down, x)
 	normalizeInto(norm, dst, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	linearInto(s.gate, norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
-	linearInto(s.up, norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
+	s.linearInto(s.gate, norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
+	s.linearInto(s.up, norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
 	simd.SiLUMul(s.gate, s.gate, s.up)
-	linearInto(s.down, s.gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
+	s.linearInto(s.down, s.gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
 	simd.VecAdd(dst, dst, s.down)
 	return nil
 }

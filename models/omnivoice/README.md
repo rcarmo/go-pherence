@@ -1,6 +1,6 @@
 # OmniVoice native CPU port: initial numerical core
 
-This is a partial port, not an end-to-end TTS engine. It does not invoke Python for computation. Python is used only by optional reference-test generators.
+Native token-conditioned synthesis now runs from a prepared prompt through denoising to WAV. It is not yet a fully native arbitrary-text/reference TTS engine: preparation still uses an explicit Python development exporter. The Go executable does not invoke Python for inference. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the current contract and remaining work.
 
 ## Implemented
 
@@ -9,7 +9,7 @@ This is a partial port, not an end-to-end TTS engine. It does not invoke Python 
 - Batch-one Qwen3 decoder block: input RMSNorm, Q/K head RMSNorm, default split-half RoPE, non-causal grouped-query attention with optional additive mask, output projection, residuals, SiLU-gated MLP.
 - Existing `backends/simd/runtime` GEMM, normalization and SiLU dispatch. No custom assembly added. Go orchestrates token/head packing and rotary positions; this is not an all-operations SIMD implementation.
 - `go-264/audio` frontend, pinned at `48ff0ca8272a`, for bounded reference decoding/channel conversion/resampling to 24 kHz mono.
-- Development CLI with `inspect`, `block`, `stack`, `audio` and `capabilities` modes. There is intentionally no `speak` mode yet.
+- Development CLI with `inspect`, `block`, `stack`, `logits`, `generate` (prepared prompt), `audio` and `capabilities` modes. `generate` executes the full native token→waveform path, not reference encoding.
 - Allocation-free `ForwardInto` and reusable layer-weight arena; full 28-layer synthetic-input profiling with CPU/allocation profiles. See [PROFILING.md](PROFILING.md) for measurements, limits and commands.
 - Explicit `-backend auto|cpu|vulkan` policy; hardware/software Vulkan detection, CPU fallback in auto and rejection of unimplemented explicit Vulkan execution.
 
@@ -39,11 +39,10 @@ The approved Charlie X reference decodes through go-264 to 108,000 samples (4.5 
 
 ## Remaining work, in dependency order
 
-1. Complete backbone inputs/outputs: mixed text/audio embeddings, codebook offsets and audio heads; tokenizer/prompt parity. The profiling stack already chains layers and final norm.
-2. Full-model output parity on captured inputs; reusable scratch and streamed weight arenas are implemented, but persistent weight/quantization performance remains to be evaluated.
-3. OmniVoice confidence sampling, classifier-free guidance, timestep schedule, mask updates and deterministic RNG tests.
-4. Learned audio tokenizer encoder/decoder, including reference conditioning and waveform reconstruction. `go-264` handles container/PCM I/O, not this neural codec.
-5. End-to-end fixed-seed samples compared with the accepted Nimoy voice reference; only then performance tuning and integration.
+1. Native tokenizer/prompt contract and reference encoding; complete backbone, sampler and neural decoder are now implemented and parity-tested.
+2. Decoder scratch reuse, longer-shape parity and runtime profiling; streamed weight arenas and packed SIMD projection are implemented.
+3. Stochastic whole-loop equivalence under supplied noise, wider numerical tests and full-SIMD nonlinear/conversion kernels.
+4. Listening acceptance of native samples and longer utterances/chunking. Keep assistant integration out of scope until those gates pass.
 
 Unsupported config variants fail at block construction (biases, non-SiLU, non-default RoPE, sliding windows, incompatible GQA). No CUDA, CGo, subprocess inference or model download is required by the Go CLI. Native CPU execution does not imply a speedup over PyTorch; this remains unmeasured end to end.
 

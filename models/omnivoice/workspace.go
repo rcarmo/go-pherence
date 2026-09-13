@@ -13,6 +13,7 @@ import (
 // with the same dimensions, epsilon and RoPE theta. No model weights live here.
 // ForwardInto supports dst == x; dst must not otherwise overlap x or mask.
 type Workspace struct {
+	packed                                            []float32
 	tokens, hidden, intermediate, heads, kvheads, dim int
 	theta                                             float64
 	arena                                             []float32
@@ -38,6 +39,11 @@ func (b *Block) NewWorkspace(tokens int) (*Workspace, error) {
 		return nil, fmt.Errorf("omnivoice: workspace size overflow")
 	}
 	total += c.HeadDim
+	packedSize, ok := product(max(c.HiddenSize, c.IntermediateSize, c.NumAttentionHeads*c.HeadDim), 16)
+	if !ok || total > int(^uint(0)>>1)/4-packedSize {
+		return nil, fmt.Errorf("omnivoice: packed scratch overflow")
+	}
+	total += packedSize
 	w := &Workspace{tokens: tokens, hidden: c.HiddenSize, intermediate: c.IntermediateSize, heads: c.NumAttentionHeads, kvheads: c.NumKeyValueHeads, dim: c.HeadDim, theta: c.RopeParameters.RopeTheta, arena: make([]float32, total), positions: make([]int, tokens)}
 	offset := 0
 	take := func(n int) []float32 { r := w.arena[offset : offset+n : offset+n]; offset += n; return r }
@@ -47,6 +53,7 @@ func (b *Block) NewWorkspace(tokens int) (*Workspace, error) {
 	}
 	w.rotA = take(c.HeadDim / 2)
 	w.rotB = take(c.HeadDim / 2)
+	w.packed = take(packedSize)
 	for i := range w.positions {
 		w.positions[i] = -1
 	}
@@ -99,9 +106,9 @@ func (w *Workspace) rotate(x []float32, heads int) {
 		}
 	}
 }
-func linearInto(y, x, w []float32, rows, in, out int) {
+func (s *Workspace) linearInto(y, x, w []float32, rows, in, out int) {
 	clear(y)
-	if !simd.SgemmNTTo(y, x, w, rows, out, in, 1, in, in, out) {
+	if !simd.SgemmNTPackedTo(y, x, w, s.packed, rows, out, in, 1, in, in, out) {
 		panic("omnivoice: internal linear shape error")
 	}
 }
