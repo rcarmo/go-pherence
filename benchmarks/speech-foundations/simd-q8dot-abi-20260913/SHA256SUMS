@@ -1,0 +1,4 @@
+3528440d30bb3845cf18377d67fbb62b6009264504a86cb6216ebb603ce296d1  /tmp/q8dot-abi-cross/simd-arm64.test
+73c8dec12c6b30147a6a64798d184e42e7e7c7b9aad623e2ebb0b12d910d4631  benchmarks/speech-foundations/simd-q8dot-abi-20260913/README.md
+b11dbf46796751495e347ec43cd7fa55bc66695aa3dc9b534d91232c2a345fab  benchmarks/speech-foundations/simd-q8dot-abi-20260913/tests.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  benchmarks/speech-foundations/simd-q8dot-abi-20260913/vet.log
