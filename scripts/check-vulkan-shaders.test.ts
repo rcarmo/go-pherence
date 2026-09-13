@@ -30,7 +30,7 @@ describe('offline SPIR-V comparison',()=>{
  });
  test('extracts exact checked-in inventory and rejects duplicate/missing bytes',async()=>{
   const source=await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_embedded.go`).text();
-  const values=embeddedShaders(source);expect(values.size).toBe(21);
+  const values=embeddedShaders(source);expect(values.size).toBe(22);
   for(const name of shaderNames){
    expect(values.get(name)).toEqual(await Bun.file(`${import.meta.dir}/../backends/vulkan/shaders/${name}.spv`).bytes());
    expect(()=>normalisedWords(values.get(name)!)).not.toThrow();

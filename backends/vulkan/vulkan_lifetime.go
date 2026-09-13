@@ -235,6 +235,15 @@ func (k *VkComputeKernel) Close() error {
 		return err
 	}
 	defer vkRelease()
+	return k.closeLocked()
+}
+
+// closeLocked supports transactional owners that construct or tear down a
+// kernel and its dedicated buffers under one lane acquisition.
+func (k *VkComputeKernel) closeLocked() error {
+	if k == nil {
+		return nil
+	}
 	if k.closed {
 		return nil
 	}
