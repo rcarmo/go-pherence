@@ -719,8 +719,8 @@ This is a go-pherence OmniVoice schema, not a claim of llama.cpp compatibility.
 
 Export streams one tensor at a time, supports cancellation and exclusively
 creates the destination; errors remove the partial file. The initial reader
-retains the raw encoded tensors in RAM and converts into the existing reusable
-arenas. It is not mmap-backed. Residency/prepacking allocate additional memory
+retained the raw encoded tensors in RAM and converted into reusable arenas.
+Linux now uses the mapped backing described below; non-Linux retains a copy. Residency/prepacking allocate additional memory
 on top of those retained bytes. The F16 real file is about 1.2 GiB; F32 would
 roughly double its floating-point payload. No file-size saving over an F16
 safetensors source is expected.
@@ -827,3 +827,53 @@ Cache hits avoid inference; warm uncached timings remain noisy. Short-first has
 not demonstrated a latency benefit or received listening acceptance. New stage
 counters support the final measured timing chart. No network/service deployment
 was performed, and per-request planning/output/cache copies still allocate.
+
+## Mapped GGUF and peak process memory (2026-09-13)
+
+Linux GGUF loading now uses a read-only private mapping of the original open
+file. Validated tensor slices borrow that mapping; the reader releases it on
+Close, including setup-failure cleanup. The file must remain immutable while
+any weights/backbones borrow its data. Other operating systems use a whole-file
+copy fallback. Core forward allocation behaviour is unchanged.
+
+Peak RSS was measured using Linux `wait4`/`Rusage.Maxrss`, via a small Go command
+wrapper. All runs used the same three-second prepared prompt, four steps, two
+SIMD workers, no resident cache, no prepacking, and low process priority. They
+ran serially without flushing filesystem caches. These are process peaks,
+including mapped pages actually touched, not total allocations or file sizes.
+
+| Storage/reader | Peak RSS KiB | Peak RSS MiB | Wall seconds |
+|---|---:|---:|---:|
+| Safetensors mmap baseline | 1,106,204 | 1,080.3 | 30.09 |
+| GGUF F16, eager copies | 1,410,316 | 1,377.3 | 35.48 |
+| GGUF mixed Q8/F32, eager copies | 1,365,520 | 1,333.5 | 50.75 |
+| GGUF F16, mmap | 1,106,288 | 1,080.4 | 28.41 |
+| GGUF mixed Q8/F32, mmap | 729,472 | 712.4 | 36.46 |
+
+Mapped F16 matches baseline memory. Mapped mixed Q8/F32 peaks about 34% below
+baseline, despite only a 5.6% file-size saving: inference touches selected
+embedding/head rows instead of copying their entire payload. F16 output matches
+safetensors byte-for-byte; Q8 output matches its eager-copy version byte-for-byte.
+Timing differences are single-trial observations; only the measured memory
+reduction is established here. Quantising embeddings/heads has not been enabled.
+
+Tests cover mapped data, lifetime after file-descriptor close, empty-file
+rejection and reader cleanup; all loader/model/CLI tests, vet, race, no-CGo and
+Linux ARM64 builds pass. The non-Linux GGUF fallback compiles for Darwin ARM64.
+Evidence: `/workspace/tmp/omnivoice-rss-*.json`, `synthetic-spock-rss-*.wav`,
+`omnivoice-mmap-validation.log` and `omnivoice-measure.go` (measurement wrapper).
+
+## Hardware assessment (2026-09-13)
+
+Current local probe: Intel N100, two KVM vCPUs, 5,938 MiB RAM, AVX2/FMA/F16C.
+Vulkan has a loader and llvmpipe software device, but no hardware device. Auto
+continues to select CPU/SIMD. Native OmniVoice Vulkan graph execution is not
+implemented; existing low-level Vulkan operations do not cover the full graph.
+
+The workspace registry lists another machine as a possible stronger-host
+candidate. Its present hardware was not verified: the session-scoped SSH profile
+did not redirect the active tool turn, as confirmed by the returned hostname
+`redshirt`, and was cleared. No remote benchmark, model copy, GPU installation,
+wake-up or deployment was attempted. Stronger-host/GPU execution needs an
+explicit target and working access before backend work can be validated.
+Local evidence: `/workspace/tmp/omnivoice-hardware-final.json`.

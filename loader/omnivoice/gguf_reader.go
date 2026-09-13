@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"sync"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -14,10 +15,11 @@ import (
 const ggufTensorAlignment = 32
 
 type ggufReader struct {
-	names  []string
-	infos  map[string]safetensors.TensorInfo
-	raws   map[string][]byte
-	closed bool
+	names   []string
+	infos   map[string]safetensors.TensorInfo
+	raws    map[string][]byte
+	release func() error
+	closed  bool
 }
 
 func openGGUFWeights(path string) (*Weights, error) {
@@ -171,6 +173,17 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 	if !meta.Valid {
 		return nil, fmt.Errorf("omnivoice gguf: checkpoint tensor layout mismatch: %+v", meta)
 	}
+	mapped, release, err := g.MapReadOnly()
+	if err != nil {
+		return nil, fmt.Errorf("omnivoice gguf: map %s: %w", path, err)
+	}
+	release = idempotentRelease(release)
+	cleanup := release
+	defer func() {
+		if cleanup != nil {
+			_ = cleanup()
+		}
+	}()
 
 	raws := make(map[string][]byte, len(specs))
 	for name := range specs {
@@ -182,10 +195,18 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 		if !ok {
 			continue
 		}
-		raw, err := g.Raw(t)
-		if err != nil {
-			return nil, fmt.Errorf("omnivoice gguf: tensor %q raw: %w", name, err)
+		start, ok := ggufCheckedAddInt64(g.DataOffset, int64(t.Offset))
+		if !ok {
+			return nil, fmt.Errorf("omnivoice gguf: tensor %q absolute offset overflows", name)
 		}
+		end, ok := ggufCheckedAddInt64(start, int64(infos[name].DataOffsets[1]))
+		if !ok {
+			return nil, fmt.Errorf("omnivoice gguf: tensor %q mapped span overflows", name)
+		}
+		if end > int64(len(mapped)) {
+			return nil, fmt.Errorf("omnivoice gguf: tensor %q mapped span [%d,%d) exceeds mapped file length %d", name, start, end, len(mapped))
+		}
+		raw := mapped[int(start):int(end)]
 		if len(raw) != infos[name].DataOffsets[1] {
 			return nil, fmt.Errorf("omnivoice gguf: tensor %q raw length %d, want %d", name, len(raw), infos[name].DataOffsets[1])
 		}
@@ -205,7 +226,22 @@ func newGGUFReader(path string, g *gguf.GGUF, cfg Config) (*ggufReader, error) {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return &ggufReader{names: names, infos: infos, raws: raws}, nil
+	cleanup = nil
+	return &ggufReader{names: names, infos: infos, raws: raws, release: release}, nil
+}
+
+func idempotentRelease(release func() error) func() error {
+	if release == nil {
+		return nil
+	}
+	var once sync.Once
+	var err error
+	return func() error {
+		once.Do(func() {
+			err = release()
+		})
+		return err
+	}
 }
 
 func validateNonOverlappingGGUFSpans(spans []ggufTensorSpan) error {
@@ -314,9 +350,14 @@ func (r *ggufReader) Close() error {
 		return nil
 	}
 	r.closed = true
+	release := r.release
+	r.release = nil
 	r.names = nil
 	r.infos = nil
 	r.raws = nil
+	if release != nil {
+		return release()
+	}
 	return nil
 }
 
