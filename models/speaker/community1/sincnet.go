@@ -407,6 +407,7 @@ func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias [
 		// reduction dimension, preserving the scalar FMA order exactly.
 		const tile = 32
 		packed := make([]float32, in*kernel*tile)
+		rows4 := make([]float32, 4*tile)
 		for start := 0; start < frames; start += tile {
 			if err := ctx.Err(); err != nil {
 				return nil, 0, err
@@ -420,10 +421,26 @@ func sincNetConvolve(ctx context.Context, x []float32, in, n int, weight, bias [
 					}
 				}
 			}
-			for channel := 0; channel < out; channel++ {
+			channel := 0
+			for ; channel+4 <= out; channel += 4 {
 				if err := ctx.Err(); err != nil {
 					return nil, 0, err
 				}
+				rows := rows4[:4*cols]
+				if !simd.FMAColumns4F32Checked(rows, xcols, weight[channel*in*kernel:(channel+4)*in*kernel]) {
+					return nil, 0, fmt.Errorf("invalid SincNet four-output FMA tile or FP environment")
+				}
+				for output := 0; output < 4; output++ {
+					row := result[(channel+output)*frames+start : (channel+output)*frames+start+cols]
+					copy(row, rows[output*cols:(output+1)*cols])
+					if bias != nil {
+						for j := range row {
+							row[j] += bias[channel+output]
+						}
+					}
+				}
+			}
+			for ; channel < out; channel++ {
 				row := result[channel*frames+start : channel*frames+start+cols]
 				if !simd.FMAColumnsF32Checked(row, xcols, weight[channel*in*kernel:(channel+1)*in*kernel]) {
 					return nil, 0, fmt.Errorf("invalid SincNet FMA tile or FP environment")
