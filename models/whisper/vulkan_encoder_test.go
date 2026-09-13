@@ -116,6 +116,24 @@ func TestVulkanEncoderLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestVulkanEncoderLayoutFinalCancellationReturnsNil(t *testing.T) {
+	c := vulkanToyConfig()
+	enc := vulkanToyEncoder(t, c)
+	count := newCheckpointContext(0)
+	layout, err := describeVulkanEncoder(count, enc, 17)
+	count.cancel()
+	if err != nil || layout == nil || count.calls < 1 {
+		t.Fatal(layout, err, count.calls)
+	}
+	ctx := newCheckpointContext(count.calls)
+	layout, err = describeVulkanEncoder(ctx, enc, 17)
+	ctx.cancel()
+	if layout != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late cancellation returned layout", layout, err)
+	}
+}
+
 func TestVulkanEncoderRejectsBeforeDevice(t *testing.T) {
 	c := vulkanToyConfig()
 	enc := vulkanToyEncoder(t, c)

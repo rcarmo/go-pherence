@@ -214,7 +214,10 @@ func (b *VulkanBasicBlock) Forward(ctx context.Context, input []float32) ([]floa
 			return fail(fmt.Errorf("Community-1 Vulkan block: nonfinite output[%d]", i))
 		}
 	}
-	return output, s.stats.Output, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return fail(err)
+	}
+	return output, s.stats.Output, nil
 }
 
 // Close permanently blocks new calls and retries reverse teardown on failure.

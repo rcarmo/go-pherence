@@ -135,5 +135,8 @@ func describeVulkanResNetTrunk(ctx context.Context, model *WeSpeakerResNet34, fr
 		return nil, fmt.Errorf("Community-1 Vulkan trunk: final shape mismatch")
 	}
 	l.outputName = current
-	return l, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return l, nil
 }

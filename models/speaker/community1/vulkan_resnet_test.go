@@ -90,6 +90,26 @@ func TestVulkanResNetTrunkLayout(t *testing.T) {
 	}
 }
 
+func TestVulkanResNetLayoutFinalCancellationReturnsNil(t *testing.T) {
+	fixture := loadResNetFixtures(t)[0]
+	model, err := NewWeSpeakerResNet34(context.Background(), fixture.Config, fixture.Weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := newPowersetContext(0)
+	layout, err := describeVulkanResNetTrunk(count, model, fixture.Frames)
+	count.cancel()
+	if err != nil || layout == nil || count.calls < 1 {
+		t.Fatal(layout, err, count.calls)
+	}
+	ctx := newPowersetContext(count.calls)
+	layout, err = describeVulkanResNetTrunk(ctx, model, fixture.Frames)
+	ctx.cancel()
+	if layout != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late cancellation returned layout", layout, err)
+	}
+}
+
 func TestVulkanResNetTrunkLayoutRejectsBeforeDevice(t *testing.T) {
 	fixture := loadResNetFixtures(t)[0]
 	model, err := NewWeSpeakerResNet34(context.Background(), fixture.Config, fixture.Weights)

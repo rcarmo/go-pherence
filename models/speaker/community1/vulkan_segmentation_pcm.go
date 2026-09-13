@@ -132,7 +132,10 @@ func (m *VulkanSegmentationPCM) ForwardPCM(ctx context.Context, pcm []float32, s
 	if err != nil {
 		return nil, err
 	}
-	return &SegmentationPCMResult{Grid: grid, Classes: state.stats.Classes, LogProbabilities: scores}, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return &SegmentationPCMResult{Grid: grid, Classes: state.stats.Classes, LogProbabilities: scores}, nil
 }
 
 func (m *VulkanSegmentationPCM) Close() error {

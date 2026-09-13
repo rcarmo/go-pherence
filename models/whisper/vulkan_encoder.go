@@ -299,7 +299,10 @@ func (e *VulkanEncoder) Forward(ctx context.Context, mel []float32) ([]float32, 
 			return nil, fmt.Errorf("whisper Vulkan: nonfinite output[%d]", i)
 		}
 	}
-	return out, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Close permanently blocks new Forward calls and attempts reverse teardown.

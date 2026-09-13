@@ -134,7 +134,10 @@ func describeVulkanBasicBlock(ctx context.Context, block *WeSpeakerBasicBlock, i
 		vulkanBlockStep{op: "add", out: "b", x: "b", a: shortcut},
 		vulkanBlockStep{op: "affine", out: "b", x: "b", a: "relu.scale", b: "relu.shift", relu: true},
 	)
-	return l, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func prepareVulkanBN(ctx context.Context, bn WeSpeakerBN, channels int) ([]float32, []float32, error) {

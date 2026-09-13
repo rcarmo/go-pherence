@@ -212,7 +212,10 @@ func (l *VulkanLSTM) Forward(ctx context.Context, input, hidden, cell []float32)
 			return nil, err
 		}
 	}
-	return result, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (l *VulkanLSTM) Close() error {

@@ -71,6 +71,26 @@ func TestVulkanLSTMLayout(t *testing.T) {
 	}
 }
 
+func TestVulkanLSTMLayoutFinalCancellationReturnsNil(t *testing.T) {
+	fixture := loadLSTMFixtures(t)[2]
+	model, err := NewLSTM(context.Background(), fixture.Config, fixture.Weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := newPowersetContext(0)
+	layout, err := describeVulkanLSTM(count, model, fixture.Frames)
+	count.cancel()
+	if err != nil || layout == nil || count.calls < 1 {
+		t.Fatal(layout, err, count.calls)
+	}
+	ctx := newPowersetContext(count.calls)
+	layout, err = describeVulkanLSTM(ctx, model, fixture.Frames)
+	ctx.cancel()
+	if layout != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late cancellation returned layout", layout, err)
+	}
+}
+
 func TestVulkanLSTMRejectsBeforeDevice(t *testing.T) {
 	fixture := loadLSTMFixtures(t)[2]
 	model, err := NewLSTM(context.Background(), fixture.Config, fixture.Weights)

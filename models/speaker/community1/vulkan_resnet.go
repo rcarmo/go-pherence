@@ -232,7 +232,10 @@ func (t *VulkanResNetTrunk) ForwardFrames(ctx context.Context, fbank []float32, 
 			return fail(fmt.Errorf("Community-1 Vulkan trunk: nonfinite output[%d]", i))
 		}
 	}
-	return output, s.stats.Output, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return fail(err)
+	}
+	return output, s.stats.Output, nil
 }
 
 func (t *VulkanResNetTrunk) Close() error {

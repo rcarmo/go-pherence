@@ -97,6 +97,26 @@ func TestVulkanBasicBlockLayout(t *testing.T) {
 	}
 }
 
+func TestVulkanBasicBlockLayoutFinalCancellationReturnsNil(t *testing.T) {
+	fixture := loadBlockFixtures(t)[1]
+	block, err := NewWeSpeakerBasicBlock(context.Background(), fixture.Config, fixture.Weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := newPowersetContext(0)
+	layout, err := describeVulkanBasicBlock(count, block, fixture.Shape)
+	count.cancel()
+	if err != nil || layout == nil || count.calls < 1 {
+		t.Fatal(layout, err, count.calls)
+	}
+	ctx := newPowersetContext(count.calls)
+	layout, err = describeVulkanBasicBlock(ctx, block, fixture.Shape)
+	ctx.cancel()
+	if layout != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late cancellation returned layout", layout, err)
+	}
+}
+
 func TestVulkanBasicBlockLayoutRejectsBeforeDevice(t *testing.T) {
 	fixture := loadBlockFixtures(t)[1]
 	block, err := NewWeSpeakerBasicBlock(context.Background(), fixture.Config, fixture.Weights)

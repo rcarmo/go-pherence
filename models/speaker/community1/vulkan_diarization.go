@@ -245,7 +245,10 @@ func (m *VulkanDiarization) RunPCM(ctx context.Context, reader DiarizationPCMRea
 	if err != nil {
 		return nil, err
 	}
-	return result, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Close stops admission and closes embedding then segmentation. A failed child

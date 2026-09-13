@@ -176,7 +176,10 @@ func (e *VulkanEmbedding) Forward(ctx context.Context, fbank []float32, frames i
 	if err := finiteBlock(ctx, output); err != nil {
 		return nil, err
 	}
-	return &WeSpeakerEmbeddingResult{Embeddings: output, WeightSum: pooled.WeightSum, NonzeroFrames: pooled.NonzeroFrames}, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return &WeSpeakerEmbeddingResult{Embeddings: output, WeightSum: pooled.WeightSum, NonzeroFrames: pooled.NonzeroFrames}, nil
 }
 
 func (e *VulkanEmbedding) Close() error {

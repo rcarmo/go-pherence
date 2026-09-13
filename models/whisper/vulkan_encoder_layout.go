@@ -113,7 +113,10 @@ func describeVulkanEncoder(ctx context.Context, enc *Encoder, frames int) (*vkEn
 		})
 	}
 	l.plans = append(l.plans, []vkEncoderStep{step("norm", "h", "h", "final.w", "final.b")})
-	return l, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 func vkEncoderArenaBytes(specs []vkEncoderTensor, alignment uint64) (uint64, error) {
 	if alignment < 4 {

@@ -126,5 +126,8 @@ func describeVulkanLSTM(ctx context.Context, model *LSTM, frames int) (*vulkanLS
 		layout.plans = append(layout.plans, plan)
 		layout.outputName = outputName
 	}
-	return layout, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return layout, nil
 }

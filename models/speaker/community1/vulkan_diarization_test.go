@@ -11,6 +11,7 @@ import (
 type fakeVulkanDiarizationSegmentation struct {
 	grid       SincNetGrid
 	stats      VulkanSegmentationStats
+	result     *SegmentationPCMResult
 	calls      int
 	closeCalls int
 	closeErr   error
@@ -18,6 +19,9 @@ type fakeVulkanDiarizationSegmentation struct {
 
 func (f *fakeVulkanDiarizationSegmentation) ForwardPCM(context.Context, []float32, SincNetMode, HeadMode) (*SegmentationPCMResult, error) {
 	f.calls++
+	if f.result != nil {
+		return f.result, nil
+	}
 	return &SegmentationPCMResult{Grid: f.grid, Classes: f.stats.Classes, LogProbabilities: []float32{0, -1}}, nil
 }
 func (f *fakeVulkanDiarizationSegmentation) Close() error {
@@ -32,12 +36,16 @@ func (f *fakeVulkanDiarizationSegmentation) Grid() SincNetGrid              { re
 
 type fakeVulkanDiarizationEmbedding struct {
 	stats      VulkanEmbeddingStats
+	result     *WeSpeakerEmbeddingResult
 	calls      int
 	closeCalls int
 }
 
 func (f *fakeVulkanDiarizationEmbedding) Forward(context.Context, []float32, int, []float32, int, int) (*WeSpeakerEmbeddingResult, error) {
 	f.calls++
+	if f.result != nil {
+		return f.result, nil
+	}
 	return &WeSpeakerEmbeddingResult{Embeddings: []float32{1}, WeightSum: []float32{1}, NonzeroFrames: []int{1}}, nil
 }
 func (f *fakeVulkanDiarizationEmbedding) Close() error                { f.closeCalls++; return nil }
@@ -124,6 +132,47 @@ func TestVulkanDiarizationRollbackAndRetry(t *testing.T) {
 				t.Fatal(err, seg.closeCalls)
 			}
 		})
+	}
+}
+
+func TestVulkanDiarizationFinalCancellationReturnsNoPartialOutput(t *testing.T) {
+	model, cfg, _ := diarizationFixture(t, false)
+	grid, err := model.segmentation.checkpoint.Grid(cfg.WindowSamples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := model.segmentation.checkpoint.cfg.Head.Speakers
+	dim := model.embedding.model.cfg.EmbedDim
+	scores := make([]float32, grid.Frames*7)
+	for frame := 0; frame < grid.Frames; frame++ {
+		for class := 1; class < 7; class++ {
+			scores[frame*7+class] = -1
+		}
+	}
+	seg := &fakeVulkanDiarizationSegmentation{grid: grid, stats: VulkanSegmentationStats{Frames: grid.Frames, Classes: 7, MaxActive: 2}, result: &SegmentationPCMResult{Grid: grid, Classes: 7, LogProbabilities: scores}}
+	emb := &fakeVulkanDiarizationEmbedding{result: &WeSpeakerEmbeddingResult{Embeddings: make([]float32, local*dim), WeightSum: make([]float32, local), NonzeroFrames: make([]int, local)}}
+	owner, err := newVulkanDiarization(context.Background(), model.segmentation.checkpoint, model.segmentation.frontend.filters, model.embedding.model, nil, cfg.WindowSamples, vulkanDiarizationFactories{
+		segmentation: func(context.Context, *SegmentationCheckpoint, []float32, int) (vulkanDiarizationSegmentation, error) {
+			return seg, nil
+		},
+		embedding: func(context.Context, *WeSpeakerResNet34, int) (vulkanDiarizationEmbedding, error) { return emb, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	pcm := sliceDiarizationPCM(make([]float32, cfg.WindowSamples))
+	count := newPowersetContext(0)
+	result, err := owner.RunPCM(count, pcm, int64(len(pcm)), cfg, SincNetScalarFMA, HeadScalar)
+	count.cancel()
+	if err != nil || result == nil || count.calls < 1 {
+		t.Fatal(result, err, count.calls)
+	}
+	ctx := newPowersetContext(count.calls)
+	result, err = owner.RunPCM(ctx, pcm, int64(len(pcm)), cfg, SincNetScalarFMA, HeadScalar)
+	ctx.cancel()
+	if result != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("late cancellation returned result", result, err)
 	}
 }
 
