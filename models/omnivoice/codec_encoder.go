@@ -568,11 +568,7 @@ func (e *CodecEncoder) semanticResidual(x signal, residual *codecEncoderSemantic
 }
 
 func (e *CodecEncoder) elu(x signal) {
-	for i, v := range x.data {
-		if v < 0 {
-			x.data[i] = float32(math.Exp(float64(v)) - 1)
-		}
-	}
+	simd.ELUF32To(x.data, x.data)
 }
 
 func (e *CodecEncoder) encodeAcoustic(ctx context.Context, x signal) (signal, error) {

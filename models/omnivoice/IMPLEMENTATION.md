@@ -449,3 +449,12 @@ byte-identical to the preceding sine-enabled version and prepared calls remain
 allocation-free. The representative FFN benchmark improves about 10–12%.
 Non-amd64 finishing, HuBERT erf and encoder/sampler exponentials still use scalar
 operations. See [PROFILING.md](PROFILING.md) for timings and validation.
+
+## Semantic encoder SIMD ELU (2026-09-13)
+
+The encoder uses a near-zero-safe expm1 kernel for bounded negative ELU inputs,
+with exact positive/NaN passthrough and conservative scalar fallback regions.
+Representative mixed-sign benchmarks improve about 3.2×; prepared calls allocate
+zero bytes. Raw and preprocessed native reference codes are unchanged (896 and
+832 codes respectively). See [PROFILING.md](PROFILING.md) for numerical limits and
+fallback-heavy performance. HuBERT erf and sampler exponentials remain scalar.

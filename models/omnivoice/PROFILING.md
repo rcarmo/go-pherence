@@ -288,3 +288,37 @@ ARM64 cross-builds pass. No new waveform attachment is needed for identical audi
 Encoder ELU still uses scalar `float32(exp(float64(x))-1)` for negative inputs.
 Replacing it with float32 exp followed by subtraction loses small negative values
 near zero; it needs a separate near-zero-safe implementation and parity tests.
+
+## Encoder SIMD ELU (2026-09-13)
+
+`ELUF32To` uses an AVX2/FMA expm1 polynomial for negative inputs in
+[-16, -2^-20). Range reduction uses a split ln(2); reconstruction avoids rounding
+exp to float32 before subtracting one. Smaller negative magnitudes remain scalar
+to preserve the existing float64 exp/subtract cancellation. Positive SIMD lanes
+are masked to zero during polynomial evaluation and copied back bitwise. Signed
+zero, positive infinity and NaN payloads pass through unchanged. Out-of-range
+negative values, unsupported CPUs and short tails use the scalar reference.
+
+Dense/random tests observed maximum absolute error 5.96e-8 and relative error
+1.19e-7 over the tested regular range; the absolute acceptance limit is 2e-6.
+Tests cover tiny-negative powers and ULP neighbours, exact tiny-region results,
+positive extremes in mixed SIMD lanes, NaN payloads, aliasing and tails.
+
+For 4,096 representative mixed-sign inputs, scalar ELU measured 34.95–36.58 us
+and dispatch 10.85–11.04 us (about 3.2×), with zero allocations. All-negative
+1,024-input cases measured about 5.5× faster. A deliberately fallback-heavy mixed
+benchmark remained slower than scalar (about 12.5 versus 10.5 us); this kernel is
+not uniformly faster for arbitrary distributions.
+
+The semantic codec encoder now calls this kernel. Real-checkpoint feature
+encoding matches all 8×3 codes with zero prepared allocations. Native raw reference
+encoding preserves all 896 codes; preprocessed reference encoding preserves all
+832 codes. Artifacts: `/workspace/tmp/omnivoice-reference-elu-{raw-v10,v10}.json`.
+No backbone/decoder math changed and no full synthesis timing was repeated for
+this stage. Reference-code equality is the integration gate here, not a new
+waveform or throughput claim.
+
+Runtime/model tests, race/no-CGo checks, disabled-AVX2/FMA fallback, OmniVoice vet
+and ARM64 CLI cross-build pass. Focused review found and prompted a fix for NaN
+payload preservation; explicit tests now cover positive/negative quiet and
+signalling NaNs. Full-repository build failures remain unrelated to these changes.
