@@ -1,0 +1,24 @@
+# github.com/rcarmo/go-pherence/backends/vulkan
+backends/vulkan/vulkan_init.go:24:21: undefined: purego.Dlopen
+backends/vulkan/vulkan_init.go:24:53: undefined: purego.RTLD_LAZY
+backends/vulkan/vulkan_init.go:26:19: undefined: purego.Dlopen
+backends/vulkan/vulkan_init.go:26:49: undefined: purego.RTLD_LAZY
+backends/vulkan/vulkan_init.go:30:17: undefined: purego.Dlclose
+backends/vulkan/vulkan_init.go:37:27: undefined: purego.Dlsym
+# github.com/rcarmo/go-pherence/backends/nvidia/runtime
+backends/nvidia/runtime/runtime.go:149:22: undefined: purego.Dlopen
+backends/nvidia/runtime/runtime.go:149:52: undefined: purego.RTLD_LAZY
+backends/nvidia/runtime/runtime.go:152:22: undefined: purego.Dlopen
+backends/nvidia/runtime/runtime.go:152:50: undefined: purego.RTLD_LAZY
+# github.com/rcarmo/go-pherence/runtime/memory
+runtime/memory/mmap_advisor.go:104:20: undefined: syscall.Madvise
+runtime/memory/mmap_advisor.go:104:56: undefined: syscall.MADV_WILLNEED
+runtime/memory/mmap_advisor.go:153:20: undefined: syscall.Madvise
+runtime/memory/mmap_advisor.go:153:56: undefined: syscall.MADV_DONTNEED
+# github.com/rcarmo/go-pherence/backends/spacemit/ime2
+backends/spacemit/ime2/gemm_parallel.go:50:20: undefined: unix.CPUSet
+backends/spacemit/ime2/gemm_parallel.go:53:9: undefined: unix.SchedSetaffinity
+backends/spacemit/ime2/worker_pool.go:40:18: undefined: unix.CPUSet
+backends/spacemit/ime2/worker_pool.go:43:7: undefined: unix.SchedSetaffinity
+backends/spacemit/ime2/worker_pool.go:128:18: undefined: unix.CPUSet
+backends/spacemit/ime2/worker_pool.go:131:7: undefined: unix.SchedSetaffinity

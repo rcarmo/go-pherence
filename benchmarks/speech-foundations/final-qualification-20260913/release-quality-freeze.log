@@ -1,0 +1,2 @@
+bun scripts/check-speech-quality-freeze.ts
+{"schema":1,"whisper_models":2,"segmentation_tensors":54,"embedding_tensors":218,"source_documents":6,"freeze_sha256":"d4156514db5fc4f95ee9c24c8cbdb573fb68a56b06ebf5367bc9356447656d80","status":"ok"}
