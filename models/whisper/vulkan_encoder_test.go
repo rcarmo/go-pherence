@@ -134,6 +134,27 @@ func TestVulkanEncoderLayoutFinalCancellationReturnsNil(t *testing.T) {
 	}
 }
 
+func TestVulkanEncoderQ8PlacementSelection(t *testing.T) {
+	for _, tc := range []struct {
+		mode vulkanLinearMode
+		name string
+		want bool
+	}{
+		{vulkanLinearF32, "layer0.fc1.w", false},
+		{vulkanLinearF32RegTile, "layer0.fc2.w", false},
+		{vulkanLinearQ8Weight, "layer0.q.w", true},
+		{vulkanLinearQ8Weight, "layer0.fc1.w", true},
+		{vulkanLinearQ8MLPWeight, "layer0.fc1.w", true},
+		{vulkanLinearQ8MLPWeight, "layer0.fc2.w", true},
+		{vulkanLinearQ8MLPWeight, "layer0.q.w", false},
+		{vulkanLinearQ8MLPWeight, "layer0.o.w", false},
+	} {
+		if got := vulkanQ8WeightSelected(tc.mode, tc.name); got != tc.want {
+			t.Fatal(tc, got)
+		}
+	}
+}
+
 func TestVulkanEncoderQ8RejectsBeforeDevice(t *testing.T) {
 	c := vulkanToyConfig()
 	enc := vulkanToyEncoder(t, c)

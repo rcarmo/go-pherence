@@ -2,6 +2,8 @@ package whisper
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -16,6 +18,169 @@ import (
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 )
+
+func TestVulkanTurboQ8Robustness(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_ROBUSTNESS") != "1" {
+		t.Skip("explicit Turbo Q8 silence/multi-window qualification required")
+	}
+	deadline, bounded := t.Deadline()
+	if !bounded || time.Until(deadline) > 3*time.Minute {
+		t.Fatal("Turbo Q8 robustness qualification requires timeout<=3m")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 170*time.Second)
+	defer cancel()
+	model, tok, policy := pinnedTurboSpeechModel(t, ctx)
+	if !vk.VulkanInit() {
+		t.Fatal("Vulkan unavailable")
+	}
+	device := vk.VulkanDeviceName()
+	wantDevice := os.Getenv("GO_PHERENCE_VULKAN_DEVICE")
+	lower := strings.ToLower(device)
+	if wantDevice == "" || !strings.Contains(device, wantDevice) || strings.Contains(lower, "llvmpipe") || strings.Contains(lower, "lavapipe") {
+		t.Fatal("unexpected physical device", device)
+	}
+	before := vk.VulkanMemoryStats()
+	if before.Allocations != 0 || before.Bytes != 0 {
+		t.Fatal("isolated process required", before)
+	}
+	if err := vk.VulkanSetMemoryBudget(vk.VulkanMemoryBudget{MaxBytes: 4 << 30, MaxAllocations: 40}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := vk.VulkanSetMemoryBudget(before.Budget); err != nil {
+			t.Error(err)
+		}
+		after := vk.VulkanMemoryStats()
+		if after.Allocations != before.Allocations || after.Bytes != before.Bytes {
+			t.Error("Turbo Q8 robustness leak", before, after)
+		}
+	}()
+	jfk := os.Getenv("GO_PHERENCE_WHISPER_JFK_PATH")
+	pinnedSpeechFile(t, jfk, "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e")
+	r, err := media.OpenCanonicalPCM(ctx, jfk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	speech := make([]float32, 176000)
+	n, readErr := r.ReadSamplesAt(ctx, speech, 0)
+	closeErr := r.Close()
+	if n != len(speech) || readErr != nil || closeErr != nil {
+		t.Fatal("JFK read", n, readErr, closeErr)
+	}
+	type robustnessFixture struct {
+		name, path, reference string
+		samples               int64
+		skip                  bool
+	}
+	dir := t.TempDir()
+	makeFixture := func(name string, pcm []float32, reference string, skip bool) robustnessFixture {
+		path := filepath.Join(dir, name+".wav")
+		writeSpeechFixturePCM(t, path, pcm)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hash := sha256.Sum256(data)
+		t.Logf("TURBO_Q8_ROBUSTNESS_FIXTURE name=%s sha256=%s samples=%d skip=%t", name, hex.EncodeToString(hash[:]), len(pcm), skip)
+		return robustnessFixture{name: name, path: path, reference: reference, samples: int64(len(pcm)), skip: skip}
+	}
+	const jfkText = "And so my fellow Americans ask not what your country can do for you ask what you can do for your country"
+	silence := make([]float32, 5*16000)
+	long := make([]float32, 63*16000)
+	copy(long[2*16000:], speech)
+	copy(long[42*16000:], speech)
+	fixtures := []robustnessFixture{
+		makeFixture("silence-default-5s", silence, "", false),
+		makeFixture("silence-skip-5s", silence, "", true),
+		makeFixture("jfk-three-windows-63s", long, jfkText+" "+jfkText, true),
+	}
+	run := func(pathName string, enc *VulkanEncoder) (map[string][]WindowTranscript, int64) {
+		outputs := map[string][]WindowTranscript{}
+		start := time.Now()
+		for _, fixture := range fixtures {
+			reader, err := media.OpenCanonicalPCM(ctx, fixture.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var windows []WindowTranscript
+			err = model.TranscribePCMWindows(ctx, reader, fixture.samples, tok, PCMTranscribeOptions{Language: "en", Generation: policy, MaxNewTokens: 96, SkipDigitalSilence: fixture.skip, VulkanEncoder: enc}, func(w WindowTranscript) error { windows = append(windows, w); return nil })
+			closeErr := reader.Close()
+			if err != nil || closeErr != nil {
+				t.Fatal(fixture.name, err, closeErr)
+			}
+			outputs[fixture.name] = windows
+		}
+		ns := time.Since(start).Nanoseconds()
+		t.Logf("TURBO_Q8_ROBUSTNESS_SAMPLE path=%s wall_ns=%d", pathName, ns)
+		return outputs, ns
+	}
+	base, err := NewVulkanEncoder(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer base.Close()
+	baseline, baseNS := run("f32", base)
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
+	q8, err := NewVulkanEncoderQ8Weight(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q8.Close()
+	fullStats := q8.Stats()
+	quantized, q8NS := run("q8-all", q8)
+	if err := q8.Close(); err != nil {
+		t.Fatal(err)
+	}
+	mlp, err := NewVulkanEncoderQ8MLPWeight(ctx, model.Encoder, 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mlp.Close()
+	mlpStats := mlp.Stats()
+	mlpQuantized, mlpNS := run("q8-mlp", mlp)
+	if err := mlp.Close(); err != nil {
+		t.Fatal(err)
+	}
+	fullExact := true
+	for _, fixture := range fixtures {
+		bw, qw, mw := baseline[fixture.name], quantized[fixture.name], mlpQuantized[fixture.name]
+		q8Exact, mlpExact := reflect.DeepEqual(bw, qw), reflect.DeepEqual(bw, mw)
+		fullExact = fullExact && q8Exact
+		if !mlpExact {
+			baselineJSON, _ := json.Marshal(bw)
+			mlpJSON, _ := json.Marshal(mw)
+			t.Fatalf("MLP Q8 robustness transcript changed %s\nf32=%s\nq8_mlp=%s", fixture.name, baselineJSON, mlpJSON)
+		}
+		wantWindows := int((fixture.samples + 479999) / 480000)
+		if len(qw) != wantWindows || len(mw) != wantWindows {
+			t.Fatal("robustness window count", fixture.name, len(qw), len(mw), wantWindows)
+		}
+		text := func(windows []WindowTranscript) string {
+			value := ""
+			for _, w := range windows {
+				for _, s := range w.Segments {
+					value += " " + s.Text
+				}
+			}
+			return strings.TrimSpace(value)
+		}
+		q8Text, mlpText := text(qw), text(mw)
+		q8Edits, words := speechFixtureWER(fixture.reference, q8Text)
+		mlpEdits, _ := speechFixtureWER(fixture.reference, mlpText)
+		if fixture.skip && fixture.reference == "" && (mlpText != "" || len(mw[0].Segments) != 0 || q8Text != "" || len(qw[0].Segments) != 0) {
+			t.Fatal("silence skip emitted output")
+		}
+		if fixture.name == "jfk-three-windows-63s" && (q8Edits != 0 || mlpEdits != 0 || words != 44 || len(qw[2].Segments) != 0 || len(mw[2].Segments) != 0) {
+			t.Fatal("multi-window content regression", q8Edits, mlpEdits, words)
+		}
+		entry, _ := json.Marshal(map[string]any{"fixture": fixture.name, "skip_digital_silence": fixture.skip, "windows": len(qw), "full_q8_exact_tokens_timestamps": q8Exact, "mlp_q8_exact_tokens_timestamps": mlpExact, "full_q8_word_edits": q8Edits, "mlp_q8_word_edits": mlpEdits, "reference_words": words, "full_q8_text": q8Text, "mlp_q8_text": mlpText})
+		t.Log("TURBO_Q8_ROBUSTNESS " + string(entry))
+	}
+	result, _ := json.Marshal(map[string]any{"device": device, "fixtures": len(fixtures), "f32_ns": baseNS, "q8_all_ns": q8NS, "q8_mlp_ns": mlpNS, "q8_all_speedup": float64(baseNS) / float64(q8NS), "q8_mlp_speedup": float64(baseNS) / float64(mlpNS), "full_q8_all_exact": fullExact, "mlp_q8_all_exact": true, "full_q8_stats": fullStats, "mlp_q8_stats": mlpStats})
+	t.Log("TURBO_Q8_ROBUSTNESS_RESULT " + string(result))
+}
 
 func TestVulkanTurboQ8Weight(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_VULKAN_TURBO_Q8_WEIGHT") != "1" {

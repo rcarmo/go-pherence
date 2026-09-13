@@ -62,9 +62,27 @@ The same aggregate owner was run sequentially against F32 on all three retained 
 
 The multilingual run completed in `132.68s`, used `6,779,472KiB` maximum RSS and reported zero process swaps. Multilingual log SHA-256: `908fbe8e062ddde14e9a72bf957646d67242ac6cfe29fda0e21d0e3261b95e35`. Time SHA-256: `b74d72f1067e36d6ea48d61d3dc26ae0ef434918fa8b7a186701e270b4165827`.
 
+## Robustness and exact-timestamp placement
+
+A separate 63-second composition places JFK speech at 2s and 42s, producing three 30-second windows with an exact-zero final tail. It also tests five seconds of digital silence with default policy and with `SkipDigitalSilence`.
+
+Full projection Q8 preserves all text/tokens and 0 WER, but changes one first-window timestamp boundary from `11.0s` to `11.2s`; it therefore fails the strict exact-output gate. Default silence remains exactly equal to F32 but both paths hallucinate “Thank you.”. The opt-in exact-zero skip remains empty and exact.
+
+The attention-only dequantised screen reproduced the timestamp change. MLP-only Q8 (FC1/FC2 packed; attention projections F32) preserves every token and timestamp on all three robustness fixtures. In the final run:
+
+| Path | Reported encoder weight bytes | Three-fixture time | Speedup |
+|---|---:|---:|---:|
+| F32 | 2,548,039,680 | 46.515s | 1.000× |
+| Full Q8 | 662,077,440 | 27.876s | 1.669× |
+| MLP-only Q8 | 1,290,567,680 | 33.795s | 1.376× |
+
+The final robustness process used `5,741,972KiB` maximum RSS and zero process swaps; host `pswpout` did not change and `pswpin` increased by one page. Full-Q8 timestamp shift is retained as a hold, not hidden by a looser comparison.
+
+Robustness log SHA-256: `b1285a073a29ffa1b882d2897d57bbf58e44ef4469abd96ada96aaac30b8ae79`. Time SHA-256: `5d5868eec92d88ba163c7305e3658dee567ae61c998436ac9af0063f7196bc4f`.
+
 ## Decision
 
-Turbo projection-only Q8 passes this pinned English/PT/FR quality and performance checkpoint. It remains an explicit constructor, not a serving/default promotion. Longer/noisy/silent inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
+Full projection Q8 passes pinned English/PT/FR text/token gates and is the fastest candidate, but remains held because of the multi-window timestamp change. Explicit MLP-only Q8 passes the retained exact-output robustness gate at `1.376×` and is the conservative placement candidate. Neither changes serving/default selection. Natural noisy/long-form inputs, broader WER, energy/stress, recovery and Community-1 placement remain open.
 
 ## Reproduce
 

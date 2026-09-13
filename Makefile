@@ -126,7 +126,7 @@ speech-vulkan-turbo-profile:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboProfile$$' -v
 
 # Explicit candidate kernels; neither target changes encoder defaults.
-.PHONY: speech-vulkan-linear-regtile-check speech-vulkan-linear-f16-weight-check speech-vulkan-linear-q8-weight-check speech-vulkan-whisper-q8-weight-check speech-vulkan-turbo-q8-weight-check speech-vulkan-turbo-regtile-check
+.PHONY: speech-vulkan-linear-regtile-check speech-vulkan-linear-f16-weight-check speech-vulkan-linear-q8-weight-check speech-vulkan-whisper-q8-weight-check speech-vulkan-turbo-q8-weight-check speech-vulkan-turbo-q8-robustness-check speech-vulkan-turbo-regtile-check
 speech-vulkan-linear-regtile-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_LINEAR_REGTILE=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeLinearRegTile$$' -v
 
@@ -154,6 +154,13 @@ speech-vulkan-turbo-q8-weight-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_TURBO_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TURBO_DIR'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=180s ./models/whisper -run '^TestVulkanTurboQ8Weight$$' -v
+
+# Full-Q8 versus exact-timestamp MLP-only Q8 on silence and 63s composition.
+speech-vulkan-turbo-q8-robustness-check:
+	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
+	@test -n "$(GO_PHERENCE_WHISPER_TURBO_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TURBO_DIR'; exit 1)
+	@test -n "$(GO_PHERENCE_WHISPER_JFK_PATH)" || (echo 'Set GO_PHERENCE_WHISPER_JFK_PATH'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_ROBUSTNESS=1 go test -p=1 -count=1 -timeout=180s ./models/whisper -run '^TestVulkanTurboQ8Robustness$$' -v
 
 speech-vulkan-turbo-regtile-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboRegTile$$' -v
