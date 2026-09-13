@@ -34,6 +34,7 @@ func run(args []string) error {
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	steps := flags.Int("steps", 16, "generation steps")
+	residentMiB := flags.Int64("resident-mib", 0, "opt-in decoder float32 cache budget in MiB; 0 streams layers (excludes other memory)")
 	text := flags.String("text", "", "target speech text for prepare/synthesize")
 	cachedReference := flags.String("reference-tokens", "", "cached reference codes and transcript JSON (not raw audio)")
 	frames := flags.Int("frames", 75, "target frames, or maximum per chunk in long modes, 25/sec (1..250)")
@@ -54,6 +55,13 @@ func run(args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	if *residentMiB < 0 || *residentMiB > 65536 {
+		return fmt.Errorf("resident-mib must be 0..65536")
+	}
+	if *residentMiB != 0 && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "generate" {
+		return fmt.Errorf("resident-mib applies only to synthesize, synthesize-long or generate")
+	}
+	residentBytes := *residentMiB << 20
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
@@ -96,7 +104,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess)
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes)
 	}
 
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
@@ -196,10 +204,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)

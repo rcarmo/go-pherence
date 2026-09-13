@@ -442,3 +442,24 @@ step at 307 positions out of 322,080; RMS delta is 0.03087 integer units. Whole-
 throughput did not improve conclusively. ASR recovered the expected words in
 English and Portuguese; listening quality remains unaccepted. See
 [IMPLEMENTATION.md](IMPLEMENTATION.md) for settings, evidence and artifact paths.
+
+## Opt-in resident float32 layers
+
+A matched eight-step, 75-frame cached-reference run produced identical WAVs in
+streamed and resident modes (SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`).
+
+| Mode | Total | Generation including cache setup | Cache setup | Extra decoder arenas |
+| --- | ---: | ---: | ---: | ---: |
+| Streamed | 69.99 s | 66.62 s | disabled | 0 |
+| Resident | 68.69 s | 64.96 s | 4.10 s | 1,761,865,728 bytes |
+
+This single pair shows only a modest total-time difference; it does not establish
+a reliable whole-model speedup. Reuse across requests should amortise construction,
+but persistent serving is not yet implemented. Peak RSS was not measured.
+
+Artifacts: `/workspace/tmp/omnivoice-resident-v1.{cpu,json}` and
+`/workspace/tmp/omnivoice-streamed-compare-v1.json`. Tiny-fixture exact parity,
+shared CFG cache, resizing, budget accounting, partial-build cancellation,
+zero-forward-allocation, race/no-CGo tests, CLI validation and ARM64 builds pass.
+Resident mode does not yet eliminate weight packing or cache embeddings/heads.

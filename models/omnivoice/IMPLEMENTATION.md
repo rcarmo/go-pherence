@@ -524,3 +524,36 @@ acceptance. Assistant integration remains out of scope until that review. Curren
 performance is slower than real time, Vulkan inference is unimplemented, and
 scalar range/architecture fallbacks remain. The measured optimisation round is
 complete; subjective quality acceptance is not.
+
+## Performance phase 2: resident decoder layers
+
+`-resident-mib N` opts generation, synthesis and long synthesis into resident
+float32 decoder layers. Zero (default) retains streaming. N is a budget for the
+additional decoder tensor arenas, not a process RSS limit. A too-small budget is
+rejected before cache construction; partial construction is not attached after
+cancellation/error. Single-shot and long synthesis handle SIGINT/SIGTERM.
+
+The model API exposes `EnableResident(ctx, maxBytes)`, `ResidentRequiredBytes()`
+and `ResidentBytes()`. Create CFG siblings after enabling to share the cache.
+Existing siblings do not acquire it retroactively. The sequential ownership
+contract remains; enabling or forwarding concurrently is unsupported.
+
+The current checkpoint requires 1,761,865,728 additional bytes (1.64 GiB) for its
+28 layers. The streamed arena, activations, heads, embeddings, codec and Go metadata
+are excluded. Successful prepared forwards still allocate nothing. The layers
+are converted once but not yet prepacked; embedding/head conversion remains.
+
+Example (cached reference):
+
+```sh
+bin/omnivoice -mode synthesize -model /path/to/OmniVoice \
+  -reference-tokens /path/to/reference.json -resident-mib 1800 \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output /path/to/new-synthetic.wav
+```
+
+Follow-up scope requested by the user: prepacked residency, reusable parallel GEMM
+workers, 4/6/8-step comparisons, alternative tiles/quantised compute, persistent
+serving, progressive output, short-first-chunk policy and phrase caching. Stronger
+host/GPU work requires available hardware and a testable deployment target.
+Training quality and listening acceptance remain separate from runtime speed.

@@ -12,9 +12,14 @@ import (
 // weights into a fixed arena and supports mixed text/audio token positions.
 // No allocation is performed by ForwardInto after construction. It does not
 // tokenize text, sample new audio tokens or run the learned waveform codec.
+//
+// EnableResident optionally builds a shared immutable decoder-layer cache.
+// Resident sharing follows the existing sequential sibling contract and is not
+// additionally synchronized for concurrent use.
 type Backbone struct {
 	weights                             *loader.Weights
 	layer                               *loader.LayerBuffer
+	resident                            *residentCache
 	block                               *Block
 	scratch                             *Workspace
 	hidden, row, head, headOutput, norm []float32
@@ -25,19 +30,20 @@ type Backbone struct {
 // tokens is fixed to bound memory. Audio-head projection is chunked so large
 // embedding/head matrices are never materialized in full.
 func NewBackbone(weights *loader.Weights, tokens int) (*Backbone, error) {
-	return newBackbone(weights, tokens, nil)
+	return newBackbone(weights, tokens, nil, nil)
 }
 
-// NewBackboneSibling shares the streamed weight arena, but owns all activations.
-// Neither sibling may execute concurrently; intended for sequential CFG branches.
+// NewBackboneSibling shares the streamed weight arena, any enabled resident
+// cache, but owns all activations. Neither sibling may execute concurrently;
+// intended for sequential CFG branches.
 func NewBackboneSibling(parent *Backbone, tokens int) (*Backbone, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("omnivoice: nil parent backbone")
 	}
-	return newBackbone(parent.weights, tokens, parent.layer)
+	return newBackbone(parent.weights, tokens, parent.layer, parent.resident)
 }
 
-func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer) (*Backbone, error) {
+func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer, resident *residentCache) (*Backbone, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("omnivoice: nil weights")
 	}
@@ -69,7 +75,7 @@ func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer)
 	}
 	const chunk = 128
 	h := c.LLMConfig.HiddenSize
-	b := &Backbone{weights: weights, layer: arena, block: block, scratch: scratch, maxTokens: tokens, chunk: chunk, hidden: make([]float32, tokens*h), row: make([]float32, h), head: make([]float32, chunk*h), headOutput: make([]float32, tokens*chunk), norm: norm}
+	b := &Backbone{weights: weights, layer: arena, resident: resident, block: block, scratch: scratch, maxTokens: tokens, chunk: chunk, hidden: make([]float32, tokens*h), row: make([]float32, h), head: make([]float32, chunk*h), headOutput: make([]float32, tokens*chunk), norm: norm}
 	if err = b.Reconfigure(tokens); err != nil {
 		return nil, err
 	}
@@ -153,15 +159,26 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 			simd.VecAdd(dst, dst, b.row)
 		}
 	}
-	for i := 0; i < c.LLMConfig.NumHiddenLayers; i++ {
-		if err := ctx.Err(); err != nil {
-			return err
+	if b.resident != nil {
+		for i := range b.resident.blocks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := b.resident.blocks[i].ForwardInto(b.hidden, b.hidden, b.tokens, positions, mask, b.scratch); err != nil {
+				return err
+			}
 		}
-		if err := b.layer.Load(b.weights, i); err != nil {
-			return err
-		}
-		if err := b.block.ForwardInto(b.hidden, b.hidden, b.tokens, positions, mask, b.scratch); err != nil {
-			return err
+	} else {
+		for i := 0; i < c.LLMConfig.NumHiddenLayers; i++ {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := b.layer.Load(b.weights, i); err != nil {
+				return err
+			}
+			if err := b.block.ForwardInto(b.hidden, b.hidden, b.tokens, positions, mask, b.scratch); err != nil {
+				return err
+			}
 		}
 	}
 	normalizeInto(b.hidden, b.hidden, b.norm, b.tokens, h, float32(c.LLMConfig.RMSNormEps))

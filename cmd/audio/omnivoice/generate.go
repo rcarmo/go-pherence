@@ -8,7 +8,9 @@ import (
 	model "github.com/rcarmo/go-pherence/models/omnivoice"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -28,7 +30,7 @@ type preparedPrompt struct {
 	RefRMS                *float64    `json:"ref_rms,omitempty"`
 }
 
-func runGenerate(weights *loader.Weights, input, output, codecPath string, steps int, postprocess bool) error {
+func runGenerate(weights *loader.Weights, input, output, codecPath string, steps int, postprocess bool, residentBytes int64) error {
 	if input == "" || output == "" || filepath.Ext(output) != ".wav" {
 		return fmt.Errorf("generate requires -input prepared JSON and new -output .wav")
 	}
@@ -51,10 +53,10 @@ func runGenerate(weights *loader.Weights, input, output, codecPath string, steps
 		return err
 	}
 	p.Postprocess = postprocess
-	return generatePrompt(weights, p, output, codecPath, steps, true)
+	return generatePrompt(weights, p, output, codecPath, steps, true, residentBytes)
 }
 
-func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath string, steps int, prepared bool) error {
+func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath string, steps int, prepared bool, residentBytes int64) error {
 	if output == "" || filepath.Ext(output) != ".wav" {
 		return fmt.Errorf("new -output .wav required")
 	}
@@ -73,11 +75,20 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if len(p.Conditional.Positions) > 0 || len(p.Unconditional.Positions) > 0 || len(p.Conditional.Mask) > 0 || len(p.Unconditional.Mask) > 0 {
 		return fmt.Errorf("generate requires implicit positions and full attention")
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	started := time.Now()
 	cond, err := model.NewBackbone(weights, p.Conditional.Tokens)
 	if err != nil {
 		return err
 	}
+	residentStarted := time.Now()
+	if residentBytes > 0 {
+		if err := cond.EnableResident(ctx, residentBytes); err != nil {
+			return err
+		}
+	}
+	residentSeconds := time.Since(residentStarted).Seconds()
 	uncond, err := model.NewBackboneSibling(cond, p.Unconditional.Tokens)
 	if err != nil {
 		return err
@@ -89,7 +100,7 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 		return err
 	}
 	codes := make([]int, weights.Config.NumAudioCodebook*p.Target)
-	if err = generation.GenerateInto(context.Background(), codes, p.Conditional.IDs, p.Conditional.AudioMask, p.Unconditional.IDs, p.Unconditional.AudioMask); err != nil {
+	if err = generation.GenerateInto(ctx, codes, p.Conditional.IDs, p.Conditional.AudioMask, p.Unconditional.IDs, p.Unconditional.AudioMask); err != nil {
 		return err
 	}
 	generated := time.Now()
@@ -101,7 +112,7 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if err != nil {
 		return err
 	}
-	wave, err := decoder.Decode(context.Background(), codes, weights.Config.NumAudioCodebook, p.Target)
+	wave, err := decoder.Decode(ctx, codes, weights.Config.NumAudioCodebook, p.Target)
 	if err != nil {
 		return err
 	}
@@ -139,5 +150,5 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if !p.CommandStarted.IsZero() {
 		commandSeconds = time.Since(p.CommandStarted).Seconds()
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"command_seconds": commandSeconds, "silence_preprocessing": p.PreprocessedReference, "output_postprocessing": p.Postprocess, "mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": p.NativeReference, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"resident_cache_bytes": cond.ResidentBytes(), "resident_setup_seconds": residentSeconds, "command_seconds": commandSeconds, "silence_preprocessing": p.PreprocessedReference, "output_postprocessing": p.Postprocess, "mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": p.NativeReference, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
 }

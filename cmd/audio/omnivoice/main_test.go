@@ -41,3 +41,11 @@ func TestCLIRejectsInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIResidentBudgetValidation(t *testing.T) {
+	for _, args := range [][]string{{"-resident-mib", "-1"}, {"-resident-mib", "65537"}, {"-resident-mib", "1", "-mode", "audio"}, {"-resident-mib", "1", "-mode", "plan-chunks"}} {
+		if err := run(args); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+}

@@ -17,7 +17,7 @@ import (
 	model "github.com/rcarmo/go-pherence/models/omnivoice"
 )
 
-func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool) error {
+func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool, residentBytes int64) error {
 	started := time.Now()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -95,7 +95,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	if err != nil {
 		return err
 	}
-	runner, err := newChunkRunner(weights, decoder, prompts, steps)
+	runner, err := newChunkRunnerWithResident(ctx, weights, decoder, prompts, steps, residentBytes)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": mode, "synthetic": true, "native_inference": true, "reference_encoding_native": reference != "", "silence_preprocessing": preprocess, "output_postprocessing": postprocess, "chunks": len(prompts), "chunk_texts": chunkTexts(prompts), "target_frames": totalFrames, "chunk_seconds": timings, "audio_seconds": float64(len(joined)) / 24000, "command_seconds": time.Since(started).Seconds(), "steps": steps, "seed_per_chunk": 42, "boundary_fade_ms": 5, "boundary_gap_ms": 100, "gain": gain, "output": output})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": mode, "synthetic": true, "native_inference": true, "resident_cache_bytes": runner.cond.ResidentBytes(), "reference_encoding_native": reference != "", "silence_preprocessing": preprocess, "output_postprocessing": postprocess, "chunks": len(prompts), "chunk_texts": chunkTexts(prompts), "target_frames": totalFrames, "chunk_seconds": timings, "audio_seconds": float64(len(joined)) / 24000, "command_seconds": time.Since(started).Seconds(), "steps": steps, "seed_per_chunk": 42, "boundary_fade_ms": 5, "boundary_gap_ms": 100, "gain": gain, "output": output})
 }
 
 type chunkRunner struct {
@@ -134,6 +134,10 @@ type chunkRunner struct {
 }
 
 func newChunkRunner(weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int) (*chunkRunner, error) {
+	return newChunkRunnerWithResident(context.Background(), weights, decoder, prompts, steps, 0)
+}
+
+func newChunkRunnerWithResident(ctx context.Context, weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int, residentBytes int64) (*chunkRunner, error) {
 	if weights == nil || decoder == nil || len(prompts) == 0 {
 		return nil, fmt.Errorf("invalid chunk runner inputs")
 	}
@@ -146,6 +150,11 @@ func newChunkRunner(weights *loader.Weights, decoder *model.CodecDecoder, prompt
 	cond, err := model.NewBackbone(weights, maxCond)
 	if err != nil {
 		return nil, err
+	}
+	if residentBytes > 0 {
+		if err := cond.EnableResident(ctx, residentBytes); err != nil {
+			return nil, err
+		}
 	}
 	uncond, err := model.NewBackboneSibling(cond, maxUncond)
 	if err != nil {
