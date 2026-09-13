@@ -11,11 +11,38 @@ import (
 	config "github.com/rcarmo/go-pherence/loader/omnivoice"
 )
 
+var blockPrepackedSuffixes = [...]string{
+	"self_attn.q_proj.weight",
+	"self_attn.k_proj.weight",
+	"self_attn.v_proj.weight",
+	"self_attn.o_proj.weight",
+	"mlp.gate_proj.weight",
+	"mlp.up_proj.weight",
+	"mlp.down_proj.weight",
+}
+
+func blockWeightShapes(c config.LLMConfig) map[string][2]int {
+	return map[string][2]int{
+		"input_layernorm.weight":          {1, c.HiddenSize},
+		"post_attention_layernorm.weight": {1, c.HiddenSize},
+		"self_attn.q_norm.weight":         {1, c.HeadDim},
+		"self_attn.k_norm.weight":         {1, c.HeadDim},
+		"self_attn.q_proj.weight":         {c.NumAttentionHeads * c.HeadDim, c.HiddenSize},
+		"self_attn.k_proj.weight":         {c.NumKeyValueHeads * c.HeadDim, c.HiddenSize},
+		"self_attn.v_proj.weight":         {c.NumKeyValueHeads * c.HeadDim, c.HiddenSize},
+		"self_attn.o_proj.weight":         {c.HiddenSize, c.NumAttentionHeads * c.HeadDim},
+		"mlp.gate_proj.weight":            {c.IntermediateSize, c.HiddenSize},
+		"mlp.up_proj.weight":              {c.IntermediateSize, c.HiddenSize},
+		"mlp.down_proj.weight":            {c.HiddenSize, c.IntermediateSize},
+	}
+}
+
 // Block contains one Qwen3 decoder layer. Weights are row-major [out,in].
 // Construct through NewBlock; weight slices must not be modified during use.
 type Block struct {
-	config  config.LLMConfig
-	weights map[string][]float32
+	config    config.LLMConfig
+	weights   map[string][]float32
+	prepacked map[string][]float32
 }
 
 // ValidateConfig checks native block support without loading any weights.
@@ -40,16 +67,7 @@ func NewBlock(c config.LLMConfig, weights map[string][]float32) (*Block, error) 
 	if err := ValidateConfig(c); err != nil {
 		return nil, err
 	}
-	sizes := map[string][2]int{
-		"input_layernorm.weight": {1, c.HiddenSize}, "post_attention_layernorm.weight": {1, c.HiddenSize},
-		"self_attn.q_norm.weight": {1, c.HeadDim}, "self_attn.k_norm.weight": {1, c.HeadDim},
-		"self_attn.q_proj.weight": {c.NumAttentionHeads * c.HeadDim, c.HiddenSize},
-		"self_attn.k_proj.weight": {c.NumKeyValueHeads * c.HeadDim, c.HiddenSize},
-		"self_attn.v_proj.weight": {c.NumKeyValueHeads * c.HeadDim, c.HiddenSize},
-		"self_attn.o_proj.weight": {c.HiddenSize, c.NumAttentionHeads * c.HeadDim},
-		"mlp.gate_proj.weight":    {c.IntermediateSize, c.HiddenSize}, "mlp.up_proj.weight": {c.IntermediateSize, c.HiddenSize},
-		"mlp.down_proj.weight": {c.HiddenSize, c.IntermediateSize},
-	}
+	sizes := blockWeightShapes(c)
 	copyWeights := make(map[string][]float32, len(sizes))
 	for name, shape := range sizes {
 		n, ok := product(shape[0], shape[1])
@@ -59,6 +77,15 @@ func NewBlock(c config.LLMConfig, weights map[string][]float32) (*Block, error) 
 		copyWeights[name] = weights[name]
 	}
 	return &Block{config: c, weights: copyWeights}, nil
+}
+
+func (b *Block) cloneWithPrepacked(prepacked map[string][]float32) *Block {
+	if b == nil {
+		return nil
+	}
+	clone := *b
+	clone.prepacked = prepacked
+	return &clone
 }
 
 func product(a, b int) (int, bool) {
@@ -135,6 +162,17 @@ func (b *Block) validateInput(x []float32, tokens int, positions []int, mask []f
 	return nil
 }
 
+func (b *Block) linearInto(s *Workspace, y, x, w []float32, key string, rows, in, out int) {
+	if packed := b.prepacked[key]; len(packed) != 0 {
+		clear(y)
+		if !simd.SgemmNTPrepackedTo(y, x, w, packed, rows, out, in, 1, in, in, out) {
+			panic("omnivoice: internal linear shape error")
+		}
+		return
+	}
+	s.linearInto(y, x, w, rows, in, out)
+}
+
 // ForwardInto is the allocation-free block path after workspace construction.
 // Scratch is exclusive to this call; dst may equal x exactly, but must not
 // otherwise overlap inputs, weights, or workspace. Errors leave dst unspecified.
@@ -150,9 +188,9 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 	w := b.weights
 	norm, q, k, v, attended := s.norm, s.q, s.k, s.v, s.attended
 	normalizeInto(norm, x, w["input_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	s.linearInto(q, norm, w["self_attn.q_proj.weight"], tokens, h, nh*d)
-	s.linearInto(k, norm, w["self_attn.k_proj.weight"], tokens, h, nkv*d)
-	s.linearInto(v, norm, w["self_attn.v_proj.weight"], tokens, h, nkv*d)
+	b.linearInto(s, q, norm, w["self_attn.q_proj.weight"], "self_attn.q_proj.weight", tokens, h, nh*d)
+	b.linearInto(s, k, norm, w["self_attn.k_proj.weight"], "self_attn.k_proj.weight", tokens, h, nkv*d)
+	b.linearInto(s, v, norm, w["self_attn.v_proj.weight"], "self_attn.v_proj.weight", tokens, h, nkv*d)
 	normalizeInto(q, q, w["self_attn.q_norm.weight"], tokens*nh, d, float32(c.RMSNormEps))
 	normalizeInto(k, k, w["self_attn.k_norm.weight"], tokens*nkv, d, float32(c.RMSNormEps))
 	s.prepareRoPE(positions)
@@ -185,11 +223,11 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
 		}
 	}
-	s.linearInto(s.down, attended, w["self_attn.o_proj.weight"], tokens, nh*d, h)
+	b.linearInto(s, s.down, attended, w["self_attn.o_proj.weight"], "self_attn.o_proj.weight", tokens, nh*d, h)
 	simd.VecAdd(dst, s.down, x)
 	normalizeInto(norm, dst, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
-	s.linearInto(s.gate, norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
-	s.linearInto(s.up, norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
+	b.linearInto(s, s.gate, norm, w["mlp.gate_proj.weight"], "mlp.gate_proj.weight", tokens, h, c.IntermediateSize)
+	b.linearInto(s, s.up, norm, w["mlp.up_proj.weight"], "mlp.up_proj.weight", tokens, h, c.IntermediateSize)
 	// GEMM packing scratch is idle during activation; process bounded tiles
 	// rather than reserving another full feed-forward activation tensor.
 	for start := 0; start < len(s.gate); start += len(s.packed) {
@@ -198,7 +236,7 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			return fmt.Errorf("omnivoice: SiLU scratch shape failed")
 		}
 	}
-	s.linearInto(s.down, s.gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
+	b.linearInto(s, s.down, s.gate, w["mlp.down_proj.weight"], "mlp.down_proj.weight", tokens, c.IntermediateSize, h)
 	simd.VecAdd(dst, dst, s.down)
 	return nil
 }

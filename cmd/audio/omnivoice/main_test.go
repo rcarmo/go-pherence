@@ -49,3 +49,9 @@ func TestCLIResidentBudgetValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIPrepackRequiresBudget(t *testing.T) {
+	if err := run([]string{"-mode", "synthesize", "-prepack"}); err == nil {
+		t.Fatal("accepted prepack without budget")
+	}
+}

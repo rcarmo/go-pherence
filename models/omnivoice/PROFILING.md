@@ -463,3 +463,32 @@ Artifacts: `/workspace/tmp/omnivoice-resident-v1.{cpu,json}` and
 shared CFG cache, resizing, budget accounting, partial-build cancellation,
 zero-forward-allocation, race/no-CGo tests, CLI validation and ARM64 builds pass.
 Resident mode does not yet eliminate weight packing or cache embeddings/heads.
+
+## Resident prepacked SIMD comparison
+
+Matched cached-reference, eight-step, 75-frame synthesis:
+
+| Mode | Total | Cache setup | Decoder cache | Sampled process peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Raw resident | 71.32 s | 1.87 s | 1,761,865,728 B | 2,786,300 KiB |
+| Resident + prepacked | 83.01 s | 7.47 s | 3,523,473,408 B | 4,118,236 KiB |
+
+RSS high-water marks were polled from `/proc/PID/status`; this is process resident
+memory, not the cache budget. The prepacked process reported 4,480 KiB of swap;
+the raw-resident comparison reported none. Both WAVs match the streamed baseline
+SHA-256 `e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+
+Direct 1024×1024 projection benchmarks were mixed: prepacking slightly helped
+126-row shapes and hurt 128-row shapes in these runs. Retaining panels eliminates
+packing per call, but does not guarantee faster execution when cache residency,
+row tails and memory pressure change. Prepacking stays opt-in; combined worker
+and persistent-serving measurements are still required.
+
+Artifacts: `/workspace/tmp/omnivoice-prepacked-v1.{json,rss}`,
+`/workspace/tmp/omnivoice-resident-compare-v2.{json,rss}` and
+`/workspace/tmp/omnivoice-prepacked-benchmark.log`.
+
+Tests cover bitwise GEMM parity, strides/tails, overlapping-buffer rejection,
+zero allocations, raw-to-packed transactional upgrades and sibling ownership.
+Model/runtime race/no-CGo, disabled-AVX2/FMA fallback, OmniVoice vet and ARM64
+cross-build checks pass. The CLI refuses prepacking without active SIMD GEMM.

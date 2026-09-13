@@ -557,3 +557,25 @@ workers, 4/6/8-step comparisons, alternative tiles/quantised compute, persistent
 serving, progressive output, short-first-chunk policy and phrase caching. Stronger
 host/GPU work requires available hardware and a testable deployment target.
 Training quality and listening acceptance remain separate from runtime speed.
+
+## Resident prepacked SIMD projections
+
+`-prepack -resident-mib 3400` retains the resident float32 matrices and packs all
+seven decoder projection matrices into read-only 16-column panels. Full tiles
+feed the existing SIMD microkernel directly; raw matrices remain available for
+row/column tails and low-level CPU fallback. CLI prepacking requires active SIMD
+GEMM. Streaming and raw-resident modes remain unchanged and prepacking is opt-in.
+
+The real model holds 3,523,473,408 bytes of decoder cache in this mode, including
+1,761,607,680 packed bytes. The byte budget excludes activations, streamed arena,
+codec, embeddings/heads and Go overhead. Resident API upgrades are transactional:
+raw buffers are shared, old siblings keep their old cache, and new siblings inherit
+the upgraded cache. `ResidentBytes()` now includes raw and packed cache storage;
+`PrepackedBytes()` reports the packed portion.
+
+Full real-checkpoint output is byte-identical across streamed, resident and
+prepacked modes. Prepacking alone was slower on this VM and is not the default.
+It remains available for combination with persistent serving and parallel SIMD
+workers; those combinations need their own measurements. Future phase-2 work
+also includes GGUF export/quantised inference and training-pipeline efficiency;
+GGUF alone does not accelerate training or supply quantised compute kernels.
