@@ -95,18 +95,57 @@ func TestVulkanDiarizationInjectedLifecycleAndRun(t *testing.T) {
 
 func TestVulkanDiarizationRollbackAndRetry(t *testing.T) {
 	model, _, _ := diarizationFixture(t, false)
-	seg := &fakeVulkanDiarizationSegmentation{closeErr: io.ErrClosedPipe}
 	stop := errors.New("embedding construction failed")
-	owner, err := newVulkanDiarization(context.Background(), model.segmentation.checkpoint, model.segmentation.frontend.filters, model.embedding.model, nil, 2960, vulkanDiarizationFactories{
+	for _, retained := range []bool{false, true} {
+		t.Run(map[bool]string{false: "rollback-complete", true: "rollback-retained"}[retained], func(t *testing.T) {
+			seg := &fakeVulkanDiarizationSegmentation{}
+			if retained {
+				seg.closeErr = io.ErrClosedPipe
+			}
+			owner, err := newVulkanDiarization(context.Background(), model.segmentation.checkpoint, model.segmentation.frontend.filters, model.embedding.model, nil, 2960, vulkanDiarizationFactories{
+				segmentation: func(context.Context, *SegmentationCheckpoint, []float32, int) (vulkanDiarizationSegmentation, error) {
+					return seg, nil
+				},
+				embedding: func(context.Context, *WeSpeakerResNet34, int) (vulkanDiarizationEmbedding, error) { return nil, stop },
+			})
+			if !errors.Is(err, stop) || seg.closeCalls != 1 {
+				t.Fatal(owner, err, seg.closeCalls)
+			}
+			if !retained {
+				if owner != nil {
+					t.Fatal("completed rollback returned owner", owner)
+				}
+				return
+			}
+			if owner == nil || !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatal(owner, err)
+			}
+			if err := owner.Close(); err != nil || seg.closeCalls != 2 {
+				t.Fatal(err, seg.closeCalls)
+			}
+		})
+	}
+}
+
+func TestVulkanDiarizationLateCancellationReturnsNilAfterRollback(t *testing.T) {
+	model, _, _ := diarizationFixture(t, false)
+	grid, err := model.segmentation.checkpoint.Grid(2960)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	seg := &fakeVulkanDiarizationSegmentation{grid: grid}
+	emb := &fakeVulkanDiarizationEmbedding{}
+	owner, err := newVulkanDiarization(ctx, model.segmentation.checkpoint, model.segmentation.frontend.filters, model.embedding.model, nil, 2960, vulkanDiarizationFactories{
 		segmentation: func(context.Context, *SegmentationCheckpoint, []float32, int) (vulkanDiarizationSegmentation, error) {
 			return seg, nil
 		},
-		embedding: func(context.Context, *WeSpeakerResNet34, int) (vulkanDiarizationEmbedding, error) { return nil, stop },
+		embedding: func(context.Context, *WeSpeakerResNet34, int) (vulkanDiarizationEmbedding, error) {
+			cancel()
+			return emb, nil
+		},
 	})
-	if owner == nil || !errors.Is(err, stop) || !errors.Is(err, io.ErrClosedPipe) || seg.closeCalls != 1 {
-		t.Fatal(owner, err, seg.closeCalls)
-	}
-	if err := owner.Close(); err != nil || seg.closeCalls != 2 {
-		t.Fatal(err, seg.closeCalls)
+	if owner != nil || !errors.Is(err, context.Canceled) || seg.closeCalls != 1 || emb.closeCalls != 1 {
+		t.Fatal(owner, err, seg.closeCalls, emb.closeCalls)
 	}
 }

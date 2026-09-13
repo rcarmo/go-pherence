@@ -111,7 +111,10 @@ func newVulkanDiarization(ctx context.Context, segmentation *SegmentationCheckpo
 		LocalSpeakers: segmentation.cfg.Head.Speakers, EmbeddingDimension: embedding.cfg.EmbedDim,
 		Segmentation: state.segmentation.Stats(), Embedding: state.embedding.Stats(),
 	}
-	return owner, ctx.Err()
+	if err = ctx.Err(); err != nil {
+		return nil, err
+	}
+	return owner, nil
 }
 
 func (m *VulkanDiarization) acquire(ctx context.Context) (*vulkanDiarizationState, error) {

@@ -113,7 +113,10 @@ func newVulkanLSTM(ctx context.Context, source *LSTM, frames int, makePlan func(
 			return nil, fmt.Errorf("Community-1 Vulkan LSTM: plan constructor returned nil")
 		}
 	}
-	return owner, ctx.Err()
+	if err = ctx.Err(); err != nil {
+		return nil, err
+	}
+	return owner, nil
 }
 
 func (l *VulkanLSTM) acquire(ctx context.Context) (*vulkanLSTMState, error) {
