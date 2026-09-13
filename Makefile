@@ -56,7 +56,7 @@ speech-vulkan-community-server-check:
 
 # Explicit real-GPU qualification in a coordinated compute window. No models
 # or services; synthetic numerical fixtures and optional warm host-wall timing.
-.PHONY: speech-vulkan-native-check speech-vulkan-community-native-check speech-vulkan-community-trained-check
+.PHONY: speech-vulkan-native-check speech-vulkan-community-native-check speech-vulkan-community-trained-check speech-vulkan-community-trained-recovery-check
 speech-vulkan-native-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeSpeech$$' -v
 
@@ -75,6 +75,16 @@ speech-vulkan-community-trained-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PLDA_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PLDA_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PUBLIC_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PUBLIC_WAV'; exit 1)
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_DIARIZATION=1 go test -p=1 -count=1 -timeout=600s ./models/speaker/community1 -run '^TestVulkanCommunity1TrainedDiarization$$' -v
+
+# Kill a trained native owner after one window, then complete the full sample in
+# a fresh process. Uses the same mandatory assets/device variables as above.
+speech-vulkan-community-trained-recovery-check:
+	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_PLDA_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PLDA_DIR'; exit 1)
+	@test -n "$(GO_PHERENCE_COMMUNITY1_PUBLIC_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PUBLIC_WAV'; exit 1)
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_RECOVERY=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestVulkanCommunity1TrainedProcessRecovery$$' -v
 
 # Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
 .PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
