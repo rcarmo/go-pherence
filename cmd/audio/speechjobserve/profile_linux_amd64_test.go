@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -442,17 +443,73 @@ func (c *fakeVulkanEncoderCloser) Close() error {
 }
 
 func TestCloseVulkanEncoderDrainsBeforeRetry(t *testing.T) {
-	closer := &fakeVulkanEncoderCloser{}
-	drains := 0
-	closeVulkanEncoder(closer, 5*time.Millisecond, func(ctx context.Context, poll time.Duration) error {
-		drains++
-		if ctx == nil || poll != 5*time.Millisecond {
-			t.Fatal("invalid drain call", ctx, poll)
+	for _, firstDrain := range []error{nil, context.DeadlineExceeded} {
+		t.Run(fmt.Sprint(firstDrain), func(t *testing.T) {
+			closer := &fakeVulkanEncoderCloser{}
+			drains := 0
+			closeVulkanEncoder(closer, 5*time.Millisecond, func(ctx context.Context, poll time.Duration) error {
+				drains++
+				if ctx == nil || poll != 5*time.Millisecond {
+					t.Fatal("invalid drain call", ctx, poll)
+				}
+				if drains == 1 {
+					return firstDrain
+				}
+				return nil
+			})
+			if closer.calls != 2 || drains != 1 {
+				t.Fatal("cleanup did not drain and retry", closer.calls, drains)
+			}
+		})
+	}
+}
+
+func TestVulkanCleanupFatalStateQuarantines(t *testing.T) {
+	for _, kind := range []string{"close-panic", "drain-panic", "drain-error", "drain-device", "drain-uncertain"} {
+		t.Run(kind, func(t *testing.T) {
+			closeCalls, drainCalls, quarantines := 0, 0, 0
+			closeResource := func() error {
+				closeCalls++
+				if kind == "close-panic" {
+					panic("fixture")
+				}
+				return vk.ErrVulkanInFlight
+			}
+			drain := func(context.Context, time.Duration) error {
+				drainCalls++
+				switch kind {
+				case "drain-panic":
+					panic("fixture")
+				case "drain-error":
+					return io.ErrClosedPipe
+				case "drain-device":
+					return vk.ErrVulkanDeviceLost
+				default:
+					return vk.ErrVulkanUncertain
+				}
+			}
+			closeVulkanResource(closeResource, time.Millisecond, drain, func() { quarantines++ })
+			if quarantines != 1 || closeCalls != 1 || drainCalls != map[bool]int{true: 0, false: 1}[kind == "close-panic"] {
+				t.Fatal(kind, closeCalls, drainCalls, quarantines)
+			}
+		})
+	}
+}
+
+func TestVulkanCleanupJoinedTimeoutRetries(t *testing.T) {
+	closeCalls, drainCalls, quarantines := 0, 0, 0
+	closeVulkanResource(func() error {
+		closeCalls++
+		if closeCalls == 1 {
+			return vk.ErrVulkanInFlight
 		}
 		return nil
-	})
-	if closer.calls != 2 || drains != 1 {
-		t.Fatal("cleanup did not drain and retry", closer.calls, drains)
+	}, time.Millisecond, func(context.Context, time.Duration) error {
+		drainCalls++
+		return errors.Join(vk.ErrVulkanInFlight, context.DeadlineExceeded)
+	}, func() { quarantines++ })
+	if closeCalls != 2 || drainCalls != 1 || quarantines != 0 {
+		t.Fatal(closeCalls, drainCalls, quarantines)
 	}
 }
 

@@ -48,18 +48,7 @@ func defaultCommunityRuntime() communityRuntime {
 }
 
 func closeCommunityVulkanModel(model interface{ Close() error }, poll time.Duration, drain func(context.Context, time.Duration) error) {
-	for {
-		if err := model.Close(); err == nil {
-			return
-		}
-		// Constructor cancellation can leave one accepted submission retained.
-		// Prove it idle on a fresh context before retrying destruction. Fatal or
-		// uncertain device state deliberately blocks process startup/exit.
-		if err := drain(context.Background(), poll); errors.Is(err, vk.ErrVulkanDeviceLost) || errors.Is(err, vk.ErrVulkanUncertain) {
-			select {}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	closeVulkanResource(model.Close, poll, drain, func() { select {} })
 }
 
 // prepareCommunity validates all bounded immutable assets and exact tensor

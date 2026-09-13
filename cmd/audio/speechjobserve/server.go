@@ -57,19 +57,38 @@ func closeBuiltProfiles(b *builtProfiles) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
-func closeVulkanEncoder(e interface{ Close() error }, poll time.Duration, drain func(context.Context, time.Duration) error) {
+func callVulkanCleanup(fn func() error) (err error, returned bool) {
+	defer func() { _ = recover() }()
+	err = fn()
+	returned = true
+	return err, returned
+}
+
+func closeVulkanResource(closeResource func() error, poll time.Duration, drain func(context.Context, time.Duration) error, quarantine func()) {
 	for {
-		if err := e.Close(); err == nil {
+		closeErr, returned := callVulkanCleanup(closeResource)
+		if !returned {
+			quarantine()
 			return
 		}
-		// A partially constructed encoder can retain an accepted submission. Prove
-		// it idle with a fresh context before retrying destruction. Fatal/uncertain
-		// device state deliberately blocks startup return until process teardown.
-		if err := drain(context.Background(), poll); errors.Is(err, vk.ErrVulkanDeviceLost) || errors.Is(err, vk.ErrVulkanUncertain) {
-			select {}
+		if closeErr == nil {
+			return
+		}
+		// A partially constructed owner can retain an accepted submission. Prove
+		// it idle with a fresh context before retrying destruction. Only a bounded
+		// poll timeout/cancellation is retryable. Fatal, uncertain, unexpected or
+		// panicking drain state holds startup until process teardown.
+		drainErr, returned := callVulkanCleanup(func() error { return drain(context.Background(), poll) })
+		if !returned || errors.Is(drainErr, vk.ErrVulkanDeviceLost) || errors.Is(drainErr, vk.ErrVulkanUncertain) || drainErr != nil && !errors.Is(drainErr, context.DeadlineExceeded) && !errors.Is(drainErr, context.Canceled) {
+			quarantine()
+			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+func closeVulkanEncoder(e interface{ Close() error }, poll time.Duration, drain func(context.Context, time.Duration) error) {
+	closeVulkanResource(e.Close, poll, drain, func() { select {} })
 }
 
 func start(ctx context.Context, path string, check bool, out io.Writer) error {
