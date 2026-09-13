@@ -1,0 +1,26 @@
+{
+  "full": [
+    {
+      "collar": 0.0,
+      "der_delta_pp": 0,
+      "jer_delta_pp": 0
+    },
+    {
+      "collar": 0.25,
+      "der_delta_pp": 0,
+      "jer_delta_pp": 0
+    }
+  ],
+  "exclusive": [
+    {
+      "collar": 0.0,
+      "der_delta_pp": 0,
+      "jer_delta_pp": 0
+    },
+    {
+      "collar": 0.25,
+      "der_delta_pp": 0,
+      "jer_delta_pp": 0
+    }
+  ]
+}
