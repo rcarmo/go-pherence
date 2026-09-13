@@ -167,6 +167,17 @@ func TestCommunity1KMeansValidationCancellationOwnership(t *testing.T) {
 	if !communityKMeansWorkAllowed(64, 256, 8) || communityKMeansWorkAllowed(512, 512, 64) {
 		t.Fatal("KMeans work admission")
 	}
+	single := cases[4]
+	zeroRow := append([]float32(nil), single.Input...)
+	clear(zeroRow[:single.Dimension])
+	if labels, err := forcedKMeansLabels(context.Background(), zeroRow, single.Rows, single.Dimension, 1); err == nil || labels != nil {
+		t.Fatal("single-cluster zero row accepted")
+	}
+	overflowRow := append([]float32(nil), single.Input...)
+	overflowRow[0] = math.MaxFloat32
+	if labels, err := forcedKMeansLabels(context.Background(), overflowRow, single.Rows, single.Dimension, 1); err == nil || labels != nil {
+		t.Fatal("single-cluster overflow norm accepted")
+	}
 	bad := append([]float32(nil), tc.Input...)
 	bad[0] = float32(math.NaN())
 	if labels, err := forcedKMeansLabels(context.Background(), bad, tc.Rows, tc.Dimension, tc.Clusters); err == nil || labels != nil {

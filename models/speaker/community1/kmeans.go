@@ -80,9 +80,22 @@ func forcedKMeansLabels(ctx context.Context, input []float32, rows, dimension, c
 		return nil, fmt.Errorf("Community-1 KMeans: invalid geometry/work bound")
 	}
 	if clusters == 1 {
-		for _, value := range input {
-			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-				return nil, fmt.Errorf("Community-1 KMeans: nonfinite input")
+		for row := 0; row < rows; row++ {
+			if row%32 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+			}
+			var norm float32
+			for d := 0; d < dimension; d++ {
+				value := input[row*dimension+d]
+				if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+					return nil, fmt.Errorf("Community-1 KMeans: nonfinite input")
+				}
+				norm += value * value
+			}
+			if norm <= 0 || math.IsInf(float64(norm), 0) {
+				return nil, fmt.Errorf("Community-1 KMeans: zero/nonfinite norm")
 			}
 		}
 		return make([]int, rows), nil
