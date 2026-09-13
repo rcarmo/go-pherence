@@ -175,6 +175,9 @@ func (s *vulkanCommunity1State) infer(ctx context.Context, reader c1.Diarization
 		s.quarantine("inference_panicked")
 		return nil, err
 	}
+	if err != nil {
+		result = nil
+	}
 	s.settle(err)
 	return result, err
 }

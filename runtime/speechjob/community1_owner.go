@@ -104,7 +104,10 @@ func (s *community1OwnerState) infer(ctx context.Context, r c1.DiarizationPCMRea
 		s.mu.Unlock()
 		return nil, err
 	}
-	return result, err
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Close stops admission, waits for a synchronous RunPCM call to return, then

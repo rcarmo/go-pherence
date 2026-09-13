@@ -68,6 +68,17 @@ func TestCommunityOwnerCancelDrainAndClose(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func TestCommunityOwnerSuppressesErroredResult(t *testing.T) {
+	want := &c1.DiarizationPCMResult{}
+	s := newCommunity1Owner(func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
+		return want, io.ErrUnexpectedEOF
+	}, func() {})
+	got, err := s.infer(context.Background(), nil, 0)
+	if got != nil || !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatal("errored result escaped owner", got, err)
+	}
+}
+
 func TestCommunityOwnerSerialAndPanicPoison(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	calls := 0

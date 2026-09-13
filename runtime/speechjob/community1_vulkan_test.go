@@ -63,6 +63,21 @@ func TestVulkanCommunityOwnerCancellationDrainsBeforeReturn(t *testing.T) {
 	}
 }
 
+func TestVulkanCommunityOwnerSuppressesErroredResult(t *testing.T) {
+	want := &c1.DiarizationPCMResult{}
+	drains := 0
+	s := newVulkanCommunity1Owner(time.Millisecond, func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
+		return want, io.ErrUnexpectedEOF
+	}, func(context.Context, time.Duration) error {
+		drains++
+		return nil
+	}, func() error { return nil })
+	got, err := s.infer(context.Background(), nil, 0)
+	if got != nil || !errors.Is(err, io.ErrUnexpectedEOF) || drains != 1 {
+		t.Fatal("errored result escaped owner", got, err, drains)
+	}
+}
+
 func TestVulkanCommunityOwnerDrainRetriesBoundedTimeout(t *testing.T) {
 	polls := 0
 	s := newVulkanCommunity1Owner(time.Millisecond, func(context.Context, c1.DiarizationPCMReader, int64) (*c1.DiarizationPCMResult, error) {
