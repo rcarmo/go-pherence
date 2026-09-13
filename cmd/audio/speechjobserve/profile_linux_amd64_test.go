@@ -135,8 +135,6 @@ func toyAssets(t *testing.T) ServerConfig {
 	file.Write(h)
 	file.Write(payload.Bytes())
 	c.Weights = putAsset(t, dir, "model.safetensors", file.Bytes(), 0600)
-	c.FFmpeg = putAsset(t, dir, "ffmpeg-fixture", []byte("not executed by metadata tests"), 0700)
-	c.FFprobe = c.FFmpeg
 	return c
 }
 func TestProfileCheckDoesNotCreateStoreOrLoadInference(t *testing.T) {
@@ -197,11 +195,58 @@ func TestProfileMetadataAdmission(t *testing.T) {
 		t.Fatal("runtime mode changed")
 	}
 }
+func TestServingProfileSyntheticGo264ToVTT(t *testing.T) {
+	c := toyAssets(t)
+	profiles, e := buildProfile(context.Background(), c, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s, e := speechjob.Open(c.Store, speechjob.Limits{MaxJobs: c.Limits.Jobs, MaxUploadBytes: c.Limits.UploadBytes, MaxArtifactBytes: c.Limits.ArtifactBytes, MaxBytes: c.Limits.StoreBytes})
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.Close()
+	const n = 320
+	wav := make([]byte, 44+2*n)
+	copy(wav, "RIFF")
+	binary.LittleEndian.PutUint32(wav[4:], uint32(len(wav)-8))
+	copy(wav[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(wav[16:], 16)
+	binary.LittleEndian.PutUint16(wav[20:], 1)
+	binary.LittleEndian.PutUint16(wav[22:], 1)
+	binary.LittleEndian.PutUint32(wav[24:], 16000)
+	binary.LittleEndian.PutUint32(wav[28:], 32000)
+	binary.LittleEndian.PutUint16(wav[32:], 2)
+	binary.LittleEndian.PutUint16(wav[34:], 16)
+	copy(wav[36:], "data")
+	binary.LittleEndian.PutUint32(wav[40:], 2*n)
+	p := profiles[0]
+	j, e := s.Create(context.Background(), "toy.wav", p.Configuration, bytes.NewReader(wav))
+	if e != nil {
+		t.Fatal(e)
+	}
+	j, e = s.Run(context.Background(), j.ID, p.Configuration, p.Stages, nil)
+	if e != nil || j.Status != speechjob.Complete {
+		t.Fatal(j, e)
+	}
+	r, e := s.OpenCheckpoint(context.Background(), j.ID, "vtt")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var b bytes.Buffer
+	b.ReadFrom(r)
+	r.Close()
+	if b.String() != "WEBVTT\n\n" {
+		t.Fatal(b.String())
+	}
+}
+
 func TestServingProfileSyntheticFFmpegToVTT(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_FFMPEG") != "1" {
 		t.Skip("explicit FFmpeg integration with generated toy model")
 	}
 	c := toyAssets(t)
+	c.Profile.MediaBackend = "ffmpeg"
 	for _, target := range []*Asset{&c.FFmpeg, &c.FFprobe} {
 		name := "ffmpeg"
 		if target == &c.FFprobe {
@@ -277,6 +322,7 @@ func testStartQueueWorkerConsent(t *testing.T, resources bool) {
 		t.Run(mode, func(t *testing.T) {
 			c := toyAssets(t)
 			c.AllowExecution = true
+			c.Profile.MediaBackend = "ffmpeg"
 			if resources {
 				c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
 			}

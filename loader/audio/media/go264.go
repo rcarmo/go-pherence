@@ -66,15 +66,16 @@ func (g *Go264) Probe(ctx context.Context, path string) (ProbeResult, error) {
 	}
 	defer src.Close()
 
-	info, err := go264audio.Probe(ctx, src.file, src.size, g.providerLimits())
+	metadata, err := go264audio.ProbeMetadata(ctx, src.file, src.size, g.providerLimits())
 	if err != nil {
 		return ProbeResult{}, mapGo264SourceError(err)
 	}
+	info := metadata.Output
 	timeline, duration, err := validateGo264SourceInfo(info, g.cfg.MaxDuration)
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	streamIndex, timing, err := g.probeSourceTiming(ctx, src, info)
+	streamIndex, timing, err := g.probeSourceTiming(ctx, src, metadata)
 	if err != nil {
 		return ProbeResult{}, err
 	}
@@ -122,15 +123,16 @@ func (g *Go264) DecodeToFile(ctx context.Context, srcPath, dstPath string) (Deco
 	}
 	defer src.Close()
 
-	info, err := go264audio.Probe(ctx, src.file, src.size, g.providerLimits())
+	probeMetadata, err := go264audio.ProbeMetadata(ctx, src.file, src.size, g.providerLimits())
 	if err != nil {
 		return DecodeResult{}, mapGo264SourceError(err)
 	}
+	info := probeMetadata.Output
 	_, duration, err := validateGo264SourceInfo(info, g.cfg.MaxDuration)
 	if err != nil {
 		return DecodeResult{}, err
 	}
-	_, sourceTiming, err := g.probeSourceTiming(ctx, src, info)
+	_, sourceTiming, err := g.probeSourceTiming(ctx, src, probeMetadata)
 	if err != nil {
 		return DecodeResult{}, err
 	}
@@ -393,7 +395,8 @@ func validateGo264SourceInfo(info go264pcm.Info, maxDuration time.Duration) (Tim
 	return timeline, timeline.Duration(), nil
 }
 
-func (g *Go264) probeSourceTiming(ctx context.Context, src go264Source, info go264pcm.Info) (int, SourceTiming, error) {
+func (g *Go264) probeSourceTiming(ctx context.Context, src go264Source, metadata go264pcm.Metadata) (int, SourceTiming, error) {
+	info := metadata.Output
 	duration := (Timeline{SampleRate: SampleRate(info.SampleRate), Samples: SampleCount(info.Frames)}).Duration()
 	if src.kind.container != "mov" {
 		return 0, SourceTiming{Duration: duration, Exact: true, SourceRate: SampleRate(info.SampleRate)}, nil
@@ -406,7 +409,7 @@ func (g *Go264) probeSourceTiming(ctx context.Context, src go264Source, info go2
 	if !track.Accepted || track.Index < 0 || track.SampleRate != info.SampleRate || track.Channels != info.Channels || track.SampleCount <= 0 {
 		return 0, SourceTiming{}, fmt.Errorf("%w: invalid selected MP4 track metadata", ErrInvalidSource)
 	}
-	plan, err := track.TimingPlan(info.Frames)
+	plan, err := track.TimingPlan(metadata.Source.Frames)
 	if err != nil {
 		return 0, SourceTiming{}, mapGo264SourceError(err)
 	}

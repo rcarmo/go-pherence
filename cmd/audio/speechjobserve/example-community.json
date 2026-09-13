@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "allow_execution": false,
   "store": "/srv/speech/private-jobs",
   "runtime_sha256": "REPLACE_WITH_BUILD_ISA_RUNTIME_IDENTITY_SHA256",
@@ -47,12 +47,11 @@
   "model_config": {"path": "/srv/speech/assets/config.json", "sha256": "REPLACE_WITH_SHA256"},
   "tokenizer": {"path": "/srv/speech/assets/tokenizer.json", "sha256": "REPLACE_WITH_SHA256"},
   "generation": {"path": "/srv/speech/assets/generation_config.json", "sha256": "REPLACE_WITH_SHA256"},
-  "ffmpeg": {"path": "/usr/bin/ffmpeg", "sha256": "REPLACE_WITH_SHA256"},
-  "ffprobe": {"path": "/usr/bin/ffprobe", "sha256": "REPLACE_WITH_SHA256"},
   "profile": {
     "id": "asr-community-pt",
     "language": "pt",
     "extension": ".m4a",
+    "media_backend": "go264",
     "max_duration_seconds": 137,
     "decode_bytes": 16777216,
     "overlap_samples": 0,

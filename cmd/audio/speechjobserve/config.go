@@ -141,6 +141,7 @@ type ProfileSettings struct {
 	ID                       string             `json:"id"`
 	Language                 string             `json:"language"`
 	Extension                string             `json:"extension"`
+	MediaBackend             string             `json:"media_backend,omitempty"`
 	MaxDurationSeconds       int                `json:"max_duration_seconds"`
 	DecodeBytes              int64              `json:"decode_bytes"`
 	OverlapSamples           int64              `json:"overlap_samples"`
@@ -188,8 +189,8 @@ type ServerConfig struct {
 	ModelConfig    Asset             `json:"model_config"`
 	Tokenizer      Asset             `json:"tokenizer"`
 	Generation     Asset             `json:"generation"`
-	FFmpeg         Asset             `json:"ffmpeg"`
-	FFprobe        Asset             `json:"ffprobe"`
+	FFmpeg         Asset             `json:"ffmpeg,omitempty"`
+	FFprobe        Asset             `json:"ffprobe,omitempty"`
 	Profile        ProfileSettings   `json:"profile"`
 }
 
@@ -301,7 +302,7 @@ func uniqueJSON(data []byte, maxDepth int, foldKeys, allowNull bool) error {
 	return nil
 }
 func (c ServerConfig) validate() error {
-	if c.Schema != 1 || !filepath.IsAbs(c.Store) || !validHash(c.RuntimeSHA256) || c.Threads < 1 || c.Threads > 16 {
+	if c.Schema != 2 || !filepath.IsAbs(c.Store) || !validHash(c.RuntimeSHA256) || c.Threads < 1 || c.Threads > 16 {
 		return fmt.Errorf("invalid server identity/store/threads")
 	}
 	l := c.Limits
@@ -355,12 +356,26 @@ func (c ServerConfig) validate() error {
 			return fmt.Errorf("browser UI requires matching TLS/origin/Host and two request slots")
 		}
 	}
-	for _, a := range []Asset{c.Weights, c.ModelConfig, c.Tokenizer, c.Generation, c.FFmpeg, c.FFprobe} {
+	for _, a := range []Asset{c.Weights, c.ModelConfig, c.Tokenizer, c.Generation} {
 		if !filepath.IsAbs(a.Path) || !validHash(a.SHA256) {
-			return fmt.Errorf("all assets require absolute paths and SHA256")
+			return fmt.Errorf("all model assets require absolute paths and SHA256")
 		}
 	}
 	f := c.Profile
+	switch f.MediaBackend {
+	case "go264":
+		if c.FFmpeg != (Asset{}) || c.FFprobe != (Asset{}) {
+			return fmt.Errorf("FFmpeg assets require the explicit ffmpeg media backend")
+		}
+	case "ffmpeg":
+		for _, a := range []Asset{c.FFmpeg, c.FFprobe} {
+			if !filepath.IsAbs(a.Path) || !validHash(a.SHA256) {
+				return fmt.Errorf("ffmpeg media backend requires absolute executable paths and SHA256")
+			}
+		}
+	default:
+		return fmt.Errorf("invalid media backend")
+	}
 	if v := f.Vulkan; v != nil {
 		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
 			return fmt.Errorf("invalid experimental Vulkan profile")
