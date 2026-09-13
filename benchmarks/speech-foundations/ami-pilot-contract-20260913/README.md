@@ -7,7 +7,8 @@ This checkpoint adds a deterministic source-only path for preparing a real multi
 - Corpus: AMI Meeting Corpus, official University of Edinburgh distribution.
 - Licence: CC BY 4.0, <https://groups.inf.ed.ac.uk/ami/corpus/license.shtml>.
 - Evaluation meeting: `ES2004a` (AMI scenario evaluation partition `SC`).
-- Audio source: `ES2004a.Mix-Headset.wav`, official headset mix, SHA-256 `3e2560b19bee6952c7c7ce041b0f1ea8a7ea9468044c4eea79d2a2c67e24ab0f`.
+- Initial audio source: `ES2004a.Mix-Headset.wav`, official headset mix (`ihm-mix`), SHA-256 `3e2560b19bee6952c7c7ce041b0f1ea8a7ea9468044c4eea79d2a2c67e24ab0f`.
+- Standard single-distant-microphone source: `ES2004a.Array1-01.wav` (`sdm`), SHA-256 `6936edac5d0904fc5c4ab175546c5cc5366601fdc1b1e5183a6ea2c10f05d150`; see `sdm-source.json`.
 - Annotation source: `ami_public_manual_1.6.2.zip`, SHA-256 `b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d`.
 - Official source URLs are recorded in `source.json`.
 
@@ -22,7 +23,7 @@ The fixed interval is `350–410 s`. Annotation analysis selected it because all
 - 179 timed lexical words with source IDs and speaker labels;
 - exact hashes recorded in `pilot-result.json`.
 
-Generated audio, RTTM and word JSON stay in ignored local storage. The committed result is a reproducibility contract, not redistributed corpus content.
+Generated audio, RTTM and word JSON stay in ignored local storage. The committed result is a reproducibility contract, not redistributed corpus content. The SDM excerpt preserves the same RTTM/word references and has canonical WAV SHA-256 `5323b7be87d82f5aea6eda7fc3e5c5940c5bdd82137e843eaa3489a479dec27c`.
 
 ## Verification
 

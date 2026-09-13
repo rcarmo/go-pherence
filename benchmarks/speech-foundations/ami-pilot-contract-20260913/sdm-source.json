@@ -1,0 +1,29 @@
+{
+  "annotations": {
+    "name": "ami_public_manual_1.6.2.zip",
+    "sha256": "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d",
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"
+  },
+  "audio": {
+    "condition": "sdm",
+    "name": "ES2004a.Array1-01.wav",
+    "sha256": "6936edac5d0904fc5c4ab175546c5cc5366601fdc1b1e5183a6ea2c10f05d150",
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2004a/audio/ES2004a.Array1-01.wav"
+  },
+  "excerpt": {
+    "audio_sha256": "5323b7be87d82f5aea6eda7fc3e5c5940c5bdd82137e843eaa3489a479dec27c",
+    "rttm_sha256": "c9b3b3118c892722616ef5dc8af87b4963cd693e9ad3136bc8944f220db4a476",
+    "samples": 960000,
+    "words": 179,
+    "words_sha256": "1a64d54a0fb42afe3d0ccab8cf304b712e76660039807055b5facc9287a7abde"
+  },
+  "licence": {
+    "spdx": "CC-BY-4.0",
+    "url": "https://groups.inf.ed.ac.uk/ami/corpus/license.shtml"
+  },
+  "meeting": "ES2004a",
+  "partition": "SC",
+  "partition_role": "evaluation",
+  "schema": 1,
+  "source_interval": [350, 410]
+}
