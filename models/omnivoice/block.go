@@ -175,7 +175,7 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 			simd.VecAdd(scores, scores, mask)
 		}
 		for t := 0; t < tokens; t++ {
-			if !simd.SoftmaxInPlace(scores[t*tokens : (t+1)*tokens]) {
+			if !simd.SoftmaxSIMDInPlace(scores[t*tokens : (t+1)*tokens]) {
 				return fmt.Errorf("omnivoice: attention softmax failed")
 			}
 		}

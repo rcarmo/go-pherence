@@ -25,6 +25,19 @@ type Backbone struct {
 // tokens is fixed to bound memory. Audio-head projection is chunked so large
 // embedding/head matrices are never materialized in full.
 func NewBackbone(weights *loader.Weights, tokens int) (*Backbone, error) {
+	return newBackbone(weights, tokens, nil)
+}
+
+// NewBackboneSibling shares the streamed weight arena, but owns all activations.
+// Neither sibling may execute concurrently; intended for sequential CFG branches.
+func NewBackboneSibling(parent *Backbone, tokens int) (*Backbone, error) {
+	if parent == nil {
+		return nil, fmt.Errorf("omnivoice: nil parent backbone")
+	}
+	return newBackbone(parent.weights, tokens, parent.layer)
+}
+
+func newBackbone(weights *loader.Weights, tokens int, arena *loader.LayerBuffer) (*Backbone, error) {
 	if weights == nil {
 		return nil, fmt.Errorf("omnivoice: nil weights")
 	}
@@ -35,9 +48,12 @@ func NewBackbone(weights *loader.Weights, tokens int) (*Backbone, error) {
 	if err := weights.CheckCodebookOffsets(); err != nil {
 		return nil, err
 	}
-	arena, err := weights.NewLayerBuffer()
-	if err != nil {
-		return nil, err
+	var err error
+	if arena == nil {
+		arena, err = weights.NewLayerBuffer()
+		if err != nil {
+			return nil, err
+		}
 	}
 	block, err := NewBlock(c.LLMConfig, arena.Tensors)
 	if err != nil {

@@ -75,7 +75,7 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if err != nil {
 		return err
 	}
-	uncond, err := model.NewBackbone(weights, p.Unconditional.Tokens)
+	uncond, err := model.NewBackboneSibling(cond, p.Unconditional.Tokens)
 	if err != nil {
 		return err
 	}

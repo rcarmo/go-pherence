@@ -1,15 +1,17 @@
-# OmniVoice native CPU port: initial numerical core
+# OmniVoice native CPU port
 
-Native token-conditioned synthesis now runs from a prepared prompt through denoising to WAV. It is not yet a fully native arbitrary-text/reference TTS engine: preparation still uses an explicit Python development exporter. The Go executable does not invoke Python for inference. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the current contract and remaining work.
+Native text/reference-WAV→speech execution includes HuBERT/DAC reference encoding, Qwen3 denoising and HiggsAudioV2 decoding. The Go executable does not invoke Python. References require an explicit transcript; silence preprocessing and long-utterance chunking are not yet implemented. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for parity, profiling and remaining work.
+
+`NewBackboneSibling` shares a streamed weight arena for sequential classifier-free-guidance branches. Never run sibling forwards concurrently. Backbone, codec and reference workspaces are single-caller; output/input alias restrictions in each API are caller obligations.
 
 ## Implemented
 
 - Typed OmniVoice/Qwen3 config and header-only safetensors checkpoint validation in `loader/omnivoice`.
 - F16/F32/BF16 floating weight acceptance, I64 codebook offsets, expected names and dimensions. Single-file and sharded lazy weight access; only one requested layer is converted to float32 for the probe. Inspection and execution both prefer the shard index when present.
 - Batch-one Qwen3 decoder block: input RMSNorm, Q/K head RMSNorm, default split-half RoPE, non-causal grouped-query attention with optional additive mask, output projection, residuals, SiLU-gated MLP.
-- Existing `backends/simd/runtime` GEMM, normalization and SiLU dispatch. No custom assembly added. Go orchestrates token/head packing and rotary positions; this is not an all-operations SIMD implementation.
+- SIMD GEMM, normalization and SiLU dispatch, exact F16C conversion and bounded-error AVX2/FMA exponential for attention softmax. Go orchestrates token/head packing and rotary positions; scalar SiLU exponentials, sine and erf remain.
 - `go-264/audio` frontend, pinned at `48ff0ca8272a`, for bounded reference decoding/channel conversion/resampling to 24 kHz mono.
-- Development CLI with `inspect`, `block`, `stack`, `logits`, `generate` (prepared prompt), `audio` and `capabilities` modes. `generate` executes the full native token→waveform path, not reference encoding.
+- CLI modes include `prepare`, `encode-reference` and `synthesize` (raw or cached reference), plus `inspect`, `block`, `stack`, `logits`, `generate` (prepared prompt), `audio` and `capabilities`.
 - Allocation-free `ForwardInto` and reusable layer-weight arena; full 28-layer synthetic-input profiling with CPU/allocation profiles. See [PROFILING.md](PROFILING.md) for measurements, limits and commands.
 - Explicit `-backend auto|cpu|vulkan` policy; hardware/software Vulkan detection, CPU fallback in auto and rejection of unimplemented explicit Vulkan execution.
 

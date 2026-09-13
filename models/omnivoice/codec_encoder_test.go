@@ -24,7 +24,7 @@ type codecEncoderFixture struct {
 func TestRealCodecEncoderParity(t *testing.T) {
 	modelPath := os.Getenv("GO_PHERENCE_REAL_CODEC")
 	if modelPath == "" {
-		modelPath = "/workspace/projects/spock-tts/models/omnivoice/audio_tokenizer"
+		t.Skip("set GO_PHERENCE_REAL_CODEC")
 	}
 	if _, err := os.Stat(filepath.Join(modelPath, "model.safetensors")); err != nil {
 		t.Skip("set GO_PHERENCE_REAL_CODEC to a HiggsAudioV2 tokenizer directory")
@@ -102,7 +102,7 @@ func codecEncoderModelPath(tb testing.TB) string {
 	tb.Helper()
 	modelPath := os.Getenv("GO_PHERENCE_REAL_CODEC")
 	if modelPath == "" {
-		modelPath = "/workspace/projects/spock-tts/models/omnivoice/audio_tokenizer"
+		tb.Skip("set GO_PHERENCE_REAL_CODEC")
 	}
 	if _, err := os.Stat(filepath.Join(modelPath, "model.safetensors")); err != nil {
 		tb.Skip("set GO_PHERENCE_REAL_CODEC to a HiggsAudioV2 tokenizer directory")
@@ -167,6 +167,124 @@ func codecEncoderFramesForSamples(tb testing.TB, encoder *CodecEncoder, samples 
 	}
 	tb.Fatalf("no semantic frame count found for %d samples", samples)
 	return 0
+}
+
+const codecEncoderScratchSlotsBefore = 8
+
+func codecEncoderWorkspaceBytesForSlots(encoder *CodecEncoder, slots int) int {
+	if encoder == nil || encoder.scratch == nil {
+		return 0
+	}
+	return (slots*encoder.preparedSignalCap + encoder.preparedPackedCap + encoder.preparedResultCap) * 4
+}
+
+func codecEncoderPreparedWorkspaceBytes(encoder *CodecEncoder) int {
+	if encoder == nil || encoder.scratch == nil {
+		return 0
+	}
+	return codecEncoderWorkspaceBytesForSlots(encoder, len(encoder.scratch.slots))
+}
+
+func codecEncoderSamplesForFramesWithAlignment(tb testing.TB, encoder *CodecEncoder, frames int, padded bool) int {
+	tb.Helper()
+	start := frames*600 - 2*encoder.pad
+	if start < 1 {
+		start = 1
+	}
+	stop := frames*1200 + 2*encoder.pad
+	if stop > 480000 {
+		stop = 480000
+	}
+	for samples := start; samples <= stop; samples++ {
+		if err := encoder.Prepare(samples, frames); err == nil && (encoder.preparedAlignedFrames != samples) == padded {
+			return samples
+		}
+	}
+	tb.Fatalf("no %saligned sample count found for %d frames", map[bool]string{true: "padded ", false: ""}[padded], frames)
+	return 0
+}
+
+func TestCodecEncoderPrepareScratchReductionReal4p5Seconds(t *testing.T) {
+	encoder := newBenchmarkCodecEncoder(t)
+	samples := 9 * encoder.weights.SampleRate / 2
+	frames := codecEncoderFramesForSamples(t, encoder, samples)
+	if err := encoder.Prepare(samples, frames); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(encoder.scratch.slots), codecEncoderScratchSlots; got != want {
+		t.Fatalf("scratch slots=%d want %d", got, want)
+	}
+	before := codecEncoderWorkspaceBytesForSlots(encoder, codecEncoderScratchSlotsBefore)
+	after := codecEncoderPreparedWorkspaceBytes(encoder)
+	wantSaved := (codecEncoderScratchSlotsBefore - len(encoder.scratch.slots)) * encoder.preparedSignalCap * 4
+	if before-after != wantSaved {
+		t.Fatalf("saved bytes=%d want %d", before-after, wantSaved)
+	}
+	if after >= before {
+		t.Fatalf("workspace bytes after=%d before=%d", after, before)
+	}
+	t.Logf("codec encoder scratch bytes before=%d after=%d saved=%d samples=%d frames=%d signalCap=%d packedCap=%d resultCap=%d", before, after, before-after, samples, frames, encoder.preparedSignalCap, encoder.preparedPackedCap, encoder.preparedResultCap)
+}
+
+func TestCodecEncoderScratchPeakByAlignment(t *testing.T) {
+	encoder := newBenchmarkCodecEncoder(t)
+	frames := codecEncoderFramesForSamples(t, encoder, 9*encoder.weights.SampleRate/2)
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name     string
+		padded   bool
+		wantPeak int
+	}{
+		{name: "exact", padded: false, wantPeak: 4},
+		{name: "padded", padded: true, wantPeak: codecEncoderScratchSlots},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			samples := codecEncoderSamplesForFramesWithAlignment(t, encoder, frames, tc.padded)
+			if err := encoder.Prepare(samples, frames); err != nil {
+				t.Fatal(err)
+			}
+			if got := encoder.preparedAlignedFrames != samples; got != tc.padded {
+				t.Fatalf("padded=%v want %v", got, tc.padded)
+			}
+			wave := codecEncoderBuildWave(samples)
+			semantic := codecEncoderBuildSemantic(frames)
+			codes := make([]int, encoder.weights.Quantizers*frames)
+			if err := encoder.EncodeFeaturesInto(ctx, codes, wave, semantic, frames); err != nil {
+				t.Fatal(err)
+			}
+			if got := encoder.scratch.peakSlots; got != tc.wantPeak {
+				t.Fatalf("peak scratch slots=%d want %d", got, tc.wantPeak)
+			}
+			if encoder.scratch.liveSlots != 0 {
+				t.Fatalf("live scratch slots=%d want 0", encoder.scratch.liveSlots)
+			}
+			var allocErr error
+			allocs := testing.AllocsPerRun(3, func() {
+				allocErr = encoder.EncodeFeaturesInto(ctx, codes, wave, semantic, frames)
+			})
+			if allocErr != nil {
+				t.Fatal(allocErr)
+			}
+			if allocs != 0 {
+				t.Fatalf("EncodeFeaturesInto allocations=%g want 0", allocs)
+			}
+			t.Logf("samples=%d frames=%d padded=%v peakSlots=%d allocations=%g", samples, frames, tc.padded, encoder.scratch.peakSlots, allocs)
+		})
+	}
+}
+
+func TestCodecEncoderScratchBufferExhaustionPanics(t *testing.T) {
+	encoder := &CodecEncoder{scratch: &codecEncoderScratch{}}
+	for i := range encoder.scratch.slots {
+		encoder.scratch.slots[i] = make([]float32, 1)
+		encoder.scratch.used[i] = true
+	}
+	defer func() {
+		if recover() == nil {
+			t.Fatal("buffer did not panic on exhausted scratch slots")
+		}
+	}()
+	_ = encoder.buffer(1)
 }
 
 func BenchmarkCodecEncoderEncodeFeaturesIntoSynthetic50Frames(b *testing.B) {

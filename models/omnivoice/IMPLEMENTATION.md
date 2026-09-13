@@ -236,12 +236,49 @@ The output SHA-256 is unchanged. Profile `/workspace/tmp/omnivoice-full-native-v
 Sampled cumulative allocation remains 1316.5 MB, dominated by model weights and
 scratch setup. Prepared zero-allocation execution does not remove those costs.
 
+## Setup-memory and SIMD softmax checkpoint (2026-09-13)
+
+Encoder scratch now has five signal slots rather than eight. Lifetime tests show
+four simultaneous slots for exact acoustic alignment and five when padding is
+required. The 4.5-second capacity test saves 82,944,000 bytes (79.1 MiB).
+`NewBackboneSibling` shares one streamed weight arena between sequential CFG
+branches, saving another 60 MiB. Each branch still owns its activation scratch.
+Siblings must never run concurrently; repeated generation/zero-allocation tests
+cover the shared-arena path.
+
+The full-run allocation profile fell from 1316.5 to 1177.6 MiB cumulatively.
+Encoder preparation is 133.4 MiB and the single layer arena is 60.0 MiB. Output
+remains byte-identical. Full synthesis took 92.26 s vs 91.80 s before; no speedup
+is attributed to these memory changes. These allocation figures are not peak RSS.
+
+`ExpF32To` adds checked AVX2/FMA exponential with scalar fallback outside [-32,32]
+and for exceptional inputs. It accepts exact in-place operation, rejects partial
+overlap, and allocates nothing. Tests cover a dense [-80,80] grid, random inputs,
+NaN/infinities, signed zero, underflow/overflow, SIMD in-place lanes and tails.
+Relative error is below 2e-6 in the tested finite corpus. An initial polynomial
+FMA operand-order bug was caught by the tests and corrected before integration.
+The 1024-element benchmark measured 13.75 us scalar vs 2.34 us dispatched.
+
+`SoftmaxSIMDInPlace` uses that kernel in OmniVoice block attention; generic
+`SoftmaxInPlace` is unchanged. Sequential float32 summation and exceptional-value
+behaviour are preserved. Boundary and random-row tests pass, with 0 allocations.
+128/218-element rows measured about 3.3x faster. Real model tests and the complete
+WAV hash still pass. Full synthesis with SIMD softmax took 94.05 s in one run,
+so there is no demonstrated end-to-end speedup. Profile and JSON:
+`/workspace/tmp/omnivoice-full-native-v5.{cpu,mem,json}`; waveform
+`/workspace/tmp/synthetic-spock-full-native-v5.wav` has the same SHA-256 as v2–v4.
+
+Native tests/vet, race/no-CGo checks, and ARM64 CLI/test cross-builds pass.
+Runtime feature detection requires both AVX2 and FMA before executing the exp
+assembly. Other architectures currently use its scalar fallback.
+
 ## Still required for completion
 
 1. Reduce setup memory (loaded weights and conservatively sized scratch) and
    evaluate resident-service reuse; successful prepared reference calls allocate zero.
 2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
-3. Remaining SIMD work: packing, exponential/sine kernels and codec scatter.
+3. Remaining SIMD work: packing, SiLU/GELU activations, sine and codec scatter;
+   exponential/softmax SIMD currently accelerates amd64 only.
 4. Text/reference → native speech listening acceptance against approved sample 3.
 5. Broader shape/error tests, long utterances/chunking and optional upstream
    post-processing (silence removal, fades/padding).

@@ -3,7 +3,9 @@ package omnivoice
 import (
 	"context"
 	"encoding/json"
+	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -100,5 +102,64 @@ func TestGenerationCancellation(t *testing.T) {
 	cancel()
 	if err = g.GenerateInto(ctx, make([]int, 4), f.IDs, f.AudioMask, nil, nil); err != context.Canceled {
 		t.Fatal(err)
+	}
+}
+
+func TestGenerationSharedWeightArena(t *testing.T) {
+	w, err := loader.OpenWeights("../../testdata/omnivoice/backbone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	c, err := NewBackbone(w, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := NewBackboneSibling(c, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	independent, err := NewBackbone(w, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.layer != u.layer || c.layer == independent.layer {
+		t.Fatal("arena ownership incorrect")
+	}
+	cfg := DefaultGenerationConfig()
+	cfg.Steps = 4
+	shared, err := NewGeneration(c, u, 2, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := NewGeneration(c, independent, 2, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []int{2, 3, 4, 4, 2, 3, 4, 4}
+	mask := []bool{false, false, true, true}
+	ui := []int{4, 4, 4, 4}
+	um := []bool{true, true}
+	got, want := make([]int, 4), make([]int, 4)
+	if err = baseline.GenerateInto(context.Background(), want, ids, mask, ui, um); err != nil {
+		t.Fatal(err)
+	}
+	for j := 0; j < 3; j++ {
+		if err = shared.GenerateInto(context.Background(), got, ids, mask, ui, um); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatal("shared arena changed generation")
+		}
+	}
+	if n := testing.AllocsPerRun(3, func() {
+		if err := shared.GenerateInto(context.Background(), got, ids, mask, ui, um); err != nil {
+			panic(err)
+		}
+	}); n != 0 {
+		t.Fatalf("allocations %g", n)
+	}
+	if _, err := NewBackboneSibling(nil, 2); err == nil {
+		t.Fatal("nil parent accepted")
 	}
 }

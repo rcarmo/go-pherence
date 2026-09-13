@@ -68,11 +68,15 @@ type codecEncoderQuantizer struct {
 	norms      []float32
 }
 
+const codecEncoderScratchSlots = 5
+
 type codecEncoderScratch struct {
-	slots  [8][]float32
-	used   [8]bool
-	packed []float32
-	result []float32
+	slots     [codecEncoderScratchSlots][]float32
+	used      [codecEncoderScratchSlots]bool
+	liveSlots int
+	peakSlots int
+	packed    []float32
+	result    []float32
 }
 
 func NewCodecEncoder(w *loader.CodecWeights) (*CodecEncoder, error) {
@@ -254,7 +258,7 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 	if err := e.Prepare(len(wave), semanticFrames); err != nil {
 		return err
 	}
-	e.scratch.used = [8]bool{}
+	e.beginScratch()
 
 	semanticInput := signal{data: e.buffer(768 * semanticFrames), channels: 768, frames: semanticFrames}
 	for t := 0; t < semanticFrames; t++ {
@@ -266,31 +270,31 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 	eSemantic, err := e.encodeSemantic(ctx, semanticInput)
 	e.release(semanticInput)
 	if err != nil {
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return err
 	}
 	if eSemantic.frames != semanticFrames {
 		e.release(eSemantic)
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return fmt.Errorf("omnivoice: semantic encoder length mismatch")
 	}
 	waveInput, err := e.alignWaveLength(wave, semanticFrames)
 	if err != nil {
 		e.release(eSemantic)
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return err
 	}
 	eAcoustic, err := e.encodeAcoustic(ctx, waveInput)
 	e.release(waveInput)
 	if err != nil {
 		e.release(eSemantic)
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return err
 	}
 	if eAcoustic.frames != eSemantic.frames {
 		e.release(eAcoustic)
 		e.release(eSemantic)
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return fmt.Errorf("omnivoice: acoustic/semantic frame mismatch")
 	}
 	embeddings := signal{data: e.buffer((eAcoustic.channels + eSemantic.channels) * semanticFrames), channels: eAcoustic.channels + eSemantic.channels, frames: semanticFrames}
@@ -302,17 +306,34 @@ func (e *CodecEncoder) EncodeFeaturesInto(ctx context.Context, dst []int, wave [
 	embeddings, err = e.conv(embeddings, e.fusion, 1, 0, 1)
 	e.release(prev)
 	if err != nil {
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return err
 	}
 	if err := e.quantizeInto(ctx, dst, embeddings); err != nil {
 		e.release(embeddings)
-		e.scratch.used = [8]bool{}
+		e.endScratch()
 		return err
 	}
 	e.release(embeddings)
-	e.scratch.used = [8]bool{}
+	e.endScratch()
 	return nil
+}
+
+func (e *CodecEncoder) beginScratch() {
+	if e.scratch == nil {
+		return
+	}
+	e.scratch.used = [codecEncoderScratchSlots]bool{}
+	e.scratch.liveSlots = 0
+	e.scratch.peakSlots = 0
+}
+
+func (e *CodecEncoder) endScratch() {
+	if e.scratch == nil {
+		return
+	}
+	e.scratch.used = [codecEncoderScratchSlots]bool{}
+	e.scratch.liveSlots = 0
 }
 
 func (e *CodecEncoder) buffer(n int) []float32 {
@@ -322,6 +343,8 @@ func (e *CodecEncoder) buffer(n int) []float32 {
 	for i := range e.scratch.slots {
 		if !e.scratch.used[i] && n <= len(e.scratch.slots[i]) {
 			e.scratch.used[i] = true
+			e.scratch.liveSlots++
+			e.scratch.peakSlots = max(e.scratch.peakSlots, e.scratch.liveSlots)
 			out := e.scratch.slots[i][:n]
 			clear(out)
 			return out
@@ -336,7 +359,10 @@ func (e *CodecEncoder) release(x signal) {
 	}
 	for i := range e.scratch.slots {
 		if len(e.scratch.slots[i]) >= len(x.data) && &e.scratch.slots[i][0] == &x.data[0] {
-			e.scratch.used[i] = false
+			if e.scratch.used[i] {
+				e.scratch.used[i] = false
+				e.scratch.liveSlots--
+			}
 			return
 		}
 	}
