@@ -208,3 +208,51 @@ An alternating-broadcast scheduling experiment for the 6×16 GEMM microkernel
 showed no consistent throughput improvement and was not enabled. Representative
 finite inputs are required for throughput benchmarks: subnormal test values caused
 FP assists to dominate the first experiment. Correctness tests still include them.
+
+## SIMD sine and codec Snake (2026-09-13)
+
+`SinF32To` uses AVX2/FMA for finite float32 phases with |x| <= 32. It reduces
+by a split pi/2 constant and evaluates degree-11 sine / degree-10 cosine
+polynomials, then selects the quadrant. Out-of-range and exceptional values,
+negative zero and short tails use scalar `math.Sin`. Other architectures use
+scalar sine. Partial overlap is rejected; exact in-place use is supported.
+
+Dense [-32,32] and 200,000 seeded random tests observed maximum absolute error
+5.96e-8; the acceptance threshold is 2e-6. Exact float32 quadrant neighbours and
+SIMD-range boundaries are also tested. This is an approximation, not bitwise
+math.Sin equivalence.
+
+Codec encoder/decoder Snake now uses 256-float stack scratch and separate vector
+scale, square and add operations. These retain float32 expression boundaries
+without adding workspace allocations. A 4,096-value channel benchmark measures
+53.98–54.63 microseconds scalar versus 15.86–16.23 microseconds SIMD (about 3.4×),
+with zero allocations. The direct 1,024-value sine benchmark measured about 7.5×.
+
+Real-checkpoint encoder parity passes all 8×3 codes. The real decoder matches
+all 1,920 reference samples with maximum absolute error 5.74e-7 and zero prepared
+allocations. Native preprocessed reference encoding still produces the same 832
+codes as the previous checkpoint.
+
+Full raw-reference synthesis took 92.74 seconds versus 85.78 in the preceding
+run. Reference encoding fell from 9.91 to 8.30 seconds and decode/save from 4.07
+to 2.98 seconds, while generation rose from 69.55 to 81.06 seconds. This single
+pair does not establish a whole-model speedup. No backbone math changed.
+
+The resulting three-second WAV differs in 61 of 72,000 PCM16 samples; every
+difference is one integer step, with RMS delta 0.0291 PCM16 units. It is no longer
+byte-identical. New SHA-256:
+`1d8908e82a5af5c6c1cd191d94a32d4cf8ce1c811b420dcea009c726b2771ea5`.
+Artifacts: `/workspace/tmp/omnivoice-full-native-sine-v8.{cpu,json}`, waveform
+`/workspace/tmp/synthetic-spock-full-native-sine-v8.wav`, and reference codes
+`/workspace/tmp/omnivoice-reference-sine-v8.json`.
+
+Tests cover overlap, tails, signed zero, exceptional values, exact quadrant
+neighbours, mixed fallback phases across 256-element Snake tiles and allocation
+counts. Runtime/model tests, race/no-CGo checks, disabled-AVX2/FMA fallback,
+OmniVoice vet and ARM64 cross-builds pass. Full-repository build failures remain
+in the previously identified unrelated packages.
+
+Simple K-chunk calls around the current packed GEMM API would store partial sums
+and change accumulation order. Cache blocking needs an accumulator-preserving
+kernel/epilogue design before exact-parity deployment; no K-blocking change was
+implemented or benchmarked in this stage.

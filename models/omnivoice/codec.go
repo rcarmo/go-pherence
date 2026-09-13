@@ -3,7 +3,6 @@ package omnivoice
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -12,8 +11,9 @@ import (
 
 // CodecDecoder implements HiggsAudioV2 RVQ/DAC decoding. Convolutions use
 // SIMD GEMM with bounded 64-position im2col tiles. Prepare reserves reusable
-// activation slots for allocation-free DecodeInto calls. Snake sine and
-// transposed-convolution scatter are scalar. Not concurrent safe.
+// activation slots for allocation-free DecodeInto calls. Snake uses bounded
+// SIMD sine where supported; transposed-convolution scatter is scalar.
+// Not concurrent safe.
 type CodecDecoder struct {
 	ops            map[string]codecOperator
 	names          map[string]map[string]string
@@ -198,12 +198,7 @@ func (d *CodecDecoder) snake(x signal, name string) error {
 		return fmt.Errorf("omnivoice: invalid snake %s", name)
 	}
 	for c, a := range alpha {
-		for t := 0; t < x.frames; t++ {
-			i := c*x.frames + t
-			phase := a * x.data[i]
-			s := float32(math.Sin(float64(phase)))
-			x.data[i] += (float32(1) / (a + 1e-9)) * (s * s)
-		}
+		snakeChannel(x.data[c*x.frames:(c+1)*x.frames], a)
 	}
 	return nil
 }

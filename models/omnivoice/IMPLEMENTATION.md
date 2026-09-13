@@ -429,3 +429,14 @@ the previous raw-reference baseline byte for byte. Direct panel benchmarks impro
 [PROFILING.md](PROFILING.md) for details and limits. The GEMM microkernel is still the
 largest CPU cost; a scheduling-only candidate failed to establish a gain and was
 not enabled. Scalar sine, erf and some exponential/division paths still exist.
+
+## Codec SIMD sine (2026-09-13)
+
+Encoder and decoder Snake activations use a bounded AVX2/FMA sine approximation
+on amd64, with scalar fallbacks and 256-value stack scratch. Prepared calls still
+allocate zero bytes. All 832 preprocessed reference codes remain unchanged, and
+real codec parity passes. The full WAV has only 61 one-step PCM16 differences
+out of 72,000 samples. The channel benchmark is about 3.4× faster; whole synthesis
+did not improve in the measured run. See [PROFILING.md](PROFILING.md) for numerical
+bounds, artifacts and fallback coverage. HuBERT erf, encoder/sampler exponentials,
+SiLU division and unsupported-architecture sine remain scalar.

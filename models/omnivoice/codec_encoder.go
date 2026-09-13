@@ -656,12 +656,7 @@ func (e *CodecEncoder) snake(x signal, alpha []float32) error {
 		return fmt.Errorf("omnivoice: invalid snake")
 	}
 	for c, a := range alpha {
-		for t := 0; t < x.frames; t++ {
-			i := c*x.frames + t
-			phase := a * x.data[i]
-			s := float32(math.Sin(float64(phase)))
-			x.data[i] += (float32(1) / (a + 1e-9)) * (s * s)
-		}
+		snakeChannel(x.data[c*x.frames:(c+1)*x.frames], a)
 	}
 	return nil
 }
