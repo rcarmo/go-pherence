@@ -190,7 +190,14 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 	normalizeInto(norm, dst, w["post_attention_layernorm.weight"], tokens, h, float32(c.RMSNormEps))
 	s.linearInto(s.gate, norm, w["mlp.gate_proj.weight"], tokens, h, c.IntermediateSize)
 	s.linearInto(s.up, norm, w["mlp.up_proj.weight"], tokens, h, c.IntermediateSize)
-	simd.SiLUMul(s.gate, s.gate, s.up)
+	// GEMM packing scratch is idle during activation; process bounded tiles
+	// rather than reserving another full feed-forward activation tensor.
+	for start := 0; start < len(s.gate); start += len(s.packed) {
+		end := min(start+len(s.packed), len(s.gate))
+		if !simd.SiLUMulExpTo(s.gate[start:end], s.gate[start:end], s.up[start:end], s.packed[:end-start]) {
+			return fmt.Errorf("omnivoice: SiLU scratch shape failed")
+		}
+	}
 	s.linearInto(s.down, s.gate, w["mlp.down_proj.weight"], tokens, c.IntermediateSize, h)
 	simd.VecAdd(dst, dst, s.down)
 	return nil

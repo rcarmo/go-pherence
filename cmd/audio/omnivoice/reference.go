@@ -9,21 +9,58 @@ import (
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	model "github.com/rcarmo/go-pherence/models/omnivoice"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-func encodeReference(modelPath, wavePath, transcript string) (loader.CachedReferenceTokens, error) {
+func encodeReference(modelPath, wavePath, transcript string, preprocess bool) (loader.CachedReferenceTokens, error) {
 	wave, err := readReferenceAudio(wavePath)
 	if err != nil {
 		return loader.CachedReferenceTokens{}, err
+	}
+	var rms float64
+	if preprocess {
+		wave, rms, err = preprocessReference(wave)
+		if err != nil {
+			return loader.CachedReferenceTokens{}, err
+		}
 	}
 	encoder, err := model.LoadReferenceEncoder(filepath.Join(modelPath, "audio_tokenizer"))
 	if err != nil {
 		return loader.CachedReferenceTokens{}, err
 	}
+	if preprocess {
+		return encoder.EncodePreprocessed(context.Background(), wave, transcript, rms)
+	}
 	return encoder.Encode(context.Background(), wave, transcript)
+}
+
+func preprocessReference(wave []float32) ([]float32, float64, error) {
+	var sum float64
+	for _, v := range wave {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return nil, 0, fmt.Errorf("nonfinite reference")
+		}
+		sum += float64(v) * float64(v)
+	}
+	if len(wave) == 0 {
+		return nil, 0, fmt.Errorf("empty reference")
+	}
+	rms := math.Sqrt(sum / float64(len(wave)))
+	if rms < 1e-7 {
+		return nil, 0, fmt.Errorf("silent reference")
+	}
+	normalized := append([]float32(nil), wave...)
+	if rms < .1 {
+		gain := float32(.1 / rms)
+		for i := range normalized {
+			normalized[i] *= gain
+		}
+	}
+	trimmed, err := loader.RemoveReferenceSilenceMono24k(normalized)
+	return trimmed, rms, err
 }
 
 func readReferenceAudio(path string) ([]float32, error) {
@@ -67,9 +104,9 @@ func readReferenceAudio(path string) ([]float32, error) {
 	return wave, nil
 }
 
-func prepareRawPrompt(modelPath, wavePath, transcript, text string, frames int, language, instruct string, denoise bool) (loader.PreparedPrompt, error) {
+func prepareRawPrompt(modelPath, wavePath, transcript, text string, frames int, language, instruct string, denoise, preprocess bool) (loader.PreparedPrompt, error) {
 	started := time.Now()
-	ref, err := encodeReference(modelPath, wavePath, transcript)
+	ref, err := encodeReference(modelPath, wavePath, transcript, preprocess)
 	if err != nil {
 		return loader.PreparedPrompt{}, err
 	}

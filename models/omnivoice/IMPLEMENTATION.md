@@ -272,16 +272,59 @@ Native tests/vet, race/no-CGo checks, and ARM64 CLI/test cross-builds pass.
 Runtime feature detection requires both AVX2 and FMA before executing the exp
 assembly. Other architectures currently use its scalar fallback.
 
+## Native preprocessing, post-processing and SiLU (2026-09-13)
+
+`-preprocess-reference` normalises original reference RMS, converts to PCM16 for
+pydub-compatible silence detection, trims with mid/lead/trail 200/100/200 ms,
+then encodes without a second RMS normalisation. Original RMS is retained for
+output restoration. The approved chess reference now matches all 832 Python
+preprocessed codes exactly (104 frames). Raw-reference mode still has 896 codes.
+
+`-postprocess` trims generated silence with 500/100/100 ms, restores reference
+RMS, applies 100 ms fades and pads 100 ms at each end. Both flags default off;
+raw-output regression hashes therefore remain valid. Example:
+
+```sh
+bin/omnivoice -mode synthesize -model "$MODEL" -preprocess-reference -postprocess \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic-processed.wav
+```
+
+Silence helpers match quantised PCM16 RMS, truncation, Python ties-to-even
+millisecond rounding, 10 ms scans and overlapping keep-silence boundaries.
+Synthetic Python parity covers short, long-middle, edge and all-silent audio,
+plus fade/pad boundaries. Public duration/sample options reject oversized or
+nonfinite values before conversion/allocation. `MaxSamples` bounds input;
+post-padding output has a separate 20-second ceiling. Default fade/pad input
+limit is 10 seconds (up to 10.2 seconds with default padding). Preprocessed
+references shorter than two seconds are rejected by the current encoder limit.
+
+`SiLUMulExpTo` combines SIMD exponential/vector multiply with scalar division and
+uses tiled, idle GEMM packing scratch in the OmniVoice block. It adds no workspace
+memory or allocations. Random [-100,100], exceptional, alias and tail tests pass;
+FFN-sized microbenchmark measured 6.18 ms baseline vs 4.43 ms. The raw-reference
+full run took 85.95 s versus 94.05 s previously; single-run timing, same WAV hash.
+
+The combined processed native run took 83.29 s and produced 3.05 seconds of audio.
+External Azure Speech recognition returned exactly “The evidence is insufficient,
+Captain.” (confidence 0.914). ASR does not establish speaker similarity.
+Private result `/workspace/tmp/synthetic-spock-native-processed-v1.wav`; timings
+`/workspace/tmp/omnivoice-native-processed-v1.json`; ASR JSON
+`/workspace/tmp/omnivoice-native-processed-asr.json`. Native tests/vet, Python audio
+parity, race/no-CGo checks and ARM64 cross-builds pass. Listening acceptance has
+not been recorded.
+
 ## Still required for completion
 
 1. Reduce setup memory (loaded weights and conservatively sized scratch) and
    evaluate resident-service reuse; successful prepared reference calls allocate zero.
 2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
-3. Remaining SIMD work: packing, SiLU/GELU activations, sine and codec scatter;
+3. Remaining SIMD work: packing, SiLU division/GELU, sine and codec scatter;
    exponential/softmax SIMD currently accelerates amd64 only.
 4. Text/reference → native speech listening acceptance against approved sample 3.
-5. Broader shape/error tests, long utterances/chunking and optional upstream
-   post-processing (silence removal, fades/padding).
+5. Broader shape/error tests and long utterances/chunking, including continuity
+   at generated chunk boundaries.
 
 The goal remains active. This is a working staged implementation, not a completed
 fully native replacement or a full-SIMD graph.

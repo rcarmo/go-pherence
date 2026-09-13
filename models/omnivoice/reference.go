@@ -96,6 +96,31 @@ func (e *ReferenceEncoder) Encode(ctx context.Context, wave []float32, transcrip
 // EncodeInto writes caller-owned codes; after Prepare successful calls allocate nothing.
 // The input waveform is never modified. Returned RMS is measured before hop trimming.
 func (e *ReferenceEncoder) EncodeInto(ctx context.Context, codes []int, wave []float32) (float64, error) {
+	return e.encodeInto(ctx, codes, wave, true)
+}
+
+// EncodePreprocessed consumes already RMS-normalised and silence-trimmed 24k audio.
+// originalRMS must come from the unprocessed recording; do not normalise twice.
+func (e *ReferenceEncoder) EncodePreprocessed(ctx context.Context, wave []float32, transcript string, originalRMS float64) (loader.CachedReferenceTokens, error) {
+	if ctx == nil || strings.TrimSpace(transcript) == "" || math.IsNaN(originalRMS) || math.IsInf(originalRMS, 0) || originalRMS < 1e-7 {
+		return loader.CachedReferenceTokens{}, fmt.Errorf("omnivoice: invalid preprocessed reference")
+	}
+	if err := ctx.Err(); err != nil {
+		return loader.CachedReferenceTokens{}, err
+	}
+	frames, err := e.Prepare(len(wave))
+	if err != nil {
+		return loader.CachedReferenceTokens{}, err
+	}
+	codes := make([]int, 8*frames)
+	if _, err = e.encodeInto(ctx, codes, wave, false); err != nil {
+		return loader.CachedReferenceTokens{}, err
+	}
+	out := loader.CachedReferenceTokens{Books: 8, Frames: frames, Codes: codes, Transcript: transcript, RefRMS: &originalRMS}
+	return out, out.Validate()
+}
+
+func (e *ReferenceEncoder) encodeInto(ctx context.Context, codes []int, wave []float32, normalize bool) (float64, error) {
 	if ctx == nil || e == nil || e.Hubert == nil || e.Codec == nil {
 		return 0, fmt.Errorf("omnivoice: invalid reference encoder/context")
 	}
@@ -119,7 +144,7 @@ func (e *ReferenceEncoder) EncodeInto(ctx context.Context, codes []int, wave []f
 	// Upstream computes RMS before trimming to a codec hop boundary.
 	normalized := e.normalized
 	copy(normalized, wave[:len(normalized)])
-	if rms < .1 {
+	if normalize && rms < .1 {
 		gain := float32(.1 / rms)
 		for i := range normalized {
 			normalized[i] *= gain

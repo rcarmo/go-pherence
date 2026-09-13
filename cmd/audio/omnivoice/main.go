@@ -40,6 +40,8 @@ func run(args []string) error {
 	language := flags.String("language", "en", "prompt language")
 	instruct := flags.String("instruct", "", "optional style instruction")
 	denoise := flags.Bool("denoise", true, "request denoised voice reference")
+	preprocess := flags.Bool("preprocess-reference", false, "normalise then trim reference silence like upstream (raw input only)")
+	postprocess := flags.Bool("postprocess", false, "trim output silence, restore loudness, fade and pad like upstream")
 	ref := flags.String("reference", "", "reference audio path (WAV or supported MP4/AAC)")
 	transcript := flags.String("transcript", "", "exact transcript for native reference encoding")
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
@@ -87,6 +89,15 @@ func run(args []string) error {
 	if *mode != "inspect" && *mode != "block" && *mode != "stack" && *mode != "logits" && *mode != "generate" && *mode != "prepare" && *mode != "synthesize" && *mode != "encode-reference" {
 		return fmt.Errorf("unknown mode %q", *mode)
 	}
+	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
+		return fmt.Errorf("preprocess-reference requires raw reference preparation")
+	}
+	if (*mode == "generate" || *mode == "synthesize") && (*steps < 1 || *steps > 128) {
+		return fmt.Errorf("steps must be 1..128")
+	}
+	if *postprocess && *mode != "generate" && *mode != "synthesize" {
+		return fmt.Errorf("postprocess requires generate/synthesize")
+	}
 	if err := validatePreparationFlags(*mode, *input, *output, *text, *ref, *transcript, *cachedReference, *frames, *steps); err != nil {
 		return err
 	}
@@ -126,7 +137,7 @@ func run(args []string) error {
 		if _, err := os.Lstat(*output); !os.IsNotExist(err) {
 			return fmt.Errorf("output exists or cannot be checked")
 		}
-		encoded, err := encodeReference(*path, *ref, *transcript)
+		encoded, err := encodeReference(*path, *ref, *transcript, *preprocess)
 		if err != nil {
 			return err
 		}
@@ -144,7 +155,7 @@ func run(args []string) error {
 			if _, err := model.SelectBackend(backendMode); err != nil {
 				return err
 			}
-			prompt, err = prepareRawPrompt(*path, *ref, *transcript, *text, *frames, *language, *instruct, *denoise)
+			prompt, err = prepareRawPrompt(*path, *ref, *transcript, *text, *frames, *language, *instruct, *denoise, *preprocess)
 		} else {
 			prompt, err = prepareCachedPrompt(*path, *cachedReference, *text, *frames, *language, *instruct, *denoise)
 		}
@@ -171,12 +182,14 @@ func run(args []string) error {
 	if *mode == "synthesize" {
 		p := generationPrompt(prompt)
 		p.NativeReference = *ref != ""
+		p.PreprocessedReference = *preprocess
+		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
 		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)
