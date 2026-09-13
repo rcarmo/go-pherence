@@ -38,7 +38,7 @@ func communityConfig(t *testing.T) CommunitySettings {
 	put := func(n string, b []byte) Asset { return putAsset(t, d, n, b, 0600) }
 	npz := make([]byte, 8)
 	binary.LittleEndian.PutUint32(npz, 0x04034b50)
-	return CommunitySettings{Enable: true, AllowExperimental: true, ModelRevision: "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee", Segmentation: put("segmentation.safetensors", testSafeTensor(t, "dummy", []int{1}, []float32{1})), Filters: put("filters.safetensors", testSafeTensor(t, "sincnet.filters", []int{80, 251}, make([]float32, 80*251))), Embedding: put("embedding.safetensors", testSafeTensor(t, "dummy", []int{1}, []float32{1})), XVectorTransform: put("xvec.npz", npz), PLDA: put("plda.npz", npz), SegmentationConfig: CommunitySegmentationSettings{SincNetStride: 10, LSTM: CommunityLSTMSettings{InputSize: 60, HiddenSize: 128, NumLayers: 4, Bidirectional: true}, Head: CommunityHeadSettings{InputSize: 256, HiddenSize: 128, NumLayers: 2, Speakers: 3, MaxActive: 2}}, EmbeddingConfig: CommunityEmbeddingSettings{32, 80, 256}, EmbeddingPrefix: "resnet", PLDAConfig: CommunityPLDASettings{256, 128, 128}, PCM: CommunityPCMSettings{WindowSamples: 160000, StepSamples: 16000, MinimumEmbeddingSamples: 400, ExcludeOverlap: true, MinSpeakers: 1, MaxSpeakers: 64, AHCThreshold: .6, Fa: .07, Fb: .8, Constrained: true, TiePolicy: "reject"}, Modes: CommunityModesSettings{"simd", "simd", "simd", "simd"}, MaxResultBytes: 16 << 20}
+	return CommunitySettings{Enable: true, AllowExperimental: true, ModelRevision: "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee", Segmentation: put("segmentation.safetensors", testSafeTensor(t, "dummy", []int{1}, []float32{1})), Filters: put("filters.safetensors", testSafeTensor(t, "sincnet.filters", []int{80, 251}, make([]float32, 80*251))), Embedding: put("embedding.safetensors", testSafeTensor(t, "dummy", []int{1}, []float32{1})), XVectorTransform: put("xvec.npz", npz), PLDA: put("plda.npz", npz), SegmentationConfig: CommunitySegmentationSettings{SincNetStride: 10, LSTM: CommunityLSTMSettings{InputSize: 60, HiddenSize: 128, NumLayers: 4, Bidirectional: true}, Head: CommunityHeadSettings{InputSize: 256, HiddenSize: 128, NumLayers: 2, Speakers: 3, MaxActive: 2}}, EmbeddingConfig: CommunityEmbeddingSettings{32, 80, 256}, EmbeddingPrefix: "resnet", PLDAConfig: CommunityPLDASettings{256, 128, 128}, PCM: CommunityPCMSettings{WindowSamples: 160000, StepSamples: 16000, MinimumEmbeddingSamples: 400, ExcludeOverlap: true, MinSpeakers: 1, MaxSpeakers: 64, AHCThreshold: .6, Fa: .07, Fb: .8, Constrained: true, TiePolicy: "reject"}, Modes: CommunityModesSettings{SincNet: "simd", LSTM: "simd", Head: "simd", Embedding: "simd"}, MaxResultBytes: 16 << 20}
 }
 func TestCommunityConfigStrictSnakeCaseAndModes(t *testing.T) {
 	c := baseConfig(t)
@@ -54,6 +54,22 @@ func TestCommunityConfigStrictSnakeCaseAndModes(t *testing.T) {
 		t.Fatal(cfg, e)
 	}
 	baseIdentity := cfg.ModelIdentitySHA256
+	baseStageIdentity, _ := json.Marshal(cfg)
+	x.Modes.OverlapBranches = true
+	overlapped, e := speechCommunityConfig(x, c.RuntimeSHA256)
+	overlappedStageIdentity, _ := json.Marshal(overlapped)
+	if e != nil || !overlapped.OverlapBranches || bytes.Equal(baseStageIdentity, overlappedStageIdentity) || overlapped.ModelIdentitySHA256 != baseIdentity {
+		t.Fatal("CPU overlap identity", overlapped, e)
+	}
+	x.Modes.OverlapBranches = false
+	vulkanOverlap := x
+	vulkanOverlap.Modes.LSTM = "vulkan"
+	vulkanOverlap.Modes.Embedding = "vulkan"
+	vulkanOverlap.Modes.OverlapBranches = true
+	vulkanOverlap.Vulkan = &CommunityVulkanSettings{}
+	if _, e := speechCommunityConfig(vulkanOverlap, c.RuntimeSHA256); e == nil {
+		t.Fatal("Vulkan accepted CPU branch overlap")
+	}
 	x.PCM.TiePolicy = "lowest-index"
 	x.Modes.Embedding = "gemm"
 	cfg, e = speechCommunityConfig(x, c.RuntimeSHA256)

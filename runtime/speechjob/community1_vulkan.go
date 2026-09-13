@@ -59,7 +59,7 @@ func NewVulkanCommunity1Stage(model *c1.VulkanDiarization, cfg VulkanCommunity1S
 	if err := validateCommunityConfig(cfg.Community); err != nil {
 		return nil, err
 	}
-	if cfg.Community.SegmentationModes.LSTM != c1.LSTMSIMD || cfg.Community.EmbeddingMode != c1.WeSpeakerBlockGEMM {
+	if cfg.Community.OverlapBranches || cfg.Community.SegmentationModes.LSTM != c1.LSTMSIMD || cfg.Community.EmbeddingMode != c1.WeSpeakerBlockGEMM {
 		return nil, ErrConfiguration
 	}
 	identity, err := json.Marshal(struct {

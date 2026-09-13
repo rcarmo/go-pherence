@@ -94,7 +94,7 @@
         "constrained": true,
         "tie_policy": "reject"
       },
-      "modes": {"sincnet": "simd", "lstm": "simd", "head": "simd", "embedding": "simd"},
+      "modes": {"sincnet": "simd", "lstm": "simd", "head": "simd", "embedding": "simd", "overlap_branches": true},
       "max_result_bytes": 16777216
     }
   }

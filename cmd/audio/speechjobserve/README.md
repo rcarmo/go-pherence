@@ -115,9 +115,10 @@ Community-1 is omitted by default. [`example-community.json`](example-community.
 - complete segmentation LSTM/head, embedding and PLDA geometry;
 - explicit PCM window/step/speaker/clustering policy;
 - explicit `scalar` or `simd` segmentation modes, `scalar`/`simd`/`gemm` embedding mode and `reject` or diagnostic `lowest-index` tie policy;
+- optional CPU-only `modes.overlap_branches:true`, which overlaps the independent per-window segmentation and embedding-trunk branches while preserving mask-dependent ordering; Vulkan profiles reject it;
 - a configured process-local resource budget and result-byte cap.
 
-Execution verifies all asset bytes under the loading lease, uses the checked safetensors and numeric-only NPZ loaders, closes sources before serving and transfers the graph to the resident Community owner. Configuration identity includes model revision, xvector hash, geometry, prefix, asset/runtime hashes and execution policy. No model defaults are inferred from tensor sizes.
+Execution verifies all asset bytes under the loading lease, uses the checked safetensors and numeric-only NPZ loaders, closes sources before serving and transfers the graph to the resident Community owner. Configuration identity includes model revision, xvector hash, geometry, prefix, asset/runtime hashes, execution policy and branch-overlap selection, so sequential and overlapped checkpoints cannot resume each other. No model defaults are inferred from tensor sizes.
 
 The combined stage order is:
 

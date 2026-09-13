@@ -101,10 +101,11 @@ type CommunityPCMSettings struct {
 	TiePolicy               string  `json:"tie_policy"`
 }
 type CommunityModesSettings struct {
-	SincNet   string `json:"sincnet"`
-	LSTM      string `json:"lstm"`
-	Head      string `json:"head"`
-	Embedding string `json:"embedding"`
+	SincNet         string `json:"sincnet"`
+	LSTM            string `json:"lstm"`
+	Head            string `json:"head"`
+	Embedding       string `json:"embedding"`
+	OverlapBranches bool   `json:"overlap_branches"`
 }
 
 // CommunityVulkanSettings opts only Community-1 into its fixed-window hybrid.
@@ -589,7 +590,10 @@ func speechCommunityConfig(c CommunitySettings, runtimeHash string) (speechjob.C
 		PLDA              CommunityPLDASettings
 	}{c.ModelRevision, c.XVectorTransform.SHA256, c.SegmentationConfig, c.EmbeddingConfig, c.EmbeddingPrefix, c.PLDAConfig})
 	modelIdentity := sha256.Sum256(identity)
-	return speechjob.Community1StageConfig{AllowExperimental: c.AllowExperimental, SegmentationSHA256: c.Segmentation.SHA256, EmbeddingSHA256: c.Embedding.SHA256, PLDASHA256: c.PLDA.SHA256, FiltersSHA256: c.Filters.SHA256, RuntimeSHA256: runtimeHash, ModelIdentitySHA256: hex.EncodeToString(modelIdentity[:]), PCM: c1.DiarizationPCMConfig{WindowSamples: p.WindowSamples, StepSamples: p.StepSamples, MinimumEmbeddingSamples: p.MinimumEmbeddingSamples, ExcludeOverlap: p.ExcludeOverlap, MinSpeakers: p.MinSpeakers, MaxSpeakers: p.MaxSpeakers, NumSpeakers: p.NumSpeakers, AHCThreshold: p.AHCThreshold, Fa: p.Fa, Fb: p.Fb, MinDurationOff: p.MinDurationOff, Constrained: p.Constrained, TiePolicy: tie}, SegmentationModes: sm, EmbeddingMode: em, MaxResultBytes: c.MaxResultBytes}, nil
+	if c.Modes.OverlapBranches && c.Vulkan != nil {
+		return speechjob.Community1StageConfig{}, fmt.Errorf("Community-1 branch overlap is CPU-only")
+	}
+	return speechjob.Community1StageConfig{AllowExperimental: c.AllowExperimental, SegmentationSHA256: c.Segmentation.SHA256, EmbeddingSHA256: c.Embedding.SHA256, PLDASHA256: c.PLDA.SHA256, FiltersSHA256: c.Filters.SHA256, RuntimeSHA256: runtimeHash, ModelIdentitySHA256: hex.EncodeToString(modelIdentity[:]), PCM: c1.DiarizationPCMConfig{WindowSamples: p.WindowSamples, StepSamples: p.StepSamples, MinimumEmbeddingSamples: p.MinimumEmbeddingSamples, ExcludeOverlap: p.ExcludeOverlap, MinSpeakers: p.MinSpeakers, MaxSpeakers: p.MaxSpeakers, NumSpeakers: p.NumSpeakers, AHCThreshold: p.AHCThreshold, Fa: p.Fa, Fb: p.Fb, MinDurationOff: p.MinDurationOff, Constrained: p.Constrained, TiePolicy: tie}, SegmentationModes: sm, EmbeddingMode: em, OverlapBranches: c.Modes.OverlapBranches, MaxResultBytes: c.MaxResultBytes}, nil
 }
 func communitySegConfig(c CommunitySegmentationSettings) c1.SegmentationLoadConfig {
 	return c1.SegmentationLoadConfig{SincNetStride: c.SincNetStride, LSTM: c1.LSTMConfig{InputSize: c.LSTM.InputSize, HiddenSize: c.LSTM.HiddenSize, NumLayers: c.LSTM.NumLayers, Bidirectional: c.LSTM.Bidirectional}, Head: c1.HeadConfig{InputSize: c.Head.InputSize, HiddenSize: c.Head.HiddenSize, NumLayers: c.Head.NumLayers, Speakers: c.Head.Speakers, MaxActive: c.Head.MaxActive}, SplitLSTM: c.SplitLSTM}

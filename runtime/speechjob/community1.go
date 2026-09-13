@@ -35,6 +35,7 @@ type Community1StageConfig struct {
 	PCM                    c1.DiarizationPCMConfig
 	SegmentationModes      c1.SegmentationModes
 	EmbeddingMode          c1.WeSpeakerBlockMode
+	OverlapBranches        bool
 	MaxResultBytes         int64
 }
 
@@ -53,6 +54,9 @@ func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageCo
 		return Stage{}, e
 	}
 	return community1Stage(cfg, func(ctx context.Context, reader c1.DiarizationPCMReader, total int64) (*c1.DiarizationPCMResult, error) {
+		if cfg.OverlapBranches {
+			return model.RunPCMOverlapped(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
+		}
 		return model.RunPCM(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
 	}), nil
 }
