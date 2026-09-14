@@ -151,6 +151,24 @@ func (b *Backbone) ForwardTargetInto(ctx context.Context, logits []float32, ids 
 }
 
 func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32, targetFrames int, prefix []float32, active []bool) error {
+	if err := b.prepareForward(ctx, logits, ids, audioMask, positions, mask, targetFrames, prefix, active); err != nil {
+		return err
+	}
+	b.bindExecution(ctx)
+	defer b.clearExecution()
+	if err := b.runLayers(ctx, positions, mask); err != nil {
+		return err
+	}
+	return b.projectForward(ctx, logits, targetFrames, active)
+}
+
+func (b *Backbone) bindExecution(ctx context.Context) {
+	b.scratch.pool = b.pool
+	b.scratch.executionContext = ctx
+}
+func (b *Backbone) clearExecution() { b.scratch.pool = nil; b.scratch.executionContext = nil }
+
+func (b *Backbone) prepareForward(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32, targetFrames int, prefix []float32, active []bool) error {
 	if b == nil || b.weights == nil || ctx == nil {
 		return fmt.Errorf("omnivoice: nil context")
 	}
@@ -175,12 +193,6 @@ func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int,
 	if err := b.block.validateInput(b.hidden, b.tokens, positions, mask); err != nil {
 		return err
 	}
-	b.scratch.pool = b.pool
-	b.scratch.executionContext = ctx
-	defer func() {
-		b.scratch.pool = nil
-		b.scratch.executionContext = nil
-	}()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -198,6 +210,11 @@ func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int,
 	if err := b.embedRangeInto(b.hidden[start*h:], ids, audioMask, start, b.tokens); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (b *Backbone) runLayers(ctx context.Context, positions []int, mask []float32) error {
+	c := b.weights.Config
 	if b.resident != nil {
 		for i := range b.resident.blocks {
 			if err := ctx.Err(); err != nil {
@@ -227,6 +244,12 @@ func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int,
 			}
 		}
 	}
+	return nil
+}
+
+func (b *Backbone) projectForward(ctx context.Context, logits []float32, targetFrames int, active []bool) error {
+	c := b.weights.Config
+	h, books, vocab := c.LLMConfig.HiddenSize, c.NumAudioCodebook, c.AudioVocabSize
 	normalizeInto(b.hidden, b.hidden, b.norm, b.tokens, h, float32(c.LLMConfig.RMSNormEps))
 	// Head rows are contiguous [codebook*vocab,hidden]. Write transposed output
 	// directly into the public [codebook,time,vocab] layout. When projecting only

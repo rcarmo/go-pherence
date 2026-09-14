@@ -17,7 +17,7 @@ import (
 	model "github.com/rcarmo/go-pherence/models/omnivoice"
 )
 
-func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool, residentBytes int64, prepacked bool, workers int) error {
+func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool, residentBytes int64, prepacked bool, workers int, shared bool) error {
 	started := time.Now()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -95,7 +95,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	if err != nil {
 		return err
 	}
-	runner, err := newChunkRunnerWithResident(ctx, weights, decoder, prompts, steps, residentBytes, prepacked, workers)
+	runner, err := newChunkRunnerWithResident(ctx, weights, decoder, prompts, steps, residentBytes, prepacked, workers, shared)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func runChunked(modelPath, mode, output, text, reference, transcript, cached, la
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": mode, "synthetic": true, "native_inference": true, "resident_cache_bytes": runner.cond.ResidentBytes(), "prepacked_bytes": runner.cond.PrepackedBytes(), "gemm_workers": workers, "reference_encoding_native": reference != "", "silence_preprocessing": preprocess, "output_postprocessing": postprocess, "chunks": len(prompts), "chunk_texts": chunkTexts(prompts), "target_frames": totalFrames, "chunk_seconds": timings, "audio_seconds": float64(len(joined)) / 24000, "command_seconds": time.Since(started).Seconds(), "steps": steps, "seed_per_chunk": 42, "boundary_fade_ms": 5, "boundary_gap_ms": 100, "gain": gain, "output": output})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": mode, "synthetic": true, "native_inference": true, "resident_cache_bytes": runner.cond.ResidentBytes(), "prepacked_bytes": runner.cond.PrepackedBytes(), "gemm_workers": workers, "shared_traversal": shared, "reference_encoding_native": reference != "", "silence_preprocessing": preprocess, "output_postprocessing": postprocess, "chunks": len(prompts), "chunk_texts": chunkTexts(prompts), "target_frames": totalFrames, "chunk_seconds": timings, "audio_seconds": float64(len(joined)) / 24000, "command_seconds": time.Since(started).Seconds(), "steps": steps, "seed_per_chunk": 42, "boundary_fade_ms": 5, "boundary_gap_ms": 100, "gain": gain, "output": output})
 }
 
 type chunkRunner struct {
@@ -135,10 +135,10 @@ type chunkRunner struct {
 }
 
 func newChunkRunner(weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int) (*chunkRunner, error) {
-	return newChunkRunnerWithResident(context.Background(), weights, decoder, prompts, steps, 0, false, 0)
+	return newChunkRunnerWithResident(context.Background(), weights, decoder, prompts, steps, 0, false, 0, false)
 }
 
-func newChunkRunnerWithResident(ctx context.Context, weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int, residentBytes int64, prepacked bool, workers int) (*chunkRunner, error) {
+func newChunkRunnerWithResident(ctx context.Context, weights *loader.Weights, decoder *model.CodecDecoder, prompts []loader.PreparedPrompt, steps int, residentBytes int64, prepacked bool, workers int, shared bool) (*chunkRunner, error) {
 	if weights == nil || decoder == nil || len(prompts) == 0 {
 		return nil, fmt.Errorf("invalid chunk runner inputs")
 	}
@@ -178,6 +178,7 @@ func newChunkRunnerWithResident(ctx context.Context, weights *loader.Weights, de
 	}
 	cfg := model.DefaultGenerationConfig()
 	cfg.Steps = steps
+	cfg.SharedTraversal = shared
 	generation, err := model.NewGeneration(cond, uncond, maxTarget, cfg)
 	if err != nil {
 		return nil, err

@@ -42,6 +42,7 @@ func run(args []string) error {
 	directQ8 := flags.Bool("direct-q8", false, "experimental direct Q8 SIMD projections for generate; excludes resident/prepack")
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
+	shared := flags.Bool("shared-traversal", false, "experimental guided streamed CFG layer traversal; excludes resident/prepack/direct-q8")
 	steps := flags.Int("steps", 16, "generation steps")
 	residentMiB := flags.Int64("resident-mib", 0, "opt-in decoder cache budget in MiB including optional packed panels; 0 streams layers (excludes other memory)")
 	prepacked := flags.Bool("prepack", false, "prepack resident decoder projections; requires budget covering raw weights plus panels")
@@ -65,6 +66,9 @@ func run(args []string) error {
 	memProfile := flags.String("memprofile", "", "exclusive-create allocation profile for the whole command")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *shared && (*residentMiB != 0 || *prepacked || *directQ8 || (*mode != "generate" && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "serve")) {
+		return fmt.Errorf("shared-traversal requires streamed synthesis/generation without resident/prepack/direct-q8")
 	}
 	if *directQ8 && (*mode != "generate" || *ggufPath == "" || *residentMiB != 0 || *prepacked) {
 		return fmt.Errorf("direct-q8 requires generate with weights-gguf and no resident/prepack")
@@ -130,7 +134,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runServe(serveOptions{modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
+		return runServe(serveOptions{shared: *shared, modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
 	}
 	if *serveDir != "" || *cacheMiB != 0 || *firstFrames != 0 {
 		return fmt.Errorf("output-dir/cache-mib/first-frames apply only to serve")
@@ -164,7 +168,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers)
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers, *shared)
 	}
 
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
@@ -271,10 +275,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false, *shared)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8, *shared)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)

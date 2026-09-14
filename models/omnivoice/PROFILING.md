@@ -545,3 +545,42 @@ changed request prefixes, target shrink/restore, exact legacy token/RNG parity,
 and zero generation allocations. Affected tests, vet, race/no-CGo checks and
 Linux ARM64 cross-build pass. The repository-wide build still fails in the
 previously recorded SpacemiT and DiffusionGemma packages.
+
+## Opt-in shared CFG layer traversal (2026-09-14)
+
+`-shared-traversal` runs conditional and unconditional forwards layer by layer,
+loading each streamed float32 decoder layer once for both branches. Distinct
+branch activations and attention sequences retain their original SIMD row
+shapes. This avoids concatenating branches or introducing cross-branch attention.
+The mode requires guided streamed siblings and rejects resident/prepacked and
+direct-Q8 modes. It is available in `generate`, `synthesize`, `synthesize-long`
+and `serve`; JSON output/worker startup reports `shared_traversal`.
+
+For the 28-layer model and an eight-positive-step schedule, decoder layer loads
+fall from 448 to 224. Embeddings, heads and the transformer arithmetic are still
+computed separately. Resident mode already avoids repeated decoder loading, so
+shared traversal offers no loading reduction there.
+
+Matched streamed runs used the preceding section's 75-frame, eight-step prompt,
+with two threads/two GEMM workers and **without** `-resident-mib`. Both binaries
+were the same build: the after runs added `-shared-traversal`.
+
+| Trial | Separate wall seconds | Shared wall seconds |
+| --- | ---: | ---: |
+| First | 60.841 | 56.041 |
+| Repeat | 60.585 | 61.433 |
+| Mean | 60.713 | 58.737 |
+
+The mean is 3.3% lower, but the second trial regressed. The mode stays opt-in;
+these two pairs do not establish a consistent speedup. Peak RSS is about
+1,114,000 KiB in both modes (1.06 GiB), with no resident decoder cache. All four
+WAV hashes equal the baseline hash in the preceding section. Local records are
+`/workspace/tmp/omnivoice-paired-{before,after}*.json`.
+
+Exact per-branch logit, token and RNG parity tests cover different branch
+lengths, sparse head spans, serial/worker GEMM, target shrink/restore, and
+zero-allocation generation. Cancellation tests cover pre-call and mid-traversal
+failure followed by successful reuse; execution context references are cleared.
+Unsupported combinations fail validation. Tests, vet, race/no-CGo checks and
+Linux ARM64 cross-build pass. Repository-wide build failures remain in the
+previously recorded unrelated packages.

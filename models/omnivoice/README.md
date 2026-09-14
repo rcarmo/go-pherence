@@ -48,3 +48,16 @@ The approved Charlie X reference decodes through go-264 to 108,000 samples (4.5 
 Unsupported config variants fail at block construction (biases, non-SiLU, non-default RoPE, sliding windows, incompatible GQA). No CUDA, CGo, subprocess inference or model download is required by the Go CLI. Measured short native synthesis takes roughly 83–94 seconds for about three seconds of audio on this VM, depending on preprocessing and build. These runs do not establish a speedup over PyTorch.
 
 Affected-package tests, race tests, vet and the CLI build pass, including `CGO_ENABLED=0`. A full `go build ./...` fails in existing SpacemiT host stubs/C compiler flags and DiffusionGemma command APIs. The same errors were reproduced in an untouched worktree at upstream `d08ce322`; no unrelated repairs were included.
+
+### Shared CFG traversal experiment
+
+Add `-shared-traversal` to streamed `generate`, `synthesize`, `synthesize-long`
+or `serve` runs to load each decoder layer once for both guidance branches.
+This keeps separate full attention and exact SIMD row shapes. It requires the
+streamed float32 path: do not combine it with `-resident-mib`, `-prepack` or
+`-direct-q8`. The default remains separate traversal. Two local timing pairs
+showed mixed results; see [the profiling measurements](PROFILING.md).
+
+Library callers select `GenerationConfig.SharedTraversal` with distinct
+`NewBackboneSibling` backbones. The sibling single-owner/sequential execution
+contract still applies; neither backbone may execute concurrently elsewhere.

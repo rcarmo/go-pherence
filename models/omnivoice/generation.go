@@ -11,6 +11,8 @@ import (
 // for a seed but does not reproduce PyTorch's random stream. Steps and schedule
 // formulas follow upstream; equal-score top-k ties use lowest flattened index.
 type GenerationConfig struct {
+	// SharedTraversal is opt-in and requires guided streamed float32 siblings.
+	SharedTraversal                                                          bool
 	Steps                                                                    int
 	TimeShift, Guidance, ClassTemperature, PositionTemperature, LayerPenalty float32
 	Seed                                                                     uint64
@@ -48,6 +50,9 @@ func NewGeneration(conditional, unconditional *Backbone, target int, c Generatio
 	}
 	if c.TimeShift <= 0 {
 		return nil, fmt.Errorf("omnivoice: time shift must be positive")
+	}
+	if c.SharedTraversal && (c.Guidance == 0 || unconditional == nil || conditional == unconditional || conditional.layer != unconditional.layer || conditional.resident != nil || unconditional.resident != nil || conditional.directQ8 != nil || unconditional.directQ8 != nil) {
+		return nil, fmt.Errorf("omnivoice: shared traversal requires guided streamed float32 siblings")
 	}
 	cfg := conditional.weights.Config
 	if c.Guidance != 0 && (unconditional == nil || target > unconditional.tokens || unconditional.weights != conditional.weights) {
@@ -194,12 +199,18 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 		}
 		// Dense sampler/noise indexing is deliberately retained. Revealed rows
 		// may contain stale logits, but confidence selection excludes them.
-		if err := g.conditional.forwardInto(ctx, g.condTarget, condIDs, condAudio, nil, nil, g.target, condPrefix, g.activeTimes); err != nil {
-			return err
-		}
-		if c.Guidance != 0 {
-			if err := g.unconditional.forwardInto(ctx, g.uncondTarget, uncondIDs, uncondAudio, nil, nil, g.target, uncondPrefix, g.activeTimes); err != nil {
+		if c.SharedTraversal {
+			if err := g.forwardPair(ctx, condIDs, condAudio, uncondIDs, uncondAudio, condPrefix, uncondPrefix); err != nil {
 				return err
+			}
+		} else {
+			if err := g.conditional.forwardInto(ctx, g.condTarget, condIDs, condAudio, nil, nil, g.target, condPrefix, g.activeTimes); err != nil {
+				return err
+			}
+			if c.Guidance != 0 {
+				if err := g.unconditional.forwardInto(ctx, g.uncondTarget, uncondIDs, uncondAudio, nil, nil, g.target, uncondPrefix, g.activeTimes); err != nil {
+					return err
+				}
 			}
 		}
 		if err := g.sampler.GuidedLogProbsInto(g.logProbs, g.condTarget, g.uncondTarget, g.target, c.Guidance, maskID); err != nil {

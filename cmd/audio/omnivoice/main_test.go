@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,5 +54,13 @@ func TestCLIResidentBudgetValidation(t *testing.T) {
 func TestCLIPrepackRequiresBudget(t *testing.T) {
 	if err := run([]string{"-mode", "synthesize", "-prepack"}); err == nil {
 		t.Fatal("accepted prepack without budget")
+	}
+}
+
+func TestSharedTraversalCLICompatibility(t *testing.T) {
+	for _, args := range [][]string{{"-shared-traversal"}, {"-mode", "synthesize", "-shared-traversal", "-resident-mib", "2048"}, {"-mode", "generate", "-shared-traversal", "-direct-q8"}, {"-mode", "plan-chunks", "-shared-traversal"}} {
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "shared-traversal requires") {
+			t.Fatalf("%v: %v", args, err)
+		}
 	}
 }
