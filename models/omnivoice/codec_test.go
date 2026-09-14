@@ -121,6 +121,21 @@ func TestRealCodecDecode(t *testing.T) {
 	if allocations != 0 {
 		t.Fatalf("decoder still allocates %g", allocations)
 	}
+	exact := append([]float32(nil), out...)
+	poison := func() {
+		buffers := append([][]float32(nil), d.scratch.slots[:]...)
+		buffers = append(buffers, d.scratch.packed, d.scratch.result, d.scratch.input, d.scratch.projected, d.scratch.gemmPanel)
+		for _, buf := range buffers {
+			for i := range buf {
+				buf[i] = float32(math.NaN())
+			}
+		}
+	}
+	poison()
+	if err := d.DecodeInto(context.Background(), out, codes, 8, 2); err != nil {
+		t.Fatal(err)
+	}
+	assertFloat32Exact(t, out, exact)
 	first := d.scratch
 	if err := d.Prepare(1); err != nil {
 		t.Fatal(err)
@@ -128,9 +143,14 @@ func TestRealCodecDecode(t *testing.T) {
 	if d.scratch != first {
 		t.Fatal("smaller real prepare reallocated scratch")
 	}
+	poison()
+	if err := d.DecodeInto(context.Background(), make([]float32, 960), make([]int, 8), 8, 1); err != nil {
+		t.Fatal(err)
+	}
 	if err := d.Prepare(2); err != nil {
 		t.Fatal(err)
 	}
+	poison()
 	ctx := &cancelAfterChecks{Context: context.Background(), remaining: 3}
 	if err := d.DecodeInto(ctx, out, codes, 8, 2); err != context.Canceled {
 		t.Fatalf("mid-decode cancellation: %v", err)
@@ -138,6 +158,7 @@ func TestRealCodecDecode(t *testing.T) {
 	if err := d.DecodeInto(context.Background(), out, codes, 8, 2); err != nil {
 		t.Fatal(err)
 	}
+	assertFloat32Exact(t, out, exact)
 	for i, v := range out {
 		if diff := math.Abs(float64(v - f.Waveform[i])); diff > 2e-5 || math.IsNaN(diff) {
 			t.Fatalf("decode retry mismatch at %d", i)

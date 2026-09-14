@@ -109,7 +109,7 @@ func (d *CodecDecoder) decode(ctx context.Context, codes []int, books, frames in
 		if len(es) != 2 {
 			return nil, fmt.Errorf("omnivoice: codebook missing")
 		}
-		x := signal{d.buffer(es[1] * frames), es[1], frames}
+		x := signal{d.bufferOverwrite(es[1] * frames), es[1], frames}
 		for t := 0; t < frames; t++ {
 			code := codes[book*frames+t]
 			for c := 0; c < es[1]; c++ {
@@ -152,7 +152,7 @@ func (d *CodecDecoder) decode(ctx context.Context, codes []int, books, frames in
 		for j, dilation := range []int{1, 3, 9} {
 			res := x
 			rp := d.residualNames[i][j]
-			work := signal{d.buffer(len(x.data)), x.channels, x.frames}
+			work := signal{d.bufferOverwrite(len(x.data)), x.channels, x.frames}
 			copy(work.data, x.data)
 			if err = d.snake(work, d.names[rp]["snake1.alpha"]); err != nil {
 				return nil, err
@@ -219,7 +219,7 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 	if length <= 0 {
 		return signal{}, fmt.Errorf("omnivoice: short conv input")
 	}
-	y := signal{d.buffer(out * length), out, length}
+	y := signal{d.bufferOverwrite(out * length), out, length}
 	const tile = 64
 	k := x.channels * kernel
 	var packed, result []float32

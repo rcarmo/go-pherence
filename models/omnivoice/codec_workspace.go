@@ -36,6 +36,14 @@ func (d *CodecDecoder) Prepare(frames int) error {
 	return nil
 }
 func (d *CodecDecoder) buffer(n int) []float32 {
+	out := d.bufferOverwrite(n)
+	clear(out)
+	return out
+}
+
+// bufferOverwrite acquires scratch whose caller must fully initialise before use.
+// Accumulators and overlap-add outputs must continue to use buffer.
+func (d *CodecDecoder) bufferOverwrite(n int) []float32 {
 	if d.scratch == nil {
 		return make([]float32, n)
 	}
@@ -43,9 +51,7 @@ func (d *CodecDecoder) buffer(n int) []float32 {
 	for i := range s.slots {
 		if !s.used[i] && n <= len(s.slots[i]) {
 			s.used[i] = true
-			out := s.slots[i][:n]
-			clear(out)
-			return out
+			return s.slots[i][:n]
 		}
 	}
 	panic("omnivoice: internal codec workspace exhausted")

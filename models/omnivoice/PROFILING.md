@@ -1362,3 +1362,35 @@ GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
 
 [Raw length sweep and verified hashes](experiments/codec-lengths-2026-09-14.json)
 include trial order and baseline provenance.
+
+## Skip clears for fully overwritten activations (2026-09-14)
+
+Codec scratch acquisition now distinguishes cleared accumulators from buffers
+that callers fully overwrite. Embedding input, residual-copy work and convolution
+output use `bufferOverwrite`; RVQ sums and transposed-convolution overlap-add
+outputs retain cleared `buffer` acquisition. Padding scratch is still cleared.
+The three changed callers initialise every element before reading it.
+
+| Decode-only round | Baseline mean (s) | Overwrite-buffer mean (s) |
+| --- | ---: | ---: |
+| Baseline then candidate | 1.553 | 1.519 |
+| Candidate then baseline | 1.530 | 1.503 |
+
+Three samples per cell use the same deterministic 8×75 codes and one untimed
+warm-up. The saving is about 1.8–2.2%; all twelve hashes match with zero timed
+allocations. Scratch capacity is unchanged. Unprepared allocations remain
+zero-initialised by Go.
+
+The real-codec test now poisons all activation slots and other scratch with NaNs,
+checks exact output, decodes at a smaller prepared length, restores the original
+length, cancels and retries. Exact hashes at all six length-sweep sizes and the
+full-synthesis WAV hash also match. The separate length verification was slower
+than earlier runs and is retained without a performance conclusion.
+
+Independent review found no initialisation/lifetime blocker. Affected make
+tests/vet, race/no-CGo tests, native and ARM64 builds pass. The real-codec poison
+test was executed with local weights. Full-tree build still fails in unrelated
+packages. No matched full-synthesis gain was measured.
+
+[Raw paired trials, length verification, synthesis and build log](experiments/codec-activation-2026-09-14.json)
+retain all evidence.
