@@ -105,6 +105,19 @@ func centerIdentityBlock() WeSpeakerBlockWeights {
 	return w
 }
 
+func TestWeSpeakerFiniteFloat32Classification(t *testing.T) {
+	for _, value := range []float32{0, math.Float32frombits(0x80000000), math.SmallestNonzeroFloat32, -math.SmallestNonzeroFloat32, math.MaxFloat32, -math.MaxFloat32, 1, -1} {
+		if !finiteFloat32(value) {
+			t.Fatalf("rejected finite value %08x", math.Float32bits(value))
+		}
+	}
+	for _, value := range []float32{float32(math.Inf(1)), float32(math.Inf(-1)), float32(math.NaN()), math.Float32frombits(0x7f800001), math.Float32frombits(0xffc00001)} {
+		if finiteFloat32(value) {
+			t.Fatalf("accepted nonfinite value %08x", math.Float32bits(value))
+		}
+	}
+}
+
 func TestWeSpeakerBlockPaddingIdentityAndBatchNorm(t *testing.T) {
 	w := centerIdentityBlock()
 	shape := CHWShape{1, 2, 3}

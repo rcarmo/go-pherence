@@ -370,7 +370,7 @@ func weSpeakerBlockBN(ctx context.Context, x []float32, shape CHWShape, bn WeSpe
 		inv := float32(1 / math.Sqrt(float64(bn.RunningVariance[c])+1e-5))
 		scale := inv * bn.Weight[c]
 		shift := bn.Bias[c] - bn.RunningMean[c]*scale
-		if math.IsNaN(float64(scale)) || math.IsInf(float64(scale), 0) || math.IsNaN(float64(shift)) || math.IsInf(float64(shift), 0) {
+		if !finiteFloat32(scale) || !finiteFloat32(shift) {
 			return fmt.Errorf("non-finite WeSpeaker BatchNorm affine")
 		}
 		for i := 0; i < count; i++ {
@@ -396,6 +396,10 @@ func blockReLU(ctx context.Context, x []float32) error {
 	}
 	return ctx.Err()
 }
+func finiteFloat32(value float32) bool {
+	return math.Float32bits(value)&0x7f800000 != 0x7f800000
+}
+
 func finiteBlock(ctx context.Context, x []float32) error {
 	for i, value := range x {
 		if i%4096 == 0 {
@@ -403,7 +407,7 @@ func finiteBlock(ctx context.Context, x []float32) error {
 				return err
 			}
 		}
-		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+		if !finiteFloat32(value) {
 			return fmt.Errorf("non-finite WeSpeaker block values")
 		}
 	}
