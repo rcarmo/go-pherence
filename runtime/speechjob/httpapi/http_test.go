@@ -125,6 +125,42 @@ func TestLifecycleAndDownloadAllowlist(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func TestPublicFailureCodeAllowlist(t *testing.T) {
+	base := speechjob.Manifest{Status: speechjob.Failed}
+	for _, tc := range []struct {
+		error, code string
+	}{
+		{"unsupported media input: expected RIFF/WAVE content", "media_type_mismatch"},
+		{"unsupported media input: expected ISO BMFF content", "media_type_mismatch"},
+		{"secret-file-path /models/private-recording token=not-public", "job_failed"},
+	} {
+		m := base
+		m.Error = tc.error
+		if got := publicFailureCode(m); got != tc.code {
+			t.Fatal(tc.error, got)
+		}
+	}
+	base.Status = speechjob.Complete
+	if got := publicFailureCode(base); got != "" {
+		t.Fatal(got)
+	}
+}
+
+func TestFailedMediaTypeGetsSafeActionableCode(t *testing.T) {
+	private := "unsupported media input: expected RIFF/WAVE content"
+	st := testStage("decode", func(context.Context, *speechjob.Input, io.Writer) error { return errors.New(private) })
+	h, _, _ := fixture(t, []speechjob.Stage{st}, 2)
+	j := upload(t, h)
+	w := request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), `"failure_code":"media_type_mismatch"`) || strings.Contains(w.Body.String(), "RIFF/WAVE") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	w = request(h, "GET", "/v1/jobs/"+j.ID, nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"failure_code":"media_type_mismatch"`) || strings.Contains(w.Body.String(), "RIFF/WAVE") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
 func TestFailedRunKeepsDownloadsAndRedactsErrors(t *testing.T) {
 	fail := true
 	private := "secret-file-path /models/private-recording token=not-public"
@@ -141,8 +177,8 @@ func TestFailedRunKeepsDownloadsAndRedactsErrors(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	w = request(h, "GET", "/v1/jobs/"+j.ID, nil)
-	if strings.Contains(w.Body.String(), private) {
-		t.Fatal("error leak")
+	if strings.Contains(w.Body.String(), private) || !strings.Contains(w.Body.String(), `"failure_code":"job_failed"`) {
+		t.Fatal("error leak or missing safe failure code", w.Body.String())
 	}
 	if w = request(h, "GET", "/v1/jobs/"+j.ID+"/artifacts/transcript", nil); w.Code != 200 || w.Body.String() != "text" {
 		t.Fatal(w)

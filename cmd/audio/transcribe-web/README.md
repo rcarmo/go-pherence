@@ -6,6 +6,8 @@ The Sigma deployment provides sixteen profiles: ASR-only and ASR plus speaker la
 
 Conversational profiles set Community-1 `tie_policy` to `lowest-index`. Equal reconstruction scores are resolved by stable speaker index and listed in the diarization checkpoint as ambiguous frames. Speaker labels stay experimental. Use `reject` only for diagnostics that must stop at the first equal-score cutoff.
 
+The browser checks WAV and M4A container signatures before upload. A filename/content mismatch is blocked with conversion guidance. The API exposes only allowlisted failure codes; raw stage errors and local paths stay private. Permanent media-type failures do not offer Retry because the retained bytes cannot succeed under the same profile.
+
 The app exposes no microphone, streaming, translation, named speaker identity, collaborative editing, cloud API or concurrent inference path.
 
 ## Build

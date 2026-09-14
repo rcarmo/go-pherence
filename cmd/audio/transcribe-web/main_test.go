@@ -170,6 +170,24 @@ func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
 	}
 }
 
+func TestBrowserRejectsMislabeledMediaAndExplainsFailures(t *testing.T) {
+	js, err := web.ReadFile("web/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(js)
+	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "What happened", "!permanent&&(!entry||terminal)"} {
+		if !strings.Contains(source, required) {
+			t.Fatal("missing browser failure UX", required)
+		}
+	}
+	for _, leaked := range []string{"secret-file-path", "/models/private-recording", "RIFF/WAVE content"} {
+		if strings.Contains(source, leaked) {
+			t.Fatal("private backend text embedded", leaked)
+		}
+	}
+}
+
 func TestBrowserOffersExplicitSpeakerProfileSelection(t *testing.T) {
 	html, err := web.ReadFile("web/index.html")
 	if err != nil {

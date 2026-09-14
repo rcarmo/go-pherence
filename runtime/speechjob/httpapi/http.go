@@ -775,6 +775,7 @@ type Job struct {
 	Profile          string           `json:"profile"`
 	ProfileAvailable bool             `json:"profile_available"`
 	Status           speechjob.Status `json:"status"`
+	FailureCode      string           `json:"failure_code,omitempty"`
 	Attempts         int              `json:"attempts"`
 	ActiveStage      string           `json:"active_stage,omitempty"`
 	InputBytes       int64            `json:"input_bytes"`
@@ -787,7 +788,7 @@ type Job struct {
 var downloadable = map[string]string{"transcript": "application/json", "vtt": "text/vtt; charset=utf-8", "speaker-transcript": "application/json", "speaker-vtt": "text/vtt; charset=utf-8"}
 
 func (h *Handler) view(m speechjob.Manifest) Job {
-	j := Job{ID: m.ID, Name: m.Name, Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
+	j := Job{ID: m.ID, Name: m.Name, Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, FailureCode: publicFailureCode(m), Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
 	for _, cp := range m.Checkpoints {
 		if _, ok := downloadable[cp.Stage]; ok && cp.Blob.Bytes <= 16<<20 {
 			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, cp.Blob.Bytes, cp.Blob.SHA256})
@@ -795,6 +796,21 @@ func (h *Handler) view(m speechjob.Manifest) Job {
 	}
 	return j
 }
+
+// publicFailureCode maps exact stable failure classes to non-sensitive UI codes.
+// Raw stage errors can contain paths or model details and never cross HTTP.
+func publicFailureCode(m speechjob.Manifest) string {
+	if m.Status != speechjob.Failed {
+		return ""
+	}
+	switch m.Error {
+	case "unsupported media input: expected RIFF/WAVE content", "unsupported media input: expected ISO BMFF content":
+		return "media_type_mismatch"
+	default:
+		return "job_failed"
+	}
+}
+
 func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name string) {
 	contentType, ok := downloadable[name]
 	if !ok {
