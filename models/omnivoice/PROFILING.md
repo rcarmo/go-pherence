@@ -910,3 +910,37 @@ Exact masked-row logits/predictions/confidence, untouched revealed slots,
 guidance on/off, stochastic/greedy classes, malformed shapes and allocation
 checks pass. Existing legacy generation tests still pass exact token/RNG parity.
 Race/vet/no-CGo checks and Linux ARM64 build pass. Defaults are unchanged.
+
+## Top-k final ordering (2026-09-14)
+
+Large top-k selections now sort the existing worst-first heap in place instead
+of running a quadratic insertion pass. Selections of at most 32 entries retain
+insertion sort. A selected NaN also retains the old ordering path, because the
+existing score comparator is not a total order for NaN. Selection itself,
+score/index tie-breaking, RNG consumption and buffer sizes are unchanged.
+
+Median isolated top-k times (three samples, including selection and ordering):
+
+| Selected k | Insertion final pass (µs) | Heap final pass (µs) |
+| --- | ---: | ---: |
+| 16 | 3.75 | 3.81 (same insertion implementation) |
+| 32 | 5.85 | 5.70 (same insertion implementation) |
+| 64 | 10.19 | 8.59 |
+| 103 | 17.74 | 12.82 |
+| 300 | 77.05 | 39.07 |
+| 600 | 241.57 | 67.92 |
+| 2000 | 2397.91 | 200.11 |
+
+These tests use max(1025,k) input scores and zero allocations. The larger cases
+benefit most: about 3.6x at k=600 and 12x at k=2000. Greedy short synthesis spends
+little time here, so these ratios do not represent whole-model gains. A real
+75-frame/eight-step/resident-column verification run took 43.625 s and retained
+the baseline WAV hash; no matched end-to-end speedup was measured.
+
+Exact old/new ordering tests cover cutoff boundaries, random scores, finite
+ties, infinities, NaNs, masked rows and 1000 mixed exceptional-value trials
+including signed zero. Existing seeded generation/token/RNG parity tests pass,
+as do race/vet/no-CGo checks and Linux ARM64 build. A focused review found no
+ordering blocker. [Raw evidence](experiments/topk-sort-2026-09-14.json) preserves
+all samples. Reproduce with `go test ./models/omnivoice -run '^$' -bench
+BenchmarkTopKFinalSort -benchtime=200ms -count=3`.

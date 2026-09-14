@@ -556,6 +556,26 @@ func selectTopKStableMasked(vals []float32, idx []int, scores []float32, k int, 
 			siftDownWorst(vals[:n], idx[:n], 0)
 		}
 	}
+	// The selected entries already form a worst-first heap. Extract the worst
+	// to the end to obtain the same best-first score/index ordering in O(k log k).
+	// NaN breaks the total-order comparator: retain legacy ordering for it.
+	hasNaN := false
+	if n > 32 {
+		for _, v := range vals[:n] {
+			if math.IsNaN(float64(v)) {
+				hasNaN = true
+				break
+			}
+		}
+		if !hasNaN {
+			for end := n - 1; end > 0; end-- {
+				vals[0], vals[end] = vals[end], vals[0]
+				idx[0], idx[end] = idx[end], idx[0]
+				siftDownWorst(vals[:end], idx[:end], 0)
+			}
+			return n
+		}
+	}
 	for i := 1; i < n; i++ {
 		vv, ii := vals[i], idx[i]
 		j := i
