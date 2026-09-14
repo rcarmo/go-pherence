@@ -281,6 +281,9 @@ func (s *Store) load(id string) (Manifest, error) {
 		}
 		seen[cp.Stage] = true
 	}
+	if m.MediaReleased && m.Status != Complete && m.Status != Cancelled {
+		return m, ErrCorrupt
+	}
 	return m, nil
 }
 func validConfiguration(b []byte) bool {

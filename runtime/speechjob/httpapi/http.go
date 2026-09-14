@@ -491,6 +491,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			h.cancelRun(w, r, id)
 			return
+		case "release-media":
+			if r.Method != http.MethodPost {
+				method(w, "POST")
+				return
+			}
+			select {
+			case h.mutation <- struct{}{}:
+			case <-r.Context().Done():
+				h.failure(w, r.Context().Err(), nil)
+				return
+			}
+			e := h.store.ReleaseMedia(r.Context(), id)
+			<-h.mutation
+			if e != nil {
+				h.failure(w, e, nil)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
 	}
 	if len(path) == 5 && path[3] == "artifacts" {
@@ -759,6 +778,7 @@ type Job struct {
 	Attempts         int              `json:"attempts"`
 	ActiveStage      string           `json:"active_stage,omitempty"`
 	InputBytes       int64            `json:"input_bytes"`
+	MediaReleased    bool             `json:"media_released,omitempty"`
 	Created          time.Time        `json:"created"`
 	Updated          time.Time        `json:"updated"`
 	Artifacts        []Artifact       `json:"artifacts"`
@@ -767,7 +787,7 @@ type Job struct {
 var downloadable = map[string]string{"transcript": "application/json", "vtt": "text/vtt; charset=utf-8", "speaker-transcript": "application/json", "speaker-vtt": "text/vtt; charset=utf-8"}
 
 func (h *Handler) view(m speechjob.Manifest) Job {
-	j := Job{ID: m.ID, Name: m.Name, Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
+	j := Job{ID: m.ID, Name: m.Name, Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
 	for _, cp := range m.Checkpoints {
 		if _, ok := downloadable[cp.Stage]; ok && cp.Blob.Bytes <= 16<<20 {
 			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, cp.Blob.Bytes, cp.Blob.SHA256})

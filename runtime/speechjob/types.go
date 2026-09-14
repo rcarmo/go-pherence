@@ -62,6 +62,7 @@ type Manifest struct {
 	Configuration       string       `json:"configuration"`
 	ConfigurationSHA256 string       `json:"configuration_sha256"`
 	Input               Blob         `json:"input"`
+	MediaReleased       bool         `json:"media_released,omitempty"`
 	Status              Status       `json:"status"`
 	Attempts            int          `json:"attempts"`
 	ActiveStage         string       `json:"active_stage,omitempty"`

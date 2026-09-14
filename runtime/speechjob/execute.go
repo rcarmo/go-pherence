@@ -184,6 +184,9 @@ func (s *Store) Run(ctx context.Context, id string, configuration []byte, stages
 		s.mu.Unlock()
 	}()
 	// No state mutation until immutable dependencies have been verified.
+	if m.MediaReleased {
+		return clone(m), ErrConfiguration
+	}
 	source, e := s.openBlob(runCtx, id, m.Input)
 	if e != nil {
 		return clone(m), e
