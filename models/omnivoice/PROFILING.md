@@ -944,3 +944,57 @@ as do race/vet/no-CGo checks and Linux ARM64 build. A focused review found no
 ordering blocker. [Raw evidence](experiments/topk-sort-2026-09-14.json) preserves
 all samples. Reproduce with `go test ./models/omnivoice -run '^$' -bench
 BenchmarkTopKFinalSort -benchtime=200ms -count=3`.
+
+## Matched prepared-input upstream comparison (2026-09-14)
+
+Go was faster in both matched-input pairs. Both runtimes consumed the same
+saved prompt IDs (210 conditional / 75 unconditional positions), eight
+codebooks, 75 target frames, eight steps, guidance 2 and seed 42 on two N100
+vCPUs. Python used torch 2.11.0 CPU float32 with SDPA and two intra-op threads;
+Go used two column workers and raw resident decoder weights.
+
+| Recorded stage | Python trial 1 / 2 (s) | Go trial 1 / 2 (s) |
+| --- | ---: | ---: |
+| Denoising | 65.414 / 67.294 | Not separately isolated |
+| Generation including resident setup | — | 47.408 / 40.898 |
+| Resident-cache setup (inside Go generation) | — | 3.449 / 0.967 |
+| Codec decode only | 1.635 / 1.391 | Not separately isolated |
+| Codec load/decode + gain/WAV output | — | 3.130 / 3.084 |
+| Recorded total | 74.466 / 72.711 | 50.538 / 43.983 |
+| Peak RSS (GiB) | 4.735 / 4.808 | 2.650 / 2.650 |
+
+Mean recorded totals are 73.589 s versus 47.260 s: **1.56x**, or 35.8% less time.
+These are matched inputs, not identical timing scopes: Python's total excludes
+module import time, gain restoration and file output; Go's total includes gain
+and WAV writing but excludes the earlier checkpoint-map open. Python loads its
+full audio tokenizer/encoder with the model; Go loads only decoder assets for
+this prepared-input operation. Memory compares those respective runtime paths.
+Peak RSS is about 44% lower for resident Go; earlier streamed results use a
+smaller memory footprint but are not the timings in this table.
+
+The harness replaces only upstream `_prepare_inference_inputs` with the saved
+IDs/mask and verifies that the unconditional input equals the target suffix.
+Upstream `_generate_iterative`, including its padded two-branch batch, schedule,
+noise, prediction and codec call, runs unchanged. Native Go runs each branch at
+its actual length. Neither path performs reference encoding/text tokenisation
+inside this comparison. Both produce 72000 finite audio samples. Python token
+hashes repeat and Go WAV hashes repeat; PyTorch and Go PCG noise differ, so this
+does not establish cross-runtime waveform or listening equivalence.
+
+[Raw reports](upstream-matched-2026-09-14.json) preserve stage boundaries and
+trial order. The Python harness requires the upstream environment:
+
+```sh
+/path/to/upstream/python scripts/omnivoice-upstream-prepared-benchmark.py \
+  --model /path/to/model --prompt prepared.json --output NEW_REPORT.json
+bin/omnivoice -mode generate -model /path/to/model -input prepared.json \
+  -steps 8 -threads 2 -gemm-workers 2 -gemm-columns -resident-mib 2048 \
+  -output NEW_AUDIO.wav
+```
+
+An initial harness attempt used the wrong codec output indexing and failed;
+no result from that attempt enters this table. Two successful runs used
+`.audio_values`, matching the existing codec fixture. The codec is a useful
+next profiling target, but decode-only Go timings are needed before attributing
+the entire stage difference to codec compute. This replaces the earlier rough
+1.9x comparison based on different reference/preparation settings.
