@@ -1122,3 +1122,33 @@ sample. After rejection, `codec.go` was verified byte-for-byte against HEAD and
 `make test-omnivoice vet-omnivoice` passed. Test binaries used `/tmp` tmpfs due
 to the low workspace disk space. No full-synthesis timing was run for this
 rejected candidate.
+
+## Packed decoder profile and tile-size sweep (2026-09-14)
+
+The current packed decoder profile attributes about 51% of CPU samples to the
+GEBP microkernel, 6% to the NN kernel, 8% to memory copies and 4% to clearing.
+Snake activation accounts for about 12% cumulatively. The profile includes
+model loading and warm-up; its timing is excluded from the comparisons below.
+
+Larger convolution tiles did not establish enough benefit to increase scratch:
+
+| Tile positions | First round mean (s) | Reverse round mean (s) | Extra scratch |
+| --- | ---: | ---: | ---: |
+| 64 (production) | 1.629 | 1.679 | — |
+| 128 | 1.614 | 1.615 | 1.125 MiB |
+| 256 | 1.646 | 1.640 | 3.375 MiB |
+
+Each round contains three samples. The reverse baseline includes a 1.787 s
+sample, retained in the evidence. Three subsequent interleaved 64/128 pairs
+average 1.627/1.613 s (0.9% difference); one pair favours the baseline. Keep 64
+positions: the measured 128 gain is small and mixed, and 256 offers no gain.
+
+Only the convolution tile constant and its packed/result scratch allocations
+changed in the candidates. All 24 measured decode calls allocate zero bytes and
+retain the established float32 waveform hash. Production files match HEAD
+exactly and `make test-omnivoice vet-omnivoice` passes after the experiment.
+No full-synthesis timing was run. Test binaries used `/tmp` because the workspace
+disk is nearly full.
+
+[Profile, raw trials and exact candidate recipe](experiments/codec-tiles-2026-09-14.json)
+preserve the experiment, including the outlier and run order.
