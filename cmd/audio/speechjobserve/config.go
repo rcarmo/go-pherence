@@ -312,12 +312,14 @@ func uniqueJSON(data []byte, maxDepth int, foldKeys, allowNull bool) error {
 }
 func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
 	hasProfile := c.Profile != (ProfileSettings{})
-	if hasProfile == (len(c.Profiles) > 0) || len(c.Profiles) > 8 {
+	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 8 {
 		return nil, fmt.Errorf("configure exactly one profile or one profile set")
 	}
 	profiles := c.Profiles
-	if hasProfile {
+	if hasProfile && len(profiles) == 0 {
 		profiles = []ProfileSettings{c.Profile}
+	} else if hasProfile && c.Profile != profiles[0] {
+		return nil, fmt.Errorf("profile normalization mismatch")
 	}
 	if len(profiles) == 0 {
 		return nil, fmt.Errorf("profile required")

@@ -129,6 +129,9 @@ func TestConfigProfileSetCompatibilityAndBounds(t *testing.T) {
 	if err != nil || len(parsed.Profiles) != 8 || parsed.Profile.ID != c.Profiles[0].ID {
 		t.Fatal(len(parsed.Profiles), parsed.Profile.ID, err)
 	}
+	if _, err = parsed.configuredProfiles(); err != nil {
+		t.Fatal("parsed profile set cannot be reused", err)
+	}
 	for _, mutate := range []func(*ServerConfig){
 		func(c *ServerConfig) { c.Profile = base },
 		func(c *ServerConfig) { c.Profiles[1].ID = c.Profiles[0].ID },
