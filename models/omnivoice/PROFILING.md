@@ -1152,3 +1152,48 @@ disk is nearly full.
 
 [Profile, raw trials and exact candidate recipe](experiments/codec-tiles-2026-09-14.json)
 preserve the experiment, including the outlier and run order.
+
+## Snake post-sine arithmetic (2026-09-14)
+
+On amd64, Snake now squares, scales and adds each sine result in one assembly
+loop. Separate multiply/multiply/add instructions preserve the float32 rounding
+boundaries; no fused multiply-add is used. The sine algorithm, 256-element
+scratch chunks and SIMD/scalar sine dispatch are unchanged. Other platforms and
+amd64 without `HasVecAsm` retain the three existing vector passes. The capability
+check requires AVX2+FMA on amd64.
+
+| Implementation | First Snake mean (µs) | Repeat Snake mean (µs) |
+| --- | ---: | ---: |
+| Existing vector passes | 15.914 | 15.964 |
+| Combined scalar Go loop (rejected) | 18.438 | — |
+| Combined amd64 assembly loop | 15.307 | 15.688 |
+
+Each cell averages three samples of the existing 4096-element benchmark,
+including its input copy. Repeat medians are 15.890 µs baseline and 15.396 µs
+assembly. All samples allocate zero bytes. Real-codec decode means are
+1.607/1.595 s baseline/assembly in the first round and 1.625/1.599 s in the
+reverse-order repeat. The measured benefit is small (about 0.8–1.6% for decode).
+No matched full-synthesis speedup was measured.
+
+Bitwise tests compare the old and new channel paths across vector tails,
+256-element boundaries, long channels and several alpha values. Separate tests
+cover sentinel bounds, signed zero, subnormals, infinity and NaN classification.
+Real-codec float32 hashes and the established full-synthesis WAV hash match.
+Scratch usage and decode allocations are unchanged. The private assembly helper
+requires equal-length, non-overlapping slices, supplied by `snakeChannel`.
+
+`make test-omnivoice vet-omnivoice`, model/CLI race and no-CGo tests, real-codec
+fixture tests, native build and ARM64 cross-build pass. A focused independent
+review found no ABI, bounds, tail or rounding blocker. `go build ./...` still
+fails outside the changed code, including SpacemiT and DiffusionGemma packages;
+the full log is retained. Build temporaries used `/tmp` due to low workspace
+space (169 MiB after validation).
+
+[Raw samples and validation evidence](experiments/snake-post-2026-09-14.json)
+and the [rejected scalar-Go patch](experiments/snake-go-fusion-rejected.patch)
+retain both candidates. Reproduce the microbenchmark with:
+
+```sh
+go test ./models/omnivoice -run '^$' -bench 'BenchmarkSnakeChannel/simd' \
+  -benchtime=300ms -count=3
+```
