@@ -297,7 +297,10 @@ func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputP
 	out, kernel := s[1], s[2]
 	length := (x.frames-1)*stride - 2*padding + kernel + outputPadding
 	y := signal{d.buffer(out * length), out, length}
-	const tile = 32
+	tile := 32
+	if d.scratch != nil && simd.HasSgemmAsm {
+		tile = codecPackedTransposeTile
+	}
 	ncols := out * kernel
 	var input, projected []float32
 	if d.scratch != nil {

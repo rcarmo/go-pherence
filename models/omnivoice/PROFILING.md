@@ -1296,3 +1296,33 @@ testing, about 3.1 GiB remained free. Temporary binaries/worktree used `/tmp`.
 
 [Raw trials, run order and provenance](experiments/codec-cumulative-2026-09-14.json)
 record the matched comparison.
+
+## Align transposed-convolution tiles to the packed kernel (2026-09-14)
+
+Prepared amd64 transposed convolutions now use 30-row tiles when SIMD GEMM is
+available. Thirty is divisible by the six-row packed microkernel size; the
+previous 32-row tiles sent two rows through the NN fallback on each full tile.
+Unprepared decoding and other architectures retain 32-row tiles. Scratch remains
+sized for 32 rows, so memory capacity and allocation behaviour are unchanged.
+
+| Decode-only round | 32-row mean (s) | 30-row mean (s) |
+| --- | ---: | ---: |
+| Baseline then candidate | 1.583 | 1.548 |
+| Candidate then baseline | 1.566 | 1.541 |
+
+Each cell contains three samples with an untimed warm-up, using the existing
+8×75 deterministic codec benchmark. Timings fall about 1.7–2.2%; all twelve
+codec hashes match and timed allocations remain zero. The initial candidate
+used 30 rows unconditionally; the final platform/preparation gate selects that
+same measured path on this amd64 host.
+
+Changing tile boundaries preserves increasing global input-row order and hence
+the overlap-add sequence. Exact tests compare prepared output with the old
+32-row reference around both boundaries, including frames 29/30/31/32/33 and
+59/60/61. A focused independent review found no blocker. Final-code real-codec
+fixture and full-synthesis WAV parity pass, as do affected make tests/vet,
+race/no-CGo tests, native build and ARM64 build. `go build ./...` fails in
+unrelated packages. No matched full-synthesis speedup was measured.
+
+[Raw trials, synthesis verification and build failures](experiments/codec-transpose-aligned-2026-09-14.json)
+retain the evidence and candidate provenance.

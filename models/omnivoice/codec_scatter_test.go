@@ -65,7 +65,7 @@ func (d *CodecDecoder) transposeReference(x signal, name string, stride, padding
 }
 
 func TestCodecTransposeBoundedScatterExact(t *testing.T) {
-	for _, frames := range []int{1, 2, 7, 31, 32, 33, 65} {
+	for _, frames := range []int{1, 2, 7, 29, 30, 31, 32, 33, 59, 60, 61, 65} {
 		for _, kernel := range []int{1, 3, 7, 16} {
 			for _, stride := range []int{1, 2, 3, 8} {
 				for _, padding := range []int{0, 1, 4, 16} {
@@ -89,6 +89,19 @@ func TestCodecTransposeBoundedScatterExact(t *testing.T) {
 							t.Fatal(err)
 						}
 						got, err := d.transpose(x, "c", stride, padding, extra)
+						if err != nil {
+							t.Fatal(err)
+						}
+						assertFloat32Exact(t, got.data, want.data)
+						// Exercise prepared architecture-specific tiles against the
+						// unprepared 32-row reference, including both tile boundaries.
+						d.scratch = &codecScratch{
+							input:     make([]float32, 32*channels),
+							projected: make([]float32, 32*out*kernel),
+							gemmPanel: make([]float32, channels*16),
+						}
+						d.scratch.slots[0] = make([]float32, out*length)
+						got, err = d.transpose(x, "c", stride, padding, extra)
 						if err != nil {
 							t.Fatal(err)
 						}
