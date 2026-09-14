@@ -256,7 +256,7 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 		}
 		r := result[:out*n]
 		clear(r)
-		if !simd.SgemmNNTo(r, weight, p, out, n, k, 1, k, n, n) {
+		if !d.gemm(r, weight, p, out, n, k) {
 			return signal{}, fmt.Errorf("omnivoice: conv GEMM shape")
 		}
 		for c := 0; c < out; c++ {
@@ -274,6 +274,16 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 	}
 	return y, nil
 }
+
+// Prepared decode reuses a bounded panel for full-tile SIMD GEMM. The
+// unprepared test/helper path retains the existing allocation behavior.
+func (d *CodecDecoder) gemm(c, a, b []float32, m, n, k int) bool {
+	if d.scratch != nil {
+		return simd.SgemmNNPackedOverwriteTo(c, a, b, d.scratch.gemmPanel, m, n, k, k, n, n)
+	}
+	return simd.SgemmNNTo(c, a, b, m, n, k, 1, k, n, n)
+}
+
 func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputPadding int) (signal, error) {
 	op, ok := d.ops[name]
 	if !ok {
@@ -306,7 +316,7 @@ func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputP
 		}
 		p := projected[:n*ncols]
 		clear(p)
-		if !simd.SgemmNNTo(p, a, w, n, ncols, x.channels, 1, x.channels, ncols, ncols) {
+		if !d.gemm(p, a, w, n, ncols, x.channels) {
 			return signal{}, fmt.Errorf("omnivoice: transposed GEMM shape")
 		}
 		for t := 0; t < n; t++ {

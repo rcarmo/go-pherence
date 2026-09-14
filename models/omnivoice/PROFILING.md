@@ -1040,3 +1040,59 @@ GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
 /path/to/upstream/python scripts/omnivoice-upstream-codec-benchmark.py \
   --model /path/to/model/audio_tokenizer --output NEW_REPORT.json
 ```
+
+## Packed codec GEMM (2026-09-14)
+
+Prepared decoder convolutions now use the existing six-row packed microkernel
+for full amd64 tiles. `SgemmNNPackedOverwriteTo` packs NN input panels into
+caller-owned scratch, overwrites the output and retains the old NN kernel for
+row/column tails, small shapes and other architectures. Build tags select the
+architecture path; the existing SIMD availability check still applies.
+
+The wrapper validates shapes and scratch capacity before mutation. Inputs,
+output and scratch must satisfy its documented non-overlap contract. The codec
+reserves one extra 224 KiB panel in `Prepare`; `DecodeInto` still allocates zero
+bytes. The alpha=1 path preserves the measured finite float32 accumulation
+results. Tests check NaN classification rather than NaN payload identity.
+
+| Decode-only trial set | Seconds | Mean (s) |
+| --- | --- | ---: |
+| Initial packed candidate | 1.632 / 1.620 / 1.617 | 1.623 |
+| Repeated committed NN path | 2.247 / 2.173 / 2.186 | 2.202 |
+| Repeated packed candidate | 1.629 / 1.630 / 1.679 | 1.646 |
+
+The repeat reduces decode time by **25.2%**, about 0.56 seconds for three seconds
+of audio. Codes, preparation and warm-up follow the preceding decoder benchmark.
+The baseline binary uses the committed codec implementation with the candidate's
+unused panel allocation outside timing. All six repeated waveforms match the
+established 72000-sample float32 hash. The earlier upstream decode-only mean was
+0.917 s; it was not rerun in this experiment.
+
+A full synthesis verification also preserves the established WAV hash. It took
+59.269 s, including 16.559 s resident-cache setup and 2.055 s codec load/decode/
+save. No matched full-synthesis speedup was measured. Disk space after the broad
+build checks was about 223 MiB; the full synthesis result is retained in the raw
+record rather than discarded.
+
+Validation passed:
+
+- `make test-omnivoice vet-omnivoice build-omnivoice`.
+- SIMD/model/CLI race tests, SIMD vet, no-CGo tests and Linux ARM64 build.
+- Real-codec upstream fixture tolerance and zero-allocation checks.
+- Exact NN parity across row/column/kernel tails and padded strides, untouched
+  output padding, invalid shape/overflow rejection before mutation, signed zero,
+  infinities, subnormals and NaN classification.
+
+`go test ./backends/...` failed outside SIMD runtime, including Vulkan wrapper
+expectations. `go build ./...` failed in existing SpacemiT/DiffusionGemma code
+and later hit insufficient disk space. Neither broad check passed. The delegated
+review timed out; the wrapper was reviewed locally and the identified platform
+dispatch issue was corrected before testing.
+
+[Raw benchmark and validation logs](experiments/codec-packed-2026-09-14.json)
+include all trials and the full synthesis record. Reproduce the GEMM shapes with:
+
+```sh
+go test ./backends/simd/runtime -run '^$' -bench BenchmarkNNCodecPacked \
+  -benchtime=150ms -count=2
+```

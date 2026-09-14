@@ -11,6 +11,7 @@ type codecScratch struct {
 	slots                            [4][]float32
 	used                             [4]bool
 	packed, result, input, projected []float32
+	gemmPanel                        []float32
 	frames, maxFrames                int
 }
 
@@ -27,6 +28,7 @@ func (d *CodecDecoder) Prepare(frames int) error {
 		return nil
 	}
 	s := &codecScratch{frames: frames, maxFrames: frames, packed: make([]float32, 512*7*64), result: make([]float32, 1024*64), input: make([]float32, 32*1024), projected: make([]float32, 32*512*16)}
+	s.gemmPanel = make([]float32, 512*7*16)
 	for i := range s.slots {
 		s.slots[i] = make([]float32, maxElements)
 	}
