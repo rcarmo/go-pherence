@@ -1259,3 +1259,40 @@ workspace free space fell to 94 MiB, so further build-heavy work needs disk spac
 
 [Raw trials, synthesis record and build failure log](experiments/codec-clear-2026-09-14.json)
 retain all evidence.
+
+## Cumulative codec qualification (2026-09-14)
+
+A fresh matched comparison of `21fcb4bb` (before codec changes) and `3c5a7cb6`
+confirms the cumulative codec saving while preserving exact output.
+
+| Measurement | Before mean (s) | Current mean (s) |
+| --- | ---: | ---: |
+| Decode only, three interleaved runs | 2.945 | 1.618 |
+| Codec load/decode/save, two full runs | 3.229 | 2.046 |
+| Full synthesis, two runs | 46.824 | 46.695 |
+
+Decode-only time is about 45.0% lower (1.82x faster). Codec load/decode/save is
+about 36.6% lower. Full-synthesis pair directions differ, and the 0.3% mean
+change does not establish a meaningful whole-run gain. Generation means vary
+from 43.595 s in the baseline to 44.649 s in the current build, masking most
+of the codec-stage saving. The transformer implementation/settings are unchanged
+between these commits.
+
+The old production source was built in a detached temporary worktree with only
+the current `codec_bench_test.go` added as an untracked harness. Decode uses the
+same deterministic 8×75 codes and one untimed warm-up. All six decode hashes
+match, with zero allocations. All four full-synthesis WAVs match. Full runs use
+the same prepared IDs, 75 frames, eight steps, guidance 2, two column workers
+and 2048 MiB resident budget. No reference preparation is included.
+
+The fresh baseline decode mean is slower than its earlier 2.69 s measurement;
+all new samples are retained as a separate comparison. `make test-omnivoice
+vet-omnivoice` passes. This qualification changes no production code.
+
+Before building, `go clean -cache` reclaimed about 3.1 GiB of rebuildable Go
+compilation cache, increasing free disk space from 94 MiB to 3.2 GiB. Model
+exports, source, benchmark logs and audio were preserved. After rebuilding and
+testing, about 3.1 GiB remained free. Temporary binaries/worktree used `/tmp`.
+
+[Raw trials, run order and provenance](experiments/codec-cumulative-2026-09-14.json)
+record the matched comparison.
