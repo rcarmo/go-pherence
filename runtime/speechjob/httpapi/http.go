@@ -783,6 +783,8 @@ type Job struct {
 	ID               string           `json:"id"`
 	Name             string           `json:"name"`
 	Title            string           `json:"title"`
+	Language         string           `json:"language"`
+	SpeakerLabels    bool             `json:"speaker_labels"`
 	Profile          string           `json:"profile"`
 	ProfileAvailable bool             `json:"profile_available"`
 	Status           speechjob.Status `json:"status"`
@@ -799,14 +801,16 @@ type Job struct {
 var downloadable = map[string]string{"transcript": "application/json", "vtt": "text/vtt; charset=utf-8", "speaker-transcript": "application/json", "speaker-vtt": "text/vtt; charset=utf-8"}
 
 func (h *Handler) view(m speechjob.Manifest) Job {
-	j := Job{ID: m.ID, Name: m.Name, Title: recordingTitle(m), Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, FailureCode: publicFailureCode(m), Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
+	profile := h.byConfig[m.Configuration].id
+	language, speakers := recordingOptions(m, profile)
+	j := Job{ID: m.ID, Name: m.Name, Title: recordingTitle(m), Language: language, SpeakerLabels: speakers, Profile: profile, ProfileAvailable: profile != "", Status: m.Status, FailureCode: publicFailureCode(m), Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
 	for _, cp := range m.Checkpoints {
 		if _, ok := downloadable[cp.Stage]; ok && cp.Blob.Bytes <= 16<<20 {
 			extension := ".json"
 			if strings.Contains(cp.Stage, "vtt") {
 				extension = ".vtt"
 			}
-			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, exportFilename(j.Title, j.Profile, cp.Stage, extension), cp.Blob.Bytes, cp.Blob.SHA256})
+			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, exportFilename(j.Title, j.Language, cp.Stage, extension), cp.Blob.Bytes, cp.Blob.SHA256})
 		}
 	}
 	return j
@@ -834,18 +838,60 @@ func recordingTitle(m speechjob.Manifest) string {
 	if dot := strings.LastIndex(base, "."); dot > 0 {
 		base = base[:dot]
 	}
-	words := strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(base))
+	words := []string{}
+	for _, word := range strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(base)) {
+		start := 0
+		runes := []rune(word)
+		for i := 1; i < len(runes); i++ {
+			if unicode.IsDigit(runes[i]) != unicode.IsDigit(runes[i-1]) {
+				words = append(words, titleWord(string(runes[start:i])))
+				start = i
+			}
+		}
+		words = append(words, titleWord(string(runes[start:])))
+	}
 	if len(words) == 0 {
 		return "Untitled recording"
 	}
-	for i, word := range words {
-		runes := []rune(word)
-		if len(runes) > 0 {
-			runes[0] = unicode.ToUpper(runes[0])
-			words[i] = string(runes)
+	return strings.Join(words, " ")
+}
+
+func titleWord(word string) string {
+	lower := strings.ToLower(word)
+	if upper := map[string]string{"jfk": "JFK", "minds": "MINDS", "pt": "PT", "api": "API"}[lower]; upper != "" {
+		return upper
+	}
+	runes := []rune(lower)
+	if len(runes) > 0 {
+		runes[0] = unicode.ToUpper(runes[0])
+	}
+	return string(runes)
+}
+
+func recordingOptions(m speechjob.Manifest, profile string) (string, bool) {
+	parts := strings.Split(profile, "-")
+	if len(parts) == 3 {
+		return parts[1], parts[0] == "diar"
+	}
+	var outer struct {
+		Config string `json:"Config"`
+	}
+	var inner struct {
+		Profile struct {
+			Language  string          `json:"language"`
+			Community json.RawMessage `json:"community"`
+		} `json:"Profile"`
+	}
+	if json.Unmarshal([]byte(m.Configuration), &outer) == nil && json.Unmarshal([]byte(outer.Config), &inner) == nil {
+		speakers := len(inner.Profile.Community) > 0 && string(inner.Profile.Community) != "null"
+		return inner.Profile.Language, speakers
+	}
+	for _, cp := range m.Checkpoints {
+		if cp.Stage == "speaker-transcript" || cp.Stage == "speaker-vtt" {
+			return "", true
 		}
 	}
-	return strings.Join(words, " ")
+	return "", false
 }
 
 func (h *Handler) rename(w http.ResponseWriter, r *http.Request, id string) {
@@ -922,7 +968,8 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name stri
 		extension = ".vtt"
 	}
 	w.Header().Set("Content-Type", contentType)
-	filename := exportFilename(recordingTitle(m), h.byConfig[m.Configuration].id, name, extension)
+	language, _ := recordingOptions(m, h.byConfig[m.Configuration].id)
+	filename := exportFilename(recordingTitle(m), language, name, extension)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Content-Length", fmt.Sprint(cp.Blob.Bytes))
 	w.Header().Set("ETag", `"sha256-`+cp.Blob.SHA256+`"`)
@@ -950,7 +997,7 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name stri
 		remaining -= int64(n)
 	}
 }
-func exportFilename(title, profile, artifact, extension string) string {
+func exportFilename(title, language, artifact, extension string) string {
 	var b strings.Builder
 	lastDash := false
 	for _, r := range strings.ToLower(title) {
@@ -969,13 +1016,12 @@ func exportFilename(title, profile, artifact, extension string) string {
 	if base == "" {
 		base = "transcript"
 	}
-	language := ""
-	parts := strings.Split(profile, "-")
-	if len(parts) == 3 && parts[1] != "auto" && len(parts[1]) >= 2 && len(parts[1]) <= 4 {
-		language = "." + parts[1]
+	languageSuffix := ""
+	if language != "" && language != "auto" && len(language) >= 2 && len(language) <= 4 {
+		languageSuffix = "." + language
 	}
 	suffix := map[string]string{"transcript": "transcript", "vtt": "transcript", "speaker-transcript": "speakers", "speaker-vtt": "speakers"}[artifact]
-	return base + language + "." + suffix + extension
+	return base + languageSuffix + "." + suffix + extension
 }
 
 func unauthorized(w http.ResponseWriter) {

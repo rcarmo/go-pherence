@@ -394,6 +394,21 @@ func TestProfileDriftReadDeleteAndIdentityCopy(t *testing.T) {
 		t.Fatal(j)
 	}
 }
+func TestRecordingPresentationFallbacks(t *testing.T) {
+	for _, tc := range []struct{ name, title string }{{"jfk.wav", "JFK"}, {"minds-pt-row2.wav", "MINDS PT Row 2"}, {"customer_interview.m4a", "Customer Interview"}} {
+		if got := recordingTitle(speechjob.Manifest{Name: tc.name}); got != tc.title {
+			t.Fatal(tc.name, got)
+		}
+	}
+	m := speechjob.Manifest{Configuration: `{"Config":"{\"Profile\":{\"language\":\"pt\",\"community\":{\"enable\":true}}}"}`}
+	if language, speakers := recordingOptions(m, ""); language != "pt" || !speakers {
+		t.Fatal(language, speakers)
+	}
+	if language, speakers := recordingOptions(m, "asr-en-wav"); language != "en" || speakers {
+		t.Fatal(language, speakers)
+	}
+}
+
 func TestRecordingTitleAndHumanExportFilename(t *testing.T) {
 	h, _, _ := fixture(t, []speechjob.Stage{textStage("vtt", "WEBVTT\n\n")}, 2)
 	j := upload(t, h)
