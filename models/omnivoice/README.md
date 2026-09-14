@@ -103,3 +103,9 @@ all ten mode-comparison WAVs match. Timing noise includes a retained columns-onl
 outlier. Prepacking did not win total command time. See the full
 [measurements](PROFILING.md#combined-workercache-measurements-2026-09-14-1ec0bc70)
 before choosing settings for a persistent worker or longer utterances.
+
+For repeated **uncached** requests, raw resident+column workers also led the
+small persistent-worker test: **48.70 s/request**, compared with 52.78 s for
+shared-streamed and 50.21 s for prepacked. Startup is excluded; phrase caching
+was disabled. Prepacking's extra memory did not pay off in that test. See
+[uncached worker measurements](PROFILING.md#uncached-persistent-worker-throughput-2026-09-14).

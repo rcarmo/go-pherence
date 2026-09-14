@@ -685,3 +685,50 @@ For this VM, try these explicitly selected configurations:
 Neither changes guidance, steps or generated audio in these tests. Shared CFG
 and resident caching are mutually exclusive. The benchmark validates short
 single-shot synthesis; it does not establish long-request or warm-worker speed.
+
+## Uncached persistent-worker throughput (2026-09-14)
+
+Raw resident weights were fastest after startup was excluded. Each mode used
+one process and two sequential identical requests. Every request explicitly
+requested 75 frames, eight steps, guidance 2 and two column workers. Phrase
+cache budget was zero; all six chunk events reported `cache_hit: false` and all
+completion events reported zero cache hits/payload. No waveform-cache speedup
+is included.
+
+| Mode (all column workers) | Startup (s) | Request 1 (s) | Request 2 (s) | Request mean (s) | Sampled peak RSS (GiB) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Shared-streamed | 0.488 | 47.885 | 57.677 | 52.781 | 1.090 |
+| Raw resident | 1.777 | 48.530 | 48.878 | 48.704 | 2.675 |
+| Resident + prepacked | 4.859 | 49.931 | 50.494 | 50.212 | 4.317 |
+
+Prepacking did not beat raw resident weights even with setup excluded. Raw
+resident requests averaged 7.7% below shared-streamed and 3.0% below prepacked
+in this small batch. Mode order was shared, resident, prepacked; this is one
+process per mode, not independent process repetitions. The second shared run
+was slower, so rankings need broader workload/repetition evidence.
+
+All six worker WAVs share SHA-256
+`a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238`.
+This differs from the single-shot hash because the worker applies boundary
+processing; parity is established across the worker modes and repeats.
+[Measured results](worker-throughput-2026-09-14.json) include per-request denoise
+and decode times, startup and sampled `/proc/PID/status` high-water RSS. RSS is
+sampled, not an exact wait4 measurement. Raw events and private audio remain in
+`/workspace/tmp/omnivoice-worker-combined-20260914-v3/`.
+
+Reproduce with a new output directory:
+
+```sh
+bun scripts/omnivoice-worker-benchmark.ts bin/omnivoice \
+  /workspace/projects/spock-tts/models/omnivoice \
+  /workspace/tmp/omnivoice-reference-tokens.json NEW_OUTPUT_DIRECTORY 2
+bun test scripts/omnivoice-worker-benchmark.test.ts
+```
+
+The driver validates uncached completions and waveform hashes, logs events
+incrementally, flushes each stdin request, and separates startup from requests.
+A fake-worker test covers the `event` field, explicit zero cache, two sequential
+requests, and nested `stages` extraction. Two earlier driver attempts stalled
+before submitting any request due to a protocol-field mismatch; neither
+produced audio or contributed timings. Final stage fields were extracted from
+the retained real event logs after correcting the report field names.
