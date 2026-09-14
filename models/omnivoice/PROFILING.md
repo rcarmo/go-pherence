@@ -776,3 +776,40 @@ go test ./models/omnivoice -run '^$' \
 
 Local records: `/workspace/tmp/omnivoice-attention-kvreuse-bench.log` and
 `/workspace/tmp/omnivoice-kvreuse-{before,after}*-metrics.json`.
+
+## AVX2 microkernel loop unrolling (2026-09-14)
+
+A resident+column-worker CPU profile attributed 73.2% of sampled CPU time to the
+6x16 GEMM microkernel, 6.7% to packing and 1.6% to F16 conversion. The measured
+profile used the same 75-frame/eight-step/guidance-2 prompt. This differs from
+the earlier streamed profile, where conversion accounted for about 11%.
+
+The amd64 microkernel now processes two reduction elements per loop iteration,
+with a one-element tail. It preserves each output accumulator's FMA order and
+the alpha/C epilogue. ARM64 and portable kernels are unchanged. This reduces
+loop/pointer-update overhead without changing scratch or worker dispatch.
+
+Two rounds of three samples per shape compared the original and unrolled kernel
+with two column workers. The n=3072 shapes improved roughly 4–5% in both rounds.
+The n=1024 shapes had mixed results, including regressions. All trials are in
+[the raw benchmark evidence](gemm-unroll-2026-09-14.json); these measurements do
+not establish a speedup for every model shape or CPU.
+
+| Full synthesis pair | Original (s) | Unrolled (s) |
+| --- | ---: | ---: |
+| First (candidate first) | 100.891 | 64.111 |
+| Repeat (original first) | 58.976 | 53.916 |
+
+Both pairs favoured the candidate, but the wide baseline spread prevents a
+reliable end-to-end speedup estimate. No run is discarded. All four WAVs retain
+the established baseline hash. Memory was roughly unchanged outside the noisy
+first baseline run. This kernel is shared by other models; broad model/runtime
+speedups have not been measured.
+
+Same-host old/new fingerprints match over K=1..3072 selected odd/even/boundary
+lengths, M/N tails, padded strides, nonzero C and negative nonunit alpha.
+`TestGEBPOrderFingerprint` prints the deterministic fingerprint for revision
+comparison; it is not hardcoded across architectures with different reduction
+orders. Existing SIMD/model tests, race/vet/no-CGo checks and ARM64 build pass.
+A focused assembly review verified loop bounds, offsets, FMA order and ABI.
+The kernel's existing caller contract requires positive K.
