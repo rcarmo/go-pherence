@@ -214,32 +214,8 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 	s.prepareRoPE(positions)
 	s.rotate(q, nh)
 	s.rotate(k, nkv)
-	// Pack each head contiguously so QK^T and PV use existing SIMD GEMM.
-	// Only one tokens^2 score buffer is live, not heads*tokens^2.
-	qhead, khead, vhead := s.qhead, s.khead, s.vhead
-	scores, headout := s.scores, s.headout
-	for head := 0; head < nh; head++ {
-		kh := head / (nh / nkv)
-		for t := 0; t < tokens; t++ {
-			copy(qhead[t*d:(t+1)*d], q[(t*nh+head)*d:(t*nh+head+1)*d])
-			copy(khead[t*d:(t+1)*d], k[(t*nkv+kh)*d:(t*nkv+kh+1)*d])
-			copy(vhead[t*d:(t+1)*d], v[(t*nkv+kh)*d:(t*nkv+kh+1)*d])
-		}
-		clear(scores)
-		simd.SgemmNTTo(scores, qhead, khead, tokens, tokens, d, float32(1/math.Sqrt(float64(d))), d, d, tokens)
-		if mask != nil {
-			simd.VecAdd(scores, scores, mask)
-		}
-		for t := 0; t < tokens; t++ {
-			if !simd.SoftmaxSIMDInPlace(scores[t*tokens : (t+1)*tokens]) {
-				return fmt.Errorf("omnivoice: attention softmax failed")
-			}
-		}
-		clear(headout)
-		simd.SgemmNNTo(headout, scores, vhead, tokens, d, tokens, 1, tokens, d, d)
-		for t := 0; t < tokens; t++ {
-			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
-		}
+	if err := attentionInto(s, attended, q, k, v, tokens, d, nh, nkv, mask); err != nil {
+		return err
 	}
 	if err := b.linearInto(s, s.down, attended, w["self_attn.o_proj.weight"], "self_attn.o_proj.weight", tokens, nh*d, h); err != nil {
 		return err
@@ -264,5 +240,43 @@ func (b *Block) ForwardInto(dst, x []float32, tokens int, positions []int, mask 
 		return err
 	}
 	simd.VecAdd(dst, dst, s.down)
+	return nil
+}
+
+// attentionInto uses one live score matrix and reuses each packed KV group.
+func attentionInto(s *Workspace, attended, q, k, v []float32, tokens, d, nh, nkv int, mask []float32) error {
+	// Pack each head contiguously so QK^T and PV use existing SIMD GEMM.
+	// Only one tokens^2 score buffer is live, not heads*tokens^2.
+	qhead, khead, vhead := s.qhead, s.khead, s.vhead
+	scores, headout := s.scores, s.headout
+	for head := 0; head < nh; head++ {
+		kh := head / (nh / nkv)
+		// Contiguous query heads share one KV head in grouped-query attention.
+		// Retain its packed buffers until the group changes.
+		if head%(nh/nkv) == 0 {
+			for t := 0; t < tokens; t++ {
+				copy(khead[t*d:(t+1)*d], k[(t*nkv+kh)*d:(t*nkv+kh+1)*d])
+				copy(vhead[t*d:(t+1)*d], v[(t*nkv+kh)*d:(t*nkv+kh+1)*d])
+			}
+		}
+		for t := 0; t < tokens; t++ {
+			copy(qhead[t*d:(t+1)*d], q[(t*nh+head)*d:(t*nh+head+1)*d])
+		}
+		clear(scores)
+		simd.SgemmNTTo(scores, qhead, khead, tokens, tokens, d, float32(1/math.Sqrt(float64(d))), d, d, tokens)
+		if mask != nil {
+			simd.VecAdd(scores, scores, mask)
+		}
+		for t := 0; t < tokens; t++ {
+			if !simd.SoftmaxSIMDInPlace(scores[t*tokens : (t+1)*tokens]) {
+				return fmt.Errorf("omnivoice: attention softmax failed")
+			}
+		}
+		clear(headout)
+		simd.SgemmNNTo(headout, scores, vhead, tokens, d, tokens, 1, tokens, d, d)
+		for t := 0; t < tokens; t++ {
+			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
+		}
+	}
 	return nil
 }

@@ -732,3 +732,47 @@ requests, and nested `stages` extraction. Two earlier driver attempts stalled
 before submitting any request due to a protocol-field mismatch; neither
 produced audio or contributed timings. Final stage fields were extracted from
 the retained real event logs after correcting the report field names.
+
+## Grouped-query attention packing (2026-09-14)
+
+Attention now packs K/V once per KV group, retaining contiguous buffers while
+query heads in that group execute. Q is still packed per query head. This reuses
+buffers only within the current attention operation; no cross-step KV cache or
+stale activations are involved. With 16 query heads and 8 KV heads, K/V copying
+is halved. Arithmetic, memory reservation and SIMD dispatch stay unchanged.
+
+A direct-strided Q/K/V candidate passed exact output checks but was slower:
+about 2.72 versus 2.61 ms at 75 tokens, and 20.99 versus 19.24 ms at 210 tokens.
+It remains test-only for reproducible benchmarking. Group-local packed K/V
+reuse measured about 2.52 and 18.95 ms respectively (three benchmark runs each,
+zero allocations), a small isolated improvement.
+
+Matched full resident+column-worker synthesis results (75 frames/eight steps,
+guidance 2, two threads/two workers):
+
+| Trial | Before (s) | KV-group reuse (s) |
+| --- | ---: | ---: |
+| First | 48.022 | 49.765 |
+| Reverse-order repeat | 50.138 | 47.557 |
+| Mean | 49.080 | 48.661 |
+
+The 0.9% mean difference with opposite pair directions does not demonstrate
+an end-to-end speedup. All four WAVs have the established baseline hash; peak
+RSS remains about 2.66 GiB. The production change removes duplicate copy work
+and preserves contiguous access. Defaults and quality parameters are unchanged.
+
+`TestAttentionStridedExact` checks both candidates against the copied-head
+reference, grouped and ungrouped attention, tails, masks and single-token cases.
+Existing generation/logit tests, allocation tests, race/vet/no-CGo checks and
+Linux ARM64 build pass. Repository-wide build still fails in the previously
+recorded unrelated SpacemiT/DiffusionGemma packages.
+
+Reproduce isolated comparisons with:
+
+```sh
+go test ./models/omnivoice -run '^$' \
+  -bench 'BenchmarkAttention(KVReuse|Strided)' -benchmem -count=3
+```
+
+Local records: `/workspace/tmp/omnivoice-attention-kvreuse-bench.log` and
+`/workspace/tmp/omnivoice-kvreuse-{before,after}*-metrics.json`.
