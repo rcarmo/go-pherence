@@ -24,6 +24,8 @@ func DefaultGenerationConfig() GenerationConfig {
 // unconditional inputs. Input prompt construction remains the caller's job.
 // Target frames must occupy the final positions of each sequence.
 type Generation struct {
+	condPrefix, uncondPrefix                       []float32
+	activeTimes                                    []bool
 	rng                                            *rand.Rand
 	source                                         *rand.PCG
 	conditional, unconditional                     *Backbone
@@ -64,6 +66,14 @@ func NewGeneration(conditional, unconditional *Backbone, target int, c Generatio
 		return nil, err
 	}
 	g := &Generation{conditional: conditional, unconditional: unconditional, config: c, target: target, maxTarget: target, books: cfg.NumAudioCodebook, vocab: cfg.AudioVocabSize, sampler: sampler, condTarget: make([]float32, size), uncondTarget: make([]float32, size), logProbs: make([]float32, size), confidence: make([]float32, rows), pred: make([]int, rows), output: make([]int, rows), schedule: make([]int, c.Steps), times: make([]float32, c.Steps+1), classNoise: make([]float32, size), positionNoise: make([]float32, rows)}
+	// Only raw prefix embeddings are cached: transformer activations still depend
+	// on every target token through full non-causal attention. Rebuild on each call.
+	h := cfg.LLMConfig.HiddenSize
+	g.condPrefix = make([]float32, (conditional.maxTokens-1)*h)
+	if c.Guidance != 0 {
+		g.uncondPrefix = make([]float32, (unconditional.maxTokens-1)*h)
+	}
+	g.activeTimes = make([]bool, target)
 	g.source = rand.NewPCG(c.Seed, c.Seed^0x9e3779b97f4a7c15)
 	g.rng = rand.New(g.source)
 	if err = TimeStepsInto(g.times, 0, 1, c.Steps, c.TimeShift); err != nil {
@@ -100,6 +110,7 @@ func (g *Generation) Reconfigure(target int) error {
 	if !ok {
 		return fmt.Errorf("omnivoice: generation shape overflow")
 	}
+	g.activeTimes = g.activeTimes[:target]
 	g.target = target
 	g.condTarget = g.condTarget[:size]
 	g.uncondTarget = g.uncondTarget[:size]
@@ -142,6 +153,21 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	h := g.conditional.weights.Config.LLMConfig.HiddenSize
+	condPrefix := g.condPrefix[:(g.conditional.tokens-g.target)*h]
+	if err := g.conditional.embedRangeInto(condPrefix, condIDs, condAudio, 0, g.conditional.tokens-g.target); err != nil {
+		return err
+	}
+	var uncondPrefix []float32
+	if c.Guidance != 0 {
+		uncondPrefix = g.uncondPrefix[:(g.unconditional.tokens-g.target)*h]
+		if err := g.unconditional.embedRangeInto(uncondPrefix, uncondIDs, uncondAudio, 0, g.unconditional.tokens-g.target); err != nil {
+			return err
+		}
+	}
 	for i := range g.output {
 		g.output[i] = maskID
 	}
@@ -160,11 +186,19 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 		if k <= 0 {
 			continue
 		}
-		if err := g.conditional.ForwardTargetInto(ctx, g.condTarget, condIDs, condAudio, nil, nil, g.target); err != nil {
+		clear(g.activeTimes)
+		for row, token := range g.output {
+			if token == maskID {
+				g.activeTimes[row%g.target] = true
+			}
+		}
+		// Dense sampler/noise indexing is deliberately retained. Revealed rows
+		// may contain stale logits, but confidence selection excludes them.
+		if err := g.conditional.forwardInto(ctx, g.condTarget, condIDs, condAudio, nil, nil, g.target, condPrefix, g.activeTimes); err != nil {
 			return err
 		}
 		if c.Guidance != 0 {
-			if err := g.unconditional.ForwardTargetInto(ctx, g.uncondTarget, uncondIDs, uncondAudio, nil, nil, g.target); err != nil {
+			if err := g.unconditional.forwardInto(ctx, g.uncondTarget, uncondIDs, uncondAudio, nil, nil, g.target, uncondPrefix, g.activeTimes); err != nil {
 				return err
 			}
 		}
