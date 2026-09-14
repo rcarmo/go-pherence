@@ -405,7 +405,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}{entries})
 		return
 	}
-	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" && h.enableUI {
+	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" {
 		if r.Method != http.MethodGet {
 			method(w, "GET")
 			return

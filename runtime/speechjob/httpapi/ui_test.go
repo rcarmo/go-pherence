@@ -101,7 +101,7 @@ func TestUIOptInAndSourceSafety(t *testing.T) {
 	if w := request(h, "GET", "/ui", nil); w.Code != 404 {
 		t.Fatal(w)
 	}
-	if w := request(h, "GET", "/v1/profiles", nil); w.Code != 404 {
+	if w := request(h, "GET", "/v1/profiles", nil); w.Code != 200 || !strings.Contains(w.Body.String(), `"profiles":["test"]`) {
 		t.Fatal(w)
 	}
 	for _, origin := range []string{"", "https://other.test", "https://speech.test?"} {

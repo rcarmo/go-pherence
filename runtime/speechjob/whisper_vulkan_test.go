@@ -19,7 +19,7 @@ import (
 func mockVulkanJob(poll time.Duration, drain func(context.Context, time.Duration) error, closeEncoder func() error, infer windowInfer) *VulkanWhisperStage {
 	s := newVulkanWhisperOwner(poll, drain, closeEncoder)
 	st := whisperWindowStage(hash([]byte("mock-vulkan-job-v1")), 320, 160, 4096, 128<<10, 448, 51865, s.wrap(infer))
-	return &VulkanWhisperStage{s: s, stage: st}
+	return &VulkanWhisperStage{s: s, stages: []Stage{st}}
 }
 func waitOwner(t *testing.T, o *VulkanWhisperStage, predicate func(VulkanWhisperStatus) bool) {
 	t.Helper()
