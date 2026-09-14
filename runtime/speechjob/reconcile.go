@@ -25,9 +25,10 @@ var (
 )
 
 // TranscriptStageConfig binds the declared language/geometry to one exact ASR
-// stage version. Callers must use the same language and geometry as that stage;
-// v1 raw window records do not themselves carry language/generation metadata.
-// This does not validate language recognition or invent word alignment.
+// stage version. Callers must use the same language and geometry as that stage.
+// Fixed-language raw records omit language metadata; "auto" records carry the
+// checked per-window detection result. This does not validate recognition or
+// invent word alignment.
 type TranscriptStageConfig struct {
 	ASRVersion                    string
 	Language                      string
@@ -155,6 +156,7 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 	r := bufio.NewReaderSize(reader, 32<<10)
 	var consumed int64
 	var textBytes int
+	detected := map[string]bool{}
 	raw := make([]rawCue, 0)
 	for i := int64(0); i < plan.Count(); i++ {
 		line, e := readASRLine(ctx, r, &consumed)
@@ -175,6 +177,14 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 		}
 		if e = validateWindow(record.Result, plan, 448, 51866); e != nil {
 			return zero, e
+		}
+		if cfg.Language == "auto" {
+			if len(record.Result.Language) < 2 {
+				return zero, fmt.Errorf("%w: missing detected language", ErrCorrupt)
+			}
+			detected[record.Result.Language] = true
+		} else if record.Result.Language != "" {
+			return zero, fmt.Errorf("%w: unexpected window language", ErrCorrupt)
 		}
 		words := record.Result.Words
 		windowTokenOffset := 0
@@ -224,7 +234,13 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 	if e = ctx.Err(); e != nil {
 		return zero, e
 	}
-	result := Transcript{Schema: 2, SampleRate: 16000, TotalSamples: total, Language: cfg.Language, Cues: []Cue{}}
+	language := cfg.Language
+	if cfg.Language == "auto" && len(detected) == 1 {
+		for value := range detected {
+			language = value
+		}
+	}
+	result := Transcript{Schema: 2, SampleRate: 16000, TotalSamples: total, Language: language, Cues: []Cue{}}
 	accepted := make([]rawCue, 0, len(raw))
 	var previous whisper.Segment
 	for i, c := range raw {

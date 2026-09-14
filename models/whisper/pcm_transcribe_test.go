@@ -2,8 +2,10 @@ package whisper
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -170,6 +172,54 @@ func TestPCMTranscribeActualToyPipeline(t *testing.T) {
 	})
 	if err != nil || calls != 2 || emits != 2 {
 		t.Fatalf("toy pipeline %d/%d %v", calls, emits, err)
+	}
+}
+
+func TestPCMTranscribeAutomaticLanguage(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	w := toyPCMModel()
+	tok, raw := generationJSONFixture(t, w.Config)
+	generation, err := ParseGenerationConfigChecked(marshalConfig(t, raw), w.Config, tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The decoder output projection shares TokenEmbed. Make Portuguese the
+	// unique highest language logit without changing the timestamp path.
+	w.Decoder.TokenEmbed[50267*2] = 20
+	w.Decoder.TokenEmbed[50267*2+1] = -20
+	reader := sampleReadFunc(func(_ context.Context, dst []float32, _ int64) (int, error) {
+		clear(dst)
+		return len(dst), nil
+	})
+	var got []WindowTranscript
+	err = w.TranscribePCMWindows(context.Background(), reader, 321, tok, PCMTranscribeOptions{Language: "auto", Generation: generation}, func(out WindowTranscript) error {
+		got = append(got, out)
+		return nil
+	})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("auto windows=%d err=%v", len(got), err)
+	}
+	for _, window := range got {
+		if window.Language != "pt" {
+			t.Fatalf("language=%q", window.Language)
+		}
+	}
+	fixed := WindowTranscript{Window: got[0].Window, Segments: []Segment{}}
+	encoded, err := json.Marshal(fixed)
+	if err != nil || strings.Contains(string(encoded), "Language") {
+		t.Fatalf("fixed-language record changed: %s %v", encoded, err)
+	}
+}
+
+func TestPCMTranscribeAutomaticLanguageRequiresGeneration(t *testing.T) {
+	w := toyPCMModel()
+	tok := checkedTestTokenizer(w.Config.VocabSize)
+	reader := sampleReadFunc(func(context.Context, []float32, int64) (int, error) {
+		t.Fatal("invalid auto mode reached source")
+		return 0, nil
+	})
+	if err := w.TranscribePCMWindows(context.Background(), reader, 1, tok, PCMTranscribeOptions{Language: "auto"}, func(WindowTranscript) error { return nil }); err == nil {
+		t.Fatal("automatic language accepted without generation metadata")
 	}
 }
 

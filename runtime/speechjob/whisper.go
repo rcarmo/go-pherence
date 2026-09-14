@@ -273,6 +273,14 @@ func validateWindow(result whisper.WindowTranscript, plan whisper.WindowPlan, ma
 	if e != nil || result.Window != expected {
 		return fmt.Errorf("%w: window geometry", ErrCorrupt)
 	}
+	if len(result.Language) > 32 {
+		return fmt.Errorf("%w: window language", ErrCorrupt)
+	}
+	for _, c := range result.Language {
+		if c < 'a' || c > 'z' {
+			return fmt.Errorf("%w: window language", ErrCorrupt)
+		}
+	}
 	if len(result.Segments) > maxTokens {
 		return ErrLimit
 	}
