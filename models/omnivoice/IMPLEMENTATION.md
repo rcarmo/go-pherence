@@ -955,3 +955,51 @@ vet, race, no-CGo and Linux ARM64 build pass. Quantised voice quality remains a
 listening gate; no further integer quantisation of embeddings/heads is enabled.
 Evidence: `/workspace/tmp/omnivoice-q8f16-*.json`,
 `omnivoice-rss-q8f16.json`, `omnivoice-q8f16-checks.log` and private WAV/GGUF files.
+
+## Repeated-denoising exact optimisations (2026-09-14)
+
+`Backbone.ForwardTargetInto` preserves full-sequence transformer attention but
+projects only the trailing target positions through the audio heads. Its start
+is aligned down to the existing backend row tile (six on AMD64, four elsewhere),
+computing at most MR-1 extra prefix rows to preserve full-projection rounding
+and scalar-tail grouping. Tests compare every suffix logit exactly, including
+masks/positions, odd lengths, reconfiguration, resident/prepacked modes and pools.
+`ForwardInto` retains its existing full-logit interface.
+
+Generation now calls this target API directly, avoiding full conditional and
+unconditional logit buffers and suffix copies. For the measured prompt (210
+conditional positions, 75 unconditional/target positions, eight codebooks and
+1,025 vocabulary entries) the removed buffers contain **9,348,000 bytes** of
+float32 payload (8.92 MiB, calculated from dimensions; allocator overhead excluded).
+For a serve reservation of 512 conditional and 100 unconditional positions,
+the removed payload is 20,073,600 bytes (19.14 MiB). This is a setup-buffer saving,
+not a claim that measured peak RSS falls by that amount.
+
+Zero-reveal steps now check cancellation and skip forwards before any logits
+are computed. Such steps do not change IDs or consume RNG in the old loop.
+A legacy-loop test verifies generated IDs and final RNG state at 4/16/128 steps,
+with and without guidance and with stochastic class/position sampling. A
+128-step tiny schedule exercises actual skipped entries. The real eight-step
+schedule is `[9,11,15,21,32,53,109,350]`: **no zero-reveal entries**, so that
+particular benchmark gains nothing from skipping.
+
+Matched runs on the N100 used eight steps, resident F32 weights, two workers,
+low priority and the same three-second prepared prompt/seed. Order was before,
+after, after, before; filesystem caches were not flushed.
+
+| Version | Wall seconds, trials | Peak RSS KiB, trials |
+|---|---|---|
+| Previous full heads | 61.63 / 56.71 | 2,530,704 / 2,789,124 |
+| Target heads + no-op skip | 58.94 / 54.76 | 2,779,988 / 2,780,180 |
+
+Mean wall time is 3.9% lower in these two trials per version. CPU times/RSS vary;
+there is no stable peak-memory reduction or strong end-to-end speedup claim.
+All four WAVs match SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+Successful forwards/generation remain allocation-free after construction.
+
+Affected tests, vet, race, no-CGo and Linux ARM64 build pass. Focused independent
+review found no concrete correctness issue. Evidence: `/workspace/tmp/omnivoice-target-*.json`,
+`omnivoice-target-checks.log`, `synthetic-spock-target-*.wav`, and the preserved
+pre-change executable. Fixed-embedding reuse, masked-position heads and shared
+CFG traversal are subsequent work, not implemented by this milestone.

@@ -3,6 +3,7 @@ package omnivoice
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
@@ -132,18 +133,40 @@ func (b *Backbone) tokenCapacity() int {
 // Cancellation is checked between layers and audio-head chunks; partial output
 // after cancellation or any other error must be discarded.
 func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32) error {
+	if b == nil {
+		return fmt.Errorf("omnivoice: nil context")
+	}
+	return b.forwardInto(ctx, logits, ids, audioMask, positions, mask, b.tokens)
+}
+
+// ForwardTargetInto matches ForwardInto but projects logits only for the final
+// targetFrames positions, returning [codebook,target,vocabulary]. The
+// transformer still runs over the full active sequence so attention/position
+// semantics remain unchanged.
+func (b *Backbone) ForwardTargetInto(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32, targetFrames int) error {
+	return b.forwardInto(ctx, logits, ids, audioMask, positions, mask, targetFrames)
+}
+
+func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int, audioMask []bool, positions []int, mask []float32, targetFrames int) error {
 	if b == nil || b.weights == nil || ctx == nil {
 		return fmt.Errorf("omnivoice: nil context")
+	}
+	if targetFrames <= 0 || targetFrames > b.tokens {
+		return fmt.Errorf("omnivoice: target frame count %d exceeds active tokens %d", targetFrames, b.tokens)
 	}
 	c := b.weights.Config
 	h := c.LLMConfig.HiddenSize
 	books, vocab := c.NumAudioCodebook, c.AudioVocabSize
-	size, ok := product(books, b.tokens)
-	if !ok || len(ids) != size || len(audioMask) != b.tokens {
+	inputSize, ok := product(books, b.tokens)
+	if !ok || len(ids) != inputSize || len(audioMask) != b.tokens {
 		return fmt.Errorf("omnivoice: input shape mismatch")
 	}
-	size, ok = product(size, vocab)
-	if !ok || len(logits) != size {
+	logitRows, ok := product(books, targetFrames)
+	if !ok {
+		return fmt.Errorf("omnivoice: logit shape mismatch")
+	}
+	logitSize, ok := product(logitRows, vocab)
+	if !ok || len(logits) != logitSize {
 		return fmt.Errorf("omnivoice: logit shape mismatch")
 	}
 	if err := b.block.validateInput(b.hidden, b.tokens, positions, mask); err != nil {
@@ -213,7 +236,17 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 	}
 	normalizeInto(b.hidden, b.hidden, b.norm, b.tokens, h, float32(c.LLMConfig.RMSNormEps))
 	// Head rows are contiguous [codebook*vocab,hidden]. Write transposed output
-	// directly into the public [codebook,time,vocab] layout.
+	// directly into the public [codebook,time,vocab] layout. When projecting only
+	// a suffix, start from the architecture's full microkernel row-group boundary
+	// so those target rows follow the same packed-GEMM row/tail path as a full
+	// sequence projection. This preserves exact suffix parity without a scalar
+	// fallback. The row-group size mirrors simd/runtime gebpMR until that detail
+	// is exposed as API.
+	projectStart := b.audioHeadProjectStart(targetFrames)
+	projectRows := b.tokens - projectStart
+	targetStart := b.tokens - targetFrames
+	targetOffset := targetStart - projectStart
+	hidden := b.hidden[projectStart*h:]
 	total := books * vocab
 	for first := 0; first < total; first += b.chunk {
 		if err := ctx.Err(); err != nil {
@@ -224,16 +257,35 @@ func (b *Backbone) ForwardInto(ctx context.Context, logits []float32, ids []int,
 		if err := b.weights.MatrixRowsInto(head, "audio_heads.weight", first, count); err != nil {
 			return err
 		}
-		out := b.headOutput[:b.tokens*count]
-		if err := b.scratch.linearIntoWithPool(out, b.hidden, head, b.tokens, h, count); err != nil {
+		out := b.headOutput[:projectRows*count]
+		if err := b.scratch.linearIntoWithPool(out, hidden, head, projectRows, h, count); err != nil {
 			return err
 		}
 		for j := 0; j < count; j++ {
 			book, word := (first+j)/vocab, (first+j)%vocab
-			for t := 0; t < b.tokens; t++ {
-				logits[(book*b.tokens+t)*vocab+word] = out[t*count+j]
+			for t := 0; t < targetFrames; t++ {
+				logits[(book*targetFrames+t)*vocab+word] = out[(targetOffset+t)*count+j]
 			}
 		}
 	}
 	return nil
+}
+
+func (b *Backbone) audioHeadProjectStart(targetFrames int) int {
+	start := b.tokens - targetFrames
+	group := audioHeadProjectionRowGroup()
+	if group <= 1 || start <= 0 {
+		return start
+	}
+	return start - start%group
+}
+
+func audioHeadProjectionRowGroup() int {
+	switch runtime.GOARCH {
+	case "amd64":
+		return 6
+	default:
+		// ARM64, RISC-V and portable gebp implementations all use four rows.
+		return 4
+	}
 }

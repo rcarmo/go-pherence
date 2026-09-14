@@ -24,15 +24,15 @@ func DefaultGenerationConfig() GenerationConfig {
 // unconditional inputs. Input prompt construction remains the caller's job.
 // Target frames must occupy the final positions of each sequence.
 type Generation struct {
-	rng                                                                      *rand.Rand
-	source                                                                   *rand.PCG
-	conditional, unconditional                                               *Backbone
-	config                                                                   GenerationConfig
-	target, maxTarget, books, vocab                                          int
-	sampler                                                                  *SamplerWorkspace
-	condLogits, uncondLogits, condTarget, uncondTarget, logProbs, confidence []float32
-	pred, output, schedule                                                   []int
-	times, classNoise, positionNoise                                         []float32
+	rng                                            *rand.Rand
+	source                                         *rand.PCG
+	conditional, unconditional                     *Backbone
+	config                                         GenerationConfig
+	target, maxTarget, books, vocab                int
+	sampler                                        *SamplerWorkspace
+	condTarget, uncondTarget, logProbs, confidence []float32
+	pred, output, schedule                         []int
+	times, classNoise, positionNoise               []float32
 }
 
 func NewGeneration(conditional, unconditional *Backbone, target int, c GenerationConfig) (*Generation, error) {
@@ -63,26 +63,7 @@ func NewGeneration(conditional, unconditional *Backbone, target int, c Generatio
 	if err != nil {
 		return nil, err
 	}
-	condLogits, ok := product(cfg.NumAudioCodebook, conditional.tokenCapacity())
-	if !ok {
-		return nil, fmt.Errorf("omnivoice: generation shape overflow")
-	}
-	condLogits, ok = product(condLogits, cfg.AudioVocabSize)
-	if !ok {
-		return nil, fmt.Errorf("omnivoice: generation shape overflow")
-	}
-	g := &Generation{conditional: conditional, unconditional: unconditional, config: c, target: target, maxTarget: target, books: cfg.NumAudioCodebook, vocab: cfg.AudioVocabSize, sampler: sampler, condLogits: make([]float32, condLogits), condTarget: make([]float32, size), uncondTarget: make([]float32, size), logProbs: make([]float32, size), confidence: make([]float32, rows), pred: make([]int, rows), output: make([]int, rows), schedule: make([]int, c.Steps), times: make([]float32, c.Steps+1), classNoise: make([]float32, size), positionNoise: make([]float32, rows)}
-	if c.Guidance != 0 {
-		uncondLogits, ok := product(cfg.NumAudioCodebook, unconditional.tokenCapacity())
-		if !ok {
-			return nil, fmt.Errorf("omnivoice: generation shape overflow")
-		}
-		uncondLogits, ok = product(uncondLogits, cfg.AudioVocabSize)
-		if !ok {
-			return nil, fmt.Errorf("omnivoice: generation shape overflow")
-		}
-		g.uncondLogits = make([]float32, uncondLogits)
-	}
+	g := &Generation{conditional: conditional, unconditional: unconditional, config: c, target: target, maxTarget: target, books: cfg.NumAudioCodebook, vocab: cfg.AudioVocabSize, sampler: sampler, condTarget: make([]float32, size), uncondTarget: make([]float32, size), logProbs: make([]float32, size), confidence: make([]float32, rows), pred: make([]int, rows), output: make([]int, rows), schedule: make([]int, c.Steps), times: make([]float32, c.Steps+1), classNoise: make([]float32, size), positionNoise: make([]float32, rows)}
 	g.source = rand.NewPCG(c.Seed, c.Seed^0x9e3779b97f4a7c15)
 	g.rng = rand.New(g.source)
 	if err = TimeStepsInto(g.times, 0, 1, c.Steps, c.TimeShift); err != nil {
@@ -170,24 +151,22 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 	}
 	g.source.Seed(c.Seed, c.Seed^0x9e3779b97f4a7c15)
 	rng := g.rng
-	condLogits := g.condLogits[:g.books*g.conditional.tokens*g.vocab]
-	var uncondLogits []float32
-	if c.Guidance != 0 {
-		uncondLogits = g.uncondLogits[:g.books*g.unconditional.tokens*g.vocab]
-	}
 	for _, k := range g.schedule {
-		if err := g.conditional.ForwardInto(ctx, condLogits, condIDs, condAudio, nil, nil); err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		g.targetLogits(g.condTarget, condLogits, g.conditional.tokens)
-		if c.Guidance != 0 {
-			if err := g.unconditional.ForwardInto(ctx, uncondLogits, uncondIDs, uncondAudio, nil, nil); err != nil {
-				return err
-			}
-			g.targetLogits(g.uncondTarget, uncondLogits, g.unconditional.tokens)
-		}
+		// No IDs or RNG values change on zero-reveal steps. Full attention
+		// would repeat the preceding state and its logits would be discarded.
 		if k <= 0 {
 			continue
+		}
+		if err := g.conditional.ForwardTargetInto(ctx, g.condTarget, condIDs, condAudio, nil, nil, g.target); err != nil {
+			return err
+		}
+		if c.Guidance != 0 {
+			if err := g.unconditional.ForwardTargetInto(ctx, g.uncondTarget, uncondIDs, uncondAudio, nil, nil, g.target); err != nil {
+				return err
+			}
 		}
 		if err := g.sampler.GuidedLogProbsInto(g.logProbs, g.condTarget, g.uncondTarget, g.target, c.Guidance, maskID); err != nil {
 			return err
@@ -220,11 +199,5 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 func (g *Generation) copyTarget(ids []int, tokens int) {
 	for book := 0; book < g.books; book++ {
 		copy(ids[(book+1)*tokens-g.target:(book+1)*tokens], g.output[book*g.target:(book+1)*g.target])
-	}
-}
-func (g *Generation) targetLogits(dst, src []float32, tokens int) {
-	for book := 0; book < g.books; book++ {
-		start := ((book+1)*tokens - g.target) * g.vocab
-		copy(dst[book*g.target*g.vocab:(book+1)*g.target*g.vocab], src[start:start+g.target*g.vocab])
 	}
 }
