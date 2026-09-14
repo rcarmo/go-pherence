@@ -813,3 +813,26 @@ comparison; it is not hardcoded across architectures with different reduction
 orders. Existing SIMD/model tests, race/vet/no-CGo checks and ARM64 build pass.
 A focused assembly review verified loop bounds, offsets, FMA order and ABI.
 The kernel's existing caller contract requires positive K.
+
+## Rejected four-way microkernel unrolling (2026-09-14)
+
+Four-way K unrolling did not provide a repeatable gain over the production
+two-way AVX2 kernel. The production assembly was restored unchanged. Each round
+used three samples per shape, two column workers, streamed packing and K=1024;
+round two reversed the implementation order.
+
+| Shape M×N | Round 1: 2x / 4x median (ms) | Round 2: 2x / 4x median (ms) |
+| --- | ---: | ---: |
+| 75×1024 | 2.045 / 2.138 | 2.075 / 2.038 |
+| 75×3072 | 6.210 / 6.248 | 6.331 / 6.580 |
+| 210×1024 | 5.019 / 5.027 | 5.313 / 5.153 |
+| 210×3072 | 15.525 / 16.273 | 15.539 / 15.250 |
+
+The candidate preserves the two/single-element tails and per-output FMA order.
+Kernel tests passed and its same-host fingerprint matched the production value.
+No full synthesis run was warranted after the inconsistent kernel results.
+[Raw logs](experiments/gebp-unroll4-2026-09-14.json) and the
+[rejected patch](experiments/gebp-unroll4-rejected.patch) preserve the experiment;
+the patch is not applied by the build. This result is specific to the N100 VM
+and these matrix shapes. Defaults, binaries and generated audio are unchanged
+by this documentation-only checkpoint.
