@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-14",
+  "baseline_commit": "cd647b5f",
+  "benchmark": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkMaskedSampler/one-in-1/sparsefalse-2         \t      19\t  12044765 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-1/sparsefalse-2         \t      19\t  12944922 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-1/sparsefalse-2         \t      19\t  12729279 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-1/sparsetrue-2          \t      19\t  12264034 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-1/sparsetrue-2          \t      18\t  12231131 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-1/sparsetrue-2          \t      19\t  12334712 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsefalse-2         \t      19\t  12147524 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsefalse-2         \t      16\t  12563253 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsefalse-2         \t      19\t  12475667 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsetrue-2          \t      37\t   6181885 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsetrue-2          \t      38\t   6175476 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-2/sparsetrue-2          \t      39\t   6004145 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsefalse-2         \t      19\t  11875648 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsefalse-2         \t      19\t  12116433 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsefalse-2         \t      18\t  12317007 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsetrue-2          \t      80\t   2953891 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsetrue-2          \t      80\t   2985184 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-4/sparsetrue-2          \t      78\t   2984330 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsefalse-2         \t      18\t  12790016 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsefalse-2         \t      19\t  12175760 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsefalse-2         \t      19\t  12197523 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsetrue-2          \t     160\t   1475937 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsetrue-2          \t     163\t   1442163 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkMaskedSampler/one-in-8/sparsetrue-2          \t     165\t   1450548 ns/op\t       0 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/models/omnivoice\t9.104s\n",
+  "before": {
+    "exit_code": 0,
+    "max_rss_kib": 2787332,
+    "system_seconds": 1.91243,
+    "user_seconds": 72.499914,
+    "wall_seconds": 45.43695245
+  },
+  "after": {
+    "exit_code": 0,
+    "max_rss_kib": 2786820,
+    "system_seconds": 1.5033400000000001,
+    "user_seconds": 77.714371,
+    "wall_seconds": 48.069823937
+  },
+  "wave_sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579"
+}

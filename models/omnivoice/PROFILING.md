@@ -876,3 +876,37 @@ GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
 
 The chunk-resizing helper is test-only. These experiments do not demonstrate an
 end-to-end improvement; no extra synthesis runs were needed to reject them.
+
+## Masked-row sampler computation (2026-09-14)
+
+Generation skips guided log-probability normalisation and token prediction for
+already-revealed flattened codebook/time rows. Public dense sampler APIs remain
+available. Noise arrays are still filled and validated at their original dense
+sizes, preserving seeded RNG state. Revealed output slots are left untouched.
+
+Confidence top-k now excludes revealed rows explicitly, rather than only using
+an `-Inf` sentinel. Review found that the sentinel could tie with a masked row's
+`-Inf` score and allow a lower-index revealed row to be selected. A regression
+test verifies revealed tokens remain unchanged in this case. This is a bug fix
+for exceptional scores; normal finite-score selection order stays unchanged.
+
+For 8 codebooks × 75 frames × 1025 vocabulary entries, guidance 2 and greedy
+class prediction, isolated sampler times fall with the masked fraction:
+
+| Rows still masked | Dense time (ms, approx.) | Masked-only time (ms, approx.) |
+| --- | ---: | ---: |
+| All | 12.7 | 12.3 |
+| Half | 12.5 | 6.2 |
+| Quarter | 12.1 | 3.0 |
+| Eighth | 12.2 | 1.5 |
+
+All runs report zero allocations. This is a small component of total inference.
+One full resident+column-worker pair took **45.437 s before / 48.070 s after**;
+no end-to-end speedup is demonstrated. Both WAVs match the baseline hash and
+peak memory is unchanged. [Raw evidence](experiments/masked-sampler-2026-09-14.json)
+retains every sampler sample and both full-run measurements.
+
+Exact masked-row logits/predictions/confidence, untouched revealed slots,
+guidance on/off, stochastic/greedy classes, malformed shapes and allocation
+checks pass. Existing legacy generation tests still pass exact token/RNG parity.
+Race/vet/no-CGo checks and Linux ARM64 build pass. Defaults are unchanged.

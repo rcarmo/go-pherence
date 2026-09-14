@@ -197,8 +197,8 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 				g.activeTimes[row%g.target] = true
 			}
 		}
-		// Dense sampler/noise indexing is deliberately retained. Revealed rows
-		// may contain stale logits, but confidence selection excludes them.
+		// Noise draws and row indexing remain dense for seeded parity. Sampler
+		// arithmetic skips revealed rows, which confidence selection excludes.
 		if c.SharedTraversal {
 			if err := g.forwardPair(ctx, condIDs, condAudio, uncondIDs, uncondAudio, condPrefix, uncondPrefix); err != nil {
 				return err
@@ -213,7 +213,7 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 				}
 			}
 		}
-		if err := g.sampler.GuidedLogProbsInto(g.logProbs, g.condTarget, g.uncondTarget, g.target, c.Guidance, maskID); err != nil {
+		if err := g.sampler.guidedLogProbsInto(g.logProbs, g.condTarget, g.uncondTarget, g.target, c.Guidance, maskID, g.output); err != nil {
 			return err
 		}
 		if c.ClassTemperature > 0 {
@@ -221,7 +221,7 @@ func (g *Generation) GenerateInto(ctx context.Context, dst, condIDs []int, condA
 				g.classNoise[i] = rng.Float32()
 			}
 		}
-		if err := g.sampler.PredictTokensWithConfidenceInto(g.pred, g.confidence, g.logProbs, g.target, c.ClassTemperature, 0.1, GumbelNoise{Uniforms: g.classNoise}); err != nil {
+		if err := g.sampler.predictTokensWithConfidenceInto(g.pred, g.confidence, g.logProbs, g.target, c.ClassTemperature, 0.1, GumbelNoise{Uniforms: g.classNoise}, g.output, maskID); err != nil {
 			return err
 		}
 		temp := c.PositionTemperature

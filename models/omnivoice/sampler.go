@@ -162,6 +162,12 @@ func (w *SamplerWorkspace) validateLogitShape(buf []float32, rows int, what stri
 // flattened [codebook][time][vocab] logits. condLogits and uncondLogits must be
 // row-major with identical shapes when guidanceScale != 0.
 func (w *SamplerWorkspace) GuidedLogProbsInto(dst, condLogits, uncondLogits []float32, targetLen int, guidanceScale float32, audioMaskID int) error {
+	return w.guidedLogProbsInto(dst, condLogits, uncondLogits, targetLen, guidanceScale, audioMaskID, nil)
+}
+
+// Non-nil tokens restrict computation to still-masked flattened rows.
+// Revealed output slots are left untouched; public dense APIs remain unchanged.
+func (w *SamplerWorkspace) guidedLogProbsInto(dst, condLogits, uncondLogits []float32, targetLen int, guidanceScale float32, audioMaskID int, tokens []int) error {
 	rows, err := w.rowsFor(targetLen)
 	if err != nil {
 		return err
@@ -180,7 +186,13 @@ func (w *SamplerWorkspace) GuidedLogProbsInto(dst, condLogits, uncondLogits []fl
 			return err
 		}
 	}
+	if tokens != nil && len(tokens) != rows {
+		return fmt.Errorf("omnivoice: masked sampler token shape mismatch")
+	}
 	for row := 0; row < rows; row++ {
+		if tokens != nil && tokens[row] != audioMaskID {
+			continue
+		}
 		off := row * w.vocabSize
 		dstRow := dst[off : off+w.vocabSize]
 		copy(dstRow, condLogits[off:off+w.vocabSize])
@@ -268,9 +280,16 @@ func (w *SamplerWorkspace) GumbelPerturbInto(dst, logits []float32, temperature 
 // once guided log-probabilities are already available. predTokens and
 // confidence are flattened in [codebook][time] order.
 func (w *SamplerWorkspace) PredictTokensWithConfidenceInto(predTokens []int, confidence []float32, logProbs []float32, targetLen int, classTemperature float32, topKRatio float64, noise GumbelNoise) error {
+	return w.predictTokensWithConfidenceInto(predTokens, confidence, logProbs, targetLen, classTemperature, topKRatio, noise, nil, 0)
+}
+
+func (w *SamplerWorkspace) predictTokensWithConfidenceInto(predTokens []int, confidence, logProbs []float32, targetLen int, classTemperature float32, topKRatio float64, noise GumbelNoise, tokens []int, audioMaskID int) error {
 	rows, err := w.rowsFor(targetLen)
 	if err != nil {
 		return err
+	}
+	if tokens != nil && len(tokens) != rows {
+		return fmt.Errorf("omnivoice: masked sampler token shape mismatch")
 	}
 	if len(predTokens) != rows || len(confidence) != rows {
 		return fmt.Errorf("omnivoice: prediction output shape mismatch")
@@ -284,6 +303,9 @@ func (w *SamplerWorkspace) PredictTokensWithConfidenceInto(predTokens []int, con
 		}
 	}
 	for row := 0; row < rows; row++ {
+		if tokens != nil && tokens[row] != audioMaskID {
+			continue
+		}
 		off := row * w.vocabSize
 		lp := logProbs[off : off+w.vocabSize]
 		bestIdx, bestVal := argmaxStable(lp)
@@ -303,6 +325,9 @@ func (w *SamplerWorkspace) PredictTokensWithConfidenceInto(predTokens []int, con
 		k = w.vocabSize
 	}
 	for row := 0; row < rows; row++ {
+		if tokens != nil && tokens[row] != audioMaskID {
+			continue
+		}
 		off := row * w.vocabSize
 		lp := logProbs[off : off+w.vocabSize]
 		for i := range w.vocabScratch {
@@ -383,7 +408,7 @@ func (w *SamplerWorkspace) ApplyConfidenceSelection(tokens []int, predTokens []i
 			w.posScratch[i] = float32(math.Inf(-1))
 		}
 	}
-	count := selectTopKStable(w.topVals, w.topIdx, w.posScratch[:rows], k)
+	count := selectTopKStableMasked(w.topVals, w.topIdx, w.posScratch[:rows], k, tokens, audioMaskID)
 	for i := 0; i < count; i++ {
 		tokens[w.topIdx[i]] = predTokens[w.topIdx[i]]
 	}
@@ -502,6 +527,11 @@ func worseScore(aVal float32, aIdx int, bVal float32, bIdx int) bool {
 }
 
 func selectTopKStable(vals []float32, idx []int, scores []float32, k int) int {
+	return selectTopKStableMasked(vals, idx, scores, k, nil, 0)
+}
+
+// Non-nil tokens structurally exclude revealed rows, even for -Inf ties.
+func selectTopKStableMasked(vals []float32, idx []int, scores []float32, k int, tokens []int, maskID int) int {
 	if k <= 0 || len(scores) == 0 {
 		return 0
 	}
@@ -510,6 +540,9 @@ func selectTopKStable(vals []float32, idx []int, scores []float32, k int) int {
 	}
 	n := 0
 	for i, v := range scores {
+		if tokens != nil && tokens[i] != maskID {
+			continue
+		}
 		if n < k {
 			vals[n] = v
 			idx[n] = i
