@@ -394,6 +394,42 @@ func TestProfileDriftReadDeleteAndIdentityCopy(t *testing.T) {
 		t.Fatal(j)
 	}
 }
+func TestRecordingTitleAndHumanExportFilename(t *testing.T) {
+	h, _, _ := fixture(t, []speechjob.Stage{textStage("vtt", "WEBVTT\n\n")}, 2)
+	j := upload(t, h)
+	if j.Title != "Recording" || j.Name != "recording.wav" {
+		t.Fatal(j)
+	}
+	// request() fixes mutation bodies as octet-stream; use an explicit JSON request.
+	r := httptest.NewRequest("PUT", "https://speech.test/v1/jobs/"+j.ID+"/title", strings.NewReader(`{"title":"Customer Interview"}`))
+	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	j = decodeJob(t, w, 200)
+	if j.Title != "Customer Interview" || j.Name != "recording.wav" {
+		t.Fatal(j)
+	}
+	j = decodeJob(t, request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil), 200)
+	if len(j.Artifacts) != 1 || j.Artifacts[0].Filename != "customer-interview.transcript.vtt" {
+		t.Fatal(j.Artifacts)
+	}
+	w = request(h, "GET", "/v1/jobs/"+j.ID+"/artifacts/vtt", nil)
+	if got := w.Header().Get("Content-Disposition"); got != `attachment; filename="customer-interview.transcript.vtt"` || strings.Contains(got, j.ID) {
+		t.Fatal(got)
+	}
+	for _, payload := range []string{`{"title":""}`, `{"title":" padded "}`, `{"title":"x","extra":1}`} {
+		r = httptest.NewRequest("PUT", "https://speech.test/v1/jobs/"+j.ID+"/title", strings.NewReader(payload))
+		r.Header.Set("Authorization", "Bearer "+testToken)
+		r.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 400 {
+			t.Fatal(payload, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestArtifactIntegrityHeadersAndMethods(t *testing.T) {
 	h, s, root := fixture(t, []speechjob.Stage{textStage("vtt", "WEBVTT\n\n")}, 2)
 	j := upload(t, h)

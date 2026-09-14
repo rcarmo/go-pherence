@@ -176,7 +176,7 @@ func TestBrowserRejectsMislabeledMediaAndExplainsFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := string(js)
-	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "What happened", "!permanent&&(!entry||terminal)"} {
+	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "detail-error", "!permanent&&(!e||terminal)"} {
 		if !strings.Contains(source, required) {
 			t.Fatal("missing browser failure UX", required)
 		}
@@ -184,6 +184,27 @@ func TestBrowserRejectsMislabeledMediaAndExplainsFailures(t *testing.T) {
 	for _, leaked := range []string{"secret-file-path", "/models/private-recording", "RIFF/WAVE content"} {
 		if strings.Contains(source, leaked) {
 			t.Fatal("private backend text embedded", leaked)
+		}
+	}
+}
+
+func TestBrowserUsesRecordingLibraryAndHumanExports(t *testing.T) {
+	html, err := web.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := web.ReadFile("web/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{`id="active-section"`, `id="library"`, `id="rename"`, "Technical details", "Export options"} {
+		if !strings.Contains(string(html), required) {
+			t.Fatal("missing recording library surface", required)
+		}
+	}
+	for _, required := range []string{"friendlyState", "renderRow", "primaryArtifact", "crypto.subtle.digest('SHA-256'", "link.download=a.filename", "'/title'"} {
+		if !strings.Contains(string(js), required) {
+			t.Fatal("missing recording library behavior", required)
 		}
 	}
 }

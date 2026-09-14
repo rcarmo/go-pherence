@@ -59,6 +59,7 @@ type Manifest struct {
 	Schema              int          `json:"schema"`
 	ID                  string       `json:"id"`
 	Name                string       `json:"name"`
+	Title               string       `json:"title,omitempty"`
 	Configuration       string       `json:"configuration"`
 	ConfigurationSHA256 string       `json:"configuration_sha256"`
 	Input               Blob         `json:"input"`
