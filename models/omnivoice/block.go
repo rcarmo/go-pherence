@@ -272,8 +272,15 @@ func attentionInto(s *Workspace, attended, q, k, v []float32, tokens, d, nh, nkv
 				return fmt.Errorf("omnivoice: attention softmax failed")
 			}
 		}
-		clear(headout)
-		simd.SgemmNNTo(headout, scores, vhead, tokens, d, tokens, 1, tokens, d, d)
+		// Q is dead after QK; reuse its scratch for packed probability*V.
+		if d >= 16 {
+			if !simd.SgemmNNPackedOverwriteTo(headout, scores, vhead, qhead, tokens, d, tokens, tokens, d, d) {
+				return fmt.Errorf("omnivoice: attention AV shape")
+			}
+		} else {
+			clear(headout)
+			simd.SgemmNNTo(headout, scores, vhead, tokens, d, tokens, 1, tokens, d, d)
+		}
 		for t := 0; t < tokens; t++ {
 			copy(attended[(t*nh+head)*d:(t*nh+head+1)*d], headout[t*d:(t+1)*d])
 		}

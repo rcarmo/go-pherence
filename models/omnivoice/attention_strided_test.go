@@ -48,7 +48,7 @@ func attentionInputs(tokens, d, nh, nkv int) (*Workspace, []float32, []float32, 
 	return s, make([]float32, len(q)), q, k, v
 }
 func TestAttentionStridedExact(t *testing.T) {
-	for _, shape := range [][4]int{{1, 8, 2, 1}, {9, 16, 4, 4}, {11, 16, 8, 1}, {7, 10, 6, 2}, {19, 32, 8, 2}, {75, 128, 16, 8}, {210, 128, 16, 8}} {
+	for _, shape := range [][4]int{{1, 8, 2, 1}, {1, 16, 2, 1}, {5, 15, 4, 2}, {6, 16, 4, 2}, {7, 17, 4, 1}, {9, 16, 4, 4}, {11, 16, 8, 1}, {7, 10, 6, 2}, {19, 32, 8, 2}, {75, 128, 16, 8}, {210, 128, 16, 8}} {
 		tokens, d, nh, nkv := shape[0], shape[1], shape[2], shape[3]
 		s, got, q, k, v := attentionInputs(tokens, d, nh, nkv)
 		want := make([]float32, len(got))
@@ -67,6 +67,11 @@ func TestAttentionStridedExact(t *testing.T) {
 				t.Fatal(err)
 			}
 			assertFloat32Exact(t, got, want)
+			for _, buf := range [][]float32{got, s.scores, s.headout, s.qhead, s.khead, s.vhead} {
+				for i := range buf {
+					buf[i] = float32(math.NaN())
+				}
+			}
 			if err := attentionInto(s, got, q, k, v, tokens, d, nh, nkv, mask); err != nil {
 				t.Fatal(err)
 			}

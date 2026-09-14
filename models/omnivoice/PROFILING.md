@@ -1394,3 +1394,34 @@ packages. No matched full-synthesis gain was measured.
 
 [Raw paired trials, length verification, synthesis and build log](experiments/codec-activation-2026-09-14.json)
 retain all evidence.
+
+## Packed attention probability/value product (2026-09-14)
+
+Attention now reuses query-head scratch for packed probability×value GEMM after
+QK and softmax finish. Query scratch is overwritten before the next head uses it.
+For head width d>=16, its tokens*d capacity covers the tokens*16 packing panel.
+Smaller widths retain the original NN call; the packed wrapper retains platform
+and small-shape fallbacks. No additional workspace or allocations are required.
+
+The current resident/column-worker profile attributes about 74% of CPU samples
+to the packed microkernel, 7% to packing and 8% cumulatively to attention. This
+whole-command profile includes setup and codec; its timing is excluded below.
+
+| Attention tokens | Baseline mean (ms) | Packed AV mean (ms) | Reverse baseline / packed (ms) |
+| --- | ---: | ---: | ---: |
+| 75 | 2.531 | 2.446 | 2.522 / 2.416 |
+| 210 | 18.786 | 17.388 | 19.007 / 17.541 |
+
+Each mean contains three samples. The isolated improvement is about 3–8%, with
+zero allocations. Full-synthesis totals are 43.806/46.553 s baseline and
+46.661/46.253 s candidate: means 45.180/46.457 s with opposite pair directions.
+No whole-run gain is established. All four WAVs match the established hash.
+
+Exact attention tests now cover widths 15/16/17, packed row tails, grouped-query
+reuse and NaN-filled scratch, compared against the original packed reference.
+Existing generation token/RNG parity, model/CLI tests, race/vet/no-CGo tests,
+native and ARM64 builds pass. Independent review verified scratch capacity,
+non-overlap and lifetime. Full-tree build still fails in unrelated packages.
+
+[Raw microbenchmarks, full trials, profile and build log](experiments/attention-packed-nn-2026-09-14.json)
+retain all measurements, including the slower full-run mean.
