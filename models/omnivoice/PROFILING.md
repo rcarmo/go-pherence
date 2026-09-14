@@ -836,3 +836,43 @@ No full synthesis run was warranted after the inconsistent kernel results.
 the patch is not applied by the build. This result is specific to the N100 VM
 and these matrix shapes. Defaults, binaries and generated audio are unchanged
 by this documentation-only checkpoint.
+
+## Audio-head dispatch and chunk sizing (2026-09-14)
+
+Retain column workers for small audio-head projections. At N=128, K=1024 and
+2 execution threads, the median of three 200ms benchmark samples was:
+
+| Rows | Serial (µs) | Row workers (µs) | Column workers (µs) |
+| --- | ---: | ---: | ---: |
+| 6 | 65.47 | 63.93 | 47.99 |
+| 12 | 99.66 | 85.42 | 69.84 |
+| 24 | 168.23 | 114.84 | 99.10 |
+| 48 | 312.05 | 184.55 | 164.95 |
+| 78 | 482.06 | 294.60 | 257.08 |
+| 126 | 766.70 | 426.45 | 395.70 |
+
+No serial threshold was added: it would slow every tested shape. Allocation
+counts were zero. Raw logs retain occasional benchmark harness byte accounting.
+
+A separate real-checkpoint projection test compared chunk sizes of 128, 256,
+512 and 1024 columns, with 85 sequence positions and 75 target frames. Median
+projection times were 24.48, 24.56, 24.36 and 25.24 ms respectively. Larger chunks
+did not provide a meaningful benefit and need larger head/output buffers.
+Production remains at 128 columns. Exact logits match across sizes with dense
+and sparse target selections and both row/column pools. Repeated projection
+allocation assertions pass. No model or default was changed in this experiment.
+
+[Raw evidence](experiments/head-dispatch-2026-09-14.json) includes all samples.
+Reproduce with:
+
+```sh
+go test ./backends/simd/runtime -run '^$' \
+  -bench BenchmarkGEMMAudioHeadDispatch -benchtime=200ms -count=3
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+  -run TestRealHeadChunkParity -count=1
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+  -run '^$' -bench BenchmarkRealHeadChunk -benchtime=200ms -count=3
+```
+
+The chunk-resizing helper is test-only. These experiments do not demonstrate an
+end-to-end improvement; no extra synthesis runs were needed to reject them.
