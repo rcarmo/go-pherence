@@ -645,3 +645,43 @@ independently validated. Tests cover exact strided/tail/prepacked kernel results
 alpha, cancellation/draining, lifecycle, zero allocations, and model token/RNG/
 logit parity across streamed, resident, prepacked and shared-CFG modes. Race,
 vet, no-CGo checks and Linux ARM64 cross-build pass.
+
+## Combined worker/cache measurements (2026-09-14, 1ec0bc70)
+
+Resident float32 weights plus column workers had the lowest mean in this batch.
+The ten unprofiled runs use the same three-second prompt, 75 frames, eight steps,
+guidance 2, two threads and two workers. Setup and WAV output are included.
+
+| Mode | Trial 1 (s) | Trial 2 (s) | Mean (s) | Maximum RSS (GiB) |
+| --- | ---: | ---: | ---: | ---: |
+| Streamed, row workers | 57.320 | 65.271 | 61.296 | 1.063 |
+| Streamed, column workers | 97.373 | 56.560 | 76.966 | 1.100 |
+| Streamed, columns + shared CFG | 60.086 | 54.855 | 57.470 | 1.063 |
+| Resident, column workers | 52.864 | 50.294 | 51.579 | 2.659 |
+| Resident + prepacked, column workers | 58.163 | 55.052 | 56.608 | 4.289 |
+
+All ten WAVs have the established SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+[Machine-readable results](combined-workers-2026-09-14.json) retain trial order,
+per-run wall/CPU time, RSS, cache setup time, hashes and available `/proc/stat`
+snapshots. No outlier is removed. The columns-only first trial took 97.37 s;
+its cause was not established. The snapshots were added after that trial and
+cannot diagnose its slowdown retrospectively. These results limit the earlier
+columns-only speedup claim to its original two pairs.
+
+Resident+columns reduced the mean by 15.9% relative to streamed row workers in
+this batch, at about 2.5 times the peak memory. Shared CFG+columns reduced it by
+6.2% without the resident-memory cost. Two trials per mode and visible timing
+variation are insufficient to establish universal rankings or change defaults.
+Prepacking added 3.99–10.54 s setup and did not improve total command time over
+raw resident weights; persistent-worker amortisation needs separate testing.
+
+For this VM, try these explicitly selected configurations:
+
+- Lower-memory candidate: `-gemm-workers 2 -gemm-columns -shared-traversal`.
+- Faster measured candidate with RAM available:
+  `-gemm-workers 2 -gemm-columns -resident-mib 2048`.
+
+Neither changes guidance, steps or generated audio in these tests. Shared CFG
+and resident caching are mutually exclusive. The benchmark validates short
+single-shot synthesis; it does not establish long-request or warm-worker speed.

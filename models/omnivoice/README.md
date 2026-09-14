@@ -90,3 +90,16 @@ Two local streamed timing pairs showed an 8.9% lower mean with byte-identical
 audio; see [PROFILING.md](PROFILING.md). Library callers can use
 `Backbone.EnableColumnWorkers` before creating siblings; existing siblings keep
 their previous selection.
+
+Measured combined-mode candidates on the two-vCPU N100 VM:
+
+| Preference | Explicit flags | Three-second sample mean | Peak RAM |
+| --- | --- | ---: | ---: |
+| Lower memory | `-gemm-workers 2 -gemm-columns -shared-traversal` | 57.47 s | 1.06 GiB |
+| Lower latency, more RAM | `-gemm-workers 2 -gemm-columns -resident-mib 2048` | 51.58 s | 2.66 GiB |
+
+These are two-trial single-shot measurements with eight steps and guidance 2;
+all ten mode-comparison WAVs match. Timing noise includes a retained columns-only
+outlier. Prepacking did not win total command time. See the full
+[measurements](PROFILING.md#combined-workercache-measurements-2026-09-14-1ec0bc70)
+before choosing settings for a persistent worker or longer utterances.
