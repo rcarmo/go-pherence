@@ -9,11 +9,13 @@ import (
 	"errors"
 	"io"
 	"math"
+
+	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
 )
 
 // SpeakerTranscriptConfig pins both input stage versions. Experimental source
-// labels require a separate explicit opt-in. Diagnostic tie-resolved results and
-// gap-filled turns are rejected; neither establishes unique speaker coverage.
+// labels require a separate explicit opt-in. Deterministic lowest-index ties are
+// retained in the referenced diarization checkpoint. Gap-filled turns are rejected.
 type SpeakerTranscriptConfig struct {
 	TranscriptVersion, DiarizationVersion string
 	AllowExperimental                     bool
@@ -34,7 +36,7 @@ type SpeakerTranscript struct {
 	Transcript      Transcript `json:"transcript"`
 }
 
-const speakerCoveragePolicy = "exclusive-turns-maximum-positive-overlap-per-word-v3"
+const speakerCoveragePolicy = "exclusive-turns-maximum-positive-overlap-per-word-v4-lowest-index-provenance"
 
 // NewSpeakerTranscriptStage creates "speaker-transcript" separately from the
 // unlabelled "transcript" so failed diarization never erases downloadable text.
@@ -116,7 +118,7 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 	if !validHash(textKey) || d.TotalSamples != t.TotalSamples || d.SourceTiming != t.SourceTiming {
 		return zero, ErrCorrupt
 	}
-	if d.Policy.MinDurationOff != 0 || len(d.AmbiguousFrames) > 0 || d.Path != "silence" && !d.ConstraintSatisfied {
+	if d.Policy.MinDurationOff != 0 || d.Policy.TiePolicy == c1.RejectAmbiguousTies && len(d.AmbiguousFrames) > 0 || d.Path != "silence" && !d.ConstraintSatisfied {
 		return zero, ErrConfiguration
 	}
 	var spans [64][]speakerSpan
