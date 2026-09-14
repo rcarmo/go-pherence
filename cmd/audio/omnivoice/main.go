@@ -43,6 +43,7 @@ func run(args []string) error {
 	input := flags.String("input", "", "pretokenized input JSON for logits/generate")
 	output := flags.String("output", "", "new synthetic WAV path for generate mode")
 	shared := flags.Bool("shared-traversal", false, "experimental guided streamed CFG layer traversal; excludes resident/prepack/direct-q8")
+	guidanceFlag := flags.Float64("guidance", 2, "experimental CFG scale (0 skips unconditional inference; default 2)")
 	steps := flags.Int("steps", 16, "generation steps")
 	residentMiB := flags.Int64("resident-mib", 0, "opt-in decoder cache budget in MiB including optional packed panels; 0 streams layers (excludes other memory)")
 	prepacked := flags.Bool("prepack", false, "prepack resident decoder projections; requires budget covering raw weights plus panels")
@@ -66,6 +67,19 @@ func run(args []string) error {
 	memProfile := flags.String("memprofile", "", "exclusive-create allocation profile for the whole command")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if err := validateGuidance(*guidanceFlag, *shared); err != nil {
+		return err
+	}
+	guidance := float32(*guidanceFlag)
+	guidanceSet := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "guidance" {
+			guidanceSet = true
+		}
+	})
+	if guidanceSet && *mode != "generate" && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "serve" {
+		return fmt.Errorf("guidance applies only to synthesis/generation")
 	}
 	if *shared && (*residentMiB != 0 || *prepacked || *directQ8 || (*mode != "generate" && *mode != "synthesize" && *mode != "synthesize-long" && *mode != "serve")) {
 		return fmt.Errorf("shared-traversal requires streamed synthesis/generation without resident/prepack/direct-q8")
@@ -134,7 +148,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runServe(serveOptions{shared: *shared, modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
+		return runServe(serveOptions{guidance: &guidance, shared: *shared, modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
 	}
 	if *serveDir != "" || *cacheMiB != 0 || *firstFrames != 0 {
 		return fmt.Errorf("output-dir/cache-mib/first-frames apply only to serve")
@@ -168,7 +182,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers, *shared)
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers, *shared, guidance)
 	}
 
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
@@ -275,10 +289,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false, *shared)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false, *shared, guidance)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8, *shared)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8, *shared, guidance)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)
@@ -373,4 +387,14 @@ func inspectAudio(path string) error {
 		return fmt.Errorf("reference shorter than 2 seconds")
 	}
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{"mode": "audio", "backend": "go-264/audio", "sample_rate": 24000, "channels": 1, "samples": count, "seconds": float64(count) / 24000, "peak": float64(peak) / 32768, "rms": math.Sqrt(sum / float64(count)), "codec_encoding": false})
+}
+
+func validateGuidance(value float64, shared bool) error {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > math.MaxFloat32 || (value > 0 && float32(value) == 0) {
+		return fmt.Errorf("guidance must be finite, nonnegative and representable as float32")
+	}
+	if shared && value == 0 {
+		return fmt.Errorf("shared-traversal requires positive guidance")
+	}
+	return nil
 }

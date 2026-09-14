@@ -61,3 +61,21 @@ showed mixed results; see [the profiling measurements](PROFILING.md).
 Library callers select `GenerationConfig.SharedTraversal` with distinct
 `NewBackboneSibling` backbones. The sibling single-owner/sequential execution
 contract still applies; neither backbone may execute concurrently elsewhere.
+
+### Guidance quality experiment
+
+`-guidance` selects the nonnegative CFG scale for `generate`, `synthesize`,
+`synthesize-long` and `serve`. The default is still **2**. Scale 0 skips
+unconditional inference; any positive scale runs both branches. Consequently,
+lowering 2 to 1 changes audio but does not reduce transformer work.
+`-guidance 0` cannot be combined with `-shared-traversal`.
+
+The worker setting is fixed for its process lifetime and appears in its ready
+record. Single/long synthesis JSON also reports the effective scale. No
+per-request override is provided, so a worker's phrase cache cannot mix scales.
+
+A single short English comparison measured 37.13 s at scale 0 versus 60.26 s
+at scale 2. Both transcribed exactly; the scale-0 waveform RMS was less than
+half the baseline. This experiment has not passed voice/prosody, long-text or
+Portuguese listening gates. See [PROFILING.md](PROFILING.md) for the measurements
+and [TRAINING.md](TRAINING.md) for the reuse/distillation assessment.

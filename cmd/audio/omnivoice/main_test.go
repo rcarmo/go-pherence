@@ -64,3 +64,38 @@ func TestSharedTraversalCLICompatibility(t *testing.T) {
 		}
 	}
 }
+
+func TestGuidanceValidation(t *testing.T) {
+	for _, value := range []string{"NaN", "+Inf", "-1", "1e100", "1e-100"} {
+		err := run([]string{"-mode", "synthesize", "-guidance", value})
+		if err == nil || !strings.Contains(err.Error(), "guidance must") {
+			t.Fatalf("%s: %v", value, err)
+		}
+	}
+	if err := run([]string{"-mode", "synthesize", "-guidance", "0", "-shared-traversal"}); err == nil || !strings.Contains(err.Error(), "positive guidance") {
+		t.Fatalf("shared: %v", err)
+	}
+	if err := run([]string{"-mode", "inspect", "-guidance", "2"}); err == nil || !strings.Contains(err.Error(), "applies only") {
+		t.Fatalf("mode: %v", err)
+	}
+	for _, value := range []float64{0, .5, 1, 1.5, 2, 3} {
+		if err := validateGuidance(value, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestServeGuidanceDefaultAndExplicitZero(t *testing.T) {
+	// A nil guidance uses 2, so shared mode proceeds to normal missing-input
+	// validation. Explicit zero must fail the shared/guidance check first.
+	if err := runServe(serveOptions{shared: true}); err == nil || !strings.Contains(err.Error(), "serve requires") {
+		t.Fatalf("nil default: %v", err)
+	}
+	zero := float32(0)
+	if err := runServe(serveOptions{shared: true, guidance: &zero}); err == nil || !strings.Contains(err.Error(), "positive guidance") {
+		t.Fatalf("explicit zero: %v", err)
+	}
+	if err := runServe(serveOptions{guidance: &zero}); err == nil || !strings.Contains(err.Error(), "serve requires") {
+		t.Fatalf("zero without shared: %v", err)
+	}
+}

@@ -584,3 +584,33 @@ failure followed by successful reuse; execution context references are cleared.
 Unsupported combinations fail validation. Tests, vet, race/no-CGo checks and
 Linux ARM64 cross-build pass. Repository-wide build failures remain in the
 previously recorded unrelated packages.
+
+## Guidance scale experiment (2026-09-14)
+
+The same 75-frame/eight-step short English prompt was run with streamed weights,
+two threads and two GEMM workers. Each scale was measured once. Shared traversal
+was off. The command in the preceding sections applies with `-guidance SCALE`
+and without `-resident-mib`.
+
+| Scale | Wall seconds | Peak RSS KiB | PCM16 RMS | PCM16 peak | Clipped samples |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2 (default) | 60.264 | 1,114,432 | 1,080.48 | 15,953 | 0 |
+| 1 | 62.794 | 1,114,116 | 906.62 | 13,077 | 0 |
+| 0 | 37.126 | 1,109,324 | 476.55 | 7,866 | 0 |
+
+All three 3-second WAVs transcribed to “The evidence is insufficient, Captain.”
+using the existing Azure en-US recognition check. Scale 2 remains byte-identical
+to the established WAV hash. Scale 0 is 38.4% faster in this one comparison and
+skips one of the two branch forwards; the conditional sequence is longer, so
+skipping the unconditional branch does not halve total runtime. Nonzero scale 1
+still runs both branches and offers no compute saving. These are quality-changing
+settings; the default stays 2. Short ASR success does not qualify voice similarity,
+prosody, long/multilingual output or accent. Listening acceptance is open.
+
+Local evidence: `/workspace/tmp/omnivoice-guidance{0,1,2}{,-metrics}.json`,
+`/workspace/tmp/omnivoice-guidance-validation.json`, and
+`/workspace/tmp/synthetic-spock-guidance{0,1,2}.wav`.
+Tests cover five scales, exact same-scale legacy/RNG parity, zero generation
+allocations, no unconditional scratch access at zero, invalid/overflow/underflow
+scales, shared-zero rejection, and worker nil-default versus explicit zero.
+Affected tests/vet/race/no-CGo checks and the Linux ARM64 build pass.
