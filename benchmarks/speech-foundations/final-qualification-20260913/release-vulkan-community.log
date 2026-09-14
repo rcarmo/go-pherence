@@ -1,0 +1,19 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW|LSTMCell|LSTMSequence)|TestVulkanOfflineShaderContractEmbedded)'
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.024s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding|LSTM|Segmentation|Diarization)'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.535s
+bun test scripts/check-vulkan-shaders.test.ts
+bun test v1.4.1 (4661e494f)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.52ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.17ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.04ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.10ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [33.06ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [26.59ms]
+
+ 6 pass
+ 0 fail
+ 69 expect() calls
+Ran 6 tests across 1 file. [78.00ms]

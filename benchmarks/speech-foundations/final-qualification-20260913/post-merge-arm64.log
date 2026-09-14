@@ -1,0 +1,22 @@
+
+===== community-arm64 =====
+
+===== whisper-arm64 =====
+
+===== media-arm64 =====
+
+===== speechjob-arm64 =====
+
+===== speechjobserve-arm64 =====
+# github.com/rcarmo/go-pherence/cmd/audio/speechjobserve [github.com/rcarmo/go-pherence/cmd/audio/speechjobserve.test]
+cmd/audio/speechjobserve/config.go:405:21: undefined: speechjob.ValidateCommunity1Config
+cmd/audio/speechjobserve/config.go:510:80: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:517:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:526:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:531:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:536:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:541:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:547:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:555:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/server.go:100:94: undefined: profileRuntimes
+cmd/audio/speechjobserve/config.go:555:20: too many errors

@@ -1,0 +1,48 @@
+=== RUN   TestVulkanWhisperQ8Weight
+    vulkan_q8_weight_test.go:173: WHISPER_Q8_QUALITY {"f32_projection_bytes":28311552,"max_abs":0.3406410217285156,"packed_vs_dequant_graph_max_abs":0.00002193450927734375,"q8_projection_bytes":7133184,"reference_rms":1.3752335319312137,"rms":0.058114724771534655,"rms_ratio":0.04225807720811263,"steps":[{"baseline_top":50362,"max_logit_abs":0.8628978729248047,"q8_top":50362,"step":0},{"baseline_top":50358,"max_logit_abs":0.15347909927368164,"q8_top":50358,"step":1},{"baseline_top":11,"max_logit_abs":0.5785255432128906,"q8_top":11,"step":2}],"values":6528}
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32-warm wall_ns=602150622
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8-warm wall_ns=487847446
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=547769911
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=489332273
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=484717645
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=553690115
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=482373510
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=545011082
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=549650190
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=492282620
+    vulkan_q8_weight_test.go:253: WHISPER_Q8_JFK {"baseline_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":32839680,"ScratchBytes":28608000},"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","exact_tokens_timestamps":true,"median_ns":{"f32":548710050,"q8":487024959},"q8_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":11661312,"ScratchBytes":28608000},"reference_words":22,"samples_per_path":4,"speedup":1.1266569399783062,"text":"And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.","windows":1,"word_edits":0}
+--- PASS: TestVulkanWhisperQ8Weight (5.87s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	5.905s
+=== RUN   TestVulkanWhisperQ8Weight
+    vulkan_q8_weight_test.go:173: WHISPER_Q8_QUALITY {"f32_projection_bytes":28311552,"max_abs":0.3406410217285156,"packed_vs_dequant_graph_max_abs":0.00002193450927734375,"q8_projection_bytes":7133184,"reference_rms":1.3752335319312137,"rms":0.058114724771534655,"rms_ratio":0.04225807720811263,"steps":[{"baseline_top":50362,"max_logit_abs":0.8628978729248047,"q8_top":50362,"step":0},{"baseline_top":50358,"max_logit_abs":0.15347909927368164,"q8_top":50358,"step":1},{"baseline_top":11,"max_logit_abs":0.5785255432128906,"q8_top":11,"step":2}],"values":6528}
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32-warm wall_ns=583040926
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8-warm wall_ns=489703091
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=547055790
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=480419612
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=479109269
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=550674533
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=481098602
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=544644726
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=554895781
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=477384311
+    vulkan_q8_weight_test.go:253: WHISPER_Q8_JFK {"baseline_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":32839680,"ScratchBytes":28608000},"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","exact_tokens_timestamps":true,"median_ns":{"f32":548865161,"q8":479764440},"q8_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":11661312,"ScratchBytes":28608000},"reference_words":22,"samples_per_path":4,"speedup":1.1440305183935684,"text":"And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.","windows":1,"word_edits":0}
+--- PASS: TestVulkanWhisperQ8Weight (5.80s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	5.835s
+=== RUN   TestVulkanWhisperQ8Weight
+    vulkan_q8_weight_test.go:173: WHISPER_Q8_QUALITY {"f32_projection_bytes":28311552,"max_abs":0.3406410217285156,"packed_vs_dequant_graph_max_abs":0.00002193450927734375,"q8_projection_bytes":7133184,"reference_rms":1.3752335319312137,"rms":0.058114724771534655,"rms_ratio":0.04225807720811263,"steps":[{"baseline_top":50362,"max_logit_abs":0.8628978729248047,"q8_top":50362,"step":0},{"baseline_top":50358,"max_logit_abs":0.15347909927368164,"q8_top":50358,"step":1},{"baseline_top":11,"max_logit_abs":0.5785255432128906,"q8_top":11,"step":2}],"values":6528}
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32-warm wall_ns=577750577
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8-warm wall_ns=487694535
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=554799132
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=488431599
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=481132142
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=546936371
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=486279222
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=559421183
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=f32 wall_ns=551330550
+    vulkan_q8_weight_test.go:210: WHISPER_Q8_SAMPLE path=q8 wall_ns=490575738
+    vulkan_q8_weight_test.go:253: WHISPER_Q8_JFK {"baseline_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":32839680,"ScratchBytes":28608000},"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","exact_tokens_timestamps":true,"median_ns":{"f32":553064841,"q8":487355410},"q8_stats":{"Frames":3000,"Rows":1500,"Width":384,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":11661312,"ScratchBytes":28608000},"reference_words":22,"samples_per_path":4,"speedup":1.1348285658714654,"text":"And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.","windows":1,"word_edits":0}
+--- PASS: TestVulkanWhisperQ8Weight (5.83s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	5.868s

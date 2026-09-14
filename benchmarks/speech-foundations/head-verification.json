@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "baseline_commit": "cb8d963",
+  "scope": "segmentation head and LSTM/head/powerset composition from synthetic recurrent features; no SincNet integration",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "pinned pyannote semantics/PyTorchCPU1thread,MKLDNNoff,syntheticweights/features",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "counts": {
+    "package_pass_events": 37,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "head_pass_events": 14
+  },
+  "tests": [
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "pyannote_commit": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "pyannet_sha256": "3ceebc8c00e83d96747a706212102e7e99c44732ff1fc769e241e8de47d3d6af",
+      "model_sha256": "baef26b0d3bcb0027b179f9d472cc5795f77073fa8e5210bdd2ce53a267275e3",
+      "powerset_sha256": "7eeb5691c20337bd24462f6a4ee2e56e279564bfef7875776df0a41f245b0325",
+      "torch_rnn_sha256": "902deeba8fd7d3c92b00e3557071b3bb41cf747bd4b2b9d63757d88562688bde",
+      "lstm_fixture_sha256": "3eb82a9d1f5b0d6b7dee6418de62a47ae388298b158e0c776fc74600d538bdac",
+      "torch": "2.14.0+cpu",
+      "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+      "cpu_threads": 1,
+      "mkldnn": false
+    },
+    "head_cases": 4,
+    "head_frames": 17,
+    "composition_frames": 7,
+    "absolute_tolerance": 0.000002,
+    "hard_powerset_tolerance": 0,
+    "regeneration": "identical fixture bytes"
+  },
+  "safety": {
+    "scalar_cancellation_points": 77,
+    "SIMD_cancellation_points": 56,
+    "allocations_tested_two_layers": 6,
+    "per_frame_allocation": false,
+    "tests": "ownedweights/output,immutableconcurrency,malformedshapes,NaN/Inf,affineoverflow,stablelargeoffset/extremelogits,observercancel"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "gemv": "existing GemvRows/invaliddimensions tests passed",
+    "vet": "affectedpackages and models/speaker/... passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegated head review no blocking finding"
+  },
+  "holds": [
+    "SincNet strict narrowband4FAIL persists; explicit skip in ordinary suite; code/fixture unchanged this checkpoint",
+    "no full PCM segmentation or trainedcheckpoint binding",
+    "no actual speaker identity/DER/quality or throughput result",
+    "no specialised new SIMD/Vulkan or full WeSpeaker/PLDA/VBx reconstruction",
+    "running GEMV/callback uninterruptible; no wallclock cancellation gate",
+    "race detector unavailable"
+  ]
+}

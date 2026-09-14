@@ -1,0 +1,208 @@
+{
+  "checkpoint": "Native Vulkan kernel3 convolution/addition and reduced resident stem",
+  "created": "2026-09-12T06:54:53.346Z",
+  "baseline": "bd3e07c",
+  "branch": "feat/speech-simd-vulkan",
+  "device": {
+    "device": "Intel(R) Iris(R) Xe Graphics (RPL-P)",
+    "device_id": 42912,
+    "device_type": 1,
+    "driver_version": 109056008,
+    "kind": "native_device",
+    "limits": {
+      "APIVersion": 4211042,
+      "StorageBufferRange": 4294967295,
+      "MemoryAllocationCount": 4294967295,
+      "StorageBufferOffsetAlignment": 4,
+      "PushConstantBytes": 256,
+      "BoundDescriptorSets": 32,
+      "PerStageStorageBuffers": 201326592,
+      "PerStageResources": 201326592,
+      "DescriptorSetStorageBuffers": 201326592,
+      "WorkgroupCount": [
+        2147483647,
+        65535,
+        65535
+      ],
+      "WorkgroupSize": [
+        1024,
+        1024,
+        1024
+      ],
+      "WorkgroupInvocations": 1024,
+      "SharedMemoryBytes": 49152
+    },
+    "vendor_id": 32902
+  },
+  "driverSHA256": "2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3",
+  "execution": {
+    "authorisedCompute": true,
+    "nativeGPU": true,
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "noModels": true,
+    "noServicesStarted": true,
+    "noPush": true,
+    "noRestart": true,
+    "timingMode": false
+  },
+  "offline": {
+    "passEvents": 434,
+    "topLevel": 125,
+    "uniqueTopLevel": 125,
+    "fail": 0,
+    "skip": 0
+  },
+  "shuffle30": {
+    "passEvents": 5520,
+    "topLevel": 1740,
+    "uniqueTopLevel": 58,
+    "fail": 0,
+    "skip": 0
+  },
+  "static": {
+    "validationPasses": 32,
+    "embedded": 16,
+    "rebuilt": 16,
+    "normalisedMatches": 16,
+    "byteRebuildMatches": 6,
+    "bunTests": 6,
+    "bunAssertions": 55,
+    "report": "static/verification.json",
+    "newOpcode": "OpISub130 fixedarity5,resultword2; pinnedcoregrammar"
+  },
+  "sourceModel": {
+    "shapes": 11,
+    "layouts": 2,
+    "schedules": 4,
+    "values": 46248,
+    "maxAbsoluteError": 0.000020864453687430284,
+    "budget": "2e-5abs+2e-5rel",
+    "oracle": "directfloat64conv",
+    "layoutScheduleBitExact": true
+  },
+  "native": {
+    "passEvents": 39,
+    "topLevel": 3,
+    "uniqueTopLevel": 1,
+    "fail": 0,
+    "skip": 0,
+    "repeats": 3,
+    "cases": 339,
+    "values": 610056,
+    "components": {
+      "conv": {
+        "cases": 66,
+        "values": 34686,
+        "maxAbsoluteError": 0.000020864453687430284
+      },
+      "add": {
+        "cases": 90,
+        "values": 19275,
+        "maxAbsoluteError": 0
+      },
+      "stem/": {
+        "cases": 27,
+        "values": 56691,
+        "maxAbsoluteError": 1.1920928955078125e-7
+      }
+    },
+    "stemShapes": [
+      [
+        17,
+        2,
+        3
+      ],
+      [
+        65,
+        80,
+        64
+      ],
+      [
+        129,
+        128,
+        64
+      ]
+    ],
+    "stemVersusSeparateBitExact": 9,
+    "guards": "PASS",
+    "allocationReturn": "PASS",
+    "budgets": "conv2e-5abs+rel/addexact/stem5e-5abs+rel;fixedbeforeexecution"
+  },
+  "checks": {
+    "makeRegression": "PASS offline/affine/foundations/media",
+    "nativeMake": "PASS",
+    "optInDisabled": "expectedSKIPbeforeinit",
+    "vet": "PASS Vulkan/board",
+    "affectedBuild": "PASS",
+    "arm64": "crossbuildonlyPASS",
+    "fullBuild": "FAIL samebaseline",
+    "backendCompileOnly": "FAIL samebaseline",
+    "race": "gccabsentcannotbuild",
+    "diffCheck": "PASS",
+    "checkedDocLinks": 92
+  },
+  "resources": {
+    "beforeSwap": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "afterSwap": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "LLM/speechunitsinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "review": {
+    "scope": "convshader/convwrapper/addwrapper",
+    "result": "No scopedshaderindex/padding/orientation/barrierbug;highlightedmutablegenericstages",
+    "resolution": "newAPIcommentsexplicitcallerresponsibilityafterstagechanges;plansonlygenericresourcechecks",
+    "notImmutableStageGuarantee": true
+  },
+  "limitations": [
+    "FixedK3pad1stride1/2,no groups/dilation,finiteproductsandsumsrequired.",
+    "Noquantisedformat,F16,trainedmodel/fullsizeencodergraph/quality/performance/recoveryqualification.",
+    "Stemoutputwidthreduced;80/128inputmelchannelscovered;nohostintermediate.",
+    "Mutablegenericstagesnotoperatorrevalidatedafterchanges.",
+    "NoGPUtimestamp/benchmarkclaim;servicesleftstopped.",
+    "SincNetstrict4FAILunchanged;racegccabsent."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_conv.go": "3212a5031af3b98c3b6360641a2753156b726e8d7813542c39f1da7f5626b6a7",
+    "backends/vulkan/vulkan_add.go": "c8f823331de1fc10ed30f1e708be883ea0bc7b8cf7a6719b7c2fceea45c1cbdf",
+    "backends/vulkan/vulkan_conv_test.go": "9c83f7c560ff3775e5d4648fa5c892670c603d606cba2efdad55bd2459c5a1f5",
+    "backends/vulkan/vulkan_add_test.go": "0b45ceea67131e3f3025298359f60e6f4b1f3c9cee0dd84e297d003b53b6d29d",
+    "backends/vulkan/vulkan_stem_native_test.go": "04bd9ace407ebf62de5177d6b363ed736c0735a52c383074e72113a72d130744",
+    "backends/vulkan/vulkan_speech_native_test.go": "672965d19df55d895f132d322dfdd45e9e9887bccdb4aa5c23c1c8a74ed818e0",
+    "backends/vulkan/vulkan_spirv_contract_ops.go": "943a2b45a71b3ad4cc74d4f53bb600231c158cc1f7b2fda8b78a652a7708e34d",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "682f716e0b769f95e15f96e4bfc2fb445294fa412994bc9430021117af14405b",
+    "backends/vulkan/vulkan_spirv_embedded.go": "1ef1321e5b9ed0982b6629396866457f2600564096bf7d15794ac3d9d4cfdf30",
+    "backends/vulkan/shaders/conv1d3_f32.glsl": "a774fe2b9a288d9bfd3febf036acbc0abce32d68c0dab282fbe364a6c34a8ef9",
+    "backends/vulkan/shaders/conv1d3_f32.spv": "34b16b5c94d4c101243e2527cba569dd34d25d7bca6b24d4f6cd55301842267d",
+    "backends/vulkan/shaders/vec_add_f32.spv": "33d883f09614725c9ad360f289bc3663bfb529d97a2478187dc4edaa84cd587d",
+    "scripts/check-vulkan-shaders.ts": "a3cd2baac0025a09a126f658db05b9422d08c7f9394ba0361657389b8e41402b",
+    "scripts/check-vulkan-shaders.test.ts": "b15378823f05e8d30bcafb9388e7bb9378eb0336282a1e17bcf06b9e7cc64951",
+    "docs/speech-integration.md": "098e7c5ac4f640e4c2e6eff5af9305bfa01bdcfd1ce8ab54e66828f2a12fc85c",
+    "benchmarks/speech-foundations/README.md": "6f98b392f982d361169fbcc53d79eb6284171f40398f24ef1761230325ad4c21"
+  },
+  "evidenceHashes": {
+    "README.md": "17edba5e71a89d1c493054e12b5dc77cebfaf9e3f85c03fce0bf3b3131735bdc",
+    "conv.spvasm": "ebcd52c9192ac6090f8f46e350df4df1b1f72acff9ccbd8199561ef521417a18",
+    "native-tests.jsonl": "6bd0b5a431f8366f69cb90a60421300096381f5e66f70919a3e8a94fd018d97d",
+    "initial-native-tests.jsonl": "649debccf1187926b079b4f98c3339d0bd00cf8efc252a1e28bf58c8e63006c5",
+    "offline-tests.jsonl": "317d4dc9f88934ad8b56baadc4bdadef121d1f331198cc9719406d6d0c42d489",
+    "regressions.txt": "be790dea7cbf273bacbedb07ca896631e95d692ba8ef10a0a94f4c1c8b0d5f5e",
+    "native-make.txt": "f8378fff9bb08e7d5fcac3177993d9c92ac0f6ca4b8cdc09beaa2959ad28f4b0",
+    "optin-disabled.txt": "469a602ce0f5c4a18c3502096f4413976d3b49b609d514372949a8ca45052751",
+    "before.txt": "e39ad1a1f7818534eb626380f6a6ae0f94d3ed020fd3e1ddd8a012680aeed7ae",
+    "after.txt": "c5e1417f93499b27afbcbdbd80357a6da150874572cadb92b31e6d70f071fe6d",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "shuffle-tests.jsonl.gz": "a90984b5128af3823e80d0da20ba0dcecbd60d63cb63b40b6558f641feccad55",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "e73a87c88d9c18e21c0465877670dbac074304421e74c11794dd0c388b218f8e",
+    "static/verification.json": "5eefa490077ee726fd0725968fe662250c49305344836cbe0b058ba7887f2b47"
+  }
+}

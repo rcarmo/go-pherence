@@ -1,0 +1,15 @@
+=== RUN   TestVulkanTurboQ8Weight
+    vulkan_turbo_q8_test.go:30: TURBO_LOAD ns=4022100703 tensors=587 checkpoint_f16=true inference_f32=true
+    vulkan_turbo_q8_test.go:143: TURBO_Q8_SHORT {"baseline_stats":{"Frames":4,"Rows":2,"Width":1280,"Layers":32,"Plans":34,"Stages":390,"WeightBytes":2540369920,"ScratchBytes":124928},"decoder_steps":[{"baseline_top":50360,"max_logit_abs":0.11135673522949219,"q8_top":50360,"step":0},{"baseline_top":50360,"max_logit_abs":0.43701696395874023,"q8_top":50360,"step":1},{"baseline_top":50360,"max_logit_abs":0.2981586456298828,"q8_top":50360,"step":2}],"dequant_reference_rms":0.4458029177510059,"f32_projection_bytes":2516582400,"f32_reference_rms":0.44637158161738477,"memory":{"Bytes":654532608,"Allocations":35,"HeapBytes":[654532608,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"Budget":{"MaxBytes":4294967296,"MaxAllocations":40},"DeviceAllocationLimit":4294967295,"InFlight":false,"Uncertain":false,"DeviceLost":false},"packed_vs_dequant_max_abs":0.000019073486328125,"packed_vs_dequant_rms":0.0000031618619061743235,"q8_projection_bytes":630620160,"q8_rms_ratio":0.04086124878048051,"q8_stats":{"Frames":4,"Rows":2,"Width":1280,"Layers":32,"Plans":34,"Stages":390,"WeightBytes":654407680,"ScratchBytes":124928},"q8_vs_f32_max_abs":0.09805488586425781,"q8_vs_f32_rms":0.01823930024500452,"values":2560}
+    vulkan_turbo_q8_test.go:166: TURBO_Q8_SAMPLE path=f32 wall_ns=15744096355
+    vulkan_turbo_q8_test.go:166: TURBO_Q8_SAMPLE path=q8 wall_ns=9494736013
+    vulkan_turbo_q8_test.go:202: TURBO_Q8_JFK {"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","exact_tokens_timestamps":true,"f32_ns":15744096355,"q8_ns":9494736013,"reference_words":22,"speedup":1.6581921112333722,"text":"And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.","word_edits":0}
+    vulkan_turbo_q8_test.go:253: TURBO_Q8_MULTILINGUAL_SAMPLE path=f32 wall_ns=46014037641
+    vulkan_turbo_q8_test.go:253: TURBO_Q8_MULTILINGUAL_SAMPLE path=q8 wall_ns=27508719379
+    vulkan_turbo_q8_test.go:290: TURBO_Q8_MULTILINGUAL {"exact_tokens_timestamps":true,"fixture":"minds-pt-0","language":"pt","reference_words":20,"text":"Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.","word_edits":0}
+    vulkan_turbo_q8_test.go:290: TURBO_Q8_MULTILINGUAL {"exact_tokens_timestamps":true,"fixture":"minds-pt-1","language":"pt","reference_words":9,"text":"Como faço para transferir dinheiro para a minha conta?","word_edits":0}
+    vulkan_turbo_q8_test.go:290: TURBO_Q8_MULTILINGUAL {"exact_tokens_timestamps":true,"fixture":"minds-fr-0","language":"fr","reference_words":5,"text":"Je souhaite changer mon adresse.","word_edits":0}
+    vulkan_turbo_q8_test.go:293: TURBO_Q8_MULTILINGUAL_RESULT {"all_exact":true,"all_zero_wer":true,"f32_ns":46014037641,"fixtures":3,"q8_ns":27508719379,"speedup":1.672707369872218}
+--- PASS: TestVulkanTurboQ8Weight (132.13s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	132.423s

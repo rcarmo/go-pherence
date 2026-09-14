@@ -1,0 +1,671 @@
+{
+  "created": "2026-09-13T14:56:43.834Z",
+  "target": "vulkan1.3",
+  "compilerTarget": "-V -S comp (default Vulkan1.0/SPIR-V1.0)",
+  "normalisation": "Generator word=0; sort OpDecorate/OpMemberDecorate multiset; all other words unchanged. Not semantic equivalence.",
+  "nativeVulkanOpened": false,
+  "shaders": [
+    {
+      "name": "attention_f32",
+      "bytes": 12120,
+      "embeddedSHA256": "273feb68924b547534a6a706cc7f488a3979e4a1da0f7b0b6681a9af41502bd8",
+      "sourceSHA256": "2c74ea9822e4faae53ebbacfd7a0314bdbb199875ebc656473d7ed8cac4db0d5",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/attention_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "273feb68924b547534a6a706cc7f488a3979e4a1da0f7b0b6681a9af41502bd8",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "05e7129d60d47c2585eee07beb65bf5fa5e5c8b7b027528b171e8da45d8f4a49",
+      "normalisedRebuiltSHA256": "05e7129d60d47c2585eee07beb65bf5fa5e5c8b7b027528b171e8da45d8f4a49",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "attention_score",
+      "bytes": 4180,
+      "embeddedSHA256": "2f5f442ca36e44752c51a417c410761a729f3d0a18e9c560394a1615953f8be7",
+      "sourceSHA256": "9c288ff81a7c3c5b098776975e08cdbfa696dbed3cdf805d268ff24da089054d",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/attention_score.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "8019058cbb3d350ae16a23b71149713d6aa675ebef110690bd83de79dcbe8af6",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "770205efd3638fac0307dfa8d23e55038cb4bf837cb5eace5f16c6b74b26af39",
+      "normalisedRebuiltSHA256": "770205efd3638fac0307dfa8d23e55038cb4bf837cb5eace5f16c6b74b26af39",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "channel_affine_relu_f32",
+      "bytes": 2560,
+      "embeddedSHA256": "53ec7f49bd5fb7344937f1c488a014ba2fdff9f577053b3866099deb440f116b",
+      "sourceSHA256": "2fb53ba10e6f91222e009c8753859e6c4684ba00118024c6c5d1186a681c34ac",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/channel_affine_relu_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "53ec7f49bd5fb7344937f1c488a014ba2fdff9f577053b3866099deb440f116b",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "ddafebe59fcc7b29f2892f97eaa9c29927a56298d13b098c9747c27c747065ce",
+      "normalisedRebuiltSHA256": "ddafebe59fcc7b29f2892f97eaa9c29927a56298d13b098c9747c27c747065ce",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "conv1d3_f32",
+      "bytes": 5980,
+      "embeddedSHA256": "34b16b5c94d4c101243e2527cba569dd34d25d7bca6b24d4f6cd55301842267d",
+      "sourceSHA256": "a774fe2b9a288d9bfd3febf036acbc0abce32d68c0dab282fbe364a6c34a8ef9",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/conv1d3_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "34b16b5c94d4c101243e2527cba569dd34d25d7bca6b24d4f6cd55301842267d",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "3d57cbdc8584b63ba5da6e6b1ffbb1710bac09ebed80ee4f0292280650952dd8",
+      "normalisedRebuiltSHA256": "3d57cbdc8584b63ba5da6e6b1ffbb1710bac09ebed80ee4f0292280650952dd8",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "conv2d_chw_f32",
+      "bytes": 7144,
+      "embeddedSHA256": "b5de79ccaca0ba3de8f13416f97fbb144ac1f398839ecddc63a12230a4ec6ba6",
+      "sourceSHA256": "15882657550570093bc81ad3338b4b9bee43b752d90f1551a81d99ceb6749dd4",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/conv2d_chw_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "b5de79ccaca0ba3de8f13416f97fbb144ac1f398839ecddc63a12230a4ec6ba6",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "74cb61d7aa0010d930bfb61e87f20a1dbe672861c21720edd0294137ffae2831",
+      "normalisedRebuiltSHA256": "74cb61d7aa0010d930bfb61e87f20a1dbe672861c21720edd0294137ffae2831",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "gelu_erf_f32",
+      "bytes": 3276,
+      "embeddedSHA256": "586332ffcc557755e81db54fd928c1336e16763ad5a258cb96cdd1c907a7175b",
+      "sourceSHA256": "e465d5b3de361d18d9d14decf35993342c75890f81971b6e3025b9cd1879a54e",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/gelu_erf_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "586332ffcc557755e81db54fd928c1336e16763ad5a258cb96cdd1c907a7175b",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "84ae4a4e25b31bff9e3034778409270b8b7300d8dd5f3a50b745a575b316d4a8",
+      "normalisedRebuiltSHA256": "84ae4a4e25b31bff9e3034778409270b8b7300d8dd5f3a50b745a575b316d4a8",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "gelu_tanh_mul_f32",
+      "bytes": 2092,
+      "embeddedSHA256": "4db86ea957a61e4d1e50f7d1f0a45a7fbc5ac90f6f71b4193c3b24ad46a97d84",
+      "sourceSHA256": "d1ead6140105ae8d9b473907c6f77a472b41ec9b4a56005e5f3a94237fe40315",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/gelu_tanh_mul_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "75eecb622c678fdf4667228e4ef8c1ea4a2dc0d6006a7090acea8df8ea163f1d",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "adff247285c3e584bdeac6cf9f4ca0a906acf007c99e9763cf06a0f55d546fdf",
+      "normalisedRebuiltSHA256": "adff247285c3e584bdeac6cf9f4ca0a906acf007c99e9763cf06a0f55d546fdf",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "gemv_bf16_mixed",
+      "bytes": 3208,
+      "embeddedSHA256": "c998be8a470f8da813de01799181c57cb5a798bca1c34569494634f8c821d193",
+      "sourceSHA256": "13d9007031b07e06e4b46333995488a0068cc0a8fced15d3b118af5dd1fc26a2",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/gemv_bf16_mixed.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "37968125feca9fabc099886938006a59b23c2b9e9a60c1264a1e194c71ecb1d7",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "d632ef3ebd83a26f54de2cda3fe6b4cd7be76155ca18d2fca8fe0605c8f412d4",
+      "normalisedRebuiltSHA256": "d632ef3ebd83a26f54de2cda3fe6b4cd7be76155ca18d2fca8fe0605c8f412d4",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "gemv_f32",
+      "bytes": 3104,
+      "embeddedSHA256": "b90d64a43d3655feb2d2b081981b156fa0fb1bbb08d90ec4fed8993127ad9abe",
+      "sourceSHA256": "5ffd83c1283aa114c01fa79d39822a2c03f3c8a7d50c5e4235acc643393c3b1a",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/gemv_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "5220b1dc9f432fddf0a36bb65f8a01bb56aa312763f9a13e95820aa6a2e55aa8",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "310bd106dce24e05e006cd7d65d426671c52133f8830f64364e459b027603987",
+      "normalisedRebuiltSHA256": "310bd106dce24e05e006cd7d65d426671c52133f8830f64364e459b027603987",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "layer_norm_f32",
+      "bytes": 5532,
+      "embeddedSHA256": "82cc1ae01aad528077987eb93e6a9cd68c301a2497584124404cd4fdcc0a86ed",
+      "sourceSHA256": "63b50c5af700fc3fc703adc122e27185167ef2e43c1db134ae03c80e25c61fe8",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/layer_norm_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "82cc1ae01aad528077987eb93e6a9cd68c301a2497584124404cd4fdcc0a86ed",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "e44c46c6e35a7ce858e6f0d2a4e4e45bea40f220bdbfa24c807b2d708b720e2e",
+      "normalisedRebuiltSHA256": "e44c46c6e35a7ce858e6f0d2a4e4e45bea40f220bdbfa24c807b2d708b720e2e",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "linear_f16_weight_f32",
+      "bytes": 6588,
+      "embeddedSHA256": "7fc207d2b71cf9aac0f77308159382cb509ed27dbc187cac76f18ff9293945d4",
+      "sourceSHA256": "931a83b0bda03464885dfffe5fe786d2581ee11a4867e59160c4303d9a7c625c",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/linear_f16_weight_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "7fc207d2b71cf9aac0f77308159382cb509ed27dbc187cac76f18ff9293945d4",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "ee95288aa310f748d1d2697d7bb8727d59bb2d09a93039341993897a700bc7a7",
+      "normalisedRebuiltSHA256": "ee95288aa310f748d1d2697d7bb8727d59bb2d09a93039341993897a700bc7a7",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "linear_f32",
+      "bytes": 4796,
+      "embeddedSHA256": "8775251c424ec3db43bb744cb3bce5acbd0aa14f16c64993b54308cd06af3a6e",
+      "sourceSHA256": "c97dd8cb69e2707dfaca6833bb3629f91fab73037f26073e418146be9df5dc0b",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/linear_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "8775251c424ec3db43bb744cb3bce5acbd0aa14f16c64993b54308cd06af3a6e",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "d53aa0eb956c9bab771629c009daffef22b998bf4d80016e4d03efe93d5d1dfa",
+      "normalisedRebuiltSHA256": "d53aa0eb956c9bab771629c009daffef22b998bf4d80016e4d03efe93d5d1dfa",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "linear_f32_regtile",
+      "bytes": 7512,
+      "embeddedSHA256": "6fbfd7865b11249e0e85887a8e6cced801bbfadba5e36db1fbcaeedc0a5aa4ae",
+      "sourceSHA256": "1a404f521ed5ad2d1ae19278d820697bc8996dbe25818d43a82e80bdcf8f7ca0",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/linear_f32_regtile.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "6fbfd7865b11249e0e85887a8e6cced801bbfadba5e36db1fbcaeedc0a5aa4ae",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "7d2daf2ce1da41d3bf4062fcc627939595d28dea6b9b03e175bebf5fb0043405",
+      "normalisedRebuiltSHA256": "7d2daf2ce1da41d3bf4062fcc627939595d28dea6b9b03e175bebf5fb0043405",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "linear_q8_weight_f32",
+      "bytes": 11536,
+      "embeddedSHA256": "6ebaec62c644976bc62ad977a9c693d3e805320ace560f94e98247f99863c306",
+      "sourceSHA256": "f00ef2cb2632ca2c8799b34b012e3daae088b35ac8c809cfcb4bb68dde74c8bf",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/linear_q8_weight_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "6ebaec62c644976bc62ad977a9c693d3e805320ace560f94e98247f99863c306",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "fbfe431b8e772f2bfda92a72461ae5681c6a5d4374f16a13f649ae6a93f24a8b",
+      "normalisedRebuiltSHA256": "fbfe431b8e772f2bfda92a72461ae5681c6a5d4374f16a13f649ae6a93f24a8b",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "lstm_cell_f32",
+      "bytes": 4100,
+      "embeddedSHA256": "d41bfe8134dee00c628ae5d0ea5e97494e657aea349890a5f38604099f3b6e60",
+      "sourceSHA256": "44b8a21c34593fb8031134818f26c5f0b5b18114cf3c954a88e065ba73126d55",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/lstm_cell_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "d41bfe8134dee00c628ae5d0ea5e97494e657aea349890a5f38604099f3b6e60",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "03f65f79bb751e3f2869628e4226ce3ec1c4b29e4a600d844f8194f1d1d8b5a9",
+      "normalisedRebuiltSHA256": "03f65f79bb751e3f2869628e4226ce3ec1c4b29e4a600d844f8194f1d1d8b5a9",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "lstm_sequence_f32",
+      "bytes": 12236,
+      "embeddedSHA256": "0bff053663658eea3d9d3d1c4fc7132fd6a6f9010d32c98353604429c2f0ac4e",
+      "sourceSHA256": "4afb9078bfcbddd500688dc333bd0aef4614a04c66e9618b21f2f0c7d74eee09",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/lstm_sequence_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "0bff053663658eea3d9d3d1c4fc7132fd6a6f9010d32c98353604429c2f0ac4e",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "492c523e46ecbf3b87a182040aa1c3f916996f806b2644a4ebf6bb014419e5c1",
+      "normalisedRebuiltSHA256": "492c523e46ecbf3b87a182040aa1c3f916996f806b2644a4ebf6bb014419e5c1",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "rms_norm_bf16",
+      "bytes": 3756,
+      "embeddedSHA256": "eeb966c50f402f279a01e4d5db56a6b97efe476ae895d534212a9127c14ba6da",
+      "sourceSHA256": "aff0a5923918ffc96221e0876b5c22db95c5c834809fa14f72fb6ec7a580b552",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/rms_norm_bf16.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "9339a9a9fbd6a0d67a52158b5b9ddb195df8c291c22d9448f4746f5cb9e632c2",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "e8225d29ea204a4500ad583241b1129f5e18f1f01bca1a455a9634d651eb8b6f",
+      "normalisedRebuiltSHA256": "e8225d29ea204a4500ad583241b1129f5e18f1f01bca1a455a9634d651eb8b6f",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "rms_norm_f32",
+      "bytes": 3156,
+      "embeddedSHA256": "ccfa9866ebbdd30a9ef3d475ae9d2e568b4ab61bdb585b55c1cf39aa0e235155",
+      "sourceSHA256": "c0066d6af391cc2e0e923e24a14eb35a5a60a54aab9fe9b99effae2261b49665",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/rms_norm_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "f249c9563a79f0b67cb9135de91da5ed2b46fa3a020560049a279d715b9b6a75",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "b013fffeeb411c9aadc03b64225d5a278c9ee146682cda1fdcc4e3edc36e9357",
+      "normalisedRebuiltSHA256": "b013fffeeb411c9aadc03b64225d5a278c9ee146682cda1fdcc4e3edc36e9357",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "rms_norm_no_scale_f32",
+      "bytes": 3072,
+      "embeddedSHA256": "e32e120942c6f7e99a25d781311896a0f80070b266096e40ad3dc41411454116",
+      "sourceSHA256": "4d14f3f3d0f492aac0a220991908389613c698d478e96ee2498c33b9264514de",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/rms_norm_no_scale_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "caf8818ff9654d26d60c49700f9aebeaea77267d07a1dfc00fc58798b34487f0",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "937fbdc523255e4e170e479b6e8c7208c841007ad8ea3ed6ea5c804ae8a468e4",
+      "normalisedRebuiltSHA256": "937fbdc523255e4e170e479b6e8c7208c841007ad8ea3ed6ea5c804ae8a468e4",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "rope_partial_f32",
+      "bytes": 2860,
+      "embeddedSHA256": "94d59827afa2c0e05d1487e3b178f79be1d48c2abf442baf056a9fb78811eafa",
+      "sourceSHA256": "c59df6746ae05c2c13b6e04bd2b0f4b52685f00715ff314011ca4ef2cebcc7fb",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/rope_partial_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "94d59827afa2c0e05d1487e3b178f79be1d48c2abf442baf056a9fb78811eafa",
+      "byteRebuildMatches": true,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "cd12c2ef10185116209f7d582bb0443425da9e8806b0666680dce39600094921",
+      "normalisedRebuiltSHA256": "cd12c2ef10185116209f7d582bb0443425da9e8806b0666680dce39600094921",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "silu_mul_f32",
+      "bytes": 1788,
+      "embeddedSHA256": "c0ef89bf5bd6cfc36ba420d545c18157778109a1852e964c44b07e58f8935ac1",
+      "sourceSHA256": "4460957f0aca6c3300af37e817a89ccdb7c88594037aa1b99fae89d1e57a222f",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/silu_mul_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "7931e9f084729022ff02711d719c640ac5b41e471399b4a32eb4db213b901a81",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "543ac4b133db065c4893ca5a2ac3667f6a50449baadef4d039bece4133419331",
+      "normalisedRebuiltSHA256": "543ac4b133db065c4893ca5a2ac3667f6a50449baadef4d039bece4133419331",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "vec_add_bf16",
+      "bytes": 2208,
+      "embeddedSHA256": "bb013e107014a76d5c4b2528da802e8e2ac7ecdca497a32f62f08fb78a8d41aa",
+      "sourceSHA256": "fe88a9d817150c2b99efb024ca13effcb190a9b3faf2afd91a5872c383565f5c",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/vec_add_bf16.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "56b345897f711815f662c88218977c5d82bc98f7f70d6d9e807096f72978733e",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "b64b00f175a2779c860378b56ae7a14d69f4bc2e290a000fcababa181d9ea164",
+      "normalisedRebuiltSHA256": "b64b00f175a2779c860378b56ae7a14d69f4bc2e290a000fcababa181d9ea164",
+      "normalisedMatches": true,
+      "pass": true
+    },
+    {
+      "name": "vec_add_f32",
+      "bytes": 1540,
+      "embeddedSHA256": "33d883f09614725c9ad360f289bc3663bfb529d97a2478187dc4edaa84cd587d",
+      "sourceSHA256": "ab67a313eadd9f133c2a694062c2d97f18d58345e0a93eb7e34ae970e997c75f",
+      "storedMatchesEmbedded": true,
+      "validation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compilation": {
+        "status": 0,
+        "stdout": "/var/home/agent/workspace/projects/go-pherence/backends/vulkan/shaders/vec_add_f32.glsl\n",
+        "stderr": ""
+      },
+      "rebuiltSHA256": "6b004cb8559532d46ae4af17215a141697ce958776d21e499bb58f271c692e81",
+      "byteRebuildMatches": false,
+      "rebuiltValidation": {
+        "status": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalisedEmbeddedSHA256": "605fe0262e8b78a0877b009d26ae44bc8eee2a173d02789bc003b6caf604fcb4",
+      "normalisedRebuiltSHA256": "605fe0262e8b78a0877b009d26ae44bc8eee2a173d02789bc003b6caf604fcb4",
+      "normalisedMatches": true,
+      "pass": true
+    }
+  ],
+  "limitations": [
+    "No driver/shader/model execution or numerical/performance qualification.",
+    "spirv-val does not prove race freedom or host shader interface correctness.",
+    "Byte rebuild identity is diagnostic; normalised identity and validation are gates.",
+    "This check does not clear any existing wrapper holds."
+  ],
+  "validator": {
+    "path": "/var/home/agent/workspace/projects/go-pherence/../../tools/vulkan-offline/usr/bin/spirv-val",
+    "sha256": "49044b2fffb78a93ab7016d46a50d156088598162de8b8a523f3308ea5b3f2f8",
+    "version": "SPIRV-Tools v2023.1 unknown hash, 2023-02-15T14:03:51\nTargets:\n  SPIR-V 1.0\n  SPIR-V 1.1\n  SPIR-V 1.2\n  SPIR-V 1.3\n  SPIR-V 1.4\n  SPIR-V 1.5\n  SPIR-V 1.6\n  SPIR-V 1.2 (under OpenCL 2.2 Full Profile semantics)\n  SPIR-V 1.0 (under Vulkan 1.0 semantics)\n  SPIR-V 1.3 (under Vulkan 1.1 semantics)\n SPIR-V 1.4 (under Vulkan 1.1 semantics)\n SPIR-V 1.5 (under Vulkan 1.2 semantics)\n SPIR-V 1.6 (under Vulkan 1.3 semantics)"
+  },
+  "compiler": {
+    "path": "/var/home/agent/workspace/projects/go-pherence/../../tools/vulkan-offline/usr/bin/glslangValidator",
+    "sha256": "cf71ac44d16516e311ccfb9796757d6d11d7a59d4a733aa27214bef4cef381ad",
+    "version": "Glslang Version: 11:12.0.0\nESSL Version: OpenGL ES GLSL 3.20 glslang Khronos. 12.0.0\nGLSL Version: 4.60 glslang Khronos. 12.0.0\nSPIR-V Version 0x00010600, Revision 1\nGLSL.std.450 Version 100, Revision 1\nKhronos Tool ID 8\nSPIR-V Generator Version 11\nGL_KHR_vulkan_glsl version 100\nARB_GL_gl_spirv version 100"
+  },
+  "embeddedSourceSHA256": "001719901d58a822771d52474ac85cbbb8c49f1ed07a21d585e7f7e2769a83ed",
+  "pass": true
+}

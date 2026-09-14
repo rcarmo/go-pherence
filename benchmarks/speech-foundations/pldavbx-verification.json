@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "baseline_commit": "ddabfee",
+  "scope": "prepared float64 PLDA transform and deterministic non-HMM VBx component, not full clustering",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "package_pass_events": 131,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "focused_pass_events": 16,
+    "focused_top_level": 6
+  },
+  "tests": [
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSchemaAndOwnedGraphParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadMetadataRejectionBeforePayload",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadPayloadFailureCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSafetensorsDTypeAndSourceClose",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/empty_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/empty_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMaskRejectionAndBounds",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksCancellationAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmptyMaskBiasExcludedFromClustering",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/two_groups",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/single_speaker",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/gapped_labels",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/hard_init",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/uniform_init",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/one_iteration",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/zero_phi",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/separated_large",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/forced_stop",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/prepared_bridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAToVBxBridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAValidation",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxValidation",
+      "status": "pass"
+    },
+    {
+      "test": "TestPLDAVBxCancellationAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetFullDepthOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetRejectsGeometryAndWeights",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetCancellationAndSharedAllocation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "contract": {
+    "plda_cases": 4,
+    "vbx_cases": 10,
+    "vbx_iteration_states": 45,
+    "dtype": "float64",
+    "absolute_tolerance": 2e-10,
+    "relative_tolerance": 2e-10,
+    "prepared_coefficients": "explicit eigensolved ordered transform/Phi, not raw NPZ tr/psi",
+    "VBx": "deterministic hard/soft labels, gapped slots, learned priors, original early stop",
+    "owned": true,
+    "cancellation_checkpoints": [
+      20,
+      21,
+      109
+    ],
+    "regeneration": "byte-identical",
+    "integration": "synthetic prepared PLDA to VBx matches source",
+    "work_bound": "Rows*Dimension*Speakers*MaxIterations<=2^28"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "vet": "speaker/... and focused packages passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegated numerical/ownership review found nil Phi receiver inconsistency; fixed and regression-tested"
+  },
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "extracted pinned NumPy/SciPy source with synthetic temp NPZ and no pipeline/model imports,CPU1thread",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "limitations": [
+    "no native NPZ/covariance/eigen setup; explicit prepared coefficient provenance unqualified",
+    "only float64 synthetic contract, no mixed-dtype trainedasset/productionwidth qualification",
+    "no AHC/pruning/centroids/Kmeans countconstraints/constrained assignment/full turns",
+    "ELBO decrease diagnostic present but no decreasing source fixture",
+    "SincNet strict4FAIL unchanged; skipped in ordinary suite",
+    "no trained quality/performance/newSIMD/Vulkan",
+    "race unavailable; arm64 not executed"
+  ]
+}

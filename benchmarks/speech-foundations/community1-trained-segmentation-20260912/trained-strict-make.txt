@@ -1,0 +1,69 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 GO_PHERENCE_TEST_COMMUNITY1_STRICT=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$' -v
+=== RUN   TestCommunity1TrainedSegmentation
+=== RUN   TestCommunity1TrainedSegmentation/silence-1s
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":16000,"gate":0.0002,"index":0,"max_abs":0,"pass":true,"stage":"sincnet.-1","values":16000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":29162,"gate":0.0002,"index":520,"max_abs":0.00017982721328735352,"pass":true,"stage":"sincnet.0","values":42000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":0,"gate":0.0002,"index":4151,"max_abs":1.0525763928890228,"pass":false,"stage":"sincnet.1","values":10380}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":0,"gate":0.0002,"index":112,"max_abs":0.00019760709255933762,"pass":true,"stage":"sincnet.2","values":3360}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1,"gate":0.0002,"index":11909,"max_abs":0.00014118850231170654,"pass":true,"stage":"lstm.0","values":14336}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1,"gate":0.0002,"index":14043,"max_abs":0.0000845491886138916,"pass":true,"stage":"lstm.1","values":14336}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":5,"gate":0.0002,"index":11064,"max_abs":0.0001036524772644043,"pass":true,"stage":"lstm.2","values":14336}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":4,"gate":0.0002,"index":12820,"max_abs":0.00004175305366516113,"pass":true,"stage":"lstm.3","values":14336}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":8,"gate":0.0002,"index":78,"max_abs":0.00010538101196289062,"pass":true,"stage":"head.0","values":7168}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":8,"gate":0.0002,"index":2312,"max_abs":0.00009679794311523438,"pass":true,"stage":"head.1","values":7168}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1,"gate":0.0002,"index":117,"max_abs":0.0001125335693359375,"pass":true,"stage":"head.2","values":392}
+    trained_segmentation_test.go:156: TRAINED_SEGMENTATION_METRIC {"exact":0,"gate":0.0002,"index":117,"max_abs":0.00016164779663085938,"pass":true,"stage":"log_probabilities","values":392}
+    trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/56
+    trained_segmentation_test.go:186: strict trained segmentation qualification failed
+=== RUN   TestCommunity1TrainedSegmentation/wave-short
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1600,"gate":0.0002,"index":0,"max_abs":0,"pass":true,"stage":"sincnet.-1","values":1600}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1019,"gate":0.0002,"index":1798,"max_abs":0.0001842975616455078,"pass":true,"stage":"sincnet.0","values":3600}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":6,"gate":0.0002,"index":545,"max_abs":0.00019061565399169922,"pass":true,"stage":"sincnet.1","values":780}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":2,"gate":0.0002,"index":139,"max_abs":0.000008746981620788574,"pass":true,"stage":"sincnet.2","values":180}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1,"gate":0.0002,"index":479,"max_abs":0.000005213543772697449,"pass":true,"stage":"lstm.0","values":768}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":2,"gate":0.0002,"index":317,"max_abs":0.0000011809170246124268,"pass":true,"stage":"lstm.1","values":768}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":6,"gate":0.0002,"index":433,"max_abs":5.587935447692871e-7,"pass":true,"stage":"lstm.2","values":768}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":9,"gate":0.0002,"index":753,"max_abs":0.0000011622905731201172,"pass":true,"stage":"lstm.3","values":768}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":11,"gate":0.0002,"index":206,"max_abs":0.0000064373016357421875,"pass":true,"stage":"head.0","values":384}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":14,"gate":0.0002,"index":200,"max_abs":0.000005245208740234375,"pass":true,"stage":"head.1","values":384}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1,"gate":0.0002,"index":7,"max_abs":0.000004589557647705078,"pass":true,"stage":"head.2","values":21}
+    trained_segmentation_test.go:156: TRAINED_SEGMENTATION_METRIC {"exact":0,"gate":0.0002,"index":7,"max_abs":0.0000059604644775390625,"pass":true,"stage":"log_probabilities","values":21}
+    trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/3
+=== RUN   TestCommunity1TrainedSegmentation/public-0-10s
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":160000,"gate":0.0002,"index":0,"max_abs":0,"pass":true,"stage":"sincnet.-1","values":160000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":425660,"gate":0.0002,"index":212998,"max_abs":0.0001399517059326172,"pass":true,"stage":"sincnet.0","values":426000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":8669,"gate":0.0002,"index":72692,"max_abs":0.000058770179748535156,"pass":true,"stage":"sincnet.1","values":106380}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1006,"gate":0.0002,"index":8994,"max_abs":0.0000044852495193481445,"pass":true,"stage":"sincnet.2","values":35340}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1797,"gate":0.0002,"index":44714,"max_abs":0.0000036731362342834473,"pass":true,"stage":"lstm.0","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1974,"gate":0.0002,"index":9630,"max_abs":0.000003427267074584961,"pass":true,"stage":"lstm.1","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":2546,"gate":0.0002,"index":16104,"max_abs":0.000003725290298461914,"pass":true,"stage":"lstm.2","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":3202,"gate":0.0002,"index":24712,"max_abs":0.0000037848949432373047,"pass":true,"stage":"lstm.3","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":4133,"gate":0.0002,"index":5362,"max_abs":0.0000171661376953125,"pass":true,"stage":"head.0","values":75392}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":3541,"gate":0.0002,"index":6468,"max_abs":0.0000286102294921875,"pass":true,"stage":"head.1","values":75392}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":116,"gate":0.0002,"index":323,"max_abs":0.000029325485229492188,"pass":true,"stage":"head.2","values":4123}
+    trained_segmentation_test.go:156: TRAINED_SEGMENTATION_METRIC {"exact":160,"gate":0.0002,"index":323,"max_abs":0.000018596649169921875,"pass":true,"stage":"log_probabilities","values":4123}
+    trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=0 hard_disagreement_frames=0/589
+=== RUN   TestCommunity1TrainedSegmentation/public-10-20s
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":160000,"gate":0.0002,"index":0,"max_abs":0,"pass":true,"stage":"sincnet.-1","values":160000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":416940,"gate":0.0002,"index":212997,"max_abs":0.00022292137145996094,"pass":false,"stage":"sincnet.0","values":426000}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":11841,"gate":0.0002,"index":73567,"max_abs":0.000016987323760986328,"pass":true,"stage":"sincnet.1","values":106380}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":1331,"gate":0.0002,"index":7552,"max_abs":0.0000019371509552001953,"pass":true,"stage":"sincnet.2","values":35340}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":3615,"gate":0.0002,"index":88614,"max_abs":0.0000015795230865478516,"pass":true,"stage":"lstm.0","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":4278,"gate":0.0002,"index":88871,"max_abs":0.0000010728836059570312,"pass":true,"stage":"lstm.1","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":4458,"gate":0.0002,"index":31121,"max_abs":0.0000014454126358032227,"pass":true,"stage":"lstm.2","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":4116,"gate":0.0002,"index":35458,"max_abs":0.000002682209014892578,"pass":true,"stage":"lstm.3","values":150784}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":5317,"gate":0.0002,"index":18840,"max_abs":0.000011682510375976562,"pass":true,"stage":"head.0","values":75392}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":5612,"gate":0.0002,"index":15715,"max_abs":0.0000133514404296875,"pass":true,"stage":"head.1","values":75392}
+    trained_segmentation_test.go:140: TRAINED_SEGMENTATION_METRIC {"exact":242,"gate":0.0002,"index":4089,"max_abs":0.0000171661376953125,"pass":true,"stage":"head.2","values":4123}
+    trained_segmentation_test.go:156: TRAINED_SEGMENTATION_METRIC {"exact":426,"gate":0.0002,"index":856,"max_abs":0.00001239776611328125,"pass":true,"stage":"log_probabilities","values":4123}
+    trained_segmentation_test.go:181: TRAINED_SEGMENTATION_RESULT failed_boundaries=1 hard_disagreement_frames=0/589
+    trained_segmentation_test.go:186: strict trained segmentation qualification failed
+--- FAIL: TestCommunity1TrainedSegmentation (0.95s)
+    --- FAIL: TestCommunity1TrainedSegmentation/silence-1s (0.04s)
+    --- PASS: TestCommunity1TrainedSegmentation/wave-short (0.00s)
+    --- PASS: TestCommunity1TrainedSegmentation/public-0-10s (0.43s)
+    --- FAIL: TestCommunity1TrainedSegmentation/public-10-20s (0.43s)
+FAIL
+FAIL	github.com/rcarmo/go-pherence/models/speaker/community1	0.948s
+FAIL
+make: *** [Makefile:102: speech-community-segmentation-strict] Error 1

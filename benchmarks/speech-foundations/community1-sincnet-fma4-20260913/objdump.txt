@@ -1,0 +1,108 @@
+TEXT github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumns4Asm.abi0(SB) /var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns4_amd64.s
+  fma_columns4_amd64.s:4	0x575b80		55			PUSHQ BP
+  fma_columns4_amd64.s:4	0x575b81		4889e5			MOVQ SP, BP
+  fma_columns4_amd64.s:4	0x575b84		4883ec10		SUBQ $0x10, SP
+  fma_columns4_amd64.s:5	0x575b88		0fae1c24		STMXCSR 0(SP)
+  fma_columns4_amd64.s:6	0x575b8c		8b0424			MOVL 0(SP), AX
+  fma_columns4_amd64.s:7	0x575b8f		a940e00000		TESTL $0xe040, AX
+  fma_columns4_amd64.s:8	0x575b94		0f857f010000		JNE 0x575d19
+  fma_columns4_amd64.s:9	0x575b9a		488b7c2420		MOVQ 0x20(SP), DI
+  fma_columns4_amd64.s:10	0x575b9f		488b442428		MOVQ 0x28(SP), AX
+  fma_columns4_amd64.s:11	0x575ba4		48c1e802		SHRQ $0x2, AX
+  fma_columns4_amd64.s:12	0x575ba8		488b742438		MOVQ 0x38(SP), SI
+  fma_columns4_amd64.s:13	0x575bad		488b542450		MOVQ 0x50(SP), DX
+  fma_columns4_amd64.s:14	0x575bb2		4c8b442458		MOVQ 0x58(SP), R8
+  fma_columns4_amd64.s:15	0x575bb7		49c1e802		SHRQ $0x2, R8
+  fma_columns4_amd64.s:16	0x575bbb		4989c1			MOVQ AX, R9
+  fma_columns4_amd64.s:17	0x575bbe		49c1e102		SHLQ $0x2, R9
+  fma_columns4_amd64.s:18	0x575bc2		4d89c2			MOVQ R8, R10
+  fma_columns4_amd64.s:19	0x575bc5		49c1e202		SHLQ $0x2, R10
+  fma_columns4_amd64.s:20	0x575bc9		4889d3			MOVQ DX, BX
+  fma_columns4_amd64.s:21	0x575bcc		4c01d3			ADDQ R10, BX
+  fma_columns4_amd64.s:22	0x575bcf		4889d9			MOVQ BX, CX
+  fma_columns4_amd64.s:23	0x575bd2		4c01d1			ADDQ R10, CX
+  fma_columns4_amd64.s:24	0x575bd5		4989cc			MOVQ CX, R12
+  fma_columns4_amd64.s:25	0x575bd8		4d01d4			ADDQ R10, R12
+  fma_columns4_amd64.s:26	0x575bdb		4c89642408		MOVQ R12, 0x8(SP)
+  fma_columns4_amd64.s:27	0x575be0		4d31db			XORQ R11, R11
+  fma_columns4_amd64.s:29	0x575be3		4989c2			MOVQ AX, R10
+  fma_columns4_amd64.s:30	0x575be6		4d29da			SUBQ R11, R10
+  fma_columns4_amd64.s:31	0x575be9		4983fa08		CMPQ R10, $0x8
+  fma_columns4_amd64.s:32	0x575bed		0f8c88000000		JL 0x575c7b
+  fma_columns4_amd64.s:33	0x575bf3		c5fc57			PUSHQ DI
+  fma_columns4_amd64.s:33	0x575bf6		c0c5f4			ROLL $0xf4, CH
+  fma_columns4_amd64.s:34	0x575bf9		57			PUSHQ DI
+  fma_columns4_amd64.s:34	0x575bfa		c9			LEAVE
+  fma_columns4_amd64.s:35	0x575bfb		c5ec57			PUSHQ DI
+  fma_columns4_amd64.s:35	0x575bfe		d2c5			ROLL CL, CH
+  fma_columns4_amd64.s:36	0x575c00		e457			INL $0x57, AL
+  fma_columns4_amd64.s:36	0x575c02		db4e8d			FISTTP -0x73(SI)
+  fma_columns4_amd64.s:37	0x575c05		249e			ANDL $0x9e, AL
+  fma_columns4_amd64.s:38	0x575c07		4d31ed			XORQ R13, R13
+  fma_columns4_amd64.s:40	0x575c0a		4d39c5			CMPQ R13, R8
+  fma_columns4_amd64.s:41	0x575c0d		7d3f			JGE 0x575c4e
+  fma_columns4_amd64.s:42	0x575c0f		c4c17c102424		ADCB AH, 0(R12)
+  fma_columns4_amd64.s:43	0x575c15		c4a27d182caa		SBBB CH, 0(DX)(R13*4)
+  fma_columns4_amd64.s:44	0x575c1b		c4e255b8c4c4a27d	MOVL $0x7da2c4c4, AX
+  fma_columns4_amd64.s:45	0x575c23		182cab			SBBB CH, 0(BX)(BP*4)
+  fma_columns4_amd64.s:46	0x575c26		c4e255b8ccc4a27d	MOVL $0x7da2c4cc, AX
+  fma_columns4_amd64.s:47	0x575c2e		182ca9			SBBB CH, 0(CX)(BP*4)
+  fma_columns4_amd64.s:48	0x575c31		c4e255b8d44c8b54	MOVL $0x548b4cd4, AX
+  fma_columns4_amd64.s:49	0x575c39		2408			ANDL $0x8, AL
+  fma_columns4_amd64.s:50	0x575c3b		c4827d182caa		SBBB CH, 0(R10)(R13*4)
+  fma_columns4_amd64.s:51	0x575c41		c4e255b8dc4d01cc	MOVL $-0x33feb224, AX
+  fma_columns4_amd64.s:53	0x575c49		49ffc5			INCQ R13
+  fma_columns4_amd64.s:54	0x575c4c		ebbc			JMP 0x575c0a
+  fma_columns4_amd64.s:56	0x575c4e		c4a17c11049f		ADCL AX, 0(DI)(R11*4)
+  fma_columns4_amd64.s:57	0x575c54		4c8d1487		LEAQ 0(DI)(AX*4), R10
+  fma_columns4_amd64.s:58	0x575c58		c4817c110c9a		ADCL CX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:59	0x575c5e		4d8d1482		LEAQ 0(R10)(AX*4), R10
+  fma_columns4_amd64.s:60	0x575c62		c4817c11149a		ADCL DX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:61	0x575c68		4d8d1482		LEAQ 0(R10)(AX*4), R10
+  fma_columns4_amd64.s:62	0x575c6c		c4817c111c9a		ADCL BX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:63	0x575c72		4983c308		ADDQ $0x8, R11
+  fma_columns4_amd64.s:64	0x575c76		e968ffffff		JMP 0x575be3
+  fma_columns4_amd64.s:66	0x575c7b		4939c3			CMPQ R11, AX
+  fma_columns4_amd64.s:67	0x575c7e		0f8d87000000		JGE 0x575d0b
+  fma_columns4_amd64.s:68	0x575c84		c5f857			PUSHQ DI
+  fma_columns4_amd64.s:68	0x575c87		c0c5f0			ROLL $0xf0, CH
+  fma_columns4_amd64.s:69	0x575c8a		57			PUSHQ DI
+  fma_columns4_amd64.s:69	0x575c8b		c9			LEAVE
+  fma_columns4_amd64.s:70	0x575c8c		c5e857			PUSHQ DI
+  fma_columns4_amd64.s:70	0x575c8f		d2c5			ROLL CL, CH
+  fma_columns4_amd64.s:71	0x575c91		e057			LOOPNE 0x575cea
+  fma_columns4_amd64.s:71	0x575c93		db4e8d			FISTTP -0x73(SI)
+  fma_columns4_amd64.s:72	0x575c96		249e			ANDL $0x9e, AL
+  fma_columns4_amd64.s:73	0x575c98		4d31ed			XORQ R13, R13
+  fma_columns4_amd64.s:75	0x575c9b		4d39c5			CMPQ R13, R8
+  fma_columns4_amd64.s:76	0x575c9e		7d3f			JGE 0x575cdf
+  fma_columns4_amd64.s:77	0x575ca0		c4c17a102424		ADCB AH, 0(R12)
+  fma_columns4_amd64.s:78	0x575ca6		c4a17a102caa		ADCB CH, 0(DX)(R13*4)
+  fma_columns4_amd64.s:79	0x575cac		c4e251b9c4c4a17a	MOVL $0x7aa1c4c4, CX
+  fma_columns4_amd64.s:80	0x575cb4		102cab			ADCB CH, 0(BX)(BP*4)
+  fma_columns4_amd64.s:81	0x575cb7		c4e251b9ccc4a17a	MOVL $0x7aa1c4cc, CX
+  fma_columns4_amd64.s:82	0x575cbf		102ca9			ADCB CH, 0(CX)(BP*4)
+  fma_columns4_amd64.s:83	0x575cc2		c4e251b9d44c8b54	MOVL $0x548b4cd4, CX
+  fma_columns4_amd64.s:84	0x575cca		2408			ANDL $0x8, AL
+  fma_columns4_amd64.s:85	0x575ccc		c4817a102caa		ADCB CH, 0(R10)(R13*4)
+  fma_columns4_amd64.s:86	0x575cd2		c4e251b9dc4d01cc	MOVL $-0x33feb224, CX
+  fma_columns4_amd64.s:88	0x575cda		49ffc5			INCQ R13
+  fma_columns4_amd64.s:89	0x575cdd		ebbc			JMP 0x575c9b
+  fma_columns4_amd64.s:91	0x575cdf		c4a17a11049f		ADCL AX, 0(DI)(R11*4)
+  fma_columns4_amd64.s:92	0x575ce5		4c8d1487		LEAQ 0(DI)(AX*4), R10
+  fma_columns4_amd64.s:93	0x575ce9		c4817a110c9a		ADCL CX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:94	0x575cef		4d8d1482		LEAQ 0(R10)(AX*4), R10
+  fma_columns4_amd64.s:95	0x575cf3		c4817a11149a		ADCL DX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:96	0x575cf9		4d8d1482		LEAQ 0(R10)(AX*4), R10
+  fma_columns4_amd64.s:97	0x575cfd		c4817a111c9a		ADCL BX, 0(R10)(R11*4)
+  fma_columns4_amd64.s:98	0x575d03		49ffc3			INCQ R11
+  fma_columns4_amd64.s:99	0x575d06		e970ffffff		JMP 0x575c7b
+  fma_columns4_amd64.s:101	0x575d0b		c5f877			VZEROUPPER
+  fma_columns4_amd64.s:102	0x575d0e		c644246801		MOVB $0x1, 0x68(SP)
+  fma_columns4_amd64.s:103	0x575d13		4883c410		ADDQ $0x10, SP
+  fma_columns4_amd64.s:103	0x575d17		5d			POPQ BP
+  fma_columns4_amd64.s:103	0x575d18		c3			RET
+  fma_columns4_amd64.s:105	0x575d19		c644246800		MOVB $0x0, 0x68(SP)
+  fma_columns4_amd64.s:106	0x575d1e		4883c410		ADDQ $0x10, SP
+  fma_columns4_amd64.s:106	0x575d22		5d			POPQ BP
+  fma_columns4_amd64.s:106	0x575d23		c3			RET

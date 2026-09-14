@@ -1,0 +1,998 @@
+{
+  "schema": 1,
+  "baseline_commit": "f119db4",
+  "scope": "VBx pruning/original-space weighted centroids/cosine and rectangular speaker assignment components",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "package_pass_events": 231,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "focused_pass_events": 100,
+    "focused_top_level": 6
+  },
+  "tests": [
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_0",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_1",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_2",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_3",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_4",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_5",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_6",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_7",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_8",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_9",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_10",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/centroid_11",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle/plda_vbx_bridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxCentroidsPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_random",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestConstrainedAssignmentPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_0_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_0_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_1_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_1_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_2_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_2_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_3_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_3_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_4_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_4_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_5_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_5_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_6_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_6_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_7_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_7_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_8_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_8_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_9_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/cosine_9_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle/plda_vbx_centroid_assignment_bridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestCosineAssignmentPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPLDAVBxCentroidAssignmentBridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestCentroidAssignmentValidation",
+      "status": "pass"
+    },
+    {
+      "test": "TestCentroidAssignmentCancellationConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSchemaAndOwnedGraphParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadMetadataRejectionBeforePayload",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadPayloadFailureCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSafetensorsDTypeAndSourceClose",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/empty_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/empty_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_False",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_True",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/finite_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.4",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_1.0",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle/empty_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "test": "TestClusteringFilterPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMaskRejectionAndBounds",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmbeddingMasksCancellationAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestEmptyMaskBiasExcludedFromClustering",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/two_groups",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/single_speaker",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/gapped_labels",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/hard_init",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/uniform_init",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/one_iteration",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/zero_phi",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/separated_large",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/forced_stop",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations/prepared_bridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxPinnedIterations",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAToVBxBridge",
+      "status": "pass"
+    },
+    {
+      "test": "TestPreparedPLDAValidation",
+      "status": "pass"
+    },
+    {
+      "test": "TestVBxValidation",
+      "status": "pass"
+    },
+    {
+      "test": "TestPLDAVBxCancellationAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetFullDepthOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetRejectsGeometryAndWeights",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetCancellationAndSharedAllocation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "contract": {
+    "centroid_cases": 13,
+    "matching_cases": 60,
+    "cosine_cases": 21,
+    "absolute_tolerance": 2e-10,
+    "relative_tolerance": 2e-10,
+    "labels": "exact incl ties and tall/wide matrices",
+    "pruning": "strict prior>1e-7",
+    "centroids": "original embedding space; no extra normalisation",
+    "score_policy": "2-clippedcosinedistance; global inactive min-1; matching global NaN fill; no guaranteed inactive unassignment",
+    "solver": "bounded Go BSD SciPy adaptation; no native call; small cases exhaustive optimum checked",
+    "cancellation_checkpoints": [
+      30,
+      49,
+      41
+    ],
+    "regeneration": "byte-identical",
+    "integration": "preparedPLDA->VBx->originalcentroids->assignment synthetic bridge"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "vet": "speaker/... and focused packages passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegate review no blocking finding"
+  },
+  "source": {
+    "clustering_sha256": "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba",
+    "scipy_revision": "e4e854eaa8f18d807cd3496028e257e36caa93cc",
+    "solver_sha256": "73d78155990732311a116bc04f7f64d874c0f3793172e9aab12a476cb3d15c2c",
+    "BSD_license_sha256": "221e59f5e910fd7f94e44f0dac77436a11338c285c6346232e4a850a50da0e94"
+  },
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "extracted pinned source/NumPy/SciPy synthetic singlethread, no model",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "corrections": [
+    "generator bridge rows variable reused by matching loop, restored from original raw shape",
+    "test brute force helper missing closing brace fixed before tests"
+  ],
+  "limitations": [
+    "no AHC/countKmeans/emptytrainingfallback/nativeNPZ/eigensetup/reconstruction/fullturns",
+    "NaN/zero original embedding cosine rejects; future pipeline needs explicit failure policy",
+    "only float64 synthetic qualification, no trained assets/performance",
+    "SincNet strict4FAIL unchanged; skip ordinary suite",
+    "race unavailable; arm64 not executed",
+    "no newSIMD/Vulkan"
+  ]
+}

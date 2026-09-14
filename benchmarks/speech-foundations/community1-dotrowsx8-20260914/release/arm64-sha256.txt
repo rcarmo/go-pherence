@@ -1,0 +1,2 @@
+f736b4c515632710ed3d1395ff6d8be04e02dd45bfe0a3cae4610ac203f2bbf9  /var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-release-r3/community-linux-arm64.test
+7a8d59a01b9b641858ce58efac4e4e6e50385bbbd8b6c302c4e111a7e73f51b1  /var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-release-r3/simd-linux-arm64.test

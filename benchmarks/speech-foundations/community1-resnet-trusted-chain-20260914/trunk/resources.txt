@@ -1,0 +1,12 @@
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B2.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.80
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B2.time:	Maximum resident set size (kbytes): 96944
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B2.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A1.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.81
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A1.time:	Maximum resident set size (kbytes): 116692
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A1.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A2.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.81
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A2.time:	Maximum resident set size (kbytes): 126012
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/A2.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B1.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.80
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B1.time:	Maximum resident set size (kbytes): 116772
+/var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-trunk-r1/B1.time:	Swaps: 0

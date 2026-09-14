@@ -1,6 +1,8 @@
 package whisper
 
 import (
+	"context"
+
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdfft "github.com/rcarmo/go-pherence/backends/simd/fft"
 	"github.com/rcarmo/go-pherence/loader/audio"
@@ -20,6 +22,21 @@ func MelFlatFromSamples(samples []float32, cfg Config) ([]float32, int) {
 		return nil, 0
 	}
 	return flattenMel(mel, cfg.NumMelBins)
+}
+
+// MelFlatFromSamplesChecked exposes the exact 400-point/Slaney frontend for
+// the integrated speech path. Supports 80 and 128 bands, including turbo.
+// Callers own 16 kHz resampling, windowing/right-padding and original timestamps.
+// The legacy frontend above is retained until real-checkpoint quality gates
+// qualify a default change; its 512-point GPU features are not an exact oracle.
+func MelFlatFromSamplesChecked(samples []float32, cfg Config) ([]float32, int, error) {
+	return audio.WhisperLogMel(samples, cfg.NumMelBins)
+}
+
+// MelFlatFromSamplesCheckedContext adds bounded frontend cancellation while
+// retaining the exact CPU feature contract and existing non-context API.
+func MelFlatFromSamplesCheckedContext(ctx context.Context, samples []float32, cfg Config) ([]float32, int, error) {
+	return audio.WhisperLogMelContext(ctx, samples, cfg.NumMelBins)
 }
 
 func flattenMel(mel [][]float32, numMels int) ([]float32, int) {

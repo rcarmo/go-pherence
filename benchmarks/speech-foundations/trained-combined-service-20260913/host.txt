@@ -1,0 +1,12 @@
+pre_time=2026-09-13T20:46:13,203148517+01:00
+pre_mem_available_bytes=29272064000
+pre_swap_used_bytes=3934879744
+pre_/sys/class/thermal/thermal_zone0/temp=27800
+pre_/sys/class/thermal/thermal_zone1/temp=45000
+pre_/sys/class/thermal/thermal_zone2/temp=46000
+post_time=2026-09-13T20:47:17,033604390+01:00
+post_mem_available_bytes=29377228800
+post_swap_used_bytes=3934879744
+post_/sys/class/thermal/thermal_zone0/temp=27800
+post_/sys/class/thermal/thermal_zone1/temp=50000
+post_/sys/class/thermal/thermal_zone2/temp=44000

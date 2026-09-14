@@ -1,0 +1,29 @@
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.15s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.38s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.51s)
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.14s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.39s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.49s)
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.15s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.38s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.51s)
+PASS
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	3.117s

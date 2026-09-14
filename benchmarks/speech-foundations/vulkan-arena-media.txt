@@ -1,0 +1,4 @@
+=== RUN   TestFFmpegIntegration
+--- PASS: TestFFmpegIntegration (0.63s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.637s

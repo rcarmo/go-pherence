@@ -1,0 +1,249 @@
+{
+  "schema": 1,
+  "baseline_commit": "dc82de4",
+  "scope": "Vulkan offline ABI/preflight/construction rollback, noGPU/device/driver qualification",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "pass_events": 49,
+    "fail_events": 0,
+    "skip_events": 0,
+    "top_level": 12
+  },
+  "tests": [
+    {
+      "test": "TestVkBufAllocRejectsMalformedSize",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkBufCheckedTransferRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkBufCheckedTransferCopiesWithinCapacity",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkBufLegacyTransferNoopsOnMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/nil_kernel",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/zero_pipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/zero_workgroups",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/wrong_buffer_count",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/nil_buffer",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs/zero_buffer_handle",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanDispatchRejectsInvalidKernelAndInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkKernelCreateRejectsMalformedInputs/empty_spirv",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkKernelCreateRejectsMalformedInputs/odd_spirv",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkKernelCreateRejectsMalformedInputs/zero_buffers",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkKernelCreateRejectsMalformedInputs/negative_push",
+      "status": "pass"
+    },
+    {
+      "test": "TestVkKernelCreateRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineABILayouts",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/shader",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/setlayout",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/pipeline-layout",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/pipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/pool",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/set",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/command",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/fence",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/success",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback/partial-pipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelRollback",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineKernelPreflight",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/buffer",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/requirements",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/typecount",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/heapcount",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/heapindex",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/no-type",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/allocate",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/bind",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/map",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/nil-map",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback/success",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineBufferRollback",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchPreflight",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/begin",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/end",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/reset",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/submit",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/wait",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors/success",
+      "status": "pass"
+    },
+    {
+      "test": "TestVulkanOfflineDispatchBeginAndFenceErrors",
+      "status": "pass"
+    }
+  ],
+  "source": {
+    "VulkanHeaders": "v1.3.296",
+    "commit": "29f979ee5aa58b7b005f805ea8df7a855c39ff37",
+    "header_sha256": "50af5a157c8aab7d90dcd929a05758b4dc3e78a619f46552bfd5cde67b2d46c1"
+  },
+  "contract": {
+    "ABI": "64bitonly;BeginInfo32inheritance24;memheap16flags32bits;memprops520",
+    "kernel": "alignedSPIRVcopy1..16bindings<=128pushbytes preflight; reverse never-submitted rollback; shaderreleasedsuccess",
+    "failed_handles": "nonpipeline outputsdiscarded;partialpipeline outputdestroyed",
+    "buffer": "destroybufferbeforefreeboundmemory;requirements/type/heap guards",
+    "dispatch": "fullbegininfo,resetfailure checked,missingpush/functionfailbeforemutation"
+  },
+  "checks": {
+    "make": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration passed",
+    "vet": "Vulkan and affected speech passed",
+    "build": "affected passed; fulltree exact existingbaseline errors",
+    "backend_compile": "noGPUtests; exact archived affine baseline Spacemiterrors",
+    "arm64": "Vulkan testcrossbuild pass notexecuted",
+    "review": "ABIrollback confirmed;pushconstant missing/nilfunction findings fixed+tested"
+  },
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "gpu_opened": false,
+    "driver_calls": "all newtest calls mocked",
+    "model": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "limitations": [
+    "globalqueue/descriptor/commandpool unsynchronised;requires external serialization",
+    "successful kernel teardown and partial deviceinit cleanup unfinished",
+    "fencetimeout NOTcompletion; free/reuse then unsafe;no quarantine/contextboundsubmission",
+    "no devicefeatures/limits negotiated;64bit ABI audit partial",
+    "no persistentmodels/typedarenas/multiopbarriers/device-loss/noncoherent support",
+    "no hardware/shadernumerical/performancequalification;arm64notexecuted;raceunavailable",
+    "SincNet hold and full plan remain open"
+  ]
+}

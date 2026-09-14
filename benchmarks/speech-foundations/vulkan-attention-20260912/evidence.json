@@ -1,0 +1,121 @@
+{
+  "checkpoint": "Vulkan fused online-softmax F32 attention (static/mock/source-model only)",
+  "created": "2026-09-12T06:30:53.876Z",
+  "baseline": "9bd50dc",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 423,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 115,
+    "uniqueTopLevelTests": 115
+  },
+  "shuffle30": {
+    "passEvents": 5190,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 1440,
+    "uniqueTopLevelTests": 48
+  },
+  "static": {
+    "validatorPasses": 30,
+    "embedded": 15,
+    "rebuilt": 15,
+    "normalisedMatches": 15,
+    "byteRebuildMatches": 5,
+    "checkerTests": 6,
+    "checkerAssertions": 53,
+    "report": "static/verification.json",
+    "parserBroadening": false
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan/board/audio/NumPy/Whisper/Community1",
+    "arm64": "test cross-build PASS; not executed",
+    "fullBuild": "FAIL exact GELU baseline",
+    "backendCompileOnly": "FAIL exact GELU baseline",
+    "raceDetector": "cannot build; gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 88
+  },
+  "sourceModel": {
+    "shapes": 12,
+    "permutations": 4,
+    "comparisons": 53280,
+    "oracle": "independent full-score float64 dot/softmax/value sum",
+    "maxAbsoluteError": 7.073017253000913e-7,
+    "tolerance": "2e-5 absolute + 2e-5 relative",
+    "stress": {
+      "comparisons": 306,
+      "maxAbsoluteError": 0.0000018180898553321612,
+      "tolerance": "2e-4 absolute + 2e-5 relative",
+      "cases": "rising/falling/tied tile maxima,logits separated>1000,zeros"
+    },
+    "ownership": "shuffled group/lane orders,one sharedtile writer/slot,one output writer/element,outputcanaries",
+    "singleKey": "exact value output",
+    "notGPU": true
+  },
+  "coverage": [
+    "Q/Out[M,H*D],K/V[N,H*D],noncausal,equalhead,F32,scale1/sqrtD",
+    "M/N1..4096,H1..32,D1..64,noquadscoreallocation",
+    "16x16local,4bindings,20pushbytes,9408sharedbytes",
+    "Exactrank/shape/extent/devicegrid/rangelimits,alloutputaliasrejected,readaliasallowed",
+    "Realwrapperdescriptor/push/groups,ownedstages",
+    "Attention→Linearplan may reuseQ afterattention;cancelretains2kernels/2arenasuntilDrain",
+    "Constructor/shadercontract/nilClose/closedarena checks",
+    "Initial64Bmock allocation failures fixedwith2048BGo-backedtestmock only"
+  ],
+  "review": {
+    "initial": "150s timeout without findings; not approval",
+    "narrow": "shaderonly no scopedrace/index/online-softmax issue forpositive seqKV; zerokey warned",
+    "resolution": "host rejects seqKV<1; malformedKseq0 coveredbyadmissiontest",
+    "limits": "no wrapper/generatedbinary/externalbarrier/GPU inspection bydelegate; parent checked wrapper/tests"
+  },
+  "limitations": [
+    "Finite products/dot/weighted sums required; finite elements alone insufficient.",
+    "No causal/mask/GQA/F16/quantised support.",
+    "Go model Exp/rounding not device execution or racefreedom.",
+    "No modelintegration/residentweights/quality/speed/device recovery qualification.",
+    "Shared/private sizing occupancy and rowsoftmax performance unmeasured.",
+    "NoGPU/nativeVulkan/modelweights/privateaudio/services/restart/push.",
+    "SincNet4strictFAILunchanged.",
+    "Racegccunavailable;arm64crossonly."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_attention.go": "8187a3eb3c23e549333db28315c2a3b25295d3d501c1f7a455cf7af92884e6ef",
+    "backends/vulkan/vulkan_attention_test.go": "690b563058dd5eab2a3d9488ee2b926310daa3123967c18b954daa32c66ca3de",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "b5c7cfaa68fe20c9e025708cb5af550fb00e4c203373913a58386328d8deddb8",
+    "backends/vulkan/vulkan_spirv_embedded.go": "945f678d2506c8ac41e750d1e544fa6a37ef202cab74d55907642a663c7d39a5",
+    "backends/vulkan/shaders/attention_f32.glsl": "2c74ea9822e4faae53ebbacfd7a0314bdbb199875ebc656473d7ed8cac4db0d5",
+    "backends/vulkan/shaders/attention_f32.spv": "273feb68924b547534a6a706cc7f488a3979e4a1da0f7b0b6681a9af41502bd8",
+    "scripts/check-vulkan-shaders.ts": "9397a313e8f65ab02092f215e4d23b883f6b58a0de40bb365ff99f57ef4f4090",
+    "scripts/check-vulkan-shaders.test.ts": "85657766ec66ee16768a86144eddd11169e1460f0d7fc2144c8b035df4467d28",
+    "docs/speech-integration.md": "36759848600ce21aec6424d1a2c62bacf2a30c87d6fe9fb05d7ce2d3399d0fda",
+    "benchmarks/speech-foundations/README.md": "a04dfb1a42474fe45ec6cc4b552765a5812b7c7a148dc9197fc5da80b3e730f4"
+  },
+  "evidenceHashes": {
+    "README.md": "7d5e50d2bdfd662a2e3c683eb8c0a873d5117a471c560a22f7df492743882914",
+    "attention.spvasm": "83ffaa3f5d893414483d1f62141fda459fc04c03d9afe757411504d328800ab5",
+    "focused-check.txt": "5a173d7c6b433a64d537b3b69410e7e03e6e9268ecd4b37c003b6935e6bdf297",
+    "tests.jsonl": "98e579b5b9753ae5af61f0969e9d28215dc238fe088e1e8a5a1712357e58139c",
+    "media.txt": "dbb007a2dd64c040abfe8c6e5fda3ac7a4abc91948850b9f3467a5747b58084e",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "repeat-tests.jsonl.gz": "c9bfa510406641d2d69697687f1318e97b54a93818b261e1c98a727011aaf1e4",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "static/verification.json": "df5824f8767a0dfec9e4508e3fe5fbe7d222c9ec4dad2dea9fa9f97f19f6d73d"
+  }
+}

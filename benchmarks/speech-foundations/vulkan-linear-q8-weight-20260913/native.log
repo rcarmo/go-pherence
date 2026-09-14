@@ -1,0 +1,19 @@
+=== RUN   TestVulkanNativeLinearQ8Weight
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[1 1 1]","values":1,"max_abs":2.7019737558475754e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1507746}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":2.7019737558475754e-9,"reference_rms":0.0915601504046677,"rms_error":2.7019737558475754e-9,"rms_ratio":2.951036825415514e-8,"shape":[1,1,1],"values":1}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[2 3 5]","values":10,"max_abs":3.0013824481311957e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":474667}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.0000946203550533653,"reference_rms":0.07845186860287282,"rms_error":0.000043655811822631764,"rms_ratio":0.0005564661823878232,"shape":[2,3,5],"values":10}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[15 16 17]","values":255,"max_abs":2.0212741744241036e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":417484}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.00032937720711515017,"reference_rms":0.071185723261298,"rms_error":0.000120412863095583,"rms_ratio":0.0016915310764433664,"shape":[15,16,17],"values":255}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[17 31 19]","values":323,"max_abs":2.091230280609757e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":385763}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.0005841716767234773,"reference_rms":0.07847321789519278,"rms_error":0.0001729363032665075,"rms_ratio":0.0022037620975028406,"shape":[17,31,19],"values":323}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[33 65 63]","values":2079,"max_abs":5.94293919076172e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":589554}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.000922011371115028,"reference_rms":0.08978778022600287,"rms_error":0.00026139951012588933,"rms_ratio":0.0029113038485629817,"shape":[33,65,63],"values":2079}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[3 384 9]","values":27,"max_abs":3.148898780058751e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":619523}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.0018743038546379653,"reference_rms":0.18890645424858046,"rms_error":0.0006972410753300836,"rms_ratio":0.003690933049924222,"shape":[3,384,9],"values":27}
+    vulkan_linear_q8_weight_native_test.go:56: NATIVE_METRIC {"name":"linear-q8-weight[2 1280 7]","values":14,"max_abs":4.0808872756037395e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":782102}
+    vulkan_linear_q8_weight_native_test.go:68: Q8_WEIGHT_QUALITY {"max_original_f32_abs":0.0032397192532477026,"reference_rms":0.20509059430642113,"rms_error":0.001345011495487796,"rms_ratio":0.006558133492354337,"shape":[2,1280,7],"values":14}
+    vulkan_linear_q8_weight_native_test.go:149: Q8_WEIGHT_TIMING {"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","f32_weight_bytes":6553600,"gpu_timestamps":false,"max_dequant_f32_baseline_abs":0,"median_ns":{"f32":28585117,"q8_weight":29035375},"q8_storage_bytes":1643520,"shape":[1500,1280,1280],"speedup":0.9844927782058954}
+--- PASS: TestVulkanNativeLinearQ8Weight (0.54s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.557s

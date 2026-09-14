@@ -1,0 +1,12 @@
+# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool
+backends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024
+backends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI
+backends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV
+backends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool [build failed]
+FAIL

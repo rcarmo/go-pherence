@@ -1,0 +1,8 @@
+python3 -m unittest scripts/test_score_community1_corpus.py scripts/test_community1_pipeline_reference.py
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.012s
+
+OK
+python3 scripts/score_community1_corpus.py --manifest benchmarks/speech-foundations/community1-corpus-manifest.json --validate-only
+{"cases": 1, "manifest_sha256": "0599acfa48e0be5114fa77d7b06fd377ab00d9ff8a5e7331b8465c7ac7faf986", "schema": 1, "valid": true}

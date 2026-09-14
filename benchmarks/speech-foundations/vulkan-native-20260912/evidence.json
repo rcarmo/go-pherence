@@ -1,0 +1,228 @@
+{
+  "checkpoint": "First native F32 speech-operator qualification on Iris Xe",
+  "created": "2026-09-12T06:43:30.761Z",
+  "baseline": "b01d57c",
+  "branch": "feat/speech-simd-vulkan",
+  "authorisation": "User permitted compute runs and stopping LLM; no deployment/restart authorised or performed",
+  "device": {
+    "device": "Intel(R) Iris(R) Xe Graphics (RPL-P)",
+    "device_id": 42912,
+    "device_type": 1,
+    "driver_version": 109056008,
+    "kind": "native_device",
+    "limits": {
+      "APIVersion": 4211042,
+      "StorageBufferRange": 4294967295,
+      "MemoryAllocationCount": 4294967295,
+      "StorageBufferOffsetAlignment": 4,
+      "PushConstantBytes": 256,
+      "BoundDescriptorSets": 32,
+      "PerStageStorageBuffers": 201326592,
+      "PerStageResources": 201326592,
+      "DescriptorSetStorageBuffers": 201326592,
+      "WorkgroupCount": [
+        2147483647,
+        65535,
+        65535
+      ],
+      "WorkgroupSize": [
+        1024,
+        1024,
+        1024
+      ],
+      "WorkgroupInvocations": 1024,
+      "SharedMemoryBytes": 49152
+    },
+    "vendor_id": 32902
+  },
+  "icd": "/usr/share/vulkan/icd.d/intel_icd.x86_64.json",
+  "driverLibrarySHA256": "2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3",
+  "icdSHA256": "d8f5bacf3b35d259cb22fcd70b592d76d1a0b6e0b9003bae855ddfc4d0e917b3",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeVulkanOpened": true,
+    "trainedModels": false,
+    "finalLLMStopped": true,
+    "speechServicesStopped": true,
+    "noRestart": true,
+    "noPush": true,
+    "wholeTestTimeout": "120s",
+    "dispatchContext": "5s",
+    "validationLayer": false
+  },
+  "native": {
+    "testPassEvents": 24,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "repeats": 3,
+    "cases": 165,
+    "comparedValues": 1384140,
+    "byOperator": {
+      "gelu": {
+        "cases": 6,
+        "values": 24636,
+        "maxAbs": 3.873717941971222e-7
+      },
+      "linear": {
+        "cases": 30,
+        "values": 6336,
+        "maxAbs": 0.000009660682177781155
+      },
+      "layernorm": {
+        "cases": 66,
+        "values": 426636,
+        "maxAbs": 2.298833243763454e-7
+      },
+      "attention": {
+        "cases": 45,
+        "values": 40878,
+        "maxAbs": 0.00000169888056578138
+      },
+      "six-stage": {
+        "cases": 18,
+        "values": 885654,
+        "maxAbs": 5.364418029785156e-7
+      }
+    },
+    "planVsSeparate": "bit-exact all fixture and timed outputs",
+    "memory": "livebytes/allocationcount return to startingvalue aftereachgroup",
+    "guardTensors": "pass includingstress"
+  },
+  "timing": {
+    "kind": "host-wall dispatchsetup+submit+fencewait; notGPU timestamps",
+    "shape": [
+      256,
+      384,
+      6
+    ],
+    "stages": 6,
+    "repeats": [
+      {
+        "gpu_timestamps": false,
+        "heads": 6,
+        "median_ns": {
+          "plan": 6622919.5,
+          "separate": 9969788.5
+        },
+        "outputs_bit_exact": true,
+        "rows": 256,
+        "samples_per_path": 12,
+        "separate_over_plan": 1.505346471446618,
+        "stages": 6,
+        "warmup_per_path": 2,
+        "width": 384
+      },
+      {
+        "gpu_timestamps": false,
+        "heads": 6,
+        "median_ns": {
+          "plan": 8300171,
+          "separate": 12001564.5
+        },
+        "outputs_bit_exact": true,
+        "rows": 256,
+        "samples_per_path": 12,
+        "separate_over_plan": 1.4459418366199925,
+        "stages": 6,
+        "warmup_per_path": 2,
+        "width": 384
+      },
+      {
+        "gpu_timestamps": false,
+        "heads": 6,
+        "median_ns": {
+          "plan": 8263539,
+          "separate": 11856342
+        },
+        "outputs_bit_exact": true,
+        "rows": 256,
+        "samples_per_path": 12,
+        "separate_over_plan": 1.434777762893114,
+        "stages": 6,
+        "warmup_per_path": 2,
+        "width": 384
+      }
+    ],
+    "sampleCount": 72,
+    "order": "6 alternating ABBA/BAAB blocks perrepeat,12/path;2explicitwarmups/path aftercorrectness",
+    "notWholeModel": true,
+    "notCPUComparison": true
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "llama-gemma-local-provider/whisper-stt/whisper-stt-diarizer inactive dead MainPID0;port18092closed afterstop",
+    "scope": "before/after snapshots not continuous telemetry"
+  },
+  "offline": {
+    "topLevel": 115,
+    "passEvents": 423,
+    "failEvents": 0
+  },
+  "checks": {
+    "optInDisabled": "SKIP beforeinit expected",
+    "nativeMake": "PASS standalone check",
+    "makeRegressions": "PASS offline/affine/foundations/media",
+    "vet": "PASS Vulkan/board",
+    "build": "PASS affected",
+    "arm64": "crossbuildonly PASS",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompileOnly": "FAIL exactbaseline",
+    "race": "cannotbuild gccabsent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 87
+  },
+  "review": {
+    "result": "Harnessreview no cleanup/comparator/equalwork issue; fixesdeadline/physicalGPUgate/stressguards applied",
+    "limits": "source-only, no GPUapproval byreviewer"
+  },
+  "limitations": [
+    "Syntheticoperatorsand6stagegraph only;noWhisperblock/model/residentcheckpoint/quality claim.",
+    "F32only;nototherGPUs,nonfinitecontents,quantisedformats,recovery/nativecancellationqualification.",
+    "NoGPUtimestamps,coldstartup,energy,CPUcomparison orwholejobspeed.",
+    "SincNetstrict4FAILunchanged;conv/residualwrappers/encoderwiringunfinished.",
+    "FirstsmallrunLLMresident;finaltimingLLMstopped. Initial/intermediateevidence retained separately."
+  ],
+  "sourceHashes": {
+    "Makefile": "77ac49b905470147beb1139aa96e122dd827d6a9f13e3124b608d1d0d6166a56",
+    "backends/vulkan/vulkan_speech_native_test.go": "bc1722dc06a789c279e22ccb5cac0b7a1efdcb4044b04496c7692186459e95fa",
+    "backends/vulkan/vulkan_layernorm.go": "8f9a8434e37c2ad1e0cb2a2c59c7add0411419d8ed7dd24a44abb18a2e4a9389",
+    "backends/vulkan/vulkan_linear.go": "38fc5deff6d9b0949e3081c5613ad71dad9930a0fb0316ad8eac6499fdba892c",
+    "backends/vulkan/vulkan_gelu.go": "c65d80efd3d1c41e3d4b91efb43ac38e9e38a0ba64944b0f03d164422d8a3145",
+    "backends/vulkan/vulkan_attention.go": "8187a3eb3c23e549333db28315c2a3b25295d3d501c1f7a455cf7af92884e6ef",
+    "backends/vulkan/vulkan_plan.go": "1749139f4235305460fa2c5271a1139b7f1d90133be2dbffb25bff5d0a5d414a",
+    "backends/vulkan/vulkan_spirv_embedded.go": "945f678d2506c8ac41e750d1e544fa6a37ef202cab74d55907642a663c7d39a5",
+    "backends/vulkan/shaders/layer_norm_f32.spv": "82cc1ae01aad528077987eb93e6a9cd68c301a2497584124404cd4fdcc0a86ed",
+    "backends/vulkan/shaders/linear_f32.spv": "8775251c424ec3db43bb744cb3bce5acbd0aa14f16c64993b54308cd06af3a6e",
+    "backends/vulkan/shaders/gelu_erf_f32.spv": "586332ffcc557755e81db54fd928c1336e16763ad5a258cb96cdd1c907a7175b",
+    "backends/vulkan/shaders/attention_f32.spv": "273feb68924b547534a6a706cc7f488a3979e4a1da0f7b0b6681a9af41502bd8",
+    "backends/vulkan/shaders/vec_add_f32.spv": "33d883f09614725c9ad360f289bc3663bfb529d97a2478187dc4edaa84cd587d",
+    "docs/speech-integration.md": "b3aa4757a3c99100d1d72bd2eeb4bacf7fa93159d9f7134ebcf27b5141331bde",
+    "benchmarks/speech-foundations/README.md": "67c60516c3837372c0760456705c20910792e4b8a06c355857e4fb4a3669558c"
+  },
+  "evidenceHashes": {
+    "README.md": "3f5ea7e7339a9f0a27c57458d7726a43aa7e5de640823bd53ce71b28bb2ded4d",
+    "native-tests.jsonl": "a7e6944b78abc1e9ef1349269bfd970b9614f50c66b0ca9d5489978908d8cb21",
+    "optin-disabled.txt": "3f81f2915fd418e640a0f2c242194791f6d20b3b9e0ea25a250f83cf67e54822",
+    "native-make.txt": "7404eee1e03c1ea74de6fece3362cda5b1468838bcb4f87dfed8347cf55ce4da",
+    "before.txt": "8bcbe12ef4963f1572da5119490208e9e19b080a51bea1ad20de6e7c455bf910",
+    "after.txt": "65ec34b27957456a8d817dff082ff223232991ceca69f06a3b2bfd17cd4601c2",
+    "regressions.txt": "765111443c6ef77b0db4be2b69fd8a95a88237de8e088b7b0d03045935e6b4d7",
+    "offline-tests.jsonl": "6b36f8714286a0ba6c68e73d2f77bbdcd95711afeef7ead4ae9e195f9a57ae18",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "initial-llm-resident.jsonl.gz": "f41c2a4edfd73dd3da7ab7dcd5ccbf3742dd89eb99e57e56526691b33a86e529",
+    "intermediate-before-review-fixes.jsonl.gz": "5dfcdff75edb45f486e4651866257c541d4c235738931fa747f3f774a3afeff4",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "16edb73d15a8d0d9bfe4a27c513c27e4ef7485c23daa673757b096bd60480389"
+  }
+}

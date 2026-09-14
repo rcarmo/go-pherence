@@ -1,0 +1,390 @@
+package speechjob
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/rcarmo/go-pherence/loader/audio/media"
+)
+
+// Go264DecodeConfig is the complete pure-Go decode-stage identity. The pinned
+// go-264 module version is part of the stage version below; the caller supplies
+// only the media contract and resource limits. No executable or native codec is
+// opened.
+type Go264DecodeConfig struct {
+	InputExtension                string
+	MaxInputBytes, MaxOutputBytes int64
+	MaxDuration                   time.Duration
+}
+
+const go264DecodeProvider = "github.com/rcarmo/go-264@v0.0.0-20260913161458-9ed3d408e05d"
+
+// FFmpegDecodeConfig is the complete FFmpeg decode-stage identity. Executable hashes
+// are required and checked before each execution; a detected change fails closed.
+// The binaries/parent paths MUST be administrator-controlled and immutable for
+// the entire job: execution is by path after hashing, not from a pinned inode.
+// This check does not prevent a concurrent path/symlink replacement attack.
+// Hashing the executables does not pin their shared libraries/OS: include that
+// environment identity in the job's configuration too. Paths must be absolute.
+// InputExtension is one of .wav/.m4a/.mp4/.mov and must describe the upload type.
+// The display name never becomes a filesystem path. All limits are positive.
+// MaxOutputBytes bounds the adapter WAV including its metadata, not just PCM.
+type FFmpegDecodeConfig struct {
+	FFmpegPath, FFprobePath       string
+	FFmpegSHA256, FFprobeSHA256   string
+	InputExtension                string
+	MaxInputBytes, MaxOutputBytes int64
+	MaxDuration                   time.Duration
+}
+
+// NewFFmpegDecodeStage constructs an explicit temporary-FFmpeg "decode" stage.
+// No executable runs at construction. It verifies upload and output caps,
+// uses job-owned private scratch, revalidates actual decoded PCM extents, and
+// publishes only deterministic mono16k S16 WAV through Store.Run's writer. A
+// validated private RIFF chunk preserves optional adapter source timing.
+// Scratch is removed on normal exit/error, retained and quota-accounted after
+// process death. Stage admission reserves configured input+scratch+checkpoint
+// file caps. FFmpeg's coarse -fs/monitor may overshoot during buffering; this
+// reservation does not impose subprocess memory/CPU or hard OS disk quotas.
+func NewFFmpegDecodeStage(cfg FFmpegDecodeConfig) (Stage, error) {
+	if !filepath.IsAbs(cfg.FFmpegPath) || !filepath.IsAbs(cfg.FFprobePath) || !validHash(cfg.FFmpegSHA256) || !validHash(cfg.FFprobeSHA256) {
+		return Stage{}, fmt.Errorf("decode requires absolute paths and executable SHA256s")
+	}
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	if err := validateDecodeStageConfig(common); err != nil {
+		return Stage{}, err
+	}
+	adapter, e := media.NewFFmpeg(media.Config{FFmpegPath: cfg.FFmpegPath, FFprobePath: cfg.FFprobePath, MaxInputBytes: cfg.MaxInputBytes, MaxDecodeOutputBytes: cfg.MaxOutputBytes, MaxDuration: cfg.MaxDuration})
+	if e != nil {
+		return Stage{}, e
+	}
+	identity, _ := json.Marshal(struct {
+		Schema string
+		Config FFmpegDecodeConfig
+	}{"ffmpeg-canonical-wav-source-timing-v2", cfg})
+	return newAdapterDecodeStage(identity, common, adapter, func(ctx context.Context) error {
+		for _, b := range []struct{ path, digest string }{{cfg.FFmpegPath, cfg.FFmpegSHA256}, {cfg.FFprobePath, cfg.FFprobeSHA256}} {
+			if err := verifyExecutable(ctx, b.path, b.digest); err != nil {
+				return err
+			}
+		}
+		return nil
+	}), nil
+}
+
+// NewGo264DecodeStage constructs the pure-Go "decode" stage. Its stage identity
+// pins the provider module version and complete media/resource contract. The
+// FFmpeg constructor remains available as an explicit rollback path.
+func NewGo264DecodeStage(cfg Go264DecodeConfig) (Stage, error) {
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	if err := validateDecodeStageConfig(common); err != nil {
+		return Stage{}, err
+	}
+	// The provider rejects a configured output cap above its exact canonical
+	// maximum. Store profiles may use a looser artifact cap, so pass the tighter
+	// provider bound while the stage independently enforces cfg.MaxOutputBytes.
+	maxSamples := int64(cfg.MaxDuration)/int64(time.Second)*16000 + (int64(cfg.MaxDuration)%int64(time.Second))*16000/int64(time.Second)
+	providerOutputBytes := min(cfg.MaxOutputBytes, int64(64<<10)+2*maxSamples)
+	adapter, err := media.NewGo264(media.Go264Config{MaxInputBytes: cfg.MaxInputBytes, MaxDecodeOutputBytes: providerOutputBytes, MaxDuration: cfg.MaxDuration})
+	if err != nil {
+		return Stage{}, err
+	}
+	identity, _ := json.Marshal(struct {
+		Schema, Provider string
+		Config           Go264DecodeConfig
+	}{"go264-canonical-wav-source-timing-v1", go264DecodeProvider, cfg})
+	return newAdapterDecodeStage(identity, common, adapter, nil), nil
+}
+
+type decodeStageConfig struct {
+	InputExtension                string
+	MaxInputBytes, MaxOutputBytes int64
+	MaxDuration                   time.Duration
+}
+
+func validateDecodeStageConfig(cfg decodeStageConfig) error {
+	if cfg.MaxInputBytes < 1 || cfg.MaxInputBytes > media.DefaultMaxInputBytes || cfg.MaxOutputBytes < 46 || cfg.MaxOutputBytes > 8<<30 || cfg.MaxDuration < time.Second/16000 || cfg.MaxDuration > media.DefaultMaxDuration {
+		return fmt.Errorf("invalid decode limits")
+	}
+	switch cfg.InputExtension {
+	case ".wav", ".m4a", ".mp4", ".mov":
+		return nil
+	default:
+		return media.ErrUnsupportedInput
+	}
+}
+
+// Internal injection is only for contract tests. No hidden alternative backend.
+func newDecodeStage(cfg FFmpegDecodeConfig, adapter media.Adapter) Stage {
+	common := decodeStageConfig{cfg.InputExtension, cfg.MaxInputBytes, cfg.MaxOutputBytes, cfg.MaxDuration}
+	identity, _ := json.Marshal(struct {
+		Schema string
+		Config FFmpegDecodeConfig
+	}{"ffmpeg-canonical-wav-source-timing-v2", cfg})
+	return newAdapterDecodeStage(identity, common, adapter, func(ctx context.Context) error {
+		for _, b := range []struct{ path, digest string }{{cfg.FFmpegPath, cfg.FFmpegSHA256}, {cfg.FFprobePath, cfg.FFprobeSHA256}} {
+			if err := verifyExecutable(ctx, b.path, b.digest); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func newAdapterDecodeStage(identity []byte, cfg decodeStageConfig, adapter media.Adapter, preflight func(context.Context) error) Stage {
+	return Stage{Name: "decode", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
+		if e := ctx.Err(); e != nil {
+			return e
+		}
+		if in.job.Input.Bytes > cfg.MaxInputBytes {
+			return media.ErrSizeLimit
+		}
+		if preflight != nil {
+			if e := preflight(ctx); e != nil {
+				return e
+			}
+		}
+		used, _, e := in.store.usage()
+		if e != nil {
+			return e
+		}
+		// input materialisation + maximum adapter output + maximum published payload
+		// + manifest headroom. Validate by subtraction to avoid integer overflow.
+		remaining := in.store.limits.MaxBytes - used
+		for _, needed := range []int64{in.job.Input.Bytes, cfg.MaxOutputBytes, cfg.MaxOutputBytes, maxManifest} {
+			if needed > remaining {
+				return ErrLimit
+			}
+			remaining -= needed
+		}
+		if cfg.MaxOutputBytes > in.store.limits.MaxArtifactBytes {
+			return ErrLimit
+		}
+		token, e := token()
+		if e != nil {
+			return e
+		}
+		relative := in.job.ID + "/.work-decode-" + token
+		if e = in.store.root.Mkdir(relative, 0700); e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, in.store.root.RemoveAll(relative)) }()
+		workspace := filepath.Join(in.store.root.Name(), filepath.FromSlash(relative))
+		inputPath, outputPath := filepath.Join(workspace, "input"+cfg.InputExtension), filepath.Join(workspace, "output.wav")
+		source, e := in.OpenSource(ctx)
+		if e != nil {
+			return e
+		}
+		input, e := os.OpenFile(inputPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if e != nil {
+			source.Close()
+			return e
+		}
+		_, copyErr := copyExact(ctx, input, source, in.job.Input.Bytes)
+		if e = errors.Join(copyErr, source.Close(), input.Close()); e != nil {
+			return e
+		}
+		if e = in.store.hit("decode-input-ready"); e != nil {
+			return e
+		}
+		decoded, e := adapter.DecodeToFile(ctx, inputPath, outputPath)
+		if e != nil {
+			return e
+		}
+		if e = ctx.Err(); e != nil {
+			return e
+		}
+		if decoded.Path != outputPath {
+			return fmt.Errorf("%w: adapter changed output path", media.ErrInvalidOutput)
+		}
+		st, e := os.Lstat(outputPath)
+		if e != nil {
+			return e
+		}
+		if !st.Mode().IsRegular() || st.Size() < 44 || st.Size() > cfg.MaxOutputBytes || decoded.SizeBytes != st.Size() {
+			return media.ErrInvalidOutput
+		}
+		pcm, e := media.OpenCanonicalPCM(ctx, outputPath)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, pcm.Close()) }()
+		timeline := pcm.Timeline()
+		expected := media.AudioFormat{Container: "wav", Encoding: "pcm_s16le", SampleRate: 16000, Channels: 1, BitsPerSample: 16}
+		maxSamples := int64(cfg.MaxDuration)/int64(time.Second)*16000 + (int64(cfg.MaxDuration)%int64(time.Second))*16000/int64(time.Second)
+		if decoded.Format != expected || decoded.Timeline != timeline || timeline.Samples <= 0 || int64(timeline.Samples) > maxSamples {
+			return media.ErrInvalidOutput
+		}
+		// Marshal performs the complete source-mapping validation before any
+		// checkpoint bytes are emitted. Zero remains the legacy/no-mapping value.
+		if _, e = media.MarshalSourceTimingWAVChunk(decoded.Source); e != nil {
+			return e
+		}
+		if e = in.store.hit("decode-output-ready"); e != nil {
+			return e
+		}
+		return writeCanonicalCheckpoint(ctx, out, pcm, int64(timeline.Samples), decoded.Source, cfg.MaxOutputBytes)
+	}}
+}
+func verifyExecutable(ctx context.Context, path, expected string) error {
+	if e := ctx.Err(); e != nil {
+		return e
+	}
+	f, e := os.Open(path)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	st, e := f.Stat()
+	if e != nil {
+		return e
+	}
+	if !st.Mode().IsRegular() || st.Size() > 1<<30 {
+		return ErrConfiguration
+	}
+	digest := sha256.New()
+	buf := make([]byte, 32<<10)
+	for {
+		if e = ctx.Err(); e != nil {
+			return e
+		}
+		n, re := f.Read(buf)
+		if n > 0 {
+			digest.Write(buf[:n])
+		}
+		if re == io.EOF {
+			break
+		}
+		if re != nil {
+			return re
+		}
+	}
+	if hex.EncodeToString(digest.Sum(nil)) != expected {
+		return fmt.Errorf("%w: decoder executable changed", ErrConfiguration)
+	}
+	return nil
+}
+
+// copyExact never pads a short input or accepts an unaccounted extra byte.
+// The reader remains caller-owned; blocking IO needs external cancellation.
+func copyExact(ctx context.Context, dst io.Writer, src io.Reader, size int64) (int64, error) {
+	if size < 0 {
+		return 0, ErrLimit
+	}
+	var copied int64
+	buf := make([]byte, 32<<10)
+	for copied < size {
+		if e := ctx.Err(); e != nil {
+			return copied, e
+		}
+		n := int(min(int64(len(buf)), size-copied))
+		nr, re := io.ReadFull(src, buf[:n])
+		if nr > 0 {
+			nw, we := dst.Write(buf[:nr])
+			copied += int64(nw)
+			if we != nil {
+				return copied, we
+			}
+			if nw != nr {
+				return copied, io.ErrShortWrite
+			}
+		}
+		if re != nil {
+			return copied, re
+		}
+	}
+	if e := ctx.Err(); e != nil {
+		return copied, e
+	}
+	var extra [1]byte
+	n, e := io.ReadFull(src, extra[:])
+	if n != 0 {
+		return copied, ErrLimit
+	}
+	if e != io.EOF {
+		return copied, e
+	}
+	return copied, nil
+}
+func writeFull(dst io.Writer, b []byte) error {
+	n, e := dst.Write(b)
+	if e == nil && n != len(b) {
+		e = io.ErrShortWrite
+	}
+	return e
+}
+
+// PCMReader values are exact int16/32768; multiplication by32768 is exact.
+// Re-encoding is lossless and removes nondeterministic container metadata.
+func writeCanonicalCheckpoint(ctx context.Context, out io.Writer, pcm *media.PCMReader, samples int64, source media.SourceTiming, maxBytes int64) error {
+	timing, err := media.MarshalSourceTimingWAVChunk(source)
+	if err != nil {
+		return err
+	}
+	if samples < 1 || samples > (int64(^uint32(0))-36-int64(len(timing)))/2 || 44+int64(len(timing))+samples*2 > maxBytes {
+		return media.ErrDecodeOutputLimit
+	}
+	var header [44]byte
+	copy(header[:4], "RIFF")
+	binary.LittleEndian.PutUint32(header[4:8], uint32(36+int64(len(timing))+samples*2))
+	copy(header[8:12], "WAVE")
+	copy(header[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(header[16:20], 16)
+	binary.LittleEndian.PutUint16(header[20:22], 1)
+	binary.LittleEndian.PutUint16(header[22:24], 1)
+	binary.LittleEndian.PutUint32(header[24:28], 16000)
+	binary.LittleEndian.PutUint32(header[28:32], 32000)
+	binary.LittleEndian.PutUint16(header[32:34], 2)
+	binary.LittleEndian.PutUint16(header[34:36], 16)
+	copy(header[36:40], "data")
+	binary.LittleEndian.PutUint32(header[40:44], uint32(samples*2))
+	if e := ctx.Err(); e != nil {
+		return e
+	}
+	// Keep the legacy 44-byte layout when there is no mapping. Otherwise place
+	// the ancillary chunk between fmt and data; PCM always follows its own data
+	// header and remains the authoritative timeline.
+	if e := writeFull(out, header[:36]); e != nil {
+		return e
+	}
+	if len(timing) > 0 {
+		if e := writeFull(out, timing); e != nil {
+			return e
+		}
+	}
+	if e := writeFull(out, header[36:]); e != nil {
+		return e
+	}
+	values := make([]float32, 4096)
+	raw := make([]byte, 8192)
+	for start := int64(0); start < samples; {
+		if e := ctx.Err(); e != nil {
+			return e
+		}
+		count := int(min(int64(len(values)), samples-start))
+		n, e := pcm.ReadSamplesAt(ctx, values[:count], start)
+		if e != nil {
+			return e
+		}
+		if n != count {
+			return io.ErrUnexpectedEOF
+		}
+		for i, v := range values[:n] {
+			binary.LittleEndian.PutUint16(raw[i*2:], uint16(int16(v*32768)))
+		}
+		if e = writeFull(out, raw[:n*2]); e != nil {
+			return e
+		}
+		start += int64(n)
+	}
+	return ctx.Err()
+}

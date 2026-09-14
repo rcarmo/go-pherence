@@ -1,0 +1,257 @@
+{
+  "schema": 1,
+  "baseline_commit": "c39e025",
+  "scope": "WeSpeaker residual BasicBlock component, not complete ResNet/embedding pipeline",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "pinned extracted BasicBlock, TorchCPU1thread/MKLDNNoff synthetic params/buffers",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "counts": {
+    "package_pass_events": 47,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "block_top_level_pass": 5
+  },
+  "tests": [
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "url": "https://raw.githubusercontent.com/pyannote/pyannote-audio/b749285c5cdd4636b2edc7f766f1352c8dde9369/src/pyannote/audio/models/embedding/wespeaker/resnet.py",
+      "sha256": "2de7673e14e8c74d6c430e0b6e6cc844157f47ac35b67ff6238ca2d2c559eba9",
+      "license": "Apache-2.0",
+      "torch": "2.14.0+cpu",
+      "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+      "cpu_threads": 1,
+      "mkldnn": false
+    },
+    "cases": 6,
+    "boundaries": 52,
+    "absolute_tolerance": 0.000002,
+    "relative_tolerance": 0.000002,
+    "regeneration": "identical gzip bytes"
+  },
+  "safety": {
+    "scalar_cancellation_checkpoints": 82,
+    "SIMD_cancellation_checkpoints": 70,
+    "allocations_per_tested_projected_block_call": 5,
+    "per_position_allocation": false
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "gemv": "existing checked GemvRows/shape tests passed",
+    "vet": "affected and speaker/... passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline errors",
+    "review": "narrow source review no blocking finding",
+    "license": "Apache2 source-derived block adaptation with notice/license; existing components retain MIT"
+  },
+  "limitations": [
+    "full ResNet stem/stage stack/embedding projection not implemented",
+    "actual checkpoint loading/shape binding and quality/performance not qualified",
+    "batch1,channels<=256,freq<=80,time<=4096,4Mi elements per tensor",
+    "running kernels/callbacks uninterruptible; no latency/memory admission guarantee",
+    "no new specialised SIMD convolution or Vulkan",
+    "SincNet strict4FAIL unchanged; explicit skip in ordinary suite",
+    "race detector not run"
+  ]
+}

@@ -1,0 +1,4 @@
+retained_baseline_sha256  111e98ad0a6d1fb5dc61bcf6db4ff0d3d44485cc66c09efcabf7736b7d8f4ee3
+packed_result_sha256      111e98ad0a6d1fb5dc61bcf6db4ff0d3d44485cc66c09efcabf7736b7d8f4ee3
+cmp_exit_status           0
+comparison                byte-identical

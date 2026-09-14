@@ -1,0 +1,276 @@
+{
+  "schema": 1,
+  "baseline_commit": "34a4b9f",
+  "scope": "full-depth reduced-width synthetic WeSpeakerResNet34 graph, shared multi-mask pooling and single embedding projection",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "pinned extracted BasicBlock/TSTP/ResNet+StatsPool,TorchCPU1thread,MKLDNNoff syntheticweights/features",
+    "trained_model": false,
+    "production_width_inference": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "counts": {
+    "package_pass_events": 51,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "resnet_top_level_pass": 4
+  },
+  "tests": [
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetFullDepthOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetRejectsGeometryAndWeights",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetCancellationAndSharedAllocation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "pyannote_commit": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "resnet_sha256": "2de7673e14e8c74d6c430e0b6e6cc844157f47ac35b67ff6238ca2d2c559eba9",
+      "pooling_sha256": "8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82",
+      "torch": "2.14.0+cpu",
+      "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+      "cpu_threads": 1,
+      "mkldnn": false
+    },
+    "cases": 3,
+    "trunk_boundaries": 51,
+    "mask_scenarios": 6,
+    "absolute_tolerance": 0.000002,
+    "relative_tolerance": 0.000002,
+    "regeneration": "identical gzip bytes"
+  },
+  "safety": {
+    "trunk_observer_cancel_boundaries": 17,
+    "embedding_cancel_checkpoints": 94,
+    "embedding_allocations_tested": 6,
+    "allocation_count_independent_of_masks": true,
+    "feature_reuse": "trunk invalidated after feature extraction; reuse still matches individual masks",
+    "invalid_reuse": "short/oversized/NaN/Inf reject before observer via checked StatsPool"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "vet": "affected and speaker/... passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline errors",
+    "review": "delegate claimed missing reused-feature validation; parent verified existing StatsPool shape/finite gate and added regression tests. No independent final approval claimed."
+  },
+  "limits": [
+    "actual checkpoint loading/schema/quality not qualified",
+    "base32/mel80/embed256 production-width workloads not executed",
+    "empty mask gives projection bias, not admissible speaker embedding; min speech policy missing",
+    "Fbank and ResNet not an end-to-end PCM quality test",
+    "no specialised new SIMD kernels or resident Vulkan",
+    "SincNet strict4FAIL unchanged and full diarization/clustering not integrated",
+    "4Mi intermediate tensor bound not service memory/latency guarantee",
+    "race detector not run"
+  ]
+}

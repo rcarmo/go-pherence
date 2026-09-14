@@ -1,0 +1,5 @@
+=== RUN   TestZZZVulkanCommunityPackedLSTMTiming
+    zzz_vulkan_lstm_packed_timing_test.go:61: COMMUNITY_PACKED_LSTM_TIMING device="Intel(R) Iris(R) Xe Graphics (RPL-P)" frames=589 repeats=12 total=4.283016075s each=356.918006ms values=[356.444494ms 357.71558ms 356.139573ms 356.542317ms 356.384728ms 358.346106ms 356.185257ms 356.430703ms 356.627485ms 358.098589ms 357.505474ms 356.595769ms]
+--- PASS: TestZZZVulkanCommunityPackedLSTMTiming (4.37s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	4.382s

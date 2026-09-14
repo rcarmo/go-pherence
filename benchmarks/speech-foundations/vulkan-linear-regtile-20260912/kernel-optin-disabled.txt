@@ -1,0 +1,5 @@
+=== RUN   TestVulkanNativeLinearRegTile
+    vulkan_linear_regtile_test.go:133: explicit candidate GPU window required
+--- SKIP: TestVulkanNativeLinearRegTile (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.003s

@@ -1,0 +1,20 @@
+=== RUN   TestVulkanTurboRegTile
+    vulkan_regtile_test.go:32: TURBO_LOAD ns=3984029713 tensors=587 checkpoint_f16=true inference_f32=true
+    vulkan_regtile_test.go:143: REGTILE_ENCODER initial full trained Turbo output bit-exact
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":0,"kernel":"baseline","wall_ns":14254632535}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":0,"kernel":"candidate","wall_ns":8289190590}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":0,"kernel":"candidate","wall_ns":8284896054}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":0,"kernel":"baseline","wall_ns":14247566694}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":1,"kernel":"candidate","wall_ns":8282896855}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":1,"kernel":"baseline","wall_ns":14259929261}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":1,"kernel":"baseline","wall_ns":14249835120}
+    vulkan_regtile_test.go:164: REGTILE_ENCODER_SAMPLE {"bit_exact":true,"block":1,"kernel":"candidate","wall_ns":8279395099}
+    vulkan_regtile_test.go:173: REGTILE_ENCODER_TIMING {"includes_upload_download":true,"medians_ns":{"baseline":14252233827.5,"candidate":8283896454.5},"sameweights_pcm_shape":true,"samples_per_kernel":4,"speedup":1.7204746468985455}
+    vulkan_regtile_test.go:218: REGTILE_SPEECH {"baseline_tokens_timestamps_exact":true,"fixture":"minds-pt-0","wall_ns":9690972488,"window":{"Window":{"Index":0,"Start":0,"End":144726,"EmitStart":0,"EmitEnd":144726,"InputSamples":480000,"PadSamples":335274},"Segments":[{"Start":0,"End":9.04,"Text":"Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.","Tokens":[19812,6801,11,17660,257,11742,289,4021,7974,4061,368,42542,5473,2617,1136,631,2228,22501,19930,3981,23760,1667,11720,24001,13]}]}}
+    vulkan_regtile_test.go:218: REGTILE_SPEECH {"baseline_tokens_timestamps_exact":true,"fixture":"minds-pt-1","wall_ns":9297286410,"window":{"Window":{"Index":0,"Start":0,"End":75094,"EmitStart":0,"EmitEnd":75094,"InputSamples":480000,"PadSamples":404906},"Segments":[{"Start":0,"End":4.693375,"Text":"Como faço para transferir dinheiro para a minha conta?","Tokens":[11913,38091,1690,5003,347,23760,1690,257,11720,24001,30]}]}}
+    vulkan_regtile_test.go:218: REGTILE_SPEECH {"baseline_tokens_timestamps_exact":true,"fixture":"minds-fr-0","wall_ns":9205829677,"window":{"Window":{"Index":0,"Start":0,"End":60074,"EmitStart":0,"EmitEnd":60074,"InputSamples":480000,"PadSamples":419926},"Segments":[{"Start":0,"End":2.42,"Text":"Je souhaite changer mon adresse.","Tokens":[2588,45214,642,22822,1108,614,22603,13]}]}}
+    vulkan_regtile_test.go:218: REGTILE_SPEECH {"baseline_tokens_timestamps_exact":true,"fixture":"jfk","wall_ns":9745983496,"window":{"Window":{"Index":0,"Start":0,"End":176000,"EmitStart":0,"EmitEnd":176000,"InputSamples":480000,"PadSamples":304000},"Segments":[{"Start":0,"End":10.4,"Text":"And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.","Tokens":[400,370,11,452,7177,6280,11,1029,406,437,428,1941,393,360,337,291,11,1029,437,291,393,360,337,428,1941,13]}]}}
+    vulkan_regtile_test.go:220: REGTILE_RESOURCES native_bytes=5283471360 arenas=68
+--- PASS: TestVulkanTurboRegTile (159.69s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	159.886s

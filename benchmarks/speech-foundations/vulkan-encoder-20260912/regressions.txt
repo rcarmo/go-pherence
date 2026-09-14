@@ -1,0 +1,21 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.236s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^TestVulkanEncoder(Layout|RejectsBeforeDevice|Ownership)$'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.007s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.031s
+GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.052s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNet(FMA32|Normalization)'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.056s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.116s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.094s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	0.003s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	1.176s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.375s
+go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
+GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.651s

@@ -1,0 +1,20 @@
+{"Time":"2026-09-12T10:21:17.749699676+01:00","Action":"start","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime"}
+{"Time":"2026-09-12T10:21:17.751893431+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsMXCSRAndIEEE"}
+{"Time":"2026-09-12T10:21:17.751922955+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsMXCSRAndIEEE","Output":"=== RUN   TestFMAColumnsMXCSRAndIEEE\n"}
+{"Time":"2026-09-12T10:21:17.751954772+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsMXCSRAndIEEE","Output":"--- PASS: TestFMAColumnsMXCSRAndIEEE (0.00s)\n"}
+{"Time":"2026-09-12T10:21:17.751961085+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsMXCSRAndIEEE","Elapsed":0}
+{"Time":"2026-09-12T10:21:17.751967526+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsGuardPages"}
+{"Time":"2026-09-12T10:21:17.751972874+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsGuardPages","Output":"=== RUN   TestFMAColumnsGuardPages\n"}
+{"Time":"2026-09-12T10:21:17.752632054+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsGuardPages","Output":"--- PASS: TestFMAColumnsGuardPages (0.00s)\n"}
+{"Time":"2026-09-12T10:21:17.752646249+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsGuardPages","Elapsed":0}
+{"Time":"2026-09-12T10:21:17.752653026+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsOrderAndBounds"}
+{"Time":"2026-09-12T10:21:17.752657639+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsOrderAndBounds","Output":"=== RUN   TestFMAColumnsOrderAndBounds\n"}
+{"Time":"2026-09-12T10:21:17.775300456+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsOrderAndBounds","Output":"--- PASS: TestFMAColumnsOrderAndBounds (0.02s)\n"}
+{"Time":"2026-09-12T10:21:17.775335705+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsOrderAndBounds","Elapsed":0.02}
+{"Time":"2026-09-12T10:21:17.77534548+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsInvalidAndEmpty"}
+{"Time":"2026-09-12T10:21:17.775350009+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsInvalidAndEmpty","Output":"=== RUN   TestFMAColumnsInvalidAndEmpty\n"}
+{"Time":"2026-09-12T10:21:17.775358467+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsInvalidAndEmpty","Output":"--- PASS: TestFMAColumnsInvalidAndEmpty (0.00s)\n"}
+{"Time":"2026-09-12T10:21:17.775363206+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Test":"TestFMAColumnsInvalidAndEmpty","Elapsed":0}
+{"Time":"2026-09-12T10:21:17.775368236+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Output":"PASS\n"}
+{"Time":"2026-09-12T10:21:17.776348408+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Output":"ok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t0.026s\n"}
+{"Time":"2026-09-12T10:21:17.776392812+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/backends/simd/runtime","Elapsed":0.027}

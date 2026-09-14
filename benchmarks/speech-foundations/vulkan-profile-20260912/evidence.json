@@ -1,0 +1,114 @@
+{
+  "checkpoint": "Turbo encoder operation attribution; no kernel candidate",
+  "created": "2026-09-12T08:33:30.950Z",
+  "baseline": "74beb84",
+  "branch": "feat/speech-simd-vulkan",
+  "profile": {
+    "processes": 2,
+    "roundsEach": 2,
+    "modes": 8,
+    "bitExact": true,
+    "outputSHA256": "c523d40468f88d2acdea8db84c52d31e24b9d72c8c177a957dee4b5b709aede6",
+    "normalPlans": 34,
+    "singleStagePlans": 390,
+    "totalPerPlanSamples": 1696,
+    "normalSecondsRange": [
+      14.225211955,
+      14.234453108
+    ],
+    "singleStageSecondsRange": [
+      14.533523872,
+      14.572195317
+    ],
+    "finding": "linear~77%,attention~20% of separatelyfencedtime",
+    "gpuTimestamps": false,
+    "speedupClaim": false,
+    "next": "investigate linear-kernel efficiency first; format choice not justifiedbyprofilealone"
+  },
+  "changes": {
+    "publicDefault": "unchanged vk.NewVkF32Plan factory",
+    "privateSeam": "diagnostic capture/faultinjectiononly",
+    "fix": "adopt nonnilerrorresult before rollback; rejectnil-success"
+  },
+  "nativeRegression": {
+    "passEvents": 30,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "partialPlanRollbackPasses": 3
+  },
+  "shuffle30": {
+    "passEvents": 600,
+    "topLevel": 120,
+    "fail": 0,
+    "skip": 0
+  },
+  "checks": {
+    "regressions": "PASS allfocused",
+    "vet": "PASS affected",
+    "amd64": "PASS affected",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "WhisperArm64": "FAIL exactbaselineFFT",
+    "race": "gccabsent",
+    "makeTarget": "dryrun;equivalentnativecommandexecuted",
+    "diffCheck": "PASS",
+    "checkedLinks": 105
+  },
+  "review": {
+    "findings": "differentcommand/fenceoverhead;partialfactorycleanup;opaqueallocationsoutsidebudget",
+    "resolution": "cleanupfixed/nativefaulttest;attribution+memorylimitsreported"
+  },
+  "resources": {
+    "explicitNativeBytes": 2641735680,
+    "explicitAllocations": 34,
+    "extraOpaquePlans": 390,
+    "minAvailableKiB": 21517024,
+    "memorySamples": 158,
+    "swapBefore": {
+      "pswpin": 36297,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36297,
+      "pswpout": 635627
+    },
+    "services": "LLM+speechinactiveMainPID0",
+    "go264ModelWindow": "grantedafterprofilesfinished,nooverlap"
+  },
+  "limitations": [
+    "Hostwallincludesrecord/descriptor/submit/wait,notpureGPUkernel.",
+    "Fixedorder2roundsscreeningnotbalancedcandidatebenchmark.",
+    "DriveropaqueallocationsnotcountedinVkbudget.",
+    "NoF16/quantisation/performancequalificationchange.",
+    "Turbo14.23sencoderhold,fullquality/recovery/Community1unfinished.",
+    "SincNetstrict4FAILunchanged."
+  ],
+  "sourceHashes": {
+    "Makefile": "41952eea0a4fa362602548ab94a9e496c84ac57d07db7c3a634d5aa853f4e5ea",
+    "models/whisper/vulkan_encoder.go": "5bae0838bdeb28b7c353ce742b67b74c35f29a9bc0b4356388f53fa4a4741611",
+    "models/whisper/vulkan_profile_test.go": "92b2d1e38a6e58e475034dcf2cf1ec5a6d192dbc7d27b9191442b25fb0ee95d5",
+    "models/whisper/vulkan_encoder_native_test.go": "eb0c06e895a0bd8449f1ffd6a79a14f09fc260aed7b608603f8ff6870d821cf7",
+    "docs/speech-integration.md": "53292cbb1bad91e16232be5a4e3cbef4863d86ce735978cdfa3e82d4572b8bee",
+    "benchmarks/speech-foundations/README.md": "3126f088cdc2f764b559490310f156f1e46e2124bc1611a97f8a24d1be466c2c"
+  },
+  "evidenceHashes": {
+    "README.md": "1f8604ea5d44db0e2eaf7ae82b0af7897c0a0562e90cb1937da2d98aa95dc3b5",
+    "native-regressions.jsonl": "493c757660628c14be625239954893a3053096d91298b1225407acdee8d5d96e",
+    "regressions.txt": "02886e3c7b190e62c561f384b475957029f2f06d3e5d30a3214954db66f003eb",
+    "optin-disabled.txt": "a8d0ea2af64c447f8a5fef5b1e24015136f8f61eebaee78f4654e58f23ad50f9",
+    "before.txt": "2d462e92e73dd095a3912f591c50a5b82a2a485f9a05622fe7f8a7d90dc57fd8",
+    "after.txt": "2255a296141787925782f2b49af2eafe5cb29b0c02d3a83de87a14f37a1966b5",
+    "memory-monitor.txt": "d6507987d1cd197909f01ed4f31fbeaa277e991e20d39ce449dc930e1b4d4f0c",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "initial-profile.jsonl": "19b1b0e0d5c001b7cd4c3ad9da8364bc5db51014e5290bbaeba891176c5ed7d0",
+    "profile-1.jsonl": "eb8af204c91f0a21650b5c684450eb23de9bd68fc35c88ac968e0e0b2909b608",
+    "profile-2.jsonl": "dc72d42c01a3e6b9296c5f7ae8f46f442002f072e1737d1007a4a2db8f07a6b0",
+    "shuffle-tests.jsonl.gz": "287f0b32a06f6c33f05c49c5c56d2bbed3a93e9353a8203c47df4da241a24fac",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "f64a8aaf887b86e13cacf4ea082da43cfb6af54bd31d95deb7b7bfa4a1497c49"
+  }
+}

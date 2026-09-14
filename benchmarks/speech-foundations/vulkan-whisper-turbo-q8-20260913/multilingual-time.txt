@@ -1,0 +1,23 @@
+	Command being timed: "env GOMAXPROCS=2 CGO_ENABLED=0 go test -p=1 -count=1 -timeout=3m -v ./models/whisper -run ^TestVulkanTurboQ8Weight$"
+	User time (seconds): 45.73
+	System time (seconds): 5.33
+	Percent of CPU this job got: 38%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:12.68
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 6779472
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 223
+	Minor (reclaiming a frame) page faults: 1760295
+	Voluntary context switches: 183945
+	Involuntary context switches: 869
+	Swaps: 0
+	File system inputs: 269728
+	File system outputs: 13296
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,29 @@
+{
+  "repository": "openai/whisper-large-v3-turbo",
+  "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+  "assets": {
+    "model.safetensors": {
+      "bytes": 1617824864,
+      "sha256": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1"
+    },
+    "config.json": {
+      "bytes": 1256,
+      "sha256": "c5b526b3e3cd64cd8940dabb45e8ba726629e22d8ed389c29b552f9140daf04a"
+    },
+    "tokenizer.json": {
+      "bytes": 2710337,
+      "sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd"
+    },
+    "generation_config.json": {
+      "bytes": 3772,
+      "sha256": "cce11bfe3aaa6ae9e072ea2637caaec8795e68d9b67e655a5af16ee509681a4c"
+    }
+  },
+  "tensors": 587,
+  "dtype": "F16",
+  "expandedF32Bytes": 3235512320,
+  "modelCardURL": "https://huggingface.co/openai/whisper-large-v3-turbo/blob/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/README.md",
+  "modelCardSHA256": "aaef74a740faca90fa1899c4233ebe17f2093b9846d0acf16d9131bf650e9585",
+  "modelCardLicense": "MIT",
+  "weightsCommitted": false
+}

@@ -1,0 +1,6 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/19 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 19/19 completed, now fuzzing with 1 workers
+fuzz: elapsed: 3s, execs: 27785 (9257/sec), new interesting: 2 (total: 21)
+fuzz: elapsed: 4s, execs: 27785 (0/sec), new interesting: 2 (total: 21)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.804s

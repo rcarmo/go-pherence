@@ -1,0 +1,1 @@
+e71ab0751d682501c6172f508508de3334bc0d5bc6e020cd9f6e08f8104b561c  /var/home/agent/workspace/projects/go-pherence/tmp/resnet-trusted-release-r2/community-linux-arm64.test

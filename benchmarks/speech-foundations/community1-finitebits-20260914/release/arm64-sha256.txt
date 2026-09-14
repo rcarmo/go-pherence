@@ -1,0 +1,1 @@
+848c87ef4d560111bcccdacfd67fd0c3a4eeb305f5a963b077f302e3bf9803cc  /var/home/agent/workspace/projects/go-pherence/tmp/finitebits-release-r1/community-linux-arm64.test

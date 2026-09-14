@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Speech jobs</title><link rel="stylesheet" href="/ui/style.css"><script src="/ui/app.js" defer></script></head>
+<body><main>
+<header><h1>Speech jobs</h1><p>Explicit runs · durable checkpoints · no automatic retries</p></header>
+<aside class="warning">Experimental speech workflow. Model accuracy and performance are not production-qualified. Runs use the open request: closing or reloading this page may cancel a run. Inspect status before retrying an uncertain upload or run.</aside>
+<section aria-label="Authentication"><h2>Connect</h2><form id="auth"><label>Bearer token <input id="token" type="password" autocomplete="off" spellcheck="false" minlength="32" maxlength="256" required></label><button id="connect" type="submit">Connect</button><button id="forget" type="button">Forget token</button></form><p id="connection">Disconnected. Token stays in page memory only.</p></section>
+<p id="notice" role="status" aria-live="polite">Enter the token configured by the server operator.</p>
+<section id="workspace" hidden>
+<section><h2>Upload</h2><form id="upload"><label>Server profile <select id="profile" required></select></label><label>Recording <input id="file" type="file" required></label><button id="upload-button" type="submit">Upload only</button></form><p id="upload-limit"></p><p>No inference starts until you select Run. Do not repeat an upload after a lost response without checking inventory.</p></section>
+<section><h2>Jobs</h2><nav><button id="refresh" type="button">Refresh first page</button><button id="next" type="button" disabled>Next page</button><button id="inventory-button" type="button">Inspect retained inventory</button></nav><div id="jobs"></div><p id="page-info"></p></section>
+<section id="selection" hidden><h2>Selected job</h2><dl id="job-info"></dl><div class="actions"><button id="run" type="button">Run / retry</button><button id="cancel" type="button">Request cancellation</button><button id="status" type="button">Refresh status</button><button id="delete" type="button" class="danger">Delete permanently</button></div><p id="run-status"></p><h3>Verified downloads</h3><p>Downloads are fetched with authentication and released to the browser only after size and SHA256 checks. Browser download settings decide the local filename.</p><div id="artifacts"></div></section>
+<section id="inventory-section" hidden><h2>Retained inventory</h2><p>Incomplete uploads and deletion markers are included. Removing an entry permanently removes that job's media and checkpoints.</p><div id="inventory"></div></section>
+</section>
+<footer>No token is saved to cookies, local storage, session storage or the URL. Forgetting it aborts this page's requests. Server-side callbacks still need to drain.</footer>
+</main></body></html>

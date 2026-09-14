@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "baseline_commit": "1dbee98",
+  "scope": "fixed-default WeSpeaker Fbank component, not full embedding/model qualification",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "pinned Kaldi/Pyannote extracted compute_fbank, TorchCPU1thread syntheticPCM",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 12,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/silence",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/constant",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/impulse",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/broadband",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/tone",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/odd-tail",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/single-frame",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle/very-low",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankFrameCoverageAndMean",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankBoundsOwnershipAndCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerFbankPinnedMeanReduction",
+      "status": "pass"
+    }
+  ],
+  "oracle": {
+    "reference": {
+      "kaldi_sha256": "5cbea1a584ddea748f6f68a621d794e13334e88d9faa1d40986f7af32f196d29",
+      "wespeaker_sha256": "a2c13a792c50d97f7a7583b69fcabd5eb5efc34d1374c2b6e5757bbcf3b62139",
+      "pyannote_commit": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "torchaudio": "2.11.0+cpu",
+      "torch": "2.14.0+cpu",
+      "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+      "cpu_threads": 1,
+      "sum_kernel_url": "https://raw.githubusercontent.com/pytorch/pytorch/08187d9e0fba026dc8217405802ab5381dc88d90/aten/src/ATen/native/cpu/SumKernel.cpp",
+      "sum_kernel_sha256": "9b88aa14e626dd708e50816a5ca89acfc66798226dc82501cf1857caebe96f95",
+      "cpu_capability": "AVX2"
+    },
+    "cases": 8,
+    "frames": 38,
+    "frame_mean": "bit-exact pinned Torch AVX2",
+    "tolerances": {
+      "hamming_abs": 2e-7,
+      "mel_filter_abs": 0.00002,
+      "window_abs": 0.002,
+      "window_rel": 0.00002,
+      "power_abs": 0.1,
+      "power_rel": 0.002,
+      "log_mel_abs": 0.0002,
+      "centered_abs": 0.0002
+    },
+    "regeneration": "identical gzip bytes"
+  },
+  "retained_correction": "First constant log_mel differed2.7402 because float64 frame mean removed DC exactly. Specialised float32 reduction ordering from pinned TorchSumKernel fixed it without widening tolerances.",
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "legacy": "FFT512 and SpeechBrainFbank regressions passed",
+    "vet": "affected audio/media/Whisper/Community1 passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "audio cross-build passed, not executed",
+    "full_tree": "exact recorded baseline errors",
+    "review": "narrow source review no blocking finding",
+    "cancellation_checkpoints": 164
+  },
+  "limits": [
+    "only fixed default16k/80mel/Hamming/sniped25ms10ms/globalcenter contract",
+    "per-frame FFT buffers allocate; pureGo radix2 not new SIMD assembly",
+    "Torch CPU architecture reduction differences not qualified",
+    "no real WeSpeaker ResNet/projection/embedding or quality/speed gates",
+    "SincNet strict4FAIL unchanged; no integration",
+    "no frame timestamp/source gapless mapping",
+    "race detector not run"
+  ]
+}

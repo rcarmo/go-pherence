@@ -1,0 +1,4 @@
+/var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-trunk-r1/B1.log:    dotrowsx8_trunk_tmp_test.go:3: DOTROWSX8_TRUNK ns=688111147 hash=dc9121878f784e986fe6cb87b0f4c6a93293ec8c7152311295b0655588ee2a6d values=161280 shape=256,10,63
+/var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-trunk-r1/A2.log:    dotrowsx8_trunk_tmp_test.go:3: DOTROWSX8_TRUNK ns=749721307 hash=dc9121878f784e986fe6cb87b0f4c6a93293ec8c7152311295b0655588ee2a6d values=161280 shape=256,10,63
+/var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-trunk-r1/B2.log:    dotrowsx8_trunk_tmp_test.go:3: DOTROWSX8_TRUNK ns=693892840 hash=dc9121878f784e986fe6cb87b0f4c6a93293ec8c7152311295b0655588ee2a6d values=161280 shape=256,10,63
+/var/home/agent/workspace/projects/go-pherence/tmp/dotrowsx8-trunk-r1/A1.log:    dotrowsx8_trunk_tmp_test.go:3: DOTROWSX8_TRUNK ns=751779679 hash=dc9121878f784e986fe6cb87b0f4c6a93293ec8c7152311295b0655588ee2a6d values=161280 shape=256,10,63

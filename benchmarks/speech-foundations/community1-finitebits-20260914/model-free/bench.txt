@@ -1,0 +1,12 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/models/speaker/community1
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkFinitePredicateTemporary/old-2         	    4496	     79713 ns/op
+BenchmarkFinitePredicateTemporary/old-2         	    4460	     79925 ns/op
+BenchmarkFinitePredicateTemporary/old-2         	    4489	     80385 ns/op
+BenchmarkFinitePredicateTemporary/bits-2        	   10000	     34731 ns/op
+BenchmarkFinitePredicateTemporary/bits-2        	   10365	     35356 ns/op
+BenchmarkFinitePredicateTemporary/bits-2        	   10000	     34707 ns/op
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	2.638s

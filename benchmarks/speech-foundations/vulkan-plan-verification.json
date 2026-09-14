@@ -1,0 +1,86 @@
+{
+  "checkpoint": "Vulkan bounded ordered F32 multi-stage execution plan (mock-only)",
+  "created": "2026-09-12T05:18:31.106Z",
+  "baseline": "7ab83d7",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 383,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 81,
+    "uniqueTopLevelTests": 81
+  },
+  "shuffle30": {
+    "passEvents": 2880,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 1140,
+    "uniqueTopLevelTests": 38
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact arena-baseline output",
+    "backendCompileOnly": "FAIL with exact arena-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 72
+  },
+  "coverage": [
+    "1..64stages, owned push/group/range snapshots; each stage owns independent descriptor set even repeated kernel",
+    "Allstage constructor/run preflight before native mutation; closed finalstage kernel rejected",
+    "One acquire,N-1compute dependencies,one release,one submit/reset/fencewait; repeatRunuses persistent allocations",
+    "Construction null/failure handles roll back reverse order; cancellation construction frees planowned resources",
+    "Cancellation during recording completesEnd but cannot submit partialwork",
+    "Pending plan retains all stagekernels and dedupbackingbuffers, blockskernel/plan/arenaclose andhosttransfers",
+    "Drain uses planfence without resubmit,release/reuse afterconfirmedcompletion",
+    "Submit/wait timeout/uncertain/device-lost quarantine retained",
+    "Copied plan Close is idempotent, callerowners notdestroyed",
+    "64stage boundary/8concurrent runs serialize through same lane; legacy single-dispatch regressions pass"
+  ],
+  "review": {
+    "delegate": "Focused multiop recording/lifetime review timed out; no independent approval.",
+    "parent": "Checked perstage descriptor lifetime, native layout fields, wholeplan preflight, cancellation boundaries and allowner retention; local mocks and scoped regressions pass."
+  },
+  "limitations": [
+    "No DAG scheduler/fusion/automatic dtype-modelshape-push semantics/dynamicshapes/quantised modelgraph.",
+    "No native driver/validation-layer/GPU/shader/model/numerical/performance qualification.",
+    "Caller owns kernels/arenas and must not copy kernel resources; plan holds references but checks closure onRun.",
+    "No resource eviction/device shutdown-recreation/recovery or trained model integration.",
+    "Context cannot preempt native calls; single submission wait retains existing one-second cap.",
+    "Current FFI64bit; arm64 cross-build only.",
+    "SincNet strict four-failure hold and2RMS/RoPEbindingholds unchanged; noPCM/neural/trainedquality/services."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_plan.go": "1749139f4235305460fa2c5271a1139b7f1d90133be2dbffb25bff5d0a5d414a",
+    "backends/vulkan/vulkan_plan_test.go": "954df8897f2720871b38fd9e5dd04cbd408620ea5acb2b816ddfee01e8c8a175",
+    "backends/vulkan/vulkan_dispatch.go": "4913dde7fd6168f7daf2a3e58bf4dc7b2efecef0821c3875c626d5398705b89d",
+    "backends/vulkan/vulkan_lifetime.go": "08f2f8f622743fc883f65bc8aee9051c6b736159562c5317cff12173f3ebe33c",
+    "backends/vulkan/vulkan_barrier.go": "fd1274cb3ea57f9373db95e5d61cac3aec93a9de0be7b151c378e7cf75511e78",
+    "docs/speech-integration.md": "5022e4fdc53a17d64be5d466f7aa52989384916202ec0ccfda646e68042d53b2",
+    "benchmarks/speech-foundations/README.md": "92d7e3e045fd147714abc0c22bff4fbdd2cdf4492516382902ed373242a7dac2"
+  },
+  "evidenceHashes": {
+    "vulkan-plan-focused-check.txt": "ba034c3370d2f4b94677cedad70dcd1de569ac6cd9c6801e4a4af0ed338a5b05",
+    "vulkan-plan-tests.jsonl": "549e0dc79101d559098c51c86047585545fba65f2d1b86fa6ddfea8d5e16c16d",
+    "vulkan-plan-media.txt": "14909bb572dd78c2ed5af927b3aaa01657772f335b4851ffb593b1d5c630ba99",
+    "vulkan-plan-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-plan-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-plan-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-plan-repeat-tests.jsonl.gz": "901270754cddd76fd55e0bbe01793ba0acd86e989c684c760aeacd609751093d",
+    "vulkan-plan-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

@@ -1,0 +1,10 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_ORACLE_EXPORT=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestSpeechOracleExport$' -v
+=== RUN   TestSpeechOracleExport
+    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-pt-0 calls=35 word_edits=16/20 error=<nil>
+    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-pt-1 calls=19 word_edits=7/9 error=<nil>
+    oracle_export_test.go:144: ORACLE_EXPORT fixture=minds-fr-0 calls=13 word_edits=2/5 error=<nil>
+    oracle_export_test.go:144: ORACLE_EXPORT fixture=jfk calls=29 word_edits=0/22 error=<nil>
+    oracle_export_test.go:144: ORACLE_EXPORT fixture=silence-5s calls=6 word_edits=1/0 error=<nil>
+--- PASS: TestSpeechOracleExport (6.71s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	6.734s

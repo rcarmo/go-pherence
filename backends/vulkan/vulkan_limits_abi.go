@@ -1,0 +1,122 @@
+package vulkan
+
+// Native core layouts from Vulkan-Headers v1.3.296, vulkan_core.h SHA256
+// 50af5a157c8aab7d90dcd929a05758b4dc3e78a619f46552bfd5cde67b2d46c1.
+// C field order, including unused fields, preserves the 64-bit driver-output ABI.
+// These declarations do not imply feature negotiation or shader validation.
+type vkPhysicalDeviceLimits struct {
+	maxImageDimension1D                             uint32
+	maxImageDimension2D                             uint32
+	maxImageDimension3D                             uint32
+	maxImageDimensionCube                           uint32
+	maxImageArrayLayers                             uint32
+	maxTexelBufferElements                          uint32
+	maxUniformBufferRange                           uint32
+	maxStorageBufferRange                           uint32
+	maxPushConstantsSize                            uint32
+	maxMemoryAllocationCount                        uint32
+	maxSamplerAllocationCount                       uint32
+	bufferImageGranularity                          uint64
+	sparseAddressSpaceSize                          uint64
+	maxBoundDescriptorSets                          uint32
+	maxPerStageDescriptorSamplers                   uint32
+	maxPerStageDescriptorUniformBuffers             uint32
+	maxPerStageDescriptorStorageBuffers             uint32
+	maxPerStageDescriptorSampledImages              uint32
+	maxPerStageDescriptorStorageImages              uint32
+	maxPerStageDescriptorInputAttachments           uint32
+	maxPerStageResources                            uint32
+	maxDescriptorSetSamplers                        uint32
+	maxDescriptorSetUniformBuffers                  uint32
+	maxDescriptorSetUniformBuffersDynamic           uint32
+	maxDescriptorSetStorageBuffers                  uint32
+	maxDescriptorSetStorageBuffersDynamic           uint32
+	maxDescriptorSetSampledImages                   uint32
+	maxDescriptorSetStorageImages                   uint32
+	maxDescriptorSetInputAttachments                uint32
+	maxVertexInputAttributes                        uint32
+	maxVertexInputBindings                          uint32
+	maxVertexInputAttributeOffset                   uint32
+	maxVertexInputBindingStride                     uint32
+	maxVertexOutputComponents                       uint32
+	maxTessellationGenerationLevel                  uint32
+	maxTessellationPatchSize                        uint32
+	maxTessellationControlPerVertexInputComponents  uint32
+	maxTessellationControlPerVertexOutputComponents uint32
+	maxTessellationControlPerPatchOutputComponents  uint32
+	maxTessellationControlTotalOutputComponents     uint32
+	maxTessellationEvaluationInputComponents        uint32
+	maxTessellationEvaluationOutputComponents       uint32
+	maxGeometryShaderInvocations                    uint32
+	maxGeometryInputComponents                      uint32
+	maxGeometryOutputComponents                     uint32
+	maxGeometryOutputVertices                       uint32
+	maxGeometryTotalOutputComponents                uint32
+	maxFragmentInputComponents                      uint32
+	maxFragmentOutputAttachments                    uint32
+	maxFragmentDualSrcAttachments                   uint32
+	maxFragmentCombinedOutputResources              uint32
+	maxComputeSharedMemorySize                      uint32
+	maxComputeWorkGroupCount                        [3]uint32
+	maxComputeWorkGroupInvocations                  uint32
+	maxComputeWorkGroupSize                         [3]uint32
+	subPixelPrecisionBits                           uint32
+	subTexelPrecisionBits                           uint32
+	mipmapPrecisionBits                             uint32
+	maxDrawIndexedIndexValue                        uint32
+	maxDrawIndirectCount                            uint32
+	maxSamplerLodBias                               float32
+	maxSamplerAnisotropy                            float32
+	maxViewports                                    uint32
+	maxViewportDimensions                           [2]uint32
+	viewportBoundsRange                             [2]float32
+	viewportSubPixelBits                            uint32
+	minMemoryMapAlignment                           uintptr
+	minTexelBufferOffsetAlignment                   uint64
+	minUniformBufferOffsetAlignment                 uint64
+	minStorageBufferOffsetAlignment                 uint64
+	minTexelOffset                                  int32
+	maxTexelOffset                                  uint32
+	minTexelGatherOffset                            int32
+	maxTexelGatherOffset                            uint32
+	minInterpolationOffset                          float32
+	maxInterpolationOffset                          float32
+	subPixelInterpolationOffsetBits                 uint32
+	maxFramebufferWidth                             uint32
+	maxFramebufferHeight                            uint32
+	maxFramebufferLayers                            uint32
+	framebufferColorSampleCounts                    uint32
+	framebufferDepthSampleCounts                    uint32
+	framebufferStencilSampleCounts                  uint32
+	framebufferNoAttachmentsSampleCounts            uint32
+	maxColorAttachments                             uint32
+	sampledImageColorSampleCounts                   uint32
+	sampledImageIntegerSampleCounts                 uint32
+	sampledImageDepthSampleCounts                   uint32
+	sampledImageStencilSampleCounts                 uint32
+	storageImageSampleCounts                        uint32
+	maxSampleMaskWords                              uint32
+	timestampComputeAndGraphics                     uint32
+	timestampPeriod                                 float32
+	maxClipDistances                                uint32
+	maxCullDistances                                uint32
+	maxCombinedClipAndCullDistances                 uint32
+	discreteQueuePriorities                         uint32
+	pointSizeRange                                  [2]float32
+	lineWidthRange                                  [2]float32
+	pointSizeGranularity                            float32
+	lineWidthGranularity                            float32
+	strictLines                                     uint32
+	standardSampleLocations                         uint32
+	optimalBufferCopyOffsetAlignment                uint64
+	optimalBufferCopyRowPitchAlignment              uint64
+	nonCoherentAtomSize                             uint64
+}
+
+type vkDeviceProperties struct {
+	apiVersion, driverVersion, vendorID, deviceID, deviceType uint32
+	deviceName                                                [256]byte
+	pipelineCacheUUID                                         [16]byte
+	limits                                                    vkPhysicalDeviceLimits
+	sparseProperties                                          [5]uint32
+}

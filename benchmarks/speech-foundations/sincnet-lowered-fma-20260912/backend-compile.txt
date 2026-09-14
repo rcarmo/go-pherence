@@ -1,0 +1,50 @@
+ok  	github.com/rcarmo/go-pherence/backends/cuda/ptx	(cached) [no tests to run]
+?   	github.com/rcarmo/go-pherence/backends/ggmlcompute	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlexec	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlgraph	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlquant	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/internal/ggmlutil	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/llamagraph	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/mlx	(cached) [no tests to run]
+?   	github.com/rcarmo/go-pherence/backends/nvidia	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/ioctl	(cached) [no tests to run]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/ideogram	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	0.003s [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/placement	(cached) [no tests to run]
+?   	github.com/rcarmo/go-pherence/backends/simd	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/simd/fft	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/kernels	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/bf16	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/fp8	0.002s [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4	0.002s [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/q4	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.002s [no tests to run]
+# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool
+backends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024
+backends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI
+backends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV
+backends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu [build failed]
+FAIL	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool [build failed]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/board	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ime2	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/inference	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ort	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/rvv	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/tcm	(cached) [no tests to run]
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.003s [no tests to run]
+FAIL

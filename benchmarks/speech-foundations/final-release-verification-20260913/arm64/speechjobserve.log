@@ -1,0 +1,12 @@
+# github.com/rcarmo/go-pherence/cmd/audio/speechjobserve [github.com/rcarmo/go-pherence/cmd/audio/speechjobserve.test]
+cmd/audio/speechjobserve/config.go:406:21: undefined: speechjob.ValidateCommunity1Config
+cmd/audio/speechjobserve/config.go:511:80: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:518:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:527:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:532:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:537:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:542:21: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:548:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/config.go:556:20: undefined: speechjob.Community1StageConfig
+cmd/audio/speechjobserve/server.go:100:94: undefined: profileRuntimes
+cmd/audio/speechjobserve/config.go:556:20: too many errors

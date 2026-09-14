@@ -1,0 +1,7 @@
+=== RUN   TestSincNetNormalizationPinnedTorch
+    sincnet_norm_test.go:132: 28 isolated normalization cases: 61271 bit-exact outputs
+    sincnet_norm_test.go:150: normalization mode0 cancellation checkpoints: 322
+    sincnet_norm_test.go:150: normalization mode1 cancellation checkpoints: 322
+--- PASS: TestSincNetNormalizationPinnedTorch (0.05s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.058s

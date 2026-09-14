@@ -43,6 +43,7 @@ Quantised and hardware-specific references:
 
 ### Speech
 
+* [Integrated Whisper + Community-1](speech-integration.md) -- implementation checkpoint, temporary FFmpeg adapter, exact 128-bin frontend and remaining SIMD/Vulkan work.
 * [Whisper and translated VTT](whisper-diarize-vtt.md) -- user-facing pipeline, media handling and resume behaviour.
 * [Whisper model assets](whisper-model-assets.md) -- exact checkpoints and tensor shapes.
 * [Whisper execution graph](whisper-execution-graph.md) -- backend coverage and parity details.

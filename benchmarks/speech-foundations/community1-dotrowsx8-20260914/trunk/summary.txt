@@ -1,0 +1,4 @@
+baseline_mean_ns=750750493.0
+candidate_mean_ns=691001993.5
+speedup=1.086466
+improvement_percent=7.9585

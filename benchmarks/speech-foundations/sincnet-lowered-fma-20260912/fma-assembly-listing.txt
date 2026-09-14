@@ -1,0 +1,77 @@
+github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumnsAsm STEXT nosplit asm size=206 args=0x49 locals=0x10 funcid=0x0 align=0x0
+	0x0000 00000 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	TEXT	github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumnsAsm(SB), NOSPLIT, $16-73
+	0x0000 00000 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	PUSHQ	BP
+	0x0001 00001 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	MOVQ	SP, BP
+	0x0004 00004 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	SUBQ	$8, SP
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	FUNCDATA	$5, github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumnsAsm.arginfo0(SB)
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:4)	FUNCDATA	$0, github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumnsAsm.args_stackmap(SB)
+	0x0008 00008 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:5)	STMXCSR	(SP)
+	0x000c 00012 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:6)	MOVL	(SP), AX
+	0x000f 00015 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:7)	TESTL	$57408, AX
+	0x0014 00020 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:8)	JNE	195
+	0x001a 00026 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:9)	MOVQ	dst_base+24(FP), DI
+	0x001f 00031 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:10)	MOVQ	dst_len+32(FP), CX
+	0x0024 00036 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:11)	MOVQ	x_base+48(FP), SI
+	0x0029 00041 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:12)	MOVQ	weight_base+72(FP), DX
+	0x002e 00046 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:13)	MOVQ	weight_len+80(FP), R8
+	0x0033 00051 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:14)	MOVQ	CX, R9
+	0x0036 00054 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:15)	SHLQ	$2, R9
+	0x003a 00058 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:16)	XORQ	R10, R10
+	0x003d 00061 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:18)	CMPQ	CX, $8
+	0x0041 00065 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:19)	JLT	123
+	0x0043 00067 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:20)	VXORPS	Y0, Y0, Y0
+	0x0047 00071 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:21)	LEAQ	(SI)(R10*4), R11
+	0x004b 00075 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:22)	XORQ	AX, AX
+	0x004e 00078 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:24)	CMPQ	AX, R8
+	0x0051 00081 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:25)	JGE	107
+	0x0053 00083 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:26)	VMOVUPS	(R11), Y1
+	0x0058 00088 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:27)	VBROADCASTSS	(DX)(AX*4), Y2
+	0x005e 00094 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:28)	VFMADD231PS	Y1, Y2, Y0
+	0x0063 00099 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:29)	ADDQ	R9, R11
+	0x0066 00102 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:30)	INCQ	AX
+	0x0069 00105 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:31)	JMP	78
+	0x006b 00107 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:33)	VMOVUPS	Y0, (DI)(R10*4)
+	0x0071 00113 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:34)	ADDQ	$8, R10
+	0x0075 00117 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:35)	SUBQ	$8, CX
+	0x0079 00121 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:36)	JMP	61
+	0x007b 00123 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:38)	TESTQ	CX, CX
+	0x007e 00126 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:39)	JEQ	181
+	0x0080 00128 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:40)	VXORPS	X0, X0, X0
+	0x0084 00132 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:41)	LEAQ	(SI)(R10*4), R11
+	0x0088 00136 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:42)	XORQ	AX, AX
+	0x008b 00139 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:44)	CMPQ	AX, R8
+	0x008e 00142 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:45)	JGE	167
+	0x0090 00144 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:46)	VMOVSS	(R11), X1
+	0x0095 00149 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:47)	VMOVSS	(DX)(AX*4), X2
+	0x009a 00154 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:48)	VFMADD231SS	X1, X2, X0
+	0x009f 00159 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:49)	ADDQ	R9, R11
+	0x00a2 00162 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:50)	INCQ	AX
+	0x00a5 00165 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:51)	JMP	139
+	0x00a7 00167 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:53)	VMOVSS	X0, (DI)(R10*4)
+	0x00ad 00173 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:54)	INCQ	R10
+	0x00b0 00176 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:55)	DECQ	CX
+	0x00b3 00179 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:56)	JMP	123
+	0x00b5 00181 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:58)	VZEROUPPER
+	0x00b8 00184 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:59)	MOVB	$1, ret+96(FP)
+	0x00bd 00189 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:60)	ADDQ	$8, SP
+	0x00c1 00193 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:60)	POPQ	BP
+	0x00c2 00194 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:60)	RET
+	0x00c3 00195 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:62)	MOVB	$0, ret+96(FP)
+	0x00c8 00200 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:63)	ADDQ	$8, SP
+	0x00cc 00204 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:63)	POPQ	BP
+	0x00cd 00205 (/var/home/agent/workspace/projects/go-pherence/backends/simd/runtime/fma_columns_amd64.s:63)	RET
+	0x0000 55 48 89 e5 48 83 ec 08 0f ae 1c 24 8b 04 24 a9  UH..H......$..$.
+	0x0010 40 e0 00 00 0f 85 a9 00 00 00 48 8b 7c 24 18 48  @.........H.|$.H
+	0x0020 8b 4c 24 20 48 8b 74 24 30 48 8b 54 24 48 4c 8b  .L$ H.t$0H.T$HL.
+	0x0030 44 24 50 49 89 c9 49 c1 e1 02 4d 31 d2 48 83 f9  D$PI..I...M1.H..
+	0x0040 08 7c 38 c5 fc 57 c0 4e 8d 1c 96 48 31 c0 4c 39  .|8..W.N...H1.L9
+	0x0050 c0 7d 18 c4 c1 7c 10 0b c4 e2 7d 18 14 82 c4 e2  .}...|....}.....
+	0x0060 6d b8 c1 4d 01 cb 48 ff c0 eb e3 c4 a1 7c 11 04  m..M..H......|..
+	0x0070 97 49 83 c2 08 48 83 e9 08 eb c2 48 85 c9 74 35  .I...H.....H..t5
+	0x0080 c5 f8 57 c0 4e 8d 1c 96 48 31 c0 4c 39 c0 7d 17  ..W.N...H1.L9.}.
+	0x0090 c4 c1 7a 10 0b c5 fa 10 14 82 c4 e2 69 b9 c1 4d  ..z.........i..M
+	0x00a0 01 cb 48 ff c0 eb e4 c4 a1 7a 11 04 97 49 ff c2  ..H......z...I..
+	0x00b0 48 ff c9 eb c6 c5 f8 77 c6 44 24 60 01 48 83 c4  H......w.D$`.H..
+	0x00c0 08 5d c3 c6 44 24 60 00 48 83 c4 08 5d c3        .]..D$`.H...].
+# github.com/rcarmo/go-pherence/backends/simd/runtime
+# [github.com/rcarmo/go-pherence/backends/simd/runtime]

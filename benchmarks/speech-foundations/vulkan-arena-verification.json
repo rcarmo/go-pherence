@@ -1,0 +1,96 @@
+{
+  "checkpoint": "Vulkan persistent F32 tensor arena and range dispatch (mock-only)",
+  "created": "2026-09-12T05:08:27.770Z",
+  "baseline": "8bd3305",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 345,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 72,
+    "uniqueTopLevelTests": 72
+  },
+  "shuffle30": {
+    "passEvents": 2820,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 1140,
+    "uniqueTopLevelTests": 38
+  },
+  "fuzz": {
+    "seconds": 3,
+    "inputs": 133015,
+    "target": "F32 shape arithmetic only",
+    "result": "PASS"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact layout-baseline output",
+    "backendCompileOnly": "FAIL with exact layout-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 71
+  },
+  "coverage": [
+    "One charged backingallocation, monotonicrank1..8F32views, alignmentmax(4,queriedStorageBufferOffsetAlignment)",
+    "Positive shape/overflow/alignment/capacity/count checks before mutation; exact-length transfers",
+    "Copied shapes/arena/tensor views, close invalidates sharedstate without doublefree",
+    "Padding/out-of-range canaries unchanged by view transfers; cancelled uploads no write",
+    "Exact descriptor offset/range per view, repeatedcompleted dispatch reuses allocation",
+    "Pending retains deduped backingbuffers across alias/multi-arena views; wholeowner blocked",
+    "Checked Close rejects pending/lost/uncertain, confirmed drain permits reuse/close",
+    "Concurrent16reservations only4fit64B arena at16B alignment without overlap",
+    "Constructor cancellation/map rollback/budget charged and freed correctly",
+    "LegacyDispatch still uses fullbuffers through same checkedbinding path"
+  ],
+  "review": {
+    "result": "Narrow read-only review of arena/dispatch found no scoped lifetime/OOB/overflow blocker.",
+    "scope": "No raw public handles; copiedviews retain sameowner; driver/model/format semantics not reviewed.",
+    "followup": "Added alignment1/4/16/64/2^63,countbound and multi-owner retention/shape-fuzz tests after review."
+  },
+  "limitations": [
+    "F32storage/shape geometry only; caller must select F32-compatible shader and correct model/push semantics.",
+    "No F16/BF16/quantised views, arena reset/perviewfree/eviction, overlap hazard tracking or multi-op model graph.",
+    "Contents uninitialised until upload/fullshaderwrite; running hostcopy/nativecalls cannot be preempted.",
+    "Current arena capacity <=maxStorageBufferRange; hostvisiblecoherent only, no huge-deviceheap qualification.",
+    "All Vulkan calls mocked: no native driver/validation-layer/GPU/shader/model/performance qualification.",
+    "No successful-device shutdown/recreation or runtime device-recovery integration.",
+    "Current FFI64bit; arm64 cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/services."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_arena.go": "6c38bb18a83f89d9fb5f959929dd0a302073fad4456ff893f38790a20dff8c46",
+    "backends/vulkan/vulkan_arena_test.go": "a424de4e6f480775cf029b5bf8a4eb2c03850cd621f3e096706f54b77ee6c124",
+    "backends/vulkan/vulkan_buf.go": "a1b3c7877bfdd0d8dfcfea2fc7c3d335c3dbae3f4acc17b98f09663688c41ed8",
+    "backends/vulkan/vulkan_dispatch.go": "1de4f76700562fc600efa423bd05c50cb6ba412323edbd022fde961e30577fb6",
+    "backends/vulkan/vulkan_limits.go": "24fc740a3c418a389b1124c54a1adb4ea7f8a35c72028552c0aac2a2a03edbf1",
+    "backends/vulkan/vulkan_limits_test.go": "c92276c5dde5a97d2e8385637d2d91cc5559484ebdf5c275b9f542ef9780c8a2",
+    "docs/speech-integration.md": "9257a6410600f508e13178dd9b04ac6226f748625438d57a5fea873617cb4617",
+    "benchmarks/speech-foundations/README.md": "0c15aaffc95c3ff66592cee866e36597793dd5f3d1becb5489e5070f89a2e6b8"
+  },
+  "evidenceHashes": {
+    "vulkan-arena-focused-check.txt": "5306629875fbfcb6c6c253fc4f6b77884b0cf1684388acda2c1227bb23732c47",
+    "vulkan-arena-tests.jsonl": "d03fb59ee0098d2432f4c845a8b3905d37f5ce079bb845db56c7273ac442ca3a",
+    "vulkan-arena-media.txt": "6bf01c5ccdefd93067fcf58f5a5e9c94a09320b5a67be5c593e8d134bc442e21",
+    "vulkan-arena-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-arena-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-arena-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-arena-fuzz.txt": "c030a8ad284f1365259cffcfcc1b60788cc9136aa0b7de1a39b35671767920cc",
+    "vulkan-arena-repeat-tests.jsonl.gz": "fcd22974298fb83a5367591b81b30ffd6079610bf1dad27c62c6f54baf3656f8",
+    "vulkan-arena-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

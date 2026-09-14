@@ -1,0 +1,227 @@
+{
+  "checkpoint": "Experimental F32 register-tiled linear,defaultunchanged",
+  "created": "2026-09-12T09:00:20.057Z",
+  "baseline": "5a941ac",
+  "branch": "feat/speech-simd-vulkan",
+  "candidate": {
+    "outputTile": [
+      32,
+      32
+    ],
+    "reductionTile": 32,
+    "local": [
+      16,
+      16,
+      1
+    ],
+    "accumulators": 4,
+    "sharedBytes": 8192,
+    "api": "NewVkLinearRegTileF32",
+    "WhisperSelection": "private experimentalboolonly",
+    "default": "original16x16unchanged"
+  },
+  "static": {
+    "validationPasses": 34,
+    "embedded": 17,
+    "rebuilt": 17,
+    "normalisedMatches": 17,
+    "byteRebuildMatches": 7,
+    "bunTests": 6,
+    "bunAssertions": 57
+  },
+  "offline": {
+    "passEvents": 438,
+    "topLevel": 128,
+    "fail": 0,
+    "skip": 0
+  },
+  "shuffle30": {
+    "passEvents": 4710,
+    "topLevel": 900,
+    "fail": 0,
+    "skip": 0
+  },
+  "nativeRegression": {
+    "passEvents": 30,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0
+  },
+  "kernel": {
+    "passEvents": 15,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "smallCases": 36,
+    "values": 15645,
+    "maxAbsoluteError": 0.000009660682177781155,
+    "timedDispatches": 144,
+    "timedOutputs": "allbitexact",
+    "shapes": [
+      [
+        1500,
+        1280,
+        1280
+      ],
+      [
+        1500,
+        1280,
+        5120
+      ],
+      [
+        1500,
+        5120,
+        1280
+      ]
+    ],
+    "speedupRange": [
+      2.055128853198791,
+      2.151373353984911
+    ]
+  },
+  "encoder": {
+    "processes": 3,
+    "timedRuns": 24,
+    "outputs": "bitexact",
+    "publicSpeechComparisons": 12,
+    "publicTokensTimestamps": "exact baseline",
+    "primaryIsolated": {
+      "includes_upload_download": true,
+      "medians_ns": {
+        "baseline": 14244078042,
+        "candidate": 8298357210
+      },
+      "sameweights_pcm_shape": true,
+      "samples_per_kernel": 4,
+      "speedup": 1.71649372056858
+    },
+    "otherRuns": [
+      {
+        "includes_upload_download": true,
+        "medians_ns": {
+          "baseline": 14235267659.5,
+          "candidate": 8306008613
+        },
+        "sameweights_pcm_shape": true,
+        "samples_per_kernel": 4,
+        "speedup": 1.71385178161505
+      },
+      {
+        "includes_upload_download": true,
+        "medians_ns": {
+          "baseline": 14231822683.5,
+          "candidate": 8413231116.5
+        },
+        "sameweights_pcm_shape": true,
+        "samples_per_kernel": 4,
+        "speedup": 1.6916001101632163
+      }
+    ],
+    "warmupOutsideTimed": true,
+    "timingIncludesTransfer": true,
+    "notRTFOrProductionGate": true
+  },
+  "resources": {
+    "paired": {
+      "before": {
+        "pswpin": 36305,
+        "pswpout": 635793
+      },
+      "after": {
+        "pswpin": 36305,
+        "pswpout": 635848
+      },
+      "samples": 317,
+      "minAvailableKiB": 18892372
+    },
+    "isolated-": {
+      "before": {
+        "pswpin": 36305,
+        "pswpout": 635848
+      },
+      "after": {
+        "pswpin": 36305,
+        "pswpout": 635848
+      },
+      "samples": 155,
+      "minAvailableKiB": 18835472
+    }
+  },
+  "coordination": {
+    "pairedFirst": "DERlog08:45:32–08:47:07UTC overlapsfirst6sencoderfinal1setup08:47:01;labelnonisolated",
+    "pairedSwap": "55pagesout retained",
+    "isolated": "explicitexclusive08:55:28–08:58:09UTC,no swapdelta;neighborheldwork",
+    "services": "LLM+speechstopped",
+    "rawDERLogsOwner": "reports/go264-qualification-20260912/diar-oracle.log"
+  },
+  "checks": {
+    "regressions": "PASS focused",
+    "vet": "PASS affected",
+    "amd64": "PASS affected",
+    "VulkanArm64": "crossbuildPASS",
+    "WhisperArm64": "FAIL exactbaselineFFT",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "race": "gccabsent",
+    "makeTargets": "equivalentcommandsrun",
+    "diffCheck": "PASS",
+    "checkedLinks": 106
+  },
+  "review": {
+    "shader": "no scopedindex/alias/barrier/overflowbug",
+    "harness": "timingclipselectedexplicitly;committedtranscriptbaselinehashpinned;timingnotsameasbaselineclaim"
+  },
+  "limitations": [
+    "OptincandidateoneGPU,notautomaticdefaultorhardwarewidequalification.",
+    "GPUtimeshostwallinclsubmit/fence,notcounters.",
+    "Twoencoderresourcecost~5.28GBnative;opaqueallocationsnotaccounted.",
+    "Turbo9–10srequestsbelowwholejobtarget;quantisation/F16/attentionstillneeded.",
+    "Priorresourceoverlap+swapoutretained;useisolatedconfirmationprimary.",
+    "Go264adapterunmergedpendingreview/licensing/sourcepublication.",
+    "Community1/SincNetstrict4FAIL/recoveryunfinished."
+  ],
+  "sourceHashes": {
+    "Makefile": "0a368d14fae99771c407ec3f163dfbc8a31a7648617f0f8bb4cf7cd3e09e3510",
+    "backends/vulkan/vulkan_linear.go": "cbe740fd26cf2377d1beef2bc65cf35451db8c4320a0fa1787a5db60e91a2e83",
+    "backends/vulkan/vulkan_linear_regtile_test.go": "bb5b256910065843f540f59f4441c9115d6ef00d4872d5ae31a6fec27007361b",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "5496f1b49770e66ea09eab3868738c20497e79cd3aa99848223c53e00393111b",
+    "backends/vulkan/vulkan_spirv_embedded.go": "b133cce4243e9922000d8ad1c18606ef68447bdff770cbeaee40cc7e6986b244",
+    "backends/vulkan/shaders/linear_f32_regtile.glsl": "1a404f521ed5ad2d1ae19278d820697bc8996dbe25818d43a82e80bdcf8f7ca0",
+    "backends/vulkan/shaders/linear_f32_regtile.spv": "6fbfd7865b11249e0e85887a8e6cced801bbfadba5e36db1fbcaeedc0a5aa4ae",
+    "models/whisper/vulkan_encoder.go": "300a7e4cd9888bb461d07147620b5729f70e2402b5c06561f943af17b62d67b1",
+    "models/whisper/vulkan_regtile_test.go": "cd893e136897f660f4ad91b5aa274b552d84672504091b353da0c9208056f428",
+    "scripts/check-vulkan-shaders.ts": "f36b08ce3c0967fd300739bb359640f54338cc6b5375852feb5c1d1e48ad295d",
+    "scripts/check-vulkan-shaders.test.ts": "8ce9179ffa57aed2ed3a30eacbb309ed582a4b238f6ad1ac38969519eb849d23",
+    "docs/speech-integration.md": "b7b1ef463e1d1bbc1f1b4aaf82e646cd7443f021071622d2249832913984e6ce",
+    "benchmarks/speech-foundations/README.md": "cf8b51fe276a2ac33b1e74e6c3995cd89a535f856eb74c3187495ad4b7b6ad0f"
+  },
+  "evidenceHashes": {
+    "README.md": "87c06a66f3fcd2b34369ce7d29525410677dba93f546ded25e94a2c0d0f9bd63",
+    "linear-regtile.spvasm": "2f7088b3ca08ba57866cedacd3caa16a25f48c172208212204c253e5c73372e9",
+    "offline-tests.jsonl": "79b77b16bb9e9a4fce44751d697552e20867a6e804b9665517979fbbe6f97d09",
+    "native-regressions.jsonl": "85600261b8e50066936e9d96d7c478824d82ae1329d6d7713d33d4e6c7055d19",
+    "regressions.txt": "cf1d44be41a2186b0205fac97e96c73b5f8e07f507cdeff52b0ef366d809a00a",
+    "kernel-optin-disabled.txt": "beaaf79e75e44db19a5c6298138fdcc98f007fada61275ee855708b783a269df",
+    "encoder-optin-disabled.txt": "803395617034cb5cab14c973278b6f015aaf2633df4b7a2376efc0fb59cbe076",
+    "initial-kernel.jsonl": "c6b2f062ac1916ca641dd29bc17245bb2ace98e0e388e751e1802bf7753ede36",
+    "final-kernel.jsonl": "efdf2a866a62b972970d7df900cf68ac53976a914bc4affdb449f6926def8a6c",
+    "initial-encoder.jsonl": "bd27b329f972d5f8eb8665cf6d20b6ba2762095883e37de7926c64eaa81abfe1",
+    "encoder-final-1.jsonl": "6a9d1fc58d9a66accbeaf7b300c008edb093905da3b128cd02b1ea0093725ee7",
+    "encoder-final-2.jsonl": "d01624096f7b1bf83588cbc3e4483d0ed30db260fa7647fe87883e5bfa153559",
+    "encoder-isolated.jsonl": "cf46800da7efa62dc120de3ca70a38c3d096231bf27b0885f103ab1ccf6c7068",
+    "before.txt": "86b91ad4c6bc2cdc9bb1e527262a27ea8a75d118e9ed00cf53a17153f28a616a",
+    "after.txt": "fc660ef411fc660aae7a70c7b58a6abd0ae2ae27e3f649be96ce6538f1bff1b0",
+    "memory-monitor.txt": "d73bbde6c308dc2603ea903c9a186237f82f95745c7d193f3704df202ff11674",
+    "isolated-before.txt": "233aa1b24568ae484adfba1b60b61d74d47ddaf1567c56292c9cb5dc209ad7cc",
+    "isolated-after.txt": "3fbd17ea8baa205951b5e03779a7a601bef620db432de59433fc6d2de62345dc",
+    "isolated-monitor.txt": "63c5527b020dde0554b710db0df12618bdb2edbfbff43395da45370a1e2e4398",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "shuffle-tests.jsonl.gz": "2469423996f9a4489c0ee2badecc5052ebd1637803fe8d855ab867c0d20cd540",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "3f1e320f20aec97862da9498e94047a26e61c2b2df86cd6aed90692f9f96d23a",
+    "static/verification.json": "c9acad9f7696d30b76463d8d06693d8b155374c3b39c6cd609fb3ca8669a54b8"
+  }
+}

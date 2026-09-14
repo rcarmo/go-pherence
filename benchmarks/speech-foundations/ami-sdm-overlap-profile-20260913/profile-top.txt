@@ -1,0 +1,47 @@
+File: community.test
+Build ID: 6fbe2c0396a2436a4713fadb68e872a49285ab7d
+Type: cpu
+Time: 2026-09-13 23:27:11 WEST
+Duration: 96.79s, Total samples = 106.43s (109.96%)
+Showing nodes accounting for 103.26s, 97.02% of 106.43s total
+Dropped 162 nodes (cum <= 0.53s)
+      flat  flat%   sum%        cum   cum%
+    44.17s 41.50% 41.50%     44.17s 41.50%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4Asm
+    34.16s 32.10% 73.60%     82.31s 77.34%  github.com/rcarmo/go-pherence/models/speaker/community1.weSpeakerBlockConv
+     4.77s  4.48% 78.08%      7.55s  7.09%  github.com/rcarmo/go-pherence/models/speaker/community1.weSpeakerBlockBN
+     4.45s  4.18% 82.26%      5.20s  4.89%  math.IsInf (inline)
+     3.44s  3.23% 85.49%      4.59s  4.31%  github.com/rcarmo/go-pherence/backends/simd/runtime.FMAColumns4F32Checked
+     2.32s  2.18% 87.67%      7.87s  7.39%  github.com/rcarmo/go-pherence/models/speaker/community1.finiteBlock
+     1.56s  1.47% 89.14%      1.57s  1.48%  github.com/rcarmo/go-pherence/models/speaker/community1.blockReLU
+     1.09s  1.02% 90.16%      1.09s  1.02%  runtime.memclrNoHeapPointers
+        1s  0.94% 91.10%     45.17s 42.44%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4
+     0.92s  0.86% 91.97%     46.09s 43.31%  github.com/rcarmo/go-pherence/backends/simd/runtime.gemvRowsDense
+     0.86s  0.81% 92.77%      0.86s  0.81%  math.archExp
+     0.82s  0.77% 93.55%      0.82s  0.77%  github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumns4Asm
+     0.81s  0.76% 94.31%      1.51s  1.42%  github.com/rcarmo/go-pherence/loader/audio.WeSpeakerFbankObserved
+     0.70s  0.66% 94.96%      1.31s  1.23%  math.tanh
+     0.61s  0.57% 95.54%      0.61s  0.57%  math.IsNaN (inline)
+     0.55s  0.52% 96.05%      5.24s  4.92%  github.com/rcarmo/go-pherence/models/speaker/community1.sincNetConvolve
+     0.51s  0.48% 96.53%     93.23s 87.60%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerBasicBlock).ForwardObserved
+     0.29s  0.27% 96.81%      3.84s  3.61%  github.com/rcarmo/go-pherence/models/speaker/community1.(*LSTM).ForwardObserved
+     0.07s 0.066% 96.87%      5.59s  5.25%  github.com/rcarmo/go-pherence/models/speaker/community1.(*SincNet).ForwardObserved
+     0.05s 0.047% 96.92%     46.25s 43.46%  github.com/rcarmo/go-pherence/backends/simd/runtime.GemvRows
+     0.04s 0.038% 96.96%      0.90s  0.85%  math.Exp (inline)
+     0.04s 0.038% 96.99%      1.35s  1.27%  math.Tanh (inline)
+     0.02s 0.019% 97.01%      0.80s  0.75%  math.Abs (inline)
+     0.01s 0.0094% 97.02%      1.67s  1.57%  github.com/rcarmo/go-pherence/models/speaker/community1.lstmProjection
+         0     0% 97.02%      0.82s  0.77%  github.com/rcarmo/go-pherence/backends/simd/runtime.fmaColumns4F32
+         0     0% 97.02%      9.56s  8.98%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalDiarization).runPCMObserved.func2
+         0     0% 97.02%     96.02s 90.22%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalDiarization).runPCMObserved.func3
+         0     0% 97.02%     96.02s 90.22%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalEmbedding).ForwardPCMFrames (inline)
+         0     0% 97.02%     96.02s 90.22%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalEmbedding).ForwardPCMFramesObserved
+         0     0% 97.02%      9.56s  8.98%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalSegmentation).ForwardPCM (inline)
+         0     0% 97.02%      9.56s  8.98%  github.com/rcarmo/go-pherence/models/speaker/community1.(*ExperimentalSegmentation).ForwardPCMObserved
+         0     0% 97.02%     93.23s 87.60%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerBasicBlock).Forward (inline)
+         0     0% 97.02%     94.51s 88.80%  github.com/rcarmo/go-pherence/models/speaker/community1.(*WeSpeakerResNet34).ForwardFramesObserved
+         0     0% 97.02%      9.56s  8.98%  github.com/rcarmo/go-pherence/models/speaker/community1.runDiarizationBranches.func1
+         0     0% 97.02%     96.02s 90.22%  github.com/rcarmo/go-pherence/models/speaker/community1.runDiarizationBranches.func2
+         0     0% 97.02%      0.81s  0.76%  runtime.makeslice
+         0     0% 97.02%      0.81s  0.76%  runtime.mallocgc
+         0     0% 97.02%      0.71s  0.67%  runtime.mallocgcLarge
+         0     0% 97.02%      0.69s  0.65%  runtime.memclrNoHeapPointersChunked

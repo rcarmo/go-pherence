@@ -1,0 +1,7 @@
+=== RUN   TestTrainedCombinedHTTPCorpus
+    trained_corpus_linux_amd64_test.go:210: TRAINED_CORPUS_CHECKPOINT_SHA256 3d6173500046f453be3a6527e55ff1d29285c7a2802762f6baaaaad0fc54fe28
+    trained_corpus_linux_amd64_test.go:210: TRAINED_CORPUS_CHECKPOINT_SHA256 6f1471fd398d9bc18be11058edcd35c2d4fea1e14c54ec748b5af4596ddf5bf0
+    trained_corpus_linux_amd64_test.go:213: TRAINED_COMBINED_CORPUS {"ambiguous_frames":217,"checkpoints":5,"clusters":2,"cues":15,"job":"f3fdabc4b9408210197f305f37dbdd8b","overlap_branches":true,"qualified":false,"run_ns":100620980747,"samples":960000,"schema":1,"speaker_publication":false,"tie_policy":"lowest-index-diagnostic","words":128}
+--- PASS: TestTrainedCombinedHTTPCorpus (101.21s)
+PASS
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	101.236s

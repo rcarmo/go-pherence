@@ -1,0 +1,20 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/simd/runtime
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_256-2         	18288366	        32.66 ns/op	156766.72 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_256-2         	18179421	        32.73 ns/op	156454.12 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_256-2         	18419068	        32.72 ns/op	156492.14 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_256-2         	18417172	        32.70 ns/op	156585.90 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_256-2         	18412070	        32.63 ns/op	156931.42 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_1024-2        	 4552970	       132.3 ns/op	154791.51 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_1024-2        	 4544487	       131.8 ns/op	155397.15 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_1024-2        	 4553846	       133.4 ns/op	153483.83 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_1024-2        	 4549039	       132.2 ns/op	154898.46 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_1024-2        	 4551826	       131.7 ns/op	155479.95 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_4096-2        	 1000000	       542.8 ns/op	150908.82 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_4096-2        	 1000000	       544.2 ns/op	150525.51 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_4096-2        	 1000000	       542.9 ns/op	150903.77 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_4096-2        	 1000000	       542.5 ns/op	151011.89 MB/s
+BenchmarkDotRowsx4VsFourSdot/rowsx4_cols_4096-2        	 1000000	       545.3 ns/op	150238.36 MB/s
+PASS

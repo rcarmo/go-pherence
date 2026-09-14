@@ -1,0 +1,5 @@
+=== RUN   TestVulkanCommunity1TrainedProcessRecovery
+    vulkan_trained_recovery_linux_amd64_test.go:163: TRAINED_VULKAN_PROCESS_RECOVERY killed_after_first_window=true fresh_process_complete=true
+--- PASS: TestVulkanCommunity1TrainedProcessRecovery (29.39s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	29.398s

@@ -1,0 +1,3 @@
+K256 base_mean_ns=32.675 candidate_mean_ns=32.750 speedup=0.997710 improvement_percent=-0.230
+K1024 base_mean_ns=132.000 candidate_mean_ns=132.250 speedup=0.998110 improvement_percent=-0.189
+K4096 base_mean_ns=542.850 candidate_mean_ns=542.550 speedup=1.000553 improvement_percent=0.055

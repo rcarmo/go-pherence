@@ -1,0 +1,23 @@
+{
+  "embedding_exact": 8746,
+  "embedding_max_abs": 4.0531158447265625e-06,
+  "embedding_values": 39168,
+  "go_exclusive_turns": 16,
+  "go_full_turns": 22,
+  "go_result_sha256": "9bf98742e139e9a3e3746ceee766c5b4817e72f5b171101a37d4a198bbbb07f9",
+  "matching_turn_label_permutations": [
+    [
+      "SPEAKER_00",
+      "SPEAKER_01"
+    ]
+  ],
+  "qualified": false,
+  "reference_exclusive_turns": 16,
+  "reference_full_turns": 22,
+  "reference_sha256": "b1cb14c527f9253e02b6401c37cbe3794c285c5f75b79ec435c11a0ea8ec9175",
+  "schema": 1,
+  "scope": "single AMI pilot source parity; strict Go tie policy still rejects and absolute corpus quality is poor",
+  "segmentation_exact": 90117,
+  "segmentation_max_abs": 0.0,
+  "segmentation_values": 90117
+}

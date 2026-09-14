@@ -1,0 +1,23 @@
+# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool
+backends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024
+backends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024
+backends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024
+backends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI
+backends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV
+backends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV
+# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect
+cmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+cmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+cmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)
+cmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)
+# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve
+cmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher
+cmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)
+cmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)
+cmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)
+cmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)
+cmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)

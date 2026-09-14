@@ -1,0 +1,120 @@
+{
+  "checkpoint": "Independent pinned Transformers Tiny oracle",
+  "created": "2026-09-12T08:02:17.461Z",
+  "baseline": "7966506",
+  "branch": "feat/speech-simd-vulkan",
+  "scope": "externalCPUreference only;notforeignruntimefallback/noGPUworkthisphase",
+  "environment": "environment.json",
+  "modelAssets": {
+    "model.safetensors": "7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395",
+    "config.json": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98",
+    "generation_config.json": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512",
+    "tokenizer.json": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+    "preprocessor_config.json": "9b5cd03a36fbb8a627c64d98a5b5b126ead95a77720723944487311f0110b666"
+  },
+  "oracle": {
+    "repeats": 3,
+    "identicalReports": true,
+    "fixtures": 5,
+    "decoderEncoderInputs": 2,
+    "sequenceSegmentComparisons": 30,
+    "generatedTokensPerFixtureSet": 92,
+    "decoderInputsPerFixtureSet": 102,
+    "tokenSegmentParity": true,
+    "independentPolicy": "pinnedgenerationJSONcheckedagainstGo",
+    "numericalMaxAbs": {
+      "mel": 0.000012874603271484375,
+      "encoder": 0.0029959678649902344,
+      "encoder_same_go_features": 0.003490447998046875,
+      "cached_logits_on_go_prefix": 0.00026607513427734375,
+      "cached_logits_same_go_encoder": 0.00014734268188476562
+    },
+    "numericalMetrics": "diagnostics,notformalbudgetorbitexacttensorclaim",
+    "results": "PT/FRerrorsandsilenceyouexactlyreproduced;Tiny+matchedpolicyattributionfor5fixturesonly"
+  },
+  "goExport": {
+    "passEvents": 1,
+    "topLevel": 1,
+    "fail": 0,
+    "skip": 0,
+    "reproducedFiles": 25,
+    "reproduction": "all25bytehashesidentical",
+    "rawTensorsCommitted": false
+  },
+  "helperTests": {
+    "pass": 3,
+    "fail": 0
+  },
+  "offline": {
+    "passEvents": 14,
+    "topLevel": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  "checks": {
+    "regressions": "PASS allfocused",
+    "vet": "PASS affected",
+    "amd64": "PASS affected",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "WhisperArm64": "FAIL exactbaselineFFT",
+    "race": "gccabsent",
+    "optInDisabled": "expectedskipbeforeload",
+    "diffCheck": "PASS",
+    "checkedLinks": 102
+  },
+  "review": {
+    "initial": "uncachedlogitmode/featuredefaults/versiongate/Goencoderdecoding/text-onlylimitations",
+    "resolution": "stepwisecachedreference+pinnedpreprocessor+exactversions+bothencoderinputs+rawtoken/segments+firstdiff;reportfailonmismatch"
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36296,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36296,
+      "pswpout": 635627
+    },
+    "services": "LLM+speechinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "limitations": [
+    "Fivefixturesnotgeneralquality/multilingualcorpusqualification.",
+    "No-speechthreshold/temperaturefallbackdisabledinbothpaths;silencehallucinationexpectedmatchedpolicy.",
+    "Encodermax0.00349retainednotbitexact;no arbitrarynewtolerancepassed.",
+    "Pythonreferenceisolated;noproductionruntimeintegration.",
+    "Turbo/larger-model/diarization/quantisation/recovery/wholejobunfinished;SincNetstrict4FAIL."
+  ],
+  "sourceHashes": {
+    "Makefile": "15c4b64a8edfde215a7ead3b916f962477077e75b9e0f6878aa0e4c58ef08b8d",
+    "models/whisper/oracle_export_test.go": "185f2beddf82504da7960f8e1b21550b4da167dbff794463bea3d5ea8add2856",
+    "scripts/whisper_pinned_oracle.py": "8b0f6cd8c907842ff6bce956d785aa300acd81f4ae45c758d43ca05c5a3d239c",
+    "scripts/test_whisper_pinned_oracle.py": "31e5b89fddf5e307e1a73f46aa50a145ea68d9b10357b4acabb0317be5089c0a",
+    "docs/speech-integration.md": "e950f2e4bf9a5f882e715f4b0f7473f35a03f0372d4f12b2987075059a00fdd3",
+    "benchmarks/speech-foundations/README.md": "35105a31cd48d1aebb3922ac88ad43d0fc60a77562f323c024fe00f0e6cda007"
+  },
+  "evidenceHashes": {
+    "README.md": "f8b0b5cb8ddd846449f2bd98e636a80bff5cbd8e44654170bb6e9f8c3b487824",
+    "environment.json": "ac21a8078d717b2018d7d45e3e775a2890e52108a1c702e4ec978f11d681394c",
+    "go-export-tests.jsonl": "d4f5aacf31d04276e77f50c40579510a9c0a0588c3d74cc6d1aba280d8ef6219",
+    "helper-tests.txt": "33060fd73862c5e1af97335504d5b45211fce6d229657f556d8deceeadc52ce4",
+    "go-regressions.txt": "df12cc0a0aaf0e2b7e3709df3cf9614a5420db95a0ec18b927085147e2fd24c1",
+    "go-offline-tests.jsonl": "84c3071c78cff52b3686b4b96a658035cfa6924c551e7b4af784c44b0237153d",
+    "go-export-make.txt": "fe3d8d50cb8126cb7f54976322841eae54ce63bda6494d487e193b1250945c18",
+    "optin-disabled.txt": "a4984a109c7294bb2a7460312a7004dec962611c4dd8e2013ea886de81f5c788",
+    "before.txt": "f99609e9ebb15b525bdb7ce5e6e667b9deeb5822236f2dcfe3601c264c17a3b5",
+    "after.txt": "8f771faf9d89ace0eac36ae44b6c4bca41dda6ae0ddea83c7c9e831b6e650b89",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "oracle-1.json": "c0cfdbb8de1751799c8584c43a3171b3ce590b7697fffa0ffe9f020ef7c3989b",
+    "oracle-2.json": "c0cfdbb8de1751799c8584c43a3171b3ce590b7697fffa0ffe9f020ef7c3989b",
+    "oracle-3.json": "c0cfdbb8de1751799c8584c43a3171b3ce590b7697fffa0ffe9f020ef7c3989b",
+    "initial-reference.json": "9c4d05e228537eb87c1d74baeb6348ba79cc98d60f297f99550a912c628c1e8d",
+    "intermediate-reference.json": "69c6d01f97f0aff1128b932cd31a9395bd3ada23d8de756805c0dc9730ac4ef2",
+    "input-hashes.json": "5f4445c1a019c94e18c68f878bc0ccdfed82d0505d85d5b0996db10ec97d57cb",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

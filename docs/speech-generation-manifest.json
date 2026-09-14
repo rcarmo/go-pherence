@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "status": "checked model/generation/tokenizer contracts and per-call policy; real-model generation unqualified",
+  "timestamp_rule_reference": {
+    "url": "https://raw.githubusercontent.com/huggingface/transformers/v4.57.1/src/transformers/generation/logits_process.py",
+    "sha256": "6481506629ff6f021157e893fc64c4e7b5b06a72072771809d679387cb54a4b1",
+    "symbol": "WhisperTimeStampLogitsProcessor",
+    "license": "Apache-2.0",
+    "usage": "algorithm reference; independently expressed Go timestamp state/masking implementation, no Python runtime inference"
+  },
+  "tokenizers": [
+    {
+      "model": "whisper-tiny",
+      "repository": "openai/whisper-tiny",
+      "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+      "tokenizer_url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/tokenizer.json",
+      "generation_url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/generation_config.json",
+      "tokenizer_sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+      "generation_sha256": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512",
+      "config_url": "https://huggingface.co/openai/whisper-tiny/resolve/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/config.json",
+      "config_sha256": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98"
+    },
+    {
+      "model": "whisper-large-v3-turbo",
+      "repository": "openai/whisper-large-v3-turbo",
+      "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+      "tokenizer_url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/tokenizer.json",
+      "generation_url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/generation_config.json",
+      "tokenizer_sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd",
+      "generation_sha256": "cce11bfe3aaa6ae9e072ea2637caaec8795e68d9b67e655a5af16ee509681a4c",
+      "config_url": "https://huggingface.co/openai/whisper-large-v3-turbo/resolve/41f01f3fe87f28c78e2fbf8b568835947dd65ed9/config.json",
+      "config_sha256": "c5b526b3e3cd64cd8940dabb45e8ba726629e22d8ed389c29b552f9140daf04a"
+    }
+  ],
+  "scope": {
+    "explicit_language": true,
+    "task": "transcribe",
+    "temperature": 0,
+    "beam_size": 1,
+    "initial_timestamp_index": "explicit option; pinned generation configs use 50",
+    "position_limit": "prompt included",
+    "incomplete_timestamp": "error; no invented end",
+    "generation_limit": "error; no silent truncation",
+    "config_parsers": "ParseModelConfigChecked / ParseGenerationConfigChecked",
+    "policy_precedence": "generation JSON suppression/max_length/initial timestamp; explicit per-call language/transcribe/timestamps override source prompt defaults"
+  },
+  "unimplemented": [
+    "automatic language detection",
+    "no-speech threshold decisions",
+    "temperature fallback",
+    "compression/logprob quality fallback",
+    "prompt conditioning across windows",
+    "word alignment and overlap reconciliation",
+    "real checkpoint tensor/output qualification"
+  ]
+}

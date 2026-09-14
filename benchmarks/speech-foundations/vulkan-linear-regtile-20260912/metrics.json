@@ -1,0 +1,2607 @@
+{
+  "kernel": {
+    "tests": {
+      "passEvents": 15,
+      "topLevel": 3,
+      "fail": 0,
+      "skip": 0
+    },
+    "timing": [
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 28848127.5,
+          "candidate": 13976365.5
+        },
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "speedup": 2.064065046095138
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 115389508,
+          "candidate": 54103484.5
+        },
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "speedup": 2.132755571408714
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 115254381.5,
+          "candidate": 54225271
+        },
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "speedup": 2.1254735914551723
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 28875757.5,
+          "candidate": 14050582.5
+        },
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "speedup": 2.055128853198791
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 117586229,
+          "candidate": 54656356.5
+        },
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "speedup": 2.151373353984911
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 117506868.5,
+          "candidate": 54832857
+        },
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "speedup": 2.1430010203553684
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 28825272,
+          "candidate": 14025069
+        },
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "speedup": 2.055267749484869
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 115783792.5,
+          "candidate": 54179538.5
+        },
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "speedup": 2.137039105639484
+      },
+      {
+        "gpu_timestamps": false,
+        "max_baseline_abs": 0,
+        "median_ns": {
+          "baseline": 121413750.5,
+          "candidate": 56834245.5
+        },
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "speedup": 2.1362780385639146
+      }
+    ],
+    "samples": [
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28964410
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13965208
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13970641
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28797926
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13971316
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28810828
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28885427
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13981415
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 30327421
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 15053140
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14289208
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28894379
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14131269
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28736307
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28809627
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13947778
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115608370
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54156367
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54181552
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115438282
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54185628
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117146953
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115269212
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54315780
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115339385
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54037299
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 53971392
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115367501
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54050602
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115299037
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115411515
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 53997413
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115208029
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54252548
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 55709542
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115737048
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54315779
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115249596
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115602180
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54197994
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115259167
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54172583
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54165104
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115161892
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54042598
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115226823
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 116258563
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54664963
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28827548
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14106234
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14003254
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28869346
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14046574
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28893961
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28878519
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14075103
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28872996
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14042392
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14059531
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28895494
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14054591
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28895064
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28773099
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13952109
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115687488
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54046872
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54270098
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115374909
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54443090
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117845397
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117773402
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54716384
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117667525
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54596329
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54906287
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117504933
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 55066164
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 117827721
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 116842530
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54815534
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117439717
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54808104
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54542947
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117739277
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54942533
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117583110
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117508252
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54857610
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117522371
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 55012712
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54628860
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117482377
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54861027
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117505485
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 117440059
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54723906
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28710022
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14029382
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14066402
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28852646
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14034501
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28861423
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28890141
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14001877
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28663151
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13971541
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14069323
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28786539
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 14020756
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28797898
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 28867173
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          1280
+        ],
+        "wall_ns": 13955222
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115824531
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54050878
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54440644
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115581179
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54032050
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115641377
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115401382
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54219415
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 115743054
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 53941883
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 54139662
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 119100639
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 57628560
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 120144514
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 121263280
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          1280,
+          5120
+        ],
+        "wall_ns": 58117699
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 121443056
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 60526982
+      },
+      {
+        "block": 0,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 57383278
+      },
+      {
+        "block": 0,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 127803208
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 62614326
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 131178486
+      },
+      {
+        "block": 1,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 119979080
+      },
+      {
+        "block": 1,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 56255841
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 125250170
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 56982011
+      },
+      {
+        "block": 2,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 56686480
+      },
+      {
+        "block": 2,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 121384445
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54081864
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115286862
+      },
+      {
+        "block": 3,
+        "kernel": "baseline",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 115251276
+      },
+      {
+        "block": 3,
+        "kernel": "candidate",
+        "shape": [
+          1500,
+          5120,
+          1280
+        ],
+        "wall_ns": 54069003
+      }
+    ],
+    "numerics": [
+      {
+        "name": "regtile[1 1 1]",
+        "values": 1,
+        "max_abs": 3.349778232575318e-9,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 1673929
+      },
+      {
+        "name": "regtile[2 3 5]",
+        "values": 10,
+        "max_abs": 1.2337022736730319e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 464147
+      },
+      {
+        "name": "regtile[15 16 17]",
+        "values": 255,
+        "max_abs": 1.3974010659723035e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 442767
+      },
+      {
+        "name": "regtile[16 17 15]",
+        "values": 240,
+        "max_abs": 9.749137175329992e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 492093
+      },
+      {
+        "name": "regtile[17 31 19]",
+        "values": 323,
+        "max_abs": 1.5529887331666714e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 564482
+      },
+      {
+        "name": "regtile[31 33 7]",
+        "values": 217,
+        "max_abs": 2.6790485252448093e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 539572
+      },
+      {
+        "name": "regtile[33 17 31]",
+        "values": 1023,
+        "max_abs": 1.3867614767626435e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 542950
+      },
+      {
+        "name": "regtile[3 384 9]",
+        "values": 27,
+        "max_abs": 0.0000017596171417721962,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 460818
+      },
+      {
+        "name": "regtile[2 1280 7]",
+        "values": 14,
+        "max_abs": 0.000005361167738193728,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 794181
+      },
+      {
+        "name": "regtile[1 16384 2]",
+        "values": 2,
+        "max_abs": 0.000009660682177781155,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 2671724
+      },
+      {
+        "name": "regtile[32 32 32]",
+        "values": 1024,
+        "max_abs": 2.197767203782064e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 629414
+      },
+      {
+        "name": "regtile[33 65 63]",
+        "values": 2079,
+        "max_abs": 8.343939872368367e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 655055
+      },
+      {
+        "name": "regtile[1 1 1]",
+        "values": 1,
+        "max_abs": 3.349778232575318e-9,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 681582
+      },
+      {
+        "name": "regtile[2 3 5]",
+        "values": 10,
+        "max_abs": 1.2337022736730319e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 379990
+      },
+      {
+        "name": "regtile[15 16 17]",
+        "values": 255,
+        "max_abs": 1.3974010659723035e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 462919
+      },
+      {
+        "name": "regtile[16 17 15]",
+        "values": 240,
+        "max_abs": 9.749137175329992e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 472880
+      },
+      {
+        "name": "regtile[17 31 19]",
+        "values": 323,
+        "max_abs": 1.5529887331666714e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 382971
+      },
+      {
+        "name": "regtile[31 33 7]",
+        "values": 217,
+        "max_abs": 2.6790485252448093e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 327574
+      },
+      {
+        "name": "regtile[33 17 31]",
+        "values": 1023,
+        "max_abs": 1.3867614767626435e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 373410
+      },
+      {
+        "name": "regtile[3 384 9]",
+        "values": 27,
+        "max_abs": 0.0000017596171417721962,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 372098
+      },
+      {
+        "name": "regtile[2 1280 7]",
+        "values": 14,
+        "max_abs": 0.000005361167738193728,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 461080
+      },
+      {
+        "name": "regtile[1 16384 2]",
+        "values": 2,
+        "max_abs": 0.000009660682177781155,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 1677814
+      },
+      {
+        "name": "regtile[32 32 32]",
+        "values": 1024,
+        "max_abs": 2.197767203782064e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 388391
+      },
+      {
+        "name": "regtile[33 65 63]",
+        "values": 2079,
+        "max_abs": 8.343939872368367e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 503311
+      },
+      {
+        "name": "regtile[1 1 1]",
+        "values": 1,
+        "max_abs": 3.349778232575318e-9,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 673529
+      },
+      {
+        "name": "regtile[2 3 5]",
+        "values": 10,
+        "max_abs": 1.2337022736730319e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 573259
+      },
+      {
+        "name": "regtile[15 16 17]",
+        "values": 255,
+        "max_abs": 1.3974010659723035e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 449175
+      },
+      {
+        "name": "regtile[16 17 15]",
+        "values": 240,
+        "max_abs": 9.749137175329992e-8,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 403924
+      },
+      {
+        "name": "regtile[17 31 19]",
+        "values": 323,
+        "max_abs": 1.5529887331666714e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 328446
+      },
+      {
+        "name": "regtile[31 33 7]",
+        "values": 217,
+        "max_abs": 2.6790485252448093e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 256778
+      },
+      {
+        "name": "regtile[33 17 31]",
+        "values": 1023,
+        "max_abs": 1.3867614767626435e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 305257
+      },
+      {
+        "name": "regtile[3 384 9]",
+        "values": 27,
+        "max_abs": 0.0000017596171417721962,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 288532
+      },
+      {
+        "name": "regtile[2 1280 7]",
+        "values": 14,
+        "max_abs": 0.000005361167738193728,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 345929
+      },
+      {
+        "name": "regtile[1 16384 2]",
+        "values": 2,
+        "max_abs": 0.000009660682177781155,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 1494312
+      },
+      {
+        "name": "regtile[32 32 32]",
+        "values": 1024,
+        "max_abs": 2.197767203782064e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 330367
+      },
+      {
+        "name": "regtile[33 65 63]",
+        "values": 2079,
+        "max_abs": 8.343939872368367e-7,
+        "abs_budget": 0.00002,
+        "rel_budget": 0.00002,
+        "wall_ns": 423640
+      }
+    ]
+  },
+  "encoders": [
+    {
+      "filename": "encoder-final-1.jsonl",
+      "tests": {
+        "passEvents": 1,
+        "topLevel": 1,
+        "fail": 0,
+        "skip": 0
+      },
+      "timing": [
+        {
+          "includes_upload_download": true,
+          "medians_ns": {
+            "baseline": 14235267659.5,
+            "candidate": 8306008613
+          },
+          "sameweights_pcm_shape": true,
+          "samples_per_kernel": 4,
+          "speedup": 1.71385178161505
+        }
+      ],
+      "samples": [
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14233408368
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8289014208
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8305508277
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14240665506
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8306508949
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14231957124
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14237126951
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8312695303
+        }
+      ],
+      "speech": [
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-0",
+          "wall_ns": 9750371007,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 144726,
+              "EmitStart": 0,
+              "EmitEnd": 144726,
+              "InputSamples": 480000,
+              "PadSamples": 335274
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 9.04,
+                "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+                "Tokens": [
+                  19812,
+                  6801,
+                  11,
+                  17660,
+                  257,
+                  11742,
+                  289,
+                  4021,
+                  7974,
+                  4061,
+                  368,
+                  42542,
+                  5473,
+                  2617,
+                  1136,
+                  631,
+                  2228,
+                  22501,
+                  19930,
+                  3981,
+                  23760,
+                  1667,
+                  11720,
+                  24001,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-1",
+          "wall_ns": 9313163139,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 75094,
+              "EmitStart": 0,
+              "EmitEnd": 75094,
+              "InputSamples": 480000,
+              "PadSamples": 404906
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 4.693375,
+                "Text": "Como faço para transferir dinheiro para a minha conta?",
+                "Tokens": [
+                  11913,
+                  38091,
+                  1690,
+                  5003,
+                  347,
+                  23760,
+                  1690,
+                  257,
+                  11720,
+                  24001,
+                  30
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-fr-0",
+          "wall_ns": 9230077708,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 60074,
+              "EmitStart": 0,
+              "EmitEnd": 60074,
+              "InputSamples": 480000,
+              "PadSamples": 419926
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 2.42,
+                "Text": "Je souhaite changer mon adresse.",
+                "Tokens": [
+                  2588,
+                  45214,
+                  642,
+                  22822,
+                  1108,
+                  614,
+                  22603,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "jfk",
+          "wall_ns": 9818474867,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 176000,
+              "EmitStart": 0,
+              "EmitEnd": 176000,
+              "InputSamples": 480000,
+              "PadSamples": 304000
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 10.4,
+                "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+                "Tokens": [
+                  400,
+                  370,
+                  11,
+                  452,
+                  7177,
+                  6280,
+                  11,
+                  1029,
+                  406,
+                  437,
+                  428,
+                  1941,
+                  393,
+                  360,
+                  337,
+                  291,
+                  11,
+                  1029,
+                  437,
+                  291,
+                  393,
+                  360,
+                  337,
+                  428,
+                  1941,
+                  13
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "start": "2026-09-12T09:47:01.063509357+01:00",
+      "end": "2026-09-12T09:49:41.232880014+01:00"
+    },
+    {
+      "filename": "encoder-final-2.jsonl",
+      "tests": {
+        "passEvents": 1,
+        "topLevel": 1,
+        "fail": 0,
+        "skip": 0
+      },
+      "timing": [
+        {
+          "includes_upload_download": true,
+          "medians_ns": {
+            "baseline": 14231822683.5,
+            "candidate": 8413231116.5
+          },
+          "sameweights_pcm_shape": true,
+          "samples_per_kernel": 4,
+          "speedup": 1.6916001101632163
+        }
+      ],
+      "samples": [
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14227548909
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8532158945
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8576119289
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14437626387
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8294303288
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14228695865
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14234949502
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8290403734
+        }
+      ],
+      "speech": [
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-0",
+          "wall_ns": 9919086743,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 144726,
+              "EmitStart": 0,
+              "EmitEnd": 144726,
+              "InputSamples": 480000,
+              "PadSamples": 335274
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 9.04,
+                "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+                "Tokens": [
+                  19812,
+                  6801,
+                  11,
+                  17660,
+                  257,
+                  11742,
+                  289,
+                  4021,
+                  7974,
+                  4061,
+                  368,
+                  42542,
+                  5473,
+                  2617,
+                  1136,
+                  631,
+                  2228,
+                  22501,
+                  19930,
+                  3981,
+                  23760,
+                  1667,
+                  11720,
+                  24001,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-1",
+          "wall_ns": 9586048894,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 75094,
+              "EmitStart": 0,
+              "EmitEnd": 75094,
+              "InputSamples": 480000,
+              "PadSamples": 404906
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 4.693375,
+                "Text": "Como faço para transferir dinheiro para a minha conta?",
+                "Tokens": [
+                  11913,
+                  38091,
+                  1690,
+                  5003,
+                  347,
+                  23760,
+                  1690,
+                  257,
+                  11720,
+                  24001,
+                  30
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-fr-0",
+          "wall_ns": 9428243647,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 60074,
+              "EmitStart": 0,
+              "EmitEnd": 60074,
+              "InputSamples": 480000,
+              "PadSamples": 419926
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 2.42,
+                "Text": "Je souhaite changer mon adresse.",
+                "Tokens": [
+                  2588,
+                  45214,
+                  642,
+                  22822,
+                  1108,
+                  614,
+                  22603,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "jfk",
+          "wall_ns": 9807189684,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 176000,
+              "EmitStart": 0,
+              "EmitEnd": 176000,
+              "InputSamples": 480000,
+              "PadSamples": 304000
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 10.4,
+                "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+                "Tokens": [
+                  400,
+                  370,
+                  11,
+                  452,
+                  7177,
+                  6280,
+                  11,
+                  1029,
+                  406,
+                  437,
+                  428,
+                  1941,
+                  393,
+                  360,
+                  337,
+                  291,
+                  11,
+                  1029,
+                  437,
+                  291,
+                  393,
+                  360,
+                  337,
+                  428,
+                  1941,
+                  13
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "start": "2026-09-12T09:49:41.428786121+01:00",
+      "end": "2026-09-12T09:52:22.980239629+01:00"
+    },
+    {
+      "filename": "encoder-isolated.jsonl",
+      "tests": {
+        "passEvents": 1,
+        "topLevel": 1,
+        "fail": 0,
+        "skip": 0
+      },
+      "timing": [
+        {
+          "includes_upload_download": true,
+          "medians_ns": {
+            "baseline": 14244078042,
+            "candidate": 8298357210
+          },
+          "sameweights_pcm_shape": true,
+          "samples_per_kernel": 4,
+          "speedup": 1.71649372056858
+        }
+      ],
+      "samples": [
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14243630358
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8298468960
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "candidate",
+          "wall_ns": 8292047094
+        },
+        {
+          "bit_exact": true,
+          "block": 0,
+          "kernel": "baseline",
+          "wall_ns": 14230381197
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8299918299
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14244525726
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "baseline",
+          "wall_ns": 14250102854
+        },
+        {
+          "bit_exact": true,
+          "block": 1,
+          "kernel": "candidate",
+          "wall_ns": 8298245460
+        }
+      ],
+      "speech": [
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-0",
+          "wall_ns": 9744425083,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 144726,
+              "EmitStart": 0,
+              "EmitEnd": 144726,
+              "InputSamples": 480000,
+              "PadSamples": 335274
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 9.04,
+                "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+                "Tokens": [
+                  19812,
+                  6801,
+                  11,
+                  17660,
+                  257,
+                  11742,
+                  289,
+                  4021,
+                  7974,
+                  4061,
+                  368,
+                  42542,
+                  5473,
+                  2617,
+                  1136,
+                  631,
+                  2228,
+                  22501,
+                  19930,
+                  3981,
+                  23760,
+                  1667,
+                  11720,
+                  24001,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-pt-1",
+          "wall_ns": 9304032114,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 75094,
+              "EmitStart": 0,
+              "EmitEnd": 75094,
+              "InputSamples": 480000,
+              "PadSamples": 404906
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 4.693375,
+                "Text": "Como faço para transferir dinheiro para a minha conta?",
+                "Tokens": [
+                  11913,
+                  38091,
+                  1690,
+                  5003,
+                  347,
+                  23760,
+                  1690,
+                  257,
+                  11720,
+                  24001,
+                  30
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "minds-fr-0",
+          "wall_ns": 9196896455,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 60074,
+              "EmitStart": 0,
+              "EmitEnd": 60074,
+              "InputSamples": 480000,
+              "PadSamples": 419926
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 2.42,
+                "Text": "Je souhaite changer mon adresse.",
+                "Tokens": [
+                  2588,
+                  45214,
+                  642,
+                  22822,
+                  1108,
+                  614,
+                  22603,
+                  13
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "baseline_tokens_timestamps_exact": true,
+          "fixture": "jfk",
+          "wall_ns": 9823350739,
+          "window": {
+            "Window": {
+              "Index": 0,
+              "Start": 0,
+              "End": 176000,
+              "EmitStart": 0,
+              "EmitEnd": 176000,
+              "InputSamples": 480000,
+              "PadSamples": 304000
+            },
+            "Segments": [
+              {
+                "Start": 0,
+                "End": 10.4,
+                "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+                "Tokens": [
+                  400,
+                  370,
+                  11,
+                  452,
+                  7177,
+                  6280,
+                  11,
+                  1029,
+                  406,
+                  437,
+                  428,
+                  1941,
+                  393,
+                  360,
+                  337,
+                  291,
+                  11,
+                  1029,
+                  437,
+                  291,
+                  393,
+                  360,
+                  337,
+                  428,
+                  1941,
+                  13
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "start": "2026-09-12T09:55:29.822610448+01:00",
+      "end": "2026-09-12T09:58:09.934849262+01:00"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+/var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/core/io.py:48: UserWarning:
+torchcodec is not installed correctly so built-in audio decoding will fail. Solutions are:
+* use audio preloaded in-memory as a {'waveform': (channel, time) torch.Tensor, 'sample_rate': int} dictionary;
+* fix torchcodec installation. Error message was:
+
+Could not load this library: /var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/torchcodec/libtorchcodec_image.so
+  warnings.warn(
+/var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/models/blocks/pooling.py:103: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at /__w/pytorch/pytorch/aten/src/ATen/native/ReduceOps.cpp:1913.)
+  std = sequences.std(dim=-1, correction=1)
+	Command being timed: "/var/home/agent/workspace/projects/go-pherence/../whisper-stt/runtime/diar-export/bin/python scripts/community1_pipeline_reference.py --segmentation-dir /var/home/agent/workspace/projects/go-pherence/../models/community1-segmentation-final-3533c8 --embedding-dir /var/home/agent/workspace/projects/go-pherence/../models/community1-embedding-3533c8 --raw-segmentation /var/home/agent/workspace/projects/go-pherence/../whisper-stt/runtime/hf-diar-cache/hub/models--pyannote--speaker-diarization-community-1/snapshots/3533c8cf8e369892e6b79ff1bf80f7b0286a54ee/segmentation/pytorch_model.bin --plda-dir /var/home/agent/workspace/projects/go-pherence/../models/community1-plda-3533c8 --public-wav /var/home/agent/workspace/projects/go-pherence/tmp/ami-pilot/output/ES2004a-350-410.wav --public-wav-sha256 fb7398edefaaff13f5e2d586ebd2dcfe7b5a7ef0bb1984de7ea569299854749e --samples 960000 --uri ES2004a-350-410 --num-speakers 4 --output-dir /var/home/agent/workspace/projects/go-pherence/tmp/ami-pilot/count4/reference"
+	User time (seconds): 102.67
+	System time (seconds): 38.21
+	Percent of CPU this job got: 105%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:13.26
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 775552
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 50
+	Minor (reclaiming a frame) page faults: 35144299
+	Voluntary context switches: 639
+	Involuntary context switches: 3855
+	Swaps: 0
+	File system inputs: 206672
+	File system outputs: 3576
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,242 @@
+{
+  "checkpoint": "First public-speech Tiny checkedPCM CPU/Vulkan comparison",
+  "created": "2026-09-12T07:34:17.763Z",
+  "baseline": "cb1e185",
+  "codeCommit": "4582ebc",
+  "branch": "feat/speech-simd-vulkan",
+  "exportCorrection": "Initialexportrejectedoptionalofflineskip;shellcontinuedcommitwithout evidence. Followuprecordsactualskipcountsandverifieshashes.",
+  "input": {
+    "url": "https://github.com/ggml-org/whisper.cpp/blob/c44b60b8053bbf2a5c1e014f11323fb3f2485177/samples/jfk.wav",
+    "sha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+    "bytes": 352078,
+    "pcmSamples": 176000,
+    "sampleRate": 16000,
+    "seconds": 11,
+    "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+    "referenceWords": 22,
+    "gateWER": 0.15
+  },
+  "model": "openai/whisper-tiny169d4a4 withhashpinnedweights/config/tokenizer/generationperpriorcheckpoint",
+  "execution": {
+    "authorised": true,
+    "nativeGPU": "IntelIrisXeRPL-P",
+    "FFmpeg": "8.1.2",
+    "ffmpegSHA256": "32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd",
+    "ffprobeSHA256": "2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3",
+    "driverSHA256": "2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3",
+    "settings": [
+      {
+        "attention_f16": false,
+        "attention_int8": false,
+        "block_m": 32,
+        "gomaxprocs": 2,
+        "int8": false,
+        "linear_workers": 2,
+        "nvidia_disabled": "1"
+      },
+      {
+        "attention_f16": false,
+        "attention_int8": false,
+        "block_m": 32,
+        "gomaxprocs": 2,
+        "int8": false,
+        "linear_workers": 2,
+        "nvidia_disabled": "1"
+      },
+      {
+        "attention_f16": false,
+        "attention_int8": false,
+        "block_m": 32,
+        "gomaxprocs": 2,
+        "int8": false,
+        "linear_workers": 2,
+        "nvidia_disabled": "1"
+      }
+    ],
+    "outerTimeout": "120s",
+    "context": "110s",
+    "privateMedia": false,
+    "foreignInference": false,
+    "servicesStarted": false,
+    "push": false
+  },
+  "native": {
+    "passEvents": 3,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "skipReason": null
+  },
+  "transcriptions": {
+    "total": 54,
+    "warm": 48,
+    "batches": 3,
+    "allWER": 0,
+    "wordEdits": 0,
+    "referenceWords": 22,
+    "uniqueOutputs": 1,
+    "segment": [
+      0,
+      10.5
+    ],
+    "textTokens": 24,
+    "decoderCalls": 29
+  },
+  "timing": [
+    {
+      "cpu_over_vulkan": 2.0082966758371947,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1172332408,
+        "vulkan": 583744634
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.84385630172662
+    },
+    {
+      "cpu_over_vulkan": 1.9870294514943851,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1164774905.5,
+        "vulkan": 586189049.5
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.765277190665092
+    },
+    {
+      "cpu_over_vulkan": 1.9187609267104895,
+      "duration_seconds": 11,
+      "includes_frontend_crossKV_decode": true,
+      "includes_media_model_load": false,
+      "inference_median_ns": {
+        "cpu": 1167869451,
+        "vulkan": 608658137
+      },
+      "output_identical": true,
+      "samples_per_path": 8,
+      "vulkan_realtime_multiple": 18.072542419653875
+    }
+  ],
+  "stages": [
+    {
+      "cross_kv_ns": 35491478,
+      "decoder_calls": 29,
+      "decoder_ns": 189143592,
+      "encoder_ns": 301872202,
+      "frontend_ns": 90871911,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    },
+    {
+      "cross_kv_ns": 31777534,
+      "decoder_calls": 29,
+      "decoder_ns": 184605010,
+      "encoder_ns": 300626533,
+      "frontend_ns": 93944237,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    },
+    {
+      "cross_kv_ns": 39271701,
+      "decoder_calls": 29,
+      "decoder_ns": 184442724,
+      "encoder_ns": 305027615,
+      "frontend_ns": 95050845,
+      "matches_PCM_API": true,
+      "separate_diagnostic": true,
+      "text_tokens": 24
+    }
+  ],
+  "scope": "11sEnglishwarmfixture only;media/modelsetup excluded frominference timing;stage diagnostic separate",
+  "offline": {
+    "passEvents": 77,
+    "topLevel": 18,
+    "fail": 0,
+    "skip": 1,
+    "skipReason": "optionalpinnedtwo-modeltokenizerfixture directoryunset;actualTinyhashescheckedbynativeharness"
+  },
+  "shuffle30": {
+    "passEvents": 600,
+    "topLevel": 330,
+    "fail": 0,
+    "skip": 30,
+    "skipReason": "optionalpinnedtwo-modeltokenizerfixture directoryunset;actualTinyhashescheckedbynativeharness"
+  },
+  "checks": {
+    "regressions": "PASS allfocused",
+    "nativeMake": "PASS",
+    "vet": "PASS affected",
+    "amd64": "PASS affected",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "WhisperArm64": "FAIL exactbaselineFFT",
+    "race": "gccabsent",
+    "optInDisabled": "skipbeforeloadexpected",
+    "diffCheck": "PASS",
+    "checkedLinks": 97
+  },
+  "review": {
+    "initial": "enforcecanonicalPCMlength/reference22wordcount/120souterlimit",
+    "resolution": "allfixedbeforefinalruns",
+    "scope": "read-onlyharnessreviewnotcorpusapproval"
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "LLM+bothspeechinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "limitations": [
+    "One22wordEnglishpublicclip isnotmultilingualquality/corpusWERgate.",
+    "WAVinputonly;resampling/lossy/timebasesnotqualified.",
+    "Timestampmonotonicbounds notannotatedalignmentaccuracy.",
+    "Warm2workerCPUcomparison notoptimisedallcore/cold/wholejobperformance;noGC/GPUtimestamps/energy.",
+    "Silence/overlap/longfile/diarization/Turbo/quantisation/device-loss gatesremain.",
+    "SincNetstrict4FAILunchanged."
+  ],
+  "sourceHashes": {
+    "Makefile": "756c84a57e125a201cfad7d464060be037b964511ae32830d49f7fd9bba35403",
+    "models/whisper/vulkan_speech_quality_test.go": "b8e0273e0789302fbd47d08e90027cd1785800f6023752c9c5f14d5d27026dab",
+    "models/whisper/pcm_transcribe.go": "fe0087d8ca6ace0aa0c8ad0d753d0e2ef6e6c4640ac9de32351a772678efbc42",
+    "models/whisper/decode_checked.go": "0afb57234fb13a9dc969ae1ca68799695d9b087ae79ab4e881eca1d40b6e5761",
+    "loader/audio/media/ffmpeg.go": "8793124613bf2ca367f7768c5bb1da9d6c7d991431a641df95629e530b6ec062",
+    "docs/speech-integration.md": "fc678a6741a8d61824b6ab2b3498c1a66ba1863340d84a79f99927c941884ded",
+    "benchmarks/speech-foundations/README.md": "f76c418cbf7bc039822d220abb44ec13f460b686232e2ed088572d31153a7568"
+  },
+  "evidenceHashes": {
+    "README.md": "e5b41777e3eea880a08a194d8a04a204b47729b00540be50eedbc15a9bdba61c",
+    "speech-tests.jsonl": "53c78323b1f606ae65729a8db946fc0cce33ff0418c27acbf0b50c29e69eeae7",
+    "offline-tests.jsonl": "ba37b80a674047e4485bfe87947cb85136093acac410f74b7860d5d1f1c44ecb",
+    "regressions.txt": "62a56adc7b2daf36be1601b86566b6672b1443000a5c002ea347bbaa58477db8",
+    "native-make.txt": "f94c8c76fe02f8fffc141b9f6d0bea1821385923b0e2831d5f4a7a630b8547ec",
+    "optin-disabled.txt": "dd0da474265faf405bffdb0c59e56cecbc6c368b8125a6eb9dd6b3c73ceed41f",
+    "before.txt": "c519d2e83fbdcff13ee66fcc3de1e41f8caab0fe511d25ad2ea140e6e49c8c43",
+    "after.txt": "71b813dbbda1ffd50146f58c92adc1a28d06b7b49838cf7c9b444e77fa5effdc",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "initial-gpu.jsonl": "cb21883e68fb88ce8e3b9315745d3db2c31f89583f21dfdd92485a17d89b529a",
+    "initial-cpu-compare.jsonl": "891c86771b2fe2481275e09eb218a00c5910b4fa832fbc263164058f3369c92e",
+    "initial-timing.jsonl": "f31f9e1a8dd1498b14b3f49226410b1b20200c6d72c06ef0408466c71a606115",
+    "shuffle-tests.jsonl.gz": "f551dcec66384dcb720e50a3ee55c5e5d6c9243279d168e0c24c4d64aaaf8749",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "100df5ff72345bc461d5cdec6a799aa71c07ca81527f8bc277bdf67b9f2b3c98",
+    "jfk-transcript.json": "287dc5c5fe52aa140fac31d01b53dbef1f70dd23bbe2388296fcdfb7e8867450",
+    "jfk-transcript.vtt": "ba811851da9843b8fc65f03d3e6e755bd11aebe155641a6e3fd6ff5aa54e9c44"
+  }
+}

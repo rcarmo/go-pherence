@@ -1,0 +1,8 @@
+/var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/core/io.py:48: UserWarning: 
+torchcodec is not installed correctly so built-in audio decoding will fail. Solutions are:
+* use audio preloaded in-memory as a {'waveform': (channel, time) torch.Tensor, 'sample_rate': int} dictionary;
+* fix torchcodec installation. Error message was:
+
+Could not load this library: /var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/torchcodec/libtorchcodec_image.so
+  warnings.warn(
+{"output": "projects/models/community1-embedding-3533c8", "tensors": 218, "cases": [{"name": "silence-1s", "file": "silence-1s.safetensors", "samples": 16000, "frames": 98, "cnn_frames": 13}, {"name": "broadband-1s", "file": "broadband-1s.safetensors", "samples": 16000, "frames": 98, "cnn_frames": 13}, {"name": "public-6-7s", "file": "public-6-7s.safetensors", "samples": 16000, "frames": 98, "cnn_frames": 13}, {"name": "public-6-11s", "file": "public-6-11s.safetensors", "samples": 80000, "frames": 498, "cnn_frames": 63}]}

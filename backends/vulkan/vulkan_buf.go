@@ -2,30 +2,86 @@ package vulkan
 
 // Vulkan compute buffer and shader management.
 //
-// VkBuf: device-local buffer with host-visible staging
+// VkBuf: host-visible/coherent allocation (no separate staging allocation)
 // VkShader: compiled SPIR-V compute pipeline
 
 import (
+	"context"
 	"fmt"
 	"unsafe"
 )
 
-// VkBuf is a Vulkan compute buffer (device-local + host-visible staging).
+// VkBuf is a host-visible/coherent buffer. Device-local memory is not required.
+// Package APIs serialize host access and retain buffers during pending work.
+// Resource objects must not be copied; callers cannot access the mapped pointer.
 type VkBuf struct {
-	buf    VkBuffer
-	mem    VkDeviceMemory
-	size   uint64
-	mapped unsafe.Pointer
+	device          VkDevice
+	closed          bool
+	deferredFree    bool
+	buf             VkBuffer
+	mem             VkDeviceMemory
+	size            uint64
+	mapped          unsafe.Pointer
+	allocationBytes uint64 // zero only for non-owning test fixtures
+	heapIndex       uint32
 }
 
 // VkBufAlloc allocates a Vulkan buffer accessible from both host and device.
 func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	return vkBufAllocLocked(sizeBytes)
+}
+
+// Caller owns vkLane through construction/publication (also used by arenas).
+func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
+	if err := vkStatusLocked(); err != nil {
+		return nil, err
+	}
+	if !vkNative64() {
+		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
+	}
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
 	if sizeBytes <= 0 {
 		return nil, fmt.Errorf("invalid vulkan buffer size=%d", sizeBytes)
 	}
+	// The current API binds the entire buffer as one storage descriptor.
+	if err := vkCheckBufferLimitLocked(uint64(sizeBytes)); err != nil {
+		return nil, err
+	}
+
+	// Lower bound preflight before creating even the buffer handle. Native
+	// requirements may include padding, so recheck their actual size below.
+	if err := vkCheckMemoryBudgetLocked(uint64(sizeBytes)); err != nil {
+		return nil, err
+	}
+	if vkCreateBuffer == nil || vkGetBufferMemoryRequirements == nil || vkGetPhysicalDeviceMemoryProperties == nil || vkAllocateMemory == nil || vkBindBufferMemory == nil || vkMapMemory == nil || vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
+		return nil, fmt.Errorf("Vulkan buffer construction/cleanup functions unavailable")
+	}
+	device, physical := vkDevice, vkPhysDev
+	var buf VkBuffer
+	var mem VkDeviceMemory
+	var allocationBytes uint64
+	var heapIndex uint32
+	committed := false
+	defer func() {
+		if !committed {
+			// A bound buffer must be destroyed before releasing its memory.
+			if buf != 0 {
+				vkDestroyBuffer(device, buf, nil)
+			}
+			if mem != 0 {
+				vkFreeMemory(device, mem, nil)
+				if allocationBytes != 0 {
+					vkUnchargeMemoryLocked(heapIndex, allocationBytes)
+				}
+			}
+		}
+	}()
 
 	bufInfo := struct {
 		sType                 uint32
@@ -43,47 +99,48 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		sharingMode: VK_SHARING_MODE_EXCLUSIVE,
 	}
 
-	var buf VkBuffer
-	if r := vkCreateBuffer(vkDevice, unsafe.Pointer(&bufInfo), nil, &buf); r != VK_SUCCESS {
+	if r := vkCreateBuffer(device, unsafe.Pointer(&bufInfo), nil, &buf); r != VK_SUCCESS {
+		buf = 0 // output is undefined on failed creation
 		return nil, fmt.Errorf("vkCreateBuffer: %d", r)
 	}
 
 	// Get memory requirements
-	type memReqs struct {
-		size           uint64
-		alignment      uint64
-		memoryTypeBits uint32
+	var reqs vkMemoryRequirements
+	vkGetBufferMemoryRequirements(device, buf, unsafe.Pointer(&reqs))
+	if reqs.size < uint64(sizeBytes) || reqs.alignment == 0 || reqs.alignment&(reqs.alignment-1) != 0 || reqs.memoryTypeBits == 0 {
+		return nil, fmt.Errorf("invalid Vulkan memory requirements")
 	}
-	var reqs memReqs
-	vkGetBufferMemoryRequirements(vkDevice, buf, unsafe.Pointer(&reqs))
+
+	if err := vkCheckMemoryBudgetLocked(reqs.size); err != nil {
+		return nil, err
+	}
 
 	// Find host-visible + host-coherent memory type
-	type memType struct {
-		propertyFlags uint32
-		heapIndex     uint32
+	var props vkPhysicalDeviceMemoryProperties
+	vkGetPhysicalDeviceMemoryProperties(physical, unsafe.Pointer(&props))
+	if props.memoryTypeCount == 0 || props.memoryTypeCount > 32 || props.memoryHeapCount == 0 || props.memoryHeapCount > 16 {
+		return nil, fmt.Errorf("invalid Vulkan memory property counts")
 	}
-	type memProps struct {
-		memoryTypeCount uint32
-		memoryTypes     [32]memType
-		memoryHeapCount uint32
-		memoryHeaps     [16]struct{ size, flags uint64 }
-	}
-	var props memProps
-	vkGetPhysicalDeviceMemoryProperties(vkPhysDev, unsafe.Pointer(&props))
 
 	memTypeIdx := uint32(0xFFFFFFFF)
 	wantFlags := uint32(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
 	for i := uint32(0); i < props.memoryTypeCount; i++ {
-		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags {
+		if props.memoryTypes[i].heapIndex >= props.memoryHeapCount {
+			return nil, fmt.Errorf("invalid Vulkan memory heap index")
+		}
+	}
+	for i := uint32(0); i < props.memoryTypeCount; i++ {
+		heap := props.memoryTypes[i].heapIndex
+		if reqs.memoryTypeBits&(1<<i) != 0 && props.memoryTypes[i].propertyFlags&wantFlags == wantFlags && vkHeapFitsLocked(heap, props.memoryHeaps[heap].size, reqs.size) {
 			memTypeIdx = i
 			break
 		}
 	}
 	if memTypeIdx == 0xFFFFFFFF {
-		vkDestroyBuffer(vkDevice, buf, nil)
 		return nil, fmt.Errorf("no suitable memory type")
 	}
 
+	heapIndex = props.memoryTypes[memTypeIdx].heapIndex
 	allocInfo := struct {
 		sType           uint32
 		pNext           uintptr
@@ -95,27 +152,32 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 		memoryTypeIndex: memTypeIdx,
 	}
 
-	var mem VkDeviceMemory
-	if r := vkAllocateMemory(vkDevice, unsafe.Pointer(&allocInfo), nil, &mem); r != VK_SUCCESS {
-		vkDestroyBuffer(vkDevice, buf, nil)
+	if r := vkAllocateMemory(device, unsafe.Pointer(&allocInfo), nil, &mem); r != VK_SUCCESS {
+		mem = 0
 		return nil, fmt.Errorf("vkAllocateMemory: %d", r)
 	}
 
-	if r := vkBindBufferMemory(vkDevice, buf, mem, 0); r != VK_SUCCESS {
-		vkFreeMemory(vkDevice, mem, nil)
-		vkDestroyBuffer(vkDevice, buf, nil)
+	if mem == 0 {
+		return nil, fmt.Errorf("vkAllocateMemory returned null handle")
+	}
+	allocationBytes = reqs.size
+	vkChargeMemoryLocked(heapIndex, allocationBytes)
+
+	if r := vkBindBufferMemory(device, buf, mem, 0); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkBindBufferMemory: %d", r)
 	}
 
 	// Map memory
 	var mapped unsafe.Pointer
-	if r := vkMapMemory(vkDevice, mem, 0, uint64(sizeBytes), 0, &mapped); r != VK_SUCCESS {
-		vkFreeMemory(vkDevice, mem, nil)
-		vkDestroyBuffer(vkDevice, buf, nil)
+	if r := vkMapMemory(device, mem, 0, uint64(sizeBytes), 0, &mapped); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkMapMemory: %d", r)
 	}
 
-	return &VkBuf{buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped}, nil
+	if mapped == nil {
+		return nil, fmt.Errorf("vkMapMemory returned nil pointer")
+	}
+	committed = true
+	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped, allocationBytes: allocationBytes, heapIndex: heapIndex}, nil
 }
 
 // Upload copies float32 data to the buffer. Invalid inputs are ignored for
@@ -124,6 +186,21 @@ func (b *VkBuf) Upload(data []float32) { _ = b.UploadChecked(data) }
 
 // UploadChecked copies float32 data to the buffer and reports malformed input.
 func (b *VkBuf) UploadChecked(data []float32) error {
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b != nil {
+		if b.closed {
+			return ErrVulkanClosed
+		}
+		if err := vkQuarantineLocked(); err != nil {
+			return err
+		}
+		if vkUsesBufferLocked(b) {
+			return ErrVulkanInFlight
+		}
+	}
 	if len(data) == 0 {
 		return nil
 	}
@@ -146,6 +223,21 @@ func (b *VkBuf) Download(data []float32) { _ = b.DownloadChecked(data) }
 
 // DownloadChecked copies float32 data from the buffer and reports malformed input.
 func (b *VkBuf) DownloadChecked(data []float32) error {
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b != nil {
+		if b.closed {
+			return ErrVulkanClosed
+		}
+		if err := vkQuarantineLocked(); err != nil {
+			return err
+		}
+		if vkUsesBufferLocked(b) {
+			return ErrVulkanInFlight
+		}
+	}
 	if len(data) == 0 {
 		return nil
 	}
@@ -162,21 +254,82 @@ func (b *VkBuf) DownloadChecked(data []float32) error {
 	return nil
 }
 
-// Free releases the buffer and its memory.
+// Free keeps the legacy signature. Pending buffers are retained and marked
+// for deferred destruction after VulkanDrain confirms completion. After device
+// loss/uncertain submission they stay retained until process teardown. Call
+// FreeChecked when the caller needs to know that immediate destruction failed.
 func (b *VkBuf) Free() {
 	if b == nil {
 		return
 	}
+	_ = vkAcquire(context.Background())
+	defer vkRelease()
+	if vkUsesBufferLocked(b) {
+		b.deferredFree = true
+		return
+	}
+	_ = b.freeLocked()
+}
+
+// FreeChecked never defers implicitly. An in-flight/lost error leaves the
+// object untouched; drain then retry. Repeated successful frees are no-ops.
+func (b *VkBuf) FreeChecked() error {
+	if b == nil {
+		return nil
+	}
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if b.closed {
+		return nil
+	}
+	if err := vkQuarantineLocked(); err != nil {
+		return err
+	}
+	if vkUsesBufferLocked(b) {
+		return ErrVulkanInFlight
+	}
+	return b.freeLocked()
+}
+func (b *VkBuf) freeLocked() error {
+	if b.closed {
+		return nil
+	}
+	if err := vkQuarantineLocked(); err != nil {
+		return err
+	}
+	if b.device == 0 || b.device != vkDevice {
+		return fmt.Errorf("Vulkan buffer owner mismatch")
+	}
+	if vkUnmapMemory == nil || vkDestroyBuffer == nil || vkFreeMemory == nil {
+		return fmt.Errorf("Vulkan buffer cleanup functions unavailable")
+	}
+	if b.allocationBytes != 0 {
+		if b.mem == 0 {
+			return fmt.Errorf("Vulkan allocation accounting without memory")
+		}
+		if err := vkCheckChargeLocked(b.heapIndex, b.allocationBytes); err != nil {
+			return err
+		}
+	}
 	if b.mapped != nil {
-		vkUnmapMemory(vkDevice, b.mem)
+		vkUnmapMemory(b.device, b.mem)
 		b.mapped = nil
 	}
 	if b.buf != 0 {
-		vkDestroyBuffer(vkDevice, b.buf, nil)
+		vkDestroyBuffer(b.device, b.buf, nil)
 		b.buf = 0
 	}
 	if b.mem != 0 {
-		vkFreeMemory(vkDevice, b.mem, nil)
+		vkFreeMemory(b.device, b.mem, nil)
 		b.mem = 0
+		if b.allocationBytes != 0 {
+			vkUnchargeMemoryLocked(b.heapIndex, b.allocationBytes)
+			b.allocationBytes = 0
+		}
 	}
+	b.closed = true
+	b.deferredFree = false
+	return nil
 }

@@ -1,0 +1,286 @@
+{
+  "schema": 1,
+  "baseline_commit": "8f49508",
+  "scope": "WeSpeaker ResNet34 source-derived schema/checked owned tensor loading, not trained checkpoint validation",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "package_pass_events": 55,
+    "package_fail_events": 0,
+    "package_skip_events": 1,
+    "loader_top_level_pass": 4
+  },
+  "tests": [
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSchemaAndOwnedGraphParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadMetadataRejectionBeforePayload",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadPayloadFailureCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerLoadSafetensorsDTypeAndSourceClose",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetFullDepthOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetRejectsGeometryAndWeights",
+      "status": "pass"
+    },
+    {
+      "test": "TestWeSpeakerResNetCancellationAndSharedAllocation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "contract": {
+    "source_schema_cases": 3,
+    "required_float_tensors": 182,
+    "optional_BN_I64_counters": 36,
+    "prefixes": [
+      "",
+      "resnet"
+    ],
+    "dtypes": [
+      "F32",
+      "F16",
+      "BF16"
+    ],
+    "before_payload": "all names/ranks/shapes/dtypes/extents/nonoverlap validated",
+    "ownership": "copy each source tensor before next read; no constructor-wide second copy",
+    "training_counters": "metadata-only scalarI64/eightbytes; payload never read",
+    "regeneration": "schemaJSON and existing graphgzip identical"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "safetensors": "tests passed",
+    "vet": "affected and speaker/... safetensors passed",
+    "build": "audio/Whisper/speaker/audio commands passed",
+    "arm64": "Community1 cross-build passed, not executed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegated source review no blocking finding",
+    "cancel_checkpoints_sampled_from": 767
+  },
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "oracle": "source-derived schema/reducedwidthsyntheticweights,CPU1thread",
+    "trained_model": false,
+    "gpu": false,
+    "private_audio": false,
+    "service_changes": false
+  },
+  "limitations": [
+    "cfg/model provenance and actual pretrainedcheckpoint inspection not qualified",
+    "single offset space; source owns container/header bounds; no pickle/download",
+    "F16/BF16 synthetic lifetime fixture not quantisation quality",
+    "caller memory admission; in-flightGetFloat32 uninterruptible",
+    "SincNet strict4FAIL unchanged; skip in ordinary suite",
+    "no maskadmission/globalclustering/full diarization or speedresult",
+    "no new specialised SIMD/Vulkan",
+    "race detector unavailable"
+  ]
+}

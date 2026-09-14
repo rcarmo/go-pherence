@@ -10,17 +10,21 @@ package vulkan
 //
 // To regenerate: glslangValidator -V shader.comp -o shader.spv
 //
-// For now, we hand-assemble minimal SPIR-V for a vector add shader
-// to prove the pipeline works. Production shaders will be compiled from GLSL.
+// The legacy LoadSPIRV surface retains one hand-assembled vector-add module.
+// Production operators use generated assets from vulkan_spirv_embedded.go.
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
+	"runtime"
 	"unsafe"
 )
 
 // VkComputeShader wraps a compiled SPIR-V compute pipeline.
 type VkComputeShader struct {
+	device         VkDevice
+	closed         bool
 	pipeline       VkPipeline
 	pipelineLayout VkPipelineLayout
 	descSetLayout  VkDescriptorSetLayout
@@ -28,19 +32,14 @@ type VkComputeShader struct {
 	numBuffers     int
 }
 
-// assembleSPIRV creates a minimal SPIR-V module for a compute shader.
-// This is a helper that builds SPIR-V binary from a GLSL-like specification.
-// For production, use pre-compiled SPIR-V from glslangValidator.
+// assembleSPIRV exposes only the legacy hand-assembled vector-add module.
+// Model operators must use generated, inspected embedded assets instead of a
+// same-ABI placeholder under another operation name.
 func assembleSPIRV(glslSource string) ([]byte, error) {
-	// For now, return pre-built SPIR-V for common shaders
-	switch glslSource {
-	case "vec_add":
-		return spirvVecAdd, nil
-	case "gemv_f32":
-		return spirvGemvF32, nil
-	default:
-		return nil, fmt.Errorf("unknown shader: %s", glslSource)
+	if glslSource == "vec_add" {
+		return append([]byte(nil), spirvVecAdd...), nil
 	}
+	return nil, fmt.Errorf("unknown legacy shader: %s", glslSource)
 }
 
 // Pre-compiled SPIR-V for vector add:
@@ -55,9 +54,6 @@ func assembleSPIRV(glslSource string) ([]byte, error) {
 //	    if (i < n) c[i] = a[i] + b[i];
 //	}
 var spirvVecAdd = buildSPIRVVecAdd()
-
-// Pre-compiled SPIR-V for F32 GEMV (matrix-vector multiply)
-var spirvGemvF32 = buildSPIRVGemvF32()
 
 func buildSPIRVVecAdd() []byte {
 	// Minimal SPIR-V 1.0 compute shader: c[i] = a[i] + b[i]
@@ -195,24 +191,73 @@ func buildSPIRVVecAdd() []byte {
 	return b
 }
 
-func buildSPIRVGemvF32() []byte {
-	// Placeholder — full GEMV shader is complex.
-	// For now return vec_add SPIR-V (will be replaced with actual GEMV).
-	return buildSPIRVVecAdd()
-}
-
-// LoadSPIRV creates a Vulkan compute pipeline from SPIR-V bytecode.
+// LoadSPIRV creates a legacy pipeline-only object (no dispatch surface).
+// Close releases it; objects must not be copied. The checked limits match
+// VkKernelCreate. Use VkKernelCreate for owned command/descriptor/fence execution.
 func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
-	if len(spirv) == 0 || len(spirv)%4 != 0 {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	if err := vkStatusLocked(); err != nil {
+		return nil, err
+	}
+	if !vkNative64() {
+		return nil, fmt.Errorf("Vulkan requires the current 64-bit FFI binding")
+	}
+	if len(spirv) < 20 || len(spirv) > 1<<20 || len(spirv)%4 != 0 || binary.LittleEndian.Uint32(spirv) != 0x07230203 {
 		return nil, fmt.Errorf("invalid SPIR-V bytecode length %d", len(spirv))
 	}
-	if numBuffers <= 0 {
+	if numBuffers <= 0 || numBuffers > 16 {
 		return nil, fmt.Errorf("invalid descriptor buffer count %d", numBuffers)
 	}
 	if !vkReady {
 		return nil, fmt.Errorf("vulkan not initialized")
 	}
+	if err := vkCheckPipelineLimitsLocked(numBuffers, 0); err != nil {
+		return nil, err
+	}
 
+	code := make([]uint32, len(spirv)/4)
+	for i := range code {
+		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
+	}
+	contract, err := vkInspectSPIRV(code)
+	if err != nil {
+		return nil, err
+	}
+	if err := vkCheckShaderLimits(contract, vkLimits); err != nil {
+		return nil, err
+	}
+	if err := vkCheckShaderInterface(contract, numBuffers, 0); err != nil {
+		return nil, err
+	}
+	defer func() { runtime.KeepAlive(code) }()
+	if vkCreateShaderModule == nil || vkCreateDescriptorSetLayout == nil || vkCreatePipelineLayout == nil || vkCreateComputePipelines == nil || vkDestroyShaderModule == nil || vkDestroyDescriptorSetLayout == nil || vkDestroyPipelineLayout == nil || vkDestroyPipeline == nil {
+		return nil, fmt.Errorf("Vulkan shader construction/cleanup functions unavailable")
+	}
+	device := vkDevice
+	var shaderModule VkShaderModule
+	var descSetLayout VkDescriptorSetLayout
+	var pipelineLayout VkPipelineLayout
+	var pipeline VkPipeline
+	committed := false
+	defer func() {
+		if !committed {
+			if pipeline != 0 {
+				vkDestroyPipeline(device, pipeline, nil)
+			}
+			if pipelineLayout != 0 {
+				vkDestroyPipelineLayout(device, pipelineLayout, nil)
+			}
+			if descSetLayout != 0 {
+				vkDestroyDescriptorSetLayout(device, descSetLayout, nil)
+			}
+		}
+		if shaderModule != 0 {
+			vkDestroyShaderModule(device, shaderModule, nil)
+		}
+	}()
 	// Create shader module
 	moduleInfo := struct {
 		sType    uint32
@@ -223,11 +268,11 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 	}{
 		sType:    VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		codeSize: uint64(len(spirv)),
-		pCode:    unsafe.Pointer(&spirv[0]),
+		pCode:    unsafe.Pointer(&code[0]),
 	}
 
-	var shaderModule VkShaderModule
-	if r := vkCreateShaderModule(vkDevice, unsafe.Pointer(&moduleInfo), nil, &shaderModule); r != VK_SUCCESS {
+	if r := vkCreateShaderModule(device, unsafe.Pointer(&moduleInfo), nil, &shaderModule); r != VK_SUCCESS {
+		shaderModule = 0 // failed output is undefined
 		return nil, fmt.Errorf("vkCreateShaderModule: %d", r)
 	}
 
@@ -266,8 +311,8 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 		pBindings:    unsafe.Pointer(&bindings[0]),
 	}
 
-	var descSetLayout VkDescriptorSetLayout
-	if r := vkCreateDescriptorSetLayout(vkDevice, unsafe.Pointer(&layoutInfo), nil, &descSetLayout); r != VK_SUCCESS {
+	if r := vkCreateDescriptorSetLayout(device, unsafe.Pointer(&layoutInfo), nil, &descSetLayout); r != VK_SUCCESS {
+		descSetLayout = 0
 		return nil, fmt.Errorf("vkCreateDescriptorSetLayout: %d", r)
 	}
 
@@ -286,14 +331,14 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 		pSetLayouts:    unsafe.Pointer(&descSetLayout),
 	}
 
-	var pipelineLayout VkPipelineLayout
-	if r := vkCreatePipelineLayout(vkDevice, unsafe.Pointer(&plInfo), nil, &pipelineLayout); r != VK_SUCCESS {
+	if r := vkCreatePipelineLayout(device, unsafe.Pointer(&plInfo), nil, &pipelineLayout); r != VK_SUCCESS {
+		pipelineLayout = 0
 		return nil, fmt.Errorf("vkCreatePipelineLayout: %d", r)
 	}
 
 	// Create compute pipeline
 	entryName := append([]byte("main"), 0)
-	stageInfo := struct {
+	type pipelineStageInfo struct {
 		sType               uint32
 		pNext               uintptr
 		flags               uint32
@@ -301,7 +346,8 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 		module              VkShaderModule
 		pName               unsafe.Pointer
 		pSpecializationInfo uintptr
-	}{
+	}
+	stageInfo := pipelineStageInfo{
 		sType:  0x12, // VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
 		stage:  0x20, // VK_SHADER_STAGE_COMPUTE_BIT
 		module: shaderModule,
@@ -312,28 +358,66 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 		sType              uint32
 		pNext              uintptr
 		flags              uint32
-		stage              [48]byte // inline PipelineShaderStageCreateInfo
+		stage              pipelineStageInfo // eight-byte alignment; offset24
 		layout             VkPipelineLayout
 		basePipelineHandle uintptr
 		basePipelineIndex  int32
 	}{
 		sType:  VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		stage:  stageInfo,
 		layout: pipelineLayout,
 	}
-	// Copy stage info into inline field
-	copy(pipelineInfo.stage[:], (*[48]byte)(unsafe.Pointer(&stageInfo))[:])
 
-	var pipeline VkPipeline
-	if r := vkCreateComputePipelines(vkDevice, 0, 1, unsafe.Pointer(&pipelineInfo), nil, &pipeline); r != VK_SUCCESS {
+	if r := vkCreateComputePipelines(device, 0, 1, unsafe.Pointer(&pipelineInfo), nil, &pipeline); r != VK_SUCCESS {
 		return nil, fmt.Errorf("vkCreateComputePipelines: %d", r)
 	}
 
+	committed = true
 	return &VkComputeShader{
+		device:         device,
 		pipeline:       pipeline,
 		pipelineLayout: pipelineLayout,
 		descSetLayout:  descSetLayout,
 		numBuffers:     numBuffers,
 	}, nil
+}
+
+// Close releases an unused legacy shader once. It cannot be submitted through
+// the public API, so no fence is required. Global device quarantine still applies.
+func (s *VkComputeShader) Close() error {
+	if s == nil {
+		return nil
+	}
+	if err := vkAcquire(context.Background()); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if s.closed {
+		return nil
+	}
+	if err := vkQuarantineLocked(); err != nil {
+		return err
+	}
+	if s.device == 0 || s.device != vkDevice {
+		return fmt.Errorf("Vulkan shader owner mismatch")
+	}
+	if vkDestroyPipeline == nil || vkDestroyPipelineLayout == nil || vkDestroyDescriptorSetLayout == nil {
+		return fmt.Errorf("Vulkan shader cleanup functions unavailable")
+	}
+	if s.pipeline != 0 {
+		vkDestroyPipeline(s.device, s.pipeline, nil)
+	}
+	if s.pipelineLayout != 0 {
+		vkDestroyPipelineLayout(s.device, s.pipelineLayout, nil)
+	}
+	if s.descSetLayout != 0 {
+		vkDestroyDescriptorSetLayout(s.device, s.descSetLayout, nil)
+	}
+	s.pipeline = 0
+	s.pipelineLayout = 0
+	s.descSetLayout = 0
+	s.closed = true
+	return nil
 }
 
 // SPIR-V source (conceptual GLSL):
@@ -365,5 +449,5 @@ func LoadSPIRV(spirv []byte, numBuffers int) (*VkComputeShader, error) {
 
 // VulkanBF16Ready returns true if Vulkan BF16 compute is available.
 func VulkanBF16Ready() bool {
-	return vkReady // BF16 emulated via bitshift, no extension needed
+	return VulkanReady() // BF16 emulated via bitshift, no extension needed
 }

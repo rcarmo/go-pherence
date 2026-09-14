@@ -24,6 +24,9 @@ func gemvRowsDense(out, x, w []float32, rows, cols int) {
 	// can regress small-row K=4096 bandwidth cases.
 	if cols <= 2048 || rows >= 256 {
 		row := 0
+		for ; row+8 <= rows; row += 8 {
+			dotRowsx8(out[row:row+8], w[row*cols:(row+8)*cols], x, cols)
+		}
 		for ; row+4 <= rows; row += 4 {
 			d0, d1, d2, d3 := dotRowsx4(w[row*cols:(row+4)*cols], x, cols)
 			out[row+0] = d0

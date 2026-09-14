@@ -1,0 +1,5 @@
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	1.337s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	4.684s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	0.450s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjob	0.140s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.434s

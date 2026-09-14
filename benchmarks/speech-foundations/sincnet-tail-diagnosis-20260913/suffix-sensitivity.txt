@@ -1,0 +1,13 @@
+torch 2.14.0+cpu mkldnn False input 1531 outputs 129
+base_vs_trace_max 0.0 exact 10320 / 10320
+extra 0 changed 0 max 0.0 frames [] []
+extra 1 changed 0 max 0.0 frames [] []
+extra 2 changed 0 max 0.0 frames [] []
+extra 3 changed 0 max 0.0 frames [] []
+extra 4 changed 0 max 0.0 frames [] []
+extra 5 changed 0 max 0.0 frames [] []
+extra 6 changed 0 max 0.0 frames [] []
+extra 7 changed 0 max 0.0 frames [] []
+extra 8 changed 0 max 0.0 frames [] []
+extra 9 changed 0 max 0.0 frames [] []
+unfold_vs_conv_changed 10243 max 3.0517578125e-05 frames [109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128]

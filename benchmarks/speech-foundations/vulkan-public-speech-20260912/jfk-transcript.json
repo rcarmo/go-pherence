@@ -1,0 +1,50 @@
+{
+  "source": "pinned whisper.cpp JFK sample",
+  "model": "pinned openai/whisper-tiny",
+  "windows": [
+    {
+      "Window": {
+        "Index": 0,
+        "Start": 0,
+        "End": 176000,
+        "EmitStart": 0,
+        "EmitEnd": 176000,
+        "InputSamples": 480000,
+        "PadSamples": 304000
+      },
+      "Segments": [
+        {
+          "Start": 0,
+          "End": 10.5,
+          "Text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            452,
+            7177,
+            6280,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    }
+  ]
+}

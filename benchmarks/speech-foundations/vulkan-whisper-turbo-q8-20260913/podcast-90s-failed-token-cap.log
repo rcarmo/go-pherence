@@ -1,0 +1,7 @@
+=== RUN   TestVulkanTurboQ8Podcast
+    vulkan_turbo_q8_test.go:206: TURBO_LOAD ns=4001522255 tensors=587 checkpoint_f16=true inference_f32=true
+    vulkan_turbo_q8_test.go:263: f32 infer PCM window 0: Whisper generation reached its token limit without EOT <nil>
+--- FAIL: TestVulkanTurboQ8Podcast (24.79s)
+FAIL
+FAIL	github.com/rcarmo/go-pherence/models/whisper	24.995s
+FAIL

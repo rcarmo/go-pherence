@@ -1,0 +1,11 @@
+Id=llama-gemma-local-provider.service
+ActiveState=inactive
+MainPID=0
+
+Id=whisper-stt.service
+ActiveState=inactive
+MainPID=0
+
+Id=whisper-stt-diarizer.service
+ActiveState=inactive
+MainPID=0

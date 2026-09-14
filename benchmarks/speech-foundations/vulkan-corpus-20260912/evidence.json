@@ -1,0 +1,137 @@
+{
+  "checkpoint": "Publiclanguage/silence/multiwindowdiagnostics;opt-in exactzero skip",
+  "created": "2026-09-12T07:49:25.227Z",
+  "baseline": "6e68b1e",
+  "branch": "feat/speech-simd-vulkan",
+  "model": "pinned openai/whisper-tiny169d4a4",
+  "execution": {
+    "authorised": true,
+    "nativeGPU": "IntelIrisXeRPL-P",
+    "FFmpeg": "8.1.2",
+    "GOMAXPROCS": 2,
+    "privateMedia": false,
+    "foreignInference": false,
+    "servicesStarted": false,
+    "push": false
+  },
+  "fixtures": "fixtures.json",
+  "native": {
+    "passEvents": 3,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0
+  },
+  "calls": 48,
+  "windows": 72,
+  "repeats": 3,
+  "backendParity": "alloutputs/token/times/windowsidentical;errors/missingwindows fail",
+  "quality": {
+    "status": "HOLD notmultilingualacceptance",
+    "pt0": {
+      "edits": 16,
+      "words": 20,
+      "wer": 0.8
+    },
+    "pt1": {
+      "edits": 7,
+      "words": 9,
+      "wer": 0.7777777777777778
+    },
+    "fr0": {
+      "edits": 2,
+      "words": 5,
+      "wer": 0.4
+    },
+    "silenceDefault": "hallucinatesyou",
+    "silenceExactZeroSkip": "emptycallbacknosegments",
+    "paddedJFK": "0/22wordedits",
+    "threeWindowJFKDefault": "1/44edits,finalsilentyou",
+    "threeWindowJFKSkip": "0/44edits,thirdwindowempty",
+    "cause": "notattributed;CPU/GPUparitydoesnotexcludesharedimplementationerror;externaloracle/largermodelneeded"
+  },
+  "option": {
+    "name": "SkipDigitalSilence",
+    "default": false,
+    "rule": "exactPCMzero only includingnegativezero;nonzero/NaN/Infnotdiscarded",
+    "scope": "wholewindow beforefrontend;modeladmissionnotbypassed;noVAD/quiet/noisyclassification"
+  },
+  "offline": {
+    "passEvents": 14,
+    "topLevel": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  "shuffle30": {
+    "passEvents": 420,
+    "topLevel": 300,
+    "fail": 0,
+    "skip": 0
+  },
+  "checks": {
+    "regressions": "PASS allfocused",
+    "nativeMake": "PASS diagnosticcompletion/parityonly",
+    "vet": "PASS affected",
+    "amd64": "PASS affected",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "WhisperArm64": "FAIL exactbaselineFFT",
+    "race": "gccabsent",
+    "optInDisabled": "skipbeforeloadexpected",
+    "diffCheck": "PASS",
+    "checkedLinks": 100
+  },
+  "review": {
+    "finding": "noblockingsilencescan/validation/parityissue",
+    "followup": "fixturemetadataenforced;parentaddedinferencecompletionguard",
+    "firstFailure": "French60078incorrectexpectedfixed60074(30037x2);failedlogretained"
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "LLM+bothspeechinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "limitations": [
+    "PoorPT/FRqualityhold,noexternaloracleattributionyet.",
+    "Digitalzerosonlynotgeneralno-speech;defaultshallucinate.",
+    "63ssyntheticcompositionnotnaturallongfile/multispeaker/overlap.",
+    "No timingbenchmark/wholejob/quantisation/recoveryacceptance.",
+    "SincNetstrict4FAILunchanged."
+  ],
+  "sourceHashes": {
+    "Makefile": "16d207634ae372c7bf41a5bd3995200ccbf1e56cc845faefeaadd78ce206ef3b",
+    "models/whisper/pcm_transcribe.go": "1225c80b29c8433e9618361803a128d969fd9f5d84ee5ff3346b076614b5d5f0",
+    "models/whisper/pcm_silence_test.go": "28df1ae6e0feede7bf4964e06300d1d8ef53b63361dd0421bed7e242d9d2eab6",
+    "models/whisper/vulkan_corpus_test.go": "57e3b87254f6552a5def7c2bac3598c21157576060077fe251cc3d87dea24a72",
+    "models/whisper/vulkan_speech_quality_test.go": "b8e0273e0789302fbd47d08e90027cd1785800f6023752c9c5f14d5d27026dab",
+    "docs/speech-integration.md": "37fcf0fc353bc0ef5a83ea762477821e167775f160a4daaf07d6cc40453bed59",
+    "benchmarks/speech-foundations/README.md": "1177c9f3a5eb8e6356ea7b7259c4bc018cbc946dad954121c7d8b0cf8945bd9d"
+  },
+  "evidenceHashes": {
+    "README.md": "205281766992047e1a87d32244a7313e7fa5216422e0872da4b96b1d94332e8d",
+    "corpus-tests.jsonl": "70941aa57c712fc95cd1cf69f56b72c6588acf9b5620d9f835cd1ff9a523d722",
+    "offline-tests.jsonl": "18278b188d2630966ffd66a390937be6ed2635d34ef07d4e107d6af2724e6f32",
+    "regressions.txt": "027b1c3b7e547140168e28d7edfe02e12c652ba18e30395dab413f628e6016b8",
+    "native-make.txt": "0d26bb73152937c5ea92a265b036f5eb2e00fcaf19bb9c5e4b9ff0a653050287",
+    "optin-disabled.txt": "dd9eb3d33cf6a0d453ca7c7a8465c45328d1cc273838b70d9d61dabfb3f7f8f3",
+    "before.txt": "cf523833d50d0fb9fe8c4556b1ec45747f95bc0b342ee06a40e6cbf58867d55b",
+    "after.txt": "843261c5f40519f70ff4b4c9bf34d04f72c33aa48da5bb804bb17a5c0e126944",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "initial-extent-failure.jsonl": "fd4a9e5580cf4048607421a6e7a6b3743096e446ee3c4101c6fc7e945ba6aca4",
+    "initial-default-diagnostic.jsonl": "cf90d5a1c3c3c96f16155b4e2e847ccb7ae4a6fe00ed866ae63f9380209c53ca",
+    "initial-skip-diagnostic.jsonl": "9fe5f6fd98268774cf51ea4edd68a8720bcaf4f101e7c07a2a5fb4811d679b9c",
+    "shuffle-tests.jsonl.gz": "e01e4c2a1fd7d1e4689f94ce151245e5e11dcba05e0dc532e094eab16ee19652",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "8a91737ab24c76d43ec38c6a9ec22201f10bfe22321b43669ce92eae7dbf7b40",
+    "fixtures.json": "89316c037f97532ad62226244ae27de5b3f45c02ece77662bb723e20bc6de179"
+  }
+}

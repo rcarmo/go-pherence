@@ -1,0 +1,4 @@
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.424s
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	3.819s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	4.814s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.332s

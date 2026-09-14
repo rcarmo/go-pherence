@@ -1,0 +1,36 @@
+56cfa0: push rbp
+56cfa1: mov rbp, rsp
+56cfa4: sub rsp, 8
+56cfa8: stmxcsr dword ptr [rsp]
+56cfac: mov eax, dword ptr [rsp]
+56cfaf: test eax, 0xe040
+56cfb4: jne 0x56d014
+56cfb6: mov rsi, qword ptr [rsp + 0x18]
+56cfbb: mov rcx, qword ptr [rsp + 0x20]
+56cfc0: vbroadcastss ymm1, dword ptr [rsp + 0x30]
+56cfc7: vbroadcastss ymm2, dword ptr [rsp + 0x34]
+56cfce: cmp rcx, 8
+56cfd2: jl 0x56cfeb
+56cfd4: vmovups ymm0, ymmword ptr [rsi]
+56cfd8: vfmadd213ps ymm0, ymm1, ymm2
+56cfdd: vmovups ymmword ptr [rsi], ymm0
+56cfe1: add rsi, 0x20
+56cfe5: sub rcx, 8
+56cfe9: jmp 0x56cfce
+56cfeb: test rcx, rcx
+56cfee: je 0x56d006
+56cff0: vmovss xmm0, dword ptr [rsi]
+56cff4: vfmadd213ss xmm0, xmm1, xmm2
+56cff9: vmovss dword ptr [rsi], xmm0
+56cffd: add rsi, 4
+56d001: dec rcx
+56d004: jne 0x56cff0
+56d006: vzeroupper 
+56d009: mov byte ptr [rsp + 0x38], 1
+56d00e: add rsp, 8
+56d012: pop rbp
+56d013: ret 
+56d014: mov byte ptr [rsp + 0x38], 0
+56d019: add rsp, 8
+56d01d: pop rbp
+56d01e: ret 

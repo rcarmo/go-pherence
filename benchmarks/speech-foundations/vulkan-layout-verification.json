@@ -1,0 +1,108 @@
+{
+  "checkpoint": "Vulkan bounded storage-descriptor and push-layout admission (mock-only)",
+  "created": "2026-09-12T05:00:21.986Z",
+  "baseline": "fc9f5d4",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 327,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 63,
+    "uniqueTopLevelTests": 63
+  },
+  "shuffle30": {
+    "passEvents": 3090,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 330,
+    "uniqueTopLevelTests": 11
+  },
+  "fuzz": {
+    "seconds": 3,
+    "inputs": 27785,
+    "result": "PASS"
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact memory-baseline output",
+    "backendCompileOnly": "FAIL with exact memory-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 70
+  },
+  "coverage": [
+    "Uniform+BufferBlock and SPIRV1.3StorageBuffer+Block, one runtime32bitscalararray/offset0/stride4",
+    "Set0binding0..15, explicit unique decorations; reject UBO/descriptorarray/multiset/unsupportednestedlayout",
+    "One flat scalar push block, explicit aligned nonoverlap offsets within128bytes; gaps/reversed offsets allowed",
+    "Reflected binding bitmask and pushend enforce caller coverage at both constructors; legal supersets allowed",
+    "Legacy pipeline without push range rejects declared push blocks",
+    "Malformed/missing/misplaced/conflicting decorations and member index/offset arithmetic rejection",
+    "All11compiled modules reflect;9existing hostrequests match/2rejected pre-native"
+  ],
+  "rejectedExistingWrappers": [
+    {
+      "name": "rms_norm_no_scale_f32",
+      "declaredBuffers": 2,
+      "hostBuffers": 1,
+      "status": "rejected before shader create; no semantic repair"
+    },
+    {
+      "name": "rope_partial_f32",
+      "declaredBuffers": 3,
+      "hostBuffers": 2,
+      "status": "rejected before shader create; no semantic repair"
+    }
+  ],
+  "review": {
+    "result": "Narrow read-only review found no concrete bounds/overflow/descriptor-push undercoverage bypass in supported envelope.",
+    "notes": [
+      "Minimum1callerbuffer remains existing API restriction (zero-resource caller false-negative acknowledged).",
+      "General malformed dead decorations/operand/controlflow semantics remain spirv-val scope."
+    ]
+  },
+  "limitations": [
+    "Not full semantic spirv-val, static-use analysis, function/controlflow/operand validation, parameterordering or shader memory-safety/numerical proof.",
+    "Narrow layouts deliberately reject unimplemented valid shaders; no optionalfeatures enabled.",
+    "Two old wrapper mismatches now failclosed; matching other9layouts is not numerical qualification.",
+    "No native driver/validation-layer/GPU/shader/model/performance qualification.",
+    "No typed arena/multiop/resident model/device-recovery integration.",
+    "Current FFI64bit; arm64 cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/services."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_spirv_layout.go": "328c516b9b4d2b146262d21a59c95acc1e1e3e6b63b786dd8e6e49bc99dfc313",
+    "backends/vulkan/vulkan_spirv_layout_test.go": "1d12bde307552b1eb11f40c0318081706cbecf71efa8b0c9781775d902bfb114",
+    "backends/vulkan/vulkan_spirv_contract.go": "33ab1e5c6c36f26c168336bc600049c50aae7f99590f9414e7ae92ecb481128d",
+    "backends/vulkan/vulkan_spirv_contract_test.go": "26414310d82e7ad211dbf159379cb62029067726e1f4282d84d731f592e2bfcf",
+    "backends/vulkan/vulkan_dispatch.go": "9807f0acc867b99ac31e8e2c7f3a7399d4681867effe56aa5c8503397564bdf9",
+    "backends/vulkan/vulkan_spirv.go": "f209b6b3d01ac08fc59f58b755420d861e9794b8b85ac744cd2a6441b679def7",
+    "backends/vulkan/vulkan_ops.go": "374cffe1780409e27dd0593c0f5238c5bd3b132da4de5abeeed9160a347b2978",
+    "docs/speech-integration.md": "b04bb5f22e92a43645a104de7cf3b2754978d1dccfd43878db20ef537067827f",
+    "benchmarks/speech-foundations/README.md": "861056ec002dd6597f55e6b59bb8e26a173cc5a530ca242132c6fcebfdb78906"
+  },
+  "evidenceHashes": {
+    "vulkan-layout-focused-check.txt": "d81fbffa825a3fd715db901ea818d9d86f9ca039e1759d84fdeef1e5f71b4b7c",
+    "vulkan-layout-tests.jsonl": "f0b29903332901a6215a094ab2895a579e56dc5813261c45c8636d8010fb7ddf",
+    "vulkan-layout-media.txt": "974df4de6d8ffab1728cd91334712a7c7600f98833bd28b0c372142e91c70751",
+    "vulkan-layout-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-layout-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-layout-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-layout-fuzz.txt": "51d5c6a5170658cc893cd5f49040cc10f5cbb3acce5a8548d94912e4d0bab742",
+    "vulkan-layout-repeat-tests.jsonl.gz": "0d2e69ed2b305c35c270d559397c799385e646942a59f596492c05b1cf7121a0",
+    "vulkan-layout-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "checkpoint": "Vulkan explicit allocation ledger and optional budgets (mock-only)",
+  "created": "2026-09-12T04:51:10.453Z",
+  "baseline": "4725fa9",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 283,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 58,
+    "uniqueTopLevelTests": 58
+  },
+  "shuffle30": {
+    "passEvents": 1800,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 570,
+    "uniqueTopLevelTests": 19
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact contract-baseline output",
+    "backendCompileOnly": "FAIL with exact contract-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 69
+  },
+  "coverage": [
+    "Opt-in bytes/allocation caps, zero default/no cap; reject below usage or pending changes atomically",
+    "Always enforce queried maxMemoryAllocationCount, core ABI offset36/properties332 tested",
+    "Charge padded native requirements; preflight requested size then recheck requirements",
+    "Charge successful native allocations until FreeMemory returns, all failed construction rollback/null handles covered",
+    "Perheap combined usage across memory-type aliases; fall back to another fitting coherent heap",
+    "Read-only copied totals/budget/16heap array/status allowed during quarantine",
+    "Cancelled/deferred/uncertain/device-lost resources remain charged; successful drain uncharges exactly once",
+    "Missing cleanup and owner mismatch keep charge without partial destruction; delayed cleanup retry releases",
+    "Integer overflow/underflow guards and 16concurrent requests against2allocation cap"
+  ],
+  "review": {
+    "delegate": "Narrow accounting review timed out; no independent approval.",
+    "parent": "Checked sole native allocation site, charge/free ordering, arithmetic, retained work and missing-cleanup behaviour; focused regressions pass."
+  },
+  "limitations": [
+    "All Vulkan calls mocked: no native driver/validation-layer/GPU/shader/model/performance qualification.",
+    "Ledger excludes opaque driver pipeline/descriptor allocations, other processes/system RAM and physical free-memory availability.",
+    "No VK_EXT_memory_budget, maximum-single-allocation negotiation, eviction/suballocation/typed arenas or device recovery.",
+    "Legacy Free cannot report deferred cleanup errors; missing cleanup stays charged for explicit retry.",
+    "Objects must not be copied. Driver void FreeMemory return is used as release boundary.",
+    "Current FFI64bit; arm64 cross-build only.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality/services."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan_memory.go": "c615c5b98c0b43bde0776b211f1526400f046982e536097b497baf7a637e2c49",
+    "backends/vulkan/vulkan_memory_test.go": "05c330868ed2a23f353e1847e77ee49cb4a98386ece061c75960f037b6bfa62a",
+    "backends/vulkan/vulkan_buf.go": "1b3540753996e6e5c270c2f8fbf430f57bb35a12b132a9cd868b9b20a8612b3a",
+    "backends/vulkan/vulkan_limits.go": "eff3115a958a0957bc2982d062b8a2c24d7868eabede429b8270d9a6b3130fe9",
+    "backends/vulkan/vulkan_limits_test.go": "180a64ee530db9d46ba9f961e16f0ef6ef52b7aac04b456a707250addacf847d",
+    "backends/vulkan/vulkan_offline_test.go": "df9fa4e17b26f2a8424a98b54837436f48b2bdef99e38e862334c31b7cda7b75",
+    "docs/speech-integration.md": "7e12869dc4915d3846682b17c3fd102187d0c33ce84dd73a3c43b15509daf346",
+    "benchmarks/speech-foundations/README.md": "7255eb1e140a388678f2616a53e516593867a7309ea720790f8041cc634fdf19"
+  },
+  "evidenceHashes": {
+    "vulkan-memory-focused-check.txt": "8673860d867468f1195381efadd8e080fd96ab06e263a5e88d460281fa650366",
+    "vulkan-memory-tests.jsonl": "8bd8504168663c400f802dd10bfef473b6d896cf82ee77cbe8cd2741bcc6a8f9",
+    "vulkan-memory-media.txt": "bb2bdc0db3a909e3f9876b25da9898b7c7407b1fe91062e272b4146171bb2dfb",
+    "vulkan-memory-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-memory-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-memory-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-memory-repeat-tests.jsonl.gz": "b8e6f77ca629d17394e340336f7a777deb8f4aa3afffacdfa394cb4aad0ee9f4",
+    "vulkan-memory-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}
