@@ -1096,3 +1096,29 @@ include all trials and the full synthesis record. Reproduce the GEMM shapes with
 go test ./backends/simd/runtime -run '^$' -bench BenchmarkNNCodecPacked \
   -benchtime=150ms -count=2
 ```
+
+## Direct pointwise codec input rejected (2026-09-14)
+
+Removing im2col and result-tile copies from prepared pointwise convolutions did
+not improve decode time. The candidate passed native channel-major input and
+output directly to the packed NN wrapper for kernel=1, stride=1, padding=0,
+then applied bias in the original order. Other convolutions were unchanged.
+
+| Trial set | Tiled baseline mean (s) | Direct candidate mean (s) |
+| --- | ---: | ---: |
+| Baseline then candidate | 1.723 | 1.779 |
+| Candidate then baseline | 1.624 | 1.632 |
+
+Each set contains three decode-only samples with an untimed warm-up per sample,
+using the existing deterministic 8-codebook/75-frame benchmark. All twelve
+waveform hashes match and all timed calls allocate zero bytes. The first set
+is slower with direct input; the reverse-order repeat is effectively tied.
+The cause was not isolated. Production retains the bounded tiled path from
+`076723e0`.
+
+The [candidate patch](experiments/codec-pointwise-rejected.patch) is unapplied;
+[raw measurements](experiments/codec-pointwise-2026-09-14.json) retain every
+sample. After rejection, `codec.go` was verified byte-for-byte against HEAD and
+`make test-omnivoice vet-omnivoice` passed. Test binaries used `/tmp` tmpfs due
+to the low workspace disk space. No full-synthesis timing was run for this
+rejected candidate.

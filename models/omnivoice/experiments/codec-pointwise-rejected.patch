@@ -1,0 +1,31 @@
+diff --git a/models/omnivoice/codec.go b/models/omnivoice/codec.go
+index b48028f4..64ceba2f 100644
+--- a/models/omnivoice/codec.go
++++ b/models/omnivoice/codec.go
+@@ -220,6 +220,26 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
+ 		return signal{}, fmt.Errorf("omnivoice: short conv input")
+ 	}
+ 	y := signal{d.buffer(out * length), out, length}
++	if kernel == 1 && stride == 1 && padding == 0 && d.scratch != nil {
++		// A pointwise convolution is already W[out,channels] * X[channels,frames].
++		// Use its native row strides instead of copying through im2col/result tiles.
++		if !simd.SgemmNNPackedOverwriteTo(y.data, weight, x.data, d.scratch.gemmPanel, out, length, x.channels, x.channels, x.frames, length) {
++			return signal{}, fmt.Errorf("omnivoice: pointwise GEMM shape")
++		}
++		if len(bias) != 0 && len(bias) != out {
++			return signal{}, fmt.Errorf("omnivoice: invalid bias")
++		}
++		for c := 0; c < out; c++ {
++			b := float32(0)
++			if len(bias) != 0 {
++				b = bias[c]
++			}
++			for t := 0; t < length; t++ {
++				y.data[c*length+t] += b
++			}
++		}
++		return y, nil
++	}
+ 	const tile = 64
+ 	k := x.channels * kernel
+ 	var packed, result []float32
