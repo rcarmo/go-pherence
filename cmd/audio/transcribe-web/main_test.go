@@ -170,6 +170,20 @@ func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
 	}
 }
 
+func TestBrowserOffersExplicitSpeakerProfileSelection(t *testing.T) {
+	html, err := web.ReadFile("web/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := web.ReadFile("web/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(html), `id="diarize" type="checkbox"`) || !strings.Contains(string(js), `($('diarize').checked?'diar':'asr')+'-'+language+'-'+extension`) {
+		t.Fatal("browser does not select separate ASR and diarization profiles")
+	}
+}
+
 func TestRandomToken(t *testing.T) {
 	a, err := randomToken()
 	if err != nil || len(a) != 64 {

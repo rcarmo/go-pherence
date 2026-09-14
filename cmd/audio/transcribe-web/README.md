@@ -2,7 +2,9 @@
 
 `transcribe-web` is a trusted-LAN, no-login frontend for the durable Go speech pipeline. It supervises `speechjobserve` on private loopback and injects a random process-only bearer token into proxied API requests. Browsers never receive the token.
 
-The Sigma deployment provides eight profiles: Auto, English, Portuguese and French for M4A and WAV. Jobs run serially in the durable queue. Interrupted work is requeued at startup. Successful jobs retain transcript/VTT and speaker artifacts while releasing the original upload and decoded PCM. Failed jobs retain media for explicit Retry. Cancellation and deletion remove media.
+The Sigma deployment provides sixteen profiles: ASR-only and ASR plus speaker labels for Auto, English, Portuguese and French, each with M4A and WAV input. All profiles share one loaded Whisper model; diarization profiles also share one loaded Community-1 model. Jobs run serially in the durable queue. Interrupted work is requeued at startup. Successful jobs retain transcript artifacts while releasing the original upload and decoded PCM. Failed jobs retain media for explicit Retry. Cancellation and deletion remove media.
+
+Conversational profiles set Community-1 `tie_policy` to `lowest-index`. Equal reconstruction scores are resolved by stable speaker index and listed in the diarization checkpoint as ambiguous frames. Speaker labels stay experimental. Use `reject` only for diagnostics that must stop at the first equal-score cutoff.
 
 The app exposes no microphone, streaming, translation, named speaker identity, collaborative editing, cloud API or concurrent inference path.
 
@@ -39,4 +41,4 @@ The LAN address is `http://sigma.local:8093`. There is no TLS or login. Anyone w
 
 ## Verification limits
 
-Model-free Go tests cover Auto language metadata, fixed-language byte compatibility, eight profile construction, queue recovery, no-login proxy boundaries, terminal media retention and child lifecycle helpers. Trained Whisper/Community inference, real browser flow, quality and performance require separate coordinated runs. `qualified:false` remains unchanged until those runs complete.
+Model-free Go tests cover Auto language metadata, fixed-language byte compatibility, sixteen shared-model profile pipelines, queue recovery, no-login proxy boundaries, terminal media retention and child lifecycle helpers. Trained Whisper/Community inference, real browser flow, quality and performance require separate coordinated runs. `qualified:false` remains unchanged until those runs complete.

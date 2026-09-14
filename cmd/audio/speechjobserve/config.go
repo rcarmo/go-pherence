@@ -312,7 +312,7 @@ func uniqueJSON(data []byte, maxDepth int, foldKeys, allowNull bool) error {
 }
 func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
 	hasProfile := c.Profile != (ProfileSettings{})
-	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 8 {
+	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 16 {
 		return nil, fmt.Errorf("configure exactly one profile or one profile set")
 	}
 	profiles := c.Profiles
@@ -326,19 +326,38 @@ func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
 	}
 	seen := map[string]bool{}
 	base := profiles[0]
-	base.ID, base.Language, base.Extension = "", "", ""
+	base.ID, base.Language, base.Extension, base.Community = "", "", "", nil
+	var community *CommunitySettings
 	for _, profile := range profiles {
 		if seen[profile.ID] {
 			return nil, fmt.Errorf("duplicate profile ID")
 		}
 		seen[profile.ID] = true
 		shared := profile
-		shared.ID, shared.Language, shared.Extension = "", "", ""
+		shared.ID, shared.Language, shared.Extension, shared.Community = "", "", "", nil
 		if !reflect.DeepEqual(base, shared) {
-			return nil, fmt.Errorf("profile set may differ only by ID, language and extension")
+			return nil, fmt.Errorf("profile set may differ only by ID, language, extension and Community opt-in")
+		}
+		if profile.Community != nil {
+			if community == nil {
+				copy := *profile.Community
+				community = &copy
+			} else if !reflect.DeepEqual(*community, *profile.Community) {
+				return nil, fmt.Errorf("profile set must share one Community configuration")
+			}
 		}
 	}
 	return append([]ProfileSettings(nil), profiles...), nil
+}
+
+func configuredCommunity(profiles []ProfileSettings) *CommunitySettings {
+	for _, profile := range profiles {
+		if profile.Community != nil {
+			copy := *profile.Community
+			return &copy
+		}
+	}
+	return nil
 }
 
 func (c ServerConfig) validate() error {
@@ -429,7 +448,7 @@ func (c ServerConfig) validate() error {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}
 	}
-	if x := f.Community; x != nil {
+	if x := configuredCommunity(profiles); x != nil {
 		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee" || c.Resources == nil || x.MaxResultBytes < 1 || x.MaxResultBytes > 16<<20 || x.EmbeddingPrefix != "resnet" {
 			return fmt.Errorf("invalid experimental Community-1 profile")
 		}
@@ -466,11 +485,11 @@ func (c ServerConfig) validate() error {
 		if f.Language == "auto" && f.MaxInitialTimestampIndex != 0 {
 			return fmt.Errorf("automatic language uses generation timestamp policy")
 		}
-	}
-	switch f.Extension {
-	case ".wav", ".m4a", ".mp4", ".mov":
-	default:
-		return fmt.Errorf("invalid input extension")
+		switch f.Extension {
+		case ".wav", ".m4a", ".mp4", ".mov":
+		default:
+			return fmt.Errorf("invalid input extension")
+		}
 	}
 	return nil
 }

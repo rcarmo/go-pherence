@@ -343,7 +343,7 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		}
 	}
 	var communityOwner stageOwner
-	if profiles[0].Community != nil {
+	if configuredCommunity(profiles) != nil {
 		communityOwner, e = prepareCommunity(ctx, c, runtimes.Community)
 		if e != nil || communityOwner == nil {
 			closeBuiltProfiles(result)
@@ -362,7 +362,11 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 			return nil, err
 		}
 		stages := []speechjob.Stage{decodeStages[i], asr, text, speechjob.NewVTTStage()}
-		if communityOwner != nil {
+		if opts.Community != nil {
+			if communityOwner == nil {
+				closeBuiltProfiles(result)
+				return nil, fmt.Errorf("Community-1 owner missing for enabled profile")
+			}
 			diar := communityOwner.Stage()
 			speaker, err := speechjob.NewSpeakerTranscriptStage(speechjob.SpeakerTranscriptConfig{TranscriptVersion: text.Version, DiarizationVersion: diar.Version, AllowExperimental: true})
 			if err != nil {

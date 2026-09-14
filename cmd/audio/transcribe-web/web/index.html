@@ -4,7 +4,7 @@
 <header><h1>Transcribe</h1><p>Local speech-to-text with durable jobs and speaker labels</p></header>
 <aside>Trusted LAN only. There is no login. Anyone who can reach this page can upload, read, cancel or delete transcripts.</aside>
 <p id="notice" role="status" aria-live="polite">Connecting…</p>
-<section class="panel"><h2>New transcription</h2><form id="upload"><label>Language<select id="language"><option value="auto">Auto-detect</option><option value="en">English</option><option value="pt">Portuguese</option><option value="fr">French</option></select></label><label>Recording<input id="file" type="file" accept=".m4a,.wav,audio/mp4,audio/wav" required></label><button id="submit">Upload and queue</button></form><p id="limit"></p></section>
+<section class="panel"><h2>New transcription</h2><form id="upload"><label>Language<select id="language"><option value="auto">Auto-detect</option><option value="en">English</option><option value="pt">Portuguese</option><option value="fr">French</option></select></label><label>Recording<input id="file" type="file" accept=".m4a,.wav,audio/mp4,audio/wav" required></label><label class="check"><input id="diarize" type="checkbox">Add speaker labels</label><button id="submit">Upload and queue</button></form><p id="limit"></p></section>
 <section class="panel"><div class="heading"><h2>Jobs</h2><button id="refresh" type="button">Refresh</button></div><div id="jobs"></div></section>
 <section id="detail" class="panel" hidden><h2>Selected job</h2><dl id="metadata"></dl><div id="actions"></div><h3>Downloads</h3><div id="downloads"></div></section>
 <footer>Jobs run one at a time and continue when this page closes. Completed transcripts remain until deleted. Speaker labels are anonymous and experimental.</footer>

@@ -112,13 +112,15 @@ func TestConfigProfileSetCompatibilityAndBounds(t *testing.T) {
 	c := baseConfig(t)
 	base := c.Profile
 	c.Profile = ProfileSettings{}
-	for _, language := range []string{"auto", "en", "pt", "fr"} {
-		for _, extension := range []string{".m4a", ".wav"} {
-			profile := base
-			profile.ID = "asr-" + language + "-" + strings.TrimPrefix(extension, ".")
-			profile.Language = language
-			profile.Extension = extension
-			c.Profiles = append(c.Profiles, profile)
+	for _, kind := range []string{"asr", "diar"} {
+		for _, language := range []string{"auto", "en", "pt", "fr"} {
+			for _, extension := range []string{".m4a", ".wav"} {
+				profile := base
+				profile.ID = kind + "-" + language + "-" + strings.TrimPrefix(extension, ".")
+				profile.Language = language
+				profile.Extension = extension
+				c.Profiles = append(c.Profiles, profile)
+			}
 		}
 	}
 	if err := c.validate(); err != nil {
@@ -126,7 +128,7 @@ func TestConfigProfileSetCompatibilityAndBounds(t *testing.T) {
 	}
 	data, _ := json.Marshal(c)
 	parsed, err := parseConfig(data)
-	if err != nil || len(parsed.Profiles) != 8 || parsed.Profile.ID != c.Profiles[0].ID {
+	if err != nil || len(parsed.Profiles) != 16 || parsed.Profile.ID != c.Profiles[0].ID {
 		t.Fatal(len(parsed.Profiles), parsed.Profile.ID, err)
 	}
 	if _, err = parsed.configuredProfiles(); err != nil {
@@ -136,6 +138,7 @@ func TestConfigProfileSetCompatibilityAndBounds(t *testing.T) {
 		func(c *ServerConfig) { c.Profile = base },
 		func(c *ServerConfig) { c.Profiles[1].ID = c.Profiles[0].ID },
 		func(c *ServerConfig) { c.Profiles[1].OverlapSamples++ },
+		func(c *ServerConfig) { c.Profiles[15].Community = &CommunitySettings{} },
 		func(c *ServerConfig) { c.Profiles = append(c.Profiles, base) },
 	} {
 		bad := c
