@@ -255,7 +255,6 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 			}
 		}
 		r := result[:out*n]
-		clear(r)
 		if !d.gemm(r, weight, p, out, n, k) {
 			return signal{}, fmt.Errorf("omnivoice: conv GEMM shape")
 		}
@@ -281,6 +280,8 @@ func (d *CodecDecoder) gemm(c, a, b []float32, m, n, k int) bool {
 	if d.scratch != nil {
 		return simd.SgemmNNPackedOverwriteTo(c, a, b, d.scratch.gemmPanel, m, n, k, k, n, n)
 	}
+	// The unprepared NN path accumulates; prepared packed GEMM clears itself.
+	clear(c)
 	return simd.SgemmNNTo(c, a, b, m, n, k, 1, k, n, n)
 }
 
@@ -315,7 +316,6 @@ func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputP
 			}
 		}
 		p := projected[:n*ncols]
-		clear(p)
 		if !d.gemm(p, a, w, n, ncols, x.channels) {
 			return signal{}, fmt.Errorf("omnivoice: transposed GEMM shape")
 		}

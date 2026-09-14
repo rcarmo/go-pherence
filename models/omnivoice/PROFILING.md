@@ -1229,3 +1229,33 @@ the changed code, including SpacemiT and DiffusionGemma. The experiment used
 `/tmp` for build temporaries; workspace space was 132 MiB after validation.
 [Raw samples, synthesis record and build log](experiments/codec-scatter-2026-09-14.json)
 retain all measurements and failures.
+
+## Remove duplicate GEMM output clears (2026-09-14)
+
+Prepared codec GEMM already clears its output in `SgemmNNPackedOverwriteTo`.
+The convolution and transpose callers no longer clear the same output first.
+The unprepared accumulating NN path clears its output inside the codec GEMM
+helper, preserving overwrite semantics in both modes. Im2col padding clears
+and overlap-add output initialisation are unchanged.
+
+| Decode-only round | Baseline mean (s) | Single-clear mean (s) |
+| --- | ---: | ---: |
+| Baseline then candidate | 1.586 | 1.568 |
+| Candidate then baseline | 1.583 | 1.564 |
+
+Each mean contains three samples with one untimed warm-up per measured call,
+using the existing deterministic 8×75 benchmark. The measured saving is about
+1.1–1.2%. All twelve float32 codec hashes match; timed allocations remain zero.
+One full-synthesis verification retains the established WAV hash. No matched
+full-synthesis speedup was measured. Scratch capacity is unchanged.
+
+New tests initialise reused GEMM output with NaNs and check exact results,
+tail sentinels and zero allocations for prepared and unprepared paths, including
+full packed tiles, small fallbacks and row/column tails. Independent review
+found no overwrite-contract blocker. `make test-omnivoice vet-omnivoice`, race,
+no-CGo, real-codec fixture, native build and ARM64 build checks pass.
+`go build ./...` still fails in unrelated packages. Build temporaries used `/tmp`;
+workspace free space fell to 94 MiB, so further build-heavy work needs disk space.
+
+[Raw trials, synthesis record and build failure log](experiments/codec-clear-2026-09-14.json)
+retain all evidence.
