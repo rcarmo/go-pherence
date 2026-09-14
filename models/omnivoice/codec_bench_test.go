@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	"math"
 	"os"
@@ -15,6 +16,19 @@ import (
 // Decoder-only: model load, Prepare and output allocation precede timing.
 // Codes match scripts/omnivoice-upstream-codec-benchmark.py.
 func BenchmarkRealCodecDecode75Frames(b *testing.B) {
+	benchmarkRealCodecDecode(b, 75)
+}
+
+// Length sweep includes both transpose tile boundaries and the public frame limit.
+func BenchmarkRealCodecDecodeLengths(b *testing.B) {
+	for _, frames := range []int{1, 2, 30, 32, 75, 250} {
+		b.Run(fmt.Sprintf("frames%d", frames), func(b *testing.B) {
+			benchmarkRealCodecDecode(b, frames)
+		})
+	}
+}
+
+func benchmarkRealCodecDecode(b *testing.B, frames int) {
 	path := os.Getenv("GO_PHERENCE_REAL_OMNIVOICE")
 	if path == "" {
 		b.Skip("set GO_PHERENCE_REAL_OMNIVOICE")
@@ -29,7 +43,7 @@ func BenchmarkRealCodecDecode75Frames(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	const books, frames = 8, 75
+	const books = 8
 	if err := d.Prepare(frames); err != nil {
 		b.Fatal(err)
 	}

@@ -1326,3 +1326,39 @@ unrelated packages. No matched full-synthesis speedup was measured.
 
 [Raw trials, synthesis verification and build failures](experiments/codec-transpose-aligned-2026-09-14.json)
 retain the evidence and candidate provenance.
+
+## Codec length qualification (2026-09-14)
+
+The cumulative codec gains hold at all six tested lengths, including the public
+250-frame maximum. Current `4d7adca1` and original `21fcb4bb` produce identical
+float32 hashes at each length, with zero allocations during every timed call.
+
+| Frames | Audio (s) | Original decode (s) | Current decode (s) | Time reduction |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 0.04 | 0.053 | 0.043 | 20.0% |
+| 2 | 0.08 | 0.101 | 0.054 | 46.3% |
+| 30 | 1.20 | 1.116 | 0.614 | 45.0% |
+| 32 | 1.28 | 1.148 | 0.640 | 44.2% |
+| 75 | 3.00 | 2.751 | 1.594 | 42.1% |
+| 250 | 10.00 | 9.114 | 5.209 | 42.8% |
+
+Each cell averages two samples with one untimed warm-up per benchmark invocation;
+version order was reversed for the second round. The same current test harness
+was copied into a detached original worktree without production changes. Input
+codes follow `((book*frames+t)*13)%1024` for eight codebooks. Different frame
+counts have different code sequences; parity is checked between implementations
+at each length. All 24 measured calls and their hashes are retained.
+
+`BenchmarkRealCodecDecode75Frames` remains available and now shares a helper
+with `BenchmarkRealCodecDecodeLengths`. Model loading, preparation and output
+allocation precede timing. This adds benchmark coverage only; production code
+is unchanged. `make test-omnivoice vet-omnivoice` passes. Listening and
+full-synthesis performance are separate from this synthetic decoder test.
+
+```sh
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+  -run '^$' -bench BenchmarkRealCodecDecodeLengths -benchtime=1x -count=2
+```
+
+[Raw length sweep and verified hashes](experiments/codec-lengths-2026-09-14.json)
+include trial order and baseline provenance.
