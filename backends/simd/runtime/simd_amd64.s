@@ -352,6 +352,127 @@ dotrowsx4_done:
     VZEROUPPER
     RET
 
+// func dotRowsx8Asm(out []float32, w []float32, x []float32, cols int)
+// Computes eight consecutive weight rows against one shared activation vector.
+// The Go wrapper admits only cols divisible by16. Each output retains the exact
+// x4 accumulator/FMA and horizontal-reduction order.
+TEXT ·dotRowsx8Asm(SB), NOSPLIT, $0-80
+    MOVQ    out_base+0(FP), R14
+    MOVQ    w_base+24(FP), SI
+    MOVQ    x_base+48(FP), DI
+    MOVQ    cols+72(FP), CX
+
+    MOVQ    CX, R8
+    SHLQ    $2, R8
+    LEAQ    (SI)(R8*1), BX
+    LEAQ    (BX)(R8*1), DX
+    LEAQ    (DX)(R8*1), R9
+    LEAQ    (R9)(R8*1), R10
+    LEAQ    (R10)(R8*1), R11
+    LEAQ    (R11)(R8*1), R12
+    LEAQ    (R12)(R8*1), R13
+
+    VXORPS  Y0, Y0, Y0
+    VXORPS  Y1, Y1, Y1
+    VXORPS  Y2, Y2, Y2
+    VXORPS  Y3, Y3, Y3
+    VXORPS  Y4, Y4, Y4
+    VXORPS  Y5, Y5, Y5
+    VXORPS  Y6, Y6, Y6
+    VXORPS  Y7, Y7, Y7
+
+dotrowsx8_loop16:
+    VMOVUPS (DI), Y8
+    VMOVUPS 32(DI), Y9
+
+    VMOVUPS (SI), Y10
+    VFMADD231PS Y8, Y10, Y0
+    VMOVUPS 32(SI), Y10
+    VFMADD231PS Y9, Y10, Y0
+    VMOVUPS (BX), Y10
+    VFMADD231PS Y8, Y10, Y1
+    VMOVUPS 32(BX), Y10
+    VFMADD231PS Y9, Y10, Y1
+    VMOVUPS (DX), Y10
+    VFMADD231PS Y8, Y10, Y2
+    VMOVUPS 32(DX), Y10
+    VFMADD231PS Y9, Y10, Y2
+    VMOVUPS (R9), Y10
+    VFMADD231PS Y8, Y10, Y3
+    VMOVUPS 32(R9), Y10
+    VFMADD231PS Y9, Y10, Y3
+    VMOVUPS (R10), Y10
+    VFMADD231PS Y8, Y10, Y4
+    VMOVUPS 32(R10), Y10
+    VFMADD231PS Y9, Y10, Y4
+    VMOVUPS (R11), Y10
+    VFMADD231PS Y8, Y10, Y5
+    VMOVUPS 32(R11), Y10
+    VFMADD231PS Y9, Y10, Y5
+    VMOVUPS (R12), Y10
+    VFMADD231PS Y8, Y10, Y6
+    VMOVUPS 32(R12), Y10
+    VFMADD231PS Y9, Y10, Y6
+    VMOVUPS (R13), Y10
+    VFMADD231PS Y8, Y10, Y7
+    VMOVUPS 32(R13), Y10
+    VFMADD231PS Y9, Y10, Y7
+
+    ADDQ    $64, SI
+    ADDQ    $64, BX
+    ADDQ    $64, DX
+    ADDQ    $64, R9
+    ADDQ    $64, R10
+    ADDQ    $64, R11
+    ADDQ    $64, R12
+    ADDQ    $64, R13
+    ADDQ    $64, DI
+    SUBQ    $16, CX
+    JNZ     dotrowsx8_loop16
+
+    VEXTRACTF128 $1, Y0, X10
+    VADDPS  X10, X0, X0
+    VHADDPS X0, X0, X0
+    VHADDPS X0, X0, X0
+    VMOVSS  X0, 0(R14)
+    VEXTRACTF128 $1, Y1, X10
+    VADDPS  X10, X1, X1
+    VHADDPS X1, X1, X1
+    VHADDPS X1, X1, X1
+    VMOVSS  X1, 4(R14)
+    VEXTRACTF128 $1, Y2, X10
+    VADDPS  X10, X2, X2
+    VHADDPS X2, X2, X2
+    VHADDPS X2, X2, X2
+    VMOVSS  X2, 8(R14)
+    VEXTRACTF128 $1, Y3, X10
+    VADDPS  X10, X3, X3
+    VHADDPS X3, X3, X3
+    VHADDPS X3, X3, X3
+    VMOVSS  X3, 12(R14)
+    VEXTRACTF128 $1, Y4, X10
+    VADDPS  X10, X4, X4
+    VHADDPS X4, X4, X4
+    VHADDPS X4, X4, X4
+    VMOVSS  X4, 16(R14)
+    VEXTRACTF128 $1, Y5, X10
+    VADDPS  X10, X5, X5
+    VHADDPS X5, X5, X5
+    VHADDPS X5, X5, X5
+    VMOVSS  X5, 20(R14)
+    VEXTRACTF128 $1, Y6, X10
+    VADDPS  X10, X6, X6
+    VHADDPS X6, X6, X6
+    VHADDPS X6, X6, X6
+    VMOVSS  X6, 24(R14)
+    VEXTRACTF128 $1, Y7, X10
+    VADDPS  X10, X7, X7
+    VHADDPS X7, X7, X7
+    VHADDPS X7, X7, X7
+    VMOVSS  X7, 28(R14)
+    VZEROUPPER
+    RET
+
 // func bf16DotF32x4Asm(w []uint16, x []float32, cols int) (dot0,dot1,dot2,dot3 float32)
 // Computes four consecutive BF16 weight rows against one shared F32 activation.
 TEXT ·bf16DotF32x4Asm(SB), NOSPLIT, $0-72
