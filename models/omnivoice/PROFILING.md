@@ -998,3 +998,45 @@ no result from that attempt enters this table. Two successful runs used
 next profiling target, but decode-only Go timings are needed before attributing
 the entire stage difference to codec compute. This replaces the earlier rough
 1.9x comparison based on different reference/preparation settings.
+
+## Decoder-only comparison and contiguous convolution packing (2026-09-14)
+
+Matched deterministic codec inputs confirm a native decode gap independent of
+loading or WAV output. Both use 8×75 codes, `((book*75+t)*13)%1024`, CPU float32,
+two execution threads, one untimed warm-up and three measured decode calls.
+Go uses prepared reusable scratch; PyTorch uses its standard decoder allocation
+path. Model loading, text/reference preparation and postprocessing are excluded.
+
+| Decoder | Decode seconds (three calls) | Mean (s) |
+| --- | --- | ---: |
+| Upstream torch 2.11 CPU | 0.894 / 0.952 / 0.904 | 0.917 |
+| Go baseline | 2.674 / 2.682 / 2.706 | 2.687 |
+| Go contiguous-copy candidate | 2.229 / 2.176 / 2.168 | 2.191 |
+| Go baseline repeat | 2.691 / 2.684 / 2.694 | 2.689 |
+| Go candidate repeat | 2.192 / 2.180 / 2.170 | 2.180 |
+
+The prepared Go decode calls allocate zero bytes. The Go profile (which also
+includes benchmark setup/warm-up) attributed about 62% of CPU samples to NN
+GEMM and 23% directly to convolution preparation. For stride-one convolution,
+positions within each dilated tap are contiguous. Packing now uses bounded
+slice copies per tap, retaining cleared scratch for padding; other strides keep
+the scalar path. GEMM and bias addition are unchanged.
+
+This lowers measured native decode time by about **18–19%**, roughly half a
+second for three seconds of audio. The full 72000-sample float32 hash is exact
+before/after:
+`f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a`.
+It is not a cross-runtime hash comparison. PyTorch remains about 2.4x faster at
+decode alone after this change. No full-synthesis speedup is measured here.
+
+Tests cover scalar-reference parity across frames 1/7/63/64/65/129, kernels
+1/3/7, strides 1/2 and dilations 1/3/9, plus real-codec PyTorch fixture parity.
+Model/CLI tests, race/vet/no-CGo checks and Linux ARM64 build pass.
+[Raw evidence](experiments/codec-copy-2026-09-14.json) retains all runs.
+
+```sh
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+  -run '^$' -bench BenchmarkRealCodecDecode75Frames -benchtime=1x -count=3
+/path/to/upstream/python scripts/omnivoice-upstream-codec-benchmark.py \
+  --model /path/to/model/audio_tokenizer --output NEW_REPORT.json
+```

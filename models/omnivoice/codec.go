@@ -236,10 +236,20 @@ func (d *CodecDecoder) conv(x signal, name string, stride, padding, dilation int
 		clear(p)
 		for c := 0; c < x.channels; c++ {
 			for j := 0; j < kernel; j++ {
-				for t := 0; t < n; t++ {
-					source := (start+t)*stride - padding + j*dilation
-					if source >= 0 && source < x.frames {
-						p[(c*kernel+j)*n+t] = x.data[c*x.frames+source]
+				if stride == 1 {
+					// Dilation shifts each tap origin; positions within a tap
+					// remain contiguous. Cleared scratch supplies the padding.
+					source := start - padding + j*dilation
+					lo, hi := max(0, -source), min(n, x.frames-source)
+					if lo < hi {
+						copy(p[(c*kernel+j)*n+lo:(c*kernel+j)*n+hi], x.data[c*x.frames+source+lo:c*x.frames+source+hi])
+					}
+				} else {
+					for t := 0; t < n; t++ {
+						source := (start+t)*stride - padding + j*dilation
+						if source >= 0 && source < x.frames {
+							p[(c*kernel+j)*n+t] = x.data[c*x.frames+source]
+						}
 					}
 				}
 			}
