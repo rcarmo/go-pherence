@@ -219,7 +219,15 @@ func (m *WeSpeakerResNet34) ForwardFramesObserved(ctx context.Context, fbank []f
 	}
 	for stage, blocks := range m.stages {
 		for index, block := range blocks {
-			out, shape, err = block.Forward(ctx, out, shape, mode)
+			if observe == nil {
+				// Stem and preceding blocks return finite owned outputs. Avoid
+				// rescanning that internal tensor before the next block.
+				out, shape, err = block.forwardValidated(ctx, out, shape, mode)
+			} else {
+				// Keep public/observed defensive validation: callbacks receive a
+				// read-only view, but a forbidden nonfinite mutation still fails.
+				out, shape, err = block.Forward(ctx, out, shape, mode)
+			}
 			if err != nil {
 				return fail(fmt.Errorf("WeSpeaker stage%d block%d: %w", stage, index, err))
 			}

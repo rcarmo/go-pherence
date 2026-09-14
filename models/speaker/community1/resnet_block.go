@@ -177,6 +177,17 @@ func (b *WeSpeakerBasicBlock) Forward(ctx context.Context, input []float32, shap
 	return b.ForwardObserved(ctx, input, shape, mode, nil)
 }
 func (b *WeSpeakerBasicBlock) ForwardObserved(ctx context.Context, input []float32, shape CHWShape, mode WeSpeakerBlockMode, observe WeSpeakerBlockObserver) ([]float32, CHWShape, error) {
+	return b.forwardObserved(ctx, input, shape, mode, observe, true)
+}
+
+// forwardValidated chains a block from an output already checked finite by the
+// stem or preceding block. Public block entrypoints always validate arbitrary
+// input; only the owning full ResNet may skip that redundant scan.
+func (b *WeSpeakerBasicBlock) forwardValidated(ctx context.Context, input []float32, shape CHWShape, mode WeSpeakerBlockMode) ([]float32, CHWShape, error) {
+	return b.forwardObserved(ctx, input, shape, mode, nil, false)
+}
+
+func (b *WeSpeakerBasicBlock) forwardObserved(ctx context.Context, input []float32, shape CHWShape, mode WeSpeakerBlockMode, observe WeSpeakerBlockObserver, validateInput bool) ([]float32, CHWShape, error) {
 	fail := func(err error) ([]float32, CHWShape, error) { return nil, CHWShape{}, err }
 	if err := ctx.Err(); err != nil {
 		return fail(err)
@@ -192,8 +203,10 @@ func (b *WeSpeakerBasicBlock) ForwardObserved(ctx context.Context, input []float
 	if len(b.weights.Conv1) != b.cfg.OutChannels*b.cfg.InChannels*9 || len(b.weights.Conv2) != b.cfg.OutChannels*b.cfg.OutChannels*9 {
 		return fail(fmt.Errorf("uninitialised WeSpeaker block weights"))
 	}
-	if err := finiteBlock(ctx, input); err != nil {
-		return fail(err)
+	if validateInput {
+		if err := finiteBlock(ctx, input); err != nil {
+			return fail(err)
+		}
 	}
 	report := func(stage string, x []float32) error {
 		if err := ctx.Err(); err != nil {

@@ -135,6 +135,34 @@ func TestWeSpeakerResNetFullDepthOracle(t *testing.T) {
 	}
 }
 
+func TestWeSpeakerResNetTrustedChainMatchesObservedAndRetainsObserverGuard(t *testing.T) {
+	c := loadResNetFixtures(t)[1]
+	m, err := NewWeSpeakerResNet34(context.Background(), c.Config, c.Weights)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []WeSpeakerBlockMode{WeSpeakerBlockScalar, WeSpeakerBlockSIMD} {
+		trusted, trustedShape, err := m.ForwardFrames(context.Background(), c.Input, c.Frames, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		observed, observedShape, err := m.ForwardFramesObserved(context.Background(), c.Input, c.Frames, mode, func(int, int, CHWShape, []float32) {})
+		if err != nil || trustedShape != observedShape || !reflect.DeepEqual(trusted, observed) {
+			t.Fatal("trusted chain changed output", mode, err)
+		}
+	}
+	seen := 0
+	out, shape, err := m.ForwardFramesObserved(context.Background(), c.Input, c.Frames, WeSpeakerBlockSIMD, func(_, _ int, _ CHWShape, values []float32) {
+		if seen == 0 {
+			values[0] = float32(math.NaN()) // forbidden callback mutation
+		}
+		seen++
+	})
+	if err == nil || out != nil || shape != (CHWShape{}) || seen != 1 {
+		t.Fatal("nonfinite observer mutation reached next boundary", seen, err)
+	}
+}
+
 func TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency(t *testing.T) {
 	c := loadResNetFixtures(t)[0]
 	m, err := NewWeSpeakerResNet34(context.Background(), c.Config, c.Weights)
