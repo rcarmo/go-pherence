@@ -492,3 +492,56 @@ Tests cover bitwise GEMM parity, strides/tails, overlapping-buffer rejection,
 zero allocations, raw-to-packed transactional upgrades and sibling ownership.
 Model/runtime race/no-CGo, disabled-AVX2/FMA fallback, OmniVoice vet and ARM64
 cross-build checks pass. The CLI refuses prepacking without active SIMD GEMM.
+
+## Request-local embeddings and sparse target heads (2026-09-14)
+
+Generation now computes raw text/reference prefix embeddings once per request.
+Each positive denoising step copies that prefix and embeds the changing target.
+The full non-causal transformer still executes for both CFG branches. Prefix
+buffers are owned by Generation, rebuilt on every invocation, and reserved for
+up to `maxTokens-1` positions per branch to support target shrink/restore.
+Their float32 payload is `4*hidden*(conditional.maxTokens-1)` bytes plus the
+corresponding unconditional reservation when guidance is enabled.
+
+Head projection omits full SIMD row groups with no masked target time remaining
+across any codebook. Adjacent active groups are merged; head weight chunking and
+the original full-sequence row/tail grouping are unchanged. Revealed logits can
+remain stale: the dense sampler still consumes the same RNG draws and excludes
+those rows during confidence selection. Public full/target-forward APIs retain
+their dense output contract.
+
+Matched 75-frame, eight-step, two-thread/two-worker, resident-float32 synthesis
+of “The evidence is insufficient, Captain.” against parent `17052eed`:
+
+| Trial | Before wall seconds | After wall seconds |
+| --- | ---: | ---: |
+| First | 60.250 | 54.419 |
+| Repeat | 51.282 | 56.784 |
+| Mean | 55.766 | 55.602 |
+
+The mean difference is only 0.3%, with opposite directions in the pairs; no
+end-to-end speedup is demonstrated. Peak RSS stayed near 2,786,000 KiB. All four
+WAVs have SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+Local measurement records: `/workspace/tmp/omnivoice-prefix-{before,after}*.json`.
+Command (use the parent binary for before; unique output paths are required):
+
+```sh
+bin/omnivoice -mode synthesize -backend cpu \
+  -model /workspace/projects/spock-tts/models/omnivoice \
+  -reference-tokens /workspace/tmp/omnivoice-reference-tokens.json \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -threads 2 -gemm-workers 2 -resident-mib 2048 -output NEW.wav
+```
+
+`BenchmarkHeadSpanSelection` measures the span planner alone: 114–132 ns and
+zero allocations. A constructed 210-token/75-target case projects 78 aligned
+rows while dense, versus 6 when only the last target time is active. This is
+work-count evidence, not a whole-model speedup estimate.
+
+Tests cover sparse gaps and final tails across streaming, worker, resident and
+prepacked modes, unchanged inactive output slots, malformed internal shapes,
+changed request prefixes, target shrink/restore, exact legacy token/RNG parity,
+and zero generation allocations. Affected tests, vet, race/no-CGo checks and
+Linux ARM64 cross-build pass. The repository-wide build still fails in the
+previously recorded SpacemiT and DiffusionGemma packages.
