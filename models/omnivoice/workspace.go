@@ -14,6 +14,7 @@ import (
 // with the same dimensions, epsilon and RoPE theta. No model weights live here.
 // ForwardInto supports dst == x; dst must not otherwise overlap x or mask.
 type Workspace struct {
+	columnWorkers                           bool
 	packed                                  []float32
 	tokens, maxTokens, hidden, intermediate int
 	heads, kvheads, dim                     int
@@ -148,7 +149,7 @@ func (s *Workspace) linearInto(y, x, w []float32, rows, in, out int) {
 func (s *Workspace) linearIntoWithPool(y, x, w []float32, rows, in, out int) error {
 	if s != nil && s.pool != nil && s.executionContext != nil {
 		clear(y)
-		return s.pool.Run(s.executionContext, y, x, w, nil, rows, out, in, 1, in, in, out)
+		return s.poolLinearInto(y, x, w, nil, rows, in, out)
 	}
 	s.linearInto(y, x, w, rows, in, out)
 	return nil
@@ -158,4 +159,11 @@ func normalizeInto(y, x, w []float32, rows, width int, eps float32) {
 	for r := 0; r < rows; r++ {
 		simd.RMSNorm(y[r*width:(r+1)*width], w, eps)
 	}
+}
+
+func (s *Workspace) poolLinearInto(y, x, w, packed []float32, rows, in, out int) error {
+	if s.columnWorkers {
+		return s.pool.RunColumns(s.executionContext, y, x, w, packed, rows, out, in, 1, in, in, out)
+	}
+	return s.pool.Run(s.executionContext, y, x, w, packed, rows, out, in, 1, in, in, out)
 }

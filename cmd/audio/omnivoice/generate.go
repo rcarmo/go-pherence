@@ -30,7 +30,7 @@ type preparedPrompt struct {
 	RefRMS                *float64    `json:"ref_rms,omitempty"`
 }
 
-func runGenerate(weights *loader.Weights, input, output, codecPath string, steps int, postprocess bool, residentBytes int64, prepacked bool, workers int, directQ8 bool, shared bool, guidance float32) error {
+func runGenerate(weights *loader.Weights, input, output, codecPath string, steps int, postprocess bool, residentBytes int64, prepacked bool, workers int, directQ8 bool, shared bool, guidance float32, columns bool) error {
 	if input == "" || output == "" || filepath.Ext(output) != ".wav" {
 		return fmt.Errorf("generate requires -input prepared JSON and new -output .wav")
 	}
@@ -53,10 +53,10 @@ func runGenerate(weights *loader.Weights, input, output, codecPath string, steps
 		return err
 	}
 	p.Postprocess = postprocess
-	return generatePrompt(weights, p, output, codecPath, steps, true, residentBytes, prepacked, workers, directQ8, shared, guidance)
+	return generatePrompt(weights, p, output, codecPath, steps, true, residentBytes, prepacked, workers, directQ8, shared, guidance, columns)
 }
 
-func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath string, steps int, prepared bool, residentBytes int64, prepacked bool, workers int, directQ8 bool, shared bool, guidance float32) error {
+func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath string, steps int, prepared bool, residentBytes int64, prepacked bool, workers int, directQ8 bool, shared bool, guidance float32, columns bool) error {
 	if output == "" || filepath.Ext(output) != ".wav" {
 		return fmt.Errorf("new -output .wav required")
 	}
@@ -89,7 +89,11 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 		}
 	}
 	if workers > 0 {
-		if err := cond.EnableWorkers(workers); err != nil {
+		enableWorkers := cond.EnableWorkers
+		if columns {
+			enableWorkers = cond.EnableColumnWorkers
+		}
+		if err := enableWorkers(workers); err != nil {
 			return err
 		}
 	}
@@ -167,5 +171,5 @@ func generatePrompt(weights *loader.Weights, p preparedPrompt, output, codecPath
 	if !p.CommandStarted.IsZero() {
 		commandSeconds = time.Since(p.CommandStarted).Seconds()
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"resident_cache_bytes": cond.ResidentBytes(), "prepacked_bytes": cond.PrepackedBytes(), "gemm_workers": workers, "direct_q8": directQ8, "shared_traversal": shared, "guidance": cfg.Guidance, "resident_setup_seconds": residentSeconds, "command_seconds": commandSeconds, "silence_preprocessing": p.PreprocessedReference, "output_postprocessing": p.Postprocess, "mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": p.NativeReference, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"resident_cache_bytes": cond.ResidentBytes(), "prepacked_bytes": cond.PrepackedBytes(), "gemm_workers": workers, "gemm_columns": columns, "direct_q8": directQ8, "shared_traversal": shared, "guidance": cfg.Guidance, "resident_setup_seconds": residentSeconds, "command_seconds": commandSeconds, "silence_preprocessing": p.PreprocessedReference, "output_postprocessing": p.Postprocess, "mode": "generate", "synthetic": true, "prepared_prompt_required": prepared, "reference_encoding_native": p.NativeReference, "reference_gain": referenceGain, "native_inference": true, "text": p.Text, "reference": p.Reference, "steps": steps, "seed": cfg.Seed, "rng": "Go PCG, not PyTorch RNG parity", "audio_seconds": float64(len(wave)) / float64(codec.SampleRate), "sample_rate": codec.SampleRate, "generation_seconds": generated.Sub(started).Seconds(), "decode_and_save_seconds": time.Since(generated).Seconds(), "total_seconds": time.Since(started).Seconds(), "gain": gain, "output": output})
 }

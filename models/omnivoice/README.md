@@ -79,3 +79,14 @@ at scale 2. Both transcribed exactly; the scale-0 waveform RMS was less than
 half the baseline. This experiment has not passed voice/prosody, long-text or
 Portuguese listening gates. See [PROFILING.md](PROFILING.md) for the measurements
 and [TRAINING.md](TRAINING.md) for the reuse/distillation assessment.
+
+### Column-parallel worker experiment
+
+Use `-gemm-workers 2 -gemm-columns` to partition weight panels among workers and
+avoid duplicate streamed packing. The default remains row-parallel workers.
+This works with streamed, resident, prepacked and shared-CFG execution; the
+worker count and column selection are reported in synthesis/worker metadata.
+Two local streamed timing pairs showed an 8.9% lower mean with byte-identical
+audio; see [PROFILING.md](PROFILING.md). Library callers can use
+`Backbone.EnableColumnWorkers` before creating siblings; existing siblings keep
+their previous selection.

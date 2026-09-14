@@ -23,6 +23,7 @@ import (
 // Resident sharing follows the existing sequential sibling contract and is not
 // additionally synchronized for concurrent use.
 type Backbone struct {
+	columnWorkers                       bool
 	projectSpans                        []headSpan
 	weights                             *loader.Weights
 	directQ8                            []map[string][]byte
@@ -60,6 +61,7 @@ func NewBackboneSibling(parent *Backbone, tokens int) (*Backbone, error) {
 	}
 	b.pool = parent.pool
 	b.poolWorkers = parent.poolWorkers
+	b.columnWorkers = parent.columnWorkers
 	b.directQ8 = parent.directQ8
 	return b, nil
 }
@@ -164,6 +166,7 @@ func (b *Backbone) forwardInto(ctx context.Context, logits []float32, ids []int,
 
 func (b *Backbone) bindExecution(ctx context.Context) {
 	b.scratch.pool = b.pool
+	b.scratch.columnWorkers = b.columnWorkers
 	b.scratch.executionContext = ctx
 }
 func (b *Backbone) clearExecution() { b.scratch.pool = nil; b.scratch.executionContext = nil }

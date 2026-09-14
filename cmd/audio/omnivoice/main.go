@@ -60,6 +60,7 @@ func run(args []string) error {
 	layer := flags.Int("layer", 0, "decoder layer to evaluate")
 	tokens := flags.Int("tokens", 3, "synthetic token count for block probe (1..256)")
 	threads := flags.Int("threads", 2, "Go execution threads")
+	columns := flags.Bool("gemm-columns", false, "experimental column-parallel GEMM; requires positive gemm-workers")
 	workers := flags.Int("gemm-workers", 0, "persistent SIMD GEMM workers (0 keeps serial path; may exceed threads for oversubscription tests)")
 	backend := flags.String("backend", "cpu", "cpu, auto, or vulkan (Vulkan dispatch not implemented)")
 	iterations := flags.Int("iterations", 1, "resident block repetitions (1..1000)")
@@ -102,6 +103,9 @@ func run(args []string) error {
 	residentBytes := *residentMiB << 20
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *columns && *workers < 1 {
+		return fmt.Errorf("gemm-columns requires positive gemm-workers")
 	}
 	if *workers < 0 || *workers > 64 {
 		return fmt.Errorf("gemm-workers must be 0..64")
@@ -148,7 +152,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runServe(serveOptions{guidance: &guidance, shared: *shared, modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
+		return runServe(serveOptions{columns: *columns, guidance: &guidance, shared: *shared, modelPath: *path, weightsPath: *ggufPath, reference: *cachedReference, outputDir: *serveDir, language: *language, instruct: *instruct, frames: *frames, firstFrames: *firstFrames, steps: *steps, workers: *workers, residentBytes: residentBytes, cacheBytes: *cacheMiB << 20, prepacked: *prepacked, denoise: *denoise, postprocess: *postprocess})
 	}
 	if *serveDir != "" || *cacheMiB != 0 || *firstFrames != 0 {
 		return fmt.Errorf("output-dir/cache-mib/first-frames apply only to serve")
@@ -182,7 +186,7 @@ func run(args []string) error {
 		if _, err := model.SelectBackend(backendMode); err != nil {
 			return err
 		}
-		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers, *shared, guidance)
+		return runChunked(*path, *mode, *output, *text, *ref, *transcript, *cachedReference, *language, *instruct, *frames, *steps, *denoise, *preprocess, *postprocess, residentBytes, *prepacked, *workers, *shared, guidance, *columns)
 	}
 
 	if *preprocess && (*ref == "" || (*mode != "synthesize" && *mode != "prepare" && *mode != "encode-reference")) {
@@ -289,10 +293,10 @@ func run(args []string) error {
 		p.Postprocess = *postprocess
 		p.CommandStarted = commandStarted
 		p.Reference = *ref
-		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false, *shared, guidance)
+		return generatePrompt(weights, p, *output, filepath.Join(*path, "audio_tokenizer"), *steps, false, residentBytes, *prepacked, *workers, false, *shared, guidance, *columns)
 	}
 	if *mode == "generate" {
-		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8, *shared, guidance)
+		return runGenerate(weights, *input, *output, filepath.Join(*path, "audio_tokenizer"), *steps, *postprocess, residentBytes, *prepacked, *workers, *directQ8, *shared, guidance, *columns)
 	}
 	if *mode == "logits" {
 		return runLogits(weights, *input)

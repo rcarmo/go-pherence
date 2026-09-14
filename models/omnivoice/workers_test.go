@@ -212,3 +212,88 @@ func TestBackboneBorrowerRejectsClosedOwnerPool(t *testing.T) {
 		t.Fatalf("closed owner: %v", err)
 	}
 }
+
+func TestColumnWorkersModesParityAndAllocation(t *testing.T) {
+	for _, mode := range []string{"streaming", "resident", "prepacked", "shared"} {
+		t.Run(mode, func(t *testing.T) {
+			b, _, _, _ := makeWorkerFixture(t, 25)
+			if mode == "resident" {
+				if err := b.EnableResident(context.Background(), b.ResidentRequiredBytes()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "prepacked" {
+				if err := b.EnableResidentPrepacked(context.Background(), b.ResidentPrepackedRequiredBytes()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := b.EnableWorkers(3); err != nil {
+				t.Fatal(err)
+			}
+			u, err := NewBackboneSibling(b, 19)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer u.Close()
+			cfg := DefaultGenerationConfig()
+			cfg.Steps = 8
+			cfg.ClassTemperature = .3
+			cfg.SharedTraversal = mode == "shared"
+			g, err := NewGeneration(b, u, 13, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids, audio := make([]int, g.books*25), make([]bool, 25)
+			uids, uaudio := make([]int, g.books*19), make([]bool, 19)
+			for i := 1; i < len(audio); i++ {
+				audio[i] = true
+			}
+			for i := 1; i < len(uaudio); i++ {
+				uaudio[i] = true
+			}
+			want, got := make([]int, len(g.output)), make([]int, len(g.output))
+			if err := g.GenerateInto(context.Background(), want, ids, audio, uids, uaudio); err != nil {
+				t.Fatal(err)
+			}
+			rng := g.rng.Uint64()
+			cw, uw := append([]float32(nil), g.condTarget...), append([]float32(nil), g.uncondTarget...)
+			if err := b.EnableColumnWorkers(3); err != nil {
+				t.Fatal(err)
+			}
+			if u.columnWorkers {
+				t.Fatal("existing sibling changed")
+			}
+			if err := u.EnableColumnWorkers(3); err != nil {
+				t.Fatal(err)
+			}
+			if err := g.GenerateInto(context.Background(), got, ids, audio, uids, uaudio); err != nil {
+				t.Fatal(err)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatal("token mismatch")
+				}
+			}
+			if g.rng.Uint64() != rng {
+				t.Fatal("RNG mismatch")
+			}
+			assertFloat32Exact(t, g.condTarget, cw)
+			assertFloat32Exact(t, g.uncondTarget, uw)
+			if n := testing.AllocsPerRun(3, func() {
+				if err := g.GenerateInto(context.Background(), got, ids, audio, uids, uaudio); err != nil {
+					t.Fatal(err)
+				}
+			}); n != 0 {
+				t.Fatalf("allocs %v", n)
+			}
+			sibling, err := NewBackboneSibling(b, 19)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer sibling.Close()
+			if !sibling.columnWorkers {
+				t.Fatal("new sibling missing column flag")
+			}
+		})
+	}
+}

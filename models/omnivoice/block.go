@@ -172,7 +172,7 @@ func (b *Block) linearInto(s *Workspace, y, x, w []float32, key string, rows, in
 	}
 	if s != nil && s.pool != nil && s.executionContext != nil {
 		clear(y)
-		return s.pool.Run(s.executionContext, y, x, w, b.prepacked[key], rows, out, in, 1, in, in, out)
+		return s.poolLinearInto(y, x, w, b.prepacked[key], rows, in, out)
 	}
 	if packed := b.prepacked[key]; len(packed) != 0 {
 		clear(y)

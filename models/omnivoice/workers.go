@@ -69,3 +69,13 @@ func (b *Backbone) Close() error {
 	}
 	return pool.Close()
 }
+
+// EnableColumnWorkers enables opt-in panel-parallel GEMM on this backbone.
+// Call before creating siblings; existing siblings retain their own selection.
+func (b *Backbone) EnableColumnWorkers(workers int) error {
+	if err := b.EnableWorkers(workers); err != nil {
+		return err
+	}
+	b.columnWorkers = true
+	return nil
+}

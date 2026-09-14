@@ -614,3 +614,34 @@ Tests cover five scales, exact same-scale legacy/RNG parity, zero generation
 allocations, no unconditional scratch access at zero, invalid/overflow/underflow
 scales, shared-zero rejection, and worker nil-default versus explicit zero.
 Affected tests/vet/race/no-CGo checks and the Linux ARM64 build pass.
+
+## Column-parallel GEMM workers (2026-09-14)
+
+The new opt-in `-gemm-columns` partitions full 16-column weight panels among
+persistent workers, instead of splitting activation rows and repacking the same
+weights in each worker. It requires positive `-gemm-workers`. Full row/tail
+arithmetic is preserved; leftover columns use the existing fallback. The library
+entry points are `GEMMPool.RunColumns` and `Backbone.EnableColumnWorkers`.
+
+A fresh streamed, two-worker/eight-step profile attributed 59% of CPU samples to
+the GEMM microkernel, 11% to F16 conversion and 10% to packing. The profiled run
+is excluded from timing comparisons. Unprofiled 75-frame short-English runs:
+
+| Trial | Row workers (s) | Column workers (s) |
+| --- | ---: | ---: |
+| First | 58.753 | 51.706 |
+| Repeat | 60.751 | 57.149 |
+| Mean | 59.752 | 54.428 |
+
+The column mean is 8.9% lower; both pairs improved. Four WAVs are byte-identical
+to the established baseline. Peak RSS remains about 1.06 GiB. Local records:
+`/workspace/tmp/omnivoice-columns-{before,after}*-metrics.json`. Commands use
+the earlier streamed eight-step recipe with two GEMM workers, adding
+`-gemm-columns` only for column runs. Defaults are unchanged.
+
+One additional run combining columns with `-shared-traversal` took 48.382 s;
+this combination still needs repeated measurements. The column-only change is
+independently validated. Tests cover exact strided/tail/prepacked kernel results,
+alpha, cancellation/draining, lifecycle, zero allocations, and model token/RNG/
+logit parity across streamed, resident, prepacked and shared-CFG modes. Race,
+vet, no-CGo checks and Linux ARM64 cross-build pass.
