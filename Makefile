@@ -498,6 +498,18 @@ speaker-weights:
 test:
 	go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
+# Native OmniVoice numerical core and audio frontend; no model download required.
+.PHONY: test-omnivoice vet-omnivoice build-omnivoice
+test-omnivoice:
+	go test -count=1 -timeout=120s ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+
+vet-omnivoice:
+	go vet ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+
+build-omnivoice:
+	mkdir -p bin
+	go build -o bin/omnivoice ./cmd/audio/omnivoice
+
 test-cpu:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 

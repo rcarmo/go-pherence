@@ -291,7 +291,13 @@ func TestVulkanServerOwnerClosesAfterHandlerDrain(t *testing.T) {
 	out := &statusWriter{ready: make(chan struct{})}
 	done := make(chan error, 1)
 	go func() { done <- startWithRuntime(ctx, asset.Path, false, out, runtime) }()
-	<-out.ready
+	select {
+	case <-out.ready:
+	case e := <-done:
+		t.Fatal("startup failed", e)
+	case <-time.After(5 * time.Second):
+		t.Fatal("startup timed out")
+	}
 	if owner.closed != 0 {
 		t.Fatal("owner closed while server live")
 	}

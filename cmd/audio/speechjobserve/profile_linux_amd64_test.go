@@ -324,7 +324,7 @@ func testStartQueueWorkerConsent(t *testing.T, resources bool) {
 			c.AllowExecution = true
 			c.Profile.MediaBackend = "ffmpeg"
 			if resources {
-				c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+				c.Resources = &ResourceSettings{CPUSlots: c.Threads, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
 			}
 			if mode != "sync" {
 				c.Queue = QueueSettings{Enable: true, StartWorker: worker, Directory: filepath.Join(t.TempDir(), "queue"), MaxEntries: 8, MaxBytes: 1 << 20, JobSeconds: 5}
@@ -576,7 +576,7 @@ func (o *fakeProfileOwner) Close(context.Context) error {
 func vulkanToyConfig(t *testing.T) ServerConfig {
 	t.Helper()
 	c := toyAssets(t)
-	c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	c.Resources = &ResourceSettings{CPUSlots: c.Threads, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
 	c.Profile.Vulkan = &VulkanSettings{Enable: true, AllowExperimental: true, DeviceContains: "fixture-device", BackendSHA256: hashBytes([]byte("fixture-backend")), DrainMilliseconds: 5}
 	return c
 }

@@ -30,6 +30,14 @@ const (
 	GGUFTypeF64    GGUFType = 12
 )
 
+const (
+	ggufMaxHeaderBytes     int64  = 128 << 20
+	ggufMaxStringBytes     uint64 = 16 << 20
+	ggufMaxCollectionCount uint64 = 1_000_000
+	ggufMaxTensorDims      uint32 = 8
+	ggufMaxArrayDepth             = 1
+)
+
 // QuantType identifies the tensor quantization format.
 type QuantType uint32
 
@@ -100,6 +108,7 @@ type GGUF struct {
 	Tensors    []TensorInfo
 	DataOffset int64 // byte offset in the file where tensor data begins
 	f          *os.File
+	fileSize   int64
 }
 
 // Open reads the GGUF header, metadata, and tensor index.
@@ -109,92 +118,111 @@ func Open(path string) (*GGUF, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			f.Close()
+		}
+	}()
 
-	r := &reader{r: f}
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("gguf: stat: %w", err)
+	}
+	if fi.Size() < 0 {
+		return nil, fmt.Errorf("gguf: negative file size %d", fi.Size())
+	}
+	r := &reader{r: f, fileSize: fi.Size()}
 
 	// Magic
-	magic := make([]byte, 4)
-	if _, err := io.ReadFull(f, magic); err != nil {
-		f.Close()
+	magic, err := r.bytes(4)
+	if err != nil {
 		return nil, fmt.Errorf("gguf: read magic: %w", err)
 	}
 	if string(magic) != "GGUF" {
-		f.Close()
 		return nil, fmt.Errorf("gguf: bad magic %q", magic)
 	}
 
 	// Version
 	version, err := r.u32()
 	if err != nil {
-		f.Close()
 		return nil, fmt.Errorf("gguf: read version: %w", err)
 	}
 	if version != 2 && version != 3 {
-		f.Close()
 		return nil, fmt.Errorf("gguf: unsupported version %d", version)
 	}
 
 	nTensors, err := r.u64()
 	if err != nil {
-		f.Close()
 		return nil, fmt.Errorf("gguf: n_tensors: %w", err)
+	}
+	if nTensors > ggufMaxCollectionCount {
+		return nil, fmt.Errorf("gguf: tensor count %d exceeds limit %d", nTensors, ggufMaxCollectionCount)
 	}
 	nKV, err := r.u64()
 	if err != nil {
-		f.Close()
 		return nil, fmt.Errorf("gguf: n_kv: %w", err)
+	}
+	if nKV > ggufMaxCollectionCount {
+		return nil, fmt.Errorf("gguf: metadata count %d exceeds limit %d", nKV, ggufMaxCollectionCount)
+	}
+
+	metaCap, err := ggufU64ToInt(nKV, "metadata count")
+	if err != nil {
+		return nil, err
+	}
+	tensorCap, err := ggufU64ToInt(nTensors, "tensor count")
+	if err != nil {
+		return nil, err
 	}
 
 	// Metadata key-value pairs
-	meta := make(map[string]any, nKV)
+	meta := make(map[string]any, metaCap)
 	for i := uint64(0); i < nKV; i++ {
 		key, err := r.str()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: kv[%d] key: %w", i, err)
+		}
+		if _, dup := meta[key]; dup {
+			return nil, fmt.Errorf("gguf: duplicate metadata key %q", key)
 		}
 		vtype, err := r.u32()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: kv[%d] type: %w", i, err)
 		}
 		val, err := r.value(GGUFType(vtype))
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: kv[%d] %q value: %w", i, key, err)
 		}
 		meta[key] = val
 	}
 
 	// Tensor info
-	tensors := make([]TensorInfo, nTensors)
+	tensors := make([]TensorInfo, tensorCap)
 	for i := uint64(0); i < nTensors; i++ {
 		name, err := r.str()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: tensor[%d] name: %w", i, err)
 		}
 		ndims, err := r.u32()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: tensor[%d] ndims: %w", i, err)
 		}
-		shape := make([]uint64, ndims)
+		if ndims == 0 || ndims > ggufMaxTensorDims {
+			return nil, fmt.Errorf("gguf: tensor[%d] %q rank %d exceeds limit %d", i, name, ndims, ggufMaxTensorDims)
+		}
+		shape := make([]uint64, int(ndims))
 		for d := uint32(0); d < ndims; d++ {
 			shape[d], err = r.u64()
 			if err != nil {
-				f.Close()
 				return nil, fmt.Errorf("gguf: tensor[%d] dim[%d]: %w", i, d, err)
 			}
 		}
 		qtype, err := r.u32()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: tensor[%d] qtype: %w", i, err)
 		}
 		offset, err := r.u64()
 		if err != nil {
-			f.Close()
 			return nil, fmt.Errorf("gguf: tensor[%d] offset: %w", i, err)
 		}
 		tensors[i] = TensorInfo{
@@ -205,19 +233,43 @@ func Open(path string) (*GGUF, error) {
 		}
 	}
 
-	// Data offset is aligned to 32 bytes
-	pos, err := f.Seek(0, io.SeekCurrent)
+	// Data offset is aligned to 32 bytes.
+	dataOffsetU64, err := alignUp(uint64(r.pos), 32)
 	if err != nil {
-		f.Close()
-		return nil, fmt.Errorf("gguf: seek current: %w", err)
+		return nil, fmt.Errorf("gguf: align data offset: %w", err)
 	}
-	dataOffset := ((pos + 31) / 32) * 32
+	if dataOffsetU64 > uint64(fi.Size()) {
+		return nil, fmt.Errorf("gguf: data offset %d exceeds file size %d", dataOffsetU64, fi.Size())
+	}
+	dataOffset, err := ggufU64ToInt64(dataOffsetU64, "data offset")
+	if err != nil {
+		return nil, err
+	}
+
+	for i, t := range tensors {
+		_, rawBytes, err := tensorEncodingSize(t.QType, t.Shape)
+		if err != nil {
+			return nil, fmt.Errorf("gguf: tensor[%d] %q: %w", i, t.Name, err)
+		}
+		start, ok := ggufCheckedAdd(dataOffsetU64, t.Offset)
+		if !ok {
+			return nil, fmt.Errorf("gguf: tensor[%d] %q absolute offset overflows", i, t.Name)
+		}
+		end, ok := ggufCheckedAdd(start, rawBytes)
+		if !ok {
+			return nil, fmt.Errorf("gguf: tensor[%d] %q span overflows", i, t.Name)
+		}
+		if end > uint64(fi.Size()) {
+			return nil, fmt.Errorf("gguf: tensor[%d] %q span [%d,%d) exceeds GGUF data length (file size %d)", i, t.Name, start, end, fi.Size())
+		}
+	}
 
 	return &GGUF{
 		Meta:       meta,
 		Tensors:    tensors,
 		DataOffset: dataOffset,
 		f:          f,
+		fileSize:   fi.Size(),
 	}, nil
 }
 
@@ -226,19 +278,12 @@ func (g *GGUF) Close() { g.f.Close() }
 
 // DequantF32 reads and dequantizes tensor t to a flat []float32.
 func (g *GGUF) DequantF32(t TensorInfo) ([]float32, error) {
-	n := int(TensorElements(t.Shape))
-	if n == 0 {
-		return nil, fmt.Errorf("gguf: tensor %q has zero elements", t.Name)
-	}
-	rawSize, err := TensorRawBytes(t.QType, n)
+	n, rawSize, fileOffset, err := g.tensorReadPlan(t)
 	if err != nil {
-		return nil, fmt.Errorf("gguf: tensor %q: %w", t.Name, err)
-	}
-	if _, err := g.f.Seek(g.DataOffset+int64(t.Offset), io.SeekStart); err != nil {
-		return nil, fmt.Errorf("gguf: tensor %q seek: %w", t.Name, err)
+		return nil, err
 	}
 	raw := make([]byte, rawSize)
-	if _, err := io.ReadFull(g.f, raw); err != nil {
+	if _, err := g.f.ReadAt(raw, fileOffset); err != nil {
 		return nil, fmt.Errorf("gguf: tensor %q read: %w", t.Name, err)
 	}
 	return dequantToF32(raw, t.QType, n)
@@ -246,22 +291,59 @@ func (g *GGUF) DequantF32(t TensorInfo) ([]float32, error) {
 
 // Raw reads the encoded tensor bytes without dequantizing them.
 func (g *GGUF) Raw(t TensorInfo) ([]byte, error) {
-	n := int(TensorElements(t.Shape))
-	if n == 0 {
-		return nil, fmt.Errorf("gguf: tensor %q has zero elements", t.Name)
-	}
-	rawSize, err := TensorRawBytes(t.QType, n)
+	_, rawSize, fileOffset, err := g.tensorReadPlan(t)
 	if err != nil {
-		return nil, fmt.Errorf("gguf: tensor %q: %w", t.Name, err)
-	}
-	if _, err := g.f.Seek(g.DataOffset+int64(t.Offset), io.SeekStart); err != nil {
-		return nil, fmt.Errorf("gguf: tensor %q seek: %w", t.Name, err)
+		return nil, err
 	}
 	raw := make([]byte, rawSize)
-	if _, err := io.ReadFull(g.f, raw); err != nil {
+	if _, err := g.f.ReadAt(raw, fileOffset); err != nil {
 		return nil, fmt.Errorf("gguf: tensor %q read: %w", t.Name, err)
 	}
 	return raw, nil
+}
+
+func (g *GGUF) tensorReadPlan(t TensorInfo) (int, int, int64, error) {
+	if g == nil || g.f == nil {
+		return 0, 0, 0, fmt.Errorf("gguf: reader is nil")
+	}
+	if g.DataOffset < 0 {
+		return 0, 0, 0, fmt.Errorf("gguf: negative data offset %d", g.DataOffset)
+	}
+	if g.fileSize < 0 {
+		return 0, 0, 0, fmt.Errorf("gguf: negative file size %d", g.fileSize)
+	}
+
+	elements, rawBytes, err := tensorEncodingSize(t.QType, t.Shape)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q: %w", t.Name, err)
+	}
+	if elements == 0 {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q has zero elements", t.Name)
+	}
+	if elements > uint64(ggufIntLimit()) {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q element count %d exceeds int", t.Name, elements)
+	}
+	if rawBytes > uint64(ggufIntLimit()) {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q raw byte count %d exceeds int", t.Name, rawBytes)
+	}
+
+	base := uint64(g.DataOffset)
+	if base > uint64(g.fileSize) {
+		return 0, 0, 0, fmt.Errorf("gguf: data offset %d exceeds file size %d", g.DataOffset, g.fileSize)
+	}
+	start, ok := ggufCheckedAdd(base, t.Offset)
+	if !ok {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q absolute offset overflows", t.Name)
+	}
+	end, ok := ggufCheckedAdd(start, rawBytes)
+	if !ok {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q span overflows", t.Name)
+	}
+	if end > uint64(g.fileSize) {
+		return 0, 0, 0, fmt.Errorf("gguf: tensor %q span [%d,%d) exceeds GGUF data length (file size %d)", t.Name, start, end, g.fileSize)
+	}
+
+	return int(elements), int(rawBytes), int64(start), nil
 }
 
 // MetaUint32 returns a uint32 metadata value, ok=false if missing or wrong type.
@@ -274,9 +356,25 @@ func (g *GGUF) MetaUint32(key string) (uint32, bool) {
 	case uint32:
 		return vv, true
 	case uint64:
-		return uint32(vv), true
+		if vv <= uint64(^uint32(0)) {
+			return uint32(vv), true
+		}
+	case uint:
+		if uint64(vv) <= uint64(^uint32(0)) {
+			return uint32(vv), true
+		}
+	case int:
+		if vv >= 0 && uint64(vv) <= uint64(^uint32(0)) {
+			return uint32(vv), true
+		}
 	case int32:
-		return uint32(vv), true
+		if vv >= 0 {
+			return uint32(vv), true
+		}
+	case int64:
+		if vv >= 0 && uint64(vv) <= uint64(^uint32(0)) {
+			return uint32(vv), true
+		}
 	}
 	return 0, false
 }
@@ -327,61 +425,121 @@ func TensorElements(shape []uint64) uint64 {
 
 // tensorRawBytes returns the number of raw bytes for n elements of the given quant type.
 func TensorRawBytes(qt QuantType, n int) (int, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("negative element count %d", n)
+	}
+	if n == 0 {
+		return 0, nil
+	}
+
+	elements := uint64(n)
+	var rawBytes uint64
+	var err error
 	const qkK = 256
 	switch qt {
 	case QuantF32:
-		return n * 4, nil
+		rawBytes, err = ggufCheckedMul(elements, 4)
 	case QuantF16, QuantBF16:
-		return n * 2, nil
+		rawBytes, err = ggufCheckedMul(elements, 2)
 	case QuantQ4_0:
-		return (n / 32) * 18, nil
+		rawBytes, err = ggufBlockRawBytes(elements, 32, 18, qt)
 	case QuantQ4_1:
-		return (n / 32) * 20, nil
+		rawBytes, err = ggufBlockRawBytes(elements, 32, 20, qt)
 	case QuantQ5_0:
-		return (n / 32) * 22, nil
+		rawBytes, err = ggufBlockRawBytes(elements, 32, 22, qt)
 	case QuantQ5_1:
-		return (n / 32) * 24, nil
+		rawBytes, err = ggufBlockRawBytes(elements, 32, 24, qt)
 	case QuantQ8_0:
-		return (n / 32) * 34, nil
+		rawBytes, err = ggufBlockRawBytes(elements, 32, 34, qt)
 	case QuantQ2_K:
-		return (n / qkK) * 84, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 84, qt)
 	case QuantQ3_K:
-		return (n / qkK) * 110, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 110, qt)
 	case QuantQ4_K:
-		return (n / qkK) * 144, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 144, qt)
 	case QuantQ5_K:
-		return (n / qkK) * 176, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 176, qt)
 	case QuantQ6_K:
-		return (n / qkK) * 210, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 210, qt)
 	case QuantQ8_K:
-		return (n / qkK) * 292, nil
+		rawBytes, err = ggufBlockRawBytes(elements, qkK, 292, qt)
 	default:
 		return 0, fmt.Errorf("unsupported quant type %d", qt)
 	}
+	if err != nil {
+		return 0, err
+	}
+	if rawBytes > uint64(ggufIntLimit()) {
+		return 0, fmt.Errorf("raw byte count %d exceeds int", rawBytes)
+	}
+	return int(rawBytes), nil
 }
 
 // ── low-level binary reader ───────────────────────────────────────────────────
 
-type reader struct{ r *os.File }
+type reader struct {
+	r           *os.File
+	fileSize    int64
+	pos         int64
+	headerBytes int64
+}
+
+func (r *reader) bytes(n int) ([]byte, error) {
+	buf := make([]byte, n)
+	if err := r.readFull(buf); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func (r *reader) readFull(buf []byte) error {
+	if err := r.reserve(int64(len(buf))); err != nil {
+		return err
+	}
+	if _, err := io.ReadFull(r.r, buf); err != nil {
+		return err
+	}
+	r.pos += int64(len(buf))
+	r.headerBytes += int64(len(buf))
+	return nil
+}
+
+func (r *reader) reserve(n int64) error {
+	if n < 0 {
+		return fmt.Errorf("negative read size %d", n)
+	}
+	if n == 0 {
+		return nil
+	}
+	if r.pos > r.fileSize-n {
+		return io.ErrUnexpectedEOF
+	}
+	if r.headerBytes > ggufMaxHeaderBytes-n {
+		return fmt.Errorf("header exceeds limit %d bytes", ggufMaxHeaderBytes)
+	}
+	return nil
+}
+
+func (r *reader) remainingFile() int64 { return r.fileSize - r.pos }
 
 func (r *reader) u8() (uint8, error) {
 	var buf [1]byte
-	_, err := io.ReadFull(r.r, buf[:])
+	err := r.readFull(buf[:])
 	return buf[0], err
 }
 func (r *reader) u16() (uint16, error) {
 	var buf [2]byte
-	_, err := io.ReadFull(r.r, buf[:])
+	err := r.readFull(buf[:])
 	return binary.LittleEndian.Uint16(buf[:]), err
 }
 func (r *reader) u32() (uint32, error) {
 	var buf [4]byte
-	_, err := io.ReadFull(r.r, buf[:])
+	err := r.readFull(buf[:])
 	return binary.LittleEndian.Uint32(buf[:]), err
 }
 func (r *reader) u64() (uint64, error) {
 	var buf [8]byte
-	_, err := io.ReadFull(r.r, buf[:])
+	err := r.readFull(buf[:])
 	return binary.LittleEndian.Uint64(buf[:]), err
 }
 func (r *reader) i8() (int8, error)   { v, e := r.u8(); return int8(v), e }
@@ -399,7 +557,7 @@ func (r *reader) f32() (float32, error) {
 }
 func (r *reader) f64() (float64, error) {
 	var buf [8]byte
-	_, err := io.ReadFull(r.r, buf[:])
+	err := r.readFull(buf[:])
 	if err != nil {
 		return 0, err
 	}
@@ -411,12 +569,28 @@ func (r *reader) str() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	buf := make([]byte, n)
-	_, err = io.ReadFull(r.r, buf)
-	return string(buf), err
+	if n > ggufMaxStringBytes {
+		return "", fmt.Errorf("string length %d exceeds limit %d", n, ggufMaxStringBytes)
+	}
+	if n > uint64(r.remainingFile()) {
+		return "", io.ErrUnexpectedEOF
+	}
+	length, err := ggufU64ToInt(n, "string length")
+	if err != nil {
+		return "", err
+	}
+	buf := make([]byte, length)
+	if err := r.readFull(buf); err != nil {
+		return "", err
+	}
+	return string(buf), nil
 }
 
 func (r *reader) value(t GGUFType) (any, error) {
+	return r.valueDepth(t, 0)
+}
+
+func (r *reader) valueDepth(t GGUFType, depth int) (any, error) {
 	switch t {
 	case GGUFTypeU8:
 		return r.u8()
@@ -444,17 +618,39 @@ func (r *reader) value(t GGUFType) (any, error) {
 	case GGUFTypeF64:
 		return r.f64()
 	case GGUFTypeArray:
+		if depth >= ggufMaxArrayDepth {
+			return nil, fmt.Errorf("nested arrays exceed depth limit %d", ggufMaxArrayDepth)
+		}
 		elemType, err := r.u32()
 		if err != nil {
 			return nil, err
+		}
+		if GGUFType(elemType) == GGUFTypeArray {
+			return nil, fmt.Errorf("nested arrays are unsupported")
 		}
 		count, err := r.u64()
 		if err != nil {
 			return nil, err
 		}
-		arr := make([]any, count)
-		for i := uint64(0); i < count; i++ {
-			arr[i], err = r.value(GGUFType(elemType))
+		if count > ggufMaxCollectionCount {
+			return nil, fmt.Errorf("array count %d exceeds limit %d", count, ggufMaxCollectionCount)
+		}
+		if minSize, ok := ggufMinValueSize(GGUFType(elemType)); ok {
+			need, mulErr := ggufCheckedMul(count, minSize)
+			if mulErr != nil {
+				return nil, mulErr
+			}
+			if need > uint64(r.remainingFile()) {
+				return nil, io.ErrUnexpectedEOF
+			}
+		}
+		length, err := ggufU64ToInt(count, "array count")
+		if err != nil {
+			return nil, err
+		}
+		arr := make([]any, length)
+		for i := 0; i < length; i++ {
+			arr[i], err = r.valueDepth(GGUFType(elemType), depth+1)
 			if err != nil {
 				return nil, fmt.Errorf("array[%d]: %w", i, err)
 			}
@@ -464,3 +660,59 @@ func (r *reader) value(t GGUFType) (any, error) {
 		return nil, fmt.Errorf("unknown GGUFType %d", t)
 	}
 }
+
+func ggufMinValueSize(t GGUFType) (uint64, bool) {
+	switch t {
+	case GGUFTypeU8, GGUFTypeI8, GGUFTypeBool:
+		return 1, true
+	case GGUFTypeU16, GGUFTypeI16:
+		return 2, true
+	case GGUFTypeU32, GGUFTypeI32, GGUFTypeF32:
+		return 4, true
+	case GGUFTypeU64, GGUFTypeI64, GGUFTypeF64, GGUFTypeString:
+		return 8, true
+	default:
+		return 0, false
+	}
+}
+
+func ggufCheckedAdd(a, b uint64) (uint64, bool) {
+	if a > math.MaxUint64-b {
+		return 0, false
+	}
+	return a + b, true
+}
+
+func ggufCheckedMul(a, b uint64) (uint64, error) {
+	if a == 0 || b == 0 {
+		return 0, nil
+	}
+	if a > math.MaxUint64/b {
+		return 0, fmt.Errorf("uint64 overflow multiplying %d and %d", a, b)
+	}
+	return a * b, nil
+}
+
+func ggufBlockRawBytes(elements, blockElems, blockBytes uint64, qt QuantType) (uint64, error) {
+	if elements%blockElems != 0 {
+		return 0, fmt.Errorf("quant type %s requires element count multiple of %d, got %d", qt, blockElems, elements)
+	}
+	blocks := elements / blockElems
+	return ggufCheckedMul(blocks, blockBytes)
+}
+
+func ggufU64ToInt(v uint64, what string) (int, error) {
+	if v > uint64(ggufIntLimit()) {
+		return 0, fmt.Errorf("gguf: %s %d exceeds int", what, v)
+	}
+	return int(v), nil
+}
+
+func ggufU64ToInt64(v uint64, what string) (int64, error) {
+	if v > uint64(math.MaxInt64) {
+		return 0, fmt.Errorf("gguf: %s %d exceeds int64", what, v)
+	}
+	return int64(v), nil
+}
+
+func ggufIntLimit() int { return int(^uint(0) >> 1) }
