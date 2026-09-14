@@ -1197,3 +1197,35 @@ retain both candidates. Reproduce the microbenchmark with:
 go test ./models/omnivoice -run '^$' -bench 'BenchmarkSnakeChannel/simd' \
   -benchtime=300ms -count=3
 ```
+
+## Bounded transposed-convolution overlap-add (2026-09-14)
+
+Transposed convolution now computes the valid kernel-tap range once per input
+position. Each channel accumulates bounded slices instead of checking output
+bounds for every tap. The input-position/channel/tap iteration order is unchanged,
+so each output receives the same float32 additions in the same order. Scratch
+capacity and allocations are unchanged.
+
+| Decode-only round | Baseline mean (s) | Bounded-loop mean (s) |
+| --- | ---: | ---: |
+| Baseline then candidate | 1.592 | 1.563 |
+| Candidate then baseline | 1.595 | 1.584 |
+
+Each mean contains three samples of the existing deterministic 8×75 benchmark,
+with an untimed warm-up per measured invocation. The gain is small, about
+0.7–1.8%. All twelve codec waveform hashes match, with zero timed allocations.
+One full synthesis verification also matches the established WAV hash; no matched
+full-synthesis speedup was measured.
+
+Exact reference tests span frame counts 1/2/7/31/32/33/65, kernels 1/3/7/16,
+strides 1/2/3/8, padding 0/1/4/16 and output padding 0 or stride-1, restricting
+the matrix to positive output lengths. This includes completely clipped input
+positions and both sides of the 32-frame tile boundary. Independent review found
+no bounds or accumulation-order blocker for valid parameters.
+
+`make test-omnivoice vet-omnivoice`, model/CLI race and no-CGo tests, the real-codec
+fixture, native build and ARM64 build pass. `go build ./...` still fails outside
+the changed code, including SpacemiT and DiffusionGemma. The experiment used
+`/tmp` for build temporaries; workspace space was 132 MiB after validation.
+[Raw samples, synthesis record and build log](experiments/codec-scatter-2026-09-14.json)
+retain all measurements and failures.

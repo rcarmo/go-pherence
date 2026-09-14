@@ -320,12 +320,16 @@ func (d *CodecDecoder) transpose(x signal, name string, stride, padding, outputP
 			return signal{}, fmt.Errorf("omnivoice: transposed GEMM shape")
 		}
 		for t := 0; t < n; t++ {
+			origin := (start+t)*stride - padding
+			lo, hi := max(0, -origin), min(kernel, length-origin)
+			if lo >= hi {
+				continue
+			}
 			for c := 0; c < out; c++ {
-				for j := 0; j < kernel; j++ {
-					dest := (start+t)*stride - padding + j
-					if dest >= 0 && dest < length {
-						y.data[c*length+dest] += p[t*ncols+c*kernel+j]
-					}
+				dst := y.data[c*length+origin+lo : c*length+origin+hi]
+				src := p[t*ncols+c*kernel+lo : t*ncols+c*kernel+hi]
+				for j, v := range src {
+					dst[j] += v
 				}
 			}
 		}
