@@ -1581,3 +1581,31 @@ work. None of these policies was implemented.
 
 [Raw samples and validation](experiments/gemm-column-hotset-2026-09-15.json)
 retain all rounds.
+
+## Unchanged-binary drift control (2026-09-15)
+
+Six consecutive two-second controls of the raw 126×3072×1024, one-matrix,
+two-worker benchmark measure 9.590–9.824 ms/op (mean 9.675 ms, range 2.43%
+of mean). The test binary is unchanged. All calls report zero allocations/op;
+two report 21/22 B/op. No delegate or build ran during these measurements.
+
+Whole-process shell CPU time divided by wall time is 1.93–1.95 cores. Guest
+`/proc/stat` deltas show 0.41–0.64% steal and zero I/O-wait ticks. These include
+setup and other guest work; they are not kernel-only counters. CPU affinity
+allows both guest CPUs. The guest exposes no cpufreq, thermal or hwmon data.
+The inspected cgroups lack `cpu.max` and throttling counters, so host resource
+limits cannot be inferred from them.
+
+This short stable window does not explain the earlier drift or establish a
+lasting noise bound. Future comparisons should retain unchanged controls,
+alternate candidates closely, and require full-synthesis confirmation before
+changing the recommended runtime mode. Host scheduling/clock diagnostics need
+host access; no host or service settings were changed.
+
+The local tuning pass stops here without claiming maximum performance. Recent
+kernel candidates and bounded-prepack tests give no reliable next production
+change. Stronger-host/GPU execution needs an approved target and working access;
+fewer-step, quantised and distilled alternatives still need quality acceptance.
+
+[Control samples, timing and guest counters](experiments/gemm-drift-control-2026-09-15.json)
+retain the evidence.
