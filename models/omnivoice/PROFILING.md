@@ -1484,3 +1484,27 @@ from its bounds branch. Raw logs and means are in
 [`experiments/gebp-prefetch-2026-09-15.json`](experiments/gebp-prefetch-2026-09-15.json),
 and the candidate is retained only as
 [`experiments/gebp-prefetch-rejected.patch`](experiments/gebp-prefetch-rejected.patch).
+
+## Rejected alternating broadcast schedule (2026-09-15)
+
+Alternating `Y14`/`Y15` broadcasts in the main two-way AVX2 loop gives no
+repeatable projection gain on the N100. The candidate loads the next A row's
+scalar before the current row's two FMAs, preserving each accumulator's
+arithmetic order. The scalar tail is unchanged.
+
+| Projection (M×N×K) | Round 1 baseline / candidate, ms | Round 2 baseline / candidate, ms |
+|---|---:|---:|
+| 126×1024×1024 | 5.863 / 6.090 | 5.848 / 6.149 |
+| 126×3072×1024 | 18.290 / 18.946 | 19.062 / 18.908 |
+| 128×1024×3072 | 18.480 / 18.983 | 18.474 / 19.102 |
+
+Means include all three samples per shape. Run order was baseline/candidate,
+then candidate/baseline. The second-round 126×3072×1024 baseline includes a
+20.362 ms sample; it is retained. The other two shapes regress in both rounds.
+All calls report zero bytes and allocations/op, and the recorded 228-case
+fingerprints match. No full-synthesis test was run for this rejected candidate.
+
+Production assembly is restored exactly to `4decb2e9`.
+[Raw logs and means](experiments/gebp-broadcast-schedule-2026-09-15.json) and the
+[unapplied candidate patch](experiments/gebp-broadcast-schedule-rejected.patch)
+retain the experiment.
