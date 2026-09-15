@@ -1534,3 +1534,50 @@ assembly is restored exactly to `c25616b1`; the candidate is rejected for now.
 [Raw logs and means](experiments/gebp-shared-offset-2026-09-15.json) and the
 [unapplied patch](experiments/gebp-shared-offset-rejected.patch) retain the
 experiment.
+
+## Two-thread column-worker working sets (2026-09-15)
+
+Keep raw resident column workers as the measured recommendation. The new
+`BenchmarkGEMMColumnHotset` preserves caller `GOMAXPROCS` (the older general
+pool benchmark forces four), uses two workers, and rotates one or eight
+matrices for three representative projections. Both raw and packed weights
+remain allocated, as required by the current prepacked API. Setup and
+bitwise raw/prepacked output checks are outside the timed regions.
+
+Run with:
+
+```sh
+GOMAXPROCS=2 go test ./backends/simd/runtime -run '^$' \
+  -bench '^BenchmarkGEMMColumnHotset$' -benchtime=1s -count=3
+```
+
+Mode-separated rounds (raw then prepacked, followed by the reverse) show
+large timing drift and reversing conclusions. Two further rounds put raw
+and prepacked next to each other for each shape/set:
+
+| Projection / matrix count | Adjacent round 3 raw / packed, ms | Adjacent round 4 raw / packed, ms |
+|---|---:|---:|
+| 126×1024×1024 / 1 | 3.112 / 2.955 | 4.161 / 4.081 |
+| 126×1024×1024 / 8 | 3.088 / 3.234 | 4.095 / 4.235 |
+| 126×3072×1024 / 1 | 9.498 / 9.153 | 13.146 / 13.056 |
+| 126×3072×1024 / 8 | 9.607 / 9.383 | 13.855 / 13.334 |
+| 128×1024×3072 / 1 | 12.456 / 16.856 | 14.673 / 16.477 |
+| 128×1024×3072 / 8 | 13.891 / 20.675 | 14.549 / 16.820 |
+
+The adjacent pairs suggest modest benefits for some K=1024 cases and losses
+for K=3072; they do not justify a production partial-prepack policy. Timing
+drift persists, and these synthetic working sets do not reproduce full-model
+layer traversal. No cause for the drift was isolated. All 96 samples report
+zero allocations/op; occasional nonzero B/op values are retained without
+attribution. No production code or memory policy changed.
+
+A structural review also considered gate/up and Q/K/V fusion. These projections
+share inputs but use distinct weight panels; combining dispatch does not remove
+their packing work. Their adjacent workspace allocations are separate row-major
+matrices, not an interleaved fused output. Fusion requires explicit layout or
+multi-output handling. A one-layer packed cache rebuilt on each traversal would
+also repack every step; persistent subsets require separate budget and lifetime
+work. None of these policies was implemented.
+
+[Raw samples and validation](experiments/gemm-column-hotset-2026-09-15.json)
+retain all rounds.
