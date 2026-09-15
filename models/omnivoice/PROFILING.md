@@ -1425,3 +1425,38 @@ non-overlap and lifetime. Full-tree build still fails in unrelated packages.
 
 [Raw microbenchmarks, full trials, profile and build log](experiments/attention-packed-nn-2026-09-14.json)
 retain all measurements, including the slower full-run mean.
+
+## Eight-element amd64 weight packing (2026-09-15)
+
+The amd64 packer now transposes eight source elements per row using YMM loads,
+lane-local shuffles and upper-lane extraction. Four-element and scalar tails
+retain exact bounds. The packed layout, feature gate and other architectures
+are unchanged; no floating arithmetic or extra scratch is introduced.
+
+First-round median packing times:
+
+| k | Four-element (ns) | Eight-element (ns) |
+| --- | ---: | ---: |
+| 128 | 225.5 | 219.5 |
+| 1024 | 3959 | 3488 |
+| 3072 | 12522 | 10773 |
+
+These give about 12–14% lower packing time at the larger widths. Two subsequent
+rounds include complete packed projection benchmarks, which favour the candidate,
+but also show substantial timing drift and mixed individual packing results.
+All raw samples are retained; they do not support a precise universal speedup.
+Allocations remain zero.
+
+Full-synthesis times are 47.217/46.333 s before and 46.463/46.424 s after:
+means 46.775/46.443 s with opposite pair directions. No whole-run gain is
+established. All four WAV hashes match the established baseline.
+
+Bitwise layout tests now span every short tail around eight-element blocks,
+up to k=3072, with unaligned input/output, padding and exceptional float payloads.
+Existing guard-page rows catch overreads. Independent review verified register
+lifetimes, lane/store layout, exact footprints and the feature guard. SIMD and
+model tests, race/vet/no-CGo checks, native and ARM64 builds pass. Broader backend
+tests and full-tree build fail outside the changed code; their logs are retained.
+
+[Raw benchmark rounds, full-synthesis trials and validation failures](experiments/pack8-2026-09-15.json)
+record the complete experiment.

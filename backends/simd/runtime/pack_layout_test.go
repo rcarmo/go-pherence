@@ -8,13 +8,14 @@ import (
 
 func TestPackBNTBitwiseLayout(t *testing.T) {
 	bits := []uint32{0, 0x80000000, 0x7f800000, 0xff800000, 0x7fc01234, 0x7f801234, 1, 0x807fffff, 0x3f800000}
-	for _, k := range []int{1, 2, 3, 4, 5, 7, 8, 15, 16, 17, 127, 128, 129, 1024} {
+	for _, k := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 23, 24, 25, 127, 128, 129, 1024, 3072} {
 		for _, nr := range []int{1, 7, 15, 16} {
 			for _, pad := range []int{0, 3} {
 				t.Run(fmt.Sprintf("k%d/nr%d/pad%d", k, nr, pad), func(t *testing.T) {
 					const jj = 2
 					ldb := k + pad
-					src := make([]float32, (jj+nr-1)*ldb+k)
+					storage := make([]float32, (jj+nr-1)*ldb+k+1)
+					src := storage[1:] // deliberately unaligned input, exact final footprint
 					for i := range src {
 						src[i] = math.Float32frombits(bits[i%len(bits)] ^ uint32(i%3))
 					}
