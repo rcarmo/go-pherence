@@ -1508,3 +1508,29 @@ Production assembly is restored exactly to `4decb2e9`.
 [Raw logs and means](experiments/gebp-broadcast-schedule-2026-09-15.json) and the
 [unapplied candidate patch](experiments/gebp-broadcast-schedule-rejected.patch)
 retain the experiment.
+
+## Shared A-row offset experiment (2026-09-15)
+
+Keep the existing kernel after four mixed benchmark rounds. The candidate
+replaces six A-row pointer increments with one shared byte offset in `BX`.
+Broadcasts use indexed addressing from fixed row bases. Arithmetic order,
+load widths and scratch usage are unchanged.
+
+| Projection (M×N×K) | Round 1 base / candidate, ms | Round 2 | Round 3 | Round 4 |
+|---|---:|---:|---:|---:|
+| 126×1024×1024 | 5.845 / 5.836 | 5.959 / 5.859 | 5.946 / 5.908 | 6.269 / 5.911 |
+| 126×3072×1024 | 18.532 / 18.317 | 18.107 / 18.361 | 18.220 / 18.259 | 19.293 / 18.367 |
+| 128×1024×3072 | 18.680 / 18.298 | 18.775 / 18.352 | 18.472 / 18.390 | 19.864 / 19.927 |
+
+Each mean includes three samples. Rounds 1/2 use 400 ms and rounds 3/4 use
+1 s per benchmark sample. Order alternates base/candidate and candidate/base.
+The first shape favours the candidate in every round; the other shapes change
+direction. Round 4 timing drift and all slow samples are retained. These
+results do not establish a consistent cross-shape gain on this N100 VM.
+
+All 72 projection samples report zero bytes and allocations/op. Recorded
+228-case fingerprints match. No full-synthesis test was run. Production
+assembly is restored exactly to `c25616b1`; the candidate is rejected for now.
+[Raw logs and means](experiments/gebp-shared-offset-2026-09-15.json) and the
+[unapplied patch](experiments/gebp-shared-offset-rejected.patch) retain the
+experiment.
