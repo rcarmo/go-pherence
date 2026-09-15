@@ -1460,3 +1460,27 @@ tests and full-tree build fail outside the changed code; their logs are retained
 
 [Raw benchmark rounds, full-synthesis trials and validation failures](experiments/pack8-2026-09-15.json)
 record the complete experiment.
+
+## Rejected packed-panel prefetch (2026-09-15)
+
+Keep the production kernel from `e2d00b33`. Adding guarded `PREFETCHT0` loads
+512 and 576 bytes ahead in the two-way AVX2 K loop increased projection time
+across all three tested shapes in both run orders on the two-vCPU N100 VM.
+
+| Projection (M×N×K) | Round 1 baseline / candidate, ms | Round 2 baseline / candidate, ms | Regression |
+|---|---:|---:|---:|
+| 126×1024×1024 | 5.848 / 6.125 | 5.867 / 6.192 | 4.7–5.5% |
+| 126×3072×1024 | 18.382 / 18.941 | 18.866 / 19.452 | 3.0–3.1% |
+| 128×1024×3072 | 18.592 / 19.116 | 18.591 / 19.454 | 2.8–4.6% |
+
+Each entry is the mean of three samples. The recorded arithmetic fingerprints
+match (`68d4d7ec…02bba3`); no full-synthesis test was run for this rejected
+candidate. All samples report zero allocations/op, but one candidate sample
+reports 221 B/op. Its cause was not isolated and the raw value is retained.
+
+The production assembly was restored exactly. The rejection applies to this
+guarded strategy on the N100; the experiment does not isolate prefetch cost
+from its bounds branch. Raw logs and means are in
+[`experiments/gebp-prefetch-2026-09-15.json`](experiments/gebp-prefetch-2026-09-15.json),
+and the candidate is retained only as
+[`experiments/gebp-prefetch-rejected.patch`](experiments/gebp-prefetch-rejected.patch).

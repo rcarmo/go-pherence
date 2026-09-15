@@ -1,0 +1,17 @@
+diff --git a/backends/simd/runtime/gebp_amd64.s b/backends/simd/runtime/gebp_amd64.s
+index 51e6a238..b2cd1eee 100644
+--- a/backends/simd/runtime/gebp_amd64.s
++++ b/backends/simd/runtime/gebp_amd64.s
+@@ -45,6 +45,12 @@ TEXT ·gebpMicroKernel(SB), NOSPLIT, $16-56
+     JB      ktail
+ 
+ kloop2:
++    // Prefetch only addresses inside the remaining packed panel.
++    CMPQ CX, $10
++    JB no_prefetch
++    PREFETCHT0 512(SI)
++    PREFETCHT0 576(SI)
++no_prefetch:
+     VMOVUPS       (SI), Y12
+     VMOVUPS     32(SI), Y13
+ 

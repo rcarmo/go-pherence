@@ -1,0 +1,53 @@
+{
+  "baseline_commit": "e2d00b33",
+  "decision": "reject bounded T0 packed-panel prefetch at512/576bytes: slower across all3shapes in both rounds",
+  "means_ms": {
+    "no-prefetch-round1": {
+      "126x1024x1024-2": 5.8479313333333325,
+      "126x3072x1024-2": 18.382245,
+      "128x1024x3072-2": 18.592481333333335
+    },
+    "no-prefetch-round2": {
+      "126x1024x1024-2": 5.8667603333333345,
+      "126x3072x1024-2": 18.866245666666668,
+      "128x1024x3072-2": 18.590587333333335
+    },
+    "prefetch-round1": {
+      "126x1024x1024-2": 6.125494333333333,
+      "126x3072x1024-2": 18.940704666666665,
+      "128x1024x3072-2": 19.116143333333333
+    },
+    "prefetch-round2": {
+      "126x1024x1024-2": 6.191550666666667,
+      "126x3072x1024-2": 19.45152033333333,
+      "128x1024x3072-2": 19.453563666666664
+    }
+  },
+  "logs": {
+    "no-prefetch-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      72\t   5862655 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      81\t   5843712 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      75\t   5837427 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18151641 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18705486 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      22\t  18289608 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18317072 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      21\t  19051669 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18408703 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "no-prefetch-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      76\t   5907291 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      79\t   5848773 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   5844217 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  19486933 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18482394 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18629410 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  18754438 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18580725 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18436599 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "no-prefetch-fingerprint": "=== RUN   TestGEBPOrderFingerprint\nGEBP fingerprint: 68d4d7ecd3ed77cd63e3f685cae518c8139c75ca5630e9e4178931322602bba3\n--- PASS: TestGEBPOrderFingerprint (0.03s)\nPASS\n",
+    "prefetch-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      73\t   6060874 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   6150347 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      73\t   6165262 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  19130719 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  18843131 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  18848264 ns/op\t     221 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19162297 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19080026 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19106107 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "prefetch-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      74\t   6075295 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   6187459 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      73\t   6311898 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      22\t  19871353 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  19326072 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  19157136 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19098158 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19565945 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      22\t  19696588 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "prefetch-fingerprint": "=== RUN   TestGEBPOrderFingerprint\nGEBP fingerprint: 68d4d7ecd3ed77cd63e3f685cae518c8139c75ca5630e9e4178931322602bba3\n--- PASS: TestGEBPOrderFingerprint (0.03s)\nPASS\n"
+  },
+  "notes": [
+    "Only prefetch instructions and remaining-k bounds branch added; production assembly restored exactly after rejection.",
+    "Fingerprint identical across228cases. No full-synthesis run for rejected candidate.",
+    "One candidate sample reports221 B/op but0 allocs/op; raw value retained, cause not isolated.",
+    "Results evaluate this guarded prefetch strategy on N100 only."
+  ],
+  "validation": {
+    "production_assembly_unchanged": true,
+    "unapplied_patch_check": "pass",
+    "raw_means_recalculated": "pass",
+    "independent_evidence_review": "supports rejection of this strategy only",
+    "checks": [
+      "make test-omnivoice vet-omnivoice: pass",
+      "go test ./backends/simd/runtime: pass",
+      "go vet ./backends/simd/runtime: pass",
+      "git diff --check: pass"
+    ],
+    "full_build_log": "# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim\ncc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch\ncc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d arrowlake arrowlake-s lunarlake pantherlake bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge clearwaterforest knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui yongfeng k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 znver5 btver1 btver2 native\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool\nbackends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect\ncmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve\ncmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher\ncmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)\n"
+  }
+}
