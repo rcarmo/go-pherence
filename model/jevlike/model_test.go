@@ -45,10 +45,14 @@ func TestTinyParameterRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range m.NamedParameters() {
-		for i := range p.Values {
-			p.Values[i] = float32(i%7) * 0.1
+	params := m.NamedParameterMap()
+	for _, values := range params {
+		for i := range values {
+			values[i] = float32(i%7) * 0.1
 		}
+	}
+	if err := m.LoadNamedParameters(params); err != nil {
+		t.Fatal(err)
 	}
 	batch, err := BuildByteBatch([]ChoiceExample{{Context: "abc", Options: []string{"ab", "cd"}, Label: 0}}, 8, 8)
 	if err != nil {

@@ -6,6 +6,8 @@ package jevlike
 import (
 	"fmt"
 	"math"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 const (
@@ -512,6 +514,11 @@ func layerNormVector(input, gamma, beta []float32) []float32 {
 
 func linearNoBias(weight []float32, outDim, inDim int, input []float32) []float32 {
 	out := make([]float32, outDim)
+	// GemvRows dispatches to native Plan 9 kernels on supported CPUs and
+	// retains the runtime's portable implementation elsewhere.
+	if simd.GemvRows(out, input, weight, outDim, inDim) {
+		return out
+	}
 	for row := 0; row < outDim; row++ {
 		base := row * inDim
 		var sum float64
@@ -524,11 +531,7 @@ func linearNoBias(weight []float32, outDim, inDim int, input []float32) []float3
 }
 
 func dotFloat32(a, b []float32) float32 {
-	var sum float64
-	for i, value := range a {
-		sum += float64(value) * float64(b[i])
-	}
-	return float32(sum)
+	return simd.Sdot(a, b)
 }
 
 func softmaxFloat32(values []float32) []float32 {
