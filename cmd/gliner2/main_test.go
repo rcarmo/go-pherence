@@ -110,3 +110,27 @@ func TestMixedSchemaFileValidation(t *testing.T) {
 		t.Fatal("mixed task flags accepted")
 	}
 }
+
+func TestMixedRecordSchemaFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schemas.json")
+	valid := `[{"parent":"person","marker":"[C]","labels":["name","city"],"record":{"mode":"natural","anchor_query_id":0,"fields":[{"query_id":0,"name":"name","scalar":true},{"query_id":1,"name":"city","scalar":true}]}},{"parent":"entities","marker":"[E]","labels":["location"]}]`
+	if err := os.WriteFile(path, []byte(valid), 0600); err != nil {
+		t.Fatal(err)
+	}
+	schemas, err := readTextSchemas(path)
+	if err != nil || len(schemas) != 2 {
+		t.Fatal(schemas, err)
+	}
+	for _, bad := range []string{
+		`[{"parent":"person","marker":"[C]","labels":["name"]}]`,
+		`[{"parent":"person","marker":"[C]","labels":["name"],"record":{"mode":"natural","anchor_query_id":0,"fields":[{"query_id":0,"name":"wrong","scalar":true}]}}]`,
+		`[{"parent":"entities","marker":"[E]","labels":["name"],"record":{"mode":"natural","anchor_query_id":0,"fields":[{"query_id":0,"name":"name","scalar":true}]}}]`,
+	} {
+		if err := os.WriteFile(path, []byte(bad), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = readTextSchemas(path); err == nil {
+			t.Fatal("invalid metadata accepted", bad)
+		}
+	}
+}

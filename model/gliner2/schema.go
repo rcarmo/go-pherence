@@ -25,6 +25,10 @@ type TextSchema struct {
 	Record       *RecordSpec        `json:"record,omitempty"`
 }
 
+// ValidateRecordMetadata checks optional local record field routing without
+// tokenizing or loading weights. Used by schema-file frontends.
+func (s TextSchema) ValidateRecordMetadata() error { return validateTextSchemaRecordMetadata(s) }
+
 // PrepareTextSchema matches processor._transform_schema's descriptions/both
 // construction. Only structural marker slots become queries; literal special
 // tokens inside prompt text, labels or examples do not add query positions.
