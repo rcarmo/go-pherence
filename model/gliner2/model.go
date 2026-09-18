@@ -111,10 +111,18 @@ func LoadEntityModel(dir string) (*EntityModel, error) {
 }
 
 func (m *EntityModel) ScoreEntities(text string, labels []string, maxTokens int) (EntityScores, error) {
+	return m.ScoreEntitySchema(text, TextSchema{Parent: "entities", Marker: "[E]", Labels: labels}, maxTokens)
+}
+
+// ScoreEntitySchema supports ordered descriptions and examples for one group.
+func (m *EntityModel) ScoreEntitySchema(text string, schema TextSchema, maxTokens int) (EntityScores, error) {
 	if m == nil || m.Tokenizer == nil {
 		return EntityScores{}, fmt.Errorf("uninitialised entity model")
 	}
-	input, err := m.Tokenizer.PrepareEntities(text, labels, maxTokens)
+	if schema.Marker != "[E]" {
+		return EntityScores{}, fmt.Errorf("entity schema requires [E] marker")
+	}
+	input, err := m.Tokenizer.PrepareTextSchema(text, schema, maxTokens)
 	if err != nil {
 		return EntityScores{}, err
 	}

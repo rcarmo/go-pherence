@@ -12,10 +12,18 @@ type ClassificationScores struct {
 }
 
 func (m *EntityModel) Classify(text, task string, labels []string, maxTokens int) (ClassificationScores, error) {
+	return m.ClassifySchema(text, TextSchema{Parent: task, Marker: "[L]", Labels: labels}, maxTokens)
+}
+
+func (m *EntityModel) ClassifySchema(text string, schema TextSchema, maxTokens int) (ClassificationScores, error) {
+	labels, task := schema.Labels, schema.Parent
+	if schema.Marker != "[L]" {
+		return ClassificationScores{}, fmt.Errorf("classification requires [L] schema")
+	}
 	if m == nil || m.Tokenizer == nil {
 		return ClassificationScores{}, fmt.Errorf("uninitialised model")
 	}
-	input, err := m.Tokenizer.PrepareClassification(text, task, labels, maxTokens)
+	input, err := m.Tokenizer.PrepareTextSchema(text, schema, maxTokens)
 	if err != nil {
 		return ClassificationScores{}, err
 	}
