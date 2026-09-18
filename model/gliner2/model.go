@@ -11,16 +11,18 @@ import (
 // EntityModel binds the published shared-pool inference components. It returns
 // raw candidate scores, not the record/relation decoder's public output schema.
 type EntityModel struct {
-	Config      Config
-	Tokenizer   *Tokenizer
-	Encoder     Deberta
-	Boundary    BoundaryEncoder
-	Queries     BoundaryQueryHead
-	Pool        DocumentCandidatePool
-	Scorer      SharedPoolScorer
-	Classifier  ClassificationHead
-	Relation    *SparseRelationScorer
-	Null, Count *Linear
+	Config           Config
+	Tokenizer        *Tokenizer
+	Encoder          Deberta
+	Boundary         BoundaryEncoder
+	Queries          BoundaryQueryHead
+	Pool             DocumentCandidatePool
+	Scorer           SharedPoolScorer
+	Classifier       ClassificationHead
+	Relation         *SparseRelationScorer
+	Record           *RecordHead
+	CandidateEncoder *Linear
+	Null, Count      *Linear
 }
 
 type EntityScores struct {
@@ -96,6 +98,15 @@ func LoadEntityModel(dir string) (*EntityModel, error) {
 		m.Relation = &relation
 	}
 	r := weightReader{source: weights}
+	if cfg.BoundaryHead.EnableRecords {
+		head, err := LoadRecordHead(weights, ec.HiddenSize, cfg.BoundaryHead)
+		if err != nil {
+			return nil, err
+		}
+		m.Record = &head
+		p := r.linear("boundary_head.candidate_encoder", 2*cfg.BoundaryHead.BoundaryDim, ec.HiddenSize)
+		m.CandidateEncoder = &p
+	}
 	if cfg.BoundaryHead.EnableAbstention {
 		p := r.linear("boundary_head.null_projection", ec.HiddenSize, 1)
 		m.Null = &p

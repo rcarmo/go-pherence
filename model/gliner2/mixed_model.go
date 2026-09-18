@@ -4,23 +4,35 @@ import "fmt"
 
 // MixedScores preserves schema order and maps groups into the single shared
 // extractive query axis. Classification groups have no extractive query IDs.
-// Relation groups also receive contextual pair scores. Record group logits
-// remain raw field scores until record metadata is supplied.
+// Relation groups also receive contextual pair scores. Record groups keep raw
+// field scores in Extraction and also expose routed RecordScores when metadata
+// is supplied.
 type MixedScores struct {
 	Input           MixedInput
 	Extraction      *EntityScores
 	GroupQueryIDs   [][]int
 	Classifications map[int]ClassificationScores
 	Relations       map[int]RelationScores
+	Records         map[int]RecordScores
 }
 
 func (m *EntityModel) ScoreSchemas(text string, schemas []TextSchema, maxTokens int) (MixedScores, error) {
 	if m == nil || m.Tokenizer == nil {
 		return MixedScores{}, fmt.Errorf("uninitialised mixed model")
 	}
+	needRecords := false
 	for _, s := range schemas {
+		if err := validateTextSchemaRecordMetadata(s); err != nil {
+			return MixedScores{}, err
+		}
 		if s.Marker == "[R]" && (len(s.Labels) != 2 || s.Labels[0] != "head" || s.Labels[1] != "tail" || m.Relation == nil) {
 			return MixedScores{}, fmt.Errorf("relation schema requires loaded scorer and ordered head/tail roles")
+		}
+		if s.Record != nil {
+			if m.Record == nil || m.CandidateEncoder == nil {
+				return MixedScores{}, fmt.Errorf("record schema requires loaded scorer")
+			}
+			needRecords = true
 		}
 	}
 	input, err := m.Tokenizer.PrepareSchemas(text, schemas, maxTokens)
@@ -58,13 +70,13 @@ func (m *EntityModel) ScoreSchemas(text string, schemas []TextSchema, maxTokens 
 				probs[j] = sigmoid(float64(v) / temp)
 			}
 			out.Classifications[i] = ClassificationScores{Task: g.Schema.Parent, Labels: append([]string(nil), g.Schema.Labels...), Logits: logits, Probabilities: probs}
-		} else {
-			for j, row := range rows {
-				out.GroupQueryIDs[i] = append(out.GroupQueryIDs[i], len(queries))
-				queries = append(queries, row)
-				labels = append(labels, g.Schema.Labels[j])
-				positions = append(positions, g.QueryPositions[j])
-			}
+			continue
+		}
+		for j, row := range rows {
+			out.GroupQueryIDs[i] = append(out.GroupQueryIDs[i], len(queries))
+			queries = append(queries, row)
+			labels = append(labels, g.Schema.Labels[j])
+			positions = append(positions, g.QueryPositions[j])
 		}
 	}
 	if len(queries) == 0 {
@@ -148,6 +160,28 @@ func (m *EntityModel) ScoreSchemas(text string, schemas []TextSchema, maxTokens 
 			return MixedScores{}, err
 		}
 		out.Relations[i] = RelationScores{Input: result.Input, Pairs: pairs, Logits: scores}
+	}
+	if !needRecords {
+		return out, nil
+	}
+	candidateStates, err := m.projectRecordCandidateStates(boundary.States, pool)
+	if err != nil {
+		return MixedScores{}, err
+	}
+	out.Records = make(map[int]RecordScores)
+	for i, g := range input.Groups {
+		if g.Schema.Record == nil {
+			continue
+		}
+		spec, err := globalRecordSpecForSchema(g.Schema, out.GroupQueryIDs[i])
+		if err != nil {
+			return MixedScores{}, err
+		}
+		group, err := m.Record.ForwardGroupDense(spec, queries, candidateStates, pool, logits, qm)
+		if err != nil {
+			return MixedScores{}, err
+		}
+		out.Records[i] = RecordScores{Input: result.Input, Group: group, CandidateLogits: logits}
 	}
 	return out, nil
 }

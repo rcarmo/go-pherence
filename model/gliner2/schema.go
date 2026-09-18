@@ -22,6 +22,7 @@ type TextSchema struct {
 	Prompt       string             `json:"prompt,omitempty"`
 	Descriptions []LabelDescription `json:"descriptions,omitempty"`
 	Examples     []SchemaExample    `json:"examples,omitempty"`
+	Record       *RecordSpec        `json:"record,omitempty"`
 }
 
 // PrepareTextSchema matches processor._transform_schema's descriptions/both
@@ -35,6 +36,9 @@ func (t *Tokenizer) PrepareTextSchema(text string, s TextSchema, maxTokens int) 
 	case "[E]", "[L]", "[R]", "[C]":
 	default:
 		return EntityInput{}, fmt.Errorf("unsupported schema marker %q", s.Marker)
+	}
+	if err := validateTextSchemaRecordMetadata(s); err != nil {
+		return EntityInput{}, err
 	}
 	allowed := make(map[string]bool, len(s.Labels))
 	for _, label := range s.Labels {

@@ -1,10 +1,6 @@
 package gliner2
 
-import (
-	"fmt"
-	"github.com/rcarmo/go-pherence/loader/safetensors"
-	"path/filepath"
-)
+import "fmt"
 
 // RecordModel adds learned record weights to the shared extraction backbone.
 type RecordModel struct {
@@ -12,6 +8,7 @@ type RecordModel struct {
 	Head             RecordHead
 	CandidateEncoder Linear
 }
+
 type RecordScores struct {
 	Input           EntityInput
 	Group           DenseRecordGroupOutput
@@ -26,21 +23,10 @@ func LoadRecordModel(dir string) (*RecordModel, error) {
 	if !base.Config.BoundaryHead.EnableRecords {
 		return nil, fmt.Errorf("records disabled in checkpoint")
 	}
-	sf, err := safetensors.Open(filepath.Join(dir, "model.safetensors"))
-	if err != nil {
-		return nil, err
+	if base.Record == nil || base.CandidateEncoder == nil {
+		return nil, fmt.Errorf("record weights unavailable")
 	}
-	defer sf.Close()
-	head, err := LoadRecordHead(sf, base.Encoder.Config.HiddenSize, base.Config.BoundaryHead)
-	if err != nil {
-		return nil, err
-	}
-	r := weightReader{source: sf}
-	proj := r.linear("boundary_head.candidate_encoder", 2*base.Config.BoundaryHead.BoundaryDim, base.Encoder.Config.HiddenSize)
-	if r.err != nil {
-		return nil, r.err
-	}
-	return &RecordModel{base, head, proj}, nil
+	return &RecordModel{base, *base.Record, *base.CandidateEncoder}, nil
 }
 
 // ScoreRecord scores one plain ordered JSON-structure schema, without
@@ -109,18 +95,9 @@ func (m *RecordModel) ScoreRecord(text, name string, spec RecordSpec, maxTokens 
 	if err != nil {
 		return RecordScores{}, err
 	}
-	endpoints := make([][]float32, len(pool.Indices))
-	for i, p := range pool.Indices {
-		endpoints[i] = append(append([]float32(nil), b.States[p[0]]...), b.States[p[1]]...)
-	}
-	states, err := projectRows(m.CandidateEncoder, endpoints, "record candidate endpoints")
+	states, err := base.projectRecordCandidateStates(b.States, pool)
 	if err != nil {
 		return RecordScores{}, err
-	}
-	for i, valid := range pool.ValidMask {
-		if !valid {
-			clear(states[i])
-		}
 	}
 	group, err := m.Head.ForwardGroupDense(spec, queries, states, pool, logits, qm)
 	if err != nil {

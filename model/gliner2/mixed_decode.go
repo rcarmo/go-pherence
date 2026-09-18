@@ -1,6 +1,9 @@
 package gliner2
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 // DecodedSchemaGroup retains group order even when labels repeat across tasks.
 type DecodedSchemaGroup struct {
@@ -8,11 +11,12 @@ type DecodedSchemaGroup struct {
 	Marker         string                `json:"marker"`
 	Relations      []Relation            `json:"relations,omitempty"`
 	Entities       []Entity              `json:"entities,omitempty"`
+	Records        []DecodedRecord       `json:"records,omitempty"`
 	Classification *ClassificationScores `json:"classification,omitempty"`
 }
 
-// DecodeSchemaGroups decodes entity, classification and relation groups.
-// Raw record fields require record metadata and are not decoded as entities.
+// DecodeSchemaGroups decodes entity, classification, relation and record
+// groups. Raw [C] field groups without record metadata are not decoded.
 func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy string, c BoundaryHeadConfig) ([]DecodedSchemaGroup, error) {
 	if len(s.GroupQueryIDs) != len(s.Input.Groups) {
 		return nil, fmt.Errorf("group routing count mismatch")
@@ -87,6 +91,26 @@ func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy st
 				return nil, err
 			}
 			result[i].Entities = entities
+		case "[C]":
+			if g.Schema.Record == nil {
+				return nil, fmt.Errorf("record group %d requires record metadata", i)
+			}
+			r, ok := s.Records[i]
+			if !ok {
+				return nil, fmt.Errorf("missing record group %d", i)
+			}
+			expected, err := globalRecordSpecForSchema(g.Schema, s.GroupQueryIDs[i])
+			if err != nil {
+				return nil, err
+			}
+			if !reflect.DeepEqual(r.Group.Spec, expected) || !reflect.DeepEqual(r.Group.Fields, expected.Fields) {
+				return nil, fmt.Errorf("record group schema mismatch")
+			}
+			decoded, err := DecodeRecords(text, r, c)
+			if err != nil {
+				return nil, err
+			}
+			result[i].Records = decoded
 		default:
 			return nil, fmt.Errorf("mixed decoder does not yet handle marker %q", g.Schema.Marker)
 		}
