@@ -26,10 +26,10 @@ func run(args []string, out, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
-	threshold := fs.Float64("threshold", .5, "fixed sigmoid threshold; no adaptive/count/abstention decoding")
+	threshold := fs.Float64("threshold", .5, "sigmoid threshold before checkpoint count/abstention filtering")
 	policy := fs.String("overlap", "flat", "allow, nested, flat, or longest (per label)")
 	maxTokens := fs.Int("max-tokens", 4096, "reject longer formatted subword sequences")
-	raw := fs.Bool("raw", false, "emit raw candidate scores instead of basic decoded entities")
+	raw := fs.Bool("raw", false, "emit raw candidate scores instead of decoded entities")
 	var labels labelList
 	fs.Var(&labels, "label", "entity label; repeat in schema order")
 	if err := fs.Parse(args); err != nil {
@@ -57,12 +57,12 @@ func run(args []string, out, stderr io.Writer) error {
 	if *raw {
 		return enc.Encode(scores)
 	}
-	entities, err := gliner2.DecodeEntities(*text, scores, *threshold, *policy)
+	entities, err := gliner2.DecodeConfiguredEntities(*text, scores, *threshold, *policy, m.Config.BoundaryHead)
 	if err != nil {
 		return err
 	}
 	return enc.Encode(struct {
 		Entities []gliner2.Entity `json:"entities"`
 		Decoding string           `json:"decoding"`
-	}{entities, "fixed-threshold; no adaptive/count/abstention filtering"})
+	}{entities, "checkpoint temperature/count/abstention with per-label overlap policy"})
 }
