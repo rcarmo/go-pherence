@@ -4,7 +4,9 @@ Upstream: https://github.com/fastino-ai/GLiNER2
 
 Reference revision: `d7c727458bf6929bc9ef5ee04e13c3f717a7c455`.
 
-The initial Go package validates the published GLiNER 2.5 boundary checkpoint configuration. It does not implement inference yet. The reference fixture comes from `fastino/gliner2.5-base-v1/config.json`.
+This Go adaptation implements native inference for the published GLiNER 2.5 boundary checkpoint: DeBERTa, Unigram tokenisation, sparse/shared candidate scoring, classification, relation scoring and record assignment/decoding. Float32 projections and dot arithmetic use `go-pherence` SIMD/Plan 9 kernels with portable fallbacks. Upstream Python is used to generate offline numerical reference fixtures, not during native inference.
+
+Configuration, tensor-shape and published-model fixtures refer to `fastino/gliner2.5-base-v1`. DeBERTa reference generators use Hugging Face Transformers (`transformers.models.deberta_v2`, copyright Microsoft and Hugging Face, Apache 2.0); this implementation follows its relative-position and encoder contracts. The full Apache 2.0 notice below is retained. This provenance record supplements, and does not replace, the repository's top-level licence. Supported workflows and deliberate compatibility limits are documented in README.md and VALIDATION.md.
 
 ## Upstream licence
 

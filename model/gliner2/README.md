@@ -26,13 +26,34 @@ Record fields accept `str` or `list`, followed by `,required` and/or `,exclusive
 
 `-raw` exposes model scores for entity, relation and record workflows. `-max-tokens` rejects over-budget combined schema/text inputs rather than silently truncating their alignment. Byte offsets slice Go strings; character offsets count Unicode code points.
 
+## Shared schemas
+
+`-schema schema.json` accepts one described entity/classification schema. `-schemas schemas.json` accepts an ordered array of mixed entity, classification, relation and record groups. Groups share one encoder pass and one extraction candidate pool; classification choices do not become extraction queries.
+
+```json
+[
+  {"parent":"entities","marker":"[E]","labels":["person","location"],
+   "descriptions":[{"label":"person","text":"A human being"}]},
+  {"parent":"lives_in","marker":"[R]","labels":["head","tail"]},
+  {"parent":"person","marker":"[C]","labels":["name","city"],
+   "record":{"mode":"natural","anchor_query_id":0,"fields":[
+     {"query_id":0,"name":"name","scalar":true,"required":true},
+     {"query_id":1,"name":"city","scalar":true}
+   ]}}
+]
+```
+
+`parent`, `marker` and ordered `labels` define a group. `[E]`, `[L]`, `[R]` and `[C]` select entities, classification, relations and records. Relation roles must be ordered `head`, `tail`. Record query IDs and the anchor are local to that group's labels, not global query indices. Duplicate task names remain separate groups in output.
+
+Descriptions are an ordered list of `{ "label": "...", "text": "..." }`; examples are `{ "input": "...", "label": "..." }`. An optional `prompt` extends the parent text. Literal special tokens inside those strings do not create extra structural query slots. Schema files reject unknown fields, trailing data and invalid record metadata before loading weights.
+
 ## Compatibility limits
 
-The CLI runs one entity group, classification task, relation type or record group per request. Mixed task schemas, multiple record/relation groups, schema descriptions, few-shot examples, selection fields, custom validators and automatic document chunking are not implemented. This is not a drop-in replacement for the complete upstream Python API.
+The implemented surface covers the published base checkpoint's native inference paths, not every upstream Python convenience API. Selection fields, custom validation callbacks, automatic document chunking, training/export of GLiNER checkpoints and remote Hub management are not included. Descriptions and examples are passed through the ordered schema format rather than the upstream Python schema-builder DSL.
 
 The encoder supports the published DeBERTa configuration; incompatible architectures and nonzero query-attention layers are rejected. Non-default checkpoint variants need their own parity checks. Stable Go tie policies are deterministic but are not claimed to reproduce unspecified PyTorch top-k or SciPy assignment ties.
 
-Record scoring has published-checkpoint parity for one natural-anchor fixture and synthetic PyTorch parity across all three modes. Exclusive decoding has algorithmic tests, not a full published-checkpoint fixture. The visual adapter work belongs to `model/jevlike`, not this package.
+Record scoring has published-checkpoint parity for natural-anchor single and mixed fixtures, and synthetic PyTorch parity across all three modes. Exclusive decoding has algorithmic and brute-force assignment tests, not a full published-checkpoint fixture. The visual adapter work belongs to `model/jevlike`, not this package.
 
 ## Checking results
 

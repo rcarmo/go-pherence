@@ -13,6 +13,8 @@ The codebase covers ordinary local inference, large-model placement, speech, ima
 | Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
 | Port the CPU kernels to ARM64 | [ARM CPU ISA feasibility](arm-cpu-isa-feasibility.md) and [CIX P1/Orange Pi 6 Plus](cix-p1-orange-pi-6-plus.md) |
 | Review the measured Gemma4 inference programme | [CPU performance-gap programme](../benchmarks/gemma4-gap/README.md), [CPU SIMD gap](gemma4-cpu-simd-gap.md), [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen serving baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
+| Score a changing list of choices or train a small scorer | [Jevlike native scorer](../model/jevlike/README.md) |
+| Extract entities, relations, records or classifications | [GLiNER 2.5 native inference](../model/gliner2/README.md) |
 | Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
 | Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
 | Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |
