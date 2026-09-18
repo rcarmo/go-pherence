@@ -19,6 +19,7 @@ type EntityModel struct {
 	Pool        DocumentCandidatePool
 	Scorer      SharedPoolScorer
 	Classifier  ClassificationHead
+	Relation    *SparseRelationScorer
 	Null, Count *Linear
 }
 
@@ -86,6 +87,13 @@ func LoadEntityModel(dir string) (*EntityModel, error) {
 	m.Classifier, err = LoadClassificationHead(weights, ec.HiddenSize)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.BoundaryHead.EnableRelations {
+		relation, err := LoadSparseRelationScorer(weights, ec.HiddenSize, cfg.BoundaryHead)
+		if err != nil {
+			return nil, err
+		}
+		m.Relation = &relation
 	}
 	r := weightReader{source: weights}
 	if cfg.BoundaryHead.EnableAbstention {
