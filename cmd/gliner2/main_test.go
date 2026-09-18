@@ -82,3 +82,28 @@ func TestTextSchemaFileValidation(t *testing.T) {
 		t.Fatal("mixed flags accepted")
 	}
 }
+
+func TestMixedSchemaFileValidation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schemas.json")
+	for _, tc := range []struct {
+		raw string
+		ok  bool
+	}{
+		{`[{"parent":"entities","marker":"[E]","labels":["person"]},{"parent":"sentiment","marker":"[L]","labels":["positive"]}]`, true},
+		{`[]`, false}, {`null`, false},
+		{`[{"parent":"r","marker":"[R]","labels":["head","tail"]}]`, false},
+		{`[{"parent":"entities","marker":"[E]","labels":["x"]}] {}`, false},
+	} {
+		if err := os.WriteFile(path, []byte(tc.raw), 0600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := readTextSchemas(path)
+		if (err == nil) != tc.ok {
+			t.Fatal(tc.raw, err)
+		}
+	}
+	var output bytes.Buffer
+	if err := run([]string{"-model", "none", "-text", "x", "-schemas", path, "-classify", "sentiment"}, &output, &output); err == nil {
+		t.Fatal("mixed task flags accepted")
+	}
+}

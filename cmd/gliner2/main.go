@@ -29,6 +29,7 @@ func run(args []string, out, stderr io.Writer) error {
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
 	schemaPath := fs.String("schema", "", "ordered TextSchema JSON file for entities or classification")
+	schemasPath := fs.String("schemas", "", "JSON array of entity/classification schemas sharing one encoder pass")
 	classify := fs.String("classify", "", "classification task name; returns independent choice scores instead of entities")
 	record := fs.String("record", "", "single record schema name")
 	mode := fs.String("record-mode", "natural", "natural, latent or anchorless")
@@ -48,8 +49,19 @@ func run(args []string, out, stderr io.Writer) error {
 		}
 		return err
 	}
-	if fs.NArg() != 0 || *dir == "" || *text == "" || (len(labels) == 0 && *relation == "" && *record == "" && *schemaPath == "") {
-		return fmt.Errorf("-model, -text and at least one -label are required; positional arguments not accepted")
+	if fs.NArg() != 0 || *dir == "" || *text == "" || (len(labels) == 0 && *relation == "" && *record == "" && *schemaPath == "" && *schemasPath == "") {
+		return fmt.Errorf("-model, -text and labels or a task/schema are required; positional arguments not accepted")
+	}
+	var schemas []gliner2.TextSchema
+	if *schemasPath != "" {
+		if *schemaPath != "" || *relation != "" || *record != "" || *classify != "" || len(labels) > 0 || len(fields) > 0 || *anchor != "" {
+			return fmt.Errorf("-schemas cannot be combined with other task/schema flags")
+		}
+		var err error
+		schemas, err = readTextSchemas(*schemasPath)
+		if err != nil {
+			return err
+		}
 	}
 	var schema *gliner2.TextSchema
 	if *schemaPath != "" {
@@ -106,6 +118,24 @@ func run(args []string, out, stderr io.Writer) error {
 	m, err := gliner2.LoadEntityModel(*dir)
 	if err != nil {
 		return err
+	}
+	if len(schemas) > 0 {
+		scores, err := m.ScoreSchemas(*text, schemas, *maxTokens)
+		if err != nil {
+			return err
+		}
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		if *raw {
+			return enc.Encode(scores)
+		}
+		groups, err := gliner2.DecodeSchemaGroups(*text, scores, *threshold, *policy, m.Config.BoundaryHead)
+		if err != nil {
+			return err
+		}
+		return enc.Encode(struct {
+			Groups []gliner2.DecodedSchemaGroup `json:"groups"`
+		}{groups})
 	}
 	if schema != nil {
 		enc := json.NewEncoder(out)
@@ -239,15 +269,46 @@ func readTextSchema(path string) (gliner2.TextSchema, error) {
 	if err = d.Decode(&extra); err != io.EOF {
 		return s, fmt.Errorf("schema contains trailing data")
 	}
+	return s, validateTextSchema(s)
+}
+
+func validateTextSchema(s gliner2.TextSchema) error {
 	if (s.Marker != "[E]" && s.Marker != "[L]") || strings.TrimSpace(s.Parent) == "" || len(s.Labels) == 0 {
-		return s, fmt.Errorf("schema needs parent, labels and [E] or [L] marker")
+		return fmt.Errorf("schema needs parent, labels and [E] or [L] marker")
 	}
 	seen := map[string]bool{}
 	for _, label := range s.Labels {
 		if strings.TrimSpace(label) == "" || seen[label] {
-			return s, fmt.Errorf("empty/duplicate schema label")
+			return fmt.Errorf("empty/duplicate schema label")
 		}
 		seen[label] = true
 	}
-	return s, nil
+	return nil
+}
+
+func readTextSchemas(path string) ([]gliner2.TextSchema, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	d := json.NewDecoder(f)
+	d.DisallowUnknownFields()
+	var schemas []gliner2.TextSchema
+	if err = d.Decode(&schemas); err != nil {
+		return nil, err
+	}
+	var extra any
+	if err = d.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("schemas contain trailing data")
+	}
+	if len(schemas) == 0 {
+		return nil, fmt.Errorf("at least one schema required")
+	}
+	for i, s := range schemas {
+		if err := validateTextSchema(s); err != nil {
+			return nil, fmt.Errorf("schema %d: %w", i, err)
+		}
+	}
+	return schemas, nil
 }
