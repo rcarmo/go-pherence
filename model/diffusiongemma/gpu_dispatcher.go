@@ -39,6 +39,8 @@ func (s *GGUFGPUDeviceSelfConditioning) Free() {
 
 type GPUDispatcher struct {
 	ResidentLayerPrefix   int
+	MaxLayers             int
+	TailAfterMaxLayers    bool
 	LMHeadTopK            int
 	Progress              bool
 	SkipEviction          bool
@@ -70,6 +72,8 @@ func (d GPUDispatcher) ggufDenseLayerResident(layer int) bool {
 func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 	return CPUDispatcher{
 		ResidentLayerPrefix:   d.ResidentLayerPrefix,
+		MaxLayers:             d.MaxLayers,
+		TailAfterMaxLayers:    d.TailAfterMaxLayers,
 		LMHeadTopK:            d.LMHeadTopK,
 		Progress:              d.Progress,
 		SkipEviction:          d.SkipEviction,
@@ -88,6 +92,9 @@ func (d GPUDispatcher) cpuFallback() CPUDispatcher {
 // remains available as an explicit CPU/SIMD reference path, while this method
 // requires CUDA so GPU prompt-prefill gaps stay visible.
 func (d GPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) ([]EncoderKVLayer, error) {
+	if weights == nil {
+		return nil, fmt.Errorf("DiffusionGemma encoder missing weights")
+	}
 	if !gpu.SgemmReady() {
 		return nil, fmt.Errorf("DiffusionGemma GPU prompt prefill requires CUDA SGEMM")
 	}
@@ -101,6 +108,9 @@ func (d GPUDispatcher) EncodePrompt(promptIDs []int, weights *TextWeights, ops F
 
 func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, ops ForwardOpPlan, buffers ForwardBufferPlan) (ForwardOutput, error) {
 	if !gpu.SgemmReady() {
+		if d.GGUFExpertIndex != nil && diffusionGemmaRequireGroupedExpertGraph() {
+			return ForwardOutput{}, fmt.Errorf("GGUF backend graph requires device-resident LM-head/self-conditioning path")
+		}
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma GPU: SGEMM not ready, CPU fallback\n")
 		}
@@ -196,7 +206,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	traceForwardRow("prefix", -1, traceRow, scratch, buffers.HiddenSize)
 	currentLayer := -1
 	completedLayers := 0
+	exitedByMaxLayers := false
 	layerStarted := time.Now()
+layerLoop:
 	for _, op := range ops.Layers {
 		if denseAsync != nil && op.Kind != OpRouter && op.Kind != OpExperts && op.Kind != OpPostMoE {
 			if err := waitDense(); err != nil {
@@ -211,6 +223,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			}
 			if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
+			}
+			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
+				exitedByMaxLayers = true
+				break layerLoop
 			}
 			layerStarted = time.Now()
 		}
@@ -332,10 +348,10 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	if err := waitDense(); err != nil {
 		return ForwardOutput{}, err
 	}
-	if currentLayer >= 0 {
+	if currentLayer >= 0 && !exitedByMaxLayers {
 		traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
 	}
-	if currentLayer >= 0 && !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
+	if currentLayer >= 0 && !exitedByMaxLayers && !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 		weights.EvictLayer(currentLayer)
 	}
 	if d.Progress {
@@ -390,6 +406,9 @@ func (d GPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 					stats.Q5PointerTable, stats.Q5BudgetFallback, float64(stats.Q5BudgetBytes)/(1024*1024), stats.Q5BudgetExperts)
 			}
 		}
+	}
+	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
+		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	var tLMHead, tTailOther, tSelfCondBuild time.Duration
 	var sampledArgmax []int

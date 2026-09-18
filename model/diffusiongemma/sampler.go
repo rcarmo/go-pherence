@@ -8,23 +8,32 @@ import (
 )
 
 // SamplerConfig mirrors the reference EntropyBoundSamplerConfig.
+type SamplerMode string
+
+const (
+	SamplerModeArgmax       SamplerMode = "argmax"
+	SamplerModeEntropyBound SamplerMode = "entropy_bound"
+)
+
 type SamplerConfig struct {
-	EntropyBound float64 `json:"entropy_bound"`
+	EntropyBound float64     `json:"entropy_bound"`
+	Mode         SamplerMode `json:"mode,omitempty"`
 }
 
 // DenoisingConfig captures the non-model generation controls needed by the
 // block-diffusion loop.
 type DenoisingConfig struct {
-	MaxDenoisingSteps   int           `json:"max_denoising_steps"`
-	TMin                float64       `json:"t_min"`
-	TMax                float64       `json:"t_max"`
-	StabilityThreshold  int           `json:"stability_threshold"`
-	ConfidenceThreshold float64       `json:"confidence_threshold"`
-	Sampler             SamplerConfig `json:"sampler"`
+	MaxDenoisingSteps   int                               `json:"max_denoising_steps"`
+	TMin                float64                           `json:"t_min"`
+	TMax                float64                           `json:"t_max"`
+	StabilityThreshold  int                               `json:"stability_threshold"`
+	ConfidenceThreshold float64                           `json:"confidence_threshold"`
+	Sampler             SamplerConfig                     `json:"sampler"`
+	StepCallback        func(DiffusionStepSnapshot) error `json:"-"`
 }
 
 func DefaultDenoisingConfig() DenoisingConfig {
-	return DenoisingConfig{MaxDenoisingSteps: 48, TMin: 0.4, TMax: 0.8, StabilityThreshold: 1, ConfidenceThreshold: 0.005, Sampler: SamplerConfig{EntropyBound: 0.1}}
+	return DenoisingConfig{MaxDenoisingSteps: 48, TMin: 0.4, TMax: 0.8, StabilityThreshold: 1, ConfidenceThreshold: 0.005, Sampler: SamplerConfig{EntropyBound: 0.1, Mode: SamplerModeArgmax}}
 }
 
 func DenoisingConfigFromDefaults(g GenerationDefaults) DenoisingConfig {
@@ -46,6 +55,9 @@ func DenoisingConfigFromDefaults(g GenerationDefaults) DenoisingConfig {
 	}
 	if g.EntropyBound >= 0 {
 		cfg.Sampler.EntropyBound = g.EntropyBound
+	}
+	if cfg.Sampler.Mode == "" {
+		cfg.Sampler.Mode = SamplerModeArgmax
 	}
 	return cfg
 }
@@ -107,6 +119,241 @@ func Argmax(logits []float32) int {
 		}
 	}
 	return best
+}
+
+func ArgmaxEntropyFromLogits(logits []float32, temperature float64, rng *rand.Rand) (argmaxID int, entropy float64) {
+	if len(logits) == 0 {
+		return -1, 0
+	}
+	if rng == nil {
+		rng = rand.New(rand.NewSource(1))
+	}
+	invTemp := float32(1)
+	if temperature > 0 {
+		invTemp = float32(1.0 / temperature)
+	}
+	const sparseLimit = 4096
+	argmaxID = -1
+	maxLogit := float32(math.Inf(-1))
+	finiteVals := make([]float32, 0, 16)
+	dense := false
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) {
+			continue
+		}
+		v := raw * invTemp
+		if v > maxLogit {
+			maxLogit = v
+			argmaxID = id
+		}
+		if math.IsInf(float64(v), -1) {
+			continue
+		}
+		if len(finiteVals) < sparseLimit {
+			finiteVals = append(finiteVals, v)
+		} else {
+			dense = true
+		}
+	}
+	if argmaxID < 0 || math.IsInf(float64(maxLogit), -1) || math.IsNaN(float64(maxLogit)) {
+		return argmaxID, 0
+	}
+	var sum float64
+	var sumXLogX float64
+	if !dense {
+		for _, v := range finiteVals {
+			w := math.Exp(float64(v - maxLogit))
+			sum += w
+			if w > 0 {
+				sumXLogX += w * math.Log(w)
+			}
+		}
+	} else {
+		for _, raw := range logits {
+			if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+				continue
+			}
+			v := raw * invTemp
+			w := math.Exp(float64(v - maxLogit))
+			sum += w
+			if w > 0 {
+				sumXLogX += w * math.Log(w)
+			}
+		}
+	}
+	if sum <= 0 || math.IsNaN(sum) {
+		return argmaxID, 0
+	}
+	// The current block-diffusion scaffold uses argmax directly and no renoising,
+	// but consume the same single random draw as SampleFromLogits for deterministic
+	// RNG progression across later canvases.
+	_ = rng.Float64()
+	return argmaxID, math.Log(sum) - sumXLogX/sum
+}
+
+func normalizeSamplerMode(mode SamplerMode) SamplerMode {
+	switch mode {
+	case SamplerModeEntropyBound:
+		return SamplerModeEntropyBound
+	default:
+		return SamplerModeArgmax
+	}
+}
+
+func TokenStatsFromLogitsDraw(logits []float32, temperature float64, draw float64) (argmaxID int, sampledID int, entropy float64) {
+	if len(logits) == 0 {
+		return -1, -1, 0
+	}
+	if draw < 0 {
+		draw = 0
+	} else if draw >= 1 {
+		draw = math.Nextafter(1, 0)
+	}
+	invTemp := float32(1)
+	if temperature > 0 {
+		invTemp = float32(1.0 / temperature)
+	}
+	argmaxID = -1
+	maxLogit := float32(math.Inf(-1))
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) {
+			continue
+		}
+		v := raw * invTemp
+		if v > maxLogit {
+			maxLogit = v
+			argmaxID = id
+		}
+	}
+	if argmaxID < 0 || math.IsInf(float64(maxLogit), -1) || math.IsNaN(float64(maxLogit)) {
+		return argmaxID, argmaxID, 0
+	}
+	weights := make([]float64, len(logits))
+	var sum float64
+	var sumXLogX float64
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+			continue
+		}
+		v := raw * invTemp
+		w := math.Exp(float64(v - maxLogit))
+		weights[id] = w
+		sum += w
+		if w > 0 {
+			sumXLogX += w * math.Log(w)
+		}
+	}
+	if sum <= 0 || math.IsNaN(sum) {
+		return argmaxID, argmaxID, 0
+	}
+	target := draw * sum
+	var cumulative float64
+	sampledID = argmaxID
+	for id, w := range weights {
+		cumulative += w
+		if target <= cumulative {
+			sampledID = id
+			break
+		}
+	}
+	return argmaxID, sampledID, math.Log(sum) - sumXLogX/sum
+}
+
+func TokenStatsFromLogits(logits []float32, temperature float64, rng *rand.Rand) (argmaxID int, sampledID int, entropy float64) {
+	if len(logits) == 0 {
+		return -1, -1, 0
+	}
+	if rng == nil {
+		rng = rand.New(rand.NewSource(1))
+	}
+	invTemp := float32(1)
+	if temperature > 0 {
+		invTemp = float32(1.0 / temperature)
+	}
+	const sparseLimit = 4096
+	argmaxID = -1
+	maxLogit := float32(math.Inf(-1))
+	finiteIDs := make([]int, 0, 16)
+	finiteVals := make([]float32, 0, 16)
+	dense := false
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) {
+			continue
+		}
+		v := raw * invTemp
+		if v > maxLogit {
+			maxLogit = v
+			argmaxID = id
+		}
+		if math.IsInf(float64(v), -1) {
+			continue
+		}
+		if len(finiteIDs) < sparseLimit {
+			finiteIDs = append(finiteIDs, id)
+			finiteVals = append(finiteVals, v)
+		} else {
+			dense = true
+		}
+	}
+	if argmaxID < 0 || math.IsInf(float64(maxLogit), -1) || math.IsNaN(float64(maxLogit)) {
+		return argmaxID, argmaxID, 0
+	}
+	var sum float64
+	var sumXLogX float64
+	if !dense {
+		weights := make([]float64, len(finiteVals))
+		for i, v := range finiteVals {
+			w := math.Exp(float64(v - maxLogit))
+			weights[i] = w
+			sum += w
+			if w > 0 {
+				sumXLogX += w * math.Log(w)
+			}
+		}
+		if sum <= 0 || math.IsNaN(sum) {
+			return argmaxID, argmaxID, 0
+		}
+		draw := rng.Float64() * sum
+		var cumulative float64
+		sampledID = argmaxID
+		for i, w := range weights {
+			cumulative += w
+			if draw <= cumulative {
+				sampledID = finiteIDs[i]
+				break
+			}
+		}
+		return argmaxID, sampledID, math.Log(sum) - sumXLogX/sum
+	}
+	for _, raw := range logits {
+		if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+			continue
+		}
+		v := raw * invTemp
+		w := math.Exp(float64(v - maxLogit))
+		sum += w
+		if w > 0 {
+			sumXLogX += w * math.Log(w)
+		}
+	}
+	if sum <= 0 || math.IsNaN(sum) {
+		return argmaxID, argmaxID, 0
+	}
+	draw := rng.Float64() * sum
+	var cumulative float64
+	sampledID = argmaxID
+	for id, raw := range logits {
+		if math.IsNaN(float64(raw)) || math.IsInf(float64(raw), -1) {
+			continue
+		}
+		v := raw * invTemp
+		cumulative += math.Exp(float64(v - maxLogit))
+		if draw <= cumulative {
+			sampledID = id
+			break
+		}
+	}
+	return argmaxID, sampledID, math.Log(sum) - sumXLogX/sum
 }
 
 func SampleFromLogits(logits []float32, rng *rand.Rand) int {

@@ -3,6 +3,7 @@ package diffusiongemma
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -29,16 +30,18 @@ type LayerWeights struct {
 // TextWeights is a non-eager binding of the DiffusionGemma text tensor plan to
 // a sharded safetensors file. It owns the open shard handles and must be closed.
 type TextWeights struct {
-	Plan           TextTensorPlan  `json:"plan"`
-	Globals        []TensorBinding `json:"globals"`
-	Layers         []LayerWeights  `json:"layers"`
-	shards         *safetensors.ShardedFile
-	floatCache     map[string]FloatTensor
-	cacheMu        sync.RWMutex
-	noEvict        bool                         // GGUF mode: all weights pre-cached, cannot reload from shards
-	ggufQuant      map[string]*gguf.QuantMatrix // canonical 2D GGUF matrices keyed by safetensors binding name
-	ggufTokenEmbd  *gguf.QuantMatrix            // original quantized tied token_embd.weight for GGUF LM-head parity
-	IndexedExperts bool                         // FP8 mode: experts are per-expert tensors resolved by FP8ExpertIndex, not fused BF16 bindings
+	Plan                         TextTensorPlan  `json:"plan"`
+	Globals                      []TensorBinding `json:"globals"`
+	Layers                       []LayerWeights  `json:"layers"`
+	shards                       *safetensors.ShardedFile
+	floatCache                   map[string]FloatTensor
+	cacheMu                      sync.RWMutex
+	noEvict                      bool                         // GGUF mode: all weights pre-cached, cannot reload from shards
+	ggufQuant                    map[string]*gguf.QuantMatrix // canonical 2D GGUF matrices keyed by safetensors binding name
+	ggufTokenEmbd                *gguf.QuantMatrix            // original quantized tied token_embd.weight for GGUF LM-head parity
+	IndexedExperts               bool                         // FP8 mode: experts are per-expert tensors resolved by FP8ExpertIndex, not fused BF16 bindings
+	q80ResidentLayerPrefix       int
+	q80ExpertResidentLayerPrefix int
 }
 
 type FloatTensor struct {
@@ -103,7 +106,10 @@ func (w *TextWeights) Close() error {
 	w.floatCache = nil
 	w.ggufQuant = nil
 	w.ggufTokenEmbd = nil
+	w.q80ResidentLayerPrefix = 0
+	w.q80ExpertResidentLayerPrefix = 0
 	w.cacheMu.Unlock()
+	k3ClearQ80CacheForWeights(w)
 	if w.shards == nil {
 		return nil
 	}
@@ -138,19 +144,69 @@ func (w *TextWeights) CachedFloatTensor(name string) (FloatTensor, error) {
 	if err := decodeFloatRowTo(out, raw, dtype); err != nil {
 		return FloatTensor{}, err
 	}
+	if dtype == "F8_E4M3" || dtype == "F8_E4M3FN" {
+		if err := w.applyFP8Scales(name, shape, out); err != nil {
+			return FloatTensor{}, err
+		}
+	}
 	t := FloatTensor{Data: out, Shape: append([]int(nil), shape...), DType: dtype}
 	w.cacheMu.Lock()
+	if existing, ok := w.floatCache[name]; ok {
+		w.cacheMu.Unlock()
+		return existing, nil
+	}
 	w.floatCache[name] = t
 	w.cacheMu.Unlock()
 	return t, nil
 }
 
-func (w *TextWeights) ClearFloatCache() {
-	if w != nil {
-		w.cacheMu.Lock()
-		w.floatCache = map[string]FloatTensor{}
-		w.cacheMu.Unlock()
+func diffusionGemmaWeightScaleName(weightName string) string {
+	if strings.HasSuffix(weightName, ".weight") {
+		return strings.TrimSuffix(weightName, ".weight") + ".weight_scale"
 	}
+	return weightName + "_scale"
+}
+
+func (w *TextWeights) applyFP8Scales(name string, shape []int, out []float32) error {
+	if len(shape) != 2 || shape[0] <= 0 || shape[1] <= 0 {
+		return fmt.Errorf("DiffusionGemma FP8 tensor %q shape %v cannot be scaled", name, shape)
+	}
+	rows, cols := shape[0], shape[1]
+	scaleName := diffusionGemmaWeightScaleName(name)
+	raw, dtype, scaleShape, err := w.RawTensor(scaleName)
+	if err != nil {
+		return fmt.Errorf("DiffusionGemma FP8 tensor %q missing scale %q: %w", name, scaleName, err)
+	}
+	nScale, ok := tensorElementCount(scaleShape)
+	if !ok || (nScale != 1 && nScale != rows) {
+		return fmt.Errorf("DiffusionGemma FP8 scale %q shape %v gives %d values, want 1 or %d", scaleName, scaleShape, nScale, rows)
+	}
+	scales := make([]float32, nScale)
+	if err := decodeFloatRowTo(scales, raw, dtype); err != nil {
+		return err
+	}
+	for row := 0; row < rows; row++ {
+		scale := scales[0]
+		if len(scales) != 1 {
+			scale = scales[row]
+		}
+		for col := range out[row*cols : (row+1)*cols] {
+			out[row*cols+col] *= scale
+		}
+	}
+	return nil
+}
+
+func (w *TextWeights) ClearFloatCache() {
+	if w == nil {
+		return
+	}
+	w.cacheMu.Lock()
+	w.floatCache = map[string]FloatTensor{}
+	w.q80ResidentLayerPrefix = 0
+	w.q80ExpertResidentLayerPrefix = 0
+	w.cacheMu.Unlock()
+	k3ClearQ80CacheForWeights(w)
 }
 
 func (w *TextWeights) EvictFloatTensor(name string) bool {
@@ -163,6 +219,9 @@ func (w *TextWeights) EvictFloatTensor(name string) bool {
 		delete(w.floatCache, name)
 	}
 	w.cacheMu.Unlock()
+	if ok {
+		k3EvictQ80Tensor(w, name)
+	}
 	return ok
 }
 
@@ -170,13 +229,56 @@ func (w *TextWeights) EvictLayer(layer int) int {
 	if w == nil || layer < 0 || layer >= len(w.Layers) {
 		return 0
 	}
+	w.cacheMu.RLock()
+	keepQ80 := layer < w.q80ResidentLayerPrefix
+	keepExpertQ80 := layer < w.q80ExpertResidentLayerPrefix
+	w.cacheMu.RUnlock()
 	evicted := 0
 	for _, b := range w.Layers[layer].Bindings {
-		if w.EvictFloatTensor(b.Name) {
+		w.cacheMu.Lock()
+		_, cached := w.floatCache[b.Name]
+		if cached && !w.noEvict {
+			delete(w.floatCache, b.Name)
+		}
+		w.cacheMu.Unlock()
+		if cached && !w.noEvict {
+			evicted++
+		}
+		if !keepQ80 && k3EvictQ80Tensor(w, b.Name) {
 			evicted++
 		}
 	}
+	if !keepExpertQ80 {
+		evicted += k3EvictQ80Layer(w, layer)
+	}
 	return evicted
+}
+
+func (w *TextWeights) Q80CacheEntries() int {
+	entries, _ := k3Q80CacheStats(w)
+	return entries
+}
+
+func (w *TextWeights) Q80CacheBytes() int64 {
+	_, bytes := k3Q80CacheStats(w)
+	return bytes
+}
+
+func (w *TextWeights) RetainQ80ExpertLayerPrefix(layers int) {
+	if w == nil {
+		return
+	}
+	if layers < 0 {
+		layers = 0
+	}
+	if layers > len(w.Layers) {
+		layers = len(w.Layers)
+	}
+	w.cacheMu.Lock()
+	if layers > w.q80ExpertResidentLayerPrefix {
+		w.q80ExpertResidentLayerPrefix = layers
+	}
+	w.cacheMu.Unlock()
 }
 
 func (w *TextWeights) RetainGlobalsAndLayerPrefix(layers int) int {
@@ -198,6 +300,8 @@ func (w *TextWeights) RetainGlobalsAndLayerPrefix(layers int) int {
 			keep[b.Name] = true
 		}
 	}
+	w.cacheMu.Lock()
+	defer w.cacheMu.Unlock()
 	evicted := 0
 	for name := range w.floatCache {
 		if !keep[name] {

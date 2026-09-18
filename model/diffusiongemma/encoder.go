@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync"
 	"time"
 
 	gpu "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -398,12 +399,15 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 			}
 		}
 		attnAll := make([]float32, positions*qRows)
-		if ggufPrefillGPUQKV && (lt != "sliding_attention" || positions <= slidingWindow) {
+		gpuAttention := ggufPrefillGPUQKV && (lt != "sliding_attention" || positions <= slidingWindow)
+		if gpuAttention {
 			if err := gpu.F32BatchedCausalGQAAttention(attnAll, qAll, kAll, vAll, positions, heads, kvHeads, headDim, 1.0); err != nil {
 				return nil, fmt.Errorf("encoder GPU causal attention rejected layer=%d: %w", layer, err)
 			}
+		} else {
+			runEncoderAttentionContextK3(attnAll, qAll, kAll, vAll, positions, heads, kvHeads, headDim, qRows, kRows, vRows, group, lt == "sliding_attention", slidingWindow)
 		}
-		if ggufPrefillGPUQKV && (lt != "sliding_attention" || positions <= slidingWindow) {
+		if gpuAttention {
 			if prefillAttn == nil || prefillAttn.O == nil {
 				return nil, fmt.Errorf("encoder GPU O missing layer=%d", layer)
 			}
@@ -411,36 +415,9 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 				return nil, fmt.Errorf("encoder GPU O GEMM rejected layer=%d: %w", layer, err)
 			}
 		} else {
-			attnCtx := make([]float32, qRows)
 			out := make([]float32, hiddenSize)
-			scores := make([]float32, positions)
 			for pos := 0; pos < positions; pos++ {
-				if ggufPrefillGPUQKV && (lt != "sliding_attention" || positions <= slidingWindow) {
-					copy(attnCtx, attnAll[pos*qRows:(pos+1)*qRows])
-				} else {
-					for i := range attnCtx {
-						attnCtx[i] = 0
-					}
-					for hh := 0; hh < heads; hh++ {
-						kvh := hh / group
-						q := qAll[pos*qRows+hh*headDim : pos*qRows+(hh+1)*headDim]
-						for j := 0; j < positions; j++ {
-							if j > pos || (lt == "sliding_attention" && pos-j >= slidingWindow) {
-								scores[j] = float32(math.Inf(-1)) // llama.cpp prompt mask: causal + SWA clip
-							} else {
-								scores[j] = dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-							}
-						}
-						softmaxInPlace(scores[:positions])
-						dst := attnCtx[hh*headDim : (hh+1)*headDim]
-						for j := 0; j < positions; j++ {
-							vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-							for dd := range dst {
-								dst[dd] += scores[j] * vv[dd]
-							}
-						}
-					}
-				}
+				attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
 				if fp8 != nil && layer < len(fp8.Layers) {
 					attnIn := attnCtx
 					if diffusionGemmaFP8DynamicActivationEnabled() {
@@ -1037,6 +1014,55 @@ func (d CPUDispatcher) EncodePromptWithFP8(promptIDs []int, weights *TextWeights
 
 // bf16GemvNarrow runs GEMV with BF16 weights and F32 hidden by narrowing
 // hidden→BF16 and using BF16DotAsm. Avoids F32 weight decode.
+func runEncoderAttentionContextK3(attnAll, qAll, kAll, vAll []float32, positions, heads, kvHeads, headDim, qRows, kRows, vRows, group int, sliding bool, slidingWindow int) {
+	if positions <= 0 || heads <= 0 || kvHeads <= 0 || headDim <= 0 || group <= 0 {
+		return
+	}
+	work := func(start, end int) {
+		scores := make([]float32, positions)
+		for pos := start; pos < end; pos++ {
+			attnCtx := attnAll[pos*qRows : (pos+1)*qRows]
+			clear(attnCtx)
+			for hh := 0; hh < heads; hh++ {
+				kvh := hh / group
+				q := qAll[pos*qRows+hh*headDim : pos*qRows+(hh+1)*headDim]
+				for j := 0; j < positions; j++ {
+					if j > pos || (sliding && pos-j >= slidingWindow) {
+						scores[j] = float32(math.Inf(-1))
+					} else {
+						scores[j] = k3Dot(q, kAll[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					}
+				}
+				k3SoftmaxInPlace(scores)
+				dst := attnCtx[hh*headDim : (hh+1)*headDim]
+				for j := 0; j < positions; j++ {
+					vv := vAll[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
+					k3SaxpyV(scores[j], vv, dst)
+				}
+			}
+		}
+	}
+	workers := 1
+	if k3Enabled() && positions*heads >= 32 {
+		workers = min(k3Threads(), positions)
+	}
+	if workers <= 1 {
+		work(0, positions)
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for worker := 0; worker < workers; worker++ {
+		start := worker * positions / workers
+		end := (worker + 1) * positions / workers
+		go func() {
+			defer wg.Done()
+			work(start, end)
+		}()
+	}
+	wg.Wait()
+}
+
 func bf16GemvNarrow(out []float32, hidden []float32, wBF16 []uint16, rows, cols int) bool {
 	xBF16 := simd.BF16FromF32Slice(hidden[:cols])
 	return simd.GemvRowsBF16BF16Parallel(out, xBF16, wBF16, rows, cols)

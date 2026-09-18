@@ -57,6 +57,31 @@ type report struct {
 	Error           string                             `json:"error,omitempty"`
 }
 
+func flagWasSet(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func applyK3LMHeadPreset(k3, k3A100Q8 *bool, lmHeadTopK *int, lmHead, lmHeadPrefetch *bool) {
+	if k3 == nil || k3A100Q8 == nil || !*k3 || !*k3A100Q8 {
+		return
+	}
+	if lmHeadTopK != nil && *lmHeadTopK == 0 && !flagWasSet("lm-head-top-k") {
+		*lmHeadTopK = 64
+	}
+	if lmHead != nil && !*lmHead && !flagWasSet("k3-a100-lmhead") {
+		*lmHead = true
+	}
+	if lmHeadPrefetch != nil && !*lmHeadPrefetch && !flagWasSet("k3-a100-lmhead-prefetch") {
+		*lmHeadPrefetch = true
+	}
+}
+
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	promptCSV := flag.String("prompt-ids", "", "comma-separated already-tokenized prompt IDs")
@@ -68,10 +93,12 @@ func main() {
 	exactTokensCSV := flag.String("tokens", "", "comma-separated exact tokenizer vocabulary entries (no BPE tokenization)")
 	maxNew := flag.Int("max-new", 0, "maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "override canvas length")
-	denoiseSteps := flag.Int("denoise-steps", 0, "override maximum denoising steps")
+	diffusionSteps := flag.Int("diffusion-steps", 0, "record requested public diffusion steps separately from effective denoising max")
+	denoiseSteps := flag.Int("denoise-steps", 0, "override effective maximum denoising steps")
 	tMin := flag.Float64("t-min", -1, "override final denoising temperature")
 	tMax := flag.Float64("t-max", -1, "override initial denoising temperature")
 	entropyBound := flag.Float64("entropy-bound", -1, "override entropy-bound sampler threshold")
+	samplerMode := flag.String("sampler-mode", "", "denoising sampler mode: argmax or entropy_bound")
 	stabilityThreshold := flag.Int("stability", -1, "override stable-canvas stopping threshold")
 	confidenceThreshold := flag.Float64("confidence", -1, "override mean entropy confidence threshold")
 	seed := flag.Int64("seed", 0, "deterministic canvas RNG seed")
@@ -92,13 +119,61 @@ func main() {
 	preloadGlobals := flag.Bool("preload-globals", false, "predecode/cache global text tensors before CPU dispatcher run")
 	residentLayers := flag.Int("resident-layers", 0, "predecode/cache first N text layers before CPU dispatcher run")
 	residencyBudgetGiB := flag.Float64("residency-budget-gib", 0, "choose resident layer prefix from decoded float32 cache budget in GiB")
+	k3Native := flag.Bool("k3", false, "enable native K3/RVV dispatch for DiffusionGemma")
+	k3Threads := flag.Int("k3-threads", 0, "number of K3/X100 worker threads for DiffusionGemma native paths")
+	k3A100Q8 := flag.Bool("k3-a100-q8", false, "enable K3 A100 row-scale Q80x32 projection paths")
+	k3A100Workers := flag.Int("k3-a100-workers", 0, "number of K3 A100 worker threads for Q80x32 GEMMs")
+	q80PrewarmLayers := flag.Int("k3-q80-prewarm-layers", 0, "prepack first N text layers into the K3 A100 Q80 cache")
+	q80PrewarmExperts := flag.Bool("k3-q80-prewarm-experts", false, "include all per-expert tensors when using -k3-q80-prewarm-layers; memory-heavy")
+	q80ResidencyBudgetGiB := flag.Float64("k3-q80-residency-budget-gib", 0, "choose K3 Q80 prewarm layer count from a packed-weight cache budget in GiB")
+	q80RetainSelectedExpertLayers := flag.Int("k3-q80-retain-selected-expert-layers", 0, "retain on-demand selected expert Q80 caches for first N layers across denoising steps")
+	maxDispatchLayers := flag.Int("max-dispatch-layers", 0, "debug: execute at most N text layers")
+	tailAfterMaxLayers := flag.Bool("tail-after-max-layers", false, "debug: run tail ops after -max-dispatch-layers")
 	lmHeadTopK := flag.Int("lm-head-top-k", 0, "debug: keep only top-K LM head logits per position, storing -Inf elsewhere")
+	k3A100LMHead := flag.Bool("k3-a100-lmhead", false, "enable K3 A100 Q80 LM-head shortlist with exact rerank")
+	k3A100LMHeadPrefetch := flag.Bool("k3-a100-lmhead-prefetch", false, "prepack K3 A100 LM-head Q80 weights while decoder layers run")
+	k3A100LMHeadCandidates := flag.Int("k3-a100-lmhead-candidates", 0, "candidate count for K3 A100 LM-head exact rerank")
+	k3Q80Prefetch := flag.Bool("k3-q80-prefetch", false, "prefetch the next layer's K3 Q80 cache while the current layer runs")
+	k3Q80PrefetchExperts := flag.Bool("k3-q80-prefetch-experts", false, "include experts in next-layer K3 Q80 prefetch")
+	k3Q80SelectedPrefetch := flag.Bool("k3-q80-selected-prefetch", false, "prefetch router-selected expert K3 Q80 weights while dense MLP runs")
 	dispatchProgress := flag.Bool("dispatch-progress", false, "print GPU/backend dispatcher layer/tail progress to stderr")
+	skipEviction := flag.Bool("skip-eviction", false, "debug: retain decoded/Q80 layer caches across denoising steps")
 	ggufModel := flag.String("gguf-model", "", "GGUF model file (Q4_K_M, same as llama.cpp) — replaces safetensor weights")
 	preloadOnly := flag.Bool("preload-only", false, "open weights, apply residency/preload options, report cache entries, and exit without generation")
 	asJSON := flag.Bool("json", false, "emit JSON")
 	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to file")
 	flag.Parse()
+	applyK3LMHeadPreset(k3Native, k3A100Q8, lmHeadTopK, k3A100LMHead, k3A100LMHeadPrefetch)
+	if *k3Native {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3", "1")
+	}
+	if *k3Threads > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_THREADS", strconv.Itoa(*k3Threads))
+	}
+	if *k3A100Q8 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8", "1")
+	}
+	if *k3A100Workers > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_WORKERS", strconv.Itoa(*k3A100Workers))
+	}
+	if *k3A100LMHead {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD", "1")
+	}
+	if *k3A100LMHeadPrefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_PREFETCH", "1")
+	}
+	if *k3A100LMHeadCandidates > 0 {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_LMHEAD_CANDIDATES", strconv.Itoa(*k3A100LMHeadCandidates))
+	}
+	if *k3Q80Prefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH", "1")
+	}
+	if *k3Q80PrefetchExperts {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_PREFETCH_EXPERTS", "1")
+	}
+	if *k3Q80SelectedPrefetch {
+		_ = os.Setenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_Q80_SELECTED_PREFETCH", "1")
+	}
 	if *allowSlowCPU && !*useCPUDispatcher {
 		fmt.Fprintf(os.Stderr, "diffusiongemmarun: -allow-slow-cpu is accepted for compatibility; use -cpu-dispatcher to select the CPU/SIMD reference dispatcher\n")
 	}
@@ -254,6 +329,7 @@ func main() {
 	}
 	var denoiser diffusiongemma.Denoiser
 	var weights *diffusiongemma.TextWeights
+	q80Prewarmed := 0
 	if strings.TrimSpace(*mockTokensCSV) != "" {
 		mockIDs, err := parseIDs(*mockTokensCSV)
 		if err != nil {
@@ -319,6 +395,8 @@ func main() {
 			}
 			gpuDisp := diffusiongemma.GPUDispatcher{
 				ResidentLayerPrefix:   *residentLayers,
+				MaxLayers:             *maxDispatchLayers,
+				TailAfterMaxLayers:    *tailAfterMaxLayers,
 				GGUFExpertIndex:       ggufIdx,
 				LMHeadTopK:            *lmHeadTopK,
 				Progress:              *dispatchProgress,
@@ -383,6 +461,8 @@ func main() {
 		} else {
 			cpuDisp := diffusiongemma.CPUDispatcher{
 				ResidentLayerPrefix:   *residentLayers,
+				MaxLayers:             *maxDispatchLayers,
+				TailAfterMaxLayers:    *tailAfterMaxLayers,
 				GGUFExpertIndex:       ggufIdx,
 				LMHeadTopK:            *lmHeadTopK,
 				Progress:              *dispatchProgress,
@@ -437,6 +517,28 @@ func main() {
 				}
 			}
 		}
+		if *q80RetainSelectedExpertLayers > 0 {
+			weights.RetainQ80ExpertLayerPrefix(*q80RetainSelectedExpertLayers)
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 retaining selected expert caches for layers=%d\n", *q80RetainSelectedExpertLayers)
+		}
+		if *q80ResidencyBudgetGiB > 0 {
+			budgetBytes := int64(*q80ResidencyBudgetGiB * 1024 * 1024 * 1024)
+			budget := diffusiongemma.EstimateQ80ResidencyBudgetFromWeights(weights, *q80PrewarmExperts, budgetBytes)
+			*q80PrewarmLayers = budget.ResidentLayers
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 residency budget %.2f GiB selects q80_prewarm_layers=%d/%d q80_resident_bytes=%d include_experts=%v\n", *q80ResidencyBudgetGiB, budget.ResidentLayers, budget.TotalLayers, budget.ResidentBytes, *q80PrewarmExperts)
+		}
+		if *q80PrewarmLayers > 0 {
+			q80Prewarmed, err = weights.PreloadLayerRangeQ80(0, *q80PrewarmLayers, *q80PrewarmExperts)
+			if err != nil {
+				fatal(err)
+			}
+			if n, err := weights.PreloadSelfConditioningQ80(); err != nil {
+				fatal(err)
+			} else {
+				q80Prewarmed += n
+			}
+			fmt.Fprintf(os.Stderr, "diffusiongemmarun: K3 Q80 prewarmed layers=%d tensors=%d include_experts=%v\n", *q80PrewarmLayers, q80Prewarmed, *q80PrewarmExperts)
+		}
 		if *preloadOnly {
 			present, expected := 0, 0
 			ready := false
@@ -445,7 +547,7 @@ func main() {
 			}
 			fmt.Printf("DiffusionGemma preload scaffold: %s\n", *modelDir)
 			fmt.Printf("  shards_ready=%v present=%d/%d\n", ready, present, expected)
-			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v float_cache_entries=%d float_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+			fmt.Printf("  preload_globals=%v resident_layers=%d residency_budget_gib=%.2f eager_mmap=%v k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f k3_q80_retain_selected_expert_layers=%d k3_q80_prewarm_tensors=%d k3_q80_prewarm_experts=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *preloadGlobals, *residentLayers, *residencyBudgetGiB, *eagerMmap, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *q80RetainSelectedExpertLayers, q80Prewarmed, *q80PrewarmExperts, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
 			return
 		}
 		finalSoftcap := float32(m.Shape.FinalLogitSoftcapping)
@@ -453,7 +555,7 @@ func main() {
 			finalSoftcap = float32(m.Config.TextConfig.FinalLogitSoftcapping)
 		}
 		if *useGPUDispatcher {
-			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
+			gpuDisp := diffusiongemma.GPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction, FinalLogitSoftcapping: finalSoftcap}
 			if *fp8Model != "" {
 				fmt.Fprintf(os.Stderr, "diffusiongemmarun: loading FP8 weights from %s\n", *fp8Model)
 				fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
@@ -550,7 +652,7 @@ func main() {
 				gpuDisp.SCEmbed = nil
 			}
 		} else {
-			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, FinalLogitSoftcapping: finalSoftcap}
+			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction, FinalLogitSoftcapping: finalSoftcap}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, cpuDisp)
 		}
 		if err != nil {
@@ -561,8 +663,8 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed}
-	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *stabilityThreshold, *confidenceThreshold); denoising != nil {
+	opts := diffusiongemma.InferenceOptions{MaxNewTokens: *maxNew, CanvasLength: *canvas, Seed: *seed, RequestedDiffusionSteps: *diffusionSteps}
+	if denoising := buildDenoisingOverride(m.Denoising, *denoiseSteps, *tMin, *tMax, *entropyBound, *samplerMode, *stabilityThreshold, *confidenceThreshold); denoising != nil {
 		opts.Denoising = denoising
 	}
 	caps := diffusiongemma.Capabilities()
@@ -602,7 +704,7 @@ func main() {
 	fmt.Printf("  prompt_ids=%v max_new=%d canvas=%d seed=%d cpu_dispatcher=%v mock_token=%d mock_tokens=%q\n", promptIDs, opts.MaxNewTokens, opts.CanvasLength, opts.Seed, *useCPUDispatcher, *mockToken, *mockTokensCSV)
 	if opts.Denoising != nil {
 		d := opts.Denoising
-		fmt.Printf("  denoising: steps=%d t=[%.3f, %.3f] entropy_bound=%.3f stability=%d confidence=%.6f\n", d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
+		fmt.Printf("  denoising: requested_diffusion_steps=%d effective_steps=%d t=[%.3f, %.3f] sampler_mode=%s entropy_bound=%.3f stability=%d confidence=%.6f\n", opts.RequestedDiffusionSteps, d.MaxDenoisingSteps, d.TMin, d.TMax, d.Sampler.Mode, d.Sampler.EntropyBound, d.StabilityThreshold, d.ConfidenceThreshold)
 	}
 	if len(out.PromptTokens) > 0 {
 		fmt.Printf("  prompt_tokens=%v\n", out.PromptTokens)
@@ -628,7 +730,7 @@ func main() {
 		fmt.Printf("  op_status: implemented=%d/%d reference_complete=%d/%d\n", implemented, len(out.OperationStatus), referenceComplete, len(out.OperationStatus))
 	}
 	if weights != nil {
-		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f lm_head_top_k=%d float_cache_entries=%d float_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *lmHeadTopK, weights.FloatCacheEntries(), weights.FloatCacheBytes())
+		fmt.Printf("  residency: resident_layers=%d residency_budget_gib=%.2f k3_q80_prewarm_layers=%d k3_q80_residency_budget_gib=%.2f k3_q80_retain_selected_expert_layers=%d max_dispatch_layers=%d tail_after_max_layers=%v lm_head_top_k=%d skip_eviction=%v float_cache_entries=%d float_cache_bytes=%d q80_cache_entries=%d q80_cache_bytes=%d\n", *residentLayers, *residencyBudgetGiB, *q80PrewarmLayers, *q80ResidencyBudgetGiB, *q80RetainSelectedExpertLayers, *maxDispatchLayers, *tailAfterMaxLayers, *lmHeadTopK, *skipEviction, weights.FloatCacheEntries(), weights.FloatCacheBytes(), weights.Q80CacheEntries(), weights.Q80CacheBytes())
 	}
 	if *useGPUDispatcher && *fp8Model != "" {
 		gpuDisp, ok := denoiser.(*diffusiongemma.TextDenoiser)
@@ -713,7 +815,7 @@ func diffusionGemmaGGUFGPUExpertPrewarmLayers() int {
 	return 0
 }
 
-func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin, tMax, entropyBound float64, stability int, confidence float64) *diffusiongemma.DenoisingConfig {
+func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin, tMax, entropyBound float64, samplerMode string, stability int, confidence float64) *diffusiongemma.DenoisingConfig {
 	changed := false
 	cfg := base
 	if steps > 0 {
@@ -730,6 +832,10 @@ func buildDenoisingOverride(base diffusiongemma.DenoisingConfig, steps int, tMin
 	}
 	if entropyBound >= 0 {
 		cfg.Sampler.EntropyBound = entropyBound
+		changed = true
+	}
+	if strings.TrimSpace(samplerMode) != "" {
+		cfg.Sampler.Mode = diffusiongemma.SamplerMode(strings.TrimSpace(samplerMode))
 		changed = true
 	}
 	if stability >= 0 {

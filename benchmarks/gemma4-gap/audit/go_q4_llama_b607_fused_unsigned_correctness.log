@@ -1,0 +1,21 @@
+=== RUN   TestPackQ4_0x8ByteLayout
+--- PASS: TestPackQ4_0x8ByteLayout (0.00s)
+=== RUN   TestPackQ8_0x4ByteLayout
+--- PASS: TestPackQ8_0x4ByteLayout (0.00s)
+=== RUN   TestQuantizeQ8_0x4MatchesQuantizeThenPack
+--- PASS: TestQuantizeQ8_0x4MatchesQuantizeThenPack (0.01s)
+=== RUN   TestLlamaPackersRejectMalformedSizes
+--- PASS: TestLlamaPackersRejectMalformedSizes (0.00s)
+=== RUN   TestLlamaQ4_0x8Q8_0x4VNNIReference
+--- PASS: TestLlamaQ4_0x8Q8_0x4VNNIReference (0.01s)
+=== RUN   TestLlamaFusedProjectionReference
+--- PASS: TestLlamaFusedProjectionReference (0.03s)
+=== RUN   TestLlamaProjectionSupertileAndTails
+--- PASS: TestLlamaProjectionSupertileAndTails (0.00s)
+=== RUN   TestLlamaProjectionDynamicRowScheduling
+--- PASS: TestLlamaProjectionDynamicRowScheduling (0.00s)
+=== RUN   TestLlamaTopologyDivergesFromLegacyLaneReduction
+    qdot_q4_llama_test.go:337: documented non-exactness boundary: 24/32 outputs diverged
+--- PASS: TestLlamaTopologyDivergesFromLegacyLaneReduction (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.047s

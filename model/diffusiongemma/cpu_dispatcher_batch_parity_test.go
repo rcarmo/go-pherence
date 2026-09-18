@@ -20,11 +20,11 @@ func TestRunDenseMLPBatchParityWithRetainedQ4K(t *testing.T) {
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.mlp.gate_proj.weight", gguf.QuantQ4_K, hiddenSize, intermediate)
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.mlp.up_proj.weight", gguf.QuantQ4_K, hiddenSize, intermediate)
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.mlp.down_proj.weight", gguf.QuantQ4_K, intermediate, hiddenSize)
-	weights.addVector("model.decoder.layers.0.post_feedforward_layernorm_1.weight", makePattern(1, hiddenSize, 0.9, 0.0025))
+	weights.addVector("model.decoder.layers.0.post_feedforward_layernorm_1.weight", makeBatchParityPattern(1, hiddenSize, 0.9, 0.0025))
 	weights.bindLayerDenseMLP(layer)
 
-	input := makePattern(7, positions*hiddenSize, -0.2, 0.01)
-	residual := makePattern(11, positions*hiddenSize, 0.15, -0.007)
+	input := makeBatchParityPattern(7, positions*hiddenSize, -0.2, 0.01)
+	residual := makeBatchParityPattern(11, positions*hiddenSize, 0.15, -0.007)
 	got := ForwardScratch{Hidden: append([]float32(nil), input...), Residual: append([]float32(nil), residual...), MlpOut: make([]float32, len(input))}
 	want := ForwardScratch{Hidden: append([]float32(nil), input...), Residual: append([]float32(nil), residual...), MlpOut: make([]float32, len(input))}
 	op := LayerOp{Layer: layer, Kind: OpDenseMLP}
@@ -50,11 +50,11 @@ func TestRunSelfAttentionBatchParityWithRetainedQ4K(t *testing.T) {
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.self_attn.k_proj.weight", gguf.QuantQ4_K, hiddenSize, hiddenSize)
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.self_attn.v_proj.weight", gguf.QuantQ4_K, hiddenSize, hiddenSize)
 	weights.addQuantizedMatrix(t, "model.decoder.layers.0.self_attn.o_proj.weight", gguf.QuantQ4_K, hiddenSize, hiddenSize)
-	weights.addVector("model.decoder.layers.0.self_attn.q_norm.weight", makePattern(3, headDim, 0.95, 0.001))
-	weights.addVector("model.decoder.layers.0.self_attn.k_norm.weight", makePattern(5, headDim, 1.05, -0.0015))
+	weights.addVector("model.decoder.layers.0.self_attn.q_norm.weight", makeBatchParityPattern(3, headDim, 0.95, 0.001))
+	weights.addVector("model.decoder.layers.0.self_attn.k_norm.weight", makeBatchParityPattern(5, headDim, 1.05, -0.0015))
 	weights.bindLayerAttention(layer)
 
-	input := makePattern(13, positions*hiddenSize, 0.05, 0.008)
+	input := makeBatchParityPattern(13, positions*hiddenSize, 0.05, 0.008)
 	got := ForwardScratch{Hidden: append([]float32(nil), input...), SlidingWindow: 32}
 	want := ForwardScratch{Hidden: append([]float32(nil), input...), SlidingWindow: 32}
 	ctx := ForwardContext{EncoderSeqLen: 0}
@@ -146,7 +146,7 @@ func matrixName(layer int, suffix string) string {
 	return "model.decoder.layers." + string(rune('0'+layer)) + "." + suffix
 }
 
-func makePattern(seed, n int, base, step float32) []float32 {
+func makeBatchParityPattern(seed, n int, base, step float32) []float32 {
 	out := make([]float32, n)
 	for i := range out {
 		out[i] = base + float32(((i+seed)%23)-11)*step

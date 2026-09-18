@@ -20,15 +20,18 @@ type BlockDiffusionState struct {
 // intentionally abstract at this layer; the concrete model runtime will decide
 // how to encode prior canvases and expose cross-attention/prompt-cache state.
 type ForwardInput struct {
-	PromptIDs              []int            `json:"prompt_ids,omitempty"`
-	Canvas                 []int            `json:"canvas"`
-	Step                   int              `json:"step"`
-	SelfConditioning       []float32        `json:"-"`
-	SelfConditioningLogits [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], matching llama.cpp sc_logits
-	DeviceSelfConditioning any              `json:"-"` // backend-owned previous canvas logits/state (llama.cpp sc_dev analogue)
-	SCTempInv              float32          `json:"-"` // 1/t for self-conditioning softmax (set by runtime loop)
-	SampleDraws            []float64        `json:"-"` // pre-drawn per-position multinomial uniforms for backend/device sampling
-	EncoderKV              []EncoderKVLayer `json:"-"`
+	PromptIDs                   []int            `json:"prompt_ids,omitempty"`
+	Canvas                      []int            `json:"canvas"`
+	Step                        int              `json:"step"`
+	Temperature                 float64          `json:"temperature,omitempty"`
+	SelfConditioning            []float32        `json:"-"`
+	SelfConditioningLogits      [][]float32      `json:"-"` // previous raw canvas logits [canvas][vocab], matching llama.cpp sc_logits
+	SelfConditioningTemperature float64          `json:"-"`
+	Graph                       ExecutionGraph   `json:"graph"`
+	DeviceSelfConditioning      any              `json:"-"` // backend-owned previous canvas logits/state (llama.cpp sc_dev analogue)
+	SCTempInv                   float32          `json:"-"` // 1/t for self-conditioning softmax (set by runtime loop)
+	SampleDraws                 []float64        `json:"-"` // pre-drawn per-position multinomial uniforms for backend/device sampling
+	EncoderKV                   []EncoderKVLayer `json:"-"`
 }
 
 // ForwardOutput contains per-canvas-position logits from the denoiser. Logits
@@ -77,6 +80,17 @@ type CanvasStep struct {
 	Held          int            `json:"held,omitempty"`
 	Confident     bool           `json:"confident,omitempty"`
 	Stopped       bool           `json:"stopped"`
+}
+
+// DiffusionStepSnapshot contains an owned, renderable snapshot emitted after
+// one reverse-diffusion step.
+type DiffusionStepSnapshot struct {
+	Step         int
+	Temperature  float64
+	Canvas       []int
+	AcceptedMask []bool
+	MeanEntropy  float64
+	Stopped      bool
 }
 
 // CanvasResult is the output of a single block-diffusion canvas generation.
@@ -222,6 +236,8 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 		}
 	}()
 	prevTempInv := float32(1)
+	var previousTemperature float64
+	graph := BuildExecutionGraph(ExecutionGraphDecode, len(promptIDs), canvasLength)
 	probePositions := diffusionGemmaEntropyProbePositions(canvasLength)
 	for step := cfg.MaxDenoisingSteps; step > 0; step-- {
 		state.Step = step
@@ -237,7 +253,7 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			renoiseTokens[i] = rng.Intn(vocabSize)
 		}
 		scTempInv := prevTempInv
-		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, DeviceSelfConditioning: deviceSelfConditioning, SCTempInv: scTempInv, SampleDraws: sampleDraws})
+		out, err := denoiser.Denoise(ForwardInput{PromptIDs: promptIDs, Canvas: canvas, Step: step, Temperature: temperature, SelfConditioning: selfConditioning, SelfConditioningLogits: selfConditioningLogits, SelfConditioningTemperature: previousTemperature, Graph: graph, DeviceSelfConditioning: deviceSelfConditioning, SCTempInv: scTempInv, SampleDraws: sampleDraws})
 		if err != nil {
 			return CanvasResult{}, err
 		}
@@ -275,6 +291,7 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			selfConditioning = nil
 		}
 		selfConditioningLogits = retainLogitRows(out.Logits, canvasLength)
+		previousTemperature = temperature
 		prevTempInv = tempInv
 		copy(outputCanvas, argmaxCanvas)
 		if equalIntSlices(prevArgmax, argmaxCanvas) {
@@ -319,6 +336,19 @@ func GenerateCanvasWithCallback(denoiser Denoiser, promptIDs []int, cfg Denoisin
 			canvas = RenoiseCanvasWithTokens(canvas, accepted.AcceptedMask, renoiseTokens)
 		}
 		steps = append(steps, CanvasStep{Step: step, Temperature: temperature, Accepted: accepted.Accepted, MeanEntropy: meanEntropy, FirstArgmax: firstArgmax, FirstEntropy: firstEntropy, FirstSampled: firstSampled, FirstAccepted: firstAccepted, MaxEntropy: maxEntropy, MaxEntropyPos: maxEntropyPos, EntropyProbes: probes, Held: held, Confident: confident, Stopped: stopped})
+		if cfg.StepCallback != nil {
+			snapshot := DiffusionStepSnapshot{
+				Step:         step,
+				Temperature:  temperature,
+				Canvas:       append([]int(nil), outputCanvas...),
+				AcceptedMask: append([]bool(nil), accepted.AcceptedMask...),
+				MeanEntropy:  meanEntropy,
+				Stopped:      stopped,
+			}
+			if err := cfg.StepCallback(snapshot); err != nil {
+				return CanvasResult{}, err
+			}
+		}
 		if onStep != nil {
 			onStep(steps[len(steps)-1], canvas)
 		}

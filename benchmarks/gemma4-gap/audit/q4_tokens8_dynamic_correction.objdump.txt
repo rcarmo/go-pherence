@@ -1,0 +1,194 @@
+00000000005975c0 <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0>:
+  5975c0:	55                   	push   rbp
+  5975c1:	48 89 e5             	mov    rbp,rsp
+  5975c4:	48 83 ec 20          	sub    rsp,0x20
+  5975c8:	48 8b 74 24 30       	mov    rsi,QWORD PTR [rsp+0x30]
+  5975cd:	48 8b 7c 24 48       	mov    rdi,QWORD PTR [rsp+0x48]
+  5975d2:	48 8b 4c 24 60       	mov    rcx,QWORD PTR [rsp+0x60]
+  5975d7:	c5 fc 57 c0          	vxorps ymm0,ymm0,ymm0
+  5975db:	c5 f4 57 c9          	vxorps ymm1,ymm1,ymm1
+  5975df:	c5 ec 57 d2          	vxorps ymm2,ymm2,ymm2
+  5975e3:	c5 e4 57 db          	vxorps ymm3,ymm3,ymm3
+  5975e7:	c5 dc 57 e4          	vxorps ymm4,ymm4,ymm4
+  5975eb:	c5 d4 57 ed          	vxorps ymm5,ymm5,ymm5
+  5975ef:	c5 cc 57 f6          	vxorps ymm6,ymm6,ymm6
+  5975f3:	c5 c4 57 ff          	vxorps ymm7,ymm7,ymm7
+  5975f7:	b8 0f 0f 0f 0f       	mov    eax,0xf0f0f0f
+  5975fc:	c5 79 6e f0          	vmovd  xmm14,eax
+  597600:	c4 42 7d 58 f6       	vpbroadcastd ymm14,xmm14
+  597605:	b8 08 08 08 08       	mov    eax,0x8080808
+  59760a:	c5 79 6e f8          	vmovd  xmm15,eax
+  59760e:	c4 42 7d 58 ff       	vpbroadcastd ymm15,xmm15
+  597613:	48 85 c9             	test   rcx,rcx
+  597616:	0f 84 cd 01 00 00    	je     5977e9 <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0+0x229>
+  59761c:	c5 7c 10 17          	vmovups ymm10,YMMWORD PTR [rdi]
+  597620:	c4 62 79 13 2e       	vcvtph2ps xmm13,QWORD PTR [rsi]
+  597625:	c4 42 7d 18 ed       	vbroadcastss ymm13,xmm13
+  59762a:	c4 41 14 59 d2       	vmulps ymm10,ymm13,ymm10
+  59762f:	c5 7c 11 14 24       	vmovups YMMWORD PTR [rsp],ymm10
+  597634:	c5 7a 6f 46 02       	vmovdqu xmm8,XMMWORD PTR [rsi+0x2]
+  597639:	c4 41 39 db e6       	vpand  xmm12,xmm8,xmm14
+  59763e:	c4 c1 39 71 d0 04    	vpsrlw xmm8,xmm8,0x4
+  597644:	c4 41 39 db c6       	vpand  xmm8,xmm8,xmm14
+  597649:	c4 43 1d 38 c0 01    	vinserti128 ymm8,ymm12,xmm8,0x1
+  59764f:	c5 7e 6f 4f 20       	vmovdqu ymm9,YMMWORD PTR [rdi+0x20]
+  597654:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  597659:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  59765e:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  597663:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  597668:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59766d:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  597672:	c4 62 7d 18 2c 24    	vbroadcastss ymm13,DWORD PTR [rsp]
+  597678:	c4 c2 25 b8 c5       	vfmadd231ps ymm0,ymm11,ymm13
+  59767d:	c5 7e 6f 4f 40       	vmovdqu ymm9,YMMWORD PTR [rdi+0x40]
+  597682:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  597687:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  59768c:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  597691:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  597696:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59769b:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  5976a0:	c4 62 7d 18 6c 24 04 	vbroadcastss ymm13,DWORD PTR [rsp+0x4]
+  5976a7:	c4 c2 25 b8 cd       	vfmadd231ps ymm1,ymm11,ymm13
+  5976ac:	c5 7e 6f 4f 60       	vmovdqu ymm9,YMMWORD PTR [rdi+0x60]
+  5976b1:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  5976b6:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  5976bb:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  5976c0:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  5976c5:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  5976ca:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  5976cf:	c4 62 7d 18 6c 24 08 	vbroadcastss ymm13,DWORD PTR [rsp+0x8]
+  5976d6:	c4 c2 25 b8 d5       	vfmadd231ps ymm2,ymm11,ymm13
+  5976db:	c5 7e 6f 8f 80 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0x80]
+  5976e2:	00 
+  5976e3:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  5976e8:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  5976ed:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  5976f2:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  5976f7:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  5976fc:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  597701:	c4 62 7d 18 6c 24 0c 	vbroadcastss ymm13,DWORD PTR [rsp+0xc]
+  597708:	c4 c2 25 b8 dd       	vfmadd231ps ymm3,ymm11,ymm13
+  59770d:	c5 7e 6f 8f a0 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0xa0]
+  597714:	00 
+  597715:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  59771a:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  59771f:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  597724:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  597729:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59772e:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  597733:	c4 62 7d 18 6c 24 10 	vbroadcastss ymm13,DWORD PTR [rsp+0x10]
+  59773a:	c4 c2 25 b8 e5       	vfmadd231ps ymm4,ymm11,ymm13
+  59773f:	c5 7e 6f 8f c0 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0xc0]
+  597746:	00 
+  597747:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  59774c:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  597751:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  597756:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59775b:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  597760:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  597765:	c4 62 7d 18 6c 24 14 	vbroadcastss ymm13,DWORD PTR [rsp+0x14]
+  59776c:	c4 c2 25 b8 ed       	vfmadd231ps ymm5,ymm11,ymm13
+  597771:	c5 7e 6f 8f e0 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0xe0]
+  597778:	00 
+  597779:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  59777e:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  597783:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  597788:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59778d:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  597792:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  597797:	c4 62 7d 18 6c 24 18 	vbroadcastss ymm13,DWORD PTR [rsp+0x18]
+  59779e:	c4 c2 25 b8 f5       	vfmadd231ps ymm6,ymm11,ymm13
+  5977a3:	c5 7e 6f 8f 00 01 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0x100]
+  5977aa:	00 
+  5977ab:	c4 41 15 ef ed       	vpxor  ymm13,ymm13,ymm13
+  5977b0:	c4 42 05 50 e9       	{vex} vpdpbusd ymm13,ymm15,ymm9
+  5977b5:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  5977ba:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  5977bf:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  5977c4:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  5977c9:	c4 62 7d 18 6c 24 1c 	vbroadcastss ymm13,DWORD PTR [rsp+0x1c]
+  5977d0:	c4 c2 25 b8 fd       	vfmadd231ps ymm7,ymm11,ymm13
+  5977d5:	48 83 c6 12          	add    rsi,0x12
+  5977d9:	48 81 c7 20 01 00 00 	add    rdi,0x120
+  5977e0:	48 ff c9             	dec    rcx
+  5977e3:	0f 85 33 fe ff ff    	jne    59761c <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0+0x5c>
+  5977e9:	c4 c3 7d 19 c4 01    	vextractf128 xmm12,ymm0,0x1
+  5977ef:	c4 c1 78 58 c4       	vaddps xmm0,xmm0,xmm12
+  5977f4:	c5 99 73 d8 08       	vpsrldq xmm12,xmm0,0x8
+  5977f9:	c4 c1 78 58 c4       	vaddps xmm0,xmm0,xmm12
+  5977fe:	c5 fb 7c c0          	vhaddps xmm0,xmm0,xmm0
+  597802:	c4 c3 7d 19 cc 01    	vextractf128 xmm12,ymm1,0x1
+  597808:	c4 c1 70 58 cc       	vaddps xmm1,xmm1,xmm12
+  59780d:	c5 99 73 d9 08       	vpsrldq xmm12,xmm1,0x8
+  597812:	c4 c1 70 58 cc       	vaddps xmm1,xmm1,xmm12
+  597817:	c5 f3 7c c9          	vhaddps xmm1,xmm1,xmm1
+  59781b:	c4 c3 7d 19 d4 01    	vextractf128 xmm12,ymm2,0x1
+  597821:	c4 c1 68 58 d4       	vaddps xmm2,xmm2,xmm12
+  597826:	c5 99 73 da 08       	vpsrldq xmm12,xmm2,0x8
+  59782b:	c4 c1 68 58 d4       	vaddps xmm2,xmm2,xmm12
+  597830:	c5 eb 7c d2          	vhaddps xmm2,xmm2,xmm2
+  597834:	c4 c3 7d 19 dc 01    	vextractf128 xmm12,ymm3,0x1
+  59783a:	c4 c1 60 58 dc       	vaddps xmm3,xmm3,xmm12
+  59783f:	c5 99 73 db 08       	vpsrldq xmm12,xmm3,0x8
+  597844:	c4 c1 60 58 dc       	vaddps xmm3,xmm3,xmm12
+  597849:	c5 e3 7c db          	vhaddps xmm3,xmm3,xmm3
+  59784d:	c4 c3 7d 19 e4 01    	vextractf128 xmm12,ymm4,0x1
+  597853:	c4 c1 58 58 e4       	vaddps xmm4,xmm4,xmm12
+  597858:	c5 99 73 dc 08       	vpsrldq xmm12,xmm4,0x8
+  59785d:	c4 c1 58 58 e4       	vaddps xmm4,xmm4,xmm12
+  597862:	c5 db 7c e4          	vhaddps xmm4,xmm4,xmm4
+  597866:	c4 c3 7d 19 ec 01    	vextractf128 xmm12,ymm5,0x1
+  59786c:	c4 c1 50 58 ec       	vaddps xmm5,xmm5,xmm12
+  597871:	c5 99 73 dd 08       	vpsrldq xmm12,xmm5,0x8
+  597876:	c4 c1 50 58 ec       	vaddps xmm5,xmm5,xmm12
+  59787b:	c5 d3 7c ed          	vhaddps xmm5,xmm5,xmm5
+  59787f:	c4 c3 7d 19 f4 01    	vextractf128 xmm12,ymm6,0x1
+  597885:	c4 c1 48 58 f4       	vaddps xmm6,xmm6,xmm12
+  59788a:	c5 99 73 de 08       	vpsrldq xmm12,xmm6,0x8
+  59788f:	c4 c1 48 58 f4       	vaddps xmm6,xmm6,xmm12
+  597894:	c5 cb 7c f6          	vhaddps xmm6,xmm6,xmm6
+  597898:	c4 c3 7d 19 fc 01    	vextractf128 xmm12,ymm7,0x1
+  59789e:	c4 c1 40 58 fc       	vaddps xmm7,xmm7,xmm12
+  5978a3:	c5 99 73 df 08       	vpsrldq xmm12,xmm7,0x8
+  5978a8:	c4 c1 40 58 fc       	vaddps xmm7,xmm7,xmm12
+  5978ad:	c5 c3 7c ff          	vhaddps xmm7,xmm7,xmm7
+  5978b1:	48 8b 44 24 68       	mov    rax,QWORD PTR [rsp+0x68]
+  5978b6:	c5 fa 11 00          	vmovss DWORD PTR [rax],xmm0
+  5978ba:	c5 fa 11 48 04       	vmovss DWORD PTR [rax+0x4],xmm1
+  5978bf:	c5 fa 11 50 08       	vmovss DWORD PTR [rax+0x8],xmm2
+  5978c4:	c5 fa 11 58 0c       	vmovss DWORD PTR [rax+0xc],xmm3
+  5978c9:	c5 fa 11 60 10       	vmovss DWORD PTR [rax+0x10],xmm4
+  5978ce:	c5 fa 11 68 14       	vmovss DWORD PTR [rax+0x14],xmm5
+  5978d3:	c5 fa 11 70 18       	vmovss DWORD PTR [rax+0x18],xmm6
+  5978d8:	c5 fa 11 78 1c       	vmovss DWORD PTR [rax+0x1c],xmm7
+  5978dd:	c5 f8 77             	vzeroupper
+  5978e0:	48 83 c4 20          	add    rsp,0x20
+  5978e4:	5d                   	pop    rbp
+  5978e5:	c3                   	ret
+  5978e6:	cc                   	int3
+  5978e7:	cc                   	int3
+  5978e8:	cc                   	int3
+  5978e9:	cc                   	int3
+  5978ea:	cc                   	int3
+  5978eb:	cc                   	int3
+  5978ec:	cc                   	int3
+  5978ed:	cc                   	int3
+  5978ee:	cc                   	int3
+  5978ef:	cc                   	int3
+  5978f0:	cc                   	int3
+  5978f1:	cc                   	int3
+  5978f2:	cc                   	int3
+  5978f3:	cc                   	int3
+  5978f4:	cc                   	int3
+  5978f5:	cc                   	int3
+  5978f6:	cc                   	int3
+  5978f7:	cc                   	int3
+  5978f8:	cc                   	int3
+  5978f9:	cc                   	int3
+  5978fa:	cc                   	int3
+  5978fb:	cc                   	int3
+  5978fc:	cc                   	int3
+  5978fd:	cc                   	int3
+  5978fe:	cc                   	int3
+  5978ff:	cc                   	int3
+

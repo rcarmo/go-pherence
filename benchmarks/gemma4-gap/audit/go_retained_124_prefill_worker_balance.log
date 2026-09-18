@@ -1,0 +1,6 @@
+quant calls=258 span median=0.4185 p10=0.2579 p90=1.6138 min=0.2048 max=4.3596 ms
+quant calls=258 util median=0.6440 p10=0.4844 p90=0.8578 min=0.3590 max=0.9069
+quant calls=258 skew median=0.1634 p10=0.0888 p90=0.4449 min=0.0379 max=0.7075
+gemv calls=259 span median=8.3829 p10=0.8290 p90=14.8026 min=0.5291 max=40.6906 ms
+gemv calls=259 util median=0.9416 p10=0.5380 p90=0.9764 min=0.3367 max=0.9952
+gemv calls=259 skew median=0.0899 p10=0.0341 p90=0.5443 min=0.0090 max=0.8012

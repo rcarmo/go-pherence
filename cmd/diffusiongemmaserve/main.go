@@ -178,7 +178,6 @@ func main() {
 	gpuDisp := diffusiongemma.GPUDispatcher{
 		ResidentLayerPrefix:   residentLayers,
 		LMHeadTopK:            *lmHeadTopK,
-		CPUExperts:            *cpuExperts || *ggufModel != "",
 		FinalLogitSoftcapping: float32(m.Shape.FinalLogitSoftcapping),
 	}
 
@@ -192,15 +191,6 @@ func main() {
 		gpuDisp.SkipEviction = true // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
 		log.Printf("GGUF expert index ready: %d layers, %d experts, intermediate=%d",
 			ggufIdx.NumLayers, ggufIdx.NumExperts, ggufIdx.Intermediate)
-		if dgflags.GGUFGPULMHeadEnabled() {
-			gpuDisp.F32LMHeadChunkSize = dgflags.GGUFGPULMHeadChunkSize()
-			gpuDisp.F32LMHeadUseCache = dgflags.GGUFGPULMHeadUseF32Cache()
-			source := "Q-row"
-			if gpuDisp.F32LMHeadUseCache {
-				source = "F32-cache"
-			}
-			log.Printf("GGUF F32 LM head chunked GPU mode enabled chunk=%d source=%s", gpuDisp.F32LMHeadChunkSize, source)
-		}
 	} else if *fp8Model != "" {
 		log.Printf("loading FP8 weights from %s", *fp8Model)
 		fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
@@ -383,7 +373,6 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	denoising := s.meta.Denoising
 	denoising.MaxDenoisingSteps = s.opts.denoiseSteps
-	denoising.SparseTopK = s.opts.lmHeadTopK
 
 	s.mu.Lock()
 	s.reqCount++

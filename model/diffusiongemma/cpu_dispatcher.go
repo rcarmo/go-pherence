@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +27,8 @@ import (
 // quantized expert implementations rather than scalar fallbacks.
 type CPUDispatcher struct {
 	ResidentLayerPrefix   int
+	MaxLayers             int
+	TailAfterMaxLayers    bool
 	LMHeadTopK            int
 	Progress              bool
 	SkipEviction          bool
@@ -33,6 +36,102 @@ type CPUDispatcher struct {
 	GGUFExpertIndex       *GGUFExpertIndex // GGUF expert weights for encoder/denoiser MoE
 	UseGGUFGPUExperts     bool             // set by GPUDispatcher for prompt-prefill backend graph; CPUDispatcher default stays CPU/SIMD
 	FinalLogitSoftcapping float32
+}
+
+type q80PrefetchResult struct {
+	count   int
+	err     error
+	elapsed time.Duration
+}
+
+type q80LayerPrefetcher struct {
+	weights        *TextWeights
+	includeExperts bool
+	progress       bool
+	mu             sync.Mutex
+	done           map[int]chan q80PrefetchResult
+}
+
+func newQ80LayerPrefetcher(weights *TextWeights, progress bool) *q80LayerPrefetcher {
+	if weights == nil || !k3Enabled() || !k3A100Q8Enabled() || !k3Q80PrefetchEnabled() {
+		return nil
+	}
+	return &q80LayerPrefetcher{weights: weights, includeExperts: k3Q80PrefetchExperts(), progress: progress, done: make(map[int]chan q80PrefetchResult)}
+}
+
+func (p *q80LayerPrefetcher) start(layer int) {
+	if p == nil || p.weights == nil || layer < 0 || layer >= len(p.weights.Layers) {
+		return
+	}
+	p.mu.Lock()
+	if _, ok := p.done[layer]; ok {
+		p.mu.Unlock()
+		return
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	p.done[layer] = ch
+	p.mu.Unlock()
+	go func() {
+		started := time.Now()
+		count, err := p.weights.PreloadLayerQ80(layer, p.includeExperts)
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+}
+
+func (p *q80LayerPrefetcher) wait(layer int) error {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	ch := p.done[layer]
+	p.mu.Unlock()
+	if ch == nil {
+		return nil
+	}
+	res := <-ch
+	if p.progress {
+		fmt.Fprintf(os.Stderr, "DiffusionGemma K3 Q80 prefetch: completed layer=%d tensors=%d include_experts=%v q80_entries=%d q80_bytes=%d elapsed=%s\n", layer, res.count, p.includeExperts, p.weights.Q80CacheEntries(), p.weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+	}
+	return res.err
+}
+
+func startQ80TransposedBindingPrefetch(weights *TextWeights, binding *TensorBinding) chan q80PrefetchResult {
+	if weights == nil || binding == nil || !k3Enabled() || !k3A100Q8Enabled() {
+		return nil
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	go func() {
+		started := time.Now()
+		ok, err := k3PreloadQ80TransposedBinding(weights, binding)
+		count := 0
+		if ok {
+			count = 1
+		}
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+	return ch
+}
+
+func startQ80BindingPrefetch(weights *TextWeights, binding *TensorBinding) chan q80PrefetchResult {
+	if weights == nil || binding == nil || !k3Enabled() || !k3A100Q8Enabled() {
+		return nil
+	}
+	ch := make(chan q80PrefetchResult, 1)
+	go func() {
+		started := time.Now()
+		ok, err := k3PreloadQ80Binding(weights, binding)
+		count := 0
+		if ok {
+			count = 1
+		}
+		ch <- q80PrefetchResult{count: count, err: err, elapsed: time.Since(started)}
+	}()
+	return ch
+}
+
+func diffusionGemmaTimingEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_TIMING")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
 func diffusionGemmaLayerTraceRow() int {
@@ -115,6 +214,8 @@ type ForwardScratch struct {
 	FinalLogitSoftcapping float32 // tanh(x/c)*c after LM head; 0 = disabled
 	SCTempInv             float32 // self-conditioning: 1/t from the current step (applied when building soft embeddings for the NEXT step)
 	SlidingWindow         int     // attention.sliding_window (n_swa); 0 disables SWA clipping
+	ExpertPrefetch        *k3SelectedExpertPrefetch
+	ExpertAsync           chan error
 }
 
 func NewForwardScratch(buffers ForwardBufferPlan) ForwardScratch {
@@ -180,6 +281,11 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 		scratch.MoeOut = scratch.MoeOut[:actualHidden]
 		scratch.Logits = scratch.Logits[:actualPositions]
 	}
+	var scEmbTPrefetch chan q80PrefetchResult
+	if k3Enabled() && k3A100Q8Enabled() && ctx.Graph.Phase == ExecutionGraphDecode {
+		fp := weights.ForwardPlan()
+		scEmbTPrefetch = startQ80TransposedBindingPrefetch(weights, fp.Globals.EmbedTokens)
+	}
 	for _, op := range ops.Prefix {
 		if err := dispatchPrefixOp(op, ctx, weights, scratch); err != nil {
 			return ForwardOutput{}, err
@@ -188,8 +294,18 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 	traceRow := diffusionGemmaLayerTraceRow()
 	traceOps := diffusionGemmaLayerTraceOpsEnabled()
 	traceForwardRow("prefix", -1, traceRow, scratch, buffers.HiddenSize)
+	var lmHeadPrefetch chan q80PrefetchResult
+	if k3A100LMHeadEnabled() && k3A100LMHeadPrefetchEnabled() {
+		fp := weights.ForwardPlan()
+		lmHeadPrefetch = startQ80BindingPrefetch(weights, fp.Globals.EmbedTokens)
+	}
+	prefetcher := newQ80LayerPrefetcher(weights, d.Progress)
+	if prefetcher != nil {
+		prefetcher.start(0)
+	}
 	currentLayer := -1
 	completedLayers := 0
+	exitedByMaxLayers := false
 	layerStarted := time.Now()
 	for _, op := range ops.Layers {
 		if currentLayer >= 0 && op.Layer != currentLayer {
@@ -201,30 +317,57 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
 				weights.EvictLayer(currentLayer)
 			}
+			if d.MaxLayers > 0 && completedLayers >= d.MaxLayers {
+				exitedByMaxLayers = true
+				break
+			}
 			layerStarted = time.Now()
 		}
 		if op.Layer != currentLayer {
 			currentLayer = op.Layer
+			if err := prefetcher.wait(currentLayer); err != nil {
+				return ForwardOutput{}, err
+			}
+			if d.MaxLayers <= 0 || completedLayers+1 < d.MaxLayers {
+				prefetcher.start(currentLayer + 1)
+			}
 			if d.Progress {
 				fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting layer=%d\n", currentLayer)
 			}
 		}
-		if err := dispatchLayerOp(op, ctx, weights, scratch); err != nil {
+		if err := dispatchLayerOp(op, ctx, weights, &scratch); err != nil {
 			return ForwardOutput{}, err
 		}
 		if traceOps {
 			traceForwardRow("op/"+string(op.Kind), op.Layer, traceRow, scratch, buffers.HiddenSize)
 		}
 	}
-	if currentLayer >= 0 {
+	if currentLayer >= 0 && !exitedByMaxLayers {
 		traceForwardRow("layer", currentLayer, traceRow, scratch, buffers.HiddenSize)
+		completedLayers++
+		if d.Progress {
+			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed layer=%d cache_entries=%d cache_bytes=%d elapsed=%s\n", currentLayer, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(layerStarted).Round(time.Millisecond))
+		}
+		if !d.SkipEviction && currentLayer >= d.ResidentLayerPrefix {
+			weights.EvictLayer(currentLayer)
+		}
 	}
-	if currentLayer >= 0 && currentLayer >= d.ResidentLayerPrefix {
-		weights.EvictLayer(currentLayer)
+	if d.MaxLayers > 0 && !d.TailAfterMaxLayers {
+		return ForwardOutput{Logits: scratch.Logits, SelfConditioning: ctx.SelfConditioning}, nil
 	}
 	for _, op := range ops.Tail {
 		if d.Progress {
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: starting tail op=%s\n", op)
+		}
+		if op == OpLMHead && lmHeadPrefetch != nil {
+			res := <-lmHeadPrefetch
+			if d.Progress || diffusionGemmaTimingEnabled() {
+				fmt.Fprintf(os.Stderr, "timing diffusiongemma lm_head_prefetch tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+			}
+			if res.err != nil {
+				return ForwardOutput{}, res.err
+			}
+			lmHeadPrefetch = nil
 		}
 		started := time.Now()
 		if err := dispatchTailOp(op, weights, scratch); err != nil {
@@ -234,6 +377,15 @@ func (d CPUDispatcher) RunTextForward(ctx ForwardContext, weights *TextWeights, 
 			fmt.Fprintf(os.Stderr, "DiffusionGemma CPU dispatcher: completed tail op=%s cache_entries=%d cache_bytes=%d elapsed=%s\n", op, weights.FloatCacheEntries(), weights.FloatCacheBytes(), time.Since(started).Round(time.Millisecond))
 		}
 		traceForwardRow(string(op), currentLayer, traceRow, scratch, buffers.HiddenSize)
+	}
+	if scEmbTPrefetch != nil {
+		res := <-scEmbTPrefetch
+		if d.Progress || diffusionGemmaTimingEnabled() {
+			fmt.Fprintf(os.Stderr, "timing diffusiongemma sc_embT_prefetch tensors=%d q80_entries=%d q80_bytes=%d elapsed=%s\n", res.count, weights.Q80CacheEntries(), weights.Q80CacheBytes(), res.elapsed.Round(time.Millisecond))
+		}
+		if res.err != nil {
+			return ForwardOutput{}, res.err
+		}
 	}
 	if d.Progress && len(scratch.Logits) > 0 {
 		for pos := 0; pos < len(scratch.Logits) && pos < 2; pos++ {
@@ -356,11 +508,285 @@ func decodeFloatRowTo(dst []float32, raw []byte, dtype string) error {
 			dst[i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
 		}
 		return nil
-	case "F8_E4M3":
-		return fmt.Errorf("DiffusionGemma unsupported generic float row dtype %s (use FP8TextWeights/GPUFP8Model path for quantized projections)", dtype)
+	case "F8_E4M3", "F8_E4M3FN":
+		if len(raw) < len(dst) {
+			return fmt.Errorf("DiffusionGemma FP8 row bytes=%d want %d", len(raw), len(dst))
+		}
+		for i := range dst {
+			dst[i] = diffusionGemmaFP8E4M3Table[raw[i]]
+		}
+		return nil
 	default:
 		return fmt.Errorf("DiffusionGemma unsupported float row dtype %s", dtype)
 	}
+}
+
+func k3ScaleV(scale float32, values []float32) {
+	for i := range values {
+		values[i] *= scale
+	}
+}
+
+func buildSelfConditioningSoftEmbeddingRowsRaw(out []float32, logits [][]float32, raw []byte, dtype string, scales []float32, positions, vocab, hiddenSize int, tempInv float32) error {
+	if positions < 0 || vocab <= 0 || hiddenSize <= 0 || len(out) < positions*hiddenSize || len(logits) < positions {
+		return fmt.Errorf("DiffusionGemma self-conditioning raw soft embedding shape mismatch out=%d logits=%d positions=%d vocab=%d hidden=%d", len(out), len(logits), positions, vocab, hiddenSize)
+	}
+	elemSize, ok := diffusionGemmaDTypeSize(dtype)
+	if !ok {
+		return fmt.Errorf("DiffusionGemma self-conditioning unsupported embedding dtype %s", dtype)
+	}
+	rowBytes := hiddenSize * elemSize
+	if len(raw) < vocab*rowBytes {
+		return fmt.Errorf("DiffusionGemma self-conditioning raw embedding bytes=%d want %d", len(raw), vocab*rowBytes)
+	}
+	if tempInv == 0 {
+		tempInv = 1
+	}
+	maxLogits := make([]float32, positions)
+	sums := make([]float64, positions)
+	for pos := 0; pos < positions; pos++ {
+		row := logits[pos]
+		if len(row) < vocab {
+			return fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(row), vocab)
+		}
+		maxLogits[pos] = float32(math.Inf(-1))
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			value := row[vocabID]
+			if math.IsInf(float64(value), -1) || math.IsNaN(float64(value)) {
+				continue
+			}
+			value *= tempInv
+			if value > maxLogits[pos] {
+				maxLogits[pos] = value
+			}
+		}
+		if math.IsInf(float64(maxLogits[pos]), -1) {
+			continue
+		}
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			value := row[vocabID]
+			if !math.IsInf(float64(value), -1) && !math.IsNaN(float64(value)) {
+				sums[pos] += math.Exp(float64(value*tempInv - maxLogits[pos]))
+			}
+		}
+	}
+	out = out[:positions*hiddenSize]
+	clear(out)
+	workers := 1
+	if k3Enabled() && vocab >= 8192 && positions > 0 {
+		workers = min(k3Threads(), vocab/4096)
+		workers = max(workers, 1)
+	}
+	runChunk := func(dst []float32, startVocab, endVocab int) error {
+		embedRow := make([]float32, hiddenSize)
+		for vocabID := startVocab; vocabID < endVocab; vocabID++ {
+			start := vocabID * rowBytes
+			if err := decodeFloatRowTo(embedRow, raw[start:start+rowBytes], dtype); err != nil {
+				return err
+			}
+			if len(scales) == 1 {
+				k3ScaleV(scales[0], embedRow)
+			} else if len(scales) == vocab {
+				k3ScaleV(scales[vocabID], embedRow)
+			}
+			for pos := 0; pos < positions; pos++ {
+				if sums[pos] <= 0 || math.IsNaN(sums[pos]) || math.IsInf(float64(maxLogits[pos]), -1) {
+					continue
+				}
+				value := logits[pos][vocabID]
+				if math.IsInf(float64(value), -1) || math.IsNaN(float64(value)) {
+					continue
+				}
+				prob := float32(math.Exp(float64(value*tempInv-maxLogits[pos])) / sums[pos])
+				if prob != 0 {
+					k3SaxpyV(prob, embedRow, dst[pos*hiddenSize:(pos+1)*hiddenSize])
+				}
+			}
+		}
+		return nil
+	}
+	if workers <= 1 {
+		return runChunk(out, 0, vocab)
+	}
+	partials := make([][]float32, workers)
+	for i := range partials {
+		partials[i] = make([]float32, len(out))
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	wg.Add(workers)
+	for worker := 0; worker < workers; worker++ {
+		startVocab := worker * vocab / workers
+		endVocab := (worker + 1) * vocab / workers
+		go func(worker, startVocab, endVocab int) {
+			defer wg.Done()
+			if err := runChunk(partials[worker], startVocab, endVocab); err != nil {
+				errCh <- err
+			}
+		}(worker, startVocab, endVocab)
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	for _, partial := range partials {
+		for i, value := range partial {
+			out[i] += value
+		}
+	}
+	return nil
+}
+
+func buildSelfConditioningSoftEmbeddingRowsF32(out []float32, logits [][]float32, embed []float32, positions, vocab, hiddenSize int, tempInv float32) error {
+	if positions < 0 || vocab <= 0 || hiddenSize <= 0 || len(out) < positions*hiddenSize || len(logits) < positions || len(embed) < vocab*hiddenSize {
+		return fmt.Errorf("DiffusionGemma self-conditioning soft embedding shape mismatch out=%d logits=%d embed=%d positions=%d vocab=%d hidden=%d", len(out), len(logits), len(embed), positions, vocab, hiddenSize)
+	}
+	if tempInv == 0 {
+		tempInv = 1
+	}
+	for pos := 0; pos < positions; pos++ {
+		rowLogits := logits[pos]
+		if len(rowLogits) < vocab {
+			return fmt.Errorf("DiffusionGemma self-conditioning logits row=%d len=%d want %d", pos, len(rowLogits), vocab)
+		}
+		dst := out[pos*hiddenSize : (pos+1)*hiddenSize]
+		clear(dst)
+		maxLogit := float32(math.Inf(-1))
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			value := rowLogits[vocabID]
+			if math.IsInf(float64(value), -1) || math.IsNaN(float64(value)) {
+				continue
+			}
+			value *= tempInv
+			if value > maxLogit {
+				maxLogit = value
+			}
+		}
+		if math.IsInf(float64(maxLogit), -1) {
+			continue
+		}
+		var sum float64
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			value := rowLogits[vocabID]
+			if !math.IsInf(float64(value), -1) && !math.IsNaN(float64(value)) {
+				sum += math.Exp(float64(value*tempInv - maxLogit))
+			}
+		}
+		if sum <= 0 || math.IsNaN(sum) {
+			continue
+		}
+		inv := 1 / sum
+		for vocabID := 0; vocabID < vocab; vocabID++ {
+			value := rowLogits[vocabID]
+			if math.IsInf(float64(value), -1) || math.IsNaN(float64(value)) {
+				continue
+			}
+			prob := float32(math.Exp(float64(value*tempInv-maxLogit)) * inv)
+			if prob != 0 {
+				k3SaxpyV(prob, embed[vocabID*hiddenSize:(vocabID+1)*hiddenSize], dst)
+			}
+		}
+	}
+	return nil
+}
+
+func buildSelfConditioningSoftEmbeddingRow(dst []float32, logits []float32, vocab, hiddenSize int, tempInv float32, scratch []float32, loadEmbeddingRow func(vocabID int, dst []float32) error) error {
+	if len(dst) != hiddenSize {
+		return fmt.Errorf("DiffusionGemma self-conditioning dst len=%d want %d", len(dst), hiddenSize)
+	}
+	if len(scratch) != hiddenSize {
+		return fmt.Errorf("DiffusionGemma self-conditioning scratch len=%d want %d", len(scratch), hiddenSize)
+	}
+	clear(dst)
+	if len(logits) < vocab {
+		return fmt.Errorf("DiffusionGemma self-conditioning logits len=%d want %d", len(logits), vocab)
+	}
+	logits = logits[:vocab]
+	if tempInv == 0 {
+		tempInv = 1
+	}
+	const sparseLimit = 4096
+	finiteIDs := make([]int, 0, 16)
+	finiteVals := make([]float32, 0, 16)
+	dense := false
+	for vocabID, value := range logits {
+		if math.IsInf(float64(value), -1) || math.IsNaN(float64(value)) {
+			continue
+		}
+		if len(finiteIDs) >= sparseLimit {
+			dense = true
+			break
+		}
+		finiteIDs = append(finiteIDs, vocabID)
+		finiteVals = append(finiteVals, value*tempInv)
+	}
+	if !dense && len(finiteIDs) > 0 {
+		maxLogit := finiteVals[0]
+		for _, value := range finiteVals[1:] {
+			if value > maxLogit {
+				maxLogit = value
+			}
+		}
+		probs := make([]float32, len(finiteVals))
+		var sum float64
+		for i, value := range finiteVals {
+			exp := math.Exp(float64(value - maxLogit))
+			probs[i] = float32(exp)
+			sum += exp
+		}
+		if sum == 0 {
+			return nil
+		}
+		inv := float32(1 / sum)
+		for i, vocabID := range finiteIDs {
+			prob := probs[i] * inv
+			if prob == 0 {
+				continue
+			}
+			if err := loadEmbeddingRow(vocabID, scratch); err != nil {
+				return err
+			}
+			k3SaxpyV(prob, scratch, dst)
+		}
+		return nil
+	}
+	probs := append([]float32(nil), logits...)
+	for i := range probs {
+		probs[i] *= tempInv
+	}
+	k3SoftmaxInPlace(probs)
+	for vocabID, prob := range probs {
+		if prob == 0 {
+			continue
+		}
+		if err := loadEmbeddingRow(vocabID, scratch); err != nil {
+			return err
+		}
+		k3SaxpyV(prob, scratch, dst)
+	}
+	return nil
+}
+
+func runDecodedExpertBatch(out, gate, up, act, x []float32, weights decodedExpertWeights, batch, hiddenSize, intermediate int) error {
+	if !simd.GemmRows(gate, x, weights.gateW, batch, intermediate, hiddenSize) || !simd.GemmRows(up, x, weights.upW, batch, intermediate, hiddenSize) {
+		return fmt.Errorf("DiffusionGemma expert batched GEMM rejected")
+	}
+	for i := 0; i < batch; i++ {
+		if !simd.GELUTanhMulTo(act[i*intermediate:(i+1)*intermediate], gate[i*intermediate:(i+1)*intermediate], up[i*intermediate:(i+1)*intermediate]) {
+			return fmt.Errorf("DiffusionGemma expert activation rejected")
+		}
+	}
+	if !simd.GemmRows(out, act, weights.downW, batch, hiddenSize, intermediate) {
+		return fmt.Errorf("DiffusionGemma expert batched down GEMM rejected")
+	}
+	return nil
+}
+
+func diffusionGemmaF16ToF32(bits uint16) float32 {
+	return half.F16ToF32(bits)
 }
 
 func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
@@ -444,15 +870,25 @@ func runSelfCondition(ctx ForwardContext, weights *TextWeights, scratch ForwardS
 	return nil
 }
 
-func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch ForwardScratch) error {
+func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch *ForwardScratch) error {
+	if !diffusionGemmaTimingEnabled() {
+		return dispatchLayerOpInner(op, ctx, weights, scratch)
+	}
+	started := time.Now()
+	err := dispatchLayerOpInner(op, ctx, weights, scratch)
+	fmt.Fprintf(os.Stderr, "timing diffusiongemma layer=%d op=%s type=%s elapsed=%s q80_entries=%d q80_bytes=%d\n", op.Layer, op.Kind, op.Type, time.Since(started).Round(time.Millisecond), weights.Q80CacheEntries(), weights.Q80CacheBytes())
+	return err
+}
+
+func dispatchLayerOpInner(op LayerOp, ctx ForwardContext, weights *TextWeights, scratch *ForwardScratch) error {
 	switch op.Kind {
 	case OpInputNorm:
 		copy(scratch.Residual, scratch.Hidden)
-		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
+		return runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.InputLayerNorm })
 	case OpSelfAttention:
-		return runSelfAttention(op, ctx, weights, scratch)
+		return runSelfAttention(op, ctx, weights, *scratch)
 	case OpPostAttention:
-		if err := runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm }); err != nil {
+		if err := runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PostAttentionLayerNorm }); err != nil {
 			return err
 		}
 		for i := range scratch.Hidden {
@@ -460,14 +896,46 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 		}
 		return nil
 	case OpDenseMLP:
-		return runDenseMLP(op, weights, scratch)
+		return runDenseMLP(op, weights, *scratch)
 	case OpPreMoE:
 		copy(scratch.Residual, scratch.Hidden)
-		return runLayerRMSNorm(op, weights, scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
+		return runLayerRMSNorm(op, weights, *scratch, func(lb TextLayerBindings) *TensorBinding { return lb.PreFFNLayerNorm })
 	case OpRouter:
-		return runRouterFromResidual(op, weights, scratch)
+		if err := runRouterFromResidual(op, weights, *scratch); err != nil {
+			return err
+		}
+		fp := weights.ForwardPlan()
+		if op.Layer >= 0 && op.Layer < len(fp.Layers) {
+			scratch.ExpertPrefetch = k3StartSelectedExpertQ80Prefetch(weights, fp.Layers[op.Layer], *scratch)
+			expertOp := LayerOp{Layer: op.Layer, Type: op.Type, Kind: OpExperts}
+			snapshot := *scratch
+			scratch.ExpertAsync = make(chan error, 1)
+			result := scratch.ExpertAsync
+			go func() {
+				if snapshot.ExpertPrefetch != nil {
+					if err := snapshot.ExpertPrefetch.Wait(weights, diffusionGemmaTimingEnabled()); err != nil {
+						result <- err
+						return
+					}
+				}
+				result <- runExpertsFromResidual(expertOp, weights, snapshot)
+			}()
+		}
+		return nil
 	case OpExperts:
-		if err := runExpertsFromResidual(op, weights, scratch); err != nil {
+		if scratch.ExpertAsync != nil {
+			err := <-scratch.ExpertAsync
+			scratch.ExpertAsync = nil
+			scratch.ExpertPrefetch = nil
+			return err
+		}
+		if scratch.ExpertPrefetch != nil {
+			if err := scratch.ExpertPrefetch.Wait(weights, diffusionGemmaTimingEnabled()); err != nil {
+				return err
+			}
+			scratch.ExpertPrefetch = nil
+		}
+		if err := runExpertsFromResidual(op, weights, *scratch); err != nil {
 			return err
 		}
 		if diffusionGemmaLayerTraceOpsEnabled() && len(scratch.Logits) > 0 {
@@ -475,7 +943,7 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 		}
 		return nil
 	case OpPostMoE:
-		if err := runCombineMlpMoe(op, weights, scratch); err != nil {
+		if err := runCombineMlpMoe(op, weights, *scratch); err != nil {
 			return err
 		}
 		for i := range scratch.Hidden {
@@ -486,7 +954,7 @@ func dispatchLayerOp(op LayerOp, ctx ForwardContext, weights *TextWeights, scrat
 		}
 		return nil
 	case OpLayerScalar:
-		return runLayerScalar(op, weights, scratch)
+		return runLayerScalar(op, weights, *scratch)
 	default:
 		return fmt.Errorf("DiffusionGemma unknown layer op %q", op.Kind)
 	}
@@ -636,7 +1104,6 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 	if totalKV < encSeq {
 		return fmt.Errorf("DiffusionGemma attention total KV overflow enc=%d positions=%d", encSeq, positions)
 	}
-	scores := make([]float32, totalKV)
 	slidingWindow := 0
 	if op.Type == "sliding_attention" {
 		slidingWindow = scratch.SlidingWindow
@@ -647,47 +1114,7 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 			slidingWindow = 1024
 		}
 	}
-	for pos := 0; pos < positions; pos++ {
-		attnCtx := attnCtxAll[pos*qRows : (pos+1)*qRows]
-		for i := range attnCtx {
-			attnCtx[i] = 0
-		}
-		for h := 0; h < heads; h++ {
-			kvh := h / group
-			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
-			canvasPromptLo := encSeq - slidingWindow + 1
-			for j := 0; j < totalKV; j++ {
-				if j < encSeq {
-					// llama.cpp decode mask: sliding layers let canvas queries see
-					// only the last (n_swa-1) prompt keys; global layers see all prompt.
-					if slidingWindow > 0 && j < canvasPromptLo {
-						scores[j] = float32(math.Inf(-1))
-						continue
-					}
-					scores[j] = dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
-					continue
-				}
-				canvasJ := j - encSeq
-				// llama.cpp decode mask is bidirectional over the full canvas even
-				// for sliding layers.
-				scores[j] = dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
-			}
-			softmaxInPlace(scores)
-			dst := attnCtx[h*headDim : (h+1)*headDim]
-			for j, score := range scores {
-				var vv []float32
-				if j < encSeq {
-					vv = enc.Values[j*vRows+kvh*headDim : j*vRows+(kvh+1)*headDim]
-				} else {
-					canvasJ := j - encSeq
-					vv = vAll[canvasJ*vRows+kvh*headDim : canvasJ*vRows+(kvh+1)*headDim]
-				}
-				for d := range dst {
-					dst[d] += score * vv[d]
-				}
-			}
-		}
-	}
+	runAttentionContextK3(attnCtxAll, qAll, kAll, vAll, enc, positions, heads, kvHeads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
 	if ok, err := oM.projectBatchTo(outAll, attnCtxAll, positions); err != nil {
 		return fmt.Errorf("DiffusionGemma attention O batch project layer %d: %w", op.Layer, err)
 	} else if !ok {
@@ -695,6 +1122,149 @@ func runSelfAttention(op LayerOp, ctx ForwardContext, weights *TextWeights, scra
 	}
 	copy(scratch.Hidden[:positions*hiddenSize], outAll)
 	return nil
+}
+
+func runAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, kvHeads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	if positions <= 0 || heads <= 0 || kvHeads <= 0 || headDim <= 0 {
+		return
+	}
+	if k3FlashAttentionEnabled() {
+		runFlashAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+		return
+	}
+	runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll, enc, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow)
+}
+
+func k3FlashAttentionEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_K3_FLASH_ATTENTION")))
+	return v != "0" && v != "false" && v != "no" && v != "off"
+}
+
+func runFlashAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	clear(attnAll)
+	work := func(start, end int) {
+		acc := make([]float32, headDim)
+		for task := start; task < end; task++ {
+			pos := task / heads
+			h := task - pos*heads
+			kvh := h / group
+			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			dst := attnAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			clear(acc)
+			m := float32(math.Inf(-1))
+			l := float32(0)
+			update := func(score float32, vv []float32) {
+				if l == 0 {
+					copy(acc, vv)
+					m = score
+					l = 1
+					return
+				}
+				if score <= m {
+					weight := float32(math.Exp(float64(score - m)))
+					for i, v := range vv {
+						acc[i] += v * weight
+					}
+					l += weight
+					return
+				}
+				scale := float32(math.Exp(float64(m - score)))
+				for i, v := range vv {
+					acc[i] = acc[i]*scale + v
+				}
+				l = l*scale + 1
+				m = score
+			}
+			for j := 0; j < encSeq; j++ {
+				if promptAllowedForSlidingDecode(j, encSeq, slidingWindow) {
+					update(k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim]), enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim])
+				}
+			}
+			// llama.cpp decode attention remains bidirectional over the full canvas,
+			// including on sliding-attention layers.
+			for canvasJ := 0; canvasJ < positions; canvasJ++ {
+				update(k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim]), vAll[canvasJ*vRows+kvh*headDim:canvasJ*vRows+(kvh+1)*headDim])
+			}
+			if l == 0 {
+				continue
+			}
+			inv := float32(1) / l
+			for i := range dst {
+				dst[i] = acc[i] * inv
+			}
+		}
+	}
+	parallelizeAttentionTasks(positions*heads, work)
+}
+
+func runMaterializedAttentionContextK3(attnAll, qAll, kAll, vAll []float32, enc EncoderKVLayer, positions, heads, headDim, qRows, kRows, vRows, encSeq, group, slidingWindow int) {
+	clear(attnAll)
+	totalKV := encSeq + positions
+	work := func(start, end int) {
+		scores := make([]float32, totalKV)
+		for task := start; task < end; task++ {
+			pos := task / heads
+			h := task - pos*heads
+			kvh := h / group
+			q := qAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for j := 0; j < totalKV; j++ {
+				if j < encSeq {
+					if !promptAllowedForSlidingDecode(j, encSeq, slidingWindow) {
+						scores[j] = float32(math.Inf(-1))
+						continue
+					}
+					scores[j] = k3Dot(q, enc.Keys[j*kRows+kvh*headDim:j*kRows+(kvh+1)*headDim])
+					continue
+				}
+				canvasJ := j - encSeq
+				scores[j] = k3Dot(q, kAll[canvasJ*kRows+kvh*headDim:canvasJ*kRows+(kvh+1)*headDim])
+			}
+			k3SoftmaxInPlace(scores)
+			dst := attnAll[pos*qRows+h*headDim : pos*qRows+(h+1)*headDim]
+			for j, score := range scores {
+				if j < encSeq {
+					k3SaxpyV(score, enc.Values[j*vRows+kvh*headDim:j*vRows+(kvh+1)*headDim], dst)
+				} else {
+					canvasJ := j - encSeq
+					k3SaxpyV(score, vAll[canvasJ*vRows+kvh*headDim:canvasJ*vRows+(kvh+1)*headDim], dst)
+				}
+			}
+		}
+	}
+	parallelizeAttentionTasks(positions*heads, work)
+}
+
+func promptAllowedForSlidingDecode(promptIndex, promptSeq, slidingWindow int) bool {
+	if slidingWindow <= 0 {
+		return true
+	}
+	lo := promptSeq - slidingWindow + 1
+	if lo < 0 {
+		lo = 0
+	}
+	return promptIndex >= lo
+}
+
+func parallelizeAttentionTasks(tasks int, work func(start, end int)) {
+	workers := 1
+	if k3Enabled() && tasks >= 32 {
+		workers = min(k3Threads(), tasks)
+	}
+	if workers <= 1 {
+		work(0, tasks)
+		return
+	}
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for worker := 0; worker < workers; worker++ {
+		start := worker * tasks / workers
+		end := (worker + 1) * tasks / workers
+		go func() {
+			defer wg.Done()
+			work(start, end)
+		}()
+	}
+	wg.Wait()
 }
 
 func absInt(x int) int {
@@ -999,89 +1569,23 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 	if hiddenSize <= 0 || len(scratch.Residual)%hiddenSize != 0 {
 		return fmt.Errorf("DiffusionGemma expert hidden mismatch")
 	}
-	if lb.ExpertsGateUpProj == nil || lb.ExpertsDownProj == nil || len(lb.ExpertsGateUpProj.Shape) != 3 || len(lb.ExpertsDownProj.Shape) != 3 {
-		return fmt.Errorf("DiffusionGemma expert tensor bindings missing")
+	layout, err := expertLayoutForLayer(weights, lb, hiddenSize)
+	if err != nil {
+		return err
 	}
-	nExperts := lb.ExpertsGateUpProj.Shape[0]
-	gateUpDim := lb.ExpertsGateUpProj.Shape[1]
-	if nExperts <= 0 || gateUpDim <= 0 || gateUpDim%2 != 0 || lb.ExpertsGateUpProj.Shape[2] != hiddenSize {
-		return fmt.Errorf("DiffusionGemma expert gate_up shape %v incompatible with hidden=%d", lb.ExpertsGateUpProj.Shape, hiddenSize)
-	}
-	intermediate := gateUpDim / 2
-	if lb.ExpertsDownProj.Shape[0] != nExperts || lb.ExpertsDownProj.Shape[1] != hiddenSize || lb.ExpertsDownProj.Shape[2] != intermediate {
-		return fmt.Errorf("DiffusionGemma expert down shape %v want [%d,%d,%d]", lb.ExpertsDownProj.Shape, nExperts, hiddenSize, intermediate)
-	}
-
 	positions := len(scratch.Residual) / hiddenSize
-	for i := range scratch.MoeOut {
-		scratch.MoeOut[i] = 0
-	}
-	normedRow := make([]float32, hiddenSize)
-	gate := make([]float32, intermediate)
-	up := make([]float32, intermediate)
-	act := make([]float32, intermediate)
-	expertOut := make([]float32, hiddenSize)
+	clear(scratch.MoeOut)
 	topK := scratch.TopKExperts
-	if topK <= 0 {
-		topK = len(scratch.TopKIDs) / positions
+	if topK <= 0 || len(scratch.TopKIDs) < positions*topK || len(scratch.TopKVals) < positions*topK {
+		return fmt.Errorf("DiffusionGemma expert top-k scratch invalid positions=%d top_k=%d ids=%d vals=%d", positions, topK, len(scratch.TopKIDs), len(scratch.TopKVals))
 	}
-
-	// Collect unique expert IDs to decode only needed slices
-	neededExperts := map[int]bool{}
-	for pos := 0; pos < positions; pos++ {
-		for k := 0; k < topK; k++ {
-			id := scratch.TopKIDs[pos*topK+k]
-			if id >= 0 && id < nExperts {
-				neededExperts[id] = true
-			}
-		}
+	done, err := k3RunPerExpertA100(weights, lb, layout, scratch, preNorm2, hiddenSize, positions, topK)
+	if err != nil {
+		return err
 	}
-	type expertWeights struct {
-		gateW, upW, downW []float32
-	}
-	decoded := make(map[int]expertWeights, len(neededExperts))
-	for expertID := range neededExperts {
-		guSlice, guRows, _, err := loadExpertSlice(weights, lb.ExpertsGateUpProj, expertID)
-		if err != nil {
+	if !done {
+		if err := runBatchedExpertFallback(weights, lb, layout, scratch, preNorm2, hiddenSize, positions, topK); err != nil {
 			return err
-		}
-		dSlice, _, _, err := loadExpertSlice(weights, lb.ExpertsDownProj, expertID)
-		if err != nil {
-			return err
-		}
-		decoded[expertID] = expertWeights{
-			gateW: guSlice[:guRows/2*hiddenSize],
-			upW:   guSlice[guRows/2*hiddenSize:],
-			downW: dSlice,
-		}
-	}
-
-	for pos := 0; pos < positions; pos++ {
-		resRow := scratch.Residual[pos*hiddenSize : (pos+1)*hiddenSize]
-		copy(normedRow, resRow)
-		if !simd.RMSNormTo(normedRow, preNorm2, 1e-6) {
-			return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
-		}
-		dst := scratch.MoeOut[pos*hiddenSize : (pos+1)*hiddenSize]
-		for k := 0; k < topK; k++ {
-			expertID := scratch.TopKIDs[pos*topK+k]
-			weight := scratch.TopKVals[pos*topK+k]
-			ew, ok := decoded[expertID]
-			if !ok {
-				continue
-			}
-			if !simd.GemvRows(gate, normedRow, ew.gateW, intermediate, hiddenSize) || !simd.GemvRows(up, normedRow, ew.upW, intermediate, hiddenSize) {
-				return fmt.Errorf("DiffusionGemma expert GEMV rejected")
-			}
-			if !diffusionGemmaGELUMulTo(act, gate, up) {
-				return fmt.Errorf("DiffusionGemma expert activation rejected")
-			}
-			if !simd.GemvRows(expertOut, act, ew.downW, hiddenSize, intermediate) {
-				return fmt.Errorf("DiffusionGemma expert down GEMV rejected")
-			}
-			for i := range dst {
-				dst[i] += weight * expertOut[i]
-			}
 		}
 	}
 	postNorm2, err := loadFloatVector(weights, lb.PostFFNLayerNorm2)
@@ -1094,6 +1598,95 @@ func runExpertsFromResidual(op LayerOp, weights *TextWeights, scratch ForwardScr
 		}
 	}
 	traceForwardData("op/moe_out", op.Layer, diffusionGemmaLayerTraceRow(), scratch.MoeOut, hiddenSize)
+	return nil
+}
+
+type expertAssignment struct {
+	pos    int
+	weight float32
+}
+
+func reportExpertOccupancy(label string, assignments map[int][]expertAssignment, positions, topK int) {
+	if !diffusionGemmaTimingEnabled() || len(assignments) == 0 {
+		return
+	}
+	assignmentCount, maxBatch := 0, 0
+	hist := make(map[int]int)
+	for _, rows := range assignments {
+		batch := len(rows)
+		assignmentCount += batch
+		maxBatch = max(maxBatch, batch)
+		hist[batch]++
+	}
+	batches := make([]int, 0, len(hist))
+	for batch := range hist {
+		batches = append(batches, batch)
+	}
+	sort.Ints(batches)
+	var summary strings.Builder
+	for i, batch := range batches {
+		if i > 0 {
+			summary.WriteByte(',')
+		}
+		fmt.Fprintf(&summary, "%d:%d", batch, hist[batch])
+	}
+	fmt.Fprintf(os.Stderr, "timing diffusiongemma experts_occupancy path=%s positions=%d top_k=%d unique=%d assignments=%d avg_batch=%.2f max_batch=%d batch_hist=%s\n", label, positions, topK, len(assignments), assignmentCount, float64(assignmentCount)/float64(len(assignments)), maxBatch, summary.String())
+}
+
+func runBatchedExpertFallback(weights *TextWeights, lb TextLayerBindings, layout expertWeightLayout, scratch ForwardScratch, preNorm2 []float32, hiddenSize, positions, topK int) error {
+	normed := make([]float32, positions*hiddenSize)
+	for pos := 0; pos < positions; pos++ {
+		row := normed[pos*hiddenSize : (pos+1)*hiddenSize]
+		copy(row, scratch.Residual[pos*hiddenSize:(pos+1)*hiddenSize])
+		if !simd.RMSNormTo(row, preNorm2, 1e-6) {
+			return fmt.Errorf("DiffusionGemma expert pre_norm_2 rejected")
+		}
+	}
+	assignments := make(map[int][]expertAssignment)
+	for pos := 0; pos < positions; pos++ {
+		for slot := 0; slot < topK; slot++ {
+			expertID := scratch.TopKIDs[pos*topK+slot]
+			if expertID >= 0 && expertID < layout.nExperts {
+				assignments[expertID] = append(assignments[expertID], expertAssignment{pos: pos, weight: scratch.TopKVals[pos*topK+slot]})
+			}
+		}
+	}
+	expertIDs := make([]int, 0, len(assignments))
+	for expertID := range assignments {
+		expertIDs = append(expertIDs, expertID)
+	}
+	sort.Ints(expertIDs)
+	reportExpertOccupancy("fallback_f32", assignments, positions, topK)
+	var x, gate, up, act, down []float32
+	ensure := func(buf []float32, n int) []float32 {
+		if cap(buf) < n {
+			return make([]float32, n)
+		}
+		return buf[:n]
+	}
+	for _, expertID := range expertIDs {
+		rows := assignments[expertID]
+		batch := len(rows)
+		ew, err := loadLayerExpertWeights(weights, lb, layout, expertID, hiddenSize)
+		if err != nil {
+			return err
+		}
+		x = ensure(x, batch*hiddenSize)
+		for i, assignment := range rows {
+			copy(x[i*hiddenSize:(i+1)*hiddenSize], normed[assignment.pos*hiddenSize:(assignment.pos+1)*hiddenSize])
+		}
+		gate = ensure(gate, batch*layout.intermediate)
+		up = ensure(up, batch*layout.intermediate)
+		act = ensure(act, batch*layout.intermediate)
+		down = ensure(down, batch*hiddenSize)
+		if err := runDecodedExpertBatch(down, gate, up, act, x, ew, batch, hiddenSize, layout.intermediate); err != nil {
+			return err
+		}
+		for i, assignment := range rows {
+			dst := scratch.MoeOut[assignment.pos*hiddenSize : (assignment.pos+1)*hiddenSize]
+			k3SaxpyV(assignment.weight, down[i*hiddenSize:(i+1)*hiddenSize], dst)
+		}
+	}
 	return nil
 }
 
@@ -1400,6 +1993,13 @@ func buildSelfConditioningEmbeddingFromLogits(weights *TextWeights, logits [][]f
 	}
 	if tempInv <= 0 {
 		tempInv = 1.0
+	}
+	if done, err := k3SelfConditioningSoftEmbeddingQ80(out, logits, weights, fp.Globals.EmbedTokens, positions, vocab, hiddenSize, tempInv); err != nil {
+		return nil, err
+	} else if done {
+		embedScale := float32(math.Sqrt(float64(hiddenSize)))
+		k3ScaleV(embedScale, out)
+		return out, nil
 	}
 
 	// Fast path: cache/dequantize embed_tokens to F32 once and reuse it across

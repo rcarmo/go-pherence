@@ -1,0 +1,19 @@
+quant
+  10240x2560 calls=84 total_span=0.031553s worker_cpu=0.123348s aggregate_util=0.652 median_call_util=0.716
+  1024x2560 calls=8 total_span=0.002255s worker_cpu=0.011190s aggregate_util=0.827 median_call_util=0.841
+  2048x2560 calls=35 total_span=0.016178s worker_cpu=0.055156s aggregate_util=0.568 median_call_util=0.550
+  2560x10240 calls=42 total_span=0.085123s worker_cpu=0.332261s aggregate_util=0.651 median_call_util=0.687
+  2560x2048 calls=35 total_span=0.013041s worker_cpu=0.042673s aggregate_util=0.545 median_call_util=0.540
+  2560x4096 calls=7 total_span=0.004464s worker_cpu=0.017580s aggregate_util=0.656 median_call_util=0.658
+  4096x2560 calls=7 total_span=0.003587s worker_cpu=0.011132s aggregate_util=0.517 median_call_util=0.506
+  512x2560 calls=40 total_span=0.013799s worker_cpu=0.055168s aggregate_util=0.666 median_call_util=0.796
+gemv
+  10240x2560 calls=84 total_span=1.005491s worker_cpu=5.038489s aggregate_util=0.835 median_call_util=0.963
+  1024x2560 calls=8 total_span=0.011699s worker_cpu=0.058748s aggregate_util=0.837 median_call_util=0.911
+  2048x2560 calls=35 total_span=0.107745s worker_cpu=0.476703s aggregate_util=0.737 median_call_util=0.954
+  2560x10240 calls=42 total_span=0.635001s worker_cpu=2.828216s aggregate_util=0.742 median_call_util=0.901
+  2560x2048 calls=35 total_span=0.109658s worker_cpu=0.449784s aggregate_util=0.684 median_call_util=0.931
+  2560x4096 calls=7 total_span=0.036144s worker_cpu=0.187020s aggregate_util=0.862 median_call_util=0.972
+  262144x2560 calls=1 total_span=0.015445s worker_cpu=0.088204s aggregate_util=0.952 median_call_util=0.952
+  4096x2560 calls=7 total_span=0.037545s worker_cpu=0.180890s aggregate_util=0.803 median_call_util=0.973
+  512x2560 calls=40 total_span=0.037577s worker_cpu=0.148821s aggregate_util=0.660 median_call_util=0.916

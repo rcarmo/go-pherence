@@ -38,6 +38,8 @@ type RuntimeCapabilities struct {
 	SlidingWindowMask          bool                       `json:"sliding_window_mask"`
 	EncoderKVConcat            bool                       `json:"encoder_kv_concat"`
 	TextOnlyScaffoldReady      bool                       `json:"text_only_scaffold_ready"`
+	TextFullStackSparseReady   bool                       `json:"text_full_stack_sparse_ready"`
+	SparseTopKLMHead           bool                       `json:"sparse_topk_lm_head"`
 	ReferenceComplete          bool                       `json:"reference_complete"`
 	RuntimeReady               bool                       `json:"runtime_ready"`
 	ImplementedOps             int                        `json:"implemented_ops"`
@@ -95,6 +97,8 @@ func Capabilities() RuntimeCapabilities {
 		SlidingWindowMask:          true,
 		EncoderKVConcat:            true,
 		TextOnlyScaffoldReady:      true,
+		TextFullStackSparseReady:   true,
+		SparseTopKLMHead:           true,
 		ReferenceComplete:          false,
 		RuntimeReady:               false,
 		ImplementedOps:             implementedOps,

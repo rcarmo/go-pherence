@@ -1,0 +1,168 @@
+$ GOMAXPROCS=6 go test ./loader/gguf -run exact-correction-set -count=20
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.01s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.01s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.01s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.01s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.01s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+=== RUN   TestQ8_0Tile8AssemblyLayout
+--- PASS: TestQ8_0Tile8AssemblyLayout (0.00s)
+=== RUN   TestDotQ4_0Q8_0Tokens8SoARandomExact
+--- PASS: TestDotQ4_0Q8_0Tokens8SoARandomExact (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches
+--- PASS: TestQuantMatrixProjectBatchQ4_0ShapeDispatchRejectsUnretainedBatches (0.00s)
+=== RUN   TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices
+--- PASS: TestQuantMatrixProjectBatchQ4_0AcceptsOversizedSlices (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.112s
+
+$ GOMAXPROCS=6 go test -race ./loader/gguf -run exact-correction-set -count=3
+ok  	github.com/rcarmo/go-pherence/loader/gguf	1.757s
+
+$ go vet ./loader/gguf

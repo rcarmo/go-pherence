@@ -15,11 +15,15 @@ type ProgressEvent struct {
 }
 
 type InferenceOptions struct {
-	MaxNewTokens int                 `json:"max_new_tokens"`
-	CanvasLength int                 `json:"canvas_length"`
-	Denoising    *DenoisingConfig    `json:"denoising,omitempty"`
-	Seed         int64               `json:"seed,omitempty"`
-	OnProgress   func(ProgressEvent) `json:"-"` // streaming callback
+	MaxNewTokens int              `json:"max_new_tokens"`
+	CanvasLength int              `json:"canvas_length"`
+	Denoising    *DenoisingConfig `json:"denoising,omitempty"`
+	// RequestedDiffusionSteps records the public/user-facing diffusion_steps value
+	// separately from the effective entropy-bound max denoising steps.
+	RequestedDiffusionSteps int                                                                 `json:"requested_diffusion_steps,omitempty"`
+	Seed                    int64                                                               `json:"seed,omitempty"`
+	StepCallback            func(generatedTokenIndex int, snapshot DiffusionStepSnapshot) error `json:"-"`
+	OnProgress              func(ProgressEvent)                                                 `json:"-"` // streaming callback
 }
 
 // InferenceResult contains generated token IDs and per-canvas diagnostics.
@@ -100,6 +104,19 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 	context := append([]int(nil), promptIDs...)
 	for len(generated) < maxNew {
 		canvasIdx := len(canvases)
+		canvasDenoiseCfg := denoiseCfg
+		if opts.StepCallback != nil {
+			generatedIndex := len(generated)
+			previous := canvasDenoiseCfg.StepCallback
+			canvasDenoiseCfg.StepCallback = func(snapshot DiffusionStepSnapshot) error {
+				if previous != nil {
+					if err := previous(snapshot); err != nil {
+						return err
+					}
+				}
+				return opts.StepCallback(generatedIndex, snapshot)
+			}
+		}
 		var stepCb func(CanvasStep, []int)
 		if opts.OnProgress != nil {
 			stepCb = func(cs CanvasStep, currentCanvas []int) {
@@ -111,7 +128,7 @@ func (e *Engine) GenerateTokenIDs(promptIDs []int, opts InferenceOptions) (Infer
 				})
 			}
 		}
-		canvas, err := GenerateCanvasWithCallback(e.Denoiser, context, denoiseCfg, canvasLength, vocabSize, rng, stepCb)
+		canvas, err := GenerateCanvasWithCallback(e.Denoiser, context, canvasDenoiseCfg, canvasLength, vocabSize, rng, stepCb)
 		if err != nil {
 			return InferenceResult{}, err
 		}

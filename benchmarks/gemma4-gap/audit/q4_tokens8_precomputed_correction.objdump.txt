@@ -1,0 +1,189 @@
+000000000059b260 <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0>:
+  59b260:	55                   	push   rbp
+  59b261:	48 89 e5             	mov    rbp,rsp
+  59b264:	48 83 ec 20          	sub    rsp,0x20
+  59b268:	48 8b 74 24 30       	mov    rsi,QWORD PTR [rsp+0x30]
+  59b26d:	48 8b 7c 24 48       	mov    rdi,QWORD PTR [rsp+0x48]
+  59b272:	48 8b 4c 24 60       	mov    rcx,QWORD PTR [rsp+0x60]
+  59b277:	c5 fc 57 c0          	vxorps ymm0,ymm0,ymm0
+  59b27b:	c5 f4 57 c9          	vxorps ymm1,ymm1,ymm1
+  59b27f:	c5 ec 57 d2          	vxorps ymm2,ymm2,ymm2
+  59b283:	c5 e4 57 db          	vxorps ymm3,ymm3,ymm3
+  59b287:	c5 dc 57 e4          	vxorps ymm4,ymm4,ymm4
+  59b28b:	c5 d4 57 ed          	vxorps ymm5,ymm5,ymm5
+  59b28f:	c5 cc 57 f6          	vxorps ymm6,ymm6,ymm6
+  59b293:	c5 c4 57 ff          	vxorps ymm7,ymm7,ymm7
+  59b297:	b8 0f 0f 0f 0f       	mov    eax,0xf0f0f0f
+  59b29c:	c5 79 6e f0          	vmovd  xmm14,eax
+  59b2a0:	c4 42 7d 58 f6       	vpbroadcastd ymm14,xmm14
+  59b2a5:	48 85 c9             	test   rcx,rcx
+  59b2a8:	0f 84 bd 01 00 00    	je     59b46b <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0+0x20b>
+  59b2ae:	c5 7c 10 17          	vmovups ymm10,YMMWORD PTR [rdi]
+  59b2b2:	c4 62 79 13 2e       	vcvtph2ps xmm13,QWORD PTR [rsi]
+  59b2b7:	c4 42 7d 18 ed       	vbroadcastss ymm13,xmm13
+  59b2bc:	c4 41 14 59 d2       	vmulps ymm10,ymm13,ymm10
+  59b2c1:	c5 7c 11 14 24       	vmovups YMMWORD PTR [rsp],ymm10
+  59b2c6:	c5 7a 6f 46 02       	vmovdqu xmm8,XMMWORD PTR [rsi+0x2]
+  59b2cb:	c4 41 39 db e6       	vpand  xmm12,xmm8,xmm14
+  59b2d0:	c4 c1 39 71 d0 04    	vpsrlw xmm8,xmm8,0x4
+  59b2d6:	c4 41 39 db c6       	vpand  xmm8,xmm8,xmm14
+  59b2db:	c4 43 1d 38 c0 01    	vinserti128 ymm8,ymm12,xmm8,0x1
+  59b2e1:	c5 7e 6f 4f 20       	vmovdqu ymm9,YMMWORD PTR [rdi+0x20]
+  59b2e6:	c5 7e 6f af 20 01 00 	vmovdqu ymm13,YMMWORD PTR [rdi+0x120]
+  59b2ed:	00 
+  59b2ee:	c5 7e 6f 57 40       	vmovdqu ymm10,YMMWORD PTR [rdi+0x40]
+  59b2f3:	c5 7e 6f bf 40 01 00 	vmovdqu ymm15,YMMWORD PTR [rdi+0x140]
+  59b2fa:	00 
+  59b2fb:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  59b300:	c4 41 1d ef e4       	vpxor  ymm12,ymm12,ymm12
+  59b305:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59b30a:	c4 42 3d 50 e2       	{vex} vpdpbusd ymm12,ymm8,ymm10
+  59b30f:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59b314:	c4 41 1d fa e7       	vpsubd ymm12,ymm12,ymm15
+  59b319:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  59b31e:	c4 41 7c 5b e4       	vcvtdq2ps ymm12,ymm12
+  59b323:	c4 62 7d 18 0c 24    	vbroadcastss ymm9,DWORD PTR [rsp]
+  59b329:	c4 62 7d 18 54 24 04 	vbroadcastss ymm10,DWORD PTR [rsp+0x4]
+  59b330:	c4 c2 25 b8 c1       	vfmadd231ps ymm0,ymm11,ymm9
+  59b335:	c4 c2 1d b8 ca       	vfmadd231ps ymm1,ymm12,ymm10
+  59b33a:	c5 7e 6f 4f 60       	vmovdqu ymm9,YMMWORD PTR [rdi+0x60]
+  59b33f:	c5 7e 6f af 60 01 00 	vmovdqu ymm13,YMMWORD PTR [rdi+0x160]
+  59b346:	00 
+  59b347:	c5 7e 6f 97 80 00 00 	vmovdqu ymm10,YMMWORD PTR [rdi+0x80]
+  59b34e:	00 
+  59b34f:	c5 7e 6f bf 80 01 00 	vmovdqu ymm15,YMMWORD PTR [rdi+0x180]
+  59b356:	00 
+  59b357:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  59b35c:	c4 41 1d ef e4       	vpxor  ymm12,ymm12,ymm12
+  59b361:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59b366:	c4 42 3d 50 e2       	{vex} vpdpbusd ymm12,ymm8,ymm10
+  59b36b:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59b370:	c4 41 1d fa e7       	vpsubd ymm12,ymm12,ymm15
+  59b375:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  59b37a:	c4 41 7c 5b e4       	vcvtdq2ps ymm12,ymm12
+  59b37f:	c4 62 7d 18 4c 24 08 	vbroadcastss ymm9,DWORD PTR [rsp+0x8]
+  59b386:	c4 62 7d 18 54 24 0c 	vbroadcastss ymm10,DWORD PTR [rsp+0xc]
+  59b38d:	c4 c2 25 b8 d1       	vfmadd231ps ymm2,ymm11,ymm9
+  59b392:	c4 c2 1d b8 da       	vfmadd231ps ymm3,ymm12,ymm10
+  59b397:	c5 7e 6f 8f a0 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0xa0]
+  59b39e:	00 
+  59b39f:	c5 7e 6f af a0 01 00 	vmovdqu ymm13,YMMWORD PTR [rdi+0x1a0]
+  59b3a6:	00 
+  59b3a7:	c5 7e 6f 97 c0 00 00 	vmovdqu ymm10,YMMWORD PTR [rdi+0xc0]
+  59b3ae:	00 
+  59b3af:	c5 7e 6f bf c0 01 00 	vmovdqu ymm15,YMMWORD PTR [rdi+0x1c0]
+  59b3b6:	00 
+  59b3b7:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  59b3bc:	c4 41 1d ef e4       	vpxor  ymm12,ymm12,ymm12
+  59b3c1:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59b3c6:	c4 42 3d 50 e2       	{vex} vpdpbusd ymm12,ymm8,ymm10
+  59b3cb:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59b3d0:	c4 41 1d fa e7       	vpsubd ymm12,ymm12,ymm15
+  59b3d5:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  59b3da:	c4 41 7c 5b e4       	vcvtdq2ps ymm12,ymm12
+  59b3df:	c4 62 7d 18 4c 24 10 	vbroadcastss ymm9,DWORD PTR [rsp+0x10]
+  59b3e6:	c4 62 7d 18 54 24 14 	vbroadcastss ymm10,DWORD PTR [rsp+0x14]
+  59b3ed:	c4 c2 25 b8 e1       	vfmadd231ps ymm4,ymm11,ymm9
+  59b3f2:	c4 c2 1d b8 ea       	vfmadd231ps ymm5,ymm12,ymm10
+  59b3f7:	c5 7e 6f 8f e0 00 00 	vmovdqu ymm9,YMMWORD PTR [rdi+0xe0]
+  59b3fe:	00 
+  59b3ff:	c5 7e 6f af e0 01 00 	vmovdqu ymm13,YMMWORD PTR [rdi+0x1e0]
+  59b406:	00 
+  59b407:	c5 7e 6f 97 00 01 00 	vmovdqu ymm10,YMMWORD PTR [rdi+0x100]
+  59b40e:	00 
+  59b40f:	c5 7e 6f bf 00 02 00 	vmovdqu ymm15,YMMWORD PTR [rdi+0x200]
+  59b416:	00 
+  59b417:	c4 41 25 ef db       	vpxor  ymm11,ymm11,ymm11
+  59b41c:	c4 41 1d ef e4       	vpxor  ymm12,ymm12,ymm12
+  59b421:	c4 42 3d 50 d9       	{vex} vpdpbusd ymm11,ymm8,ymm9
+  59b426:	c4 42 3d 50 e2       	{vex} vpdpbusd ymm12,ymm8,ymm10
+  59b42b:	c4 41 25 fa dd       	vpsubd ymm11,ymm11,ymm13
+  59b430:	c4 41 1d fa e7       	vpsubd ymm12,ymm12,ymm15
+  59b435:	c4 41 7c 5b db       	vcvtdq2ps ymm11,ymm11
+  59b43a:	c4 41 7c 5b e4       	vcvtdq2ps ymm12,ymm12
+  59b43f:	c4 62 7d 18 4c 24 18 	vbroadcastss ymm9,DWORD PTR [rsp+0x18]
+  59b446:	c4 62 7d 18 54 24 1c 	vbroadcastss ymm10,DWORD PTR [rsp+0x1c]
+  59b44d:	c4 c2 25 b8 f1       	vfmadd231ps ymm6,ymm11,ymm9
+  59b452:	c4 c2 1d b8 fa       	vfmadd231ps ymm7,ymm12,ymm10
+  59b457:	48 83 c6 12          	add    rsi,0x12
+  59b45b:	48 81 c7 20 02 00 00 	add    rdi,0x220
+  59b462:	48 ff c9             	dec    rcx
+  59b465:	0f 85 43 fe ff ff    	jne    59b2ae <github.com/rcarmo/go-pherence/loader/gguf.dotQ4_0Q8_0Tokens8SoAVNNI.abi0+0x4e>
+  59b46b:	c4 c3 7d 19 c4 01    	vextractf128 xmm12,ymm0,0x1
+  59b471:	c4 c1 78 58 c4       	vaddps xmm0,xmm0,xmm12
+  59b476:	c5 99 73 d8 08       	vpsrldq xmm12,xmm0,0x8
+  59b47b:	c4 c1 78 58 c4       	vaddps xmm0,xmm0,xmm12
+  59b480:	c5 fb 7c c0          	vhaddps xmm0,xmm0,xmm0
+  59b484:	c4 c3 7d 19 cc 01    	vextractf128 xmm12,ymm1,0x1
+  59b48a:	c4 c1 70 58 cc       	vaddps xmm1,xmm1,xmm12
+  59b48f:	c5 99 73 d9 08       	vpsrldq xmm12,xmm1,0x8
+  59b494:	c4 c1 70 58 cc       	vaddps xmm1,xmm1,xmm12
+  59b499:	c5 f3 7c c9          	vhaddps xmm1,xmm1,xmm1
+  59b49d:	c4 c3 7d 19 d4 01    	vextractf128 xmm12,ymm2,0x1
+  59b4a3:	c4 c1 68 58 d4       	vaddps xmm2,xmm2,xmm12
+  59b4a8:	c5 99 73 da 08       	vpsrldq xmm12,xmm2,0x8
+  59b4ad:	c4 c1 68 58 d4       	vaddps xmm2,xmm2,xmm12
+  59b4b2:	c5 eb 7c d2          	vhaddps xmm2,xmm2,xmm2
+  59b4b6:	c4 c3 7d 19 dc 01    	vextractf128 xmm12,ymm3,0x1
+  59b4bc:	c4 c1 60 58 dc       	vaddps xmm3,xmm3,xmm12
+  59b4c1:	c5 99 73 db 08       	vpsrldq xmm12,xmm3,0x8
+  59b4c6:	c4 c1 60 58 dc       	vaddps xmm3,xmm3,xmm12
+  59b4cb:	c5 e3 7c db          	vhaddps xmm3,xmm3,xmm3
+  59b4cf:	c4 c3 7d 19 e4 01    	vextractf128 xmm12,ymm4,0x1
+  59b4d5:	c4 c1 58 58 e4       	vaddps xmm4,xmm4,xmm12
+  59b4da:	c5 99 73 dc 08       	vpsrldq xmm12,xmm4,0x8
+  59b4df:	c4 c1 58 58 e4       	vaddps xmm4,xmm4,xmm12
+  59b4e4:	c5 db 7c e4          	vhaddps xmm4,xmm4,xmm4
+  59b4e8:	c4 c3 7d 19 ec 01    	vextractf128 xmm12,ymm5,0x1
+  59b4ee:	c4 c1 50 58 ec       	vaddps xmm5,xmm5,xmm12
+  59b4f3:	c5 99 73 dd 08       	vpsrldq xmm12,xmm5,0x8
+  59b4f8:	c4 c1 50 58 ec       	vaddps xmm5,xmm5,xmm12
+  59b4fd:	c5 d3 7c ed          	vhaddps xmm5,xmm5,xmm5
+  59b501:	c4 c3 7d 19 f4 01    	vextractf128 xmm12,ymm6,0x1
+  59b507:	c4 c1 48 58 f4       	vaddps xmm6,xmm6,xmm12
+  59b50c:	c5 99 73 de 08       	vpsrldq xmm12,xmm6,0x8
+  59b511:	c4 c1 48 58 f4       	vaddps xmm6,xmm6,xmm12
+  59b516:	c5 cb 7c f6          	vhaddps xmm6,xmm6,xmm6
+  59b51a:	c4 c3 7d 19 fc 01    	vextractf128 xmm12,ymm7,0x1
+  59b520:	c4 c1 40 58 fc       	vaddps xmm7,xmm7,xmm12
+  59b525:	c5 99 73 df 08       	vpsrldq xmm12,xmm7,0x8
+  59b52a:	c4 c1 40 58 fc       	vaddps xmm7,xmm7,xmm12
+  59b52f:	c5 c3 7c ff          	vhaddps xmm7,xmm7,xmm7
+  59b533:	48 8b 44 24 68       	mov    rax,QWORD PTR [rsp+0x68]
+  59b538:	c5 fa 11 00          	vmovss DWORD PTR [rax],xmm0
+  59b53c:	c5 fa 11 48 04       	vmovss DWORD PTR [rax+0x4],xmm1
+  59b541:	c5 fa 11 50 08       	vmovss DWORD PTR [rax+0x8],xmm2
+  59b546:	c5 fa 11 58 0c       	vmovss DWORD PTR [rax+0xc],xmm3
+  59b54b:	c5 fa 11 60 10       	vmovss DWORD PTR [rax+0x10],xmm4
+  59b550:	c5 fa 11 68 14       	vmovss DWORD PTR [rax+0x14],xmm5
+  59b555:	c5 fa 11 70 18       	vmovss DWORD PTR [rax+0x18],xmm6
+  59b55a:	c5 fa 11 78 1c       	vmovss DWORD PTR [rax+0x1c],xmm7
+  59b55f:	c5 f8 77             	vzeroupper
+  59b562:	48 83 c4 20          	add    rsp,0x20
+  59b566:	5d                   	pop    rbp
+  59b567:	c3                   	ret
+  59b568:	cc                   	int3
+  59b569:	cc                   	int3
+  59b56a:	cc                   	int3
+  59b56b:	cc                   	int3
+  59b56c:	cc                   	int3
+  59b56d:	cc                   	int3
+  59b56e:	cc                   	int3
+  59b56f:	cc                   	int3
+  59b570:	cc                   	int3
+  59b571:	cc                   	int3
+  59b572:	cc                   	int3
+  59b573:	cc                   	int3
+  59b574:	cc                   	int3
+  59b575:	cc                   	int3
+  59b576:	cc                   	int3
+  59b577:	cc                   	int3
+  59b578:	cc                   	int3
+  59b579:	cc                   	int3
+  59b57a:	cc                   	int3
+  59b57b:	cc                   	int3
+  59b57c:	cc                   	int3
+  59b57d:	cc                   	int3
+  59b57e:	cc                   	int3
+  59b57f:	cc                   	int3
+
