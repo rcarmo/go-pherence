@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "source_hashes": {
+    "core/plda.py": "29674eb850f1a96ebd2c56a4a474801351b84129a02c17c5214258e5f6cdc809",
+    "utils/vbx.py": "a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e",
+    "core/inference.py": "c29f525c93a1a5c6bd0a9475ae4fb8c73ce9b48cf9735301302eb99886ad7d41",
+    "pipelines/speaker_diarization.py": "cbb358abedef5042fcc71bb970b12a2936a16686be4bda15691a224f172656fd",
+    "pipelines/speaker_verification.py": "af1d16a03b482dc5509431d113acbbb1466b75c35d8eaa64d4a8bb593e293c28",
+    "pipelines/clustering.py": "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba"
+  },
+  "threads": 1,
+  "mkldnn": false,
+  "batch_sizes": 1,
+  "constrained": true,
+  "num_speakers": 4,
+  "minimum_embedding_samples": 400,
+  "full": [
+    {
+      "start": 0.03096875,
+      "end": 1.3472187500000001,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 3.9797187500000004,
+      "end": 4.6715937499999995,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 6.22409375,
+      "end": 6.730343750000001,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 6.544718750000001,
+      "end": 11.72534375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 9.075968750000001,
+      "end": 10.054718750000003,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 11.72534375,
+      "end": 17.294093750000002,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 14.914718750000002,
+      "end": 14.931593750000001,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 15.74159375,
+      "end": 17.37846875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 21.46221875,
+      "end": 25.57971875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 23.774093750000002,
+      "end": 29.22471875,
+      "speaker": "SPEAKER_03"
+    },
+    {
+      "start": 29.59596875,
+      "end": 34.42221875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 31.03034375,
+      "end": 32.93721875,
+      "speaker": "SPEAKER_03"
+    },
+    {
+      "start": 41.23971875,
+      "end": 41.729093750000004,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 43.99034375,
+      "end": 56.798468750000005,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 46.875968750000006,
+      "end": 46.977218750000006,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 47.02784375,
+      "end": 49.829093750000006,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 53.23784375,
+      "end": 53.406593750000006,
+      "speaker": "SPEAKER_01"
+    }
+  ],
+  "exclusive": [
+    {
+      "start": 0.03096875,
+      "end": 1.3472187500000001,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 3.9797187500000004,
+      "end": 4.6715937499999995,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 6.22409375,
+      "end": 6.56159375,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 6.56159375,
+      "end": 11.72534375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 11.72534375,
+      "end": 15.876593750000001,
+      "speaker": "SPEAKER_02"
+    },
+    {
+      "start": 15.876593750000001,
+      "end": 17.37846875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 21.46221875,
+      "end": 24.02721875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 24.02721875,
+      "end": 25.17471875,
+      "speaker": "SPEAKER_03"
+    },
+    {
+      "start": 25.17471875,
+      "end": 25.512218750000002,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 25.512218750000002,
+      "end": 29.22471875,
+      "speaker": "SPEAKER_03"
+    },
+    {
+      "start": 29.59596875,
+      "end": 34.42221875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 41.23971875,
+      "end": 41.729093750000004,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 43.99034375,
+      "end": 56.798468750000005,
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "artifacts": {
+    "segmentation": {
+      "shape": [
+        51,
+        589,
+        3
+      ],
+      "sha256": "973e0fe334064e6854052506a9cbf231e5c031c4c01b7193fd85f47a6b55ab12"
+    },
+    "embeddings": {
+      "shape": [
+        51,
+        3,
+        256
+      ],
+      "sha256": "0d8566f06d861703c65275ef5287b01c20a7c62a40210c3d872ecb4ef3a1112a"
+    }
+  }
+}

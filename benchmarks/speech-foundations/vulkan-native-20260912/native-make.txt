@@ -1,0 +1,71 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH=1 go test -p=1 -count=1 -timeout=120s ./backends/vulkan -run '^TestVulkanNativeSpeech$' -v
+=== RUN   TestVulkanNativeSpeech
+    vulkan_speech_native_test.go:56: {"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","device_id":42912,"device_type":1,"driver_version":109056008,"kind":"native_device","limits":{"APIVersion":4211042,"StorageBufferRange":4294967295,"MemoryAllocationCount":4294967295,"StorageBufferOffsetAlignment":4,"PushConstantBytes":256,"BoundDescriptorSets":32,"PerStageStorageBuffers":201326592,"PerStageResources":201326592,"DescriptorSetStorageBuffers":201326592,"WorkgroupCount":[2147483647,65535,65535],"WorkgroupSize":[1024,1024,1024],"WorkgroupInvocations":1024,"SharedMemoryBytes":49152},"vendor_id":32902}
+=== RUN   TestVulkanNativeSpeech/GELU
+    vulkan_speech_native_test.go:242: NATIVE_METRIC {"name":"gelu/inplace=false","values":4106,"max_abs":3.873717941971222e-7,"abs_budget":0.000002,"rel_budget":0.000002,"wall_ns":1365209}
+    vulkan_speech_native_test.go:242: NATIVE_METRIC {"name":"gelu/inplace=true","values":4106,"max_abs":3.873717941971222e-7,"abs_budget":0.000002,"rel_budget":0.000002,"wall_ns":486079}
+=== RUN   TestVulkanNativeSpeech/Linear
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[1 1 1]","values":1,"max_abs":3.349778232575318e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":426497}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[2 3 5]","values":10,"max_abs":1.2337022736730319e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":472471}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[15 16 17]","values":255,"max_abs":1.3974010659723035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":513316}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[16 17 15]","values":240,"max_abs":9.749137175329992e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":456596}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[17 31 19]","values":323,"max_abs":1.5529887331666714e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":489510}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[31 33 7]","values":217,"max_abs":2.6790485252448093e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":446005}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[33 17 31]","values":1023,"max_abs":1.3867614767626435e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":434415}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[3 384 9]","values":27,"max_abs":0.0000017596171417721962,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":546856}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[2 1280 7]","values":14,"max_abs":0.000005361167738193728,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":797306}
+    vulkan_speech_native_test.go:262: NATIVE_METRIC {"name":"linear[1 16384 2]","values":2,"max_abs":0.000009660682177781155,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":4503095}
+=== RUN   TestVulkanNativeSpeech/LayerNorm
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=1/inplace=false","values":3,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":456847}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=1/inplace=true","values":3,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":690149}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=3/inplace=false","values":9,"max_abs":3.617045962744925e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":498755}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=3/inplace=true","values":9,"max_abs":3.617045962744925e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":461065}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=17/inplace=false","values":51,"max_abs":1.3860540604149207e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":513094}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=17/inplace=true","values":51,"max_abs":1.3860540604149207e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":450855}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=255/inplace=false","values":765,"max_abs":2.0412511281264756e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":537442}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=255/inplace=true","values":765,"max_abs":2.0412511281264756e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":458254}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=256/inplace=false","values":768,"max_abs":1.7312111544320885e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":447332}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=256/inplace=true","values":768,"max_abs":1.7312111544320885e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":502110}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=257/inplace=false","values":771,"max_abs":1.547665806622689e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":468831}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=257/inplace=true","values":771,"max_abs":1.547665806622689e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":492571}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=384/inplace=false","values":1152,"max_abs":2.298833243763454e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":477407}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=384/inplace=true","values":1152,"max_abs":2.298833243763454e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":449217}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=768/inplace=false","values":2304,"max_abs":1.9797456207726327e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":460010}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=768/inplace=true","values":2304,"max_abs":1.9797456207726327e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":457008}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=1280/inplace=false","values":3840,"max_abs":1.4995496022685018e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":463544}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=1280/inplace=true","values":3840,"max_abs":1.4995496022685018e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":444899}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=4097/inplace=false","values":12291,"max_abs":1.7685146369572635e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":487552}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=4097/inplace=true","values":12291,"max_abs":1.7685146369572635e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":498928}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=16384/inplace=false","values":49152,"max_abs":2.0576746884160002e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":640516}
+    vulkan_speech_native_test.go:287: NATIVE_METRIC {"name":"layernorm/width=16384/inplace=true","values":49152,"max_abs":2.0576746884160002e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":644091}
+=== RUN   TestVulkanNativeSpeech/Attention
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":611859}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":506993}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":544223}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.991224719086418e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":539500}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":3.1629190178072975e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":675786}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.58300549013957e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":659646}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":6.247676459097962e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":597599}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":4.614990545270814e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":790273}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":2.566193963438046e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1149123}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.669001562301653e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":6901790}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":861611}
+    vulkan_speech_native_test.go:308: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.3638819091640357e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1076796}
+    vulkan_speech_native_test.go:330: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":915400}
+    vulkan_speech_native_test.go:330: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":991281}
+    vulkan_speech_native_test.go:330: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.00000169888056578138,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":893445}
+=== RUN   TestVulkanNativeSpeech/Plan
+=== RUN   TestVulkanNativeSpeech/Plan/tiny
+    vulkan_speech_native_test.go:404: NATIVE_METRIC {"name":"six-stage-plan/0","values":102,"max_abs":5.960464477539063e-8,"abs_budget":0.00005,"rel_budget":0.00005,"wall_ns":925814}
+    vulkan_speech_native_test.go:404: NATIVE_METRIC {"name":"six-stage-plan/1","values":102,"max_abs":5.960464477539063e-8,"abs_budget":0.00005,"rel_budget":0.00005,"wall_ns":874217}
+    vulkan_speech_native_test.go:404: NATIVE_METRIC {"name":"six-stage-plan/2","values":102,"max_abs":5.960464477539063e-8,"abs_budget":0.00005,"rel_budget":0.00005,"wall_ns":877412}
+    vulkan_speech_native_test.go:438: plan vs six separate fenced dispatches: bit-exact
+--- PASS: TestVulkanNativeSpeech (0.08s)
+    --- PASS: TestVulkanNativeSpeech/GELU (0.00s)
+    --- PASS: TestVulkanNativeSpeech/Linear (0.01s)
+    --- PASS: TestVulkanNativeSpeech/LayerNorm (0.02s)
+    --- PASS: TestVulkanNativeSpeech/Attention (0.03s)
+    --- PASS: TestVulkanNativeSpeech/Plan (0.01s)
+        --- PASS: TestVulkanNativeSpeech/Plan/tiny (0.01s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.093s

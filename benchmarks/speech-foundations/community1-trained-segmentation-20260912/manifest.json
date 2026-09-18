@@ -1,0 +1,1075 @@
+{
+  "schema": 1,
+  "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "checkpoint_sha256": "7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e",
+  "public_pcm_sha256": "c319b4abca767b124e41432d364fd7df006cb26bb79d09326c487d606a134e6e",
+  "source_hashes": {
+    "pyannet": "3ceebc8c00e83d96747a706212102e7e99c44732ff1fc769e241e8de47d3d6af",
+    "sincnet": "3f151a2482c3f8c266b1efd9bdcab297238c52b4792a7265261f2da063e5dade",
+    "receptive_field": "021df3fc249a3c5146e15f879740a0ca02ad13fad6269191c8392a1ad61cd488",
+    "filterbank": "2df0d1e6f109985c00efcc60970ebceff6a9665c3e65ebae73ea4848e48d8eae",
+    "encoder": "4b385912861a60c6ebcadc170a3ef747637952e03ab6eab303c523788cb3beee"
+  },
+  "task_sha256": "e2b0cc845a1234fe2f211ba2a0084c3e9be43fbdb82e41e6ca775f4746bbe444",
+  "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+  "cpu_threads": 1,
+  "mkldnn": false,
+  "config": {
+    "SincNetStride": 10,
+    "LSTM": {
+      "InputSize": 60,
+      "HiddenSize": 128,
+      "NumLayers": 4,
+      "Bidirectional": true
+    },
+    "Head": {
+      "InputSize": 256,
+      "HiddenSize": 128,
+      "NumLayers": 2,
+      "Speakers": 3,
+      "MaxActive": 2
+    },
+    "SplitLSTM": false
+  },
+  "sample_rate": 16000,
+  "channels": 1,
+  "window_samples": 160000,
+  "scope": "Offline conversion and bounded segmentation oracle; not full diarization or quality qualification",
+  "files": {
+    "segmentation.safetensors": {
+      "sha256": "b4913f3f13c3031267db5d99b0daafd251c822a5f12435b581607e1a56b7c488",
+      "bytes": 5898956,
+      "tensors": {
+        "sincnet.wav_norm1d.weight": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.wav_norm1d.bias": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.0.filterbank.low_hz_": {
+          "shape": [
+            40,
+            1
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.0.filterbank.band_hz_": {
+          "shape": [
+            40,
+            1
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.0.filterbank.window_": {
+          "shape": [
+            125
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.0.filterbank.n_": {
+          "shape": [
+            1,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.1.weight": {
+          "shape": [
+            60,
+            80,
+            5
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.1.bias": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.2.weight": {
+          "shape": [
+            60,
+            60,
+            5
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.conv1d.2.bias": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.0.weight": {
+          "shape": [
+            80
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.0.bias": {
+          "shape": [
+            80
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.1.weight": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.1.bias": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.2.weight": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.norm1d.2.bias": {
+          "shape": [
+            60
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l0": {
+          "shape": [
+            512,
+            60
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l0": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l0": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l0": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l0_reverse": {
+          "shape": [
+            512,
+            60
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l0_reverse": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l0_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l0_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l1": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l1": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l1": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l1": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l1_reverse": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l1_reverse": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l1_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l1_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l2": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l2": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l2": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l2": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l2_reverse": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l2_reverse": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l2_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l2_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l3": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l3": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l3": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l3": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_ih_l3_reverse": {
+          "shape": [
+            512,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.weight_hh_l3_reverse": {
+          "shape": [
+            512,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_ih_l3_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "lstm.bias_hh_l3_reverse": {
+          "shape": [
+            512
+          ],
+          "dtype": "F32"
+        },
+        "linear.0.weight": {
+          "shape": [
+            128,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "linear.0.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "linear.1.weight": {
+          "shape": [
+            128,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "linear.1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "classifier.weight": {
+          "shape": [
+            7,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "classifier.bias": {
+          "shape": [
+            7
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "filters.safetensors": {
+      "sha256": "2d6ecf47b166b2d44a06aea6546788c816c12800fc47fc265a6752b0a085c705",
+      "bytes": 80600,
+      "tensors": {
+        "sincnet.filters": {
+          "shape": [
+            80,
+            251
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "silence-1s.safetensors": {
+      "sha256": "790e0e5b682b1bbaf2e596911992f9ac3e47d51b1f24ea6b39d8267b1c8815ef",
+      "bytes": 1808760,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.-1": {
+          "shape": [
+            1,
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.0": {
+          "shape": [
+            1,
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "conv.0": {
+          "shape": [
+            80,
+            1575
+          ],
+          "dtype": "F32"
+        },
+        "pool.0": {
+          "shape": [
+            80,
+            525
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.0": {
+          "shape": [
+            80,
+            525
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.1": {
+          "shape": [
+            80,
+            525
+          ],
+          "dtype": "F32"
+        },
+        "conv.1": {
+          "shape": [
+            60,
+            521
+          ],
+          "dtype": "F32"
+        },
+        "pool.1": {
+          "shape": [
+            60,
+            173
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.1": {
+          "shape": [
+            60,
+            173
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.2": {
+          "shape": [
+            60,
+            173
+          ],
+          "dtype": "F32"
+        },
+        "conv.2": {
+          "shape": [
+            60,
+            169
+          ],
+          "dtype": "F32"
+        },
+        "pool.2": {
+          "shape": [
+            60,
+            56
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.2": {
+          "shape": [
+            60,
+            56
+          ],
+          "dtype": "F32"
+        },
+        "lstm.0": {
+          "shape": [
+            56,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.1": {
+          "shape": [
+            56,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.2": {
+          "shape": [
+            56,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.3": {
+          "shape": [
+            56,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "head.0": {
+          "shape": [
+            56,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.1": {
+          "shape": [
+            56,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.2": {
+          "shape": [
+            56,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "log_probabilities": {
+          "shape": [
+            56,
+            7
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "wave-short.safetensors": {
+      "sha256": "9ad4b99192e9036beb57dcffd07108c533e87a09574d93e7436dac14b96efb6d",
+      "bytes": 145712,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            1600
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.-1": {
+          "shape": [
+            1,
+            1600
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.0": {
+          "shape": [
+            1,
+            1600
+          ],
+          "dtype": "F32"
+        },
+        "conv.0": {
+          "shape": [
+            80,
+            135
+          ],
+          "dtype": "F32"
+        },
+        "pool.0": {
+          "shape": [
+            80,
+            45
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.0": {
+          "shape": [
+            80,
+            45
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.1": {
+          "shape": [
+            80,
+            45
+          ],
+          "dtype": "F32"
+        },
+        "conv.1": {
+          "shape": [
+            60,
+            41
+          ],
+          "dtype": "F32"
+        },
+        "pool.1": {
+          "shape": [
+            60,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.1": {
+          "shape": [
+            60,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.2": {
+          "shape": [
+            60,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "conv.2": {
+          "shape": [
+            60,
+            9
+          ],
+          "dtype": "F32"
+        },
+        "pool.2": {
+          "shape": [
+            60,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.2": {
+          "shape": [
+            60,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "lstm.0": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.1": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.2": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.3": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "head.0": {
+          "shape": [
+            3,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.1": {
+          "shape": [
+            3,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.2": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "log_probabilities": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "public-0-10s.safetensors": {
+      "sha256": "23d2de4e0c7a23431f7953ceef1056eece88e7c340e3e6f1c0ccd5f3440cd6e0",
+      "bytes": 18455472,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.-1": {
+          "shape": [
+            1,
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.0": {
+          "shape": [
+            1,
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "conv.0": {
+          "shape": [
+            80,
+            15975
+          ],
+          "dtype": "F32"
+        },
+        "pool.0": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.0": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.1": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "conv.1": {
+          "shape": [
+            60,
+            5321
+          ],
+          "dtype": "F32"
+        },
+        "pool.1": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.1": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.2": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "conv.2": {
+          "shape": [
+            60,
+            1769
+          ],
+          "dtype": "F32"
+        },
+        "pool.2": {
+          "shape": [
+            60,
+            589
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.2": {
+          "shape": [
+            60,
+            589
+          ],
+          "dtype": "F32"
+        },
+        "lstm.0": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.1": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.2": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.3": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "head.0": {
+          "shape": [
+            589,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.1": {
+          "shape": [
+            589,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.2": {
+          "shape": [
+            589,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "log_probabilities": {
+          "shape": [
+            589,
+            7
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "public-10-20s.safetensors": {
+      "sha256": "eb716dfc67eee8b428ce3ca6d1a56fc566b0f6208467e4b852b1b4336ba891ad",
+      "bytes": 18455472,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.-1": {
+          "shape": [
+            1,
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.0": {
+          "shape": [
+            1,
+            160000
+          ],
+          "dtype": "F32"
+        },
+        "conv.0": {
+          "shape": [
+            80,
+            15975
+          ],
+          "dtype": "F32"
+        },
+        "pool.0": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.0": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.1": {
+          "shape": [
+            80,
+            5325
+          ],
+          "dtype": "F32"
+        },
+        "conv.1": {
+          "shape": [
+            60,
+            5321
+          ],
+          "dtype": "F32"
+        },
+        "pool.1": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.1": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "conv_input.2": {
+          "shape": [
+            60,
+            1773
+          ],
+          "dtype": "F32"
+        },
+        "conv.2": {
+          "shape": [
+            60,
+            1769
+          ],
+          "dtype": "F32"
+        },
+        "pool.2": {
+          "shape": [
+            60,
+            589
+          ],
+          "dtype": "F32"
+        },
+        "sincnet.2": {
+          "shape": [
+            60,
+            589
+          ],
+          "dtype": "F32"
+        },
+        "lstm.0": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.1": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.2": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "lstm.3": {
+          "shape": [
+            589,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "head.0": {
+          "shape": [
+            589,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.1": {
+          "shape": [
+            589,
+            128
+          ],
+          "dtype": "F32"
+        },
+        "head.2": {
+          "shape": [
+            589,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "log_probabilities": {
+          "shape": [
+            589,
+            7
+          ],
+          "dtype": "F32"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "silence-1s",
+      "file": "silence-1s.safetensors",
+      "samples": 16000,
+      "frames": 56,
+      "source": "synthetic"
+    },
+    {
+      "name": "wave-short",
+      "file": "wave-short.safetensors",
+      "samples": 1600,
+      "frames": 3,
+      "source": "synthetic"
+    },
+    {
+      "name": "public-0-10s",
+      "file": "public-0-10s.safetensors",
+      "samples": 160000,
+      "frames": 589,
+      "source": "pyannote tutorial public PCM"
+    },
+    {
+      "name": "public-10-20s",
+      "file": "public-10-20s.safetensors",
+      "samples": 160000,
+      "frames": 589,
+      "source": "pyannote tutorial public PCM"
+    }
+  ]
+}

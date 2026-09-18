@@ -1,0 +1,13 @@
+/var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/pyannote/audio/core/io.py:48: UserWarning: 
+torchcodec is not installed correctly so built-in audio decoding will fail. Solutions are:
+* use audio preloaded in-memory as a {'waveform': (channel, time) torch.Tensor, 'sample_rate': int} dictionary;
+* fix torchcodec installation. Error message was:
+
+Could not load this library: /var/home/agent/workspace/projects/whisper-stt/runtime/diar-export/lib/python3.12/site-packages/torchcodec/libtorchcodec_image.so
+  warnings.warn(
+Traceback (most recent call last):
+  File "/var/home/agent/workspace/projects/go-pherence/scripts/community1_checkpoint_export.py", line 187, in <module>
+    main()
+  File "/var/home/agent/workspace/projects/go-pherence/scripts/community1_checkpoint_export.py", line 92, in main
+    raise ValueError(f"checkpoint hyperparameter contract changed: {hp}")
+ValueError: checkpoint hyperparameter contract changed: {'sample_rate': 16000, 'num_channels': 1, 'sincnet': {'stride': 10, 'sample_rate': 16000}, 'lstm': {'hidden_size': 128, 'num_layers': 4, 'bidirectional': True, 'monolithic': True, 'dropout': 0.5, 'batch_first': True}, 'linear': {'hidden_size': 128, 'num_layers': 2}}

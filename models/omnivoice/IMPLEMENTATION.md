@@ -1,0 +1,1005 @@
+# Native inference milestone: backbone, denoising, decode
+
+## Implemented and tested
+
+- Full mixed text/audio forward: each audio position sums the eight codebook
+  embeddings, text uses codebook-zero text IDs, then all 28 Qwen3 layers, final
+  RMSNorm and chunked audio-head projection. Returns `[codebook,time,vocab]`.
+- Fixed-capacity `Backbone.ForwardInto` streams weights using the reusable arena;
+  all reads and calculations are native Go. Zero successful-call allocations.
+- Sampler: float32 shifted timetable, reveal counts, normalized classifier-free
+  guidance, mask-token suppression, top-k, Gumbel perturbation, confidence/layer
+  penalty and filled-position masking. Scratch is preallocated.
+- `Generation.GenerateInto` connects conditional/unconditional forwards to the
+  reveal loop. Go PCG RNG is seeded per invocation, not PyTorch-compatible.
+  Position temperature is constant as in upstream, not annealed.
+- Decode-only HiggsAudioV2: RVQ embedding/projection sum, fc2, DAC input conv,
+  five transposed-convolution upsampling blocks, residual convolutions with
+  dilations 1/3/9, Snake activations and output convolution. Final tanh is omitted
+  as required by Higgs. SIMD GEMM handles convolutions using bounded im2col tiles;
+  scatter and sine remain scalar. `Prepare` reserves reusable activation slots,
+  weight lookups and convolution scratch; `DecodeInto` allocates nothing after setup.
+  `Decode` remains an allocating convenience wrapper. A decoder is single-caller.
+- Validated fixed codec variant: 24 kHz, 8 quantizers, codebook size 1024,
+  decoder rates 8/5/4/2/3. Decode limit is 250 frames (10 seconds).
+- WAV output exclusively creates PCM16 mono files and attenuates only to avoid
+  clipping. Original waveform generation is distinct from file gain scaling.
+
+## Numerical evidence
+
+| Check | Result |
+|---|---|
+| Tiny full forward versus upstream OmniVoice.forward | every logit, max error 2.39e-7 |
+| Real full forward, 3 mixed positions | all 24,600 logits, max error 0.000153, mean 1.34e-5 |
+| Real forward allocation counters | 0 bytes, 0 allocations after setup |
+| Tiny 4-step greedy generation | matches upstream-derived loop output/schedule |
+| Sampler random primitives | upstream helpers with explicit uniform fixtures |
+| Tiny complete generation allocations | zero after construction |
+| Real decoder, 8 codebooks × 2 frames | all 1,920 samples, max error 5.59e-7 |
+
+The real forward took ~2.34 seconds with streamed weights. The Python figure
+includes model/codec loading, so these timings are **not** a valid speedup ratio.
+Sampling tie order can differ from Torch: Go uses lowest flattened index.
+
+The top-k ratio uses float64, matching Python scalar semantics. In float32,
+`0.1 * 20` followed by double-precision `ceil` can produce 3 instead of 2; a
+reference fixture exposed this and the API was corrected before integration.
+
+## CLI
+
+```sh
+make test-omnivoice vet-omnivoice build-omnivoice
+bin/omnivoice -mode logits -model "$MODEL" -input token-input.json
+bin/omnivoice -mode generate -model "$MODEL" -input prepared-prompt.json \
+  -steps 8 -output synthetic.wav
+```
+
+`logits` input: `tokens`, flattened `[codebook,time]` `ids`, `audio_mask`, optional
+`positions` and additive `mask`. CLI limits to 256 positions.
+
+`generate` input: `conditional` and `unconditional` objects with `tokens`, `ids`
+and `audio_mask`; plus `target_frames`, descriptive `text` and `reference`.
+Target frames occupy the end of each sequence. Maximum input length is 512
+positions. It speaks the **supplied tokens**; descriptive text is not verified
+against them and is not tokenized by this command. Generate currently uses full
+attention/implicit positions, so custom masks/positions are not supported.
+
+## Preparation boundary
+
+`scripts/omnivoice-export-prompt.py` uses the existing Python reference runtime
+to tokenize one text and encode one reference WAV. It writes a prepared JSON.
+This is a development bridge, not part of the Go executable and not a claim of
+fully native arbitrary text/reference input. Go runs all subsequent iterative
+inference, codec decoding and WAV writing without Python subprocesses.
+
+`prepare` and `synthesize` now tokenize text natively using cached reference codes:
+
+```sh
+bin/omnivoice -mode prepare -model "$MODEL" -reference-tokens voice-codes.json \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -output prompt.json
+bin/omnivoice -mode synthesize -model "$MODEL" -reference-tokens voice-codes.json \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic.wav
+```
+
+Cache fields: `books`, `frames`, flattened `[book,frame]` `codes`, exact reference
+`transcript`, optional original `ref_rms`. Native encoding is available as described below.
+Use matching codes/transcript from the same recording. Language defaults to `en`,
+denoise to true; `-instruct` is optional. Maximum combined prompt is 512 positions.
+Qwen single-digit splitting and cached merge ranks pass a nine-case tokenizer
+fixture. The complete real prompt matches the Python export at all 210 positions.
+Run that private test with `GO_PHERENCE_REAL_PROMPT` pointing to a JSON object
+containing `reference` (cache) and `expected` (Python-exported prepared prompt),
+plus `GO_PHERENCE_REAL_OMNIVOICE` pointing to the model directory.
+
+Generation restores reference loudness by multiplying by `ref_rms / 0.1` when
+below 0.1, before peak limiting. This matches upstream's RMS restoration.
+
+Keep reference-derived prepared prompts private just like reference recordings.
+They are not fixtures/source exports. The checked-in tiny checkpoint is random
+synthetic test data, and the decoder fixture uses synthetic code IDs.
+
+## Real native synthesis and packed SIMD
+
+Two 3-second synthetic Nimoy-conditioned samples completed using one prepared
+prompt, eight steps and seed 42. Both external ASR checks recovered “The evidence
+is insufficient, Captain.” Native baseline took 496.999 s (492.631 s generation,
+4.368 s decode/save). Packed SIMD took 149.283 s (143.607 s generation, 5.675 s
+decode/save), about 3.3× faster in these runs. This is not a controlled comparison
+with Python, whose RNG and postprocessing differ. Peak observed generation RSS
+was roughly 1.06 GB, not a formal whole-process maximum measurement.
+
+Added `SgemmNTPackedTo`: checked slices, caller-owned panel scratch, existing
+amd64 6×16/arm64 4×16 GEBP microkernel and safe tail fallbacks. This avoids repeated
+B dot-product scans across rows. Shape/alpha/zero-allocation tests and race tests
+pass. Real 128-token block fell from ~766 ms to ~126 ms with zero allocations;
+real-block prefix/aggregate parity remained within float32 tolerances. Tiny full
+logit fixtures use a small-row fallback; broader real packed-path parity is
+covered by the 128-token block check, not the three-token logits check alone.
+
+Full `go test ./backends/...` was run because a reusable backend entry point was
+added. Existing SpacemiT package build/test failures reproduce on untouched
+`e4c24e6f`. SIMD runtime tests pass; no architecture assembly was changed.
+
+## Cached-reference profiling and FP16 conversion (2026-09-13)
+
+Same 3-second text, approved chess reference cache, eight steps, seed 42, two
+threads. Profiled generation/decode-save times exclude about three seconds of
+CLI tokenization/backend discovery/setup. Single runs, not statistical estimates:
+
+| Weight conversion | Generation | Decode/save | Combined |
+|---|---:|---:|---:|
+| Scalar | 94.75 s | 4.02 s | 98.77 s |
+| F16C plus scalar NaN scan | 82.80 s | 4.13 s | 86.93 s |
+| F16C plus vector NaN scan | 72.24 s | 4.26 s | 76.50 s |
+
+All three PCM WAVs have SHA-256
+`b38d9318dbdf478abdf7054d5da194799a4e5899dde91a6c2cb0661cb4cf3a4b`.
+The last CPU profile spans 79.44 seconds including whole-command setup.
+GEBP accounts for 58.5% of CPU samples, scalar B packing 9.5%, F16C conversion
+6.8%, scalar exponentials 4.2%. Whole-command sampled allocations in the scalar
+run were 395 MB, mainly tokenizer JSON, two streamed weight arenas and codec
+weights/scratch. This is cumulative allocation, not peak RSS. Backbone forward,
+weight reload and prepared codec decode still pass zero-allocation tests.
+
+`simd.F16LittleEndianToF32` uses detected AVX/F16C on amd64 and a scalar fallback.
+It validates byte lengths and preserves every scalar half-conversion bit pattern,
+including NaN payload/signalling bits via exceptional-block fallback. Tests cover
+all 65,536 values, tails, NaN blocks, malformed inputs and allocations. ARM64
+cross-build and no-CGo tests pass. Large finite conversion benchmark measured
+about 8.3x scalar throughput on this host; small in-cache buffers measured more.
+
+## Native reference encoding (2026-09-13)
+
+`encode-reference` imports mono reference audio through `go-264/audio`, normalises
+quiet references to RMS 0.1, trims to the 960-sample hop boundary, resamples to
+16 kHz with Hann-windowed sinc, pads 160 samples on both sides, runs HuBERT and
+averages its 13 hidden states. It selects every second semantic frame, then runs
+DAC acoustic encoding, semantic convolutions, fusion and eight RVQ stages.
+
+```sh
+bin/omnivoice -mode encode-reference -model "$MODEL" \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -output reference-codes.json
+bin/omnivoice -mode synthesize -model "$MODEL" \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic-native.wav
+```
+
+The complete raw-reference path runs without Python. It requires 2–20 seconds
+and an explicit transcript. Silence removal and ASR are absent. Upstream's
+preprocessed chess cache has 104 frames; the raw 4.5-second recording has 112.
+Compare matching raw waveforms, not those two different preprocessing paths.
+Non-24-kHz source import uses go-264's resampler; exact import parity is verified
+for the approved 24-kHz PCM16 recording, not all source codecs/rates.
+
+Verification:
+- HuBERT, five output frames: maximum error 4.77e-6 against PyTorch.
+- Complete two-second synthetic reference: all 400 codes match exactly;
+  resampler maximum error 4.47e-8.
+- Complete approved raw chess recording: all 896 codes match exactly.
+- Opt-in real tests require `GO_PHERENCE_REAL_CODEC` and
+  `GO_PHERENCE_REFERENCE_PYTHON`; default tests never load private models/Python.
+- Reference-derived JSON and audio stay outside the repository.
+- Native package tests/vet, race/no-CGo checks and ARM64 cross-build pass.
+- Nil receivers/context and bounded HuBERT input checks reject invalid calls.
+  HuBERT/CodecEncoder instances own scratch and are single-caller.
+
+`Prepare`/`ExtractInto`, `Prepare`/`EncodeFeaturesInto` and the complete
+`ReferenceEncoder.Prepare`/`EncodeInto` now pass zero-allocation tests after setup.
+Constructors cache immutable operator names/weights; frame-specific capacity
+checks are cached. Reference normalisation, sinc resampling and semantic frame
+selection reuse staging buffers. Convenience APIs still allocate returned codes
+or features. Instances are single-caller; input slices must not alias scratch.
+Fixed workspace capacities and loaded float32 weights account for most
+whole-command memory.
+
+Full raw-reference synthesis, three seconds, eight steps, seed 42, two threads:
+97.91 seconds from CLI entry, including 14.69 seconds reference loading/encoding,
+76.27 seconds generation and 4.23 seconds decode/save. The generation JSON's
+`command_seconds` includes reference preparation; `total_seconds` retains the
+older generation/decode/save boundary. Two native output runs were byte-identical:
+`560fe8ae07d6af712f51f64f553d8e8a0b6146778d31a3a944a6db90b61a1e0e`.
+
+Whole-command sampled cumulative allocations fell from 1350.7 to 1317.2 MB after
+removing allocate-then-replace scratch calls. The latter includes 704.3 MB codec/
+HuBERT/decoder weights, 212.3 MB encoder scratch, 120.1 MB backbone weight arenas,
+64.8 MB HuBERT scratch and 37.4 MB decoder scratch. These figures are not peak RSS.
+Timing varied between runs; no controlled speedup is attributed to this change.
+Latest private profiles: `/workspace/tmp/omnivoice-full-native-v2.{cpu,mem}`.
+Output: `/workspace/tmp/synthetic-spock-full-native-v2.wav`. Listening acceptance
+and fresh ASR verification of this raw-reference sample have not been performed.
+
+## Prepared encoder optimisation (2026-09-13)
+
+HuBERT linear projections and codec encoder convolutions now use caller-scratch
+packed SIMD GEMM. HuBERT attention retains its existing layout. The codec
+convolution im2col layout is time-major for packed multiplication; scratch
+capacity includes the required `fan * 16` panel. Shape, nil-receiver and input
+limits are validated before allocation. CLI preparation validates output suffix,
+existing paths, required transcript/text, source selection, frames and steps
+before loading models.
+
+A real two-second HuBERT benchmark measured 3.23 s with the old linear path and
+1.55 s packed, both 0 B/op and 0 allocs/op. Packed-vs-old max error was 9.78e-6.
+Real raw chess reference codes remain exactly 896/896; synthetic full reference
+codes remain 400/400. Zero-allocation regression tests cover both compute stages
+and the full prepared reference pipeline. Default tests remain opt-in for models
+and Python; the real benchmark needs `GO_PHERENCE_REAL_CODEC`.
+
+Latest raw-reference full synthesis: 91.80 s from CLI entry, including 9.91 s
+reference loading/encoding, 74.96 s generation and 4.13 s decode/save. Previous
+run: 97.91 s, including 14.69 s reference preparation. These are single runs.
+The output SHA-256 is unchanged. Profile `/workspace/tmp/omnivoice-full-native-v3`
+(`.cpu`, `.mem`, `.json`); output `/workspace/tmp/synthetic-spock-full-native-v3.wav`.
+Sampled cumulative allocation remains 1316.5 MB, dominated by model weights and
+scratch setup. Prepared zero-allocation execution does not remove those costs.
+
+## Setup-memory and SIMD softmax checkpoint (2026-09-13)
+
+Encoder scratch now has five signal slots rather than eight. Lifetime tests show
+four simultaneous slots for exact acoustic alignment and five when padding is
+required. The 4.5-second capacity test saves 82,944,000 bytes (79.1 MiB).
+`NewBackboneSibling` shares one streamed weight arena between sequential CFG
+branches, saving another 60 MiB. Each branch still owns its activation scratch.
+Siblings must never run concurrently; repeated generation/zero-allocation tests
+cover the shared-arena path.
+
+The full-run allocation profile fell from 1316.5 to 1177.6 MiB cumulatively.
+Encoder preparation is 133.4 MiB and the single layer arena is 60.0 MiB. Output
+remains byte-identical. Full synthesis took 92.26 s vs 91.80 s before; no speedup
+is attributed to these memory changes. These allocation figures are not peak RSS.
+
+`ExpF32To` adds checked AVX2/FMA exponential with scalar fallback outside [-32,32]
+and for exceptional inputs. It accepts exact in-place operation, rejects partial
+overlap, and allocates nothing. Tests cover a dense [-80,80] grid, random inputs,
+NaN/infinities, signed zero, underflow/overflow, SIMD in-place lanes and tails.
+Relative error is below 2e-6 in the tested finite corpus. An initial polynomial
+FMA operand-order bug was caught by the tests and corrected before integration.
+The 1024-element benchmark measured 13.75 us scalar vs 2.34 us dispatched.
+
+`SoftmaxSIMDInPlace` uses that kernel in OmniVoice block attention; generic
+`SoftmaxInPlace` is unchanged. Sequential float32 summation and exceptional-value
+behaviour are preserved. Boundary and random-row tests pass, with 0 allocations.
+128/218-element rows measured about 3.3x faster. Real model tests and the complete
+WAV hash still pass. Full synthesis with SIMD softmax took 94.05 s in one run,
+so there is no demonstrated end-to-end speedup. Profile and JSON:
+`/workspace/tmp/omnivoice-full-native-v5.{cpu,mem,json}`; waveform
+`/workspace/tmp/synthetic-spock-full-native-v5.wav` has the same SHA-256 as v2–v4.
+
+Native tests/vet, race/no-CGo checks, and ARM64 CLI/test cross-builds pass.
+Runtime feature detection requires both AVX2 and FMA before executing the exp
+assembly. Other architectures currently use its scalar fallback.
+
+## Native preprocessing, post-processing and SiLU (2026-09-13)
+
+`-preprocess-reference` normalises original reference RMS, converts to PCM16 for
+pydub-compatible silence detection, trims with mid/lead/trail 200/100/200 ms,
+then encodes without a second RMS normalisation. Original RMS is retained for
+output restoration. The approved chess reference now matches all 832 Python
+preprocessed codes exactly (104 frames). Raw-reference mode still has 896 codes.
+
+`-postprocess` trims generated silence with 500/100/100 ms, restores reference
+RMS, applies 100 ms fades and pads 100 ms at each end. Both flags default off;
+raw-output regression hashes therefore remain valid. Example:
+
+```sh
+bin/omnivoice -mode synthesize -model "$MODEL" -preprocess-reference -postprocess \
+  -reference reference.wav -transcript 'Exact reference transcript.' \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output synthetic-processed.wav
+```
+
+Silence helpers match quantised PCM16 RMS, truncation, Python ties-to-even
+millisecond rounding, 10 ms scans and overlapping keep-silence boundaries.
+Synthetic Python parity covers short, long-middle, edge and all-silent audio,
+plus fade/pad boundaries. Public duration/sample options reject oversized or
+nonfinite values before conversion/allocation. `MaxSamples` bounds input;
+post-padding output has a separate 20-second ceiling. Default fade/pad input
+limit is 10 seconds (up to 10.2 seconds with default padding). Preprocessed
+references shorter than two seconds are rejected by the current encoder limit.
+
+`SiLUMulExpTo` combines SIMD exponential/vector multiply with scalar division and
+uses tiled, idle GEMM packing scratch in the OmniVoice block. It adds no workspace
+memory or allocations. Random [-100,100], exceptional, alias and tail tests pass;
+FFN-sized microbenchmark measured 6.18 ms baseline vs 4.43 ms. The raw-reference
+full run took 85.95 s versus 94.05 s previously; single-run timing, same WAV hash.
+
+The combined processed native run took 83.29 s and produced 3.05 seconds of audio.
+External Azure Speech recognition returned exactly “The evidence is insufficient,
+Captain.” (confidence 0.914). ASR does not establish speaker similarity.
+Private result `/workspace/tmp/synthetic-spock-native-processed-v1.wav`; timings
+`/workspace/tmp/omnivoice-native-processed-v1.json`; ASR JSON
+`/workspace/tmp/omnivoice-native-processed-asr.json`. Native tests/vet, Python audio
+parity, race/no-CGo checks and ARM64 cross-builds pass. Listening acceptance has
+not been recorded.
+
+## Bounded long-utterance generation (2026-09-13)
+
+`plan-chunks` writes private prepared chunk JSON without model inference.
+`synthesize-long` prepares the same plan, loads the model/reference/decoder once,
+then generates chunks sequentially using a shared streamed weight arena.
+Per-chunk activation and logits setup still allocates. `-frames` is the maximum
+per-chunk frame count in these modes, not the total output duration.
+
+```sh
+bin/omnivoice -mode plan-chunks -model "$MODEL" \
+  -reference-tokens reference-codes.json -text 'A longer paragraph...' \
+  -frames 100 -output private-chunk-plan.json
+bin/omnivoice -mode synthesize-long -model "$MODEL" -postprocess \
+  -reference-tokens reference-codes.json -text 'A longer paragraph...' \
+  -frames 100 -steps 8 -output synthetic-long.wav
+```
+
+The planner uses upstream-style character weighting and short-duration boost,
+with a native bounded partition policy: prefer punctuation, then words, then
+safe rune boundaries. Actual tokenisation must fit 512 positions. Bracketed tags
+and `<|...|>` control tokens cannot be split; oversized protected spans fail.
+Concatenating chunk text exactly reconstructs trimmed input. Input is bounded to
+16,000 runes, 128 chunks and 15,000 generated frames (10 minutes). UTF-8 errors
+are rejected. Candidate prompts are not retained in a large cache. Estimates
+are heuristic; they do not establish multilingual pronunciation quality.
+
+Chunks retain the same reference and restart seed 42. Assembly applies 5 ms
+edge fades and 100 ms gaps, even without `-postprocess`; with that flag, each
+chunk also gets output silence trimming and reference loudness restoration.
+It does not apply the single-shot 100 ms fades/padding to every chunk. This
+policy is not upstream chunk-equivalent and can affect inter-chunk prosody.
+
+Real checkpoint test: a five-sentence paragraph produced 13.42 seconds across
+four chunks (342 target frames) in 344.46 seconds at eight steps. Azure Speech
+recovered the entire paragraph exactly, including a word-boundary split inside
+one sentence (confidence 0.842). Listening acceptance has not been recorded.
+Private audio `/workspace/tmp/synthetic-spock-long-v1.wav`; metadata
+`/workspace/tmp/omnivoice-long-v1.json`; ASR `/workspace/tmp/omnivoice-long-asr.json`.
+Text/tag preservation, CJK boundaries, insufficient capacity, excessive chunks,
+invalid UTF-8 and wave-assembly tests pass, including real-tokenizer planning.
+Native tests/vet, race/no-CGo checks and ARM64 cross-build pass.
+
+## Still required for completion
+
+1. Reduce setup memory (loaded weights and conservatively sized scratch) and
+   evaluate resident-service reuse; successful prepared reference calls allocate zero.
+2. Broader multilingual/Unicode tokenizer parity beyond the current fixtures.
+3. Remaining SIMD work: packing, SiLU division/GELU, sine and codec scatter;
+   exponential/softmax SIMD currently accelerates amd64 only.
+4. Text/reference → native speech listening acceptance against approved sample 3.
+5. Broader long-utterance quality tests and listening evaluation of continuity
+   at generated chunk boundaries; reduce per-chunk setup allocations.
+
+The goal remains active. This is a working staged implementation, not a completed
+fully native replacement or a full-SIMD graph.
+
+## Multilingual tokenization and chunk workspace reuse (2026-09-13)
+
+The 24 tokenizer fixtures cover accented/decomposed Latin, CJK, Arabic, Indic
+scripts, emoji, digits and whitespace. The fixture generator preserves the source
+NFC normalizer and pre-tokenizer configuration; expected IDs come from upstream
+`tokenizers`. Both the reduced fixture and the full model tokenizer pass the same
+cases. `golang.org/x/text/unicode/norm` handles NFC before ordinary BPE encoding;
+special-token matching still happens first. This supports OmniVoice's NFC and
+Qwen-style split configuration, not arbitrary Hugging Face normalizer pipelines.
+Mixed normalizer sequences and standalone Split pre-tokenizers are not implemented.
+The tests establish token IDs, not multilingual pronunciation quality.
+
+Long synthesis constructs backbone, generation and decoder reservations once from
+the maximum planned shape. `Reconfigure` changes active tensor views without
+padding attention or allocating new inference workspaces. Reconfigure both
+backbones before the generation workspace. The API rejects stale targets larger
+than the active backbone. Generation resets the seed and mask state per chunk.
+Post-processing, retained chunk copies and final WAV assembly still allocate.
+
+Tests cover larger/smaller/larger shapes against independent runners, zero-allocation
+backbone/generation resizing, decoder scratch reuse, cancellation during backbone
+and decoder execution, and recovery after cancellation. The CLI passes SIGINT and
+SIGTERM cancellation through generation and decoding. Partial results from a failed
+call must be discarded; the same workspace can be retried.
+
+The saved four-chunk 13.42-second sample took 335.17 seconds, compared with 344.46
+seconds before workspace reuse. Both WAVs have SHA-256
+`bd1f3ec5a2bc5ece889b53d2462e0ab782274aa0b7953ebd0090b03ee90b79f9`.
+A single timing pair does not establish a speedup. The allocation profile totals
+359.9 MiB, including tokenizer/model loading, post-processing and output storage.
+This run used cached reference codes; native reference encoding was tested separately.
+
+Affected tests, vet, race, no-CGo tests and the ARM64 CLI cross-build pass. The
+real-checkpoint decoder still matches all 1,920 reference samples with maximum
+absolute error 5.59e-7 and zero prepared `DecodeInto` allocations. The full repository
+build still fails in the previously identified SpacemiT and DiffusionGemma packages.
+
+## Tokenizer load memory reduction (2026-09-13)
+
+Merge format selection now precedes decoding, avoiding the failed string-array
+attempt for Qwen array-form merges. A sizing pass over validated JSON reserves the
+merge slices once; decoding still uses `encoding/json`. Measured allocations fall
+from 112.2 MiB to 60.2 MiB per real-tokenizer load. Token IDs are unchanged across
+all 24 real-checkpoint fixtures. See [PROFILING.md](PROFILING.md) for the isolated
+benchmark and validation. No new end-to-end synthesis measurement was made for
+this loader-only change.
+
+## Exact SIMD packing (2026-09-13)
+
+On AVX2/FMA amd64 hosts, sixteen-row GEMM panels now use an exact four-column SIMD
+transpose. Partial panels and column tails remain bounded; scalar fallback runs
+when CPU features are disabled. This removes the scalar full-panel hotspot without
+changing model arithmetic or adding allocations. The complete native WAV matches
+the previous raw-reference baseline byte for byte. Direct panel benchmarks improve
+3.5–7.9×; whole synthesis remains about 86 seconds in the measured run. See
+[PROFILING.md](PROFILING.md) for details and limits. The GEMM microkernel is still the
+largest CPU cost; a scheduling-only candidate failed to establish a gain and was
+not enabled. Scalar sine, erf and some exponential/division paths still exist.
+
+## Codec SIMD sine (2026-09-13)
+
+Encoder and decoder Snake activations use a bounded AVX2/FMA sine approximation
+on amd64, with scalar fallbacks and 256-value stack scratch. Prepared calls still
+allocate zero bytes. All 832 preprocessed reference codes remain unchanged, and
+real codec parity passes. The full WAV has only 61 one-step PCM16 differences
+out of 72,000 samples. The channel benchmark is about 3.4× faster; whole synthesis
+did not improve in the measured run. See [PROFILING.md](PROFILING.md) for numerical
+bounds, artifacts and fallback coverage. HuBERT erf, encoder/sampler exponentials,
+SiLU division and unsupported-architecture sine remain scalar.
+
+## SIMD SiLU division (2026-09-13)
+
+The amd64 SiLU finishing stage uses explicit vector add/divide/multiply, preserving
+float32 rounding and exceptional-value classification. The full native WAV is
+byte-identical to the preceding sine-enabled version and prepared calls remain
+allocation-free. The representative FFN benchmark improves about 10–12%.
+Non-amd64 finishing, HuBERT erf and encoder/sampler exponentials still use scalar
+operations. See [PROFILING.md](PROFILING.md) for timings and validation.
+
+## Semantic encoder SIMD ELU (2026-09-13)
+
+The encoder uses a near-zero-safe expm1 kernel for bounded negative ELU inputs,
+with exact positive/NaN passthrough and conservative scalar fallback regions.
+Representative mixed-sign benchmarks improve about 3.2×; prepared calls allocate
+zero bytes. Raw and preprocessed native reference codes are unchanged (896 and
+832 codes respectively). See [PROFILING.md](PROFILING.md) for numerical limits and
+fallback-heavy performance. HuBERT erf and sampler exponentials remain scalar.
+
+## HuBERT SIMD erf-GELU (2026-09-13)
+
+HuBERT's convolutional and FFN activations now use a bounded SIMD approximation
+to erf-GELU on AVX2/FMA hosts. Scalar fallback covers tiny, exceptional and
+out-of-range inputs. Five- and 100-frame real-checkpoint parity tests pass with
+zero prepared allocations, and all raw/preprocessed reference codes remain
+unchanged. Direct eligible-input benchmarks improve roughly 10×; fallback-heavy
+inputs may be slower. Sampler exponentials and the documented architecture/range
+fallbacks remain scalar. See [PROFILING.md](PROFILING.md) for bounds and evidence.
+
+## Sampler SIMD exponentials (2026-09-13)
+
+Conditional/unconditional guidance log-softmax uses existing scratch for bounded
+SIMD exponentials and retains sequential float64 summation. Exceptional rows keep
+the original scalar policy. Upstream fixture and full-generation checks pass; the
+native sample is byte-identical. The isolated 1,025-class benchmark improves about
+2.8× without allocations. Approximate probabilities may change near-tied selections
+on other inputs. See [PROFILING.md](PROFILING.md) for limits and evidence.
+
+## GEMM experiment and capability limits (2026-09-13)
+
+An exact accumulator-preserving K-blocked GEMM candidate passed parity tests but
+was neutral/slower than the current kernel on representative N100 projections.
+It was not enabled. Representative projection benchmarks remain in the test suite.
+Backend discovery now lists scalar fallback categories and whether approximate
+nonlinear SIMD is active. The full graph is not SIMD-only; Vulkan still has no
+native OmniVoice dispatch. See [PROFILING.md](PROFILING.md) for experiment results.
+
+## Post-optimisation speech validation (2026-09-13)
+
+The four-chunk paragraph was regenerated with the current kernels and the same
+cached preprocessed reference, eight steps per chunk, 100-frame cap, five-ms
+boundary fades and 100-ms gaps. It produced 13.42 seconds in 341.48 seconds.
+Compared with the pre-nonlinear-optimisation long baseline, exactly 307 of 322,080
+PCM16 samples differ, each by one integer step. No samples are clipped. External
+Azure Speech recognition recovered the entire five-sentence paragraph exactly.
+The run is not a demonstrated speedup over the earlier 335.17-second measurement.
+
+A Portuguese sample used language `pt`, the same English reference/transcript,
+eight steps and a 125-frame target with output post-processing:
+
+> A evidência é insuficiente, capitão. Precisamos de investigar.
+
+It produced 4.13 seconds in 114.22 seconds. No samples are clipped. Azure Speech
+with `pt-PT` recovered the expected words, replacing the sentence break with a
+comma. This tests one accented Portuguese sentence and cross-language reference
+conditioning. It does not establish coverage for all supported languages or
+regional pronunciation quality.
+
+Validation artifacts (private local files, not distributed with source):
+
+- `/workspace/tmp/omnivoice-long-optimized-v13.json`
+- `/workspace/tmp/synthetic-spock-long-optimized-v13.wav`
+- `/workspace/tmp/omnivoice-portuguese-v1.json`
+- `/workspace/tmp/synthetic-spock-portuguese-v1.wav`
+- `/workspace/tmp/omnivoice-quality-validation.json`
+- `/workspace/tmp/omnivoice-quality-long-asr.json`
+- `/workspace/tmp/omnivoice-quality-portuguese-asr.json`
+
+Both synthetic WAVs were delivered for user listening review. Voice similarity,
+Portuguese pronunciation and long-chunk transitions still require listening
+acceptance. Assistant integration remains out of scope until that review. Current
+performance is slower than real time, Vulkan inference is unimplemented, and
+scalar range/architecture fallbacks remain. The measured optimisation round is
+complete; subjective quality acceptance is not.
+
+## Performance phase 2: resident decoder layers
+
+`-resident-mib N` opts generation, synthesis and long synthesis into resident
+float32 decoder layers. Zero (default) retains streaming. N is a budget for the
+additional decoder tensor arenas, not a process RSS limit. A too-small budget is
+rejected before cache construction; partial construction is not attached after
+cancellation/error. Single-shot and long synthesis handle SIGINT/SIGTERM.
+
+The model API exposes `EnableResident(ctx, maxBytes)`, `ResidentRequiredBytes()`
+and `ResidentBytes()`. Create CFG siblings after enabling to share the cache.
+Existing siblings do not acquire it retroactively. The sequential ownership
+contract remains; enabling or forwarding concurrently is unsupported.
+
+The current checkpoint requires 1,761,865,728 additional bytes (1.64 GiB) for its
+28 layers. The streamed arena, activations, heads, embeddings, codec and Go metadata
+are excluded. Successful prepared forwards still allocate nothing. The layers
+are converted once but not yet prepacked; embedding/head conversion remains.
+
+Example (cached reference):
+
+```sh
+bin/omnivoice -mode synthesize -model /path/to/OmniVoice \
+  -reference-tokens /path/to/reference.json -resident-mib 1800 \
+  -text 'The evidence is insufficient, Captain.' -frames 75 -steps 8 \
+  -output /path/to/new-synthetic.wav
+```
+
+Follow-up scope requested by the user: prepacked residency, reusable parallel GEMM
+workers, 4/6/8-step comparisons, alternative tiles/quantised compute, persistent
+serving, progressive output, short-first-chunk policy and phrase caching. Stronger
+host/GPU work requires available hardware and a testable deployment target.
+Training quality and listening acceptance remain separate from runtime speed.
+
+## Resident prepacked SIMD projections
+
+`-prepack -resident-mib 3400` retains the resident float32 matrices and packs all
+seven decoder projection matrices into read-only 16-column panels. Full tiles
+feed the existing SIMD microkernel directly; raw matrices remain available for
+row/column tails and low-level CPU fallback. CLI prepacking requires active SIMD
+GEMM. Streaming and raw-resident modes remain unchanged and prepacking is opt-in.
+
+The real model holds 3,523,473,408 bytes of decoder cache in this mode, including
+1,761,607,680 packed bytes. The byte budget excludes activations, streamed arena,
+codec, embeddings/heads and Go overhead. Resident API upgrades are transactional:
+raw buffers are shared, old siblings keep their old cache, and new siblings inherit
+the upgraded cache. `ResidentBytes()` now includes raw and packed cache storage;
+`PrepackedBytes()` reports the packed portion.
+
+Full real-checkpoint output is byte-identical across streamed, resident and
+prepacked modes. Prepacking alone was slower on this VM and is not the default.
+It remains available for combination with persistent serving and parallel SIMD
+workers; those combinations need their own measurements. Future phase-2 work
+also includes GGUF export/quantised inference and training-pipeline efficiency;
+GGUF alone does not accelerate training or supply quantised compute kernels.
+
+## Persistent parallel SIMD workers (2026-09-13)
+
+`-gemm-workers N` enables a fixed worker pool for decoder and audio-head
+projections. Zero preserves the serial default; one uses direct execution with
+pool-owned scratch. Counts up to 64 are accepted. `-threads` controls Go execution
+threads separately, so worker counts above that value test oversubscription.
+
+Workers own disjoint, complete microkernel row tiles (six rows on AMD64, four
+on other targets) and call the existing packed SIMD
+microkernel. Each dot product retains its accumulation order. The caller handles
+remaining rows after workers finish. Prepacked weights are shared read-only;
+streamed packing uses per-worker scratch allocated at construction. Attention
+and codec operators retain their existing execution paths.
+
+`EnableWorkers(N)` attaches a pool before constructing CFG siblings. Siblings
+borrow that pool and must finish before the owner calls `Close`. Backbone setup,
+inference and close all require exclusive access, following its single-caller
+contract. The lower-level `GEMMPool` serialises runs and supports concurrent,
+idempotent close. Cancellation waits for submitted jobs before returning; a
+running SIMD kernel cannot be interrupted. Reusing output after cancellation is
+safe, but its contents may contain completed rows.
+
+### Measured combinations
+
+This N100 VM exposes **two vCPUs**. Four workers are an oversubscription
+experiment, not a four-core measurement. The repeated microbenchmark used
+`m=128, n=1024, k=1024` with `GOMAXPROCS=4` on these two vCPUs; all paths
+reported **0 B/op, 0 allocs/op**:
+
+| Workers | Streamed packing | Prepacked |
+|---|---:|---:|
+| 1 | 6.46–6.59 ms | 6.91–6.97 ms |
+| 2 | 4.24–4.32 ms | 4.08–4.10 ms |
+| 4 | 4.77–4.80 ms | 4.36–4.72 ms |
+
+The same prepared three-second prompt, eight steps and seed 42 produced the
+following single-shot measurements with two execution threads:
+
+| Workers | Resident mode | Command | Generation incl. cache setup | Cache setup |
+|---|---|---:|---:|---:|
+| 2 | raw float32 | 65.50 s | 62.20 s | 2.07 s |
+| 2 | raw + prepacked | 66.01 s | 62.32 s | 7.41 s |
+| 4 | raw float32 | 61.34 s | 58.33 s | 1.37 s |
+| 4 | raw + prepacked | 68.78 s | 65.76 s | 13.66 s |
+
+All four WAV files have SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+These runs verify exact output preservation. Cache setup varied substantially;
+the end-to-end table does not establish a stable winning configuration. Two
+workers lead the isolated GEMM benchmark. Persistent-process comparisons are
+needed to measure amortised setup. Residency/prepacking retain their existing
+budgets; worker scratch adds `workers * maxK * 16 * 4` bytes for multiworker pools.
+
+Tests cover exact padded/tail GEMM output for 1/2/4 workers, streamed/prepacked
+zero allocations, short/aliased-buffer rejection, deterministic cancellation
+after submission with immediate retry, concurrent close during active Run,
+generation/backbone reuse, and sibling ownership. Owner-close-before-borrower-use
+fails explicitly with `ErrGEMMPoolClosed`. Affected tests, race tests, vet,
+no-CGo tests and Linux ARM64 build pass. Repository-wide backend tests and build
+still fail in unrelated SpacemiT/DiffusionGemma code; the same failures were
+reproduced in a clean `b669553d` worktree (build diagnostics identical).
+
+Local evidence is in `/workspace/tmp/omnivoice-workers-*.log`,
+`omnivoice-workers{2,4}-*-v*.json` and the corresponding synthetic WAVs. The
+initial four-worker attempt failed CLI validation before inference and is
+excluded. The successful four-worker results use suffix `v2`.
+
+## Step-count comparison (2026-09-13)
+
+Four, six and eight denoising steps were compared using the same private prepared
+prompt, three-second target, seed 42, two SIMD workers, two execution threads,
+resident float32 decoder cache (1700 MiB budget), and no prepacking/postprocessing.
+Each measurement starts a new process. Runs execute serially in orders 4/6/8 and
+8/6/4; filesystem caches are not flushed. Timings include cache construction and
+codec loading and exclude reference encoding/text preparation.
+
+| Steps | Command, run 1 / 2 | Generation, run 1 / 2 | Decode/save, run 1 / 2 |
+|---|---:|---:|---:|
+| 4 | 24.67 / 30.11 s | 21.62 / 27.13 s | 3.05 / 2.99 s |
+| 6 | 44.01 / 43.68 s | 40.76 / 40.72 s | 3.25 / 2.96 s |
+| 8 | 56.93 / 52.02 s | 53.86 / 48.91 s | 3.07 / 3.11 s |
+
+Generation currently includes resident setup (1.03–1.18 s), sampler/backbone
+construction and denoising. Decode/save includes codec loading and preparation;
+these counters cannot yet separate every stage for the final timing chart.
+Four steps averaged 27.39 s versus 54.48 s at eight (about 2.0× faster) on this
+short prompt. Six averaged 43.84 s. Two runs establish a useful experiment,
+not a general speed/quality guarantee.
+
+All outputs contain 72,000 PCM16 samples at 24 kHz, with no clipped samples.
+Both runs at each step count are byte-identical. Eight steps reproduces the
+previous worker baseline exactly. Four/six steps change the waveform, as expected:
+
+| Steps | Peak PCM16 | RMS PCM16 | External ASR transcript |
+|---|---:|---:|---|
+| 4 | 11,917 | 892.48 | The evidence is insufficient, Captain. |
+| 6 | 13,809 | 1,122.85 | The evidence is insufficient, Captain. |
+| 8 | 15,953 | 1,080.48 | The evidence is insufficient, Captain. |
+
+SHA-256, respectively:
+
+- 4: `76a75b5c7a7476ceed1cb3df1e68c44269d050c51c47ea05e39359fc890c356d`
+- 6: `fe9363c4776742e1c2f73fbe89a9a2b31e0f94804885ebfb2393a3e3ede6c766`
+- 8: `e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`
+
+External ASR verifies the words only. Lower-step voice similarity, prosody and
+artifacts require listening; neither lower-step mode has quality approval.
+The CLI default is unchanged. Long/multilingual lower-step tests have not run.
+Local evidence: `/workspace/tmp/omnivoice-steps{4,6,8}-workers2-v{1,2}.json`,
+`omnivoice-steps-validation.json`, `omnivoice-quality-steps{4,6,8}-asr.json` and
+`synthetic-spock-steps{4,6,8}-workers2-v{1,2}.wav`. Audio and reference-derived
+prompts remain private and are not committed.
+
+## GGUF storage compatibility (2026-09-13)
+
+Native F16/F32 GGUF export and backbone loading are implemented. This initial
+path uses the existing float32 SIMD compute kernels after weight conversion;
+quantised inference is not implemented yet.
+
+```sh
+bin/omnivoice -mode export-gguf -model "$MODEL" -gguf-format f16 \
+  -output /new/path/omnivoice-f16.gguf
+bin/omnivoice -mode generate -model "$MODEL" \
+  -weights-gguf /new/path/omnivoice-f16.gguf -input prepared-prompt.json \
+  -steps 8 -threads 2 -gemm-workers 2 -output synthetic-gguf.wav
+```
+
+The model directory still supplies the codec and matching configuration.
+`-weights-gguf` applies to generate/logits/block/stack. Direct raw-reference and
+long synthesis overrides are not wired yet. `OpenWeights` and `LoadConfig`
+accept GGUF paths at the library level. The export includes the backbone only;
+codec and tokenizer files remain separate. Original tensor names are preserved,
+with dimensions reversed to GGUF order. Metadata records `general.architecture`
+(`omnivoice`), `omnivoice.schema_version` (1), and `omnivoice.config_json`.
+Derived integer codebook offsets are reconstructed from that configuration.
+This is a go-pherence OmniVoice schema, not a claim of llama.cpp compatibility.
+
+Export streams one tensor at a time, supports cancellation and exclusively
+creates the destination; errors remove the partial file. The initial reader
+retained the raw encoded tensors in RAM and converted into reusable arenas.
+Linux now uses the mapped backing described below; non-Linux retains a copy. Residency/prepacking allocate additional memory
+on top of those retained bytes. The F16 real file is about 1.2 GiB; F32 would
+roughly double its floating-point payload. No file-size saving over an F16
+safetensors source is expected.
+
+The real F16 export took 21.60 s. Its eight-step prepared-prompt generation took
+59.54 s with two SIMD workers, no resident float32 cache, and low process
+priority. The WAV hash is
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`,
+identical to the safetensors baseline. This verifies storage compatibility;
+these runs do not establish a format speedup. Tiny F32 export matches all
+backbone logits exactly and retains zero successful-forward allocations.
+F16 export tests compare against explicit F16 rounding.
+
+GGUF parsing now bounds header allocations/counts/strings/arrays/rank, rejects
+nested arrays and duplicate metadata, validates tensor spans and quantised block
+sizes, and prevents `MetaUint32` truncation. OmniVoice additionally checks
+architecture/schema, model-derived allocation counts, exact tensor names,
+shapes, dtypes, overlap and 32-byte alignment before loading payloads. This
+reader currently accepts only F16/F32 backbone tensors. Other quantisation types
+are rejected explicitly. Generic GGUF header limits are 128 MiB, 16 MiB per
+string, one million collection entries and eight dimensions per tensor.
+
+All loader tests, affected model/CLI tests, vet, race tests, no-CGo tests and
+Linux ARM64 builds pass. Local evidence: `/workspace/tmp/omnivoice-f16-export-v1.json`,
+`omnivoice-gguf-f16-generate-v1.json`, `omnivoice-gguf-tests.log` and the
+corresponding GGUF/WAV. The real checkpoint export is private and uncommitted.
+
+## Q8_0 projection experiments (2026-09-13)
+
+`-gguf-format q8_0` now exports standard 32-element GGUF Q8_0 blocks (FP16 scale
+plus 32 signed bytes) for the seven decoder projections whose input width is
+divisible by 32. Other tensors use F32, preserving source precision. This
+includes the large text embeddings and audio heads. Unsupported/misaligned tiny
+projections remain F32; the exporter does not pad tensor shapes.
+
+Two paths consume these exports:
+
+- Default: dequantise each layer into the existing float32 arena, then use the
+  packed SIMD GEMM path and any configured worker pool. Resident/prepacked modes
+  can amortise conversion at their existing float32 memory cost.
+- `-direct-q8`: experimental four-input-row tiling, using AVX2/FMA int8×float32
+  dot kernels on supported AMD64 hosts. Other CPUs use scalar fallback. This
+  path skips projection dequantisation but keeps the float32 arena reserved.
+  Projection execution is single-threaded; `-gemm-workers` still applies to the
+  float audio head. Direct mode excludes resident/prepacked layers.
+
+```sh
+bin/omnivoice -mode export-gguf -model "$MODEL" -gguf-format q8_0 \
+  -output /new/path/omnivoice-q8.gguf
+bin/omnivoice -mode generate -model "$MODEL" \
+  -weights-gguf /new/path/omnivoice-q8.gguf -input prepared-prompt.json \
+  -steps 8 -threads 2 -gemm-workers 2 -output synthetic-q8.wav
+# Add -direct-q8 only to test the direct quantised kernel.
+```
+
+### Measurements
+
+The real mixed Q8/F32 export is **1,156,653,024 bytes**, versus
+**1,225,179,104 bytes** for F16: only **5.6% smaller**, because the non-projection
+tensors are promoted to F32. Decoder projection payload alone is 34/128 of its
+F32 size (73.4% less), but this is not the whole-model memory reduction.
+Reader-retained raw bytes follow the exported payload size; float32 arena,
+activations and codec memory are additional and remain allocated. Peak RSS was
+not measured for this comparison.
+
+| Path | 128×1024×1024 projection (two trials) | Real 3-second speech, eight steps |
+|---|---:|---:|
+| Direct Q8, four-row tiles | 26.53–26.55 ms | 232.43 s |
+| Pre-dequantised/prepacked SIMD | 6.53–6.59 ms | — |
+| Q8 streamed dequantisation + two SIMD workers | — | 65.25 s |
+
+The microbenchmark excludes dequantisation/prepacking setup from the float32
+path. Both paths allocate zero bytes per kernel call. Direct Q8 is about four
+times slower on this N100 benchmark and 3.6 times slower in these full runs;
+it remains opt-in. Real runs used low priority, no resident cache and the same
+prepared prompt/seed 42. Defaults are unchanged.
+
+Both Q8 execution paths produced byte-identical WAVs:
+`ee6b13d7ee12661426c03b7ed09097fd294e85f726bce4f2694bb5607b69599c`.
+Each contains 72,000 samples, peak 14,418 PCM16, RMS 1,090.13 and zero clipped
+samples. External ASR recovered “The evidence is insufficient, Captain.”
+The quantised waveform differs from the float baseline; voice similarity,
+prosody and multilingual quality require listening acceptance and further tests.
+
+Tests cover quantisation/dequantisation, non-finite/extreme scale rejection,
+projection whitelist/shape constraints, zero-allocation layer loads, direct
+kernel overwrite/tails/alias rejection, backbone logit agreement, sibling reuse,
+cancellation/retry and resident-mode incompatibility. Direct kernels use a
+runtime AVX2/FMA gate. Affected tests/vet, race checks, no-CGo checks and ARM64
+cross-build pass. The independent review attempt timed out; it supplied no
+review verdict. Local evidence: `/workspace/tmp/omnivoice-q8-*.json`,
+`omnivoice-q8-bench-v1.log` and `synthetic-spock-q8-{dequant,direct}-v1.wav`.
+
+## Persistent worker and progressive output
+
+The local `-mode serve` NDJSON worker reuses the backbone, codec, generation
+buffers and optional resident/prepacked weights across sequential requests.
+It emits each chunk WAV before generating the next, supports a bounded LRU
+phrase cache and an opt-in shorter-first-chunk policy. Configuration/reference
+are fixed per process. See [protocol, limits and measurements](../../cmd/audio/omnivoice/SERVE.md).
+
+Real repeated cached and uncached requests produce byte-identical chunk files.
+Cache hits avoid inference; warm uncached timings remain noisy. Short-first has
+not demonstrated a latency benefit or received listening acceptance. New stage
+counters support the final measured timing chart. No network/service deployment
+was performed, and per-request planning/output/cache copies still allocate.
+
+## Mapped GGUF and peak process memory (2026-09-13)
+
+Linux GGUF loading now uses a read-only private mapping of the original open
+file. Validated tensor slices borrow that mapping; the reader releases it on
+Close, including setup-failure cleanup. The file must remain immutable while
+any weights/backbones borrow its data. Other operating systems use a whole-file
+copy fallback. Core forward allocation behaviour is unchanged.
+
+Peak RSS was measured using Linux `wait4`/`Rusage.Maxrss`, via a small Go command
+wrapper. All runs used the same three-second prepared prompt, four steps, two
+SIMD workers, no resident cache, no prepacking, and low process priority. They
+ran serially without flushing filesystem caches. These are process peaks,
+including mapped pages actually touched, not total allocations or file sizes.
+
+| Storage/reader | Peak RSS KiB | Peak RSS MiB | Wall seconds |
+|---|---:|---:|---:|
+| Safetensors mmap baseline | 1,106,204 | 1,080.3 | 30.09 |
+| GGUF F16, eager copies | 1,410,316 | 1,377.3 | 35.48 |
+| GGUF mixed Q8/F32, eager copies | 1,365,520 | 1,333.5 | 50.75 |
+| GGUF F16, mmap | 1,106,288 | 1,080.4 | 28.41 |
+| GGUF mixed Q8/F32, mmap | 729,472 | 712.4 | 36.46 |
+
+Mapped F16 matches baseline memory. Mapped mixed Q8/F32 peaks about 34% below
+baseline, despite only a 5.6% file-size saving: inference touches selected
+embedding/head rows instead of copying their entire payload. F16 output matches
+safetensors byte-for-byte; Q8 output matches its eager-copy version byte-for-byte.
+Timing differences are single-trial observations; only the measured memory
+reduction is established here. Quantising embeddings/heads has not been enabled.
+
+Tests cover mapped data, lifetime after file-descriptor close, empty-file
+rejection and reader cleanup; all loader/model/CLI tests, vet, race, no-CGo and
+Linux ARM64 builds pass. The non-Linux GGUF fallback compiles for Darwin ARM64.
+Evidence: `/workspace/tmp/omnivoice-rss-*.json`, `synthetic-spock-rss-*.wav`,
+`omnivoice-mmap-validation.log` and `omnivoice-measure.go` (measurement wrapper).
+
+## Hardware assessment (2026-09-13)
+
+Current local probe: Intel N100, two KVM vCPUs, 5,938 MiB RAM, AVX2/FMA/F16C.
+Vulkan has a loader and llvmpipe software device, but no hardware device. Auto
+continues to select CPU/SIMD. Native OmniVoice Vulkan graph execution is not
+implemented; existing low-level Vulkan operations do not cover the full graph.
+
+The workspace registry lists another machine as a possible stronger-host
+candidate. Its present hardware was not verified: the session-scoped SSH profile
+did not redirect the active tool turn, as confirmed by the returned hostname
+`redshirt`, and was cleared. No remote benchmark, model copy, GPU installation,
+wake-up or deployment was attempted. Stronger-host/GPU execution needs an
+explicit target and working access before backend work can be validated.
+Local evidence: `/workspace/tmp/omnivoice-hardware-final.json`.
+
+## Long/multilingual step-count gates (2026-09-13)
+
+Matched persistent-worker tests used 4/6/8 steps, seed 42, two SIMD workers,
+resident float32 weights, postprocessing, a fixed cached reference, 100-frame
+chunk cap and no phrase cache. English used the existing paragraph, Portuguese
+used “A evidência é insuficiente, capitão. Precisamos de investigar.” All output
+PCM samples were concatenated unchanged for ASR. No clipped samples occurred.
+
+| Input / steps | Request seconds | First chunk seconds | Audio seconds | ASR gate |
+|---|---:|---:|---:|---|
+| English / 4 | 139.91 | 32.28 | 13.84 | Failed: insufficient → sufficient; Captain → capital; sensor → sensitive |
+| English / 6 | 214.26 | 53.37 | 13.94 | Failed: initial “The” omitted |
+| English / 8 | 272.13 | 67.98 | 13.80 | Exact words |
+| Portuguese / 4 | 36.29 | 36.29 | 3.20 | Failed: “é” omitted; investigar misrecognised |
+| Portuguese / 6 | 53.52 | 53.52 | 2.98 | Failed: “é” omitted; insuficiente misrecognised |
+| Portuguese / 8 | 69.21 | 69.21 | 3.03 | Failed: “é” omitted |
+
+These failures are recogniser observations, not definitive phonetic diagnoses.
+English chunk target frames were 99/93/99/77; Portuguese used 88 estimated frames.
+All English runs had identical chunk text and target frame counts. Startup was
+1.60–2.34 seconds and is excluded from request times. These experiments do not
+approve lower steps generally; the earlier short-sentence success was insufficient
+coverage. Defaults remain unchanged. The eight-step English transcription passes,
+but listening acceptance for these samples has not been supplied.
+
+### Explicit duration control
+
+An eight-step single-shot Portuguese test with 125 target frames recovered all
+expected words (punctuation differed). It took 97.02 seconds including startup,
+producing 4.01 seconds of unclipped audio. This suggests duration contributes to
+the estimated-frame omission; language/voice quality still needs listening.
+
+The worker now accepts optional request `frames`, bounded by its configured
+capacity, for a single explicit-duration utterance. Automatic planning remains
+the default. Invalid/oversized values are rejected before generation, and cache
+keys distinguish duration. An actual 125-frame worker request took 82.32 seconds,
+produced 3.81 seconds of unclipped audio and also recovered every expected word.
+Its shorter output reflects worker/CLI postprocessing differences (including
+padding), not bitwise waveform equivalence. Neither test verifies continental
+Portuguese pronunciation; the user's earlier Brazilian-accent finding remains
+unresolved without training/listening feedback.
+
+Evidence: `/workspace/tmp/omnivoice-validation-{en,pt}-steps{4,6,8}.jsonl`,
+`omnivoice-validation-matrix.json`, related ASR JSON and synthetic joined WAVs;
+`omnivoice-validation-pt125-steps8.json`, `omnivoice-pt125-validation.json`,
+`omnivoice-validation-pt-fixed-serve.jsonl`, `omnivoice-pt-fixed-validation.json`.
+Explicit-frame protocol tests include limit rejection and cache isolation.
+
+## Smaller mixed Q8/F16 export
+
+`-gguf-format q8_0_f16` uses the existing Q8 decoder projections and F16 for all
+other floating tensors. The original `q8_0` mode retains F32 non-projection
+tensors; neither default changed. F16 fallback also applies to projections whose
+input width is not divisible by 32. Embeddings/heads remain floating point.
+
+On the local F16 checkpoint, the new file is **812,302,304 bytes** versus
+1,225,179,104 for full F16 (33.7% smaller) and 1,156,653,024 for mixed Q8/F32
+(29.8% smaller). Export took 8.85 seconds. A matched four-step, two-worker,
+non-resident low-priority run measured **703,004 KiB peak RSS (686.5 MiB)**,
+versus 729,472 KiB for mapped Q8/F32 and 1,106,204 KiB for safetensors. This is
+36.4% lower peak RSS than the safetensors baseline; resident caches/codec remain
+additional components of other configurations. Wall time was 33.12 seconds, a
+single observation without a stable speedup claim.
+
+Four- and eight-step WAVs match the previous Q8/F32 outputs byte-for-byte:
+
+- Four: `f332bceeb0271b6841acd7acbca661ece7af842a86cddefcc94860aa545a3cb3`
+- Eight: `ee6b13d7ee12661426c03b7ed09097fd294e85f726bce4f2694bb5607b69599c`
+
+This equivalence applies to the local F16 source. F32/BF16 training exports can
+round when converted to F16, so future trained checkpoints need renewed quality
+validation. Synthetic tests check exact F16 rounding for non-projection tensors,
+unchanged Q8 projection payloads and non-block-aligned fallback. Affected tests,
+vet, race, no-CGo and Linux ARM64 build pass. Quantised voice quality remains a
+listening gate; no further integer quantisation of embeddings/heads is enabled.
+Evidence: `/workspace/tmp/omnivoice-q8f16-*.json`,
+`omnivoice-rss-q8f16.json`, `omnivoice-q8f16-checks.log` and private WAV/GGUF files.
+
+## Repeated-denoising exact optimisations (2026-09-14)
+
+`Backbone.ForwardTargetInto` preserves full-sequence transformer attention but
+projects only the trailing target positions through the audio heads. Its start
+is aligned down to the existing backend row tile (six on AMD64, four elsewhere),
+computing at most MR-1 extra prefix rows to preserve full-projection rounding
+and scalar-tail grouping. Tests compare every suffix logit exactly, including
+masks/positions, odd lengths, reconfiguration, resident/prepacked modes and pools.
+`ForwardInto` retains its existing full-logit interface.
+
+Generation now calls this target API directly, avoiding full conditional and
+unconditional logit buffers and suffix copies. For the measured prompt (210
+conditional positions, 75 unconditional/target positions, eight codebooks and
+1,025 vocabulary entries) the removed buffers contain **9,348,000 bytes** of
+float32 payload (8.92 MiB, calculated from dimensions; allocator overhead excluded).
+For a serve reservation of 512 conditional and 100 unconditional positions,
+the removed payload is 20,073,600 bytes (19.14 MiB). This is a setup-buffer saving,
+not a claim that measured peak RSS falls by that amount.
+
+Zero-reveal steps now check cancellation and skip forwards before any logits
+are computed. Such steps do not change IDs or consume RNG in the old loop.
+A legacy-loop test verifies generated IDs and final RNG state at 4/16/128 steps,
+with and without guidance and with stochastic class/position sampling. A
+128-step tiny schedule exercises actual skipped entries. The real eight-step
+schedule is `[9,11,15,21,32,53,109,350]`: **no zero-reveal entries**, so that
+particular benchmark gains nothing from skipping.
+
+Matched runs on the N100 used eight steps, resident F32 weights, two workers,
+low priority and the same three-second prepared prompt/seed. Order was before,
+after, after, before; filesystem caches were not flushed.
+
+| Version | Wall seconds, trials | Peak RSS KiB, trials |
+|---|---|---|
+| Previous full heads | 61.63 / 56.71 | 2,530,704 / 2,789,124 |
+| Target heads + no-op skip | 58.94 / 54.76 | 2,779,988 / 2,780,180 |
+
+Mean wall time is 3.9% lower in these two trials per version. CPU times/RSS vary;
+there is no stable peak-memory reduction or strong end-to-end speedup claim.
+All four WAVs match SHA-256
+`e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579`.
+Successful forwards/generation remain allocation-free after construction.
+
+Affected tests, vet, race, no-CGo and Linux ARM64 build pass. Focused independent
+review found no concrete correctness issue. Evidence: `/workspace/tmp/omnivoice-target-*.json`,
+`omnivoice-target-checks.log`, `synthetic-spock-target-*.wav`, and the preserved
+pre-change executable. Fixed-embedding reuse, masked-position heads and shared
+CFG traversal are subsequent work, not implemented by this milestone.

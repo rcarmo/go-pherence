@@ -1,0 +1,440 @@
+{
+  "schema": 1,
+  "baseline_commit": "c7764e4",
+  "scope": "checked model/generation JSON and immutable per-call suppression policy",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "inputs": "pinned public tiny/turbo metadata plus synthetic JSON/tensors",
+    "real_checkpoints": false,
+    "gpu": false,
+    "private_media": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 100,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "test": "TestCheckedConfigJSONBoundsDuplicatesAndNulls",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/unsupported_encoder_scaletrue",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/d_model1152921504606846976",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/max_source_positions1152921504606846976",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/max_source_positions0",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/max_target_positions449",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/encoder_attention_heads0",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/decoder_attention_heads7",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/vocab_size51864",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins64",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/activation_functionrelu",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/scale_embeddingtrue",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/is_encoder_decoderfalse",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/model_typebart",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/architectures[WhisperModel]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/decoder_start_token_id50259",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/tie_word_embeddingsfalse",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/layer_norm_eps1e-06",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins<nil>",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins80.5",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigModelMappingAndRejections",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationImportAndPrecedence",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/do_sampletrue",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/num_beams2",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/temperature0.5",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/top_p0.9",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/repetition_penalty1.2",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/no_repeat_ngram_size3",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/unknown_controltrue",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/is_multilingualfalse",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/max_length449",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/max_length3",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/max_initial_timestamp_index1501",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/max_initial_timestamp_index-1",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/no_timestamps_token_id50364",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/pad_token_id-1",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[-1]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[50257]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[50364]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/begin_suppress_tokens[50364]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[<nil>]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/lang_to_idmap[<|en|>:50259]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/task_to_idmap[transcribe:50360_translate:50359]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[1_42]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[2_<nil>]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[1_50259]_[1_50267]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[4_42]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[3_50364]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/alignment_heads[[4_0]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/alignment_heads[[<nil>_0]]",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/return_timestamps<nil>",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/languagebad",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections/tasksummarize",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigGenerationRejections",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigConfiguredLoaderBeforeTensorReads",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigPCMPolicyDoesNotMutateDecoder",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedConfigSuppressionReachesTokenSelection",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampVocabulary",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial_timestamp",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/closing",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/new_start",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/text",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodePromptParsingAndLimit",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodeFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadAllTensorsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/missing",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/transposed",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/integer",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/unknown",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/key_bias",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/short_extent",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overlap",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overflow_shape",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/short",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/shape",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/inf",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/source_error",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/cancel",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadProjectionMustBeTied",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F32",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F16",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/BF16",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/read",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/infer",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/emit",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/cancel",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeTimestampMapping",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeActualToyPipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeValidationAndGate",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-tiny",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-large-v3-turbo",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers",
+      "status": "pass"
+    }
+  ],
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "vet": "audio/media/Whisper passed",
+    "build": "audio packages and commands passed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "delegate timed out without findings; parent source review and tests only"
+  },
+  "retained_failure": "Unknown-model-field allowlist initially omitted vocab_size; regression caught it, allowlist corrected and all checks rerun successfully.",
+  "limits": [
+    "real checkpoint generation/quality/performance not qualified",
+    "strict supported field set, not arbitrary Transformers generation",
+    "explicit language/transcribe/timestamps override validated source prompt defaults",
+    "no sampling/beam/no-speech/fallback/word alignment/overlap merge",
+    "existing encoder/crossKV mid-operation cancellation unresolved",
+    "no new SIMD/Vulkan/Community-1 implementation",
+    "no go-264 dependency/default switch"
+  ]
+}

@@ -1,0 +1,1303 @@
+2026-09-12T09:12:16+01:00
+MemAvailable:   28675328 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:17+01:00
+MemAvailable:   28671316 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:18+01:00
+MemAvailable:   27979616 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:19+01:00
+MemAvailable:   26914672 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:20+01:00
+MemAvailable:   25819468 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:21+01:00
+MemAvailable:   24894260 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:22+01:00
+MemAvailable:   24502300 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:23+01:00
+MemAvailable:   24503192 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:24+01:00
+MemAvailable:   21610660 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:25+01:00
+MemAvailable:   23927224 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:26+01:00
+MemAvailable:   21525588 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:27+01:00
+MemAvailable:   21526212 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:28+01:00
+MemAvailable:   21526212 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:29+01:00
+MemAvailable:   21527184 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:30+01:00
+MemAvailable:   21528164 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:31+01:00
+MemAvailable:   21528392 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:32+01:00
+MemAvailable:   21529688 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:33+01:00
+MemAvailable:   21529688 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:34+01:00
+MemAvailable:   21530212 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:35+01:00
+MemAvailable:   21530844 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:36+01:00
+MemAvailable:   21530876 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:37+01:00
+MemAvailable:   21530780 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:38+01:00
+MemAvailable:   21530548 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:39+01:00
+MemAvailable:   21530560 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:40+01:00
+MemAvailable:   21533180 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:41+01:00
+MemAvailable:   21534792 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:42+01:00
+MemAvailable:   21536316 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:43+01:00
+MemAvailable:   21540836 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:44+01:00
+MemAvailable:   21542648 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:45+01:00
+MemAvailable:   21545448 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:47+01:00
+MemAvailable:   21548212 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:48+01:00
+MemAvailable:   21548568 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:49+01:00
+MemAvailable:   21548980 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:50+01:00
+MemAvailable:   21550404 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:51+01:00
+MemAvailable:   21551528 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:52+01:00
+MemAvailable:   21551624 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:53+01:00
+MemAvailable:   21551584 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:54+01:00
+MemAvailable:   21551896 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:55+01:00
+MemAvailable:   21551924 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:56+01:00
+MemAvailable:   21551420 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:57+01:00
+MemAvailable:   21551672 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:58+01:00
+MemAvailable:   21558344 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:12:59+01:00
+MemAvailable:   21558164 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:00+01:00
+MemAvailable:   21557956 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:01+01:00
+MemAvailable:   21558208 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:02+01:00
+MemAvailable:   21558228 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:03+01:00
+MemAvailable:   21561384 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:04+01:00
+MemAvailable:   21561620 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:05+01:00
+MemAvailable:   21562060 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:06+01:00
+MemAvailable:   21561556 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:07+01:00
+MemAvailable:   21561592 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:08+01:00
+MemAvailable:   21561480 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:09+01:00
+MemAvailable:   21561100 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:10+01:00
+MemAvailable:   21560628 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:11+01:00
+MemAvailable:   21560880 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:12+01:00
+MemAvailable:   21560960 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:13+01:00
+MemAvailable:   21549956 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:14+01:00
+MemAvailable:   21563392 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:15+01:00
+MemAvailable:   21564100 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:16+01:00
+MemAvailable:   21565476 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:17+01:00
+MemAvailable:   21565728 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:18+01:00
+MemAvailable:   21564720 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:19+01:00
+MemAvailable:   21561444 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:20+01:00
+MemAvailable:   21560444 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:21+01:00
+MemAvailable:   21562304 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:22+01:00
+MemAvailable:   21560636 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:23+01:00
+MemAvailable:   21561800 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:24+01:00
+MemAvailable:   21559328 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:25+01:00
+MemAvailable:   21556368 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:26+01:00
+MemAvailable:   21557104 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:27+01:00
+MemAvailable:   21555652 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:28+01:00
+MemAvailable:   21544648 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:29+01:00
+MemAvailable:   21551240 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:30+01:00
+MemAvailable:   21557628 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:31+01:00
+MemAvailable:   21549688 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:32+01:00
+MemAvailable:   21537564 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:33+01:00
+MemAvailable:   21531112 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:35+01:00
+MemAvailable:   21516684 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:36+01:00
+MemAvailable:   21520712 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:37+01:00
+MemAvailable:   21532776 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:38+01:00
+MemAvailable:   21538788 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:39+01:00
+MemAvailable:   21529948 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:40+01:00
+MemAvailable:   21527500 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:41+01:00
+MemAvailable:   21535392 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:42+01:00
+MemAvailable:   21541576 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:43+01:00
+MemAvailable:   21537012 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:44+01:00
+MemAvailable:   21527624 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:45+01:00
+MemAvailable:   28342848 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:46+01:00
+MemAvailable:   28192700 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:47+01:00
+MemAvailable:   27162952 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:48+01:00
+MemAvailable:   26323500 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:49+01:00
+MemAvailable:   25308168 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:50+01:00
+MemAvailable:   24150888 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:51+01:00
+MemAvailable:   24151388 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:52+01:00
+MemAvailable:   23207760 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:53+01:00
+MemAvailable:   24144504 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:54+01:00
+MemAvailable:   22727816 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:55+01:00
+MemAvailable:   21561804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:56+01:00
+MemAvailable:   21951804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:57+01:00
+MemAvailable:   21950536 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:58+01:00
+MemAvailable:   21948240 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:13:59+01:00
+MemAvailable:   21948240 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:00+01:00
+MemAvailable:   21947736 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:01+01:00
+MemAvailable:   21947988 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:02+01:00
+MemAvailable:   21948420 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:03+01:00
+MemAvailable:   21948672 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:04+01:00
+MemAvailable:   21948924 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:05+01:00
+MemAvailable:   21948940 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:06+01:00
+MemAvailable:   21955980 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:07+01:00
+MemAvailable:   21956232 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:08+01:00
+MemAvailable:   21956496 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:09+01:00
+MemAvailable:   21956860 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:10+01:00
+MemAvailable:   21958008 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:11+01:00
+MemAvailable:   21959860 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:12+01:00
+MemAvailable:   21960860 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:13+01:00
+MemAvailable:   21961876 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:14+01:00
+MemAvailable:   21962684 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:15+01:00
+MemAvailable:   21963476 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:16+01:00
+MemAvailable:   21963728 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:17+01:00
+MemAvailable:   21963980 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:18+01:00
+MemAvailable:   21963976 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:19+01:00
+MemAvailable:   21963472 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:20+01:00
+MemAvailable:   21963860 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:21+01:00
+MemAvailable:   21963932 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:22+01:00
+MemAvailable:   21964236 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:23+01:00
+MemAvailable:   21965552 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:24+01:00
+MemAvailable:   21964960 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:25+01:00
+MemAvailable:   21965936 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:26+01:00
+MemAvailable:   21965680 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:27+01:00
+MemAvailable:   21973900 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:28+01:00
+MemAvailable:   21973808 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:29+01:00
+MemAvailable:   21973852 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:30+01:00
+MemAvailable:   21973568 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:31+01:00
+MemAvailable:   21975676 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:32+01:00
+MemAvailable:   21975732 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:34+01:00
+MemAvailable:   21976048 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:35+01:00
+MemAvailable:   21976048 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:36+01:00
+MemAvailable:   21976048 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:37+01:00
+MemAvailable:   21974044 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:38+01:00
+MemAvailable:   21973804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:39+01:00
+MemAvailable:   21973804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:40+01:00
+MemAvailable:   21973804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:41+01:00
+MemAvailable:   21973804 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:42+01:00
+MemAvailable:   21959012 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:43+01:00
+MemAvailable:   21958760 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:44+01:00
+MemAvailable:   21960028 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:45+01:00
+MemAvailable:   21961436 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:46+01:00
+MemAvailable:   21962580 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:47+01:00
+MemAvailable:   21963868 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:48+01:00
+MemAvailable:   21964740 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:49+01:00
+MemAvailable:   21965496 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:50+01:00
+MemAvailable:   21965244 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:51+01:00
+MemAvailable:   21966012 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:52+01:00
+MemAvailable:   21965772 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:53+01:00
+MemAvailable:   21965520 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:54+01:00
+MemAvailable:   21965108 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:55+01:00
+MemAvailable:   21965360 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:56+01:00
+MemAvailable:   21965612 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:57+01:00
+MemAvailable:   21964416 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:58+01:00
+MemAvailable:   21966072 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:14:59+01:00
+MemAvailable:   21967168 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:00+01:00
+MemAvailable:   21968276 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:01+01:00
+MemAvailable:   21968100 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:02+01:00
+MemAvailable:   21966728 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:03+01:00
+MemAvailable:   21956676 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:04+01:00
+MemAvailable:   21959924 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:05+01:00
+MemAvailable:   21960184 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:06+01:00
+MemAvailable:   21959580 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:07+01:00
+MemAvailable:   21959404 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:08+01:00
+MemAvailable:   21959436 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:09+01:00
+MemAvailable:   21960620 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:10+01:00
+MemAvailable:   21960632 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:11+01:00
+MemAvailable:   21967384 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:12+01:00
+MemAvailable:   21983584 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:13+01:00
+MemAvailable:   28695360 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:14+01:00
+MemAvailable:   28318408 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:15+01:00
+MemAvailable:   27352648 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:16+01:00
+MemAvailable:   26342704 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:17+01:00
+MemAvailable:   25353836 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:18+01:00
+MemAvailable:   24520808 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:19+01:00
+MemAvailable:   24526196 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:20+01:00
+MemAvailable:   22031604 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:21+01:00
+MemAvailable:   24198016 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:22+01:00
+MemAvailable:   21715196 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:23+01:00
+MemAvailable:   22089144 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:24+01:00
+MemAvailable:   22088568 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:25+01:00
+MemAvailable:   22086636 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:26+01:00
+MemAvailable:   22085964 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:27+01:00
+MemAvailable:   22085364 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:28+01:00
+MemAvailable:   22083876 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:29+01:00
+MemAvailable:   22082896 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:30+01:00
+MemAvailable:   22082224 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:32+01:00
+MemAvailable:   22078140 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:33+01:00
+MemAvailable:   22083044 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:34+01:00
+MemAvailable:   22084236 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:35+01:00
+MemAvailable:   22080216 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:36+01:00
+MemAvailable:   22079460 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:37+01:00
+MemAvailable:   22079068 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:38+01:00
+MemAvailable:   22078596 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:39+01:00
+MemAvailable:   22041164 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:40+01:00
+MemAvailable:   22053292 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:41+01:00
+MemAvailable:   22055028 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:42+01:00
+MemAvailable:   22056300 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:43+01:00
+MemAvailable:   22055308 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:44+01:00
+MemAvailable:   22054216 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:45+01:00
+MemAvailable:   22054060 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:46+01:00
+MemAvailable:   22054060 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:47+01:00
+MemAvailable:   22054064 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:48+01:00
+MemAvailable:   22054064 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:49+01:00
+MemAvailable:   22063964 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:50+01:00
+MemAvailable:   22064720 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:51+01:00
+MemAvailable:   22065440 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:52+01:00
+MemAvailable:   22066304 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:53+01:00
+MemAvailable:   22066528 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:54+01:00
+MemAvailable:   22065940 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:55+01:00
+MemAvailable:   22066496 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:56+01:00
+MemAvailable:   22066332 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:57+01:00
+MemAvailable:   22066080 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:58+01:00
+MemAvailable:   22065604 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:15:59+01:00
+MemAvailable:   22065352 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:00+01:00
+MemAvailable:   22064252 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:01+01:00
+MemAvailable:   22064252 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:02+01:00
+MemAvailable:   22062992 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:03+01:00
+MemAvailable:   22061120 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:04+01:00
+MemAvailable:   22061356 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:05+01:00
+MemAvailable:   22064380 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:06+01:00
+MemAvailable:   22063692 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:07+01:00
+MemAvailable:   22062656 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:08+01:00
+MemAvailable:   22035736 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:09+01:00
+MemAvailable:   22046428 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:10+01:00
+MemAvailable:   22044200 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:11+01:00
+MemAvailable:   22044760 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:12+01:00
+MemAvailable:   22045448 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:13+01:00
+MemAvailable:   22046024 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:14+01:00
+MemAvailable:   22046956 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:15+01:00
+MemAvailable:   22047764 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:16+01:00
+MemAvailable:   22047196 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:17+01:00
+MemAvailable:   22048124 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:18+01:00
+MemAvailable:   21997472 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:19+01:00
+MemAvailable:   21995976 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:20+01:00
+MemAvailable:   21995016 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:21+01:00
+MemAvailable:   21994008 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:22+01:00
+MemAvailable:   21995536 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:24+01:00
+MemAvailable:   22003004 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:25+01:00
+MemAvailable:   21958416 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:26+01:00
+MemAvailable:   21976520 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:27+01:00
+MemAvailable:   21983736 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:28+01:00
+MemAvailable:   21983736 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:29+01:00
+MemAvailable:   21992308 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:30+01:00
+MemAvailable:   21993544 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:31+01:00
+MemAvailable:   22001324 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:32+01:00
+MemAvailable:   22007756 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:33+01:00
+MemAvailable:   22012984 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:34+01:00
+MemAvailable:   22018328 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:35+01:00
+MemAvailable:   22010020 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:36+01:00
+MemAvailable:   22013252 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:37+01:00
+MemAvailable:   22015320 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:38+01:00
+MemAvailable:   22018392 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:39+01:00
+MemAvailable:   22020068 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:40+01:00
+MemAvailable:   22032444 kB
+SwapFree:        8299596 kB
+pswpin 36297
+pswpout 635627
+2026-09-12T09:16:41+01:00
+MemAvailable:   28839060 kB
+SwapFree:        8299596 kB

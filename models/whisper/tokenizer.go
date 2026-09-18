@@ -48,13 +48,17 @@ func LoadTokenizer(path string) (*Tokenizer, error) {
 
 // Decode converts a sequence of token IDs to text.
 func (t *Tokenizer) Decode(tokens []int) string {
+	return strings.TrimSpace(t.decodeRaw(tokens))
+}
+
+// decodeRaw preserves token-boundary whitespace for word grouping while Decode
+// retains its historical trimmed public result.
+func (t *Tokenizer) decodeRaw(tokens []int) string {
 	if t == nil || len(tokens) == 0 {
 		return ""
 	}
-
 	var raw strings.Builder
 	for _, tok := range tokens {
-		// Skip special tokens
 		if tok >= TokenSOT {
 			continue
 		}
@@ -64,9 +68,7 @@ func (t *Tokenizer) Decode(tokens []int) string {
 		}
 		raw.WriteString(s)
 	}
-
-	text := decodeBPEBytes(raw.String())
-	return strings.TrimSpace(text)
+	return decodeBPEBytes(raw.String())
 }
 
 var byteDecoder = buildByteDecoder()

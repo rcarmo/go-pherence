@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "baseline_commit": "7442952",
+  "scope": "opt-in metadata-first owned HF Whisper tensor loader",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "inputs": "synthetic tensors/safetensors plus pinned public tokenizer metadata",
+    "real_checkpoints": false,
+    "gpu": false,
+    "private_media": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 47,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "test": "TestCheckedTimestampVocabulary",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial_timestamp",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/closing",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/new_start",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/text",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodePromptParsingAndLimit",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodeFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadAllTensorsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/missing",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/transposed",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/integer",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/unknown",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/key_bias",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/short_extent",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/negative",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overlap",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overflow_shape",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/short",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/shape",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/nan",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/inf",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/source_error",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/cancel",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadProjectionMustBeTied",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F32",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F16",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/BF16",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose",
+      "status": "pass"
+    },
+    {
+      "test": "TestLoadEncoderSourceExactContract",
+      "status": "pass"
+    },
+    {
+      "test": "TestLoadEncoderSourceRejectsMissingAndWrongShape/missing",
+      "status": "pass"
+    },
+    {
+      "test": "TestLoadEncoderSourceRejectsMissingAndWrongShape/shape",
+      "status": "pass"
+    },
+    {
+      "test": "TestLoadEncoderSourceRejectsMissingAndWrongShape",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/read",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/infer",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/emit",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/cancel",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeTimestampMapping",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeActualToyPipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeValidationAndGate",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-tiny",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-large-v3-turbo",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers",
+      "status": "pass"
+    }
+  ],
+  "checks": {
+    "make_targets": "speech-foundations-check speech-media-integration passed",
+    "safetensors_tests": "passed",
+    "vet": "audio/media/Whisper and safetensors passed",
+    "build": "audio packages and commands passed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow read-only judge returned no blocking finding; fixed [2]int DataOffsets verified by parent"
+  },
+  "limits": [
+    "real checkpoint tensor/output parity not qualified",
+    "legacy loaders/defaults unchanged",
+    "no generation/model JSON import or automatic suppression config in checked loader",
+    "source validates header/file extent and must use one byte-offset address space",
+    "GetFloat32 in progress cannot be interrupted",
+    "caller owns source close and model-memory admission",
+    "GGML/quantised weights/untied output projection unsupported",
+    "no new SIMD kernels, resident Vulkan or Community-1 implementation"
+  ]
+}

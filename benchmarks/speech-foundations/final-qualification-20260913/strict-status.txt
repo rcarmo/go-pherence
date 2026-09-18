@@ -1,0 +1,1 @@
+strict_expected_nonzero segmentation=2 embedding=2 sincnet=1

@@ -1,0 +1,9 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.127s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	1.337s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	0.005s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|PCMDigitalSilence|SpeechFixture|TurboFixtureSelection|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	1.310s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	3.686s
+go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1

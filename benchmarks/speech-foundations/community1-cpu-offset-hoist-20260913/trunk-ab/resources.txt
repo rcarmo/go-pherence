@@ -1,0 +1,12 @@
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B2.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.86
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B2.time:	Maximum resident set size (kbytes): 125952
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B2.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A2.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.03
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A2.time:	Maximum resident set size (kbytes): 116544
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A2.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B1.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.85
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B1.time:	Maximum resident set size (kbytes): 125976
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/B1.time:	Swaps: 0
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A1.time:	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.04
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A1.time:	Maximum resident set size (kbytes): 94872
+/var/home/agent/workspace/projects/go-pherence/tmp/conv-offset-ab-r2/A1.time:	Swaps: 0

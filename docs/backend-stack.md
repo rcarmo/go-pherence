@@ -30,9 +30,9 @@ Diagnostics are off by default. Use `GO_PHERENCE_LOAD_DEBUG=1` for weight placem
 
 ## Vulkan
 
-`backends/vulkan` owns loader, device, buffer and SPIR-V dispatch. Vector operations run on both the RTX 3060 and the CIX P1 Mali-G720, but Vulkan is not a general model backend yet: RMSNorm, partial RoPE and attention-score parity still have open failures, and there is no persistent-weight batched GEMM API.
+`backends/vulkan` owns loader/device lifetime, bounded memory arenas, inspected embedded SPIR-V, checked operations and multi-stage plans. Its explicit F32 speech surfaces include a resident Whisper encoder (Conv1D, add, LayerNorm, linear, erf-GELU and non-causal attention) and Community-1 resident LSTM/ResNet owners. The separate legacy GQA attention-score wrapper now dispatches the complete head×time grid and rejects invalid head ratios; it is not the Whisper encoder's fused attention implementation. These paths copy fixed-shape weights once, keep intermediate tensors resident and do not silently fall back to CPU; model policy remains responsible for selecting a qualified graph. Legacy vector/RMSNorm/RoPE/GEMV wrappers remain separate from those speech graphs.
 
-Software devices are rejected unless `GO_PHERENCE_VULKAN_ALLOW_CPU=1` is set. Use that switch for debugging, not performance measurements.
+Vulkan is not a general automatic model backend: speech paths are opt-in, quantised/F16 speech graphs and device recreation remain open, and native/trained quality and placement evidence is model-specific. Software devices are rejected unless `GO_PHERENCE_VULKAN_ALLOW_CPU=1` is set; use that switch for debugging, never acceleration measurements.
 
 See [Vulkan inventory](vulkan-dispatch-inventory.md) and [Vulkan validation](vulkan-validation-plan.md).
 

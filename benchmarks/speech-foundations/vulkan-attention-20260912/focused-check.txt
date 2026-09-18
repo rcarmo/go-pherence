@@ -1,0 +1,19 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline|TestVulkanDispatchRejects|TestVkBuf|TestVkKernelCreate|TestVkHelpers|TestVkWrappers|TestLoadSPIRV)'
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.180s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.027s
+GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.052s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNet(FMA32|Normalization)'
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.059s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.118s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.096s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	0.004s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	1.167s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.371s
+go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
+GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.637s

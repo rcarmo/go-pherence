@@ -1,0 +1,5 @@
+=== RUN   TestVulkanNativeSpeech
+    vulkan_speech_native_test.go:22: set GO_PHERENCE_TEST_VULKAN_SPEECH=1 in an authorised compute window
+--- SKIP: TestVulkanNativeSpeech (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.002s

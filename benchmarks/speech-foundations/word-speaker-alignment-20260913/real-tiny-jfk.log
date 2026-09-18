@@ -1,0 +1,8 @@
+=== RUN   TestWhisperTinyJFKWordAlignment
+    word_alignment_real_test.go:116: WHISPER_WORD_ALIGNMENT words=22 first=0.00 last=10.98
+--- PASS: TestWhisperTinyJFKWordAlignment (2.65s)
+=== RUN   TestWhisperTinyJFKWordAlignment
+    word_alignment_real_test.go:116: WHISPER_WORD_ALIGNMENT words=22 first=0.00 last=10.98
+--- PASS: TestWhisperTinyJFKWordAlignment (2.61s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	5.276s

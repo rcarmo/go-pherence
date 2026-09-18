@@ -1,0 +1,18 @@
+diff --git a/models/omnivoice/snake.go b/models/omnivoice/snake.go
+index 87818e40..a7ddbe15 100644
+--- a/models/omnivoice/snake.go
++++ b/models/omnivoice/snake.go
+@@ -13,8 +13,10 @@ func snakeChannel(row []float32, alpha float32) {
+ 		tmp := storage[:len(x)]
+ 		simd.VecScale(tmp, x, alpha)
+ 		simd.SinF32To(tmp, tmp)
+-		simd.VecMul(tmp, tmp, tmp)
+-		simd.VecScale(tmp, tmp, scale)
+-		simd.VecAdd(x, x, tmp)
++		for i, s := range tmp {
++			squared := float32(s * s)
++			scaled := float32(squared * scale)
++			x[i] = x[i] + scaled
++		}
+ 	}
+ }

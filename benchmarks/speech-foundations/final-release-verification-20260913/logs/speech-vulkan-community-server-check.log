@@ -1,0 +1,8 @@
+=== speech-vulkan-community-server-check ===
++ GOMAXPROCS=2
++ go test -p=1 -count=1 -timeout=90s ./runtime/speechjob -run '^TestVulkanCommunity'
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	0.271s
++ GOMAXPROCS=2
++ go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve -run '^(TestCommunityVulkan|TestCommunityPrepare|TestCombined|TestBuiltProfiles)'
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	0.171s
++ go vet ./models/speaker/community1 ./runtime/speechjob ./cmd/audio/speechjobserve

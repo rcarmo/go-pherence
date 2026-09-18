@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "cases": [
+    {
+      "id": "pyannote-tutorial-30s",
+      "role": "diagnostic",
+      "corpus": "pyannote tutorial sample",
+      "split": "single public example",
+      "language": "English",
+      "licence": {
+        "spdx": "NOASSERTION",
+        "url": "https://github.com/pyannote/pyannote-audio",
+        "redistribution": "unverified"
+      },
+      "audio": {
+        "sha256": "c319b4abca767b124e41432d364fd7df006cb26bb79d09326c487d606a134e6e",
+        "sample_rate": 16000,
+        "channels": 1,
+        "samples": 480000
+      },
+      "rttm": {
+        "sha256": "d78fe62c69d8e6dcbb42c26adfce83faccb374c5a1e6d987fe37f85f1c173c87",
+        "uri": "sample"
+      },
+      "uem": [[0, 30]],
+      "turn_extent_end": 30.034718750000003,
+      "go_result": {
+        "sha256": "e9f51f0b68aa0dcfc2827afb0b238205c83544023c07cce8cbf52966d5cf47a5",
+        "format": "community1-go-result-v1"
+      },
+      "reference": {
+        "sha256": "b29249012ed8efdff8a9e28dfaf0b3b2c58a712667348afaec628906783de683",
+        "format": "community1-reference-v1"
+      },
+      "collars": [0, 0.25],
+      "tie_policy": 1,
+      "exclusive_may_overlap": false,
+      "gates": {
+        "max_abs_der_delta_pp": 0.000000001,
+        "max_abs_jer_delta_pp": 0.000000001
+      }
+    }
+  ]
+}

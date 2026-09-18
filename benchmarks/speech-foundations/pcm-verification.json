@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "baseline_commit": "272cae8",
+  "scope": "opt-in PCM to checked frontend and Go encoder/timestamp decoder; no real-checkpoint qualification",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "synthetic_tensors": "two channels/zero transformer layers; actual frontend/encoder/decoder calls",
+    "real_checkpoints": false,
+    "GPU": false,
+    "private_media": false,
+    "services_changed": false
+  },
+  "counts": {
+    "pass_events": 33,
+    "fail_events": 0,
+    "skip_events": 2
+  },
+  "tests": [
+    {
+      "test": "TestComputeMelFlatWithTUsesRealMel",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampVocabulary",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial_timestamp",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/closing",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/new_start",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass/text",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampMaskPairingAndMass",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodePromptParsingAndLimit",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampDecodeFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestSuppressTokenIDs",
+      "status": "pass"
+    },
+    {
+      "test": "TestRepeatedNGram",
+      "status": "pass"
+    },
+    {
+      "test": "TestExactFrontendUses128BandContract",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/read",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/infer",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/emit",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/cancel",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeTimestampMapping",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeActualToyPipeline",
+      "status": "pass"
+    },
+    {
+      "test": "TestPCMTranscribeValidationAndGate",
+      "status": "pass"
+    },
+    {
+      "test": "TestSuppressTimestampPromptSpecialsAllowsTimestamps",
+      "status": "pass"
+    },
+    {
+      "test": "TestSuppressInvalidTimestampTransitionsForcesTimestampPair",
+      "status": "pass"
+    },
+    {
+      "test": "TestSuppressInvalidTimestampTransitionsStopsTimestampRunAfterPair",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-tiny",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-large-v3-turbo",
+      "status": "pass"
+    },
+    {
+      "test": "TestCheckedTimestampPinnedTokenizers",
+      "status": "pass"
+    },
+    {
+      "test": "TestTokenizerLoad",
+      "status": "skip"
+    },
+    {
+      "test": "TestDecodeBPEBytes",
+      "status": "pass"
+    },
+    {
+      "test": "TestTokenizerWithModel",
+      "status": "skip"
+    },
+    {
+      "test": "TestWindowPlanFullCoverageWithoutHundredChunkCap",
+      "status": "pass"
+    },
+    {
+      "test": "TestWindowPlanBoundsAndMaxIntArithmetic",
+      "status": "pass"
+    },
+    {
+      "test": "TestWindowPlanReadPaddingErrorsAndCancellation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWindowPlanNoPerWindowAllocation",
+      "status": "pass"
+    },
+    {
+      "test": "TestWindowPlanCanonicalMediaAndCheckedFeatures",
+      "status": "pass"
+    }
+  ],
+  "other_checks": {
+    "make_targets": "speech-foundations-check speech-media-integration passed",
+    "vet": "affected packages passed",
+    "build": "audio packages and commands passed",
+    "full_tree": "errors exactly match full-build-known-errors.txt",
+    "public_tokenizers": "tiny and turbo revision/checksum-pinned contracts passed; assets not bundled",
+    "review": "two delegates timed out without findings; parent source review/tests only"
+  },
+  "retained_failure": "First synthetic vocabulary used the wrong older-model ID base. Initial tests failed before inference. Corrected against pinned public generation/tokenizer contracts and rerun successfully.",
+  "limitations": [
+    "raw window segments; no overlap reconciliation/word alignment/source PTS mapping",
+    "no real-model quality or speed validation",
+    "no-speech/temperature fallback and prompt conditioning not implemented",
+    "encoder/cross-KV cannot cancel mid-operation",
+    "legacy APIs/constants unchanged",
+    "new SIMD and Vulkan residency not implemented",
+    "race detector not run"
+  ]
+}

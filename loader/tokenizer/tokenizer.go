@@ -1,6 +1,7 @@
 package tokenizer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Tokenizer handles BPE tokenization for LLaMA-style models.
@@ -17,7 +20,37 @@ type Tokenizer struct {
 	InvVocab     map[int]string // ID → token string
 	Merges       [][2]string    // BPE merge pairs in priority order
 	AddedSpecial map[string]int // Hugging Face added tokens with special=true
+
+	mergeRankOnce sync.Once
+	mergeRank     map[[2]string]int
+	normalizer    tokenizerNormalizer
+	byteLevelMode byteLevelPretokenizer
 }
+
+type tokenizerNormalizer uint8
+
+const (
+	normalizerNone tokenizerNormalizer = iota
+	normalizerNFC
+)
+
+type byteLevelPretokenizer uint8
+
+const (
+	byteLevelDefault byteLevelPretokenizer = iota
+	byteLevelQwenSingleDigits
+)
+
+const (
+	qwenDigitsRunRegex    = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}+| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`
+	qwenSingleDigitSource = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`
+	qwenSingleDigitRegex  = `(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`
+)
+
+var (
+	qwenDigitsRunPattern   = regexp.MustCompile(qwenDigitsRunRegex)
+	qwenSingleDigitPattern = regexp.MustCompile(qwenSingleDigitRegex)
+)
 
 // Load loads a HuggingFace tokenizer.json.
 func Load(path string) (*Tokenizer, error) {
@@ -27,7 +60,17 @@ func Load(path string) (*Tokenizer, error) {
 	}
 
 	var raw struct {
-		Model struct {
+		PreTokenizer struct {
+			Type          string `json:"type"`
+			Pretokenizers []struct {
+				Type    string `json:"type"`
+				Pattern struct {
+					Regex string `json:"Regex"`
+				} `json:"pattern"`
+			} `json:"pretokenizers"`
+		} `json:"pre_tokenizer"`
+		Normalizer json.RawMessage `json:"normalizer"`
+		Model      struct {
 			Vocab  map[string]int  `json:"vocab"`
 			Merges json.RawMessage `json:"merges"`
 		} `json:"model"`
@@ -45,9 +88,11 @@ func Load(path string) (*Tokenizer, error) {
 		raw.Model.Vocab = map[string]int{}
 	}
 	t := &Tokenizer{
-		Vocab:        raw.Model.Vocab,
-		InvVocab:     make(map[int]string, len(raw.Model.Vocab)),
-		AddedSpecial: make(map[string]int),
+		Vocab:         raw.Model.Vocab,
+		InvVocab:      make(map[int]string, len(raw.Model.Vocab)),
+		AddedSpecial:  make(map[string]int),
+		normalizer:    detectNormalizer(raw.Normalizer),
+		byteLevelMode: detectByteLevelPretokenizer(raw.PreTokenizer.Pretokenizers),
 	}
 	for k, v := range raw.Model.Vocab {
 		t.InvVocab[v] = k
@@ -67,33 +112,160 @@ func Load(path string) (*Tokenizer, error) {
 		return t, nil
 	}
 
-	// Merges can be ["a b", ...] (strings) or [["a","b"], ...] (arrays)
-	var mergeStrings []string
-	if err := json.Unmarshal(raw.Model.Merges, &mergeStrings); err == nil {
-		t.Merges = make([][2]string, 0, len(mergeStrings))
+	// Select the representation before decoding: attempting []string first
+	// allocates an error for every array entry in large Qwen tokenizers.
+	merges := bytes.TrimSpace(raw.Model.Merges)
+	if len(merges) < 2 || merges[0] != '[' {
+		return nil, fmt.Errorf("unsupported merges format")
+	}
+	first := bytes.TrimSpace(merges[1:])
+	count := jsonArrayLen(merges)
+	if len(first) > 0 && first[0] == '"' {
+		mergeStrings := make([]string, 0, count)
+		if err := json.Unmarshal(merges, &mergeStrings); err != nil {
+			return nil, fmt.Errorf("unsupported merges format: %w", err)
+		}
+		t.Merges = make([][2]string, len(mergeStrings))
 		for i, m := range mergeStrings {
-			parts := strings.SplitN(m, " ", 2)
-			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			a, b, ok := strings.Cut(m, " ")
+			if !ok || a == "" || b == "" {
 				return nil, fmt.Errorf("malformed merge at index %d", i)
 			}
-			t.Merges = append(t.Merges, [2]string{parts[0], parts[1]})
+			t.Merges[i] = [2]string{a, b}
 		}
 	} else {
-		var mergeArrays [][2]string
-		if err := json.Unmarshal(raw.Model.Merges, &mergeArrays); err == nil {
-			t.Merges = make([][2]string, 0, len(mergeArrays))
-			for i, m := range mergeArrays {
-				if m[0] == "" || m[1] == "" {
-					return nil, fmt.Errorf("malformed merge at index %d", i)
-				}
-				t.Merges = append(t.Merges, m)
+		t.Merges = make([][2]string, 0, count)
+		if err := json.Unmarshal(merges, &t.Merges); err != nil {
+			return nil, fmt.Errorf("unsupported merges format: %w", err)
+		}
+		for i, m := range t.Merges {
+			if m[0] == "" || m[1] == "" {
+				return nil, fmt.Errorf("malformed merge at index %d", i)
 			}
-		} else {
-			return nil, fmt.Errorf("unsupported merges format")
 		}
 	}
 
+	t.initMergeRank()
 	return t, nil
+}
+
+// jsonArrayLen counts top-level entries in an already validated JSON array.
+// Load's outer json.Unmarshal validates syntax before this allocation-sizing
+// pass. Strings (including escapes) and nested arrays/objects do not add entries.
+func jsonArrayLen(data []byte) int {
+	depth, count := 0, 0
+	quoted := false
+	for i := 0; i < len(data); i++ {
+		c := data[i]
+		if quoted {
+			if c == '\\' {
+				i++
+			} else if c == '"' {
+				quoted = false
+			}
+			continue
+		}
+		switch c {
+		case ' ', '\t', '\r', '\n':
+			continue
+		case ',':
+			if depth == 1 {
+				count++
+			}
+		case ']', '}':
+			depth--
+		default:
+			if depth == 1 && count == 0 {
+				count = 1
+			}
+			if c == '"' {
+				quoted = true
+			} else if c == '[' || c == '{' {
+				depth++
+			}
+		}
+	}
+	return count
+}
+
+func detectNormalizer(raw json.RawMessage) tokenizerNormalizer {
+	if len(raw) == 0 || string(raw) == "null" {
+		return normalizerNone
+	}
+	var probe struct {
+		Type        string            `json:"type"`
+		Normalizers []json.RawMessage `json:"normalizers"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return normalizerNone
+	}
+	switch probe.Type {
+	case "NFC":
+		return normalizerNFC
+	case "Sequence":
+		if len(probe.Normalizers) == 0 {
+			return normalizerNone
+		}
+		for _, part := range probe.Normalizers {
+			if detectNormalizer(part) != normalizerNFC {
+				return normalizerNone
+			}
+		}
+		return normalizerNFC
+	default:
+		return normalizerNone
+	}
+}
+
+func detectByteLevelPretokenizer(parts []struct {
+	Type    string `json:"type"`
+	Pattern struct {
+		Regex string `json:"Regex"`
+	} `json:"pattern"`
+}) byteLevelPretokenizer {
+	for _, part := range parts {
+		if part.Type != "Split" {
+			continue
+		}
+		switch part.Pattern.Regex {
+		case qwenSingleDigitSource, qwenSingleDigitRegex:
+			return byteLevelQwenSingleDigits
+		}
+		if strings.Contains(part.Pattern.Regex, `|\p{N}|`) {
+			return byteLevelQwenSingleDigits
+		}
+	}
+	return byteLevelDefault
+}
+
+func (t *Tokenizer) normalizeOrdinary(text string) string {
+	if t == nil || text == "" {
+		return text
+	}
+	switch t.normalizer {
+	case normalizerNFC:
+		if norm.NFC.IsNormalString(text) {
+			return text
+		}
+		return norm.NFC.String(text)
+	default:
+		return text
+	}
+}
+
+func (t *Tokenizer) initMergeRank() {
+	if t == nil {
+		return
+	}
+	t.mergeRankOnce.Do(func() {
+		if len(t.Merges) == 0 {
+			return
+		}
+		t.mergeRank = make(map[[2]string]int, len(t.Merges))
+		for i, m := range t.Merges {
+			t.mergeRank[m] = i
+		}
+	})
 }
 
 // Encode tokenizes a string into token IDs.
@@ -129,6 +301,10 @@ func (t *Tokenizer) encodeOrdinary(text string) []int {
 	if text == "" {
 		return nil
 	}
+	text = t.normalizeOrdinary(text)
+	if text == "" {
+		return nil
+	}
 	// Auto-detect family: Ġ (U+0120, GPT-2/Qwen byte-level BPE) or ▁
 	// (U+2581, SentencePiece/Gemma). SentencePiece keeps the legacy
 	// whitespace-prefix path; GPT-2/Qwen uses faithful byte-level BPE.
@@ -137,12 +313,6 @@ func (t *Tokenizer) encodeOrdinary(text string) []int {
 	}
 	return t.encodeByteLevel(text)
 }
-
-// gpt2Pattern is the Qwen2/Qwen3 byte-level pre-tokenization regex. RE2 has no
-// lookahead, so the trailing-whitespace `\s+(?!\S)` clause is dropped and its
-// effect (handing the final space of an interior whitespace run to the
-// following token) is reproduced in splitWhitespaceRuns.
-var gpt2Pattern = regexp.MustCompile(`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}+| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+`)
 
 // splitWhitespaceRuns emulates the `\s+(?!\S)` lookahead: for an interior
 // whitespace run that ends in a space and is followed by another token, the
@@ -183,17 +353,22 @@ func isSpaceRun(s string) bool {
 	return len(s) > 0
 }
 
+func (t *Tokenizer) byteLevelPattern() *regexp.Regexp {
+	if t != nil && t.byteLevelMode == byteLevelQwenSingleDigits {
+		return qwenSingleDigitPattern
+	}
+	return qwenDigitsRunPattern
+}
+
 // encodeByteLevel performs faithful Qwen byte-level BPE: pre-tokenization,
 // per-byte unicode mapping, then rank-ordered merges over the byte symbols
 // (matching the inverse applied by Decode).
 func (t *Tokenizer) encodeByteLevel(text string) []int {
-	mergeRank := make(map[[2]string]int, len(t.Merges))
-	for i, m := range t.Merges {
-		mergeRank[m] = i
-	}
+	t.initMergeRank()
+	mergeRank := t.mergeRank
 	byteEncoder := getByteEncoder()
 
-	pieces := splitWhitespaceRuns(gpt2Pattern.FindAllString(text, -1))
+	pieces := splitWhitespaceRuns(t.byteLevelPattern().FindAllString(text, -1))
 	var ids []int
 	for _, piece := range pieces {
 		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
@@ -260,10 +435,8 @@ func (t *Tokenizer) encodeSentencePiece(text string) []int {
 	}
 
 	// For each piece, try direct vocab lookup first, then BPE
-	mergeRank := make(map[[2]string]int, len(t.Merges))
-	for i, m := range t.Merges {
-		mergeRank[m] = i
-	}
+	t.initMergeRank()
+	mergeRank := t.mergeRank
 
 	var ids []int
 	for _, piece := range pieces {

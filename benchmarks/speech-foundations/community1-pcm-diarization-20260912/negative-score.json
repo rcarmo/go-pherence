@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "go_result_sha256": "21d82c256f17eabc82723f64bc97f2bc56ee77059ad2be378c890b9ee61fffa1",
+  "rttm_sha256": "d78fe62c69d8e6dcbb42c26adfce83faccb374c5a1e6d987fe37f85f1c173c87",
+  "uem": [
+    0,
+    30
+  ],
+  "skip_overlap": false,
+  "config": {
+    "WindowSamples": 160000,
+    "StepSamples": 16000,
+    "MinimumEmbeddingSamples": 400,
+    "ExcludeOverlap": true,
+    "MinSpeakers": 1,
+    "MaxSpeakers": 64,
+    "NumSpeakers": 0,
+    "AHCThreshold": 0.6,
+    "Fa": 0.07,
+    "Fb": 0.8,
+    "MinDurationOff": 0,
+    "Constrained": true,
+    "TiePolicy": 1
+  },
+  "training_rows": 37,
+  "clusters": 2,
+  "ambiguous_frames": 84,
+  "scores": {
+    "full": [
+      {
+        "collar": 0.0,
+        "details": {
+          "total": 24.349999999999998,
+          "confusion": 0.30743749999999714,
+          "missed detection": 0.4884062500000006,
+          "false alarm": 0.47215625000000383,
+          "correct": 23.554156250000002,
+          "diarization error rate": 0.052073921971252636
+        }
+      },
+      {
+        "collar": 0.25,
+        "details": {
+          "total": 19.820000000000004,
+          "confusion": 0.17999999999999972,
+          "missed detection": 0.02340625000000074,
+          "false alarm": 0.05778124999999967,
+          "correct": 19.616593750000003,
+          "diarization error rate": 0.013177976791120085
+        }
+      }
+    ],
+    "exclusive": [
+      {
+        "collar": 0.0,
+        "details": {
+          "total": 24.349999999999998,
+          "confusion": 0.3333437499999956,
+          "missed detection": 2.039374999999998,
+          "false alarm": 0.1331250000000006,
+          "correct": 21.977281250000004,
+          "diarization error rate": 0.10290939425051311
+        }
+      },
+      {
+        "collar": 0.25,
+        "details": {
+          "total": 19.820000000000004,
+          "confusion": 0.17999999999999972,
+          "missed detection": 0.7999999999999989,
+          "false alarm": 0.0,
+          "correct": 18.840000000000007,
+          "diarization error rate": 0.0494450050454086
+        }
+      }
+    ]
+  },
+  "historical_baseline": null,
+  "fresh_reference": {
+    "reference_sha256": "b29249012ed8efdff8a9e28dfaf0b3b2c58a712667348afaec628906783de683",
+    "scores": {
+      "full": [
+        {
+          "collar": 0.0,
+          "details": {
+            "total": 24.349999999999998,
+            "confusion": 0.30743749999999714,
+            "missed detection": 0.4884062500000006,
+            "false alarm": 0.47215625000000383,
+            "correct": 23.554156250000002,
+            "diarization error rate": 0.052073921971252636
+          }
+        },
+        {
+          "collar": 0.25,
+          "details": {
+            "total": 19.820000000000004,
+            "confusion": 0.17999999999999972,
+            "missed detection": 0.02340625000000074,
+            "false alarm": 0.05778124999999967,
+            "correct": 19.616593750000003,
+            "diarization error rate": 0.013177976791120085
+          }
+        }
+      ],
+      "exclusive": [
+        {
+          "collar": 0.0,
+          "details": {
+            "total": 24.349999999999998,
+            "confusion": 0.3333437499999956,
+            "missed detection": 2.039374999999998,
+            "false alarm": 0.1331250000000006,
+            "correct": 21.977281250000004,
+            "diarization error rate": 0.10290939425051311
+          }
+        },
+        {
+          "collar": 0.25,
+          "details": {
+            "total": 19.820000000000004,
+            "confusion": 0.17999999999999972,
+            "missed detection": 0.7999999999999989,
+            "false alarm": 0.0,
+            "correct": 18.840000000000007,
+            "diarization error rate": 0.0494450050454086
+          }
+        }
+      ]
+    },
+    "full_der_delta_pp": [
+      0.0,
+      0.0
+    ],
+    "exact_segmentation_values": 37107,
+    "segmentation_values": 37107,
+    "embeddings_max_abs": 1.0000000074505806,
+    "embeddings_values": 16128,
+    "matching_turn_label_permutations": [
+      [
+        "SPEAKER_00",
+        "SPEAKER_01"
+      ]
+    ],
+    "turn_boundary_tolerance_seconds": 1e-12
+  },
+  "qualified": false,
+  "scope": "one public sample, explicit lowest-index tie policy, strict neural intermediates still fail; no general DER or performance qualification"
+}

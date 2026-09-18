@@ -1,0 +1,5 @@
+=== RUN   TestVulkanPCMSpeechTiny
+    vulkan_speech_quality_test.go:138: explicit public speech compute opt-in required
+--- SKIP: TestVulkanPCMSpeechTiny (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.003s

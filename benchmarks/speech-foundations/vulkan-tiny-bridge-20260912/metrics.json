@@ -1,0 +1,453 @@
+{
+  "metrics": [
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.0000011920928955078125,
+      "name": "boundary0",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000003337860107421875,
+      "name": "boundary1",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000004291534423828125,
+      "name": "boundary2",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000007152557373046875,
+      "name": "boundary3",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000019073486328125,
+      "name": "boundary4",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "boundary5",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "short-final",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001049041748046875,
+      "name": "crossK0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000005424022674560547,
+      "name": "crossV0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000010438263416290283,
+      "name": "crossK1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000009655952453613281,
+      "name": "crossV1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.0000095367431640625,
+      "name": "crossK2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000007271766662597656,
+      "name": "crossV2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000014066696166992188,
+      "name": "crossK3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001055002212524414,
+      "name": "crossV3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.000087738037109375,
+      "name": "prompt-logits0",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000095367431640625,
+      "name": "prompt-logits1",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000209808349609375,
+      "name": "prompt-logits2",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.0000011920928955078125,
+      "name": "boundary0",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000003337860107421875,
+      "name": "boundary1",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000004291534423828125,
+      "name": "boundary2",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000007152557373046875,
+      "name": "boundary3",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000019073486328125,
+      "name": "boundary4",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "boundary5",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "short-final",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001049041748046875,
+      "name": "crossK0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000005424022674560547,
+      "name": "crossV0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000010438263416290283,
+      "name": "crossK1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000009655952453613281,
+      "name": "crossV1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.0000095367431640625,
+      "name": "crossK2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000007271766662597656,
+      "name": "crossV2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000014066696166992188,
+      "name": "crossK3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001055002212524414,
+      "name": "crossV3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.000087738037109375,
+      "name": "prompt-logits0",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000095367431640625,
+      "name": "prompt-logits1",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000209808349609375,
+      "name": "prompt-logits2",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.0000011920928955078125,
+      "name": "boundary0",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000003337860107421875,
+      "name": "boundary1",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000004291534423828125,
+      "name": "boundary2",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000007152557373046875,
+      "name": "boundary3",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.000019073486328125,
+      "name": "boundary4",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "boundary5",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.001,
+      "max_abs": 0.00002384185791015625,
+      "name": "short-final",
+      "rel_budget": 0.0002,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001049041748046875,
+      "name": "crossK0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000005424022674560547,
+      "name": "crossV0",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000010438263416290283,
+      "name": "crossK1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000009655952453613281,
+      "name": "crossV1",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.0000095367431640625,
+      "name": "crossK2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000007271766662597656,
+      "name": "crossV2",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.000014066696166992188,
+      "name": "crossK3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.002,
+      "max_abs": 0.00001055002212524414,
+      "name": "crossV3",
+      "rel_budget": 0.0003,
+      "values": 6528
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.000087738037109375,
+      "name": "prompt-logits0",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000095367431640625,
+      "name": "prompt-logits1",
+      "rel_budget": 0.0005,
+      "values": 51865
+    },
+    {
+      "abs_budget": 0.01,
+      "max_abs": 0.0000209808349609375,
+      "name": "prompt-logits2",
+      "rel_budget": 0.0005,
+      "values": 51865
+    }
+  ],
+  "full": [
+    {
+      "construct_ns": 20228202,
+      "forward_ns": [
+        283343128,
+        260076133,
+        258558904
+      ],
+      "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+      "repeat_bit_exact": true,
+      "scalar_full_reference": false,
+      "speech_input": false,
+      "stats": {
+        "Frames": 3000,
+        "Rows": 1500,
+        "Width": 384,
+        "Layers": 4,
+        "Plans": 6,
+        "Stages": 54,
+        "WeightBytes": 32839680,
+        "ScratchBytes": 28608000
+      },
+      "values": 576000
+    },
+    {
+      "construct_ns": 21159669,
+      "forward_ns": [
+        272773065,
+        263711309,
+        263020140
+      ],
+      "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+      "repeat_bit_exact": true,
+      "scalar_full_reference": false,
+      "speech_input": false,
+      "stats": {
+        "Frames": 3000,
+        "Rows": 1500,
+        "Width": 384,
+        "Layers": 4,
+        "Plans": 6,
+        "Stages": 54,
+        "WeightBytes": 32839680,
+        "ScratchBytes": 28608000
+      },
+      "values": 576000
+    },
+    {
+      "construct_ns": 20066819,
+      "forward_ns": [
+        276214433,
+        259895657,
+        258608599
+      ],
+      "output_sha256": "08125fb8596d86c8cd63da8f0187a41cc5ad173e0e9c80fcb31ad1035a0af488",
+      "repeat_bit_exact": true,
+      "scalar_full_reference": false,
+      "speech_input": false,
+      "stats": {
+        "Frames": 3000,
+        "Rows": 1500,
+        "Width": 384,
+        "Layers": 4,
+        "Plans": 6,
+        "Stages": 54,
+        "WeightBytes": 32839680,
+        "ScratchBytes": 28608000
+      },
+      "values": 576000
+    }
+  ]
+}

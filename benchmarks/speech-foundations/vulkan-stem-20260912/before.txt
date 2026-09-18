@@ -1,0 +1,37 @@
+2026-09-12T07:52:43+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        3907        7772        1804       22777       27906
+Swap:           8191          86        8105
+some avg10=0.00 avg60=0.00 avg300=0.00 total=119661907
+full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+some avg10=0.00 avg60=0.00 avg300=0.00 total=5869004
+full avg10=0.00 avg60=0.00 avg300=0.00 total=5808974
+pswpin 36292
+pswpout 635627
+Id=llama-gemma-local-provider.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+
+Id=whisper-stt.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+
+Id=whisper-stt-diarizer.service
+ActiveState=inactive
+SubState=dead
+MainPID=0
+    PID %CPU COMMAND
+   1698  3.9 bun
+   1700  0.6 telegraf
+    997  0.2 avahi-daemon
+   1238  0.1 systemd
+    834  0.1 systemd-oomd
+    142  0.0 kswapd0
+     16  0.0 rcu_preempt
+   1225  0.0 tuned
+    865  0.0 irq/200-iwlwifi:default_queue
+27800
+41000
+38000

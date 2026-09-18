@@ -1,0 +1,72 @@
+{
+  "baseline_commit": "21fcb4bb",
+  "current_commit": "4d7adca1",
+  "results": [
+    {
+      "frames": 1,
+      "audio_seconds": 0.04,
+      "old_seconds": 0.053374674999999996,
+      "current_seconds": 0.042709979499999995,
+      "reduction_percent": 19.980815808246145,
+      "hash": "05e64f8db087555d791a50650b08a2584be90e8f47d4c84c90c8bf053c73e5c3"
+    },
+    {
+      "frames": 2,
+      "audio_seconds": 0.08,
+      "old_seconds": 0.1012922125,
+      "current_seconds": 0.054391920999999996,
+      "reduction_percent": 46.301971634788806,
+      "hash": "3a2739336ddb77036ebdfabae08d63bef409dc9a52fadcc4ef92eb721d283646"
+    },
+    {
+      "frames": 30,
+      "audio_seconds": 1.2,
+      "old_seconds": 1.1162671715,
+      "current_seconds": 0.6143084315,
+      "reduction_percent": 44.967616428734146,
+      "hash": "f2c96545546b310bed76b26426e9790d637c67d2e2094f7a25b659771acf50cc"
+    },
+    {
+      "frames": 32,
+      "audio_seconds": 1.28,
+      "old_seconds": 1.1483554135,
+      "current_seconds": 0.6404714499999999,
+      "reduction_percent": 44.22707095114853,
+      "hash": "2b999b74c445bef51e300bf1ec68a5cb56017e2e73a2b1ea7c1de7c906b5ccc5"
+    },
+    {
+      "frames": 75,
+      "audio_seconds": 3,
+      "old_seconds": 2.751031899,
+      "current_seconds": 1.5940976835,
+      "reduction_percent": 42.05455472619367,
+      "hash": "f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a"
+    },
+    {
+      "frames": 250,
+      "audio_seconds": 10,
+      "old_seconds": 9.114009315499999,
+      "current_seconds": 5.2092918415,
+      "reduction_percent": 42.843027023895296,
+      "hash": "20f302e6ec5423a4afbca0dbf9efc1d573ae4184b73010a7b614764ba8bc3b18"
+    }
+  ],
+  "logs": {
+    "old-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecodeLengths/frames1-2         \t       1\t  52772050 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames1-2\n    codec_bench_test.go:75: waveform_float32_sha256=05e64f8db087555d791a50650b08a2584be90e8f47d4c84c90c8bf053c73e5c3\nBenchmarkRealCodecDecodeLengths/frames2-2         \t       1\t  99708146 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames2-2\n    codec_bench_test.go:75: waveform_float32_sha256=3a2739336ddb77036ebdfabae08d63bef409dc9a52fadcc4ef92eb721d283646\nBenchmarkRealCodecDecodeLengths/frames30-2        \t       1\t1072393724 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames30-2\n    codec_bench_test.go:75: waveform_float32_sha256=f2c96545546b310bed76b26426e9790d637c67d2e2094f7a25b659771acf50cc\nBenchmarkRealCodecDecodeLengths/frames32-2        \t       1\t1102900903 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames32-2\n    codec_bench_test.go:75: waveform_float32_sha256=2b999b74c445bef51e300bf1ec68a5cb56017e2e73a2b1ea7c1de7c906b5ccc5\nBenchmarkRealCodecDecodeLengths/frames75-2        \t       1\t2626104184 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames75-2\n    codec_bench_test.go:75: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecodeLengths/frames250-2       \t       1\t8685505369 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames250-2\n    codec_bench_test.go:75: waveform_float32_sha256=20f302e6ec5423a4afbca0dbf9efc1d573ae4184b73010a7b614764ba8bc3b18\nPASS\n",
+    "old-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecodeLengths/frames1-2         \t       1\t  53977300 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames1-2\n    codec_bench_test.go:75: waveform_float32_sha256=05e64f8db087555d791a50650b08a2584be90e8f47d4c84c90c8bf053c73e5c3\nBenchmarkRealCodecDecodeLengths/frames2-2         \t       1\t 102876279 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames2-2\n    codec_bench_test.go:75: waveform_float32_sha256=3a2739336ddb77036ebdfabae08d63bef409dc9a52fadcc4ef92eb721d283646\nBenchmarkRealCodecDecodeLengths/frames30-2        \t       1\t1160140619 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames30-2\n    codec_bench_test.go:75: waveform_float32_sha256=f2c96545546b310bed76b26426e9790d637c67d2e2094f7a25b659771acf50cc\nBenchmarkRealCodecDecodeLengths/frames32-2        \t       1\t1193809924 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames32-2\n    codec_bench_test.go:75: waveform_float32_sha256=2b999b74c445bef51e300bf1ec68a5cb56017e2e73a2b1ea7c1de7c906b5ccc5\nBenchmarkRealCodecDecodeLengths/frames75-2        \t       1\t2875959614 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames75-2\n    codec_bench_test.go:75: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecodeLengths/frames250-2       \t       1\t9542513262 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames250-2\n    codec_bench_test.go:75: waveform_float32_sha256=20f302e6ec5423a4afbca0dbf9efc1d573ae4184b73010a7b614764ba8bc3b18\nPASS\n",
+    "current-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecodeLengths/frames1-2         \t       1\t  42788500 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames1-2\n    codec_bench_test.go:75: waveform_float32_sha256=05e64f8db087555d791a50650b08a2584be90e8f47d4c84c90c8bf053c73e5c3\nBenchmarkRealCodecDecodeLengths/frames2-2         \t       1\t  55119245 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames2-2\n    codec_bench_test.go:75: waveform_float32_sha256=3a2739336ddb77036ebdfabae08d63bef409dc9a52fadcc4ef92eb721d283646\nBenchmarkRealCodecDecodeLengths/frames30-2        \t       1\t 619949588 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames30-2\n    codec_bench_test.go:75: waveform_float32_sha256=f2c96545546b310bed76b26426e9790d637c67d2e2094f7a25b659771acf50cc\nBenchmarkRealCodecDecodeLengths/frames32-2        \t       1\t 657017942 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames32-2\n    codec_bench_test.go:75: waveform_float32_sha256=2b999b74c445bef51e300bf1ec68a5cb56017e2e73a2b1ea7c1de7c906b5ccc5\nBenchmarkRealCodecDecodeLengths/frames75-2        \t       1\t1658454351 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames75-2\n    codec_bench_test.go:75: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecodeLengths/frames250-2       \t       1\t5411178166 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames250-2\n    codec_bench_test.go:75: waveform_float32_sha256=20f302e6ec5423a4afbca0dbf9efc1d573ae4184b73010a7b614764ba8bc3b18\nPASS\n",
+    "current-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecodeLengths/frames1-2         \t       1\t  42631459 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames1-2\n    codec_bench_test.go:75: waveform_float32_sha256=05e64f8db087555d791a50650b08a2584be90e8f47d4c84c90c8bf053c73e5c3\nBenchmarkRealCodecDecodeLengths/frames2-2         \t       1\t  53664597 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames2-2\n    codec_bench_test.go:75: waveform_float32_sha256=3a2739336ddb77036ebdfabae08d63bef409dc9a52fadcc4ef92eb721d283646\nBenchmarkRealCodecDecodeLengths/frames30-2        \t       1\t 608667275 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames30-2\n    codec_bench_test.go:75: waveform_float32_sha256=f2c96545546b310bed76b26426e9790d637c67d2e2094f7a25b659771acf50cc\nBenchmarkRealCodecDecodeLengths/frames32-2        \t       1\t 623924958 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames32-2\n    codec_bench_test.go:75: waveform_float32_sha256=2b999b74c445bef51e300bf1ec68a5cb56017e2e73a2b1ea7c1de7c906b5ccc5\nBenchmarkRealCodecDecodeLengths/frames75-2        \t       1\t1529741016 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames75-2\n    codec_bench_test.go:75: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecodeLengths/frames250-2       \t       1\t5007405517 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecodeLengths/frames250-2\n    codec_bench_test.go:75: waveform_float32_sha256=20f302e6ec5423a4afbca0dbf9efc1d573ae4184b73010a7b614764ba8bc3b18\nPASS\n"
+  },
+  "order": [
+    "old-round1",
+    "current-round1",
+    "current-round2",
+    "old-round2"
+  ],
+  "notes": [
+    "Current benchmark harness copied untracked into detached old worktree; production old sources unchanged.",
+    "Two samples per implementation/length, one untimed warmup; same8-codebook formula ((book*frames+t)*13)%1024.",
+    "All24 timed calls report zero allocations; hashes match for each length across both versions and rounds.",
+    "Different lengths have different code sequences by formula; this is decode qualification, not cross-length waveform equivalence or listening acceptance."
+  ]
+}

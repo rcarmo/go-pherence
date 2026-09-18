@@ -1,0 +1,13 @@
+=== RUN   TestAffineF32RejectsNondefaultMXCSR
+    affine_amd64_test.go:16: AVX2/FMA unavailable
+--- SKIP: TestAffineF32RejectsNondefaultMXCSR (0.00s)
+=== RUN   TestAffineF32ExactTailsAndCanaries
+    affine_test.go:21: AVX2/FMA dispatch available: false
+--- PASS: TestAffineF32ExactTailsAndCanaries (0.04s)
+=== RUN   TestAffineF32RandomAndSignedZero
+    affine_test.go:108: random exact big.Float comparisons: 19240
+--- PASS: TestAffineF32RandomAndSignedZero (0.01s)
+=== RUN   TestAffineF32ValidationAndAllocation
+--- PASS: TestAffineF32ValidationAndAllocation (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.047s

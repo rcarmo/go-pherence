@@ -1,0 +1,145 @@
+
+===== foundations-loaders =====
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.128s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	1.344s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	0.005s
+
+===== foundations-whisper =====
+ok  	github.com/rcarmo/go-pherence/models/whisper	1.204s
+
+===== foundations-community =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	3.450s
+
+===== foundations-vet =====
+
+===== vulkan-offline =====
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.340s
+
+===== vulkan-community-backend =====
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.025s
+
+===== vulkan-community-model =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.526s
+
+===== shader-contract =====
+bun test v1.4.1 (4661e494f)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.72ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.16ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.04ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.09ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [31.67ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [26.12ms]
+
+ 6 pass
+ 0 fail
+ 69 expect() calls
+Ran 6 tests across 1 file. [77.00ms]
+
+===== vulkan-community-server-job =====
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	0.316s
+
+===== vulkan-community-server-cmd =====
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	0.154s
+
+===== vulkan-community-server-vet =====
+
+===== vulkan-encoder =====
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.031s
+
+===== sincnet-fma =====
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.040s
+
+===== sincnet-scalar =====
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.028s
+
+===== sincnet-lowered =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.450s
+
+===== sincnet-lowered-scalar =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.419s
+
+===== community-gemm =====
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.024s
+
+===== community-gemm-scalar =====
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.037s
+
+===== community-model-gemm =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.106s
+
+===== community-model-gemm-scalar =====
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.174s
+
+===== speech-job =====
+ok  	github.com/rcarmo/go-pherence/runtime/resourcebudget	0.015s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	4.968s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	0.442s
+
+===== speech-job-whisper =====
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.073s
+
+===== speech-job-vet =====
+
+===== speech-job-http =====
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	0.437s
+
+===== speech-job-list =====
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	0.044s
+
+===== speech-job-http-vet =====
+
+===== speech-job-cli =====
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjob	0.124s
+
+===== speech-job-cli-vet =====
+
+===== speech-job-serve =====
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.489s
+
+===== speech-job-serve-vet =====
+
+===== speech-job-media-integration =====
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.14s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.39s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.52s)
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.14s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.39s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.51s)
+=== RUN   TestGo264JobAACIntegration
+--- PASS: TestGo264JobAACIntegration (0.14s)
+=== RUN   TestFFmpegJobDecodeIntegration
+    decode_test.go:400: FFmpeg hashes 32d46d7342e189666f4d29fcd55c2dbfe0651d4f9febd8a35e8be048d64ed0fd / 2bf627f7cab3596f6e9d495669d6b5434cd929d91ed5a2eee571893f7abf86d3;1600 samples exact, two repeats
+--- PASS: TestFFmpegJobDecodeIntegration (0.38s)
+=== RUN   TestFFmpegJobAACIntegration
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+    decode_test.go:526: AAC frames=16384 checkpointSHA=d9c379d2774cb311c55e3f5eaecd81d55f402015ef16304301420886cd3222d1
+--- PASS: TestFFmpegJobAACIntegration (0.51s)
+PASS
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	3.121s
+
+===== quality-freeze =====
+{"schema":1,"whisper_models":2,"segmentation_tensors":54,"embedding_tensors":218,"source_documents":6,"freeze_sha256":"d4156514db5fc4f95ee9c24c8cbdb573fb68a56b06ebf5367bc9356447656d80","status":"ok"}
+
+===== community-corpus-unittest =====
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.011s
+
+OK
+
+===== community-corpus-validate =====
+{"cases": 1, "manifest_sha256": "0599acfa48e0be5114fa77d7b06fd377ab00d9ff8a5e7331b8465c7ac7faf986", "schema": 1, "valid": true}

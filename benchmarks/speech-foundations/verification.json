@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "baseline": "d08ce322292847a7978dcace1cc73a50d0bf8450",
+  "go": "1.26.2",
+  "host": "linux/amd64",
+  "execution": {
+    "CGO_ENABLED": 0,
+    "GOMAXPROCS": 2,
+    "go_parallelism": 1,
+    "models": false,
+    "gpu": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass": 54,
+    "fail": 0,
+    "skip": 1
+  },
+  "tests": [
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestReadWAV16bitMono",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestResample",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestResampleSameRate",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestMelSpectrogram",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestMelSpectrogramMatchesReferencePath",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestFFT",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel128TransformersFixture/broadband",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel128TransformersFixture/odd-boundary",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel128TransformersFixture/short-reflect",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel128TransformersFixture/silence",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel128TransformersFixture",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/empty",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/no-frame",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/oversize",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/unsupported",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries/infinite",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelCheckedInputAndBoundaries",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelTablesConcurrent",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel80TransformersFixture",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMel80Silence",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperSlaneyEndpoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON/chooses_lowest_audio_stream_index",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON/falls_back_to_format_duration",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON/no_audio_streams",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON/rejects_invalid_duration",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON/rejects_malformed_json",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestParseProbeJSON",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeToFileUsesActualOutputSampleCount/44.1k_rounding",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeToFileUsesActualOutputSampleCount/48k_rounding",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeToFileUsesActualOutputSampleCount",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeAndDecodeCommandSafety",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeRejectsLimitsAndNoAudio/size_limit",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeRejectsLimitsAndNoAudio/no_audio",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeRejectsLimitsAndNoAudio/duration_limit",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeRejectsLimitsAndNoAudio",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeRejectsMalformedOutputAndCleansTemp",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeCancellationCleanup",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodePreservesExistingDestination",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeOutputLimit",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestSampleArithmeticNoIntermediateOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestInvalidLimitsAndProbeMetadata",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestProbeOutputBoundAndPrecancel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData/riff-short",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData/riff-long",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData/data-extra",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData/partial-header",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData/rate",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestCanonicalWAVRejectsRiffMismatchAndDuplicateData",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodePublicationRacePreservesDestination",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestDecodeOutputMonitorCancelsOwnedRunner",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio/media",
+      "test": "TestFFmpegIntegration",
+      "status": "skip"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestComputeMelFlatWithTUsesRealMel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestLayerNormIntoMatchesLayerNorm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestExactFrontendUses128BandContract",
+      "status": "pass"
+    }
+  ],
+  "media_integration": {
+    "opt_in_run_separately": true,
+    "passed": true,
+    "fixtures": [
+      "synthetic44.1kHzWAV",
+      "synthetic48kHzWAV",
+      "syntheticAAC/M4A"
+    ],
+    "duration_per_input_seconds": 0.25
+  },
+  "vet": "affected packages pass",
+  "build": {
+    "affected_and_audio_commands": "pass",
+    "full_tree": "failed: identical errors on untouched baseline and current branch",
+    "packages": [
+      "backends/spacemit/aicpu/aipool",
+      "cmd/diffusiongemmainspect",
+      "cmd/diffusiongemmaserve"
+    ]
+  },
+  "limitations": [
+    "Real model quality/timing not run; checked frontend not yet default",
+    "Exact DFT uses existing SIMD Ddot; no new FFT or other assembly kernel yet",
+    "Vulkan/Community-1/Go service still pending",
+    "Separate read-only delegate review timed out; parent review and tests performed",
+    "No performance claim"
+  ],
+  "compatibility": {
+    "moss_audio_tests": 3,
+    "status": "pass",
+    "scope": "token length, nonoverlapping padded chunks and80-bin feature shape; no model weights"
+  },
+  "documentation_links": {
+    "tracked_markdown": 166,
+    "broken": 0
+  }
+}

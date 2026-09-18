@@ -1,0 +1,2 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership|PlanConstructorAdmission)|PCMVulkan.*)$'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.034s

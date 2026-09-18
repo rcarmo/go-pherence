@@ -1,0 +1,46 @@
+{
+  "fixtures": [
+    {
+      "dataset": "PolyAI/minds14",
+      "revision": "40ce77cb32a384e4d50a568e1ec39ac804019d33",
+      "locale": "pt-PT",
+      "row": 0,
+      "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/0/audio/audio.wav",
+      "sha256": "fc084982ad50c6ea6cf066f08374b9b3aaa628d9a9accb167be5ae9376dbd275",
+      "transcript": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "canonicalSamples": 144726,
+      "license": "CC-BY-4.0",
+      "attribution": "Gerz et al., Multilingual and Cross-Lingual Intent Detection from Spoken Data,2021;PolyAI",
+      "source": "cached public datasetassets,notfreshaudiofetch"
+    },
+    {
+      "dataset": "PolyAI/minds14",
+      "revision": "40ce77cb32a384e4d50a568e1ec39ac804019d33",
+      "locale": "pt-PT",
+      "row": 1,
+      "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/1/audio/audio.wav",
+      "sha256": "aacee91914f902b0949425ee29ac984c48a34df55e5c195e65e0c8ff66977484",
+      "transcript": "Como faço para transferir dinheiro para a minha conta",
+      "canonicalSamples": 75094,
+      "license": "CC-BY-4.0",
+      "attribution": "Gerz et al., Multilingual and Cross-Lingual Intent Detection from Spoken Data,2021;PolyAI",
+      "source": "cached public datasetassets,notfreshaudiofetch"
+    },
+    {
+      "dataset": "PolyAI/minds14",
+      "revision": "40ce77cb32a384e4d50a568e1ec39ac804019d33",
+      "locale": "fr-FR",
+      "row": 0,
+      "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/fr-FR/train/0/audio/audio.wav",
+      "sha256": "84defdc828ef59cec10364354fbc284bc2cc683fdd4a5edd5863b7bb2c6123a8",
+      "transcript": "je souhaite changer mon adresse",
+      "canonicalSamples": 60074,
+      "license": "CC-BY-4.0",
+      "attribution": "Gerz et al., Multilingual and Cross-Lingual Intent Detection from Spoken Data,2021;PolyAI",
+      "source": "cached public datasetassets,notfreshaudiofetch"
+    }
+  ],
+  "cardURL": "https://huggingface.co/datasets/PolyAI/minds14/blob/40ce77cb32a384e4d50a568e1ec39ac804019d33/README.md",
+  "cardSHA256": "3dd23ca4c7834f66ca043847996dbd7c9ca34c846749d86431a9fa19898f4f88",
+  "citation": "https://arxiv.org/abs/2104.08524"
+}

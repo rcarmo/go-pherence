@@ -1,0 +1,36 @@
+=== RUN   TestSincNetProbe
+    sincnet_probe_test.go:39: n err0 exact125/125 idx0 got-0.049087387 want-0.049087387
+    sincnet_probe_test.go:39: window err0 exact125/125 idx0 got0.08 want0.08
+    sincnet_probe_test.go:39: lo err0 exact5000/5000 idx0 got-3.926991 want-3.926991
+    sincnet_probe_test.go:39: sinlo err5.960464477539063e-08 exact4743/5000 idx139 got0.8003913 want0.80039126
+    sincnet_probe_test.go:39: coslo err5.960464477539063e-08 exact4781/5000 idx4 got-0.7901551 want-0.79015505
+    sincnet_probe_test.go:39: hi err0 exact5000/5000 idx0 got-9.572041 want-9.572041
+    sincnet_probe_test.go:39: sinhi err5.960464477539063e-08 exact4735/5000 idx19 got-0.9655861 want-0.9655862
+    sincnet_probe_test.go:39: coshi err5.960464477539063e-08 exact4747/5000 idx39 got0.9546309 want0.954631
+    sincnet_probe_test.go:39: boundary err0 exact1531/1531 idx0 got0.7981324 want0.7981324
+    sincnet_probe_test.go:39: boundary err0.0003951713442802429 exact37/3440 idx1717 got0.08562986 want0.08523469
+    sincnet_probe_test.go:39: boundary err0.0013778358697891235 exact0/780 idx393 got0.1262366 want0.12761444
+    sincnet_probe_test.go:39: boundary err0.007620364427566528 exact0/180 idx23 got0.17108518 want0.17870554
+    sincnet_probe_test.go:84: stride10 exactfiltersfalse
+    sincnet_probe_test.go:39: out err0.007620364427566528 exact0/180 idx127 got0.17108518 want0.17870554
+    sincnet_probe_test.go:39: boundary err0 exact600/600 idx0 got0.7921995 want0.7921995
+    sincnet_probe_test.go:39: boundary err0.00034350156784057617 exact257/9280 idx5122 got0.9655233 want0.9651798
+    sincnet_probe_test.go:39: boundary err0.00040329532930627465 exact1/2220 idx1672 got0.00017781148 want0.0005811068
+    sincnet_probe_test.go:39: boundary err0.001202225685119629 exact0/660 idx278 got1.5898746 want1.5910769
+    sincnet_probe_test.go:84: stride1 exactfiltersfalse
+    sincnet_probe_test.go:39: out err0.001202225685119629 exact0/660 idx205 got1.5898746 want1.5910769
+    sincnet_probe_test.go:39: boundary err0 exact1531/1531 idx0 got0.7981324 want0.7981324
+    sincnet_probe_test.go:39: boundary err0.00039908289909362793 exact44/3440 idx1717 got0.08563377 want0.08523469
+    sincnet_probe_test.go:39: boundary err0.0015117824077606201 exact0/780 idx66 got0.27127188 want0.27278367
+    sincnet_probe_test.go:39: boundary err0.003988698124885559 exact0/180 idx23 got0.17471685 want0.17870554
+    sincnet_probe_test.go:84: stride10 exactfilterstrue
+    sincnet_probe_test.go:39: out err0.003988698124885559 exact0/180 idx127 got0.17471685 want0.17870554
+    sincnet_probe_test.go:39: boundary err0 exact600/600 idx0 got0.7921995 want0.7921995
+    sincnet_probe_test.go:39: boundary err0.0003116726875305176 exact269/9280 idx5122 got0.9654915 want0.9651798
+    sincnet_probe_test.go:39: boundary err0.00026494264602661133 exact0/2220 idx1701 got0.329879 want0.32961404
+    sincnet_probe_test.go:39: boundary err0.000582757405936718 exact0/660 idx266 got0.015504709 want0.016087467
+    sincnet_probe_test.go:84: stride1 exactfilterstrue
+    sincnet_probe_test.go:39: out err0.000582757405936718 exact0/660 idx144 got0.015504709 want0.016087467
+--- PASS: TestSincNetProbe (0.08s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.084s

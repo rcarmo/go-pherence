@@ -1,0 +1,220 @@
+{
+  "commit": "1ec0bc70",
+  "date": "2026-09-14",
+  "hardware": "2 Intel N100 vCPUs, 5.8 GiB RAM, CPU only",
+  "configuration": {
+    "frames": 75,
+    "steps": 8,
+    "guidance": 2,
+    "threads": 2,
+    "gemm_workers": 2,
+    "reference_tokens": "/workspace/tmp/omnivoice-reference-tokens.json",
+    "text": "The evidence is insufficient, Captain."
+  },
+  "trial_order": [
+    "rows-1",
+    "shared-1",
+    "columns-1",
+    "prepacked-1",
+    "resident-1",
+    "shared-2",
+    "columns-2",
+    "rows-2",
+    "resident-2",
+    "prepacked-2"
+  ],
+  "flags": {
+    "rows": [],
+    "columns": [
+      "-gemm-columns"
+    ],
+    "shared": [
+      "-gemm-columns",
+      "-shared-traversal"
+    ],
+    "resident": [
+      "-gemm-columns",
+      "-resident-mib",
+      "2048"
+    ],
+    "prepacked": [
+      "-gemm-columns",
+      "-resident-mib",
+      "4096",
+      "-prepack"
+    ]
+  },
+  "runs": [
+    {
+      "mode": "rows",
+      "trial": 1,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1114200,
+        "system_seconds": 0.56845,
+        "user_seconds": 87.164394,
+        "wall_seconds": 57.319826665
+      },
+      "resident_setup_seconds": 5.59e-7,
+      "decode_and_save_seconds": 3.073132357,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": null
+    },
+    {
+      "mode": "rows",
+      "trial": 2,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1115056,
+        "system_seconds": 0.736933,
+        "user_seconds": 97.627767,
+        "wall_seconds": 65.27132594
+      },
+      "resident_setup_seconds": 2.99e-7,
+      "decode_and_save_seconds": 3.317617825,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1652501 674503 463656 21767080 74630 0 8500 33973 0 0",
+        "cpu  1662347 674503 463784 21770011 74632 0 8508 34077 0 0"
+      ]
+    },
+    {
+      "mode": "columns",
+      "trial": 1,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1153688,
+        "system_seconds": 1.7123140000000001,
+        "user_seconds": 95.193026,
+        "wall_seconds": 97.372977369
+      },
+      "resident_setup_seconds": 4.01e-7,
+      "decode_and_save_seconds": 3.07590325,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": null
+    },
+    {
+      "mode": "columns",
+      "trial": 2,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1115108,
+        "system_seconds": 0.796926,
+        "user_seconds": 86.386167,
+        "wall_seconds": 56.559747164
+      },
+      "resident_setup_seconds": 4.76e-7,
+      "decode_and_save_seconds": 3.034812012,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1643771 674503 463523 21764789 74630 0 8487 33862 0 0",
+        "cpu  1652501 674503 463655 21767080 74630 0 8500 33973 0 0"
+      ]
+    },
+    {
+      "mode": "shared",
+      "trial": 1,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1113968,
+        "system_seconds": 0.859165,
+        "user_seconds": 84.610456,
+        "wall_seconds": 60.085756936
+      },
+      "resident_setup_seconds": 5.52e-7,
+      "decode_and_save_seconds": 3.631115757,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": null
+    },
+    {
+      "mode": "shared",
+      "trial": 2,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 1114988,
+        "system_seconds": 0.881068,
+        "user_seconds": 85.818009,
+        "wall_seconds": 54.854904091
+      },
+      "resident_setup_seconds": 4.31e-7,
+      "decode_and_save_seconds": 3.129900215,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1634987 674503 463306 21760895 74608 0 8470 33743 0 0",
+        "cpu  1643659 674503 463442 21762883 74610 0 8487 33858 0 0"
+      ]
+    },
+    {
+      "mode": "resident",
+      "trial": 1,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 2785960,
+        "system_seconds": 1.978232,
+        "user_seconds": 82.405551,
+        "wall_seconds": 52.863541659
+      },
+      "resident_setup_seconds": 2.22194765,
+      "decode_and_save_seconds": 3.274115294,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1626647 674503 462880 21759338 74526 0 8450 33625 0 0",
+        "cpu  1634987 674503 463305 21760895 74608 0 8470 33743 0 0"
+      ]
+    },
+    {
+      "mode": "resident",
+      "trial": 2,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 2787636,
+        "system_seconds": 1.7230889999999999,
+        "user_seconds": 81.093004,
+        "wall_seconds": 50.29380463
+      },
+      "resident_setup_seconds": 1.282678454,
+      "decode_and_save_seconds": 3.149318955,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1662347 674503 463784 21770011 74632 0 8508 34077 0 0",
+        "cpu  1670501 674503 463993 21771576 74633 0 8518 34171 0 0"
+      ]
+    },
+    {
+      "mode": "prepacked",
+      "trial": 1,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 4219160,
+        "system_seconds": 10.699036,
+        "user_seconds": 78.454624,
+        "wall_seconds": 58.163248418
+      },
+      "resident_setup_seconds": 10.542045668,
+      "decode_and_save_seconds": 3.204073365,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1618736 674503 461589 21757148 74466 0 8436 33508 0 0",
+        "cpu  1626647 674503 462880 21759338 74526 0 8450 33625 0 0"
+      ]
+    },
+    {
+      "mode": "prepacked",
+      "trial": 2,
+      "metrics": {
+        "exit_code": 0,
+        "max_rss_kib": 4496784,
+        "system_seconds": 4.462041,
+        "user_seconds": 84.10859,
+        "wall_seconds": 55.052029039
+      },
+      "resident_setup_seconds": 3.992992655,
+      "decode_and_save_seconds": 3.415385369,
+      "sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+      "cpuCounters": [
+        "cpu  1670502 674503 463993 21771576 74633 0 8518 34171 0 0",
+        "cpu  1678919 674503 464575 21773413 74636 0 8526 34267 0 0"
+      ]
+    }
+  ]
+}

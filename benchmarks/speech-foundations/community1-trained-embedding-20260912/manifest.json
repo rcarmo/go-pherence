@@ -1,0 +1,2274 @@
+{
+  "schema": 1,
+  "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "checkpoint_sha256": "6f10ff60898a1d185fa22e1d11e0bfa8a92efec811f11bca48cb8cafebefd929",
+  "public_pcm_sha256": "c319b4abca767b124e41432d364fd7df006cb26bb79d09326c487d606a134e6e",
+  "config": {
+    "BaseChannels": 32,
+    "MelBins": 80,
+    "EmbedDim": 256
+  },
+  "prefix": "resnet",
+  "source_hashes": {
+    "models/embedding/wespeaker/__init__.py": "a2c13a792c50d97f7a7583b69fcabd5eb5efc34d1374c2b6e5757bbcf3b62139",
+    "models/embedding/wespeaker/resnet.py": "2de7673e14e8c74d6c430e0b6e6cc844157f47ac35b67ff6238ca2d2c559eba9",
+    "models/blocks/pooling.py": "8cb687441630e6759fb6ca545d649b41dbec1d42f869954c0a03ae191c7cbd82",
+    "core/task.py": "e2b0cc845a1234fe2f211ba2a0084c3e9be43fbdb82e41e6ca775f4746bbe444"
+  },
+  "kaldi_sha256": "5cbea1a584ddea748f6f68a621d794e13334e88d9faa1d40986f7af32f196d29",
+  "torch_commit": "08187d9e0fba026dc8217405802ab5381dc88d90",
+  "cpu_threads": 1,
+  "mkldnn": false,
+  "frontend": {
+    "sample_rate": 16000,
+    "mel_bins": 80,
+    "frame_length": 25,
+    "frame_shift": 10,
+    "snip_edges": true,
+    "round_to_power_of_two": true,
+    "dither": 0,
+    "window_type": "hamming",
+    "use_energy": false,
+    "centering": "whole-window"
+  },
+  "scope": "Bounded offline trained embedding reference; no DER/global speaker or performance qualification",
+  "files": {
+    "embedding.safetensors": {
+      "sha256": "ac0257bbcdd97fe8a0acdf9c670d8a2674ad38de90d3572fafadcc14ceb43391",
+      "bytes": 26592448,
+      "tensors": {
+        "resnet.conv1.weight": {
+          "shape": [
+            32,
+            1,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.bn1.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.bn1.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.bn1.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.bn1.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.0.conv1.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn1.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn1.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn1.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn1.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.0.conv2.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn2.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn2.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn2.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn2.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.0.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.1.conv1.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn1.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn1.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn1.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn1.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.1.conv2.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn2.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn2.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn2.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn2.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.1.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.2.conv1.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn1.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn1.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn1.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn1.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer1.2.conv2.weight": {
+          "shape": [
+            32,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn2.weight": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn2.bias": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn2.running_mean": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn2.running_var": {
+          "shape": [
+            32
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer1.2.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.0.conv1.weight": {
+          "shape": [
+            64,
+            32,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn1.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn1.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn1.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn1.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.0.conv2.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn2.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn2.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn2.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn2.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.0.shortcut.0.weight": {
+          "shape": [
+            64,
+            32,
+            1,
+            1
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.shortcut.1.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.shortcut.1.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.shortcut.1.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.shortcut.1.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.0.shortcut.1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.1.conv1.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn1.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn1.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn1.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn1.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.1.conv2.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn2.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn2.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn2.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn2.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.1.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.2.conv1.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn1.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn1.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn1.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn1.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.2.conv2.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn2.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn2.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn2.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn2.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.2.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.3.conv1.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn1.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn1.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn1.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn1.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer2.3.conv2.weight": {
+          "shape": [
+            64,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn2.weight": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn2.bias": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn2.running_mean": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn2.running_var": {
+          "shape": [
+            64
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer2.3.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.0.conv1.weight": {
+          "shape": [
+            128,
+            64,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.0.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.0.shortcut.0.weight": {
+          "shape": [
+            128,
+            64,
+            1,
+            1
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.shortcut.1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.shortcut.1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.shortcut.1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.shortcut.1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.0.shortcut.1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.1.conv1.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.1.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.1.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.2.conv1.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.2.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.2.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.3.conv1.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.3.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.3.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.4.conv1.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.4.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.4.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.5.conv1.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn1.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn1.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn1.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn1.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer3.5.conv2.weight": {
+          "shape": [
+            128,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn2.weight": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn2.bias": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn2.running_mean": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn2.running_var": {
+          "shape": [
+            128
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer3.5.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.0.conv1.weight": {
+          "shape": [
+            256,
+            128,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn1.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn1.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn1.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn1.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.0.conv2.weight": {
+          "shape": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn2.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn2.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn2.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn2.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.0.shortcut.0.weight": {
+          "shape": [
+            256,
+            128,
+            1,
+            1
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.shortcut.1.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.shortcut.1.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.shortcut.1.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.shortcut.1.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.0.shortcut.1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.1.conv1.weight": {
+          "shape": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn1.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn1.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn1.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn1.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.1.conv2.weight": {
+          "shape": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn2.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn2.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn2.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn2.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.1.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.2.conv1.weight": {
+          "shape": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn1.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn1.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn1.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn1.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn1.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.layer4.2.conv2.weight": {
+          "shape": [
+            256,
+            256,
+            3,
+            3
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn2.weight": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn2.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn2.running_mean": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn2.running_var": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        },
+        "resnet.layer4.2.bn2.num_batches_tracked": {
+          "shape": [],
+          "dtype": "I64"
+        },
+        "resnet.seg_1.weight": {
+          "shape": [
+            256,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "resnet.seg_1.bias": {
+          "shape": [
+            256
+          ],
+          "dtype": "F32"
+        }
+      }
+    },
+    "silence-1s.safetensors": {
+      "sha256": "e15def47580d839b1fd9b382b77c193eafd11e9175b4d94264d856e7701d5c31",
+      "bytes": 8140396,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "fbank": {
+          "shape": [
+            98,
+            80
+          ],
+          "dtype": "F32"
+        },
+        "trunk.-1.-1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.0": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.2": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.0": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.1": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.2": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.3": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.0": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.1": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.2": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.3": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.4": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.5": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.0": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.1": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.2": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "masks": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.stats": {
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.embedding": {
+          "shape": [
+            1,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.weight_sum": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.nonzero_frames": {
+          "shape": [
+            1
+          ],
+          "dtype": "I64"
+        },
+        "masked.stats": {
+          "shape": [
+            3,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "masked.embedding": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "masked.weight_sum": {
+          "shape": [
+            3
+          ],
+          "dtype": "F32"
+        },
+        "masked.nonzero_frames": {
+          "shape": [
+            3
+          ],
+          "dtype": "I64"
+        }
+      }
+    },
+    "broadband-1s.safetensors": {
+      "sha256": "5d0a192924532d33a4e5fd9ab932468d685b4be0ef934c35cb32dcd198d0839d",
+      "bytes": 8140396,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "fbank": {
+          "shape": [
+            98,
+            80
+          ],
+          "dtype": "F32"
+        },
+        "trunk.-1.-1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.0": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.2": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.0": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.1": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.2": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.3": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.0": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.1": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.2": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.3": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.4": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.5": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.0": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.1": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.2": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "masks": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.stats": {
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.embedding": {
+          "shape": [
+            1,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.weight_sum": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.nonzero_frames": {
+          "shape": [
+            1
+          ],
+          "dtype": "I64"
+        },
+        "masked.stats": {
+          "shape": [
+            3,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "masked.embedding": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "masked.weight_sum": {
+          "shape": [
+            3
+          ],
+          "dtype": "F32"
+        },
+        "masked.nonzero_frames": {
+          "shape": [
+            3
+          ],
+          "dtype": "I64"
+        }
+      }
+    },
+    "public-6-7s.safetensors": {
+      "sha256": "c17c8aeb52af5f2cb0ba9d6d859a28fd2dbaa45d41c4b375506e9bff16bf296b",
+      "bytes": 8140396,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            16000
+          ],
+          "dtype": "F32"
+        },
+        "fbank": {
+          "shape": [
+            98,
+            80
+          ],
+          "dtype": "F32"
+        },
+        "trunk.-1.-1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.0": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.1": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.2": {
+          "shape": [
+            32,
+            80,
+            98
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.0": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.1": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.2": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.3": {
+          "shape": [
+            64,
+            40,
+            49
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.0": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.1": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.2": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.3": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.4": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.5": {
+          "shape": [
+            128,
+            20,
+            25
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.0": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.1": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.2": {
+          "shape": [
+            256,
+            10,
+            13
+          ],
+          "dtype": "F32"
+        },
+        "masks": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.stats": {
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.embedding": {
+          "shape": [
+            1,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.weight_sum": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.nonzero_frames": {
+          "shape": [
+            1
+          ],
+          "dtype": "I64"
+        },
+        "masked.stats": {
+          "shape": [
+            3,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "masked.embedding": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "masked.weight_sum": {
+          "shape": [
+            3
+          ],
+          "dtype": "F32"
+        },
+        "masked.nonzero_frames": {
+          "shape": [
+            3
+          ],
+          "dtype": "I64"
+        }
+      }
+    },
+    "public-6-11s.safetensors": {
+      "sha256": "f90ae2f8b50eff88b68d9ebd20a1f4589da95e755e716c282a57dfb253321261",
+      "bytes": 40780460,
+      "tensors": {
+        "pcm": {
+          "shape": [
+            80000
+          ],
+          "dtype": "F32"
+        },
+        "fbank": {
+          "shape": [
+            498,
+            80
+          ],
+          "dtype": "F32"
+        },
+        "trunk.-1.-1": {
+          "shape": [
+            32,
+            80,
+            498
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.0": {
+          "shape": [
+            32,
+            80,
+            498
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.1": {
+          "shape": [
+            32,
+            80,
+            498
+          ],
+          "dtype": "F32"
+        },
+        "trunk.0.2": {
+          "shape": [
+            32,
+            80,
+            498
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.0": {
+          "shape": [
+            64,
+            40,
+            249
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.1": {
+          "shape": [
+            64,
+            40,
+            249
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.2": {
+          "shape": [
+            64,
+            40,
+            249
+          ],
+          "dtype": "F32"
+        },
+        "trunk.1.3": {
+          "shape": [
+            64,
+            40,
+            249
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.0": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.1": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.2": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.3": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.4": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.2.5": {
+          "shape": [
+            128,
+            20,
+            125
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.0": {
+          "shape": [
+            256,
+            10,
+            63
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.1": {
+          "shape": [
+            256,
+            10,
+            63
+          ],
+          "dtype": "F32"
+        },
+        "trunk.3.2": {
+          "shape": [
+            256,
+            10,
+            63
+          ],
+          "dtype": "F32"
+        },
+        "masks": {
+          "shape": [
+            3,
+            7
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.stats": {
+          "shape": [
+            1,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.embedding": {
+          "shape": [
+            1,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.weight_sum": {
+          "shape": [
+            1
+          ],
+          "dtype": "F32"
+        },
+        "unweighted.nonzero_frames": {
+          "shape": [
+            1
+          ],
+          "dtype": "I64"
+        },
+        "masked.stats": {
+          "shape": [
+            3,
+            5120
+          ],
+          "dtype": "F32"
+        },
+        "masked.embedding": {
+          "shape": [
+            3,
+            256
+          ],
+          "dtype": "F32"
+        },
+        "masked.weight_sum": {
+          "shape": [
+            3
+          ],
+          "dtype": "F32"
+        },
+        "masked.nonzero_frames": {
+          "shape": [
+            3
+          ],
+          "dtype": "I64"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "silence-1s",
+      "file": "silence-1s.safetensors",
+      "samples": 16000,
+      "frames": 98,
+      "cnn_frames": 13
+    },
+    {
+      "name": "broadband-1s",
+      "file": "broadband-1s.safetensors",
+      "samples": 16000,
+      "frames": 98,
+      "cnn_frames": 13
+    },
+    {
+      "name": "public-6-7s",
+      "file": "public-6-7s.safetensors",
+      "samples": 16000,
+      "frames": 98,
+      "cnn_frames": 13
+    },
+    {
+      "name": "public-6-11s",
+      "file": "public-6-11s.safetensors",
+      "samples": 80000,
+      "frames": 498,
+      "cnn_frames": 63
+    }
+  ]
+}

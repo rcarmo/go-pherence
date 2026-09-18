@@ -1,0 +1,3 @@
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	4.068s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	5.415s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.520s

@@ -1,0 +1,28 @@
+=== RUN   TestGo264PublicMedia
+=== RUN   TestGo264PublicMedia/minds-pt-0
+=== RUN   TestGo264PublicMedia/minds-pt-0/wav
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":47009,"ffmpeg_frames":144726,"fixture":"minds-pt-0","frames":144726,"language":"pt","max_abs":0.001739501953125,"pcm_diagnostic_not_wer":true,"reference":"Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta","snr_db":53.343640190410426,"source_sha256":"fc084982ad50c6ea6cf066f08374b9b3aaa628d9a9accb167be5ae9376dbd275","variant":"wav"}
+=== RUN   TestGo264PublicMedia/minds-pt-0/aac48k
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":1458,"ffmpeg_frames":145067,"fixture":"minds-pt-0","frames":144726,"language":"pt","max_abs":0.000030517578125,"pcm_diagnostic_not_wer":true,"reference":"Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta","snr_db":82.68057151583376,"source_sha256":"fc084982ad50c6ea6cf066f08374b9b3aaa628d9a9accb167be5ae9376dbd275","variant":"aac48k"}
+=== RUN   TestGo264PublicMedia/minds-pt-1
+=== RUN   TestGo264PublicMedia/minds-pt-1/wav
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":23629,"ffmpeg_frames":75094,"fixture":"minds-pt-1","frames":75094,"language":"pt","max_abs":0.0145263671875,"pcm_diagnostic_not_wer":true,"reference":"Como faço para transferir dinheiro para a minha conta","snr_db":40.21483166775644,"source_sha256":"aacee91914f902b0949425ee29ac984c48a34df55e5c195e65e0c8ff66977484","variant":"wav"}
+=== RUN   TestGo264PublicMedia/minds-pt-1/aac48k
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":1070,"ffmpeg_frames":75435,"fixture":"minds-pt-1","frames":75094,"language":"pt","max_abs":0.000091552734375,"pcm_diagnostic_not_wer":true,"reference":"Como faço para transferir dinheiro para a minha conta","snr_db":84.57673653627835,"source_sha256":"aacee91914f902b0949425ee29ac984c48a34df55e5c195e65e0c8ff66977484","variant":"aac48k"}
+=== RUN   TestGo264PublicMedia/minds-fr-0
+=== RUN   TestGo264PublicMedia/minds-fr-0/wav
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":20562,"ffmpeg_frames":60074,"fixture":"minds-fr-0","frames":60074,"language":"fr","max_abs":0.0220947265625,"pcm_diagnostic_not_wer":true,"reference":"je souhaite changer mon adresse","snr_db":41.867750467685,"source_sha256":"84defdc828ef59cec10364354fbc284bc2cc683fdd4a5edd5863b7bb2c6123a8","variant":"wav"}
+=== RUN   TestGo264PublicMedia/minds-fr-0/aac48k
+    go264_public_test.go:118: GO264_MEDIA {"different_samples":1327,"ffmpeg_frames":60075,"fixture":"minds-fr-0","frames":60074,"language":"fr","max_abs":0.000152587890625,"pcm_diagnostic_not_wer":true,"reference":"je souhaite changer mon adresse","snr_db":86.16581611486225,"source_sha256":"84defdc828ef59cec10364354fbc284bc2cc683fdd4a5edd5863b7bb2c6123a8","variant":"aac48k"}
+--- PASS: TestGo264PublicMedia (1.93s)
+    --- PASS: TestGo264PublicMedia/minds-pt-0 (0.66s)
+        --- PASS: TestGo264PublicMedia/minds-pt-0/wav (0.20s)
+        --- PASS: TestGo264PublicMedia/minds-pt-0/aac48k (0.36s)
+    --- PASS: TestGo264PublicMedia/minds-pt-1 (0.64s)
+        --- PASS: TestGo264PublicMedia/minds-pt-1/wav (0.19s)
+        --- PASS: TestGo264PublicMedia/minds-pt-1/aac48k (0.36s)
+    --- PASS: TestGo264PublicMedia/minds-fr-0 (0.62s)
+        --- PASS: TestGo264PublicMedia/minds-fr-0/wav (0.19s)
+        --- PASS: TestGo264PublicMedia/minds-fr-0/aac48k (0.33s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	1.929s

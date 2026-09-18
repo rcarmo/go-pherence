@@ -1,0 +1,60 @@
+{"Time":"2026-09-12T08:45:23.349335641+01:00","Action":"start","Package":"github.com/rcarmo/go-pherence/models/whisper"}
+{"Time":"2026-09-12T08:45:23.352350821+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilence"}
+{"Time":"2026-09-12T08:45:23.352387983+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilence","Output":"=== RUN   TestPCMDigitalSilence\n"}
+{"Time":"2026-09-12T08:45:23.352497954+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilence","Output":"--- PASS: TestPCMDigitalSilence (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.352506488+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilence","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.352512345+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilenceNoInference"}
+{"Time":"2026-09-12T08:45:23.352515553+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilenceNoInference","Output":"=== RUN   TestPCMDigitalSilenceNoInference\n"}
+{"Time":"2026-09-12T08:45:23.380119847+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilenceNoInference","Output":"--- PASS: TestPCMDigitalSilenceNoInference (0.03s)\n"}
+{"Time":"2026-09-12T08:45:23.380140297+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMDigitalSilenceNoInference","Elapsed":0.03}
+{"Time":"2026-09-12T08:45:23.380146146+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures"}
+{"Time":"2026-09-12T08:45:23.380147657+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures","Output":"=== RUN   TestPCMTranscribePlanAllWindowsAndFailures\n"}
+{"Time":"2026-09-12T08:45:23.380149311+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/read"}
+{"Time":"2026-09-12T08:45:23.380150577+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/read","Output":"=== RUN   TestPCMTranscribePlanAllWindowsAndFailures/read\n"}
+{"Time":"2026-09-12T08:45:23.380152755+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/read","Output":"--- PASS: TestPCMTranscribePlanAllWindowsAndFailures/read (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.380155718+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/read","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.380159115+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/infer"}
+{"Time":"2026-09-12T08:45:23.380160537+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/infer","Output":"=== RUN   TestPCMTranscribePlanAllWindowsAndFailures/infer\n"}
+{"Time":"2026-09-12T08:45:23.38016231+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/infer","Output":"--- PASS: TestPCMTranscribePlanAllWindowsAndFailures/infer (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.380163934+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/infer","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.380165492+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/emit"}
+{"Time":"2026-09-12T08:45:23.380166789+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/emit","Output":"=== RUN   TestPCMTranscribePlanAllWindowsAndFailures/emit\n"}
+{"Time":"2026-09-12T08:45:23.380182307+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/emit","Output":"--- PASS: TestPCMTranscribePlanAllWindowsAndFailures/emit (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.38018401+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/emit","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.380185458+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/cancel"}
+{"Time":"2026-09-12T08:45:23.380186763+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/cancel","Output":"=== RUN   TestPCMTranscribePlanAllWindowsAndFailures/cancel\n"}
+{"Time":"2026-09-12T08:45:23.380188995+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/cancel","Output":"--- PASS: TestPCMTranscribePlanAllWindowsAndFailures/cancel (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.380190551+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures/cancel","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.38019241+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures","Output":"--- PASS: TestPCMTranscribePlanAllWindowsAndFailures (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.380193974+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribePlanAllWindowsAndFailures","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.380195558+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeTimestampMapping"}
+{"Time":"2026-09-12T08:45:23.380197921+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeTimestampMapping","Output":"=== RUN   TestPCMTranscribeTimestampMapping\n"}
+{"Time":"2026-09-12T08:45:23.380199905+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeTimestampMapping","Output":"--- PASS: TestPCMTranscribeTimestampMapping (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.380201403+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeTimestampMapping","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.380202797+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeActualToyPipeline"}
+{"Time":"2026-09-12T08:45:23.38020404+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeActualToyPipeline","Output":"=== RUN   TestPCMTranscribeActualToyPipeline\n"}
+{"Time":"2026-09-12T08:45:23.392377995+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeActualToyPipeline","Output":"--- PASS: TestPCMTranscribeActualToyPipeline (0.01s)\n"}
+{"Time":"2026-09-12T08:45:23.392417743+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeActualToyPipeline","Elapsed":0.01}
+{"Time":"2026-09-12T08:45:23.392421799+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeValidationAndGate"}
+{"Time":"2026-09-12T08:45:23.392423577+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeValidationAndGate","Output":"=== RUN   TestPCMTranscribeValidationAndGate\n"}
+{"Time":"2026-09-12T08:45:23.426490442+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeValidationAndGate","Output":"--- PASS: TestPCMTranscribeValidationAndGate (0.03s)\n"}
+{"Time":"2026-09-12T08:45:23.426509754+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMTranscribeValidationAndGate","Elapsed":0.03}
+{"Time":"2026-09-12T08:45:23.426528565+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanAdmission"}
+{"Time":"2026-09-12T08:45:23.42653304+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanAdmission","Output":"=== RUN   TestPCMVulkanAdmission\n"}
+{"Time":"2026-09-12T08:45:23.431065744+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanAdmission","Output":"--- PASS: TestPCMVulkanAdmission (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.431076864+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanAdmission","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.431079971+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanDecoderOnlyValidation"}
+{"Time":"2026-09-12T08:45:23.431081678+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanDecoderOnlyValidation","Output":"=== RUN   TestPCMVulkanDecoderOnlyValidation\n"}
+{"Time":"2026-09-12T08:45:23.443865709+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanDecoderOnlyValidation","Output":"--- PASS: TestPCMVulkanDecoderOnlyValidation (0.01s)\n"}
+{"Time":"2026-09-12T08:45:23.443891587+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestPCMVulkanDecoderOnlyValidation","Elapsed":0.01}
+{"Time":"2026-09-12T08:45:23.443909763+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixturePCM"}
+{"Time":"2026-09-12T08:45:23.443913109+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixturePCM","Output":"=== RUN   TestSpeechFixturePCM\n"}
+{"Time":"2026-09-12T08:45:23.444358342+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixturePCM","Output":"--- PASS: TestSpeechFixturePCM (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.444375563+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixturePCM","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.444380787+01:00","Action":"run","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixtureWER"}
+{"Time":"2026-09-12T08:45:23.444383564+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixtureWER","Output":"=== RUN   TestSpeechFixtureWER\n"}
+{"Time":"2026-09-12T08:45:23.444387202+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixtureWER","Output":"--- PASS: TestSpeechFixtureWER (0.00s)\n"}
+{"Time":"2026-09-12T08:45:23.444390267+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Test":"TestSpeechFixtureWER","Elapsed":0}
+{"Time":"2026-09-12T08:45:23.444392851+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Output":"PASS\n"}
+{"Time":"2026-09-12T08:45:23.446499298+01:00","Action":"output","Package":"github.com/rcarmo/go-pherence/models/whisper","Output":"ok  \tgithub.com/rcarmo/go-pherence/models/whisper\t0.097s\n"}
+{"Time":"2026-09-12T08:45:23.446537948+01:00","Action":"pass","Package":"github.com/rcarmo/go-pherence/models/whisper","Elapsed":0.097}

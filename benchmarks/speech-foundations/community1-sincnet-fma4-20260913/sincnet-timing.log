@@ -1,0 +1,5 @@
+=== RUN   TestZZZSincNetFMA4Timing
+    zzz_sincnet_fma4_timing_test.go:62: SINCNET_FMA4_TIMING repeats=12 total=1.277784628s each=106.482052ms values=[105.94791ms 107.359313ms 107.674781ms 106.141842ms 106.105315ms 106.045153ms 107.68975ms 106.647999ms 105.945027ms 105.832916ms 106.144737ms 106.249885ms]
+--- PASS: TestZZZSincNetFMA4Timing (1.33s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.333s

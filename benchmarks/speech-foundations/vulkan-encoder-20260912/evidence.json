@@ -1,0 +1,160 @@
+{
+  "checkpoint": "Owned resident F32 Whisper encoder, reduced complete native graphs",
+  "created": "2026-09-12T07:07:52.834Z",
+  "baseline": "ac3a4b4",
+  "branch": "feat/speech-simd-vulkan",
+  "execution": {
+    "authorisedCompute": true,
+    "nativeGPU": "IntelIrisXeRPL-P",
+    "ICD": "/usr/share/vulkan/icd.d/intel_icd.x86_64.json",
+    "driverSHA256": "2774f6ed2ea7259d5c7bb92301c4f86bd79dc2df8a91a23d8a6a957cbca8e8e3",
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "trainedModels": false,
+    "serviceRestart": false,
+    "push": false
+  },
+  "offline": {
+    "passEvents": 19,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0
+  },
+  "shuffle30": {
+    "passEvents": 570,
+    "topLevel": 90,
+    "fail": 0,
+    "skip": 0
+  },
+  "native": {
+    "passEvents": 24,
+    "topLevel": 3,
+    "fail": 0,
+    "skip": 0,
+    "repeats": 3,
+    "comparisons": 138,
+    "values": 139920,
+    "maxAbsoluteError": 0.0000011920928955078125,
+    "budget": "1e-4abs+1e-4rel fixedbeforeexecution",
+    "shapes": [
+      {
+        "mel": 3,
+        "frames": [
+          17,
+          18
+        ],
+        "width": 8,
+        "layers": 2,
+        "heads": 2,
+        "headDim": 4,
+        "ffn": 13
+      },
+      {
+        "mel": 80,
+        "frames": [
+          33,
+          34
+        ],
+        "width": 32,
+        "layers": 2,
+        "heads": 2,
+        "headDim": 16,
+        "ffn": 63
+      },
+      {
+        "mel": 128,
+        "frames": [
+          65,
+          66
+        ],
+        "width": 64,
+        "layers": 4,
+        "heads": 1,
+        "headDim": 64,
+        "ffn": 128
+      }
+    ],
+    "cancellationChecks": 9,
+    "retainedDrains": 3,
+    "reuseAfterCancel": "bitexact",
+    "sourceOverwrite": "bitexact",
+    "allocationRollback": "forcedsecondarena failure returnsnil/livebytesandcountbaseline",
+    "closeCopies": "sharedownership/idempotent"
+  },
+  "architecture": {
+    "API": "NewVulkanEncoder(ctx,source,frames)",
+    "graph": "stem5 + layer12*N + final1; oneplan/fenceeach",
+    "transfers": "normalForward oneinputupload/onefinaldownload; diagnosticsdownloadboundariesseparately",
+    "weights": "stem/final arena + perlayerarena,ownedcopies,zeroKbias",
+    "scratch": "9tensorviews sharedacrosslayers",
+    "validation": "allweights/geometrybeforealloc,input/outputfinitescan",
+    "stages": "private,noexternallymutablestagehandles",
+    "cleanup": "reverse/idempotentsuccess,retainfailures/stoppingforretry;ctornonnil+erroronlyifrollbackfails"
+  },
+  "checks": {
+    "makeRegressions": "PASS offlineVulkan/encoder/affine/foundations/media",
+    "nativeMake": "PASS",
+    "optInDisabled": "SKIPexpectedbeforeinit",
+    "vet": "PASS affected",
+    "amd64Build": "PASS affected",
+    "arm64Vulkan": "crossbuildPASS",
+    "arm64Whisper": "FAIL exactbaseline missingPrecomputeHannWindow/PrecomputeMelFilters withall4newfileshiddenbyoverlay",
+    "fullBuild": "FAIL exactbaseline",
+    "backendCompile": "FAIL exactbaseline",
+    "race": "gccabsent",
+    "diffCheck": "PASS",
+    "checkedDocLinks": 91
+  },
+  "resources": {
+    "swapBefore": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "swapAfter": {
+      "pswpin": 36292,
+      "pswpout": 635627
+    },
+    "services": "LLM+bothspeechinactiveMainPID0",
+    "snapshotsOnly": true
+  },
+  "review": {
+    "result": "No scopedgraphscratch/ownership/rollback/serialgateissue undercheckedVulkancontracts",
+    "scope": "read-onlysource;noGPUexecution byreviewer"
+  },
+  "limitations": [
+    "Reducedwidthsyntheticweights only;nofullsize/trainedcheckpoint/ASRquality.",
+    "ExplicitAPI notdecoder/crossKV/PCMtranscriptionintegration/defaultselection.",
+    "F32only;quantisationanddevice-loss recoveryunqualified.",
+    "Perlayerfences,notonewholencoder submission;noencoderperformanceclaim.",
+    "Nativenumeric/cancellationfixtures only,notallintermediateoverflow/races.",
+    "SincNetstrict4FAILunchanged;Whisperarm64baselineFFTerrors/racecompilerabsent."
+  ],
+  "sourceHashes": {
+    "Makefile": "d07cfb6397625262b1acb01a36f212376f32565fa2baa87b523a17fc1c1843d0",
+    "models/whisper/vulkan_encoder.go": "af3987c97cb885d03eabef4a787f8bbb628a53b6510a5bfee545ef93cd786a2d",
+    "models/whisper/vulkan_encoder_layout.go": "70cf8a10adee98150d7aaf53512362758e241aeac2479463edf2c3cb9d1b2ac1",
+    "models/whisper/vulkan_encoder_test.go": "4c9afa23b5eab0c7ee95e765c70959016dedbbb6715925de44075314ac8fc26c",
+    "models/whisper/vulkan_encoder_native_test.go": "64cdbe41dcfa863a6d772b6c467b44862bf570dceb054fa4d2cedbef006a8e89",
+    "docs/speech-integration.md": "169fc7cae1acd07bd5790580fc96e82236d266983d46499bff266890904f6ffd",
+    "benchmarks/speech-foundations/README.md": "08db3e4105b51a839f4c7336820e1fe39605bd2abd21104e4bb6054b69f98586"
+  },
+  "evidenceHashes": {
+    "README.md": "288d05b6259dfa9241dcf4d16d7859d2037d7dbfb6efb579bbfe5a19ee799003",
+    "native-tests.jsonl": "c2aa51e02e9f2bf2e47f93e1301080f66d3e03cfaf727e9030efcfd70a8b812a",
+    "initial-native-tests.jsonl": "5dab58638a1b87bdd0d6444c463e70ad949ff9b3c13fac0c24cfdd042f359761",
+    "offline-tests.jsonl": "938e4f24e1f4a06260fa0633a1f18a905552dae8853e70bb9f459c89dcb1c3fe",
+    "regressions.txt": "6aff1062a05c8a075c3a069f68dc0dcbd7e9de226dcbc330334b29208c75092c",
+    "native-make.txt": "89043095e2e8ba6b2cffa8ea766aeac2ddc9ed7f156c31aabe581dcdbbac4093",
+    "optin-disabled.txt": "424039a51c8f8430323527aa2ddd15cff622a8d90419206778263f5a82d550da",
+    "before.txt": "958bb1f82ae9f5c258592926d5cc10c368a0e62a493f382524bfdbe77377a75c",
+    "after.txt": "461d6a60fff0c2caaf26218420c4aed2d5480defabeb8c52083ef350db7ae2e4",
+    "vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "arm64-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "arm64-baseline-errors.txt": "9199e52a925d41bfeba06e35a6fe2c620e1e9efcf98477136784ff7164399971",
+    "race-unavailable.txt": "e26404791a357fb6f5409cd6212adff4de9063139a8c0ef94d4c29b93dc41411",
+    "shuffle-tests.jsonl.gz": "2ac259affa90b1cf9221cea4c80133c7e3ba4442dc8e02090ac1271c935a94a9",
+    "backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3",
+    "metrics.json": "0992e20f87e44d5cdb8c3380fb3705de766174acb2e70e239f514891b681f6ea"
+  }
+}

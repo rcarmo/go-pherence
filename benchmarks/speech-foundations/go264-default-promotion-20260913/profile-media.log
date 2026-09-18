@@ -1,0 +1,14 @@
+=== RUN   TestServingProfileSyntheticGo264ToVTT
+--- PASS: TestServingProfileSyntheticGo264ToVTT (0.16s)
+=== RUN   TestServingProfileSyntheticFFmpegToVTT
+--- PASS: TestServingProfileSyntheticFFmpegToVTT (0.34s)
+=== RUN   TestServingProfileSyntheticGo264ToVTT
+--- PASS: TestServingProfileSyntheticGo264ToVTT (0.15s)
+=== RUN   TestServingProfileSyntheticFFmpegToVTT
+--- PASS: TestServingProfileSyntheticFFmpegToVTT (0.35s)
+=== RUN   TestServingProfileSyntheticGo264ToVTT
+--- PASS: TestServingProfileSyntheticGo264ToVTT (0.16s)
+=== RUN   TestServingProfileSyntheticFFmpegToVTT
+--- PASS: TestServingProfileSyntheticFFmpegToVTT (0.34s)
+PASS
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	1.497s

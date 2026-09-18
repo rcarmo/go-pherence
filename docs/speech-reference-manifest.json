@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "status": "foundation implementation; model quality and speed qualification pending",
+  "request": {"message": 1671, "attachment": 167, "temporary_ffmpeg_clarification": "2026-09-11T22:27:52.428Z"},
+  "source_revisions": {
+    "go_pherence": "d08ce322292847a7978dcace1cc73a50d0bf8450",
+    "go_gte_analysis_only": "d2ffa3a5aaf7be72b178970f48c835c0d8fda5bf",
+    "go_264_analysis_only": "8752611314867bf57ef9c0e865cfe8215d5ac474",
+    "whisper_cpp_oracle": "c44b60b8053bbf2a5c1e014f11323fb3f2485177",
+    "whisper_cpp_model_repository": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "silero_model_repository": "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
+    "community1": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee"
+  },
+  "reference_assets_not_committed": [
+    {"name": "ggml-large-v3-turbo-q5_0.bin", "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2", "format": "legacy whisper.cpp GGML Q5_0; no Go Whisper reader implemented by this checkpoint"},
+    {"name": "ggml-silero-v6.2.0.bin", "sha256": "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987", "role": "VAD oracle; no native Go model imported here"},
+    {"name": "diar-native", "version": "0.3.1", "image": "docker.io/davidamacey/diar-native@sha256:b00b4bb5999d0b5cc353dae27c07b17fe61b232517f250aaf3ef03536c610879", "role": "independent oracle, not Go inference backend"}
+  ],
+  "community1_reference": {"clustering": "VBxClustering", "threshold": 0.6, "Fa": 0.07, "Fb": 0.8, "exclude_embedding_overlap": true, "segmentation_batch": 32, "embedding_batch": 32, "min_duration_off": 0.0},
+  "historical_comparisons_not_new_go_results": [
+    {"fixture": "public MINDS-14 pt-PT train row 2", "audio_seconds": 43.76, "asr_seconds_mean": 6.682, "vad": false, "repeats": 4, "license": "CC-BY-4.0"},
+    {"fixture": "local synthetic Portuguese repeated ten times", "audio_seconds": 135.12, "asr_seconds": 22.82},
+    {"fixture": "public pyannote tutorial sample", "audio_seconds": 30, "diarization_warm_seconds_range": [3.10,3.19], "der_collar_025_overlap_included": 0.01329, "license_note": "recording-specific redistribution rights not established; do not bundle audio"},
+    {"fixture": "historical private recording metadata only", "audio_seconds": 2252.501, "combined_seconds": 614.246, "reuse_requires_authorization": true, "quality": "structure only; transcript and true speaker count not reviewed"}
+  ],
+  "proposed_targets_not_qualified": {"asr_realtime_multiple": 8, "combined_realtime_multiple": 5, "diarization_speedup": 1.5, "max_wer_regression_percentage_points": 0.5, "max_der_regression_percentage_points": 0.5, "quality_budgets_require_ratification": true},
+  "privacy": "No credentials, model weights, user audio, transcript text or private job identifiers are included. Synthetic frontend fixtures are the only new input samples.",
+  "execution_policy": "No service restart/deployment or hardware inference tests without explicit approved window; go-264 implementation does not block temporary FFmpeg development."
+}

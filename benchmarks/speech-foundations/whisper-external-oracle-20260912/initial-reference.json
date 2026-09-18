@@ -1,0 +1,461 @@
+{
+  "transformers": "4.57.1",
+  "torch": "2.14.0+cpu",
+  "numpy": "2.5.3",
+  "threads": 2,
+  "dtype": "float32",
+  "attention": "eager",
+  "model_hashes": {
+    "model.safetensors": "7ebd0e69e78190ffe1438491fa05cc1f5c1aa3a4c4db3bc1723adbb551ea2395",
+    "config.json": "ffdccec4f3211f4c63310f2b7098f309fe70f3952cedc5e4d11e43f5b2379b98",
+    "generation_config.json": "a5d5325911f16e74001a72fa13d6e208eee51548f994646de1f4b4cc8b35b512",
+    "tokenizer.json": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566"
+  },
+  "runtime_integration": false,
+  "fixtures": [
+    {
+      "fixture": "jfk",
+      "language": "en",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 1.2874603271484375e-05,
+        "mean_abs": 2.4337321519851686e-08,
+        "rms": 1.6613928258366536e-07,
+        "p99_abs": 3.5762786865234375e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0006233453750610352,
+        "mean_abs": 5.79474937256287e-06,
+        "rms": 8.850698979558956e-06,
+        "p99_abs": 2.7418136596679688e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0007376670837402344,
+        "mean_abs": 5.733834948166026e-06,
+        "rms": 8.818032050800605e-06,
+        "p99_abs": 2.7060508728027344e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.0002384185791015625,
+        "mean_abs": 5.523416367836844e-05,
+        "rms": 7.2059099473762e-05,
+        "p99_abs": 0.00018215179443359375
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          29,
+          51865
+        ],
+        "max_abs": 0.00012826919555664062,
+        "mean_abs": 2.805440395673898e-05,
+        "rms": 3.548186993372961e-05,
+        "p99_abs": 8.487701416015625e-05
+      },
+      "canonical_sha256": "594367714987c522419e2813e9221192aadceee78ae1fbcc1cb3f2684a772627",
+      "go_metadata_sha256": "e6287bb04aaddf0a215cda1d56ab8ba71f3e3e880b5887c67067d5c2eba834c3",
+      "reference_generated": [
+        50364,
+        400,
+        370,
+        452,
+        7177,
+        6280,
+        1029,
+        406,
+        437,
+        428,
+        1941,
+        393,
+        360,
+        337,
+        291,
+        11,
+        1029,
+        437,
+        291,
+        393,
+        360,
+        337,
+        428,
+        1941,
+        13,
+        50889,
+        50257
+      ],
+      "reference_text": "<|0.00|> And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.<|10.50|>",
+      "go_text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.",
+      "go_decoder_inputs": [
+        50258,
+        50259,
+        50359,
+        50364,
+        400,
+        370,
+        452,
+        7177,
+        6280,
+        1029,
+        406,
+        437,
+        428,
+        1941,
+        393,
+        360,
+        337,
+        291,
+        11,
+        1029,
+        437,
+        291,
+        393,
+        360,
+        337,
+        428,
+        1941,
+        13,
+        50889
+      ],
+      "eot": true,
+      "generated_prefix_matches_go": true
+    },
+    {
+      "fixture": "minds-fr-0",
+      "language": "fr",
+      "reference": "je souhaite changer mon adresse",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 9.655952453613281e-06,
+        "mean_abs": 1.1359552542368571e-07,
+        "rms": 1.349428841785612e-07,
+        "p99_abs": 1.1920928955078125e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0029959678649902344,
+        "mean_abs": 5.102849701554786e-06,
+        "rms": 1.488403246250855e-05,
+        "p99_abs": 3.635883331298828e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.003490447998046875,
+        "mean_abs": 5.117202497451166e-06,
+        "rms": 1.5338907397610383e-05,
+        "p99_abs": 3.695487976074219e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 0.00027179718017578125,
+        "mean_abs": 3.4895023747820364e-05,
+        "rms": 5.000759179209367e-05,
+        "p99_abs": 0.0001544952392578125
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          13,
+          51865
+        ],
+        "max_abs": 5.9604644775390625e-05,
+        "mean_abs": 8.954188132665494e-06,
+        "rms": 1.2846325575130038e-05,
+        "p99_abs": 3.62396240234375e-05
+      },
+      "canonical_sha256": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+      "go_metadata_sha256": "8259e9c5b3fb405ab5f41efb9ecb8a8a08e8bb6a312060f02314ce83b73fd07a",
+      "reference_generated": [
+        50364,
+        2588,
+        9369,
+        535,
+        22822,
+        1108,
+        614,
+        22603,
+        13,
+        50514,
+        50257
+      ],
+      "reference_text": "<|0.00|> Je vais te changer mon adresse.<|3.00|>",
+      "go_text": "Je vais te changer mon adresse.",
+      "go_decoder_inputs": [
+        50258,
+        50265,
+        50359,
+        50364,
+        2588,
+        9369,
+        535,
+        22822,
+        1108,
+        614,
+        22603,
+        13,
+        50514
+      ],
+      "eot": true,
+      "generated_prefix_matches_go": true
+    },
+    {
+      "fixture": "minds-pt-0",
+      "language": "pt",
+      "reference": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 8.821487426757812e-06,
+        "mean_abs": 2.050250768661499e-08,
+        "rms": 1.1181723863407612e-07,
+        "p99_abs": 4.76837158203125e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0005636215209960938,
+        "mean_abs": 6.855335396020715e-06,
+        "rms": 1.0204630109752564e-05,
+        "p99_abs": 3.516674041748047e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0007352828979492188,
+        "mean_abs": 6.837860885538147e-06,
+        "rms": 1.0360493983221663e-05,
+        "p99_abs": 3.62396240234375e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.00023555755615234375,
+        "mean_abs": 4.094360913597582e-05,
+        "rms": 5.5894863351030455e-05,
+        "p99_abs": 0.00015401840209960938
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          35,
+          51865
+        ],
+        "max_abs": 0.000125885009765625,
+        "mean_abs": 1.9243249192767616e-05,
+        "rms": 2.8130955371453233e-05,
+        "p99_abs": 9.393692016601562e-05
+      },
+      "canonical_sha256": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+      "go_metadata_sha256": "288ec802b22e8a1f7d0387d76867474409871f779be08edda1be7d32106bcf63",
+      "reference_generated": [
+        50364,
+        19812,
+        6801,
+        11,
+        17660,
+        11742,
+        1573,
+        1515,
+        631,
+        3003,
+        39915,
+        368,
+        42542,
+        370,
+        1443,
+        335,
+        2617,
+        2228,
+        22501,
+        3418,
+        13880,
+        368,
+        8755,
+        23760,
+        308,
+        2431,
+        385,
+        696,
+        266,
+        675,
+        13,
+        50764,
+        50257
+      ],
+      "reference_text": "<|0.00|> Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.<|8.00|>",
+      "go_text": "Bom dia, estou ligado por que os dados de informações sobram como eu posso ir depois de estar dinheiro e não me aconhe.",
+      "go_decoder_inputs": [
+        50258,
+        50267,
+        50359,
+        50364,
+        19812,
+        6801,
+        11,
+        17660,
+        11742,
+        1573,
+        1515,
+        631,
+        3003,
+        39915,
+        368,
+        42542,
+        370,
+        1443,
+        335,
+        2617,
+        2228,
+        22501,
+        3418,
+        13880,
+        368,
+        8755,
+        23760,
+        308,
+        2431,
+        385,
+        696,
+        266,
+        675,
+        13,
+        50764
+      ],
+      "eot": true,
+      "generated_prefix_matches_go": true
+    },
+    {
+      "fixture": "minds-pt-1",
+      "language": "pt",
+      "reference": "Como faço para transferir dinheiro para a minha conta",
+      "mel": {
+        "shape": [
+          80,
+          3000
+        ],
+        "max_abs": 6.67572021484375e-06,
+        "mean_abs": 8.047868808110555e-09,
+        "rms": 7.232197391277685e-08,
+        "p99_abs": 2.384185791015625e-07
+      },
+      "encoder": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0005040168762207031,
+        "mean_abs": 5.1739727435662846e-06,
+        "rms": 8.617538044980513e-06,
+        "p99_abs": 3.063678741455078e-05
+      },
+      "encoder_same_go_features": {
+        "shape": [
+          1500,
+          384
+        ],
+        "max_abs": 0.0008096694946289062,
+        "mean_abs": 5.172000957047531e-06,
+        "rms": 8.72790405814262e-06,
+        "p99_abs": 3.0875205993652344e-05
+      },
+      "logits_on_go_token_prefix": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 0.0001442432403564453,
+        "mean_abs": 2.6327389737777394e-05,
+        "rms": 3.3504388969816984e-05,
+        "p99_abs": 8.082389831542969e-05
+      },
+      "logits_same_go_encoder": {
+        "shape": [
+          19,
+          51865
+        ],
+        "max_abs": 0.0001163482666015625,
+        "mean_abs": 1.6430693635551652e-05,
+        "rms": 2.3353008048333187e-05,
+        "p99_abs": 7.05718994140625e-05
+      },
+      "canonical_sha256": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045",
+      "go_metadata_sha256": "7aebc1f6d0fc15e6832a677ca2055127b5926268765999e69a3efd7873612dc5",
+      "reference_generated": [
+        50364,
+        2432,
+        283,
+        296,
+        79,
+        418,
+        1145,
+        5779,
+        327,
+        716,
+        347,
+        3206,
+        11720,
+        24001,
+        13,
+        50564,
+        50257
+      ],
+      "reference_text": "<|0.00|> Com faspore transfridneir pra minha conta.<|4.00|>",
+      "go_text": "Com faspore transfridneir pra minha conta.",
+      "go_decoder_inputs": [
+        50258,
+        50267,
+        50359,
+        50364,
+        2432,
+        283,
+        296,
+        79,
+        418,
+        1145,
+        5779,
+        327,
+        716,
+        347,
+        3206,
+        11720,
+        24001,
+        13,
+        50564
+      ],
+      "eot": true,
+      "generated_prefix_matches_go": true
+    }
+  ]
+}

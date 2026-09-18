@@ -28,6 +28,8 @@ models/*
 !models/whisper/**
 !models/speaker/
 !models/speaker/**
+!models/omnivoice/
+!models/omnivoice/**
 /whisper
 
 # Local generated command binaries and benchmark logs.

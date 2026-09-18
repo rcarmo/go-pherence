@@ -1,0 +1,88 @@
+{
+  "checkpoint": "Vulkan transactional initialisation rollback and legacy shader ownership (mock-only)",
+  "created": "2026-09-12T04:02:53.435Z",
+  "baseline": "458e5cb",
+  "branch": "feat/speech-simd-vulkan",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "CGO_ENABLED": 0,
+    "parallelism": 1,
+    "nativeLoaderOpened": false,
+    "GPUOpened": false,
+    "trainedModels": false,
+    "servicesChanged": false,
+    "push": false
+  },
+  "tests": {
+    "passEvents": 166,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 30,
+    "uniqueTopLevelTests": 30
+  },
+  "shuffle30": {
+    "passEvents": 2640,
+    "failEvents": 0,
+    "skipEvents": 0,
+    "topLevelTests": 180,
+    "uniqueTopLevelTests": 6
+  },
+  "checks": {
+    "makeTargets": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vulkanAndBoardVet": "PASS",
+    "affectedBuild": "PASS Vulkan, SpacemiT board, audio/media, NumPy, Whisper, Community-1",
+    "arm64": "Vulkan test cross-compile PASS; not executed",
+    "fullBuild": "FAIL with exact lifetime-baseline output",
+    "backendCompileOnly": "FAIL with exact lifetime-baseline diagnostics; hardware tests not executed",
+    "raceDetector": "NOT RUN: CGO_ENABLED=1 build fails, gcc absent",
+    "diffCheck": "PASS",
+    "checkedLocalDocLinks": 63
+  },
+  "coverage": [
+    "All 45 required symbols independently omitted, no object allocated before successful resolution",
+    "Failed instance/device/pool creation discards undefined outputs; destroys successful local owners in reverse order",
+    "No handles/metadata published until successful pool creation; reinitialisation after success no-ops",
+    "Function slots cleared before unload; failed unload retains one handle, blocks repeated opening",
+    "Device count/fill return errors, incomplete, zero, excessive, growth, shrink and nil device handles",
+    "Queue-family bounds, zero families, growth/empty results, no compute bit or zero available queues",
+    "Existing discrete/integrated priority and CPU/OTHER opt-in preserved",
+    "Failed initialisation can be retried after clean rollback without stale pointers",
+    "Aligned device property buffer; instance/device/queue/pool native input offsets",
+    "Legacy SPIRV header/alignment/descriptor bound and mandatory cleanup preflight",
+    "Legacy typed compute stage offset24/layout72; partial pipeline rollback and shader module cleanup",
+    "Successful legacy shader Close idempotent, owner and device quarantine guards"
+  ],
+  "review": {
+    "initial": "Broader read-only audit timed out; not approval.",
+    "narrow": "Read-only init/legacy shader ABI, rollback, symbol clearing, publication and count review found no blocker. Subsequent parent edits simplify local names/pointer expressions only; final regressions pass."
+  },
+  "limitations": [
+    "All Vulkan/native-loader functions are mocked: no hardware/shader/model/performance qualification.",
+    "Fixed Linux loader exports and Vulkan1.3 assumption remain; no feature/extension negotiation or per-device dispatch table.",
+    "No successful-device shutdown/recreation or runtime device-loss recovery.",
+    "No multi-op barriers, typed/resident arenas or resident neural operators.",
+    "Current FFI supports 64-bit hosts only; arm64 cross-build not executed.",
+    "SincNet strict four-failure hold unchanged; no PCM/neural/trained quality or service integration."
+  ],
+  "sourceHashes": {
+    "backends/vulkan/vulkan.go": "771a54eb8a74a2e61a25569cb85f5e5016c189eb94573be5755dffb5d6edf449",
+    "backends/vulkan/vulkan_init.go": "75ceff06b9eba6992b70d19fb1e988b762f17da12324b55063e4e554165db888",
+    "backends/vulkan/vulkan_init_test.go": "fe17cd81b794c47080ab4f8fdad52f16f6a9cb9610aa2961bdd26f297c68dc8d",
+    "backends/vulkan/vulkan_spirv.go": "9538ce23229bd66b401b111b93b78091698adce296ceed33ba49b3d5b858fff6",
+    "backends/vulkan/vulkan_shader_offline_test.go": "301c201308d499a2c5080ecad73282d329853fd3533b70a6496e39d9a62b20b3",
+    "Makefile": "4980ef6aa5e9a7e98c91260c81cab3f29008024bfc17deb81e350a6d4d18d97c",
+    "docs/speech-integration.md": "c4c5342e7187bd7c95f4ab83538d408c6094eee055b67ba19b7727470034f20f",
+    "benchmarks/speech-foundations/README.md": "05a015d54dbb074b022802f3ca348db1c601f7c21b3a6ffec69cd0eeffa2349b"
+  },
+  "evidenceHashes": {
+    "vulkan-init-focused-check.txt": "92ca0c3b0a6eac051343e6c471f555b21a262e18cbe824c0646850e096ec5d8c",
+    "vulkan-init-tests.jsonl": "a55c9090805944bad35bf2099fd5fa820b78667b99e5f3fade97c97e11e70e57",
+    "vulkan-init-media.txt": "61dec2345ddcece7b282f6e818fd966da04354262d7436ccdd0919a836566d45",
+    "vulkan-init-vet.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vulkan-init-full-build-errors.txt": "1b6ef296fd4ac955f18d18e212fff32287011844bf4498d9725ff8241d49adf0",
+    "vulkan-init-race-unavailable.txt": "b888d58474d7edd5239f724c50c3d1f0dc7db33bb26bfe7f32b4a314b74c268d",
+    "vulkan-init-repeat-tests.jsonl.gz": "75e970158a37b874c5cd6c0b9ee809414f33be288812886df15c3252a624878f",
+    "vulkan-init-backend-compile-errors.txt": "644913ac36aad8ff956703798c8de1d081fbed4151342d4aad0e6834f160a3d3"
+  }
+}

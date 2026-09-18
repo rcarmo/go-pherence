@@ -1,0 +1,30 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/backends/simd/runtime
+cpu: 13th Gen Intel(R) Core(TM) i5-1340P
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_288-2         	 6408190	        50.20 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_288-2         	 7178222	        50.14 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_288-2         	 7047787	        50.14 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_288-2         	 4556234	        70.79 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_288-2         	 5118152	        70.30 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_288-2         	 5116371	        70.22 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_576-2         	 3843716	        93.62 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_576-2         	 3829077	        93.76 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_576-2         	 3787748	        93.42 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_576-2         	 2500402	       143.6 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_576-2         	 2502391	       144.2 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_576-2         	 2495559	       143.9 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_1152-2        	 1962352	       180.7 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_1152-2        	 1990407	       181.7 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_1152-2        	 1993442	       180.4 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_1152-2        	 1217944	       296.0 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_1152-2        	 1216468	       296.3 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_1152-2        	 1217355	       296.0 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_2304-2        	  628190	       528.6 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_2304-2        	  687070	       531.3 ns/op
+BenchmarkDotRowsx8VsTwoX4/rowsx8_cols_2304-2        	  684212	       530.6 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_2304-2        	  589993	       603.8 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_2304-2        	  594193	       605.7 ns/op
+BenchmarkDotRowsx8VsTwoX4/two_x4_cols_2304-2        	  592234	       605.0 ns/op
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	11.138s

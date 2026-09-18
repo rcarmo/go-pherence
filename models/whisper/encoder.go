@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -96,6 +97,25 @@ func (enc *Encoder) Forward(mel []float32, T int) []float32 {
 
 // ForwardObserved runs Forward and exposes stable graph boundaries for parity fixtures.
 func (enc *Encoder) ForwardObserved(mel []float32, T int, observe EncoderObserver) []float32 {
+	out, _ := enc.forwardObservedContext(nil, mel, T, observe)
+	return out
+}
+
+// ForwardContext checks cancellation between encoder operators. Callers must
+// supply validated, immutable weights/features and exclude concurrent Whisper
+// execution, as for Forward. Each running operator (including fused/accelerated
+// calls) remains synchronous and uninterruptible. On error no output is returned.
+func (enc *Encoder) ForwardContext(ctx context.Context, mel []float32, T int) ([]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return enc.forwardObservedContext(ctx, mel, T, nil)
+}
+
+func (enc *Encoder) forwardObservedContext(ctx context.Context, mel []float32, T int, observe EncoderObserver) ([]float32, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	cfg := enc.cfg
 	dModel := cfg.EncoderDModel
 	convStart := time.Now()
@@ -103,26 +123,49 @@ func (enc *Encoder) ForwardObserved(mel []float32, T int, observe EncoderObserve
 	// Conv1: [numMelBins, T] → [d_model, T] with kernel=3, stride=1, padding=1
 	h := conv1dForwardFast(mel, enc.Conv1Weight, enc.Conv1Bias, cfg.NumMelBins, T, dModel, 3, 1, 1)
 	T1 := T // stride=1 preserves length
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	gelu(h)
 	if observe != nil {
 		observe(EncoderBoundaryConv1, -1, dModel, T1, h)
 	}
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Conv2: [d_model, T] → [d_model, T/2] with kernel=3, stride=2, padding=1
 	h = conv1dForwardFast(h, enc.Conv2Weight, enc.Conv2Bias, dModel, T1, dModel, 3, 2, 1)
 	T2 := (T1+2*1-3)/2 + 1
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	gelu(h)
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Transpose to [T2, d_model] for transformer layers
 	ht := transpose2D(h, dModel, T2)
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Add positional embeddings
 	for t := 0; t < T2 && t < cfg.MaxLength; t++ {
+		if t%32 == 0 {
+			if err := speechContextErr(ctx); err != nil {
+				return nil, err
+			}
+		}
 		for d := 0; d < dModel; d++ {
 			ht[t*dModel+d] += enc.PosEmbed[t*dModel+d]
 		}
 	}
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	if observe != nil {
 		observe(EncoderBoundaryStemPos, -1, T2, dModel, ht)
 	}
@@ -133,7 +176,11 @@ func (enc *Encoder) ForwardObserved(mel []float32, T int, observe EncoderObserve
 	resetA100Timers()
 	convNs := int64(time.Since(convStart))
 	for i := range enc.Layers {
-		ht = enc.forwardLayer(i, &enc.Layers[i], ht, T2)
+		var err error
+		ht, err = enc.forwardLayerContext(ctx, i, &enc.Layers[i], ht, T2)
+		if err != nil {
+			return nil, err
+		}
 		if observe != nil {
 			observe(EncoderBoundaryLayer, i, T2, dModel, ht)
 		}
@@ -149,18 +196,35 @@ func (enc *Encoder) ForwardObserved(mel []float32, T int, observe EncoderObserve
 		}
 	}
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Final LayerNorm
 	if enc.FinalLNWeight != nil {
 		ht = layerNorm(ht, enc.FinalLNWeight, enc.FinalLNBias, T2, cfg.EncoderDModel)
 	}
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	if observe != nil {
 		observe(EncoderBoundaryFinalNorm, -1, T2, dModel, ht)
 	}
-	return ht // [T2 * d_model]
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return ht, nil // [T2 * d_model]
 }
 
 // forwardLayer runs one encoder transformer layer (full self-attention + MLP).
 func (enc *Encoder) forwardLayer(layerIdx int, layer *EncoderLayer, x []float32, seqLen int) []float32 {
+	out, _ := enc.forwardLayerContext(nil, layerIdx, layer, x, seqLen)
+	return out
+}
+
+func (enc *Encoder) forwardLayerContext(ctx context.Context, layerIdx int, layer *EncoderLayer, x []float32, seqLen int) ([]float32, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	dModel := enc.cfg.EncoderDModel
 	numHeads := enc.cfg.EncoderHeads
 	headDim := enc.cfg.HeadDim
@@ -170,59 +234,117 @@ func (enc *Encoder) forwardLayer(layerIdx int, layer *EncoderLayer, x []float32,
 	normed := layerNorm(x, layer.AttnLNWeight, layer.AttnLNBias, seqLen, dModel)
 	encOtherNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Q, K, V projections
 	t0 = time.Now()
 	q := linearForwardOpt(normed, layer.QWeight, layer.QBias, seqLen, dModel, dModel)
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	k := linearForwardOpt(normed, layer.KWeight, layer.KBias, seqLen, dModel, dModel)
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	v := linearForwardOpt(normed, layer.VWeight, layer.VBias, seqLen, dModel, dModel)
 	encLinearNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Full (non-causal) multi-head attention
 	t0 = time.Now()
 	attnOut := fullAttention(q, k, v, seqLen, seqLen, numHeads, headDim)
 	encAttnNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Output projection
 	t0 = time.Now()
 	projected := linearForwardOpt(attnOut, layer.OWeight, layer.OBias, seqLen, dModel, dModel)
 	encLinearNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Residual
 	for i := range x {
+		if i%16384 == 0 {
+			if err := speechContextErr(ctx); err != nil {
+				return nil, err
+			}
+		}
 		projected[i] += x[i]
 	}
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Pre-MLP LayerNorm
 	t0 = time.Now()
 	mlpIn := layerNorm(projected, layer.MLPLNWeight, layer.MLPLNBias, seqLen, dModel)
 	encOtherNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// MLP: FC1 → GELU → FC2
 	ffnDim := enc.cfg.EncoderFFNDim
 	t0 = time.Now()
 	if mlpOut, ok := forwardFFNTiled(layerIdx, mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
 		encLinearNs += int64(time.Since(t0))
-		return mlpOut
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		return mlpOut, nil
+	}
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
 	}
 	if mlpOut, ok := forwardA100FFNFused(layerIdx, mlpIn, layer, projected, seqLen, dModel, ffnDim); ok {
 		encLinearNs += int64(time.Since(t0))
-		return mlpOut
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		return mlpOut, nil
+	}
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
 	}
 	hidden := linearForwardOpt(mlpIn, layer.FC1Weight, layer.FC1Bias, seqLen, dModel, ffnDim)
 	encLinearNs += int64(time.Since(t0))
 	t0 = time.Now()
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	gelu(hidden)
 	encOtherNs += int64(time.Since(t0))
 	t0 = time.Now()
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	mlpOut := linearForwardOpt(hidden, layer.FC2Weight, layer.FC2Bias, seqLen, ffnDim, dModel)
 	encLinearNs += int64(time.Since(t0))
 
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	// Residual
 	for i := range projected {
+		if i%16384 == 0 {
+			if err := speechContextErr(ctx); err != nil {
+				return nil, err
+			}
+		}
 		mlpOut[i] += projected[i]
 	}
 
-	return mlpOut
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return mlpOut, nil
 }
 
 // --- Helper functions ---

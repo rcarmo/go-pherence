@@ -1,0 +1,23 @@
+	Command being timed: "/var/home/agent/workspace/projects/go-pherence/../whisper-stt/runtime/tools/make TMPDIR=/var/home/agent/workspace/projects/go-pherence/tmp/go-tmp GOTMPDIR=/var/home/agent/workspace/projects/go-pherence/tmp/go-tmp speech-community-corpus-contract-check"
+	User time (seconds): 0.14
+	System time (seconds): 0.02
+	Percent of CPU this job got: 83%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.20
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 24036
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 18
+	Minor (reclaiming a frame) page faults: 7253
+	Voluntary context switches: 219
+	Involuntary context switches: 10
+	Swaps: 0
+	File system inputs: 10592
+	File system outputs: 240
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

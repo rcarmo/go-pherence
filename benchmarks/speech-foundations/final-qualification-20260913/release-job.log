@@ -1,0 +1,7 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi
+ok  	github.com/rcarmo/go-pherence/runtime/resourcebudget	0.018s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	5.222s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	0.494s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.081s
+go vet ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper

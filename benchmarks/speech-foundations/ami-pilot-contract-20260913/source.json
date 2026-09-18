@@ -1,0 +1,21 @@
+{
+  "annotations": {
+    "name": "ami_public_manual_1.6.2.zip",
+    "sha256": "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d",
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip"
+  },
+  "audio": {
+    "name": "ES2004a.Mix-Headset.wav",
+    "sha256": "3e2560b19bee6952c7c7ce041b0f1ea8a7ea9468044c4eea79d2a2c67e24ab0f",
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2004a/audio/ES2004a.Mix-Headset.wav"
+  },
+  "licence": {
+    "spdx": "CC-BY-4.0",
+    "url": "https://groups.inf.ed.ac.uk/ami/corpus/license.shtml"
+  },
+  "meeting": "ES2004a",
+  "partition": "SC",
+  "partition_role": "evaluation",
+  "schema": 1,
+  "source_interval": [350, 410]
+}

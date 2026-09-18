@@ -1,0 +1,6 @@
+=== RUN   TestZZZVulkanCommunityDetailedStageTiming
+    zzz_vulkan_seg_stage_timing_test.go:92: TRAINED_PLDA condition=56.00115466461734 residual=1.7763568394002505e-15
+    zzz_vulkan_seg_stage_timing_test.go:115: COMMUNITY_DETAILED_TIMING device="Intel(R) Iris(R) Xe Graphics (RPL-P)" windows=21 total=27.560827277s sincnet=7.122572934s sincnet_each=339.170139ms vulkan_lstm=12.285844558s vulkan_lstm_each=585.040217ms cpu_head=128.888792ms cpu_head_each=6.137561ms embedding=7.38786044s embedding_each=351.802878ms other=635.660553ms
+--- PASS: TestZZZVulkanCommunityDetailedStageTiming (27.77s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	27.793s

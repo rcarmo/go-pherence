@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"context"
 	"math"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -71,6 +72,12 @@ type DecoderLayer struct {
 }
 
 // DecoderState holds cached KV for incremental decoding.
+// CrossAttentionObserver receives one normalised attention row for one decoder
+// layer/head at the token position just consumed by ForwardToken. The values are
+// transient and must be copied by the caller. It is a diagnostic/word-alignment
+// hook; nil preserves the hot path and GPU cross-attention cannot be observed.
+type CrossAttentionObserver func(layer, head, tokenPosition int, weights []float32)
+
 type DecoderState struct {
 	// Self-attention KV cache per layer: [layer][pos * dModel]
 	SelfKCache [][]float32
@@ -93,6 +100,9 @@ type DecoderState struct {
 	Pos       int          // Current token position
 	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
 	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
+	// CrossAttentionObserver is invoked synchronously only on the CPU
+	// cross-attention path. Callers must not mutate or retain weights.
+	CrossAttentionObserver CrossAttentionObserver
 }
 
 // NewDecoder creates a Decoder with allocated layers.
@@ -105,6 +115,25 @@ func NewDecoder(cfg Config) *Decoder {
 
 // NewDecoderState initializes decoding state for incremental generation.
 func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decoder) *DecoderState {
+	state, _ := newDecoderStateContext(nil, cfg, encoderOutput, encLen, dec)
+	return state
+}
+
+// NewDecoderStateContext checks cancellation between allocations, projections
+// and head-major conversions. It has the same validated-input and exclusive
+// execution preconditions as NewDecoderState. No partial state escapes on error;
+// a running projection or reorder finishes before cancellation is reported.
+func NewDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []float32, encLen int, dec *Decoder) (*DecoderState, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return newDecoderStateContext(ctx, cfg, encoderOutput, encLen, dec)
+}
+
+func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []float32, encLen int, dec *Decoder) (*DecoderState, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
 	dModel := cfg.DecoderDModel
 	numLayers := cfg.DecoderLayers
 
@@ -121,6 +150,9 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 
 	// Pre-allocate self-attention KV caches
 	for l := 0; l < numLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
 		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
 	}
@@ -128,16 +160,31 @@ func NewDecoderState(cfg Config, encoderOutput []float32, encLen int, dec *Decod
 	// Pre-compute cross-attention K/V from encoder output (done once)
 	// Use GPU SGEMM if available for this large batched matmul
 	for l := 0; l < numLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		layer := &dec.Layers[l]
 		state.CrossK[l] = linearForwardOpt(encoderOutput, layer.CrossKWeight, layer.CrossKBias, encLen, dModel, dModel)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.CrossV[l] = linearForwardOpt(encoderOutput, layer.CrossVWeight, layer.CrossVBias, encLen, dModel, dModel)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		// Reorder once to head-major so each decoded token reads each head's
 		// frames contiguously instead of stride-dModel (the decode bottleneck).
 		state.CrossKHead[l] = toHeadMajor(state.CrossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
 		state.CrossVHead[l] = toHeadMajor(state.CrossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
 	}
 
-	return state
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // ForwardToken runs one decoder step for a single token.
@@ -213,8 +260,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		if !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
-			crossAttentionHeadMajor(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores)
+		if state.CrossAttentionObserver != nil || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
+			// Alignment explicitly observes the same CPU probabilities used for
+			// this attention result; it never combines hidden GPU output with a
+			// separately reconstructed diagnostic row.
+			crossAttentionHeadMajorObserved(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver)
 		}
 		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
@@ -328,6 +378,10 @@ func attentionSingleInto(out, q, kCache, vCache []float32, seqKV, numHeads, head
 // frames are contiguous — the [seqKV,dModel] cache layout otherwise forces a
 // stride-dModel cache miss on every frame (the decode's dominant cost).
 func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32) {
+	crossAttentionHeadMajorObserved(out, q, kHead, vHead, seqKV, numHeads, headDim, scores, 0, 0, nil)
+}
+
+func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver) {
 	dModel := numHeads * headDim
 	zeroFloat32s(out[:dModel])
 	if seqKV <= 0 {
@@ -358,6 +412,9 @@ func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, he
 			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
 		}
 		softmax(scores[:seqKV])
+		if observe != nil {
+			observe(layer, h, position, scores[:seqKV])
+		}
 		outHead := out[hOff : hOff+headDim]
 		for tkv := 0; tkv < seqKV; tkv++ {
 			w := scores[tkv]

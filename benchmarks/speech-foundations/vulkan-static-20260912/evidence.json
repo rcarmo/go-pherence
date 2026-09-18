@@ -1,0 +1,70 @@
+{
+  "checkpoint": "Offline full static validator and shader source/binary audit",
+  "baseline": "aeba324",
+  "created": "2026-09-12T05:29:24.396Z",
+  "static": {
+    "embeddedModules": 11,
+    "rebuiltModules": 11,
+    "target": "vulkan1.3",
+    "pass": 22,
+    "storedIdentity": 11,
+    "byteRebuildIdentity": 0,
+    "normalisedRebuildIdentity": 11
+  },
+  "harness": {
+    "tests": 6,
+    "assertions": 45,
+    "failed": 0,
+    "scriptJDoc": "PASS"
+  },
+  "packages": [
+    {
+      "name": "spirv-tools_2023.1-2_amd64.deb",
+      "url": "https://deb.debian.org/debian/pool/main/s/spirv-tools/spirv-tools_2023.1-2_amd64.deb",
+      "sha256": "51b1e7352dc84471623d7be38547009bd7b71ffaa1900e512060f8a22503f2dd"
+    },
+    {
+      "name": "glslang-tools_12.0.0-2_amd64.deb",
+      "url": "https://deb.debian.org/debian/pool/main/g/glslang/glslang-tools_12.0.0-2_amd64.deb",
+      "sha256": "28e8cd493ccc83a7e803c637b5d96536400583730f3a70e7cc1431fa1585f819"
+    }
+  ],
+  "checks": {
+    "focusedMake": "speech-vulkan-offline-check speech-affine-check speech-foundations-check speech-media-integration PASS",
+    "vet": "Vulkan and SpacemiT board PASS",
+    "runtimeChange": false,
+    "fullBuild": "not rerun; aeba324 prior baseline errors retained, no Go runtime changes",
+    "arm64": "not rerun; aeba324 cross-build only retained",
+    "race": "not run; prior gcc-unavailable condition unchanged"
+  },
+  "review": {
+    "semantics": "Delegate confirmed exact-range single-workgroup RMS alias condition and paired in-place RoPE race from sources. Host mismatch conditional in delegate; actual wrapper verified by parent.",
+    "checker": "No false-success gate found. Failure-report and finally cleanup findings fixed; added subprocess missingtool/no-clobber test.",
+    "limits": "Static validation is not hardware or numerical approval. Both wrappers remain held."
+  },
+  "noGPU": true,
+  "noNativeLoader": true,
+  "noModels": true,
+  "noServices": true,
+  "noPush": true,
+  "sourceHashes": {
+    "Makefile": "211f74dcde3b131f5346f5e6ed29d6fcf829ab69454c414a6eb7c6296bc270dd",
+    "scripts/check-vulkan-shaders.ts": "63fa41ad0ee4e45b0ff025004ff3cfaae90be597a60b983aaeef2628185d1e83",
+    "scripts/check-vulkan-shaders.test.ts": "23753137d044b9a36bd5fb13c46d2ac2431d887b08ad0f3df6db4dac5346ea4a",
+    "backends/vulkan/vulkan_ops.go": "374cffe1780409e27dd0593c0f5238c5bd3b132da4de5abeeed9160a347b2978",
+    "backends/vulkan/vulkan_spirv_embedded.go": "498dbeae6e75e1d0362f01dd42c72700e5722bc8252d71e23ec4dd39afb50f54",
+    "backends/vulkan/shaders/rms_norm_no_scale_f32.glsl": "4d14f3f3d0f492aac0a220991908389613c698d478e96ee2498c33b9264514de",
+    "backends/vulkan/shaders/rope_partial_f32.glsl": "b1a533717aad7aa5978ba96ac21c34ed2ca73d36d124e55945c0ad02b46b2d64",
+    "docs/speech-integration.md": "7dc8426fd9639e84260b30f7cb6a6d4d1eab3e2f09c4efc6f11b8b790d494414",
+    "benchmarks/speech-foundations/README.md": "b91f66aeab79c7711c960c2859de5625011031ce51b52632c7bb48f34496be19"
+  },
+  "evidenceHashes": {
+    "verification.json": "685b04a4312a03879b51998462b5af02b3c57a0fe85dfd25bc94212668ccf664",
+    "initial-verification.json": "190d998ac14eedbac087c7b357bf0a88dd5d8f3e4af8f5301c0ff86d1b02a260",
+    "README.md": "afa99153f7dd90253055adb375170cc990eb7b859a394324a0bc134f1869dbcb",
+    "focused-check.txt": "2d7aa6281f04ea4c51affbcec52529a62531133f1b6588f037e0d33c0fe9e4c1",
+    "bun-tests.txt": "a155b2f73478d264ccdca53b911a48e08857bf6f3bf10d615516f9fa8e2674f8",
+    "disassembly/rms_norm_no_scale_f32.spvasm": "0c4b64f5fa5d58b5e7872af90506b8c360aea0bca6eae787977d2074330d5b96",
+    "disassembly/rope_partial_f32.spvasm": "e09e02d7bdba2afd7f686600d121decbfcfab7a1dfcc61afc0aabf9ad83d9c59"
+  }
+}

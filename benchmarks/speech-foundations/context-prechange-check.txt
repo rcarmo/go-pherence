@@ -1,0 +1,2 @@
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.010s
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.005s

@@ -41,8 +41,81 @@ TEXT ·gebpMicroKernel(SB), NOSPLIT, $16-56
 
     TESTQ   CX, CX
     JZ      store
+    CMPQ    CX, $2
+    JB      ktail
 
-kloop:
+kloop2:
+    VMOVUPS       (SI), Y12
+    VMOVUPS     32(SI), Y13
+
+    VBROADCASTSS  (R8), Y14
+    VFMADD231PS   Y14, Y12, Y0
+    VFMADD231PS   Y14, Y13, Y1
+
+    VBROADCASTSS  (R9), Y14
+    VFMADD231PS   Y14, Y12, Y2
+    VFMADD231PS   Y14, Y13, Y3
+
+    VBROADCASTSS  (R10), Y14
+    VFMADD231PS   Y14, Y12, Y4
+    VFMADD231PS   Y14, Y13, Y5
+
+    VBROADCASTSS  (R11), Y14
+    VFMADD231PS   Y14, Y12, Y6
+    VFMADD231PS   Y14, Y13, Y7
+
+    VBROADCASTSS  (R12), Y14
+    VFMADD231PS   Y14, Y12, Y8
+    VFMADD231PS   Y14, Y13, Y9
+
+    VBROADCASTSS  (R13), Y14
+    VFMADD231PS   Y14, Y12, Y10
+    VFMADD231PS   Y14, Y13, Y11
+
+    VMOVUPS      64(SI), Y12
+    VMOVUPS      96(SI), Y13
+
+    VBROADCASTSS 4(R8), Y14
+    VFMADD231PS  Y14, Y12, Y0
+    VFMADD231PS  Y14, Y13, Y1
+
+    VBROADCASTSS 4(R9), Y14
+    VFMADD231PS  Y14, Y12, Y2
+    VFMADD231PS  Y14, Y13, Y3
+
+    VBROADCASTSS 4(R10), Y14
+    VFMADD231PS  Y14, Y12, Y4
+    VFMADD231PS  Y14, Y13, Y5
+
+    VBROADCASTSS 4(R11), Y14
+    VFMADD231PS  Y14, Y12, Y6
+    VFMADD231PS  Y14, Y13, Y7
+
+    VBROADCASTSS 4(R12), Y14
+    VFMADD231PS  Y14, Y12, Y8
+    VFMADD231PS  Y14, Y13, Y9
+
+    VBROADCASTSS 4(R13), Y14
+    VFMADD231PS  Y14, Y12, Y10
+    VFMADD231PS  Y14, Y13, Y11
+
+    ADDQ    $8, R8
+    ADDQ    $8, R9
+    ADDQ    $8, R10
+    ADDQ    $8, R11
+    ADDQ    $8, R12
+    ADDQ    $8, R13
+    ADDQ    $128, SI
+
+    SUBQ    $2, CX
+    CMPQ    CX, $2
+    JAE     kloop2
+
+ktail:
+    TESTQ   CX, CX
+    JZ      store
+
+kloop1:
     VMOVUPS    (SI), Y12
     VMOVUPS  32(SI), Y13
 
@@ -79,7 +152,7 @@ kloop:
     ADDQ    $64, SI
 
     DECQ    CX
-    JNZ     kloop
+    JNZ     kloop1
 
 store:
     VBROADCASTSS alpha+8(FP), Y14

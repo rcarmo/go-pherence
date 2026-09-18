@@ -1,0 +1,12 @@
+=== RUN   TestVulkanNativeLinearF16Weight
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[1 1 1]","values":1,"max_abs":2.1973391994833946e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1414730}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[2 3 5]","values":10,"max_abs":1.1050360626541078e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":365074}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[15 16 17]","values":255,"max_abs":9.840096026891842e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":365743}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[17 31 19]","values":323,"max_abs":2.642580625433766e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":507673}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[33 65 63]","values":2079,"max_abs":5.617076794806053e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":411109}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[3 384 9]","values":27,"max_abs":0.0000011773683539217927,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":609724}
+    vulkan_linear_f16_weight_native_test.go:55: NATIVE_METRIC {"name":"linear-f16-weight[2 1280 7]","values":14,"max_abs":0.000003029892964079295,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":826268}
+    vulkan_linear_f16_weight_native_test.go:142: F16_WEIGHT_TIMING {"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","f32_weight_bytes":6553600,"gpu_timestamps":false,"max_f32_baseline_abs":0,"median_ns":{"f32":28671084,"packed_f16":29281458},"packed_weight_bytes":3276800,"shape":[1500,1280,1280],"speedup":0.9791549314245213}
+--- PASS: TestVulkanNativeLinearF16Weight (0.54s)
+PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.570s

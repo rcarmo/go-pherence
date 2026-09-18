@@ -1,0 +1,5 @@
+=== RUN   TestZZZVulkanCommunityConvRegtileTiming
+    zzz_vulkan_conv_regtile_timing_test.go:58: COMMUNITY_CONV_REGTILE_TIMING device="Intel(R) Iris(R) Xe Graphics (RPL-P)" frames=498 repeats=12 total=1.187533016s each=98.961084ms values=[118.551677ms 98.465886ms 96.588286ms 96.902245ms 97.358699ms 96.986017ms 96.515226ms 97.850972ms 98.553736ms 96.474462ms 96.151153ms 97.134657ms]
+--- PASS: TestZZZVulkanCommunityConvRegtileTiming (1.34s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.368s

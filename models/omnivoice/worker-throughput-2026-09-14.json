@@ -1,0 +1,120 @@
+{
+  "configuration": {
+    "steps": 8,
+    "guidance": 2,
+    "frames": 75,
+    "threads": 2,
+    "workers": 2,
+    "columns": true,
+    "cache_mib": 0,
+    "requests_per_process": 2
+  },
+  "notes": [
+    "One process per mode; requests sequential after ready/done.",
+    "RSS is sampled /proc VmHWM, not exact wait4 peak.",
+    "Audio hashes compare worker outputs only; worker boundary processing differs from single-shot synthesis."
+  ],
+  "results": [
+    {
+      "mode": "shared",
+      "flags": [
+        "-shared-traversal"
+      ],
+      "peak_rss_kib_sampled": 1143128,
+      "startup_seconds": 0.487598513,
+      "resident_cache_bytes": 0,
+      "prepacked_bytes": 0,
+      "runs": [
+        {
+          "id": "run-1",
+          "request_seconds": 47.884740633,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 44.833788493,
+          "decode_seconds": 3.049381471
+        },
+        {
+          "id": "run-2",
+          "request_seconds": 57.676738951,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 54.637931753,
+          "decode_seconds": 3.037210178
+        }
+      ],
+      "runner_setup_seconds": 0.015746146,
+      "mean_request_seconds": 52.780739792
+    },
+    {
+      "mode": "resident",
+      "flags": [
+        "-resident-mib",
+        "2048"
+      ],
+      "peak_rss_kib_sampled": 2804964,
+      "startup_seconds": 1.7769806620000002,
+      "resident_cache_bytes": 1761865728,
+      "prepacked_bytes": 0,
+      "runs": [
+        {
+          "id": "run-1",
+          "request_seconds": 48.530458111,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 45.515020388,
+          "decode_seconds": 3.011056235
+        },
+        {
+          "id": "run-2",
+          "request_seconds": 48.877950495,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 45.820812392,
+          "decode_seconds": 3.055648446
+        }
+      ],
+      "runner_setup_seconds": 1.25778902,
+      "mean_request_seconds": 48.704204303
+    },
+    {
+      "mode": "prepacked",
+      "flags": [
+        "-resident-mib",
+        "4096",
+        "-prepack"
+      ],
+      "peak_rss_kib_sampled": 4526900,
+      "startup_seconds": 4.85942939,
+      "resident_cache_bytes": 3523473408,
+      "prepacked_bytes": 1761607680,
+      "runs": [
+        {
+          "id": "run-1",
+          "request_seconds": 49.93101099,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 46.905585762,
+          "decode_seconds": 3.023919878
+        },
+        {
+          "id": "run-2",
+          "request_seconds": 50.493914526,
+          "audio_seconds": 3,
+          "cache_hit": false,
+          "sha256": "a8c66c6dc34c4af88e7f2d34fe17e61dfe81291357046b9582e42aac4ee7d238",
+          "denoise_seconds": 47.419780235,
+          "decode_seconds": 3.072541546
+        }
+      ],
+      "runner_setup_seconds": 4.343591351,
+      "mean_request_seconds": 50.212462758
+    }
+  ],
+  "commit": "fca9bd3b",
+  "date": "2026-09-14"
+}

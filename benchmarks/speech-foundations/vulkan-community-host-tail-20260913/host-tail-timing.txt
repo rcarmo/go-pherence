@@ -1,0 +1,11 @@
+=== RUN   TestZZZCommunityHostTailTiming
+    zzz_host_tail_bench_test.go:51: HOST_TAIL repeats=20 fbank_total=281.370833ms fbank_each=14.068541ms pool_projection_total=26.784064ms pool_projection_each=1.339203ms
+--- PASS: TestZZZCommunityHostTailTiming (0.45s)
+=== RUN   TestZZZCommunityHostTailTiming
+    zzz_host_tail_bench_test.go:51: HOST_TAIL repeats=20 fbank_total=279.293374ms fbank_each=13.964668ms pool_projection_total=27.474988ms pool_projection_each=1.373749ms
+--- PASS: TestZZZCommunityHostTailTiming (0.42s)
+=== RUN   TestZZZCommunityHostTailTiming
+    zzz_host_tail_bench_test.go:51: HOST_TAIL repeats=20 fbank_total=276.795689ms fbank_each=13.839784ms pool_projection_total=27.221056ms pool_projection_each=1.361052ms
+--- PASS: TestZZZCommunityHostTailTiming (0.41s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	1.277s

@@ -1,0 +1,215 @@
+{
+  "schema": 2,
+  "allow_execution": false,
+  "store": "/srv/speech/private-jobs",
+  "runtime_sha256": "REPLACE_WITH_BUILD_ISA_RUNTIME_IDENTITY_SHA256",
+  "threads": 2,
+  "limits": {
+    "jobs": 32,
+    "upload_bytes": 268435456,
+    "artifact_bytes": 536870912,
+    "store_bytes": 4294967296,
+    "weight_bytes": 536870912,
+    "owned_weight_bytes": 1073741824
+  },
+  "http": {
+    "enable_ui": false,
+    "listen": "127.0.0.1:8099",
+    "hosts": [
+      "127.0.0.1:8099"
+    ],
+    "origin": "",
+    "tls_cert": "",
+    "tls_key": "",
+    "allow_loopback_http": true,
+    "request_seconds": 3600,
+    "header_seconds": 10,
+    "idle_seconds": 30,
+    "shutdown_seconds": 30,
+    "max_requests": 4,
+    "max_connections": 8
+  },
+  "weights": {
+    "path": "/srv/speech/assets/model.safetensors",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "model_config": {
+    "path": "/srv/speech/assets/config.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "tokenizer": {
+    "path": "/srv/speech/assets/tokenizer.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "generation": {
+    "path": "/srv/speech/assets/generation_config.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "profile": {
+    "id": "asr-pt-wav",
+    "language": "pt",
+    "extension": ".wav",
+    "media_backend": "go264",
+    "max_duration_seconds": 3600,
+    "decode_bytes": 115265536,
+    "overlap_samples": 0,
+    "max_new_tokens": 0,
+    "max_initial_timestamp_index": 0,
+    "skip_digital_silence": false,
+    "window_bytes": 1048576,
+    "result_bytes": 16777216
+  }
+}
+{
+  "schema": 2,
+  "allow_execution": false,
+  "store": "/srv/speech/private-jobs",
+  "runtime_sha256": "REPLACE_WITH_BUILD_ISA_RUNTIME_IDENTITY_SHA256",
+  "threads": 2,
+  "resources": {
+    "cpu_slots": 2,
+    "memory_bytes": 6442450944,
+    "max_waiting": 32,
+    "load_bytes": 5368709120,
+    "resident_bytes": 4294967296,
+    "work_bytes": 2147483648
+  },
+  "queue": {
+    "enable": false,
+    "start_worker": false,
+    "directory": "",
+    "max_entries": 0,
+    "max_bytes": 0,
+    "job_seconds": 0
+  },
+  "limits": {
+    "jobs": 32,
+    "upload_bytes": 268435456,
+    "artifact_bytes": 536870912,
+    "store_bytes": 4294967296,
+    "weight_bytes": 4294967296,
+    "owned_weight_bytes": 1073741824
+  },
+  "http": {
+    "enable_ui": false,
+    "listen": "127.0.0.1:8099",
+    "hosts": [
+      "127.0.0.1:8099"
+    ],
+    "origin": "",
+    "tls_cert": "",
+    "tls_key": "",
+    "allow_loopback_http": true,
+    "request_seconds": 3600,
+    "header_seconds": 10,
+    "idle_seconds": 30,
+    "shutdown_seconds": 30,
+    "max_requests": 4,
+    "max_connections": 8
+  },
+  "weights": {
+    "path": "/srv/speech/assets/whisper.safetensors",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "model_config": {
+    "path": "/srv/speech/assets/config.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "tokenizer": {
+    "path": "/srv/speech/assets/tokenizer.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "generation": {
+    "path": "/srv/speech/assets/generation_config.json",
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "profile": {
+    "id": "asr-community-pt",
+    "language": "pt",
+    "extension": ".m4a",
+    "media_backend": "go264",
+    "max_duration_seconds": 137,
+    "decode_bytes": 16777216,
+    "overlap_samples": 0,
+    "max_new_tokens": 0,
+    "max_initial_timestamp_index": 0,
+    "skip_digital_silence": false,
+    "window_bytes": 1048576,
+    "result_bytes": 16777216,
+    "community": {
+      "enable": true,
+      "allow_experimental": true,
+      "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+      "segmentation": {
+        "path": "/srv/speech/assets/segmentation.safetensors",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "filters": {
+        "path": "/srv/speech/assets/filters.safetensors",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "embedding": {
+        "path": "/srv/speech/assets/embedding.safetensors",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "xvector_transform": {
+        "path": "/srv/speech/assets/xvec_transform.npz",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "plda": {
+        "path": "/srv/speech/assets/plda.npz",
+        "sha256": "REPLACE_WITH_SHA256"
+      },
+      "segmentation_config": {
+        "sincnet_stride": 10,
+        "lstm": {
+          "input_size": 60,
+          "hidden_size": 128,
+          "num_layers": 4,
+          "bidirectional": true
+        },
+        "head": {
+          "input_size": 256,
+          "hidden_size": 128,
+          "num_layers": 2,
+          "speakers": 3,
+          "max_active": 2
+        },
+        "split_lstm": false
+      },
+      "embedding_config": {
+        "base_channels": 32,
+        "mel_bins": 80,
+        "embed_dim": 256
+      },
+      "embedding_prefix": "resnet",
+      "plda_config": {
+        "input_dim": 256,
+        "projected_dim": 128,
+        "output_dim": 128
+      },
+      "pcm": {
+        "window_samples": 160000,
+        "step_samples": 16000,
+        "minimum_embedding_samples": 400,
+        "exclude_overlap": true,
+        "min_speakers": 1,
+        "max_speakers": 64,
+        "num_speakers": 0,
+        "ahc_threshold": 0.6,
+        "fa": 0.07,
+        "fb": 0.8,
+        "min_duration_off": 0,
+        "constrained": true,
+        "tie_policy": "reject"
+      },
+      "modes": {
+        "sincnet": "simd",
+        "lstm": "simd",
+        "head": "simd",
+        "embedding": "simd"
+      },
+      "max_result_bytes": 16777216
+    }
+  }
+}

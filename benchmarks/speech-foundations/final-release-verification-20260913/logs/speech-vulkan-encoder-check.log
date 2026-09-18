@@ -1,0 +1,3 @@
+=== speech-vulkan-encoder-check ===
++ go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership|PlanConstructorAdmission)|PCMVulkan.*)$'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.029s

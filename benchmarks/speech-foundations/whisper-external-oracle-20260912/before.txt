@@ -1,0 +1,24 @@
+2026-09-12T08:58:31+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        3714        7110        1963       23412       28099
+Swap:           8191          86        8105
+some avg10=0.00 avg60=0.00 avg300=0.00 total=127329622
+full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+some avg10=0.00 avg60=0.00 avg300=0.00 total=6033894
+full avg10=0.00 avg60=0.00 avg300=0.00 total=5973269
+pswpin 36296
+pswpout 635627
+Id=llama-gemma-local-provider.service
+ActiveState=inactive
+MainPID=0
+
+Id=whisper-stt.service
+ActiveState=inactive
+MainPID=0
+
+Id=whisper-stt-diarizer.service
+ActiveState=inactive
+MainPID=0
+27800
+50000
+41000

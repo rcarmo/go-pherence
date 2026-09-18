@@ -1,0 +1,6 @@
+2026-09-12T09:58:09+01:00
+               total        used        free      shared  buff/cache   available
+Mem:           31813        3783        9969        2080       20600       28030
+Swap:           8191          87        8104
+pswpin 36305
+pswpout 635848

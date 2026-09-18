@@ -1,0 +1,8 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.023s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.094s
+GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.010s
+go vet -p=1 ./loader/audio ./loader/audio/media ./models/whisper
+GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	0.645s

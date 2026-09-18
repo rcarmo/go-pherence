@@ -1,0 +1,8 @@
+=== speech-job-check ===
++ go test -p=1 -count=1 -timeout=90s ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi
+ok  	github.com/rcarmo/go-pherence/runtime/resourcebudget	0.020s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	4.821s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	0.429s
++ go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.091s
++ go vet ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper

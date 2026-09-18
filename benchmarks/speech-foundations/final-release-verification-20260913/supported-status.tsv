@@ -1,0 +1,14 @@
+speech-foundations-check	0	9
+speech-vulkan-offline-check	0	1
+speech-vulkan-community-check	0	1
+speech-vulkan-community-server-check	0	1
+speech-vulkan-encoder-check	0	0
+speech-sincnet-fma-check	0	3
+speech-community-gemm-check	0	1
+speech-job-check	0	7
+speech-job-http-check	0	1
+speech-job-cli-check	0	1
+speech-job-serve-check	0	6
+speech-media-integration	0	2
+speech-quality-freeze-check	0	0
+speech-community-corpus-contract-check	0	0

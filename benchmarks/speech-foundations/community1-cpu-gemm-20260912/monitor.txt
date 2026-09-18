@@ -1,0 +1,135 @@
+2026-09-12T11:43:04+01:00
+MemAvailable:   28348872 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:05+01:00
+MemAvailable:   28309416 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:06+01:00
+MemAvailable:   28225208 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:07+01:00
+MemAvailable:   28235248 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:08+01:00
+MemAvailable:   28215732 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:09+01:00
+MemAvailable:   28211464 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:10+01:00
+MemAvailable:   28203388 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:11+01:00
+MemAvailable:   28188824 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:12+01:00
+MemAvailable:   28192328 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:13+01:00
+MemAvailable:   28170908 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:14+01:00
+MemAvailable:   28177384 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:15+01:00
+MemAvailable:   28182440 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:16+01:00
+MemAvailable:   28172536 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:17+01:00
+MemAvailable:   28187424 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:18+01:00
+MemAvailable:   28173580 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:19+01:00
+MemAvailable:   28169740 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:20+01:00
+MemAvailable:   28165308 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:21+01:00
+MemAvailable:   28182512 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:22+01:00
+MemAvailable:   28184580 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:23+01:00
+MemAvailable:   28197700 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:24+01:00
+MemAvailable:   28179436 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:25+01:00
+MemAvailable:   28158584 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:26+01:00
+MemAvailable:   28123624 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:27+01:00
+MemAvailable:   28142684 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:28+01:00
+MemAvailable:   28143340 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:29+01:00
+MemAvailable:   28130604 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938
+2026-09-12T11:43:30+01:00
+MemAvailable:   28149308 kB
+SwapFree:        8298460 kB
+pswpin 36334
+pswpout 635938

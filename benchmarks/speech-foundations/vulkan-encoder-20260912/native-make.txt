@@ -1,0 +1,75 @@
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderNative$' -v
+=== RUN   TestVulkanEncoderNative
+    vulkan_encoder_native_test.go:134: {"device":"Intel(R) Iris(R) Xe Graphics (RPL-P)","limits":{"APIVersion":4211042,"StorageBufferRange":4294967295,"MemoryAllocationCount":4294967295,"StorageBufferOffsetAlignment":4,"PushConstantBytes":256,"BoundDescriptorSets":32,"PerStageStorageBuffers":201326592,"PerStageResources":201326592,"DescriptorSetStorageBuffers":201326592,"WorkgroupCount":[2147483647,65535,65535],"WorkgroupSize":[1024,1024,1024],"WorkgroupInvocations":1024,"SharedMemoryBytes":49152}}
+=== RUN   TestVulkanEncoderNative/shape0/frames17
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":17,"Rows":9,"Width":8,"Layers":2,"Plans":4,"Stages":30,"WeightBytes":5864,"ScratchBytes":2944}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":7.450580596923828e-9,"name":"boundary0","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.1175870895385742e-8,"name":"boundary1","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.862645149230957e-8,"name":"boundary2","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":4.76837158203125e-7,"name":"boundary3","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":4.76837158203125e-7,"name":"forward0","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":4.76837158203125e-7,"name":"forward1","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":4.76837158203125e-7,"name":"forward2","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:258: ENCODER_CANCEL at=18 total=73 retained=true reuse_bit_exact=true
+    vulkan_encoder_native_test.go:258: ENCODER_CANCEL at=36 total=73 retained=false reuse_bit_exact=true
+    vulkan_encoder_native_test.go:258: ENCODER_CANCEL at=69 total=73 retained=false reuse_bit_exact=true
+=== RUN   TestVulkanEncoderNative/shape0/frames18
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":18,"Rows":9,"Width":8,"Layers":2,"Plans":4,"Stages":30,"WeightBytes":5864,"ScratchBytes":2988}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.1175870895385742e-8,"name":"boundary0","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.4901161193847656e-8,"name":"boundary1","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.862645149230957e-8,"name":"boundary2","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.960464477539062e-7,"name":"boundary3","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.960464477539062e-7,"name":"forward0","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.960464477539062e-7,"name":"forward1","rel_budget":0.0001,"values":72}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.960464477539062e-7,"name":"forward2","rel_budget":0.0001,"values":72}
+=== RUN   TestVulkanEncoderNative/shape1/frames33
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":33,"Rows":17,"Width":32,"Layers":2,"Plans":4,"Stages":30,"WeightBytes":113528,"ScratchBytes":32124}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":7.450580596923828e-9,"name":"boundary0","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":4.470348358154297e-8,"name":"boundary1","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.587935447692871e-8,"name":"boundary2","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"boundary3","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward0","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward1","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward2","rel_budget":0.0001,"values":544}
+=== RUN   TestVulkanEncoderNative/shape1/frames34
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":34,"Rows":17,"Width":32,"Layers":2,"Plans":4,"Stages":30,"WeightBytes":113528,"ScratchBytes":32572}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":9.313225746154785e-9,"name":"boundary0","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":5.21540641784668e-8,"name":"boundary1","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":6.705522537231445e-8,"name":"boundary2","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"boundary3","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward0","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward1","rel_budget":0.0001,"values":544}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":8.344650268554688e-7,"name":"forward2","rel_budget":0.0001,"values":544}
+=== RUN   TestVulkanEncoderNative/shape2/frames65
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":65,"Rows":33,"Width":64,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":692480,"ScratchBytes":117504}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":9.313225746154785e-9,"name":"boundary0","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.8312206268310547e-7,"name":"boundary1","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.980232238769531e-7,"name":"boundary2","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.980232238769531e-7,"name":"boundary3","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":3.2782554626464844e-7,"name":"boundary4","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000011920928955078125,"name":"boundary5","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000011920928955078125,"name":"forward0","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000011920928955078125,"name":"forward1","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000011920928955078125,"name":"forward2","rel_budget":0.0001,"values":2112}
+=== RUN   TestVulkanEncoderNative/shape2/frames66
+    vulkan_encoder_native_test.go:163: ENCODER_STATS {"Frames":66,"Rows":33,"Width":64,"Layers":4,"Plans":6,"Stages":54,"WeightBytes":692480,"ScratchBytes":118272}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":1.1175870895385742e-8,"name":"boundary0","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.682209014892578e-7,"name":"boundary1","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.682209014892578e-7,"name":"boundary2","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":2.980232238769531e-7,"name":"boundary3","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":3.5762786865234375e-7,"name":"boundary4","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:176: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000010728836059570312,"name":"boundary5","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000010728836059570312,"name":"forward0","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000010728836059570312,"name":"forward1","rel_budget":0.0001,"values":2112}
+    vulkan_encoder_native_test.go:184: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000010728836059570312,"name":"forward2","rel_budget":0.0001,"values":2112}
+=== RUN   TestVulkanEncoderNative/allocation-rollback
+--- PASS: TestVulkanEncoderNative (0.22s)
+    --- PASS: TestVulkanEncoderNative/shape0/frames17 (0.03s)
+    --- PASS: TestVulkanEncoderNative/shape0/frames18 (0.02s)
+    --- PASS: TestVulkanEncoderNative/shape1/frames33 (0.02s)
+    --- PASS: TestVulkanEncoderNative/shape1/frames34 (0.02s)
+    --- PASS: TestVulkanEncoderNative/shape2/frames65 (0.05s)
+    --- PASS: TestVulkanEncoderNative/shape2/frames66 (0.05s)
+    --- PASS: TestVulkanEncoderNative/allocation-rollback (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/whisper	0.223s

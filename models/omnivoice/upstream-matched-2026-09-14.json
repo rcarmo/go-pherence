@@ -1,0 +1,160 @@
+{
+  "date": "2026-09-14",
+  "go_commit": "2d416a2d",
+  "order": [
+    "python1",
+    "go1",
+    "go2",
+    "python2"
+  ],
+  "trials": [
+    {
+      "python": {
+        "upstream_loop_unmodified": true,
+        "prepared_prompt_sha256": "87b46b7f87d9eab0fd4bf67b7af78b59e54995826ee9daab1e99096ecd02b76e",
+        "torch_version": "2.11.0+cpu",
+        "attention_implementation": "sdpa",
+        "threads": 2,
+        "interop_threads": 1,
+        "steps": 8,
+        "guidance": 2,
+        "seed": 42,
+        "rng": "PyTorch; not Go PCG",
+        "conditional_tokens": 210,
+        "unconditional_tokens": 75,
+        "batch_shape": [
+          2,
+          8,
+          210
+        ],
+        "load_seconds": 7.387027176999254,
+        "prepared_setup_seconds": 0.030884830994182266,
+        "denoise_seconds": 65.41360125801293,
+        "decode_seconds": 1.6349547339923447,
+        "inference_seconds": 67.04855599200528,
+        "total_seconds": 74.46646799999871,
+        "peak_rss_kib": 4964956,
+        "samples": 72000,
+        "wave_finite": true,
+        "code_sha256": "d22d6d6c4168d758bd8b9589c24a6fbe93874b4ed31fdf2e0adcf84ba6c06ddd",
+        "notes": [
+          "No waveform postprocessing or file encoding in timed inference.",
+          "No reference/text preparation; same saved IDs as Go prepared generation.",
+          "Same seed does not imply same noise or audio across runtimes."
+        ]
+      },
+      "go": {
+        "audio_seconds": 3,
+        "command_seconds": 50.537858749,
+        "decode_and_save_seconds": 3.129820461,
+        "direct_q8": false,
+        "gain": 1,
+        "gemm_columns": true,
+        "gemm_workers": 2,
+        "generation_seconds": 47.408065434,
+        "guidance": 2,
+        "mode": "generate",
+        "native_inference": true,
+        "output_postprocessing": false,
+        "prepacked_bytes": 0,
+        "prepared_prompt_required": true,
+        "reference_encoding_native": false,
+        "reference_gain": 0.65800995,
+        "resident_cache_bytes": 1761865728,
+        "resident_setup_seconds": 3.4487250879999998,
+        "rng": "Go PCG, not PyTorch RNG parity",
+        "sample_rate": 24000,
+        "seed": 42,
+        "shared_traversal": false,
+        "silence_preprocessing": false,
+        "steps": 8,
+        "synthetic": true,
+        "total_seconds": 50.537886202
+      },
+      "go_process": {
+        "exit_code": 0,
+        "max_rss_kib": 2778752,
+        "system_seconds": 2.001593,
+        "user_seconds": 77.946692,
+        "wall_seconds": 50.656636455
+      }
+    },
+    {
+      "python": {
+        "upstream_loop_unmodified": true,
+        "prepared_prompt_sha256": "87b46b7f87d9eab0fd4bf67b7af78b59e54995826ee9daab1e99096ecd02b76e",
+        "torch_version": "2.11.0+cpu",
+        "attention_implementation": "sdpa",
+        "threads": 2,
+        "interop_threads": 1,
+        "steps": 8,
+        "guidance": 2,
+        "seed": 42,
+        "rng": "PyTorch; not Go PCG",
+        "conditional_tokens": 210,
+        "unconditional_tokens": 75,
+        "batch_shape": [
+          2,
+          8,
+          210
+        ],
+        "load_seconds": 4.025463623998803,
+        "prepared_setup_seconds": 0.0006864690076326951,
+        "denoise_seconds": 67.29364236400579,
+        "decode_seconds": 1.3911597129917936,
+        "inference_seconds": 68.68480207699758,
+        "total_seconds": 72.71095217000402,
+        "peak_rss_kib": 5041664,
+        "samples": 72000,
+        "wave_finite": true,
+        "code_sha256": "d22d6d6c4168d758bd8b9589c24a6fbe93874b4ed31fdf2e0adcf84ba6c06ddd",
+        "notes": [
+          "No waveform postprocessing or file encoding in timed inference.",
+          "No reference/text preparation; same saved IDs as Go prepared generation.",
+          "Same seed does not imply same noise or audio across runtimes."
+        ]
+      },
+      "go": {
+        "audio_seconds": 3,
+        "command_seconds": 43.982692966,
+        "decode_and_save_seconds": 3.08433714,
+        "direct_q8": false,
+        "gain": 1,
+        "gemm_columns": true,
+        "gemm_workers": 2,
+        "generation_seconds": 40.898381897,
+        "guidance": 2,
+        "mode": "generate",
+        "native_inference": true,
+        "output_postprocessing": false,
+        "prepacked_bytes": 0,
+        "prepared_prompt_required": true,
+        "reference_encoding_native": false,
+        "reference_gain": 0.65800995,
+        "resident_cache_bytes": 1761865728,
+        "resident_setup_seconds": 0.966567422,
+        "rng": "Go PCG, not PyTorch RNG parity",
+        "sample_rate": 24000,
+        "seed": 42,
+        "shared_traversal": false,
+        "silence_preprocessing": false,
+        "steps": 8,
+        "synthetic": true,
+        "total_seconds": 43.982719328
+      },
+      "go_process": {
+        "exit_code": 0,
+        "max_rss_kib": 2778948,
+        "system_seconds": 1.329865,
+        "user_seconds": 72.009128,
+        "wall_seconds": 44.098731563
+      }
+    }
+  ],
+  "notes": [
+    "Python total starts after imports and ends after codec decode; Go reported total includes resident setup, codec load, gain application and WAV writing but excludes earlier weight-map open.",
+    "Both consume identical prepared IDs; upstream padded CFG batching is retained.",
+    "RNG differs; matching seed is not cross-runtime waveform parity.",
+    "An initial harness attempt failed after decode due to output indexing and has no report; excluded."
+  ]
+}

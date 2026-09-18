@@ -1,0 +1,12 @@
+=== RUN   TestZZZSincNetTailDiagnostic
+    zzz_sincnet_tail_diagnostic_test.go:107: TAIL_POOL frame=40 ref_raw=-6.200524e-05,-0.0014827227,-0.0012532701 go_raw=-6.184202e-05,-0.0014844541,-0.0012535771 ref_argmax=1 go_argmax=1 ref_pool=0.0014827227 go_pool=0.0014844541 delta=1.7314451e-06
+    zzz_sincnet_tail_diagnostic_test.go:107: TAIL_POOL frame=41 ref_raw=-6.7457215e-05,0.0004302997,-6.153464e-05 go_raw=-6.750567e-05,0.00043067968,-6.152795e-05 ref_argmax=1 go_argmax=1 ref_pool=0.0004302997 go_pool=0.00043067968 delta=3.799796e-07
+    zzz_sincnet_tail_diagnostic_test.go:107: TAIL_POOL frame=42 ref_raw=-0.0002943619,0.00055012584,0.0014351291 go_raw=-0.00029406813,0.0005476185,0.0014351291 ref_argmax=2 go_argmax=2 ref_pool=0.0014351291 go_pool=0.0014351291 delta=0
+    zzz_sincnet_tail_diagnostic_test.go:121: TAIL_NORM kind=reference-pooled idx=1717 value=0.08523469 want=0.08523469 delta=0
+    zzz_sincnet_tail_diagnostic_test.go:121: TAIL_NORM kind=all-go-pooled idx=1717 value=0.08561555 want=0.08523469 delta=0.00038086623
+    zzz_sincnet_tail_diagnostic_test.go:121: TAIL_NORM kind=only-tail-frame-0 idx=1717 value=0.08561753 want=0.08523469 delta=0.00038284063
+    zzz_sincnet_tail_diagnostic_test.go:121: TAIL_NORM kind=only-tail-frame-1 idx=1717 value=0.08523271 want=0.08523469 delta=-1.9744039e-06
+    zzz_sincnet_tail_diagnostic_test.go:121: TAIL_NORM kind=only-tail-frame-2 idx=1717 value=0.08523469 want=0.08523469 delta=0
+--- PASS: TestZZZSincNetTailDiagnostic (0.14s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.142s

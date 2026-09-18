@@ -1,0 +1,4 @@
+=== speech-job-cli-check ===
++ go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjob
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjob	0.129s
++ go vet ./cmd/audio/speechjob

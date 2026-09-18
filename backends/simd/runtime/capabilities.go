@@ -13,6 +13,7 @@ type Capabilities struct {
 	Arch          string
 	HasAVX2       bool
 	HasFMA        bool
+	HasF16C       bool
 	HasNEON       bool
 	HasRVV        bool
 	HasVec        bool
@@ -39,6 +40,7 @@ func RuntimeCapabilities() Capabilities {
 	case "amd64":
 		c.HasAVX2 = cpu.X86.HasAVX2
 		c.HasFMA = cpu.X86.HasFMA
+		c.HasF16C = hasF16CConvert
 		c.HasVec = c.HasAVX2 && c.HasFMA
 		c.HasDot = c.HasVec
 		c.HasSGEMM = c.HasVec && hasSgemmAsm

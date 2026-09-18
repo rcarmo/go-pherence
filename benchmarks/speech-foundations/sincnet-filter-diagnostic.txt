@@ -1,0 +1,52 @@
+=== RUN   TestSincNetDiagnostic
+    sincnet_diagnostic_test.go:23: stride10 mode0 exactfiltersfalse
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0003952011466026306
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0013778358697891235
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.007613480091094971
+    sincnet_diagnostic_test.go:29: output max abs 0.007613480091094971
+    sincnet_diagnostic_test.go:23: stride10 mode0 exactfilterstrue
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0003991127014160156
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0015142560005187988
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0039888471364974976
+    sincnet_diagnostic_test.go:29: output max abs 0.0039888471364974976
+    sincnet_diagnostic_test.go:23: stride10 mode1 exactfiltersfalse
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005575641989707947
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.002633512020111084
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.00461539626121521
+    sincnet_diagnostic_test.go:29: output max abs 0.00461539626121521
+    sincnet_diagnostic_test.go:23: stride10 mode1 exactfilterstrue
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005563311278820038
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0027043172158300877
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.004605673253536224
+    sincnet_diagnostic_test.go:29: output max abs 0.004605673253536224
+    sincnet_diagnostic_test.go:23: stride1 mode0 exactfiltersfalse
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.00034350156784057617
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0004029572010040283
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.001202225685119629
+    sincnet_diagnostic_test.go:29: output max abs 0.001202225685119629
+    sincnet_diagnostic_test.go:23: stride1 mode0 exactfilterstrue
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0003116726875305176
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.00026485323905944824
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005819601938128471
+    sincnet_diagnostic_test.go:29: output max abs 0.0005819601938128471
+    sincnet_diagnostic_test.go:23: stride1 mode1 exactfiltersfalse
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005292147397994995
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005502700805664062
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.002267724834382534
+    sincnet_diagnostic_test.go:29: output max abs 0.002267724834382534
+    sincnet_diagnostic_test.go:23: stride1 mode1 exactfilterstrue
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005121231079101562
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.0005573034286499023
+    sincnet_diagnostic_test.go:25: diagnostic max abs 0.002180159091949463
+    sincnet_diagnostic_test.go:29: output max abs 0.002180159091949463
+--- PASS: TestSincNetDiagnostic (0.07s)
+PASS
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	0.078s

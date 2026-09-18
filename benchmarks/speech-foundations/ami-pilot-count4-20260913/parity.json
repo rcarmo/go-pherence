@@ -1,0 +1,18 @@
+{
+  "embedding_exact": 8746,
+  "embedding_max_abs": 4.0531158447265625e-06,
+  "embedding_values": 39168,
+  "matching_turn_label_permutations": [
+    [
+      "SPEAKER_00",
+      "SPEAKER_01",
+      "SPEAKER_02",
+      "SPEAKER_03"
+    ]
+  ],
+  "qualified": false,
+  "schema": 1,
+  "segmentation_exact": 90117,
+  "segmentation_max_abs": 0.0,
+  "segmentation_values": 90117
+}

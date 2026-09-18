@@ -1,0 +1,2 @@
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.153s
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	3.483s

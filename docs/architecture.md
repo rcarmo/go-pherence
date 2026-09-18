@@ -38,7 +38,7 @@ CPU execution is the correctness baseline. SIMD wrappers validate dimensions and
 
 NVIDIA support loads `libcuda.so.1` at runtime through purego. The binary embeds PTX from `backends/nvidia/ptx` and the Whisper-oriented `backends/cuda/ptx`, then asks the driver to compile it for the installed GPU, and keeps model state resident where the model-specific path has passed parity. A failed initialisation or operation returns to CPU unless the command documents a stricter requirement.
 
-Vulkan and SpacemiT are explicit secondary paths. Vulkan has working buffer/shader dispatch but is not a general model backend; several parity gates remain open. SpacemiT combines ordinary RVV CPU kernels with IME2/AICPU experiments and therefore has its own hardware-specific validation.
+Vulkan and SpacemiT are explicit secondary paths. Vulkan now has checked F32 resident Whisper-encoder and Community-1 recurrent/CNN owners in addition to primitive dispatch, but remains opt-in: model-specific native/trained quality, placement, quantised/F16 and recovery gates decide promotion. SpacemiT combines ordinary RVV CPU kernels with IME2/AICPU experiments and therefore has its own hardware-specific validation.
 
 The exact order and command switches are in [Backend selection](backend-selection.md). Memory placement and cache controls are in [Tuning](tuning.md) and [Weight budgets](weight-budget.md).
 

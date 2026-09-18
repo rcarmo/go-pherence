@@ -1,0 +1,1 @@
+ok  	github.com/rcarmo/go-pherence/models/speaker/community1	3.489s

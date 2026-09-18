@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "model_revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+  "source_hashes": {
+    "core/plda.py": "29674eb850f1a96ebd2c56a4a474801351b84129a02c17c5214258e5f6cdc809",
+    "utils/vbx.py": "a8c644feea4b381f9c1e7da72e0e47775c1fd482067e686801ddc16e5cac3c0e",
+    "core/inference.py": "c29f525c93a1a5c6bd0a9475ae4fb8c73ce9b48cf9735301302eb99886ad7d41",
+    "pipelines/speaker_diarization.py": "cbb358abedef5042fcc71bb970b12a2936a16686be4bda15691a224f172656fd",
+    "pipelines/speaker_verification.py": "af1d16a03b482dc5509431d113acbbb1466b75c35d8eaa64d4a8bb593e293c28",
+    "pipelines/clustering.py": "6031fb7c21277a7e9901ef2cdaed7d5cd69f7ef45508dc4b45e82ce0da3c8fba"
+  },
+  "threads": 1,
+  "mkldnn": false,
+  "batch_sizes": 1,
+  "constrained": true,
+  "minimum_embedding_samples": 400,
+  "full": [
+    {
+      "start": 6.730343750000001,
+      "end": 6.74721875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 6.74721875,
+      "end": 7.03409375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 7.03409375,
+      "end": 7.185968750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 7.59096875,
+      "end": 7.607843750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 7.607843750000001,
+      "end": 8.316593750000003,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 8.316593750000003,
+      "end": 9.919718750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 9.919718750000001,
+      "end": 10.98284375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 10.45971875,
+      "end": 14.745968750000003,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 14.30721875,
+      "end": 17.88471875,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 18.01971875,
+      "end": 21.512843750000002,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 18.15471875,
+      "end": 18.44159375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 21.765968750000003,
+      "end": 28.49909375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 27.85784375,
+      "end": 29.96721875,
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "exclusive": [
+    {
+      "start": 6.730343750000001,
+      "end": 6.74721875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 6.74721875,
+      "end": 7.03409375,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 7.03409375,
+      "end": 7.185968750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 7.59096875,
+      "end": 7.607843750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 7.607843750000001,
+      "end": 8.316593750000003,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 8.316593750000003,
+      "end": 9.919718750000001,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 9.919718750000001,
+      "end": 10.544093750000002,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 10.544093750000002,
+      "end": 14.67846875,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 14.67846875,
+      "end": 17.88471875,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 18.01971875,
+      "end": 21.512843750000002,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "start": 21.765968750000003,
+      "end": 27.97596875,
+      "speaker": "SPEAKER_01"
+    },
+    {
+      "start": 27.97596875,
+      "end": 29.96721875,
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "artifacts": {
+    "segmentation": {
+      "shape": [
+        21,
+        589,
+        3
+      ],
+      "sha256": "d42e07c65360fa0a1bb7c5a9f30402f0f4964e4b23f96dbc4548856a1a93dc41"
+    },
+    "embeddings": {
+      "shape": [
+        21,
+        3,
+        256
+      ],
+      "sha256": "30bf9bb10fe042e1688e540e6a6c8eefaa0b0717275e80fce272d3432ef89d0e"
+    }
+  }
+}

@@ -1,0 +1,802 @@
+{
+  "baseline_commit": "2ae656f6",
+  "decision": "no production partial-prepack policy: drift and shape-dependent outcomes",
+  "environment": "Intel N100, 2 vCPUs, GOMAXPROCS=2, GEMMPool workers=2",
+  "protocol": {
+    "separated": "500ms, count3, raw1/prepacked1/prepacked2/raw2",
+    "adjacent": "1s, count1, raw/prepacked per shape/set, repeated twice",
+    "setup": "raw+packed weight sets allocated in both modes; untimed bitwise parity checks for every matrix",
+    "limits": "synthetic rotating sets; not full-model traversal; adjacent pairs always raw first; no full-synthesis test"
+  },
+  "samples": [
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 194,
+      "ns_per_op": 3055600,
+      "bytes_per_op": 28,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 198,
+      "ns_per_op": 3047856,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 192,
+      "ns_per_op": 3109807,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 186,
+      "ns_per_op": 3183594,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 186,
+      "ns_per_op": 3237212,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 180,
+      "ns_per_op": 3250164,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 63,
+      "ns_per_op": 9589364,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 56,
+      "ns_per_op": 9914556,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 64,
+      "ns_per_op": 9867356,
+      "bytes_per_op": 1,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 62,
+      "ns_per_op": 9643908,
+      "bytes_per_op": 1,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 57,
+      "ns_per_op": 9403438,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 64,
+      "ns_per_op": 9420263,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 61,
+      "ns_per_op": 9739163,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 57,
+      "ns_per_op": 10124110,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 54,
+      "ns_per_op": 10683172,
+      "bytes_per_op": 2,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 50,
+      "ns_per_op": 10407751,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 61,
+      "ns_per_op": 9953718,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round1",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 60,
+      "ns_per_op": 9865246,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 148,
+      "ns_per_op": 4088697,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 142,
+      "ns_per_op": 4141669,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 134,
+      "ns_per_op": 4517433,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 146,
+      "ns_per_op": 4134628,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 98,
+      "ns_per_op": 5405336,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 134,
+      "ns_per_op": 4402234,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 48,
+      "ns_per_op": 12432132,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 44,
+      "ns_per_op": 13137714,
+      "bytes_per_op": 5,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 45,
+      "ns_per_op": 12564476,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 52,
+      "ns_per_op": 12285403,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 44,
+      "ns_per_op": 13058550,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 43,
+      "ns_per_op": 12579234,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 44,
+      "ns_per_op": 15903212,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 36,
+      "ns_per_op": 16106279,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 38,
+      "ns_per_op": 14743803,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 38,
+      "ns_per_op": 15040818,
+      "bytes_per_op": 2,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 43,
+      "ns_per_op": 14358168,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "raw-round2",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 43,
+      "ns_per_op": 14544287,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 201,
+      "ns_per_op": 2955146,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 196,
+      "ns_per_op": 2985477,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 195,
+      "ns_per_op": 2998377,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 195,
+      "ns_per_op": 3029064,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 196,
+      "ns_per_op": 3078893,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 195,
+      "ns_per_op": 3175602,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 60,
+      "ns_per_op": 11438929,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 44,
+      "ns_per_op": 12731569,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 45,
+      "ns_per_op": 12840863,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 52,
+      "ns_per_op": 12106502,
+      "bytes_per_op": 2,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 46,
+      "ns_per_op": 13075059,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 46,
+      "ns_per_op": 13630810,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 33,
+      "ns_per_op": 17256927,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 38,
+      "ns_per_op": 18910733,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 34,
+      "ns_per_op": 17334429,
+      "bytes_per_op": 156,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 44,
+      "ns_per_op": 15497491,
+      "bytes_per_op": 2,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 39,
+      "ns_per_op": 15985051,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round1",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 33,
+      "ns_per_op": 15816680,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 193,
+      "ns_per_op": 3041294,
+      "bytes_per_op": 28,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 202,
+      "ns_per_op": 2930791,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 177,
+      "ns_per_op": 3294182,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 198,
+      "ns_per_op": 3037425,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 195,
+      "ns_per_op": 3030822,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 192,
+      "ns_per_op": 3189651,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 66,
+      "ns_per_op": 9220329,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 61,
+      "ns_per_op": 9291173,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 62,
+      "ns_per_op": 9272448,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 63,
+      "ns_per_op": 9093812,
+      "bytes_per_op": 1,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 64,
+      "ns_per_op": 9260473,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 66,
+      "ns_per_op": 9207971,
+      "bytes_per_op": 1,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 60,
+      "ns_per_op": 10345753,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 51,
+      "ns_per_op": 14410486,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 28,
+      "ns_per_op": 19156469,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 37,
+      "ns_per_op": 18232656,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 28,
+      "ns_per_op": 19378824,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "prepacked-round2",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 27,
+      "ns_per_op": 19765245,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 372,
+      "ns_per_op": 3111754,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 405,
+      "ns_per_op": 2955016,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 390,
+      "ns_per_op": 3087773,
+      "bytes_per_op": 13,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 393,
+      "ns_per_op": 3233510,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 126,
+      "ns_per_op": 9497911,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 130,
+      "ns_per_op": 9153462,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 123,
+      "ns_per_op": 9606708,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 127,
+      "ns_per_op": 9382600,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 100,
+      "ns_per_op": 12456067,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 70,
+      "ns_per_op": 16856438,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 97,
+      "ns_per_op": 13890661,
+      "bytes_per_op": 1,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round3",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 68,
+      "ns_per_op": 20674717,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n1024/k1024/set1/raw-2",
+      "iterations": 279,
+      "ns_per_op": 4160955,
+      "bytes_per_op": 19,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n1024/k1024/set1/prepacked-2",
+      "iterations": 294,
+      "ns_per_op": 4081074,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n1024/k1024/set8/raw-2",
+      "iterations": 294,
+      "ns_per_op": 4095306,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n1024/k1024/set8/prepacked-2",
+      "iterations": 290,
+      "ns_per_op": 4234957,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n3072/k1024/set1/raw-2",
+      "iterations": 93,
+      "ns_per_op": 13146184,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n3072/k1024/set1/prepacked-2",
+      "iterations": 92,
+      "ns_per_op": 13055523,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n3072/k1024/set8/raw-2",
+      "iterations": 100,
+      "ns_per_op": 13855378,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m126/n3072/k1024/set8/prepacked-2",
+      "iterations": 87,
+      "ns_per_op": 13334125,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m128/n1024/k3072/set1/raw-2",
+      "iterations": 78,
+      "ns_per_op": 14672880,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m128/n1024/k3072/set1/prepacked-2",
+      "iterations": 72,
+      "ns_per_op": 16477444,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m128/n1024/k3072/set8/raw-2",
+      "iterations": 99,
+      "ns_per_op": 14548983,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    },
+    {
+      "round": "adjacent-round4",
+      "case": "m128/n1024/k3072/set8/prepacked-2",
+      "iterations": 80,
+      "ns_per_op": 16820174,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0
+    }
+  ],
+  "logs": {
+    "raw-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     194\t   3055600 ns/op\t      28 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     198\t   3047856 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     192\t   3109807 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t     186\t   3183594 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t     186\t   3237212 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t     180\t   3250164 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      63\t   9589364 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      56\t   9914556 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      64\t   9867356 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      62\t   9643908 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      57\t   9403438 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      64\t   9420263 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      61\t   9739163 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      57\t  10124110 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      54\t  10683172 ns/op\t       2 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      50\t  10407751 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      61\t   9953718 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      60\t   9865246 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "raw-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     148\t   4088697 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     142\t   4141669 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     134\t   4517433 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t     146\t   4134628 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t      98\t   5405336 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2     \t     134\t   4402234 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      48\t  12432132 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      44\t  13137714 ns/op\t       5 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2     \t      45\t  12564476 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      52\t  12285403 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      44\t  13058550 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2     \t      43\t  12579234 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      44\t  15903212 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      36\t  16106279 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2     \t      38\t  14743803 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      38\t  15040818 ns/op\t       2 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      43\t  14358168 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2     \t      43\t  14544287 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "prepacked-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     201\t   2955146 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     196\t   2985477 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     195\t   2998377 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     195\t   3029064 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     196\t   3078893 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     195\t   3175602 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      60\t  11438929 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      44\t  12731569 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      45\t  12840863 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      52\t  12106502 ns/op\t       2 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      46\t  13075059 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      46\t  13630810 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      33\t  17256927 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      38\t  18910733 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      34\t  17334429 ns/op\t     156 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      44\t  15497491 ns/op\t       2 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      39\t  15985051 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      33\t  15816680 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "prepacked-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     193\t   3041294 ns/op\t      28 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     202\t   2930791 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     177\t   3294182 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     198\t   3037425 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     195\t   3030822 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     192\t   3189651 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      66\t   9220329 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      61\t   9291173 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      62\t   9272448 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      63\t   9093812 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      64\t   9260473 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      66\t   9207971 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      60\t  10345753 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      51\t  14410486 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      28\t  19156469 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      37\t  18232656 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      28\t  19378824 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      27\t  19765245 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "adjacent-round3": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     372\t   3111754 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     405\t   2955016 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2               \t     390\t   3087773 ns/op\t      13 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     393\t   3233510 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2               \t     126\t   9497911 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t     130\t   9153462 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2               \t     123\t   9606708 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t     127\t   9382600 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2               \t     100\t  12456067 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      70\t  16856438 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2               \t      97\t  13890661 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      68\t  20674717 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "adjacent-round4": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/raw-2     \t     279\t   4160955 ns/op\t      19 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set1/prepacked-2         \t     294\t   4081074 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/raw-2               \t     294\t   4095306 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n1024/k1024/set8/prepacked-2         \t     290\t   4234957 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/raw-2               \t      93\t  13146184 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set1/prepacked-2         \t      92\t  13055523 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/raw-2               \t     100\t  13855378 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m126/n3072/k1024/set8/prepacked-2         \t      87\t  13334125 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/raw-2               \t      78\t  14672880 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set1/prepacked-2         \t      72\t  16477444 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/raw-2               \t      99\t  14548983 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMColumnHotset/m128/n1024/k3072/set8/prepacked-2         \t      80\t  16820174 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n"
+  },
+  "validation": {
+    "checks": [
+      "make test-omnivoice vet-omnivoice: pass",
+      "go test ./backends/simd/runtime: pass",
+      "go vet ./backends/simd/runtime: pass",
+      "CGO_ENABLED=0 go test ./backends/simd/runtime: pass",
+      "ARM64 test binary cross-build: pass",
+      "git diff --check: pass"
+    ],
+    "review": "independent timing/parity/lifetimes/evidence review: no blockers",
+    "broad_backend_log": "ok  \tgithub.com/rcarmo/go-pherence/backends/cuda/ptx\t(cached)\n?   \tgithub.com/rcarmo/go-pherence/backends/ggmlcompute\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/ggmlexec\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/ggmlgraph\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/ggmlquant\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/internal/ggmlutil\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/llamagraph\t[no test files]\nok  \tgithub.com/rcarmo/go-pherence/backends/mlx\t(cached)\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog\t[no test files]\nok  \tgithub.com/rcarmo/go-pherence/backends/nvidia/ioctl\t(cached)\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/ideogram\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/q4\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/q5\t[no test files]\n?   \tgithub.com/rcarmo/go-pherence/backends/nvidia/ptx/q8\t[no test files]\nok  \tgithub.com/rcarmo/go-pherence/backends/nvidia/runtime\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/placement\t(cached)\n?   \tgithub.com/rcarmo/go-pherence/backends/simd\t[no test files]\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/fft\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/kernels\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/quant/bf16\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/quant/fp8\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/quant/nvfp4\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/quant/q4\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t(cached)\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool\nbackends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV\nFAIL\tgithub.com/rcarmo/go-pherence/backends/spacemit/aicpu [build failed]\nFAIL\tgithub.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool [build failed]\n?   \tgithub.com/rcarmo/go-pherence/backends/spacemit/aicpu/config\t[no test files]\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim\ncc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch\ncc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d arrowlake arrowlake-s lunarlake pantherlake bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge clearwaterforest knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui yongfeng k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 znver5 btver1 btver2 native\nFAIL\tgithub.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim [build failed]\n?   \tgithub.com/rcarmo/go-pherence/backends/spacemit/board\t[no test files]\n2048x4x2048: single=27.080622ms par=22.800457ms speedup=1.19x\n2048x4x1024: single=13.446792ms par=11.208763ms speedup=1.20x\n4096x4x1024: single=26.705905ms par=22.29233ms speedup=1.20x\n1024x4x4096: single=26.492367ms par=23.255701ms speedup=1.14x\nFFN 5632x4x2048: single=72.830562ms par=58.949479ms speedup=1.24x\nFFN 2048x4x5632: single=74.643222ms par=62.783959ms speedup=1.19x\n--- FAIL: TestGemmINT8Packed (0.00s)\n    gemm_test.go:166: C[0]: hw=13809 ref=4144\n    gemm_test.go:166: C[1]: hw=-6334 ref=-3671\n    gemm_test.go:166: C[2]: hw=3344 ref=1849\n    gemm_test.go:166: C[3]: hw=16348 ref=5845\n    gemm_test.go:166: C[4]: hw=-11999 ref=-3367\n    gemm_test.go:174: 64/64 errors\n--- FAIL: TestGemmINT8PackedLarge (0.00s)\n    gemm_test.go:207: 1024/1024 errors\n--- FAIL: TestGemmINT8PackedParallel (0.01s)\n    gemm_test.go:279: C[0]: par=-1712 ref=48480\n    gemm_test.go:279: C[1]: par=6072 ref=27672\n    gemm_test.go:279: C[2]: par=22656 ref=8464\n    gemm_test.go:287: 16384/16384 errors\nFAIL\nFAIL\tgithub.com/rcarmo/go-pherence/backends/spacemit/ime2\t10.653s\n--- FAIL: TestMatVecQ4K (0.00s)\n    inference_test.go:78: MatVecQ4K 32x64: maxErr=7.3464 avgErr=2.8247\n    inference_test.go:88: Relative error: 110.67%\n    inference_test.go:90: relative error too high: 110.67%\nFAIL\nFAIL\tgithub.com/rcarmo/go-pherence/backends/spacemit/inference\t0.002s\nok  \tgithub.com/rcarmo/go-pherence/backends/spacemit/ort\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/spacemit/rvv\t(cached)\nok  \tgithub.com/rcarmo/go-pherence/backends/spacemit/tcm\t(cached)\n--- FAIL: TestVulkanWrapperStubsRejectInvalidInputs (0.00s)\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/vec_add_f32 (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/vec_add_bf16_odd (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/vec_add_bf16_short (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/rmsnorm (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/rmsnorm_no_scale (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/gemv (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/silu (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/gelu (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/rope (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\n    --- FAIL: TestVulkanWrapperStubsRejectInvalidInputs/attention (0.00s)\n        vulkan_wrapper_test.go:31: err=vulkan not initialized, want substring \"invalid\"\nFAIL\nFAIL\tgithub.com/rcarmo/go-pherence/backends/vulkan\t0.873s\nFAIL\n",
+    "full_build_log": "# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim\ncc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch\ncc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d arrowlake arrowlake-s lunarlake pantherlake bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge clearwaterforest knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui yongfeng k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 znver5 btver1 btver2 native\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool\nbackends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect\ncmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve\ncmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher\ncmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)\n"
+  }
+}

@@ -1,0 +1,292 @@
+package community1
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"io"
+	"math"
+	"os"
+	"testing"
+)
+
+func TestSincNetProbe(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_SINCNET_FILTER_TRACE")
+	if path == "" {
+		t.Skip("diagnostic")
+	}
+	var r map[string][]float32
+	data, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(data, &r); e != nil {
+		t.Fatal(e)
+	}
+	f := loadSincNetFixture(t)
+	diff := func(name string, a, b []float32) {
+		n := 0
+		err := 0.
+		idx := 0
+		for i, v := range a {
+			if v == b[i] {
+				n++
+			}
+			d := math.Abs(float64(v - b[i]))
+			if d > err {
+				err = d
+				idx = i
+			}
+		}
+		t.Logf("%s err%g exact%d/%d idx%d got%g want%g", name, err, n, len(a), idx, a[idx], b[idx])
+	}
+	n, w := make([]float32, 125), make([]float32, 125)
+	for i := range n {
+		n[i] = float32(2*math.Pi) * float32(float32(i-125)/16000)
+		w[i] = float32(.54 - .46*math.Cos(2*math.Pi*float64(i)/250))
+	}
+	diff("n", n, r["n"])
+	diff("window", w, r["window"])
+	for _, kind := range []string{"lo", "hi"} {
+		a := make([]float32, 5000)
+		s, c := make([]float32, 5000), make([]float32, 5000)
+		for band := 0; band < 40; band++ {
+			lo := 50 + float32(math.Abs(float64(f.Weights.LowHz[band])))
+			freq := lo
+			if kind == "hi" {
+				freq = min(lo+50+float32(math.Abs(float64(f.Weights.BandHz[band]))), 8000)
+			}
+			for i := range n {
+				j := 125*band + i
+				a[j] = freq * n[i]
+				s[j] = float32(math.Sin(float64(r[kind][j])))
+				c[j] = float32(math.Cos(float64(r[kind][j])))
+			}
+		}
+		diff(kind, a, r[kind])
+		diff("sin"+kind, s, r["sin"+kind])
+		diff("cos"+kind, c, r["cos"+kind])
+	}
+	for _, exact := range []bool{false, true} {
+		for _, c := range f.Cases {
+			if c.Kind != "wave" {
+				continue
+			}
+			m, e := NewSincNet(context.Background(), c.Stride, f.Weights)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if exact {
+				m.filters = f.Filters
+			}
+			o, _, e := m.ForwardObserved(context.Background(), c.Input, SincNetScalar, func(stage, _, _ int, v []float32) { diff("boundary", v, c.Boundaries[stage+1].Values) })
+			if e != nil {
+				t.Fatal(e)
+			}
+			t.Logf("stride%d exactfilters%v", c.Stride, exact)
+			diff("out", o, c.Output)
+		}
+	}
+}
+
+func TestSincNetProbeConv(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_SINCNET_TRACE")
+	if path == "" {
+		t.Skip("diagnostic")
+	}
+	data, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	z, e := gzip.NewReader(bytes.NewReader(data))
+	if e != nil {
+		t.Fatal(e)
+	}
+	data, e = io.ReadAll(z)
+	z.Close()
+	if e != nil {
+		t.Fatal(e)
+	}
+	var trace struct {
+		Cases []struct {
+			Stride int
+			Kind   string
+			Stages []struct {
+				Input, Convolution []float32
+				InputFrames        int `json:"input_frames"`
+				ConvolutionFrames  int `json:"convolution_frames"`
+			}
+		}
+	}
+	if e = json.Unmarshal(data, &trace); e != nil {
+		t.Fatal(e)
+	}
+	f := loadSincNetFixture(t)
+	for _, c := range trace.Cases {
+		if c.Kind != "wave" {
+			continue
+		}
+		for stage, b := range c.Stages {
+			in, out, k, stride := 1, 80, 251, c.Stride
+			w := f.Filters
+			var bias []float32
+			if stage > 0 {
+				in = 80
+				if stage == 2 {
+					in = 60
+				}
+				out, k, stride = 60, 5, 1
+				w = f.Weights.Conv[stage-1].Weight
+				bias = f.Weights.Conv[stage-1].Bias
+			}
+			for _, kind := range []string{"fma", "tail3", "tail7", "biasfirst", "split4", "double"} {
+				badch := make([]int, out)
+				badframe := make([]int, b.ConvolutionFrames)
+				maxerr := 0.
+				exact := 0
+				for ch := 0; ch < out; ch++ {
+					for frame := 0; frame < b.ConvolutionFrames; frame++ {
+						var sum, tail float32
+						var dbl float64
+						var sums [4]float32
+						if kind == "biasfirst" && bias != nil {
+							sum = bias[ch]
+						}
+						for i := 0; i < in*k; i++ {
+							x, y := b.Input[(i/k)*b.InputFrames+frame*stride+i%k], w[ch*in*k+i]
+							if kind == "double" {
+								dbl += float64(x) * float64(y)
+							} else if (kind == "tail3" && i >= in*k-in*k%4) || (kind == "tail7" && i >= in*k-in*k%8) {
+								tail = sincNetFMA32(x, y, tail)
+							} else if kind == "split4" {
+								j := i % 4
+								sums[j] = sincNetFMA32(x, y, sums[j])
+							} else {
+								sum = sincNetFMA32(x, y, sum)
+							}
+						}
+						if kind == "double" {
+							sum = float32(dbl)
+						} else if kind == "split4" {
+							sum = (sums[0] + sums[1]) + (sums[2] + sums[3])
+						} else {
+							sum += tail
+						}
+						if bias != nil && kind != "biasfirst" {
+							sum += bias[ch]
+						}
+						v := b.Convolution[ch*b.ConvolutionFrames+frame]
+						if v == sum {
+							exact++
+						} else {
+							badch[ch]++
+							badframe[frame]++
+						}
+						maxerr = math.Max(maxerr, math.Abs(float64(v-sum)))
+					}
+				}
+				t.Logf("stride%d stage%d %s max%g exact%d/%d", c.Stride, stage, kind, maxerr, exact, len(b.Convolution))
+				if kind == "fma" && stage == 0 {
+					t.Logf("badch %v badframe %v", badch, badframe)
+				}
+			}
+		}
+	}
+}
+
+func TestSincNetProbeEndToEnd(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_SINCNET_FILTER_TRACE")
+	if path == "" {
+		t.Skip("diagnostic")
+	}
+	data, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var r map[string][]float32
+	if e = json.Unmarshal(data, &r); e != nil {
+		t.Fatal(e)
+	}
+	f := loadSincNetFixture(t)
+	ctx := context.Background()
+	for _, filter := range []string{"current", "oracle"} {
+		for _, kind := range []string{"fma", "double", "split4", "torchbody"} {
+			for _, c := range f.Cases {
+				if c.Kind != "wave" {
+					continue
+				}
+				m, e := NewSincNet(ctx, c.Stride, f.Weights)
+				if e != nil {
+					t.Fatal(e)
+				}
+				if filter == "oracle" {
+					m.filters = f.Filters
+				}
+				x := append([]float32(nil), c.Input...)
+				n, in := len(x), 1
+				sincNetNorm(ctx, x, in, n, m.weights.WaveNorm)
+				for stage := 0; stage < 3; stage++ {
+					w := m.filters
+					var bias []float32
+					out, k, stride := 80, 251, c.Stride
+					if stage > 0 {
+						w = m.weights.Conv[stage-1].Weight
+						bias = m.weights.Conv[stage-1].Bias
+						out, k, stride = 60, 5, 1
+					}
+					frames := 1 + (n-k)/stride
+					conv := make([]float32, out*frames)
+					for ch := 0; ch < out; ch++ {
+						for frame := 0; frame < frames; frame++ {
+							var sum float32
+							var dbl float64
+							var sums [4]float32
+							for i := 0; i < in*k; i++ {
+								a, b := x[(i/k)*n+frame*stride+i%k], w[ch*in*k+i]
+								if kind == "double" {
+									dbl += float64(a) * float64(b)
+								} else if kind == "split4" || (kind == "torchbody" && stage == 0 && frame >= frames/24*24 && frame < frames/2*2) {
+									j := i % 4
+									sums[j] = sincNetFMA32(a, b, sums[j])
+								} else {
+									sum = sincNetFMA32(a, b, sum)
+								}
+							}
+							if kind == "double" {
+								sum = float32(dbl)
+							} else if kind == "split4" || (kind == "torchbody" && stage == 0 && frame >= frames/24*24 && frame < frames/2*2) {
+								sum = (sums[0] + sums[1]) + (sums[2] + sums[3])
+							}
+							if bias != nil {
+								sum += bias[ch]
+							}
+							if stage == 0 {
+								sum = float32(math.Abs(float64(sum)))
+							}
+							conv[ch*frames+frame] = sum
+						}
+					}
+					x, n, e = sincNetPool(ctx, conv, out, frames)
+					if e != nil {
+						t.Fatal(e)
+					}
+					sincNetNorm(ctx, x, out, n, m.weights.Norm[stage])
+					for i, v := range x {
+						if v < 0 {
+							x[i] = v * .01
+						}
+					}
+					in = out
+				}
+				maxerr := 0.
+				for frame := 0; frame < n; frame++ {
+					for ch := 0; ch < 60; ch++ {
+						maxerr = math.Max(maxerr, math.Abs(float64(x[ch*n+frame]-c.Output[frame*60+ch])))
+					}
+				}
+				t.Logf("filter%s kind%s stride%d err%g", filter, kind, c.Stride, maxerr)
+			}
+		}
+	}
+}

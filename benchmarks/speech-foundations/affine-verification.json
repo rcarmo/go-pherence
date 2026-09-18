@@ -1,0 +1,3232 @@
+{
+  "schema": 1,
+  "baseline_commit": "0ec868b",
+  "scope": "first new speech Plan9 AVX2/FMA affine kernel; scalar fallback and isolated SincNet integration",
+  "toolchain": "go1.26.2 linux/amd64",
+  "counts": {
+    "simd/fft": {
+      "pass": 18,
+      "fail": 0,
+      "skip": 0
+    },
+    "simd/kernels": {
+      "pass": 21,
+      "fail": 0,
+      "skip": 0
+    },
+    "quant/bf16": {
+      "pass": 2,
+      "fail": 0,
+      "skip": 0
+    },
+    "quant/fp8": {
+      "pass": 16,
+      "fail": 0,
+      "skip": 0
+    },
+    "quant/nvfp4": {
+      "pass": 50,
+      "fail": 0,
+      "skip": 0
+    },
+    "quant/q4": {
+      "pass": 44,
+      "fail": 0,
+      "skip": 0
+    },
+    "simd/runtime": {
+      "pass": 113,
+      "fail": 0,
+      "skip": 0
+    },
+    "speaker/community1": {
+      "pass": 335,
+      "fail": 0,
+      "skip": 2
+    }
+  },
+  "tests": [
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestConv1dK3S1InnerASM",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestConv1dK3S1InnerSum",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestConv1DK3S1Identity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestConv1DK3S2Downsample",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealASM",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealASMMatchesOpt",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealSIMDCosine",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestPowerSpectrumSIMD",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealDC",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealCosine",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestPowerSpectrum",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestForwardRealNonPow2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestMelSpectrogramFusedUsesLog10",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestMelSpectrogramFused",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestMeanStdReduce",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestMeanStdReduceLarge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestSinusoidalPosEmbed",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/fft",
+      "test": "TestAddPosEmbed",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestSiLUAndSiLUMulGolden",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestGELUExactAndMulGolden",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestGELUTanhAndMulGolden",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestActivationKernelsBoundMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestSoftmaxLastAxisRows",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestLayerNormLastAxisWithAffine",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestGELUApproximationShapeAndBounds",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestKernelShapeValidationPanics",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEPartialRotatesOnlyRequestedPairs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEClampsHeadsAndRotHalf",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEMatchesReferenceForOddAndTailDims/odd_head_dim_leaves_center_tail_untouched",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEMatchesReferenceForOddAndTailDims/partial_rotation_leaves_per-head_suffix_untouched",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEMatchesReferenceForOddAndTailDims/full_rope_wrapper_matches_partial_reference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEMatchesReferenceForOddAndTailDims",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEShortFreqsLeaveRemainingPairsUntouched",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops/negative_pos",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops/nil_freqs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops/zero_heads",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops/zero_headDim",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops/zero_rot",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/kernels",
+      "test": "TestApplyRoPEInvalidInputsAreNoops",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/bf16",
+      "test": "TestCheckedEntrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/bf16",
+      "test": "TestCheckedEntrypointsRejectMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestDecodeE4M3ArithmeticMatchesLUT",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvToMatchesRepeatedGemv1536x2048/batch_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvToMatchesRepeatedGemv1536x2048/batch_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvToMatchesRepeatedGemv1536x2048",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvDynamicTokenMatchesRepeatedGemv1536x2048/batch_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvDynamicTokenMatchesRepeatedGemv1536x2048/batch_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvDynamicTokenMatchesRepeatedGemv1536x2048",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvToBufAllocs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestBatchGemvToBufDynamicTokenAllocs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestDecodeE4M3MatchesReferenceValues",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestQuantizeTokenE4M3DequantTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestQuantizeTokenE4M3DequantToUsesPerTokenScale",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestLinearGemvToDynamicToken",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestLinearGemvToDynamicTokenRejectsShortBuffers",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestLinearBatchGemvRejectsShortBuffers",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/fp8",
+      "test": "TestLinearValidateRejectsOverflowShape",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestRuntimeCapabilities",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeFP4E2M1Codebook",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/positive_zero",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/negative_zero",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/min_positive_subnormal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/negative_subnormal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/largest_subnormal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/min_normal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/one",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/one_point_five",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/two",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/large_normal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/largest_finite",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3/negative_normal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDecodeF8E4M3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestUnpackNVFP4RejectsOutOfRangeCountWithoutOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestUnpackNVFP4LowNibbleFirst",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDequantNVFP4Synthetic",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemvNVFP4MatchesDequantizedReference/groupSize",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemvNVFP4MatchesDequantizedReference/groupSize#01",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemvNVFP4MatchesDequantizedReference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestDequantNVFP4ParallelMatchesReference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemv",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails/batch_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4MatchesRepeatedGemvAcrossBatchTails",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4ParallelMatchesRepeatedGemv",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemmNVFP4RejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestGemvNVFP4ToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestNVFP4TinySyntheticLogitsMatchF32Reference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts/qwen3_dense_q_proj",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts/qwen3_dense_down_proj",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts/qwen3_moe_expert_down_proj",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts/gemma4_dense_down_proj",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts/gemma4_moe_expert_scale",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightObservedLayouts",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/nil",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/odd_input",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/bad_groups",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/short_weight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/short_scale",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/weight_overflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout/scale_overflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4",
+      "test": "TestValidateNVFP4WeightRejectsBadLayout",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestRuntimeCapabilities",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemv",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails/batch1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails/batch2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails/batch3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails/batch5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails/batch7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMatchesRepeatedGemvBatchTails",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMalformedBatchInputsDoNotMutateOutput/short_out",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMalformedBatchInputsDoNotMutateOutput/short_x",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMalformedBatchInputsDoNotMutateOutput/short_qweight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMalformedBatchInputsDoNotMutateOutput/short_scales",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmSymMalformedBatchInputsDoNotMutateOutput",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmAsymMatchesRepeatedGemv",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemmRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestDequantAsymParallelMatchesSerialReference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemvAsymMatchesDequantReference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemvToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvAsymRejectsMissingQZeros",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvSym/short_out",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvSym/short_x",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvSym/short_qweight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvSym/bad_group",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateGemvSym",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemvSymMalformedDoesNotPanic",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestDequantAsymmetricKnownValues",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemvSymMatchesDequantSymReference",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestGemvSymKnownValues",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateAcceptsValidInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/bad_in",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/bad_out",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/short_qweight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/short_gidx",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/negative_group",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/short_scales",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/short_qzeros",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/output_overflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/gemv_q4_negative_dims",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs/gemv_q4_output_overflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestValidateRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestFloat16ToFloat32HandlesSubnormalAndSpecials",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestDequantKnownValues",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestDequantRejectsMalformedInputsWithoutPanic",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/quant/q4",
+      "test": "TestDequantRejectsOutputOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedActivationEntrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAffineF32RejectsNondefaultMXCSR",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAffineF32GuardPages",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAffineF32ExactTailsAndCanaries",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAffineF32RandomAndSignedZero",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAffineF32ValidationAndAllocation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionHeadsParallelMatchesSerial/small_serial_fallback",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionHeadsParallelMatchesSerial/large_parallel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionHeadsParallelMatchesSerial/mha_parallel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionHeadsParallelMatchesSerial",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionScaleToMatchesAllocated",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionChecked",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionScaleChecked",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGQAAttentionScaleToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedBF16Entrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedBF16EntrypointsRejectMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16Convert",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16Dot",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16DotF32",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16RMSNorm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16VecAdd",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16DotAsm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16VecAddAsm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16WidenNarrow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16AsmFacadesHandleEmptyAndMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16HelpersMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16GemvNTRejectsOverflowingDims",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16DotF32x4MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16DotBF16x4MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBF16Dotx4RejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemvRowsBF16TailMatchesDirectDots",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemvRowsBF16BF16TailParity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemmRowsBF16ParallelTailParity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAddBiasRowsTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestAddBiasRowsToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestRuntimeCapabilities",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSdotLengthMismatch",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDdotAgainstScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDdotCommonPrefix",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDenseDispatchParity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotRowsx4MatchesSdot",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotRowsx4RejectsBadInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedFloat32ByteOffsetRejectsOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGEBPValidationRejectsMalformedArgs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestMakeGebpBufReturnsIndependentScratch",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNTGebpConcurrentScratch",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNTBlockedValidationRejectsMalformedArgs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNTGatherValidationRejectsMalformedArgs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemmRowsParallelMatchesSerial",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemmRowsBF16ParallelMatchesSerial",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNNParallelMatchesSerial",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemmParallelMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemvRows",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemmRowsAndCols",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDenseGemvGemmRejectsBadDimensionsAndOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestGemvCols",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSIMDKernelImportBoundary",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestUnsafeSGEMMCallBoundary",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/9",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/15",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/16",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/17",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/31",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/32",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/33",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/1023",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/1024",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar/4096",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2AgainstScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormAffineAVX2ConstantAndTail",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormLastAxisTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormLastAxisToAllowsInputOutputAliasing",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestLayerNormLastAxisToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32LowAndSumMatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32HighAndSumMatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32LowAndSumx4MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32HighAndSumx4MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32AndSumFallbackHandlesNonMultipleOfEight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotU4F32AndSumRejectsBadInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotI8F32MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotI8F32x4MatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotI8F32x4RejectsBadInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotI8F32FallbackHandlesNonMultipleOfEight",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestDotI8F32RejectsBadInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBuildRoPEFreqsRejectsOverflowAndBadDims",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestBuildRoPEFreqsNegativeThetaFallsBack",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestApplyRoPECheckedRuntimeWrappers",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestApplyRoPEPartialRuntimeWrapper",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSdotx4MatchesSdot",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSdotx4RejectsInvalidShape",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNTBlockedFMAFourColumnAndTails",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNTTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNNTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmNNToTwoRowTileAndTails",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSgemmToRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSoftmaxInPlace",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSoftmaxInPlaceRejectsNaNInfSum",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSoftmaxLastAxisTo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSoftmaxRowsInPlace",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSoftmaxInPlaceStableLargeValues",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedVectorEntrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestCheckedRMSNormEntrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestVectorEntrypointsHandleEmptyInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestVecAdd",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestVecMul",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestVecScale",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestSnrm2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestRMSNorm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestToBF16",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestActivationEntrypoints",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestVecFallbacksBoundMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/backends/simd/runtime",
+      "test": "TestFloat32SqrtMatchesMath",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/boundary_below",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/boundary_equal",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/boundary_above",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_2_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_2_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_3_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_3_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_4_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_4_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_8_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_8_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_17_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/duplicates_17_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/axis_ties_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/axis_ties_1.3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/axis_ties_1.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/axis_ties_1.8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/opposite_ties_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/opposite_ties_1.3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/opposite_ties_1.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/opposite_ties_1.8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/equilateral_inversion_0.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/equilateral_inversion_1.3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/equilateral_inversion_1.6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/equilateral_inversion_1.8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_9",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_10",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_11",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_12",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_13",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_14",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/seeded_15",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle/pipeline_bridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCInversionCutAndTieOrder",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestAHCPreparedClusteringBridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCHeapInvariants",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAHCCancellationAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_9",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_10",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/centroid_11",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle/plda_vbx_bridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxCentroidsPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/1x5_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x2_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x2_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/2x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/3x5_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/5x3_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x8_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x64_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_constant",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_integer_ties",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_random",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle/8x1_partial_nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestConstrainedAssignmentPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_0_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_0_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_1_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_1_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_2_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_2_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_3_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_3_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_4_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_4_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_5_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_5_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_6_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_6_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_7_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_7_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_8_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_8_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_9_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/cosine_9_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle/plda_vbx_centroid_assignment_bridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCosineAssignmentPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPLDAVBxCentroidAssignmentBridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAssignmentValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestCentroidAssignmentCancellationConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case0-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case0-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case1-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case1-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case2-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case2-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case3-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle/case3-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadLSTMPowersetComposition",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadOwnershipConcurrencyAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadRejectsMalformedGeometryAndData",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadStableLogSoftmaxExtremesAndActivation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestHeadCancellationAtEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerLoadSchemaAndOwnedGraphParity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerLoadMetadataRejectionBeforePayload",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerLoadPayloadFailureCancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerLoadSafetensorsDTypeAndSourceClose",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadSourceSchemaAndFeatures/0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadSourceSchemaAndFeatures/1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadSourceSchemaAndFeatures/2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadSourceSchemaAndFeatures",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadMetadataBeforePayload",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadPayloadRejection",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadSafetensorsDTypesAndClose",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSegmentationLoadCancellationConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestLSTMPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestLSTMStateResetOwnershipAndConcurrentCalls",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestLSTMRejectsMalformedInputs",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestLSTMOverflowCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestLSTMRepresentativeShapeScalarSIMDParity",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/strict_equal_fallback_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/strict_above_clean_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/overlap_only_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/empty_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/empty_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/partial_unknown_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/above_window_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/ceil_fraction_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_0_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_1_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_2_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_3_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_4_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_5_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_6_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_False",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle/seeded_7_True",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/finite_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/finite_0.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/finite_0.4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/finite_1.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/finite_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_1.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_embedding_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_1.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/nan_segmentation_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_1.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/overlap_only_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/empty_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/empty_0.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/empty_0.4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/empty_1.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle/empty_0.20000000000000004",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestClusteringFilterPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMaskRejectionAndBounds",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmbeddingMasksCancellationAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestEmptyMaskBiasExcludedFromClustering",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestRawPLDAPinnedBasisInvariantOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestRawPLDANPZNumericLifetime",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestRawPLDAValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestRawPLDACancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPreparedPLDAPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/two_groups",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/single_speaker",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/gapped_labels",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/hard_init",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/uniform_init",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/one_iteration",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/zero_phi",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/separated_large",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/forced_stop",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations/prepared_bridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxPinnedIterations",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPreparedPLDAToVBxBridge",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPreparedPLDAValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestVBxValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPLDAVBxCancellationAndOwnership",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestStatsPoolPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestStatsPoolAnalyticMaskAndVarianceSemantics",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestStatsPoolBoundsInvalidMasksAndOverflow",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestStatsPoolCancellationAndOwnedResults",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestStatsPoolTorchNearestIndexRounding",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPowersetClassOrderTiesAndImpossibleClasses",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPowersetRejectsMalformedInput",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestPowersetCancellationBoundsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_4",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_6",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_8",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_9",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_10",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_11",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_12",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_13",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_14",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_15",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_16",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle/case_17",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructPowersetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_0_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_0_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_0_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_1_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_1_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_1_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_2_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_2_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_2_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_3_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_3_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_3_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_4_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_4_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_4_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_5_0.0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_5_0.125",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle/turn_5_0.126",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestBinaryTurnsPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructionRoundAndTurnEdges",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructionValidation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructionOutputBounds",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestReconstructionCancellationConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerBlockPinnedTorchOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerBlockPaddingIdentityAndBatchNorm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerBlockRejectsMalformed",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerBlockOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerBlockCancellationAndAllocationBound",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerResNetFullDepthOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerResNetMaskReuseOwnershipAndConcurrency",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerResNetRejectsGeometryAndWeights",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestWeSpeakerResNetCancellationAndSharedAllocation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetReductionDiagnostic",
+      "status": "skip"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetFMA32ExactRounding",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetNormalizationPinnedTorch",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/impulse-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/silence-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/constant-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/broadband-stride10-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle/broadband-stride1-mode1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetPinnedOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetGridBoundsAndNormalization",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetRejectsMalformedAndDegenerate",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetOwnershipAndStageCancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/speaker/community1",
+      "test": "TestSincNetStrictNarrowBandOracle",
+      "status": "skip"
+    }
+  ],
+  "contract": {
+    "kernel": "in-place finitechecked fusedF32 scale/shift; overflow permitted, no allocation",
+    "ISA": "runtime cpu.X86 AVX2+FMA OS-aware; no global mutable toggle",
+    "MXCSR": "reject RC/FTZ/DAZ beforewrite; normalGo exceptionmasks assumed",
+    "tails": "unaligned8lane+scalarFMA; canaries8offset lengths0..67;guardpages1..65bothends",
+    "random_exact_triples": 19240,
+    "normalization_bitexact_values_per_mode": 61271,
+    "normalization_cases": 28,
+    "cancellation_checkpoints_per_mode": 322,
+    "scalar_fallback": "GODEBUG cpu.avx2=off,cpu.fma=off + exactmathbigFloat",
+    "SincNet": "explicitSIMD uses <=4096blocks; scalar statistics/filter/conv unchanged;strict4FAILunchanged"
+  },
+  "benchmarks": {
+    "cpu": "Intel Core i5-1340P",
+    "GOMAXPROCS": 2,
+    "benchtime": "30ms",
+    "order": [
+      "scalar",
+      "SIMD",
+      "SIMD",
+      "scalar",
+      "SIMD",
+      "scalar",
+      "scalar",
+      "SIMD"
+    ],
+    "repeats_per_arm": 4,
+    "copy_included": true,
+    "allocations_per_op": 0,
+    "results": {
+      "affine": {
+        "43": {
+          "scalar_ns": [
+            155.4,
+            179.2,
+            155.7,
+            155.7
+          ],
+          "simd_ns": [
+            44.69,
+            35.42,
+            38.25,
+            38.1
+          ],
+          "scalar_median_ns": 155.7,
+          "simd_median_ns": 38.175,
+          "median_speedup": 4.078585461689587
+        },
+        "129": {
+          "scalar_ns": [
+            445.8,
+            423.4,
+            424.4,
+            422.6
+          ],
+          "simd_ns": [
+            80.62,
+            79.87,
+            79.81,
+            80.22
+          ],
+          "scalar_median_ns": 423.9,
+          "simd_median_ns": 80.045,
+          "median_speedup": 5.295771128740084
+        },
+        "4096": {
+          "scalar_ns": [
+            12756,
+            12671,
+            12716,
+            15029
+          ],
+          "simd_ns": [
+            1914,
+            1915,
+            1917,
+            1907
+          ],
+          "scalar_median_ns": 12736,
+          "simd_median_ns": 1914.5,
+          "median_speedup": 6.652389657874118
+        },
+        "160000": {
+          "scalar_ns": [
+            507411,
+            518408,
+            517401,
+            519591
+          ],
+          "simd_ns": [
+            91934,
+            93866,
+            94331,
+            92451
+          ],
+          "scalar_median_ns": 517904.5,
+          "simd_median_ns": 93158.5,
+          "median_speedup": 5.5593907158230325
+        }
+      },
+      "normalization": {
+        "80x43": {
+          "scalar_ns": [
+            31327,
+            21991,
+            21990,
+            32490
+          ],
+          "simd_ns": [
+            14067,
+            13292,
+            13425,
+            13266
+          ],
+          "scalar_median_ns": 26659,
+          "simd_median_ns": 13358.5,
+          "median_speedup": 1.995658195156642
+        },
+        "1x4096": {
+          "scalar_ns": [
+            21657,
+            21659,
+            28971,
+            21651
+          ],
+          "simd_ns": [
+            12592,
+            12586,
+            13448,
+            12583
+          ],
+          "scalar_median_ns": 21658,
+          "simd_median_ns": 12589,
+          "median_speedup": 1.7203908173802527
+        },
+        "1x160000": {
+          "scalar_ns": [
+            860729,
+            868434,
+            859634,
+            859581
+          ],
+          "simd_ns": [
+            537406,
+            505444,
+            506045,
+            505932
+          ],
+          "scalar_median_ns": 860181.5,
+          "simd_median_ns": 505988.5,
+          "median_speedup": 1.7000020751459766
+        }
+      }
+    },
+    "limits": "short warm CPU component tests;no endtoend/job/thermal/power/energy claim;small80x43noisy"
+  },
+  "checks": {
+    "make": "speech-affine-check speech-foundations-check speech-media-integration passed",
+    "simd_suite": "all backends/simd/... tests passed",
+    "backends": "compile-only noGPUexecution; spacemit errors match untouched0ec868b",
+    "vet": "speech vet passes; runtime existing3q8dotABIwarnings match untouched0ec868b",
+    "build": "affected passed; fulltree exact existingbaselineerrors",
+    "arm64": "runtime/model+test cross-build pass notexecuted",
+    "disassembly": "Capstone5.0.7 inspected actual bytes; vector/scalarFMA,VZEROUPPER,noCALL/vector spills;GoobjdumpmisdecodesVEX",
+    "review": "narrow delegate kernel/ABI/ISA review nofinding"
+  },
+  "corrections": [
+    "test MXCSR shim return offset36 corrected40; vetverified",
+    "runtime existingq8dot ABI warnings preserved not hidden",
+    "pip unavailable:temporary hashedCapstonewheel unpacked for disassembly, no runtime dependency"
+  ],
+  "limitations": [
+    "wholeSincNet still4FAIL max.00762036 vs2e-4; noPCM integration",
+    "no complete SIMD kernel inventory,Vulkan,trainedquality or throughput milestone",
+    "race unavailable;arm64notexecuted",
+    "backend-wide runtimeGPU tests intentionally not run"
+  ]
+}

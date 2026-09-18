@@ -1,0 +1,629 @@
+{
+  "schema": 1,
+  "baseline_commit": "3f5a91b",
+  "scope": "cooperative cancellation between Whisper frontend frames, encoder operators and cross-KV setup",
+  "toolchain": "go1.26.2 linux/amd64",
+  "execution": {
+    "GOMAXPROCS": 2,
+    "parallelism": 1,
+    "CGO_ENABLED": 0,
+    "inputs": "synthetic PCM/tensors plus pinned public tokenizer/config metadata",
+    "real_checkpoints": false,
+    "gpu": false,
+    "private_media": false,
+    "service_changes": false
+  },
+  "counts": {
+    "pass_events": 115,
+    "fail_events": 0,
+    "skip_events": 0
+  },
+  "tests": [
+    {
+      "package": "github.com/rcarmo/go-pherence/loader/audio",
+      "test": "TestWhisperLogMelContextParityAndCancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigJSONBoundsDuplicatesAndNulls",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/unsupported_encoder_scaletrue",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/d_model1152921504606846976",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/max_source_positions1152921504606846976",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/max_source_positions0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/max_target_positions449",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/encoder_attention_heads0",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/decoder_attention_heads7",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/vocab_size51864",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins64",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/activation_functionrelu",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/scale_embeddingtrue",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/is_encoder_decoderfalse",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/model_typebart",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/architectures[WhisperModel]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/decoder_start_token_id50259",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/tie_word_embeddingsfalse",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/layer_norm_eps1e-06",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins<nil>",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections/num_mel_bins80.5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigModelMappingAndRejections",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationImportAndPrecedence",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/do_sampletrue",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/num_beams2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/temperature0.5",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/top_p0.9",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/repetition_penalty1.2",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/no_repeat_ngram_size3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/unknown_controltrue",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/is_multilingualfalse",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/max_length449",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/max_length3",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/max_initial_timestamp_index1501",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/max_initial_timestamp_index-1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/no_timestamps_token_id50364",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/pad_token_id-1",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[-1]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[50257]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[50364]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/begin_suppress_tokens[50364]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/suppress_tokens[<nil>]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/lang_to_idmap[<|en|>:50259]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/task_to_idmap[transcribe:50360_translate:50359]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[1_42]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[2_<nil>]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[1_50259]_[1_50267]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[4_42]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/forced_decoder_ids[[3_50364]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/alignment_heads[[4_0]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/alignment_heads[[<nil>_0]]",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/return_timestamps<nil>",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/languagebad",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections/tasksummarize",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigGenerationRejections",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigConfiguredLoaderBeforeTensorReads",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigPCMPolicyDoesNotMutateDecoder",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedConfigSuppressionReachesTokenSelection",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestSpeechContextEncoderLegacyParityAndObservers",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestSpeechContextEncoderEveryCheckpoint",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestSpeechContextDecoderStateParityAndCancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestSpeechContextPrecancelBeforeTouchingModels",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestSpeechContextPCMEveryCheckpointNoFailedWindowEmission",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampVocabulary",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass/initial_timestamp",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass/closing",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass/new_start",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass/text",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampMaskPairingAndMass",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampDecodePromptParsingAndLimit",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampDecodeFailures",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestLayerNormIntoMatchesLayerNorm",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperFullAttentionPackedQueryBatchedMatchesCurrentExact/single_worker",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperFullAttentionPackedQueryBatchedMatchesCurrentExact/multi_worker_medium",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperFullAttentionPackedQueryBatchedMatchesCurrentExact",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadAllTensorsAndOwnership",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/missing",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/transposed",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/integer",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/unknown",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/key_bias",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/short_extent",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/negative",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overlap",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads/overflow_shape",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsMetadataBeforeReads",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/short",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/shape",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/nan",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/inf",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/source_error",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation/cancel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadRejectsChangedDataAndCancellation",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadProjectionMustBeTied",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F32",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/F16",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose/BF16",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedLoadSafetensorsDTypesSurviveClose",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/read",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/infer",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/emit",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures/cancel",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribePlanAllWindowsAndFailures",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribeTimestampMapping",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribeActualToyPipeline",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestPCMTranscribeValidationAndGate",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperConv1DFastMatchesScalarOracle/stride",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperConv1DFastMatchesScalarOracle/stride#01",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperConv1DFastMatchesScalarOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperLayerNormUsesSIMDOracleMatchesScalar",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestWhisperFullAttentionMatchesScalarOracle",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-tiny",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampPinnedTokenizers/whisper-large-v3-turbo",
+      "status": "pass"
+    },
+    {
+      "package": "github.com/rcarmo/go-pherence/models/whisper",
+      "test": "TestCheckedTimestampPinnedTokenizers",
+      "status": "pass"
+    }
+  ],
+  "cancellation_checkpoints": {
+    "encoder": 46,
+    "cross_KV": 13,
+    "whole_PCM": 100,
+    "method": "deterministic context cancellation at each checkpoint, no sleeps; tiny two-layer model"
+  },
+  "prechange_oracle": {
+    "passed": true,
+    "baseline": "3f5a91b",
+    "method": "git show baseline functions into temporary test-only names: WhisperLogMel, ForwardObserved, forwardLayer, NewDecoderState; original production functions unmodified by extraction",
+    "features": "80/128 bands; 160/401/1600 samples; bit-exact",
+    "encoder": "bit-exact outputs and all observer boundaries",
+    "decoder": "reflect.DeepEqual complete initial state and bit-exact first decoder token logits",
+    "temporary_test_files_removed": true,
+    "log": "context-prechange-check.txt"
+  },
+  "checks": {
+    "make": "speech-foundations-check speech-media-integration passed",
+    "vet": "audio/media/Whisper passed",
+    "build": "audio packages and commands passed",
+    "full_tree": "exact recorded baseline failures",
+    "review": "narrow delegated diff review returned no blocking finding"
+  },
+  "limits": [
+    "running GEMM/attention/fused operator/allocation/reorder and lookup-table init not interruptible",
+    "no hard latency/resource bound qualified",
+    "per-token decoder internal cancellation/device-loss/GPU lifetime unqualified",
+    "legacy non-context signatures and numerical order preserved; runtime overhead not benchmarked",
+    "real-model quality/overlap reconciliation/source PTS still pending",
+    "no new Plan9 SIMD kernels/resident Vulkan/Community-1 work in this checkpoint"
+  ]
+}

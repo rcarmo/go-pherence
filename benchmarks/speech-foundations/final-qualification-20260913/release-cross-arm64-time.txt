@@ -1,0 +1,23 @@
+	Command being timed: "env GOOS=linux GOARCH=arm64 CGO_ENABLED=0 /var/home/agent/workspace/projects/go-pherence/../../tools/go-toolchain/go/bin/go test -c -o benchmarks/speech-foundations/final-qualification-20260913/community1-arm64.test ./models/speaker/community1"
+	User time (seconds): 18.49
+	System time (seconds): 2.87
+	Percent of CPU this job got: 260%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:08.19
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 289160
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 4
+	Minor (reclaiming a frame) page faults: 1395404
+	Voluntary context switches: 44682
+	Involuntary context switches: 980
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 334448
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-14",
+  "baseline_commit": "21fcb4bb",
+  "configuration": {
+    "frames": 75,
+    "books": 8,
+    "code_formula": "((book*75+t)*13)%1024",
+    "threads": 2,
+    "warmup": 1
+  },
+  "python": {
+    "torch": "2.11.0+cpu",
+    "threads": 2,
+    "interop_threads": 1,
+    "frames": 75,
+    "books": 8,
+    "code_formula": "((book*75+t)*13)%1024",
+    "load_seconds_excluded": 0.9420313229929889,
+    "decode_seconds": [
+      0.8942856420035241,
+      0.9522523019986693,
+      0.9041805779997958
+    ],
+    "samples": 72000,
+    "finite": true,
+    "timing": "one untimed warmup, three decode-only calls; no IO/postprocessing"
+  },
+  "logs": {
+    "go_baseline": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2673730954 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2682033198 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2705833922 ns/op\t       0 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/models/omnivoice\t16.733s\n",
+    "go_copy": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2229453925 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2176113330 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2167518319 ns/op\t       0 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/models/omnivoice\t13.613s\n",
+    "go_baseline_repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2690523136 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2683510009 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2694030710 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\nok  \tgithub.com/rcarmo/go-pherence/models/omnivoice\t16.666s\n",
+    "go_copy_repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2191536868 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2179979391 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t2169746397 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\nok  \tgithub.com/rcarmo/go-pherence/models/omnivoice\t13.611s\n"
+  },
+  "float32_wave_sha256": "f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a"
+}

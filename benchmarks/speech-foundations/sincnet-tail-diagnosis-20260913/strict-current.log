@@ -1,0 +1,85 @@
+=== RUN   TestSincNetLoweredStrictBoundaries
+=== RUN   TestSincNetLoweredStrictBoundaries/wave-stride10-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0.00038086623 at1717 got0.085615553 want0.0852346867 tolerance0.0002
+=== RUN   TestSincNetLoweredStrictBoundaries/wave-stride10-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0.00038086623 at1717 got0.085615553 want0.0852346867 tolerance0.0002
+=== RUN   TestSincNetLoweredStrictBoundaries/impulse-stride10-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.3283064365386963e-10
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 5.7220458984375e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.2172927856445312e-05
+=== RUN   TestSincNetLoweredStrictBoundaries/impulse-stride10-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.3283064365386963e-10
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 5.7220458984375e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.2172927856445312e-05
+=== RUN   TestSincNetLoweredStrictBoundaries/silence-stride10-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.2654573917388916e-07
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.0675361156463623e-07
+=== RUN   TestSincNetLoweredStrictBoundaries/silence-stride10-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.2654573917388916e-07
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.0675361156463623e-07
+=== RUN   TestSincNetLoweredStrictBoundaries/constant-stride10-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 1.862645149230957e-09
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.2654573917388916e-07
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.0675361156463623e-07
+=== RUN   TestSincNetLoweredStrictBoundaries/constant-stride10-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 1.862645149230957e-09
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.2654573917388916e-07
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 2.0675361156463623e-07
+=== RUN   TestSincNetLoweredStrictBoundaries/wave-stride1-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0.00010824203491210938
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.042685031890869e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 5.6743621826171875e-05
+=== RUN   TestSincNetLoweredStrictBoundaries/wave-stride1-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0.00010824203491210938
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 4.042685031890869e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 5.6743621826171875e-05
+=== RUN   TestSincNetLoweredStrictBoundaries/broadband-stride10-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 1.5020370483398438e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.7550926208496094e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.2782554626464844e-06
+=== RUN   TestSincNetLoweredStrictBoundaries/broadband-stride10-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 1.5020370483398438e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.7550926208496094e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.2782554626464844e-06
+=== RUN   TestSincNetLoweredStrictBoundaries/broadband-stride1-mode2
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.0308961868286133e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 9.298324584960938e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 6.839632987976074e-06
+=== RUN   TestSincNetLoweredStrictBoundaries/broadband-stride1-mode3
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 0
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 3.0308961868286133e-05
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 9.298324584960938e-06
+    sincnet_lowered_test.go:150: strict lowered boundary max abs 6.839632987976074e-06
+--- FAIL: TestSincNetLoweredStrictBoundaries (0.38s)
+    --- FAIL: TestSincNetLoweredStrictBoundaries/wave-stride10-mode2 (0.01s)
+    --- FAIL: TestSincNetLoweredStrictBoundaries/wave-stride10-mode3 (0.00s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/impulse-stride10-mode2 (0.02s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/impulse-stride10-mode3 (0.00s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/silence-stride10-mode2 (0.02s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/silence-stride10-mode3 (0.00s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/constant-stride10-mode2 (0.02s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/constant-stride10-mode3 (0.00s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/wave-stride1-mode2 (0.07s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/wave-stride1-mode3 (0.01s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/broadband-stride10-mode2 (0.04s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/broadband-stride10-mode3 (0.00s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/broadband-stride1-mode2 (0.09s)
+    --- PASS: TestSincNetLoweredStrictBoundaries/broadband-stride1-mode3 (0.01s)
+FAIL
+FAIL	github.com/rcarmo/go-pherence/models/speaker/community1	0.383s
+FAIL

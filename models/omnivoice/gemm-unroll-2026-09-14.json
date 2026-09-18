@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-14",
+  "baseline_commit": "4726e823",
+  "kernel": "AVX2 6x16, 2x K unroll",
+  "fingerprint": "68d4d7ecd3ed77cd63e3f685cae518c8139c75ca5630e9e4178931322602bba3",
+  "benchmarks": {
+    "before": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     100\t   2209958 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     100\t   2237319 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     108\t   2197084 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      34\t   6714247 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      36\t   6502217 ns/op\t       3 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      37\t   6655952 ns/op\t       6 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      45\t   5696647 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      39\t   5796016 ns/op\t       2 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      43\t   5604466 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      14\t  16114650 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      14\t  16409910 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      14\t  16465062 ns/op\t       8 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t2.990s\n",
+    "after": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     100\t   2288681 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     100\t   2194512 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-4         \t     100\t   2484627 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      36\t   6526787 ns/op\t       6 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      38\t   6285708 ns/op\t       5 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-4         \t      37\t   6335590 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      48\t   5481036 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      48\t   5560967 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-4        \t      48\t   5168715 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      14\t  15431951 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      15\t  15659349 ns/op\t       7 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-4        \t      14\t  16119478 ns/op\t      16 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t3.035s\n",
+    "before-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      91\t   2723721 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      96\t   2589445 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      84\t   2660667 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      28\t   7652072 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      31\t   7903621 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      31\t   7512877 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      34\t   6273891 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      38\t   5967946 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      40\t   5967634 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      13\t  18497753 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      13\t  18405278 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      13\t  19554976 ns/op\t       0 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t3.010s\n",
+    "after-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      97\t   2904105 ns/op\t       1 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      94\t   2475653 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n1024/k1024/w2/streamed/columns-2         \t      97\t   2574675 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      32\t   7285759 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      32\t   7322487 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m75/n3072/k1024/w2/streamed/columns-2         \t      32\t   7738666 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      39\t   6909388 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      34\t   6304054 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n1024/k1024/w2/streamed/columns-2        \t      37\t   6352400 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      15\t  17707894 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      12\t  17628035 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkGEMMPool/m210/n3072/k1024/w2/streamed/columns-2        \t      13\t  18146197 ns/op\t       0 B/op\t       0 allocs/op\nPASS\nok  \tgithub.com/rcarmo/go-pherence/backends/simd/runtime\t3.098s\n"
+  },
+  "synthesis": [
+    {
+      "variant": "before",
+      "exit_code": 0,
+      "max_rss_kib": 2680484,
+      "system_seconds": 3.348168,
+      "user_seconds": 97.566791,
+      "wall_seconds": 100.891120673
+    },
+    {
+      "variant": "after",
+      "exit_code": 0,
+      "max_rss_kib": 2787984,
+      "system_seconds": 2.01364,
+      "user_seconds": 73.876618,
+      "wall_seconds": 64.110556886
+    },
+    {
+      "variant": "before-repeat",
+      "exit_code": 0,
+      "max_rss_kib": 2786532,
+      "system_seconds": 3.372435,
+      "user_seconds": 81.669935,
+      "wall_seconds": 58.976371535
+    },
+    {
+      "variant": "after-repeat",
+      "exit_code": 0,
+      "max_rss_kib": 2787140,
+      "system_seconds": 1.738721,
+      "user_seconds": 85.914813,
+      "wall_seconds": 53.91648567
+    }
+  ]
+}
