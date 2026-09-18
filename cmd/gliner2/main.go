@@ -33,7 +33,7 @@ func run(args []string, out, stderr io.Writer) error {
 	mode := fs.String("record-mode", "natural", "natural, latent or anchorless")
 	anchor := fs.String("anchor", "", "natural anchor field; defaults to first field")
 	var fields labelList
-	fs.Var(&fields, "field", "ordered field name:str|list[,required][,exclusive]; repeat (required lists unsupported)")
+	fs.Var(&fields, "field", "ordered field name:str|list[,required][,exclusive]; repeat")
 	relation := fs.String("relation", "", "single relation type; infers head and tail roles")
 	threshold := fs.Float64("threshold", .5, "sigmoid threshold before checkpoint count/abstention filtering")
 	policy := fs.String("overlap", "flat", "allow, nested, flat, or longest (per label)")

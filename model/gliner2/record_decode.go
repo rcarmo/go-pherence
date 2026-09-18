@@ -7,7 +7,9 @@ import (
 	"sort"
 )
 
-// DecodedRecord supports optional scalar/list and required scalar fields.
+// DecodedRecord supports optional/required scalar and list fields.
+// Required lists retain upstream threshold semantics; an empty selection is
+// not automatically filled with the highest-scoring candidate.
 // Exclusive fields use global assignment (scalar) or best-owner selection (list).
 type DecodedRecord struct {
 	Confidence float64             `json:"confidence"`

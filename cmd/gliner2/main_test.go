@@ -41,9 +41,16 @@ func TestRecordFieldModifiers(t *testing.T) {
 	if err != nil || !s.Fields[0].Required || !s.Fields[0].Exclusive || !s.Fields[1].Exclusive {
 		t.Fatal(s, err)
 	}
-	for _, v := range []string{"name:list,required", "name:str,unknown", "name:str,exclusive,exclusive", "name:str,"} {
+	for _, v := range []string{"name:str,unknown", "name:str,exclusive,exclusive", "name:str,"} {
 		if _, err := recordSpec([]string{v}, "natural", ""); err == nil {
 			t.Fatal("accepted", v)
 		}
+	}
+}
+
+func TestRequiredListModifier(t *testing.T) {
+	s, err := recordSpec([]string{"places:list,required,exclusive"}, "anchorless", "")
+	if err != nil || !s.Fields[0].Required || !s.Fields[0].Exclusive || s.Fields[0].Scalar {
+		t.Fatal(s, err)
 	}
 }

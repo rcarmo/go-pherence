@@ -75,3 +75,23 @@ func TestRecordDecoderValidatesUnselectedCandidates(t *testing.T) {
 		t.Fatal("mismatched schema accepted")
 	}
 }
+
+func TestRequiredListUsesAssignmentThresholdWithoutCandidateGate(t *testing.T) {
+	words, _ := SplitWords("Ada London")
+	field := RecordField{QueryID: 0, Name: "places", Required: true}
+	fields := []RecordField{field}
+	s := RecordScores{Input: EntityInput{Words: words}, CandidateLogits: [][]float32{{-10}, {-10}}, Group: DenseRecordGroupOutput{Spec: RecordSpec{Mode: RecordModeAnchorless, Fields: fields}, Fields: fields, ObjectLogits: []float32{5}, InstanceMask: []bool{true}, InstancePoolIndex: []int{-1}, PoolSpans: [][]int{{0, 1}, {1, 2}}, FieldMembership: [][]bool{{true, true}}, AssignLogits: [][][]float32{{{20, -5, 5}}}}}
+	cfg := BoundaryHeadConfig{RecordTemperature: 1, RecordAnchorThreshold: .5, RecordFieldThreshold: .5, OverlapPolicy: "flat"}
+	got, err := DecodeRecords("Ada London", s, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || len(got[0].Fields["places"]) != 1 || got[0].Fields["places"][0].Text != "London" {
+		t.Fatal(got)
+	}
+	s.Group.AssignLogits[0][0][2] = -5
+	got, err = DecodeRecords("Ada London", s, cfg)
+	if err != nil || len(got) != 0 {
+		t.Fatal("required list invented fallback", got, err)
+	}
+}

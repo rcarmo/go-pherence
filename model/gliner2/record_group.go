@@ -35,11 +35,6 @@ func (s RecordSpec) Validate() error {
 	if len(s.Fields) == 0 {
 		return fmt.Errorf("record spec requires at least one field")
 	}
-	for _, f := range s.Fields {
-		if f.Required && !f.Scalar {
-			return fmt.Errorf("required list fields are not supported yet")
-		}
-	}
 	switch s.Mode {
 	case RecordModeNatural:
 		if s.anchorFieldIndex() < 0 {
