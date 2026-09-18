@@ -15,10 +15,11 @@ const (
 
 // RecordField binds one record field to its schema query.
 type RecordField struct {
-	QueryID  int    `json:"query_id"`
-	Name     string `json:"name"`
-	Scalar   bool   `json:"scalar"`
-	Required bool   `json:"required,omitempty"`
+	QueryID   int    `json:"query_id"`
+	Name      string `json:"name"`
+	Scalar    bool   `json:"scalar"`
+	Required  bool   `json:"required,omitempty"`
+	Exclusive bool   `json:"exclusive,omitempty"`
 }
 
 // RecordSpec is the minimal single-group schema required by dense record

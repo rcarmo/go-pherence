@@ -8,7 +8,7 @@ import (
 )
 
 // DecodedRecord supports optional scalar/list and required scalar fields.
-// Exclusive cardinalities are not represented by RecordField yet.
+// Exclusive fields use global assignment (scalar) or best-owner selection (list).
 type DecodedRecord struct {
 	Confidence float64             `json:"confidence"`
 	Fields     map[string][]Entity `json:"fields"`
@@ -64,6 +64,10 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 		}
 	}
 	sort.SliceStable(order, func(i, j int) bool { return g.ObjectLogits[order[i]] > g.ObjectLogits[order[j]] })
+	exclusive, err := exclusiveRecordSelections(g, order, c.RecordTemperature, c.RecordFieldThreshold)
+	if err != nil {
+		return nil, err
+	}
 	records := []DecodedRecord{}
 	seen := map[string]bool{}
 	for _, inst := range order {
@@ -75,6 +79,8 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 				if idx >= 0 && idx < p && g.FieldMembership[fi][idx] {
 					selected[idx] = rec.Confidence
 				}
+			} else if field.Exclusive {
+				selected = exclusive[[2]int{inst, fi}]
 			} else if field.Scalar {
 				row := g.AssignLogits[inst][fi]
 				best := 0
