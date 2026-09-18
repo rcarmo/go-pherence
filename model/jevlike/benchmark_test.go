@@ -45,3 +45,27 @@ func BenchmarkTinyTrainingEpoch(b *testing.B) {
 		}
 	}
 }
+
+// Full visual preprocessing and convolutional encoding, not an isolated GEMM.
+func BenchmarkVisionEncoding(b *testing.B) {
+	enc, err := NewVisionEncoder(32)
+	if err != nil {
+		b.Fatal(err)
+	}
+	fillVisionEncoderDeterministic(enc)
+	frame := RGBFrame{Width: 160, Height: 120, Pixels: make([]uint8, 160*120*3)}
+	for i := range frame.Pixels {
+		frame.Pixels[i] = uint8(i % 251)
+	}
+	obs, err := Observation(frame, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, err = enc.Encode([]PackedObservation{obs}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

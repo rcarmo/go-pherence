@@ -1,0 +1,9 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model/jevlike
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkVisionEncoding 	     312	   3719465 ns/op	 4624472 B/op	      96 allocs/op
+BenchmarkVisionEncoding 	     321	   3733893 ns/op	 4624472 B/op	      96 allocs/op
+BenchmarkVisionEncoding 	     318	   3770151 ns/op	 4624472 B/op	      96 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model/jevlike	4.709s

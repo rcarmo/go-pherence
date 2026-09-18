@@ -8,6 +8,7 @@ import (
 	"math"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
 const (
@@ -396,11 +397,16 @@ func visionConv2D(input []float32, batch, inChannels, inHeight, inWidth, outChan
 }
 
 func visionGemmRows(out, x, w []float32, batch, rows, cols int) bool {
-	if simd.GemmRows(out, x, w, batch, rows, cols) {
-		return true
-	}
-	if batch <= 0 || rows <= 0 || cols <= 0 || len(out) < batch*rows || len(x) < batch*cols || len(w) < rows*cols {
+	nOut, okOut := checked.MulInt(batch, rows)
+	nX, okX := checked.MulInt(batch, cols)
+	nW, okW := checked.MulInt(rows, cols)
+	if batch <= 0 || rows <= 0 || cols <= 0 || !okOut || !okX || !okW || len(out) < nOut || len(x) < nX || len(w) < nW {
 		return false
+	}
+	clear(out[:nOut])
+	// Checked SGEMM has native Plan 9 dispatch; multi-row GemmRows is scalar.
+	if simd.SgemmNTTo(out, x, w, batch, rows, cols, 1, cols, cols, rows) {
+		return true
 	}
 	for b := 0; b < batch; b++ {
 		xb := x[b*cols : (b+1)*cols]
