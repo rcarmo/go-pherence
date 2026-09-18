@@ -1,0 +1,44 @@
+{
+  "boundary_head.shared_pool_builder.end_projection.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      5421892,
+      5422404
+    ]
+  },
+  "boundary_head.shared_pool_builder.end_projection.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      128
+    ],
+    "data_offsets": [
+      5422404,
+      5487940
+    ]
+  },
+  "boundary_head.shared_pool_builder.start_projection.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      5487940,
+      5488452
+    ]
+  },
+  "boundary_head.shared_pool_builder.start_projection.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      128
+    ],
+    "data_offsets": [
+      5488452,
+      5553988
+    ]
+  }
+}
