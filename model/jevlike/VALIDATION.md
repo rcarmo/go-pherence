@@ -24,6 +24,12 @@ GODEBUG=cpu.all=off GOMAXPROCS=1 taskset -c 0 go test ./model/jevlike \
   -run '^$' -bench BenchmarkTiny -benchtime=1s -count=1
 ```
 
+## Visual encoder
+
+The complete width-4 RGB/motion encoder now matches a deterministic upstream PyTorch fixture: maximum patch-feature difference 6.56e-7. This covers preprocessing, convolution, GroupNorm, SiLU and positions; it is not parity for a complete trained game policy.
+
+The width-32 visual workload includes preprocessing and all convolutions. Pinned single-core runs measured 3.719, 3.734 and 3.770 ms with native SGEMM, versus 13.189, 13.120 and 13.110 ms with CPU features disabled. Median ratio is about 3.5 times faster. Raw outputs are `testdata/benchmarks/vision-native.txt` and `vision-disabled.txt`.
+
 ## Unfinished validation
 
-Frozen decoder tests use small in-memory models and injected CLI encoders. There is no published full-size transformer parity result. Visual encoder tests use scalar convolution references, not a complete imported PyTorch policy. Those gaps must not be described as real-model parity or whole-port completion.
+Frozen decoder tests use small in-memory models and injected CLI encoders. There is no published full-size transformer parity result for Jevlike. Complete trained visual-policy parity and visual checkpoint interchange remain unverified. Those gaps must not be described as real-model parity or whole-port completion.
