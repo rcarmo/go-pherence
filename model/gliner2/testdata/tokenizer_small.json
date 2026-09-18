@@ -1,0 +1,187 @@
+{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [
+    {
+      "id": 0,
+      "content": "[UNK]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 1,
+      "content": "[CLS]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 2,
+      "content": "[SEP]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 3,
+      "content": "[E]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    }
+  ],
+  "normalizer": {
+    "type": "Sequence",
+    "normalizers": [
+      {
+        "type": "Replace",
+        "pattern": {
+          "Regex": "\\s{2,}|[\\n\\r\\t]"
+        },
+        "content": " "
+      },
+      {
+        "type": "NFC"
+      },
+      {
+        "type": "Strip",
+        "strip_left": false,
+        "strip_right": true
+      }
+    ]
+  },
+  "pre_tokenizer": {
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Metaspace",
+        "replacement": "▁",
+        "prepend_scheme": "always",
+        "split": true
+      }
+    ]
+  },
+  "post_processor": {
+    "type": "TemplateProcessing",
+    "single": [
+      {
+        "SpecialToken": {
+          "id": "[CLS]",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "[SEP]",
+          "type_id": 0
+        }
+      }
+    ],
+    "pair": [
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "B",
+          "type_id": 1
+        }
+      }
+    ],
+    "special_tokens": {
+      "[CLS]": {
+        "id": "[CLS]",
+        "ids": [
+          1
+        ],
+        "tokens": [
+          "[CLS]"
+        ]
+      },
+      "[SEP]": {
+        "id": "[SEP]",
+        "ids": [
+          2
+        ],
+        "tokens": [
+          "[SEP]"
+        ]
+      }
+    }
+  },
+  "decoder": null,
+  "model": {
+    "type": "Unigram",
+    "unk_id": 0,
+    "vocab": [
+      [
+        "[UNK]",
+        0.0
+      ],
+      [
+        "[CLS]",
+        0.0
+      ],
+      [
+        "[SEP]",
+        0.0
+      ],
+      [
+        "[E]",
+        0.0
+      ],
+      [
+        "▁",
+        -1.0
+      ],
+      [
+        "a",
+        -1.0
+      ],
+      [
+        "b",
+        -1.0
+      ],
+      [
+        "ab",
+        -9.0
+      ],
+      [
+        "▁a",
+        -1.5
+      ],
+      [
+        "é",
+        -1.0
+      ],
+      [
+        "c",
+        -1.0
+      ],
+      [
+        "▁c",
+        -1.5
+      ]
+    ],
+    "byte_fallback": false
+  }
+}

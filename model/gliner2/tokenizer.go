@@ -64,6 +64,10 @@ func LoadTokenizer(r io.Reader) (*Tokenizer, error) {
 	if err := d.Decode(&raw); err != nil {
 		return nil, err
 	}
+	var trailing any
+	if err := d.Decode(&trailing); err != io.EOF {
+		return nil, fmt.Errorf("tokenizer contains trailing data")
+	}
 	if raw.Pre.Type == "Sequence" && len(raw.Pre.Pretokenizers) == 1 {
 		raw.Pre = raw.Pre.Pretokenizers[0]
 	}
@@ -129,7 +133,12 @@ func LoadTokenizer(r io.Reader) (*Tokenizer, error) {
 		node.score = score
 	}
 	t.unkScore = minScore - 10
+	seenIDs, seenTokens := map[int]bool{}, map[string]bool{}
 	for _, a := range raw.Added {
+		if seenIDs[a.ID] || seenTokens[a.Content] {
+			return nil, fmt.Errorf("duplicate added token ID/content")
+		}
+		seenIDs[a.ID], seenTokens[a.Content] = true, true
 		if !a.Special || a.Normalized || a.LStrip || a.RStrip || a.SingleWord || a.Content == "" || a.ID < 0 {
 			return nil, fmt.Errorf("unsupported added token %q", a.Content)
 		}
