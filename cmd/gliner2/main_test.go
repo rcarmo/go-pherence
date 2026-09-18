@@ -17,3 +17,21 @@ func TestUsageAndValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordSpec(t *testing.T) {
+	s, err := recordSpec([]string{"name:str", "city:list"}, "natural", "")
+	if err != nil || s.AnchorQueryID != 0 || !s.Fields[0].Scalar || s.Fields[1].Scalar {
+		t.Fatal(s, err)
+	}
+	for _, fields := range [][]string{nil, {"name:required"}, {"name:str", "name:list"}, {"name"}} {
+		if _, err := recordSpec(fields, "natural", ""); err == nil {
+			t.Fatal("accepted", fields)
+		}
+	}
+	if _, err := recordSpec([]string{"name:str"}, "latent", "name"); err == nil {
+		t.Fatal("latent anchor accepted")
+	}
+	if _, err := recordSpec([]string{"name:str"}, "natural", "missing"); err == nil {
+		t.Fatal("missing anchor accepted")
+	}
+}
