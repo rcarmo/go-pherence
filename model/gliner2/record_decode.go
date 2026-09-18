@@ -7,8 +7,8 @@ import (
 	"sort"
 )
 
-// DecodedRecord supports the current optional scalar/list field schema.
-// Required/exclusive cardinalities are not represented by RecordField yet.
+// DecodedRecord supports optional scalar/list and required scalar fields.
+// Exclusive cardinalities are not represented by RecordField yet.
 type DecodedRecord struct {
 	Confidence float64             `json:"confidence"`
 	Fields     map[string][]Entity `json:"fields"`
@@ -79,6 +79,10 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 				row := g.AssignLogits[inst][fi]
 				best := 0
 				mx := float64(row[0]) / c.RecordTemperature
+				if field.Required {
+					best = -1
+					mx = math.Inf(-1)
+				}
 				for i := 1; i < len(row); i++ {
 					if g.FieldMembership[fi][i-1] && float64(row[i])/c.RecordTemperature > mx {
 						mx = float64(row[i]) / c.RecordTemperature
@@ -86,14 +90,17 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 					}
 				}
 				if best > 0 {
-					sum := math.Exp(float64(row[0])/c.RecordTemperature - mx)
+					// A required field can skip a much larger null logit. Use
+					// a separate softmax maximum to avoid exp overflow.
+					normMax := math.Max(mx, float64(row[0])/c.RecordTemperature)
+					sum := math.Exp(float64(row[0])/c.RecordTemperature - normMax)
 					for i := 1; i < len(row); i++ {
 						if g.FieldMembership[fi][i-1] {
-							sum += math.Exp(float64(row[i])/c.RecordTemperature - mx)
+							sum += math.Exp(float64(row[i])/c.RecordTemperature - normMax)
 						}
 					}
-					prob := 1 / sum
-					if prob >= c.RecordFieldThreshold {
+					prob := math.Exp(mx-normMax) / sum
+					if field.Required || prob >= c.RecordFieldThreshold {
 						selected[best-1] = prob
 					}
 				}
@@ -119,7 +126,7 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 					return nil, fmt.Errorf("field query outside candidate logits")
 				}
 				candidateProb := sigmoid(float64(s.CandidateLogits[i][field.QueryID]))
-				if candidateProb < c.RecordAnchorThreshold {
+				if !field.Required && candidateProb < c.RecordAnchorThreshold {
 					continue
 				}
 				prob = math.Min(prob, candidateProb)

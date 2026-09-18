@@ -15,9 +15,10 @@ const (
 
 // RecordField binds one record field to its schema query.
 type RecordField struct {
-	QueryID int    `json:"query_id"`
-	Name    string `json:"name"`
-	Scalar  bool   `json:"scalar"`
+	QueryID  int    `json:"query_id"`
+	Name     string `json:"name"`
+	Scalar   bool   `json:"scalar"`
+	Required bool   `json:"required,omitempty"`
 }
 
 // RecordSpec is the minimal single-group schema required by dense record
@@ -32,6 +33,11 @@ type RecordSpec struct {
 func (s RecordSpec) Validate() error {
 	if len(s.Fields) == 0 {
 		return fmt.Errorf("record spec requires at least one field")
+	}
+	for _, f := range s.Fields {
+		if f.Required && !f.Scalar {
+			return fmt.Errorf("required list fields are not supported yet")
+		}
 	}
 	switch s.Mode {
 	case RecordModeNatural:
