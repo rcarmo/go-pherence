@@ -51,3 +51,27 @@ func TestRequiredScalarSkipsNullAndThreshold(t *testing.T) {
 		t.Fatal("optional null ignored", got, err)
 	}
 }
+
+func TestRecordDecoderValidatesUnselectedCandidates(t *testing.T) {
+	words, _ := SplitWords("Ada")
+	field := RecordField{QueryID: 0, Name: "name", Scalar: true}
+	makeScores := func() RecordScores {
+		return RecordScores{Input: EntityInput{Words: words}, CandidateLogits: [][]float32{{0}}, Group: DenseRecordGroupOutput{Spec: RecordSpec{Mode: RecordModeNatural, AnchorQueryID: 0, Fields: []RecordField{field}}, Fields: []RecordField{field}, PoolSpans: [][]int{{0, 1}}, FieldMembership: [][]bool{{true}}, ObjectLogits: []float32{-100}, InstanceMask: []bool{true}, InstancePoolIndex: []int{0}, AssignLogits: [][][]float32{{{0, 0}}}}}
+	}
+	cfg := BoundaryHeadConfig{RecordTemperature: 1, RecordAnchorThreshold: .5, RecordFieldThreshold: .5, OverlapPolicy: "flat"}
+	s := makeScores()
+	s.CandidateLogits[0] = nil
+	if _, err := DecodeRecords("Ada", s, cfg); err == nil {
+		t.Fatal("unselected bad query shape accepted")
+	}
+	s = makeScores()
+	s.Group.PoolSpans[0] = []int{0}
+	if _, err := DecodeRecords("Ada", s, cfg); err == nil {
+		t.Fatal("malformed span accepted")
+	}
+	s = makeScores()
+	s.Group.Fields[0].Required = true
+	if _, err := DecodeRecords("Ada", s, cfg); err == nil {
+		t.Fatal("mismatched schema accepted")
+	}
+}

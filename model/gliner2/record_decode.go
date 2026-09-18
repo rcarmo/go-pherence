@@ -34,6 +34,43 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 	if len(g.InstanceMask) != n || len(g.AssignLogits) != n || len(g.InstancePoolIndex) != n || len(g.FieldMembership) != f || len(s.CandidateLogits) != p {
 		return nil, fmt.Errorf("record group dimensions differ")
 	}
+	if f != len(g.Spec.Fields) {
+		return nil, fmt.Errorf("record field/spec count mismatch")
+	}
+	for i, field := range g.Fields {
+		if field != g.Spec.Fields[i] {
+			return nil, fmt.Errorf("record field/spec mismatch at %d", i)
+		}
+		if field.QueryID < 0 {
+			return nil, fmt.Errorf("negative record query ID")
+		}
+		for _, row := range s.CandidateLogits {
+			if field.QueryID >= len(row) {
+				return nil, fmt.Errorf("record query outside candidate logits")
+			}
+		}
+	}
+	for _, row := range s.CandidateLogits {
+		for _, v := range row {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return nil, fmt.Errorf("nonfinite candidate logit")
+			}
+		}
+	}
+	for i, span := range g.PoolSpans {
+		if len(span) != 2 {
+			return nil, fmt.Errorf("record candidate %d must have two boundaries", i)
+		}
+		active := false
+		for _, membership := range g.FieldMembership {
+			if len(membership) == p && membership[i] {
+				active = true
+			}
+		}
+		if active && (span[0] < 0 || span[1] <= span[0] || span[1] > len(s.Input.Words)) {
+			return nil, fmt.Errorf("invalid active record span %v", span)
+		}
+	}
 	for i := range g.FieldMembership {
 		if len(g.FieldMembership[i]) != p {
 			return nil, fmt.Errorf("membership dimensions differ")
