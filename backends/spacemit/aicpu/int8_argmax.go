@@ -1,10 +1,12 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 func GemmAIArgmaxI32(M, K int, wPacked, actPacked []int8, tmp []int32, pool *aipool.AIWorkerPool) (int, int32) {

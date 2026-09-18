@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 // Package tcm provides direct access to SpacemiT TCM (Tightly Coupled Memory)
 // on the K3 SoC. TCM is 3MB of on-chip SRAM divided into 8 x 384KB blocks,
 // accessible via mmap of /dev/tcm.

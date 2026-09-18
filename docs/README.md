@@ -1,104 +1,30 @@
 # go-pherence documentation
 
-The codebase covers ordinary local inference, large-model placement, speech, image generation and several experimental accelerators. This index starts with things you can run, then moves down through architecture, model-specific boundaries, validation and the historical notes that explain some of the stranger corners.
+Start with the task you want to run. Model inspection, native inference and numerical parity are different levels of support; a successful config load does not imply a working generator.
 
-## Start with a task
-
-| I want to... | Read |
+| Task | Read |
 |---|---|
-| Run a command or service | [Commands](commands.md) |
-| Check whether a model or format is supported | [Supported models](supported-models.md) |
-| Choose CPU, NVIDIA or another backend | [Backend selection](backend-selection.md) and [Tuning](tuning.md) |
-| Understand package ownership and execution flow | [Architecture](architecture.md), [Backend stack](backend-stack.md) and [Backend layout](backend-layout.md) |
-| Design or optimise an LLM inference runtime | [Practical LLM inference blueprint](llm-inference-blueprint.md) |
-| Port the CPU kernels to ARM64 | [ARM CPU ISA feasibility](arm-cpu-isa-feasibility.md) and [CIX P1/Orange Pi 6 Plus](cix-p1-orange-pi-6-plus.md) |
-| Review the measured Gemma4 inference programme | [CPU performance-gap programme](../benchmarks/gemma4-gap/README.md), [CPU SIMD gap](gemma4-cpu-simd-gap.md), [vLLM-leverage report](../benchmarks/vllm-leverage/README.md) and [frozen serving baseline](../benchmarks/vllm-leverage/gemma4-baseline.md) |
-| Score a changing list of choices or train a small scorer | [Jevlike native scorer](../model/jevlike/README.md) |
-| Extract entities, relations, records or classifications | [GLiNER 2.5 native inference](../model/gliner2/README.md) |
-| Transcribe or translate audio | [Whisper and translated VTT](whisper-diarize-vtt.md) |
-| Transcribe with speaker labels and timestamps | [MOSS transcription and diarisation](moss-transcribe-diarize.md) |
-| Work on speculative decoding or MTP | [MTP and speculative decoding](mtp-speculative.md) |
-| Run the standard correctness gates | [Validation gates](validation-gates.md) |
-| Compare performance | [Performance](performance.md) and [matmul optimisation results](matmul-optimisation-results.md) |
+| Run a CLI or service | [Command index](guides/commands.md) |
+| Choose a model or checkpoint format | [Supported models](models/supported-models.md) |
+| Select a backend or adjust placement | [Backends](backends/README.md) and [runtime tuning](guides/tuning.md) |
+| Understand package ownership | [Architecture](architecture/README.md) |
+| Transcribe, translate or label speakers | [Speech](speech/README.md) |
+| Score variable choices or train a scorer | [Jevlike](../model/jevlike/README.md) |
+| Extract entities, relations, records or classes | [GLiNER 2.5](../model/gliner2/README.md) |
+| Run block-diffusion text generation | [DiffusionGemma](models/diffusiongemma/README.md) |
+| Test changes on this host or cross-build | [Validation gates](validation/validation-gates.md) |
+| Compare measured workloads | [Performance](performance/README.md) |
+| Investigate an older result or design decision | [History](history/README.md) |
 
-## Architecture and backends
+## Where things live
 
-[Architecture](architecture.md) is the canonical high-level view. It explains the checked scalar/SIMD baseline, model layer and backend boundary; the generated SVG near the top is the visual version of that path.
+* `guides/` contains commands, asset setup and tuning.
+* `models/` describes model-specific support boundaries. Jevlike and GLiNER keep their API, validation and provenance documents beside their implementation in `model/`.
+* `speech/`, `backends/` and `architecture/` cover their respective runtime layers.
+* `validation/` defines checks; `performance/` links measurements to workload contracts.
+* `history/` retains implementation logs, investigations and superseded plans. Their numbers are evidence of the recorded run, not a promise about the current tree.
 
-[Backend stack](backend-stack.md) describes what each backend owns. The [practical LLM inference blueprint](llm-inference-blueprint.md) generalises the request-state, scheduling, caching, batching, speculation and KV promotion sequence used for new inference work. The narrower reference pages cover [source layout](backend-layout.md), [runtime selection and fallback](backend-selection.md), [kernel coverage](kernel-coverage.md), [GPU options](gpu-options.md) and [weight placement](weight-budget.md).
-
-Quantised and hardware-specific references:
-
-* [ARM CPU ISA feasibility](arm-cpu-isa-feasibility.md) separates the NEON, DotProd, I8MM, SVE and SME implementation tiers. [CIX P1 and Orange Pi 6 Plus](cix-p1-orange-pi-6-plus.md) records the concrete CPU features, 128-bit SVE boundary and heterogeneous-core scheduling policy for that board.
-* [TurboQuant](turboquant.md) covers compressed KV and scratch policy.
-* [NVIDIA quantisation boundaries](nvidia-quant-boundaries.md), [NVFP4](nvfp4.md) and [BF16 parity](bf16-parity.md) state the numerical contracts for those formats.
-* [SpacemiT IME2](spacemit-ime2.md) covers the K3/CIX accelerator path.
-* [Vulkan inventory](vulkan-dispatch-inventory.md) and [Vulkan validation](vulkan-validation-plan.md) describe the current experimental boundary.
-* [Quant import audit](quant-import-audit.md) documents the compatibility facade around quantised backends.
-
-## Model and feature guides
-
-### Language models and speculative decoding
-
-* [Gemma4 31B runbook](gemma4-31b-runbook.md) -- local E4B/31B placement and smoke strategy.
-* [MTP and speculative decoding](mtp-speculative.md) -- canonical implementation and validation page.
-* [Qwen3.6 MTP](qwen36-mtp.md) -- checkpoint-specific native-MTP work.
-* [Qwen3-TTS](qwen3-tts-support.md) and [LFM2 MoE](lfm2-moe-support.md) -- current loader/runtime boundaries.
-
-### Speech
-
-* [Integrated Whisper + Community-1](speech-integration.md) -- implementation checkpoint, temporary FFmpeg adapter, exact 128-bin frontend and remaining SIMD/Vulkan work.
-* [Whisper and translated VTT](whisper-diarize-vtt.md) -- user-facing pipeline, media handling and resume behaviour.
-* [Whisper model assets](whisper-model-assets.md) -- exact checkpoints and tensor shapes.
-* [Whisper execution graph](whisper-execution-graph.md) -- backend coverage and parity details.
-* [MOSS transcription and diarisation](moss-transcribe-diarize.md) -- pinned native graph, output formats and measured CPU/GPU performance.
-
-### Vision, image and 3D
-
-* [DiffusionGemma](diffusiongemma-support.md) -- canonical support page for block-diffusion text generation.
-* [Ideogram 4](ideogram4-support.md) and [Ideogram on SpacemiT](ideogram4-spacemit.md).
-* [MiniCPM-V/O](minicpmv-support.md) and its [runtime roadmap](minicpmv-runtime-roadmap.md).
-* [Hunyuan3D-2](hunyuan3d-2-support.md), [Trellis2](trellis2-support.md) and [Z-Image-Turbo](zimage-turbo-support.md).
-
-[Model coverage status](model-coverage-status.md) is the compact engineering tracker. The generated [coverage snapshot](model-coverage-snapshot.md) is useful for tooling and review, but [Supported models](supported-models.md) is the reader-facing answer.
-
-## Validation and performance
-
-[Validation gates](validation-gates.md) is the canonical command list. [Validation hardening](validation-hardening.md), [malformed-input coverage](malformed-input-coverage.md) and the [backend parity matrix](backend-parity-matrix.md) explain why those checks exist and which failures are hardware- or asset-dependent.
-
-Performance references:
-
-* [Performance](performance.md) -- current model and backend measurements.
-* [Gemma4 CPU performance-gap programme](../benchmarks/gemma4-gap/README.md) and [CPU SIMD gap](gemma4-cpu-simd-gap.md) -- the frozen same-GGUF CPU oracle, retained exact Q4_0 checkpoint and remaining gap.
-* [SIMD matmul policy](simd-matmul.md) -- shape-aware decode/prefill dispatch.
-* [Matmul audit](matmul-audit.md), [benchmark protocol](matmul-benchmark-protocol.md) and [final results](matmul-optimisation-results.md) -- the complete cache/register-tiling programme and its retained or rejected outcomes.
-* [TurboFieldfare audit](turbo-fieldfare-audit.md) and [adoption results](turbo-fieldfare-adoption-results.md) -- transferable expert-streaming, KV, attention and prefill techniques, plus the measured go-pherence adoption baseline.
-* [Whisper on RISC-V](whisper-riscv-optimization.md) -- measured K3/RVV/IME path.
-
-The generated [test matrix](test-matrix.svg) is a scoped visual guide, not a count of the entire repository. Regenerate both checked-in diagrams with `make docs-diagrams`.
-
-## History and diagnostics
-
-These pages preserve investigations, generated snapshots and implementation plans. They are valuable when debugging a numerical boundary, but they should not be used as current feature summaries.
-
-### Project history and refactors
-
-* [Development log](development-log.md)
-* [Refactor plan](refactor-plan.md)
-* [SIMD folder reorganisation](simd-folder-reorg.md)
-* [Model package refactor](model-package-refactor.md)
-* [Reusable component consolidation](reusable-component-consolidation.md)
-* [Final coverage acceptance](final-coverage-acceptance.md)
-* [Benchmark snapshot queue](benchmark-snapshot-queue.md)
-* [CPU/SIMD coverage snapshot](cpu-simd-coverage.md)
-
-### Model investigations
-
-* [DiffusionGemma status snapshot](diffusiongemma-status.md), [llama.cpp alignment](diffusiongemma-llamacpp-alignment.md) and [GGUF GPU profile](diffusiongemma-gguf-gpu-profile.md)
-* [Gemma llama.cpp audit](gemma-llamacpp-audit.md), [Gemma4 alignment](gemma4-llamacpp-alignment.md), [MTP benchmarks](gemma4-mtp-benchmarks.md), [first divergence](gemma4-mtp-first-diff.md) and [precision notes](gemma4-precision.md)
-* [Qwen3.5 reference audit](qwen35-reference-audit.md), [Orthrus notes](orthrus.md) and [KVBoost application plan](kvboost-application-plan.md)
-* [Original Whisper plan](whisper-plan.md)
-* [IME2 I8/I4 port notes](ime2-i8i4-port-notes.md)
+Machine-readable coverage and speech manifests stay at the `docs/` root because tools consume those paths. The generated [model coverage snapshot](model-coverage-snapshot.md) tracks a limited family set; it is not a repository-wide support percentage. The [coverage tracker](models/model-coverage-status.md) explains the gates.
 
 ## Diagrams
 
@@ -106,4 +32,4 @@ These pages preserve investigations, generated snapshots and implementation plan
 
 ![Focused backend validation matrix](test-matrix.svg)
 
-The SVGs are generated from `scripts/render-architecture.ts` and `scripts/render-test-matrix.ts`. Keep labels and status claims in the scripts; editing the rendered SVGs by hand only guarantees they will drift again.
+Run `make docs-diagrams` to regenerate these from `scripts/render-architecture.ts` and `scripts/render-test-matrix.ts`. The test diagram shows a selected matrix, not proof that the full suite passes. `make docs-check` checks generated diagrams and local links, including new Markdown files.

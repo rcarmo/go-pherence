@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
@@ -6,8 +8,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // TestK3I8I4M4NativeVsFallback validates the native assembly M4 kernel

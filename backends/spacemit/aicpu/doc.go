@@ -1,9 +1,9 @@
-// Package aicpu is the pure-Go (no-cgo) transformer inference engine for the
+// Package aicpu is the Linux/RISC-V-only pure-Go transformer inference engine for the
 // SpaceMIT K3 SoC (MilkV Jupiter 2). It composes the low-level kernel packages
 // — ime2 (IME int8 GEMM), rvv (RVV SIMD), tcm (scratchpad) — into a
 // Q4_K/Q6_K/INT8 quantized decode loop with RoPE/SiLU math, driven by the
 // aipool worker pool and config feature flags. Run() is the entry point used by
-// cmd/ime2run.
+// cmd/spacemit/ime2run. Other hosts do not compile or execute this engine.
 //
 // Sub-packages:
 //   - aipool:   the engine's TCM-aware worker pool

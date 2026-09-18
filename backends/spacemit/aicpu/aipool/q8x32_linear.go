@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aipool
 
 import "github.com/rcarmo/go-pherence/backends/spacemit/ime2"

@@ -34,7 +34,7 @@ go-pherence/
 ├── internal/           # Checked arithmetic, internal utilities
 ├── loader/             # Model loaders (GGUF, safetensors, audio, config, tokenizer)
 ├── model/              # GGUF-based LLM models (llama, qwen, etc.)
-│   ├── diffusiongemma/ # DiffusionGemma image generation
+│   ├── diffusiongemma/ # Block-diffusion text generation + bounded vision work
 │   ├── ideogram4/      # Ideogram v4 image generation (see model/ideogram4/README.md)
 │   ├── hunyuan3d/      # Hunyuan 3D
 │   └── qwen/           # Qwen native models
@@ -52,7 +52,7 @@ go-pherence/
 
 - **Go 1.24+** — the module uses recent Go features.
 - **`go vet`** — run before every commit. Do not commit code that fails vet.
-- **`go test ./...`** — run affected packages before committing. When touching `backends/`, run `go test ./backends/...`.
+- **`go test`** — run affected packages before committing. `make host-test` scans the repository with GPU defaults disabled; when touching `backends/`, also run affected backend tests. Respect GOOS/GOARCH build constraints, never force foreign code into host checks.
 - **`gofmt -w`** — format all modified `.go` files before committing.
 
 ### Recommended
@@ -62,7 +62,7 @@ go-pherence/
   - Checking which packages import a function before changing its signature.
   - Navigating build-tagged files (`_riscv64.go`, `_other.go`).
   - Mechanical refactors like extracting interfaces or inlining helpers.
-- **`go build ./...`** — verify the entire tree compiles after cross-cutting changes.
+- **`go build ./...` / `make host-build`** — verify the host tree compiles after cross-cutting changes. Use `make spacemit-cross-compile` or explicit `GOOS`/`GOARCH` builds for other targets; use `go test -c`, never `go test`, for foreign test binaries. Cross-compilation is not runtime validation.
 
 ### Remote K3 development
 
@@ -101,7 +101,7 @@ When working on the Milk-V/K3 board via SSH:
 
 16. **Model-specific code stays in `model/` or `models/`.** Do not put Ideogram-specific logic in `backends/`.
 17. **Reusable kernels go in `backends/`.** If a kernel (SiLU, FastExp, Q8 packing) is useful to multiple models, put it in the appropriate backend package.
-18. **Build tags for platform-specific code.** Use `//go:build riscv64` / `//go:build !riscv64`, not runtime checks, for platform-specific kernel dispatch.
+18. **Build tags for platform-specific code.** Use architecture constraints for ISA kernels and `linux && riscv64` for K3 OS/device execution. Keep portable packing/reference tests runnable. Do not manufacture scalar emulation or omit whole backend folders just to make repository checks pass; retain genuine scalar fallbacks and explicit unsupported stubs.
 19. **The `half` package** owns FP16/BF16 conversion. Do not duplicate it.
 20. **The `loader` package** owns model file I/O (GGUF, safetensors, audio, tokenizers). Do not add model loading logic directly in `model/`.
 

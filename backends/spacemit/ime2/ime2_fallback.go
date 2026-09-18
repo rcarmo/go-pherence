@@ -29,8 +29,11 @@ func vmadotKLoop(A *byte, B *byte, C *int32, K int) {
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			var acc int32
+			// Inputs use the same interleaved 4x8 tile layout as vmadotKLoop
+			// on RISC-V, not contiguous K-element rows.
 			for k := 0; k < K; k++ {
-				acc += int32(a[i*K+k]) * int32(b[j*K+k])
+				tile, lane := (k/8)*32, k%8
+				acc += int32(a[tile+i*8+lane]) * int32(b[tile+j*8+lane])
 			}
 			c[i*4+j] += acc
 		}

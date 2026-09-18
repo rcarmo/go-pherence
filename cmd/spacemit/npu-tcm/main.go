@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 // npu-tcm validates the pure-Go TCM substrate: opens /dev/tcm, prints geometry,
 // acquires cores, and round-trips data through each core's SRAM block.
 //

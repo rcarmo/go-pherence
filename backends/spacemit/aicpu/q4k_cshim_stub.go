@@ -1,3 +1,5 @@
+//go:build linux && riscv64 && (!cgo || !q4kcshim)
+
 package aicpu
 
 func callLocalK3I8I4M1(quantA, quantB []byte, out []float32, countN, kBlks int) {

@@ -11,7 +11,11 @@ MINICPMV_AUDIO_DURATION_MS ?=
 MINICPMV_FLAGS ?=
 export TMPDIR GOTMPDIR
 
-.PHONY: all build test docs-check docs-diagrams docs-diagrams-check test-cpu test-model-coverage gemma4-mtp-parity gemma4-mtp-strict-parity gemma4-mtp-native-parity gemma4-gpu-cpu-parity whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity whisper-turbo-check whisper-backend-compare whisper-backend-podcast-compare whisper-a100-compare whisper-a100-podcast-compare whisper-int8-compare whisper-int8-podcast-compare model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-minicpmv models-download-minicpmo models-download-gemma4 models-download-speaker models-download-one minicpmv-inspect minicpmv-version minicpmv-support-summary minicpmv-capabilities minicpmv-pending-runtime minicpmv-coverage-pending minicpmv-assets-check minicpmv-fixture-path minicpmv-fixture-summary minicpmv-fixture-ready minicpmv-inspect-model minicpmv-fixture-check minicpmv-check gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-check gguf-ci gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect whisper whisper-k3 speaker-weights
+SPACEMIT_PACKAGES := ./backends/spacemit/... ./cmd/spacemit/...
+
+.PHONY: host-build host-vet host-test host-check spacemit-hardware-test
+
+.PHONY: all build test docs-check docs-diagrams docs-diagrams-check test-cpu spacemit-host-check spacemit-cross-compile test-model-coverage gemma4-mtp-parity gemma4-mtp-strict-parity gemma4-mtp-native-parity gemma4-gpu-cpu-parity whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity whisper-turbo-check whisper-backend-compare whisper-backend-podcast-compare whisper-a100-compare whisper-a100-podcast-compare whisper-int8-compare whisper-int8-podcast-compare model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-minicpmv models-download-minicpmo models-download-gemma4 models-download-speaker models-download-one minicpmv-inspect minicpmv-version minicpmv-support-summary minicpmv-capabilities minicpmv-pending-runtime minicpmv-coverage-pending minicpmv-assets-check minicpmv-fixture-path minicpmv-fixture-summary minicpmv-fixture-ready minicpmv-inspect-model minicpmv-fixture-check minicpmv-check gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-check gguf-ci gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect whisper whisper-k3 speaker-weights
 
 all: build
 
@@ -308,6 +312,7 @@ speech-media-integration:
 	GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
 
 docs-check: docs-diagrams-check
+	bun test scripts/check-doc-links.test.ts
 	bun run scripts/check-doc-links.ts
 	go test ./docs -count=1
 
@@ -378,7 +383,7 @@ minicpmv-check:
 # Whisper speech-to-text. The optimized RVV + SpaceMIT IME (int8) kernels are
 # gated by //go:build riscv64 and selected at runtime via CPU feature detection,
 # so a native riscv64 build picks them up automatically. See
-# docs/whisper-riscv-optimization.md for the optimization details and the
+# docs/performance/whisper-riscv-optimization.md for the optimization details and the
 # WHISPER_* runtime tunables.
 whisper:
 	go build -o bin/whisper ./cmd/audio/whisper
@@ -512,6 +517,43 @@ build-omnivoice:
 
 test-cpu:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
+
+# Respect host build constraints; never force foreign tags or omit backend folders.
+host-build:
+	go build ./...
+
+host-vet:
+	go vet ./...
+
+host-test:
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./...
+
+host-check:
+	$(MAKE) host-build
+	$(MAKE) host-vet
+	$(MAKE) host-test
+
+# Portable packing/fallback tests run on the host; AICPU and TCM need Linux/RISC-V.
+spacemit-host-check:
+	go build $(SPACEMIT_PACKAGES)
+	go vet $(SPACEMIT_PACKAGES)
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -count=1 -timeout=120s $(SPACEMIT_PACKAGES)
+
+# Explicit board-only execution, separate from cross-compilation.
+spacemit-hardware-test:
+	@test "$$(go env GOOS)/$$(go env GOARCH)" = linux/riscv64 || (echo "Requires a Linux/RISC-V K3 board" >&2; exit 2)
+	@test -e /proc/set_ai_thread || (echo "K3 AI-core registration is unavailable" >&2; exit 2)
+	GO_PHERENCE_TEST_K3=1 go test -count=1 -timeout=120s $(SPACEMIT_PACKAGES)
+
+# Compile only: never execute these RISC-V test binaries on the host.
+spacemit-cross-compile:
+	mkdir -p $(GOTMPDIR)/spacemit-riscv64
+	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build $(SPACEMIT_PACKAGES)
+	@for pkg in ime2 inference aicpu aicpu/aipool; do \
+		name=$$(echo $$pkg | tr / -); \
+		CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go test -c \
+			-o $(GOTMPDIR)/spacemit-riscv64/$$name.test ./backends/spacemit/$$pkg || exit $$?; \
+	done
 
 gemma4-mtp-parity:
 	GOTMPDIR=$(GOTMPDIR) go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1

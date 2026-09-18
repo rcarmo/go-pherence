@@ -1,12 +1,14 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
 	"math"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // q4kQ41x32FFNFusedSameAct runs Gate/Up Q4_K, SiLU, global INT8 quant/pack,

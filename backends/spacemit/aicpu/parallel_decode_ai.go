@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
@@ -7,9 +9,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // parallelDecodeAI runs inference with matmuls on AI cores (8-15, VLEN=1024).

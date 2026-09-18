@@ -1,10 +1,12 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
 	"math"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // quantizeQ8RowsM4Bytes builds the native M4 A layout directly:

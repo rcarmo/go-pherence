@@ -299,17 +299,17 @@ func runtimeBlockerFixture(key string) string {
 func runtimeBlockerValidation(key string) string {
 	switch key {
 	case "cpu_talker_runtime":
-		return "cmd/qwen3ttsinspect -require-numeric-parity"
+		return "cmd/qwen/qwen3ttsinspect -require-numeric-parity"
 	case "cpu_code_predictor_runtime":
-		return "cmd/qwen3ttsinspect -require-numeric-parity"
+		return "cmd/qwen/qwen3ttsinspect -require-numeric-parity"
 	case "decoder12hz_runtime":
-		return "cmd/qwen3ttsinspect -require-ready"
+		return "cmd/qwen/qwen3ttsinspect -require-ready"
 	case "cpu_generation_runtime":
-		return "cmd/lfm2inspect -require-ready"
+		return "cmd/models/lfm2inspect -require-ready"
 	case "nvidia_runtime":
-		return "cmd/qwen3ttsinspect -require-runtime / cmd/lfm2inspect -require-runtime"
+		return "cmd/qwen/qwen3ttsinspect -require-runtime / cmd/models/lfm2inspect -require-runtime"
 	case "streaming_runtime":
-		return "cmd/qwen3ttsinspect -require-ready"
+		return "cmd/qwen/qwen3ttsinspect -require-ready"
 	default:
 		return ""
 	}

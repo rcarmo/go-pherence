@@ -91,7 +91,7 @@
       "commands": [
         "make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice QWEN3TTS_TEXT='Hello world'",
         "make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice",
-        "GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect -model models/qwen3-tts-0.6b-customvoice -text 'Hello world' -strict -json"
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect -model models/qwen3-tts-0.6b-customvoice -text 'Hello world' -strict -json"
       ]
     },
     "lfm2_moe": {
@@ -180,7 +180,7 @@
       "commands": [
         "make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b",
         "make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b",
-        "GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect -model models/lfm2.5-8b-a1b -strict -json"
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect -model models/lfm2.5-8b-a1b -strict -json"
       ]
     },
     "minicpmv": {

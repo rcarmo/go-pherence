@@ -156,7 +156,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"support_version_output":                "../model/minicpmv/version.go",
 		"version_make_target":                   "../Makefile",
 		"pending_runtime_steps":                 "../model/minicpmv/runtime_status.go",
-		"runtime_roadmap_doc":                   "minicpmv-runtime-roadmap.md",
+		"runtime_roadmap_doc":                   "models/minicpmv-runtime-roadmap.md",
 		"pending_runtime_make_target":           "../Makefile",
 		"coverage_pending_make_target":          "../Makefile",
 		"metadata_fixture":                      "../model/minicpmv/testdata/minicpmo_fixture/config.json",

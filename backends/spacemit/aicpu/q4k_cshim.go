@@ -1,4 +1,4 @@
-//go:build cgo && q4kcshim
+//go:build cgo && q4kcshim && linux && riscv64
 
 package aicpu
 

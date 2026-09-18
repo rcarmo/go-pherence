@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
@@ -7,8 +9,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 func TestK3I8I4M4NativeRandomData(t *testing.T) {
