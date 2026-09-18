@@ -39,6 +39,9 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 	if f != len(g.Spec.Fields) {
 		return nil, fmt.Errorf("record field/spec count mismatch")
 	}
+	if _, err := normalizeOverlapPolicy(c.OverlapPolicy); err != nil {
+		return nil, err
+	}
 	for i, field := range g.Fields {
 		if field != g.Spec.Fields[i] {
 			return nil, fmt.Errorf("record field/spec mismatch at %d", i)
@@ -98,6 +101,13 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			return nil, fmt.Errorf("nonfinite object")
 		}
+		if g.Spec.Mode == RecordModeNatural && g.InstanceMask[i] {
+			idx := g.InstancePoolIndex[i]
+			anchor := g.Spec.anchorFieldIndex()
+			if idx < 0 || idx >= p || !g.FieldMembership[anchor][idx] {
+				return nil, fmt.Errorf("active natural instance has invalid anchor candidate")
+			}
+		}
 		if g.InstanceMask[i] && sigmoid(float64(v)/c.RecordTemperature) >= c.RecordAnchorThreshold {
 			order = append(order, i)
 		}
@@ -108,6 +118,7 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 		return nil, err
 	}
 	records := []DecodedRecord{}
+	anchors := make([][2]int, 0, len(order))
 	seen := map[string]bool{}
 	for _, inst := range order {
 		rec := DecodedRecord{sigmoid(float64(g.ObjectLogits[inst]) / c.RecordTemperature), map[string][]Entity{}}
@@ -171,7 +182,8 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 					return nil, fmt.Errorf("field query outside candidate logits")
 				}
 				candidateProb := sigmoid(float64(s.CandidateLogits[i][field.QueryID]))
-				if !field.Required && candidateProb < c.RecordAnchorThreshold {
+				isAnchor := g.Spec.Mode == RecordModeNatural && field.QueryID == g.Spec.AnchorQueryID
+				if !field.Required && !isAnchor && candidateProb < c.RecordAnchorThreshold {
 					continue
 				}
 				prob = math.Min(prob, candidateProb)
@@ -199,6 +211,13 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 				for _, e := range es {
 					keyFields[name] = append(keyFields[name], [2]int{e.TokenStart, e.TokenEnd})
 				}
+				sort.Slice(keyFields[name], func(i, j int) bool {
+					a, b := keyFields[name][i], keyFields[name][j]
+					if a[0] != b[0] {
+						return a[0] < b[0]
+					}
+					return a[1] < b[1]
+				})
 			}
 			key, _ := json.Marshal(keyFields)
 			if seen[string(key)] {
@@ -207,6 +226,28 @@ func DecodeRecords(text string, s RecordScores, c BoundaryHeadConfig) ([]Decoded
 			seen[string(key)] = true
 		}
 		records = append(records, rec)
+		if g.Spec.Mode == RecordModeNatural {
+			sp := g.PoolSpans[g.InstancePoolIndex[inst]]
+			anchors = append(anchors, [2]int{sp[0], sp[1]})
+		}
+	}
+	if g.Spec.Mode == RecordModeNatural {
+		indices := make([]int, len(records))
+		for i := range indices {
+			indices[i] = i
+		}
+		sort.SliceStable(indices, func(i, j int) bool {
+			a, b := anchors[indices[i]], anchors[indices[j]]
+			if a[0] != b[0] {
+				return a[0] < b[0]
+			}
+			return a[1] < b[1]
+		})
+		ordered := make([]DecodedRecord, len(records))
+		for i, idx := range indices {
+			ordered[i] = records[idx]
+		}
+		records = ordered
 	}
 	return records, nil
 }

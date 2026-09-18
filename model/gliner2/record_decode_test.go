@@ -95,3 +95,36 @@ func TestRequiredListUsesAssignmentThresholdWithoutCandidateGate(t *testing.T) {
 		t.Fatal("required list invented fallback", got, err)
 	}
 }
+
+func TestNaturalRecordOrderFollowsAnchorNotConfidence(t *testing.T) {
+	text := "Ada Bob"
+	words, _ := SplitWords(text)
+	fields := []RecordField{{QueryID: 0, Name: "name", Scalar: true}}
+	s := RecordScores{Input: EntityInput{Words: words}, CandidateLogits: [][]float32{{2}, {5}}, Group: DenseRecordGroupOutput{Spec: RecordSpec{Mode: RecordModeNatural, AnchorQueryID: 0, Fields: fields}, Fields: fields, ObjectLogits: []float32{2, 5}, InstanceMask: []bool{true, true}, InstancePoolIndex: []int{0, 1}, PoolSpans: [][]int{{0, 1}, {1, 2}}, FieldMembership: [][]bool{{true, true}}, AssignLogits: [][][]float32{{{0, 0, 0}}, {{0, 0, 0}}}}}
+	cfg := BoundaryHeadConfig{RecordTemperature: 1, RecordAnchorThreshold: .5, RecordFieldThreshold: .5, OverlapPolicy: "flat"}
+	got, err := DecodeRecords(text, s, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Fields["name"][0].Text != "Ada" || got[1].Fields["name"][0].Text != "Bob" {
+		t.Fatal("anchor order", got)
+	}
+	s.Group.InstancePoolIndex[0] = -1
+	if _, err = DecodeRecords(text, s, cfg); err == nil {
+		t.Fatal("bad natural anchor accepted")
+	}
+}
+func TestLatentRecordDedupIgnoresFieldConfidenceOrder(t *testing.T) {
+	text := "Ada Bob"
+	words, _ := SplitWords(text)
+	fields := []RecordField{{QueryID: 0, Name: "names"}}
+	s := RecordScores{Input: EntityInput{Words: words}, CandidateLogits: [][]float32{{10}, {10}}, Group: DenseRecordGroupOutput{Spec: RecordSpec{Mode: RecordModeLatent, Fields: fields}, Fields: fields, ObjectLogits: []float32{5, 4}, InstanceMask: []bool{true, true}, InstancePoolIndex: []int{0, 1}, PoolSpans: [][]int{{0, 1}, {1, 2}}, FieldMembership: [][]bool{{true, true}}, AssignLogits: [][][]float32{{{0, 5, 2}}, {{0, 2, 5}}}}}
+	cfg := BoundaryHeadConfig{RecordTemperature: 1, RecordAnchorThreshold: .5, RecordFieldThreshold: .5, OverlapPolicy: "allow"}
+	got, err := DecodeRecords(text, s, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Confidence < .99 {
+		t.Fatal("duplicate field sets kept", got)
+	}
+}
