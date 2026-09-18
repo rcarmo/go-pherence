@@ -91,7 +91,10 @@ func TestMixedSchemaFileValidation(t *testing.T) {
 	}{
 		{`[{"parent":"entities","marker":"[E]","labels":["person"]},{"parent":"sentiment","marker":"[L]","labels":["positive"]}]`, true},
 		{`[]`, false}, {`null`, false},
-		{`[{"parent":"r","marker":"[R]","labels":["head","tail"]}]`, false},
+		{`[{"parent":"r","marker":"[R]","labels":["head","tail"]}]`, true},
+		{`[{"parent":"r","marker":"[R]","labels":["tail","head"]}]`, false},
+		{`[{"parent":"r","marker":"[R]","labels":["head"]}]`, false},
+		{`[{"parent":"r","marker":"[C]","labels":["field"]}]`, false},
 		{`[{"parent":"entities","marker":"[E]","labels":["x"]}] {}`, false},
 	} {
 		if err := os.WriteFile(path, []byte(tc.raw), 0600); err != nil {

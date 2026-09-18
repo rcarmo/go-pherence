@@ -29,7 +29,7 @@ func run(args []string, out, stderr io.Writer) error {
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
 	schemaPath := fs.String("schema", "", "ordered TextSchema JSON file for entities or classification")
-	schemasPath := fs.String("schemas", "", "JSON array of entity/classification schemas sharing one encoder pass")
+	schemasPath := fs.String("schemas", "", "JSON array of entity/classification/relation schemas sharing one encoder pass")
 	classify := fs.String("classify", "", "classification task name; returns independent choice scores instead of entities")
 	record := fs.String("record", "", "single record schema name")
 	mode := fs.String("record-mode", "natural", "natural, latent or anchorless")
@@ -306,7 +306,14 @@ func readTextSchemas(path string) ([]gliner2.TextSchema, error) {
 		return nil, fmt.Errorf("at least one schema required")
 	}
 	for i, s := range schemas {
-		if err := validateTextSchema(s); err != nil {
+		check := s
+		if s.Marker == "[R]" {
+			if len(s.Labels) != 2 || s.Labels[0] != "head" || s.Labels[1] != "tail" {
+				return nil, fmt.Errorf("schema %d: relations require ordered head/tail roles", i)
+			}
+			check.Marker = "[E]" // Reuse parent/label validation, not task dispatch.
+		}
+		if err := validateTextSchema(check); err != nil {
 			return nil, fmt.Errorf("schema %d: %w", i, err)
 		}
 	}
