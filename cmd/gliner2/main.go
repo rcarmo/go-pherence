@@ -29,11 +29,11 @@ func run(args []string, out, stderr io.Writer) error {
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
 	classify := fs.String("classify", "", "classification task name; returns independent choice scores instead of entities")
-	record := fs.String("record", "", "single record schema name (optional fields only)")
+	record := fs.String("record", "", "single record schema name")
 	mode := fs.String("record-mode", "natural", "natural, latent or anchorless")
 	anchor := fs.String("anchor", "", "natural anchor field; defaults to first field")
 	var fields labelList
-	fs.Var(&fields, "field", "ordered optional field name:str or name:list; repeat")
+	fs.Var(&fields, "field", "ordered field name:str|list[,required][,exclusive]; repeat (required lists unsupported)")
 	relation := fs.String("relation", "", "single relation type; infers head and tail roles")
 	threshold := fs.Float64("threshold", .5, "sigmoid threshold before checkpoint count/abstention filtering")
 	policy := fs.String("overlap", "flat", "allow, nested, flat, or longest (per label)")
@@ -145,12 +145,30 @@ func recordSpec(fields []string, mode, anchor string) (gliner2.RecordSpec, error
 	s := gliner2.RecordSpec{Mode: mode, AnchorQueryID: -1}
 	seen := map[string]bool{}
 	for i, field := range fields {
-		name, kind, ok := strings.Cut(field, ":")
+		name, definition, ok := strings.Cut(field, ":")
+		parts := strings.Split(definition, ",")
+		kind := parts[0]
 		if !ok || strings.TrimSpace(name) == "" || seen[name] || (kind != "str" && kind != "list") {
 			return s, fmt.Errorf("field must be a unique name:str or name:list: %q", field)
 		}
 		seen[name] = true
-		s.Fields = append(s.Fields, gliner2.RecordField{QueryID: i, Name: name, Scalar: kind == "str"})
+		f := gliner2.RecordField{QueryID: i, Name: name, Scalar: kind == "str"}
+		modifiers := map[string]bool{}
+		for _, modifier := range parts[1:] {
+			if modifiers[modifier] {
+				return s, fmt.Errorf("duplicate field modifier %q", modifier)
+			}
+			modifiers[modifier] = true
+			switch modifier {
+			case "required":
+				f.Required = true
+			case "exclusive":
+				f.Exclusive = true
+			default:
+				return s, fmt.Errorf("unknown field modifier %q", modifier)
+			}
+		}
+		s.Fields = append(s.Fields, f)
 		if name == anchor {
 			s.AnchorQueryID = i
 		}
