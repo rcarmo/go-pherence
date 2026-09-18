@@ -9,31 +9,40 @@ import (
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
-// FinishCPUActivation applies the model's final decode norm and returns a copy
-// of the final activation without computing LM-head logits. It mutates hidden
-// in the same way FinishCPUDecodeStep does before logits.
-func (m *LlamaModel) FinishCPUActivation(hidden []float32) ([]float32, error) {
+// finalizeCPUHidden applies the model's final decode norm in place without
+// computing LM-head logits.
+func (m *LlamaModel) finalizeCPUHidden(hidden []float32) error {
 	if m == nil {
-		return nil, fmt.Errorf("nil model")
+		return fmt.Errorf("nil model")
 	}
 	cfg := m.Config
 	if cfg.HiddenSize <= 0 {
-		return nil, fmt.Errorf("invalid decode hidden=%d", cfg.HiddenSize)
+		return fmt.Errorf("invalid decode hidden=%d", cfg.HiddenSize)
 	}
 	if len(hidden) != cfg.HiddenSize {
-		return nil, fmt.Errorf("hidden len=%d, want %d", len(hidden), cfg.HiddenSize)
+		return fmt.Errorf("hidden len=%d, want %d", len(hidden), cfg.HiddenSize)
 	}
 	if m.Norm == nil {
-		return nil, fmt.Errorf("model final norm is not loaded")
+		return fmt.Errorf("model final norm is not loaded")
 	}
 	norm := m.Norm.Data()
 	if len(norm) < cfg.HiddenSize {
-		return nil, fmt.Errorf("final norm len=%d, want at least %d", len(norm), cfg.HiddenSize)
+		return fmt.Errorf("final norm len=%d, want at least %d", len(norm), cfg.HiddenSize)
 	}
 	if cfg.ModelType == "gemma3_text" {
 		simd.RMSNormBF16(hidden, norm, float32(cfg.RMSNormEps))
 	} else {
 		rmsNormInPlace(hidden, norm, float32(cfg.RMSNormEps))
+	}
+	return nil
+}
+
+// FinishCPUActivation applies the model's final decode norm and returns a copy
+// of the final activation without computing LM-head logits. It mutates hidden
+// in the same way FinishCPUDecodeStep does before logits.
+func (m *LlamaModel) FinishCPUActivation(hidden []float32) ([]float32, error) {
+	if err := m.finalizeCPUHidden(hidden); err != nil {
+		return nil, err
 	}
 	return append([]float32(nil), hidden...), nil
 }
@@ -106,10 +115,8 @@ func (m *LlamaModel) FinishCPUDecodeBatch(hiddenRows [][]float32) (finalActivati
 		}
 		dst := flatHidden[i*h : (i+1)*h]
 		copy(dst, row)
-		if cfg.ModelType == "gemma3_text" {
-			simd.RMSNormBF16(dst, norm, float32(cfg.RMSNormEps))
-		} else {
-			rmsNormInPlace(dst, norm, float32(cfg.RMSNormEps))
+		if err := m.finalizeCPUHidden(dst); err != nil {
+			return nil, nil, nil, err
 		}
 		traceMTPSummary("result_norm", i, -1, -1, dst)
 		finalActivations[i] = append([]float32(nil), dst...)

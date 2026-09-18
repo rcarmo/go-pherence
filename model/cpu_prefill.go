@@ -173,7 +173,23 @@ func (m *LlamaModel) prefillCPUEmbeddings(embeddings []float32, B int, kvCacheK,
 	return m.prefillCPUHidden(append([]float32(nil), embeddings...), B, kvCacheK, kvCacheV)
 }
 
+// prefillCPUHidden runs the batched transformer body and returns the final
+// pre-LM-head hidden state for the last prompt token.
 func (m *LlamaModel) prefillCPUHidden(bHidden []float32, B int, kvCacheK, kvCacheV [][]float32) ([]float32, bool) {
+	hiddenRows, ok := m.prefillCPUHiddenRows(bHidden, B, kvCacheK, kvCacheV, false)
+	if !ok || len(hiddenRows) == 0 {
+		return nil, false
+	}
+	return hiddenRows[len(hiddenRows)-1], true
+}
+
+// prefillCPUHiddenAll runs the batched transformer body and returns the final
+// pre-LM-head hidden state for every prompt token in sequence order.
+func (m *LlamaModel) prefillCPUHiddenAll(bHidden []float32, B int, kvCacheK, kvCacheV [][]float32) ([][]float32, bool) {
+	return m.prefillCPUHiddenRows(bHidden, B, kvCacheK, kvCacheV, true)
+}
+
+func (m *LlamaModel) prefillCPUHiddenRows(bHidden []float32, B int, kvCacheK, kvCacheV [][]float32, all bool) ([][]float32, bool) {
 	cfg := m.Config
 	h := cfg.HiddenSize
 	numHeads := cfg.NumHeads
@@ -457,9 +473,14 @@ func (m *LlamaModel) prefillCPUHidden(bHidden []float32, B int, kvCacheK, kvCach
 		}
 	}
 
-	lastHidden := make([]float32, h)
-	copy(lastHidden, bHidden[(B-1)*h:B*h])
-	return lastHidden, true
+	if !all {
+		return [][]float32{append([]float32(nil), bHidden[(B-1)*h:B*h]...)}, true
+	}
+	hiddenRows := make([][]float32, B)
+	for b := 0; b < B; b++ {
+		hiddenRows[b] = append([]float32(nil), bHidden[b*h:(b+1)*h]...)
+	}
+	return hiddenRows, true
 }
 
 // parallelForTokens runs fn for each token index in [0,B) across GOMAXPROCS
