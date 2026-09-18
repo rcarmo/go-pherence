@@ -25,3 +25,19 @@ func TestMixedDecodePartitionsQueries(t *testing.T) {
 		t.Fatal("relation decoded as entity")
 	}
 }
+
+func TestMixedClassificationDecodeOwnsSlices(t *testing.T) {
+	schema := TextSchema{Parent: "sentiment", Marker: "[L]", Labels: []string{"positive"}}
+	s := MixedScores{Input: MixedInput{Groups: []SchemaGroupRouting{{Schema: schema}}}, GroupQueryIDs: [][]int{nil}, Classifications: map[int]ClassificationScores{0: {Task: "sentiment", Labels: []string{"positive"}, Logits: []float32{3}, Probabilities: []float64{.95}}}}
+	got, err := DecodeSchemaGroups("text", s, .5, "flat", BoundaryHeadConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got[0].Classification.Labels[0] = "changed"
+	got[0].Classification.Logits[0] = 0
+	got[0].Classification.Probabilities[0] = 0
+	before := s.Classifications[0]
+	if before.Labels[0] != "positive" || before.Logits[0] != 3 || before.Probabilities[0] != .95 {
+		t.Fatal("decode result aliases raw scores")
+	}
+}

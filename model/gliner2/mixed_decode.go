@@ -16,7 +16,8 @@ type DecodedSchemaGroup struct {
 }
 
 // DecodeSchemaGroups decodes entity, classification, relation and record
-// groups. Raw [C] field groups without record metadata are not decoded.
+// groups. Raw [C] field groups without record metadata are rejected: callers
+// needing only field logits should use ScoreSchemas without this decoder.
 func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy string, c BoundaryHeadConfig) ([]DecodedSchemaGroup, error) {
 	if len(s.GroupQueryIDs) != len(s.Input.Groups) {
 		return nil, fmt.Errorf("group routing count mismatch")
@@ -44,6 +45,9 @@ func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy st
 			if len(cls.Labels) != len(g.Schema.Labels) || len(cls.Logits) != len(cls.Labels) || len(cls.Probabilities) != len(cls.Labels) {
 				return nil, fmt.Errorf("classification group shape mismatch")
 			}
+			cls.Labels = append([]string(nil), cls.Labels...)
+			cls.Logits = append([]float32(nil), cls.Logits...)
+			cls.Probabilities = append([]float64(nil), cls.Probabilities...)
 			result[i].Classification = &cls
 		case "[E]":
 			if s.Extraction == nil {
