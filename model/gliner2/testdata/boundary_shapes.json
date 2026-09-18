@@ -1,0 +1,137 @@
+{
+  "boundary_head.boundary_encoder.attention_blocks.0.norm.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.0.norm.weight": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.0.output_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.0.output_projection.weight": [
+    128,
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.0.qkv_projection.bias": [
+    384
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.0.qkv_projection.weight": [
+    384,
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.norm.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.norm.weight": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.output_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.output_projection.weight": [
+    128,
+    128
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.qkv_projection.bias": [
+    384
+  ],
+  "boundary_head.boundary_encoder.attention_blocks.1.qkv_projection.weight": [
+    384,
+    128
+  ],
+  "boundary_head.boundary_encoder.bos_state": [
+    768
+  ],
+  "boundary_head.boundary_encoder.eos_state": [
+    768
+  ],
+  "boundary_head.boundary_encoder.layer_norm.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.layer_norm.weight": [
+    128
+  ],
+  "boundary_head.boundary_encoder.left_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.left_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.boundary_encoder.output_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.output_projection.weight": [
+    128,
+    256
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.input_projection.bias": [
+    512
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.input_projection.weight": [
+    512,
+    128
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.norm.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.norm.weight": [
+    128
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.output_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.refinement_blocks.0.output_projection.weight": [
+    128,
+    256
+  ],
+  "boundary_head.boundary_encoder.right_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_encoder.right_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.boundary_query_head.end_boundary_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.end_boundary_projection.weight": [
+    128,
+    128
+  ],
+  "boundary_head.boundary_query_head.end_query_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.end_query_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.boundary_query_head.inside_query_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.inside_query_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.boundary_query_head.inside_text_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.inside_text_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.boundary_query_head.start_boundary_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.start_boundary_projection.weight": [
+    128,
+    128
+  ],
+  "boundary_head.boundary_query_head.start_query_projection.bias": [
+    128
+  ],
+  "boundary_head.boundary_query_head.start_query_projection.weight": [
+    128,
+    768
+  ]
+}
