@@ -2,6 +2,7 @@ package jevlike
 
 import (
 	"fmt"
+
 	backbone "github.com/rcarmo/go-pherence/model"
 )
 
@@ -46,6 +47,14 @@ type FrozenScorer struct {
 	Encoder   TokenEncoder
 }
 
+type frozenEncodedBatch struct {
+	Context     [][][]float32
+	ContextMask [][]bool
+	Options     [][][]float32
+	OptionMask  [][]bool
+	Labels      []int
+}
+
 func (c Checkpoint) Frozen(encoder TokenEncoder) (*FrozenScorer, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
@@ -61,49 +70,74 @@ func (c Checkpoint) Frozen(encoder TokenEncoder) (*FrozenScorer, error) {
 	for _, p := range c.Parameters {
 		params[p.Name] = p.Values
 	}
-	if err = h.LoadNamedParameters("head", params); err != nil {
+	if err = h.LoadNamedParameters(defaultHeadPrefix, params); err != nil {
 		return nil, err
 	}
 	return &FrozenScorer{Config: c.Config, Reference: c.EncoderReference, Head: *h, Encoder: encoder}, nil
 }
 
-func (m *FrozenScorer) Forward(examples []ChoiceExample, shuffle bool) ([][]float32, error) {
-	if m == nil || m.Encoder == nil {
-		return nil, fmt.Errorf("missing frozen encoder")
+func FrozenCheckpoint(m *FrozenScorer) (Checkpoint, error) {
+	if err := validateFrozenScorer(m, false); err != nil {
+		return Checkpoint{}, err
 	}
-	if err := m.Config.Validate(); err != nil {
+	if m.Reference == "" {
+		return Checkpoint{}, fmt.Errorf("frozen checkpoint requires encoder_reference")
+	}
+	return Checkpoint{
+		Version:          1,
+		Encoder:          "frozen",
+		EncoderReference: m.Reference,
+		Config:           m.Config,
+		Parameters:       m.Head.NamedParameters(defaultHeadPrefix),
+	}, nil
+}
+
+func (m *FrozenScorer) Forward(examples []ChoiceExample, shuffle bool) ([][]float32, error) {
+	batch, err := m.encodeBatch(examples)
+	if err != nil {
 		return nil, err
 	}
-	if m.Head.Width != m.Config.Width || m.Head.Rank != m.Config.Rank {
-		return nil, fmt.Errorf("head/config mismatch")
+	return m.forwardEncodedBatch(batch, shuffle)
+}
+
+func (m *FrozenScorer) encodeBatch(examples []ChoiceExample) (frozenEncodedBatch, error) {
+	if err := validateFrozenScorer(m, true); err != nil {
+		return frozenEncodedBatch{}, err
 	}
 	if len(examples) == 0 {
-		return nil, fmt.Errorf("empty batch")
+		return frozenEncodedBatch{}, fmt.Errorf("empty batch")
 	}
+
+	validated := make([]ChoiceExample, len(examples))
 	contexts := make([][][]float32, len(examples))
 	options := make([][][]float32, len(examples))
 	maxCtx, maxOpts := 0, 0
 	for i, ex := range examples {
-		if _, err := ValidateChoiceExample(ex); err != nil {
-			return nil, err
-		}
-		ctx, err := m.Encoder.Encode(ex.Context, m.Config.ContextTokens)
+		item, err := ValidateChoiceExample(ex)
 		if err != nil {
-			return nil, err
+			return frozenEncodedBatch{}, err
+		}
+		validated[i] = item
+
+		ctx, err := m.Encoder.Encode(item.Context, m.Config.ContextTokens)
+		if err != nil {
+			return frozenEncodedBatch{}, err
 		}
 		if err = validateEncoded(ctx, m.Config.Width); err != nil {
-			return nil, err
+			return frozenEncodedBatch{}, err
 		}
 		contexts[i] = ctx
 		maxCtx = max(maxCtx, len(ctx))
-		maxOpts = max(maxOpts, len(ex.Options))
-		for _, text := range ex.Options {
+		maxOpts = max(maxOpts, len(item.Options))
+
+		options[i] = make([][]float32, len(item.Options))
+		for j, text := range item.Options {
 			tokens, err := m.Encoder.Encode(text, m.Config.OptionTokens)
 			if err != nil {
-				return nil, err
+				return frozenEncodedBatch{}, err
 			}
 			if err = validateEncoded(tokens, m.Config.Width); err != nil {
-				return nil, err
+				return frozenEncodedBatch{}, err
 			}
 			pooled := make([]float32, m.Config.Width)
 			for _, row := range tokens {
@@ -111,33 +145,85 @@ func (m *FrozenScorer) Forward(examples []ChoiceExample, shuffle bool) ([][]floa
 					pooled[d] += v / float32(len(tokens))
 				}
 			}
-			options[i] = append(options[i], pooled)
+			options[i][j] = pooled
 		}
 	}
-	cm := make([][]bool, len(examples))
-	om := make([][]bool, len(examples))
-	for i := range examples {
-		cm[i] = make([]bool, maxCtx)
+
+	batch := frozenEncodedBatch{
+		Context:     contexts,
+		ContextMask: make([][]bool, len(validated)),
+		Options:     options,
+		OptionMask:  make([][]bool, len(validated)),
+		Labels:      make([]int, len(validated)),
+	}
+	for i, item := range validated {
+		batch.ContextMask[i] = make([]bool, maxCtx)
 		for j := range contexts[i] {
-			cm[i][j] = true
+			batch.ContextMask[i][j] = true
 		}
 		for len(contexts[i]) < maxCtx {
 			contexts[i] = append(contexts[i], make([]float32, m.Config.Width))
 		}
-		om[i] = make([]bool, maxOpts)
+		batch.Context[i] = contexts[i]
+
+		batch.OptionMask[i] = make([]bool, maxOpts)
 		for j := range options[i] {
-			om[i][j] = true
+			batch.OptionMask[i][j] = true
 		}
 		for len(options[i]) < maxOpts {
 			options[i] = append(options[i], make([]float32, m.Config.Width))
 		}
+		batch.Options[i] = options[i]
+		batch.Labels[i] = item.Label
 	}
-	if shuffle && len(examples) > 1 {
-		contexts = append(contexts[len(contexts)-1:], contexts[:len(contexts)-1]...)
-		cm = append(cm[len(cm)-1:], cm[:len(cm)-1]...)
-	}
-	return m.Head.Forward(contexts, cm, options, om)
+	return batch, nil
 }
+
+func (m *FrozenScorer) forwardEncodedBatch(batch frozenEncodedBatch, shuffle bool) ([][]float32, error) {
+	if err := validateFrozenScorer(m, false); err != nil {
+		return nil, err
+	}
+	if shuffle {
+		batch = batch.shuffledContexts()
+	}
+	return m.Head.Forward(batch.Context, batch.ContextMask, batch.Options, batch.OptionMask)
+}
+
+func (batch frozenEncodedBatch) shuffledContexts() frozenEncodedBatch {
+	if len(batch.Context) <= 1 {
+		return batch
+	}
+	rolled := frozenEncodedBatch{
+		Context:     make([][][]float32, len(batch.Context)),
+		ContextMask: make([][]bool, len(batch.ContextMask)),
+		Options:     batch.Options,
+		OptionMask:  batch.OptionMask,
+		Labels:      batch.Labels,
+	}
+	for i := range batch.Context {
+		j := (i + len(batch.Context) - 1) % len(batch.Context)
+		rolled.Context[i] = batch.Context[j]
+		rolled.ContextMask[i] = batch.ContextMask[j]
+	}
+	return rolled
+}
+
+func validateFrozenScorer(m *FrozenScorer, requireEncoder bool) error {
+	if m == nil {
+		return fmt.Errorf("jevlike frozen scorer is nil")
+	}
+	if requireEncoder && m.Encoder == nil {
+		return fmt.Errorf("missing frozen encoder")
+	}
+	if err := m.Config.Validate(); err != nil {
+		return err
+	}
+	if m.Head.Width != m.Config.Width || m.Head.Rank != m.Config.Rank {
+		return fmt.Errorf("head/config mismatch")
+	}
+	return m.Head.Validate()
+}
+
 func validateEncoded(rows [][]float32, width int) error {
 	if len(rows) == 0 {
 		return fmt.Errorf("encoder returned no hidden states")
