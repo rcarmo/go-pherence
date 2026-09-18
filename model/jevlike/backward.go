@@ -3,6 +3,8 @@ package jevlike
 import (
 	"fmt"
 	"math"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 type layerNormCache struct {
@@ -246,9 +248,9 @@ func accumulateLinearNoBiasBackward(weight []float32, outDim, inDim int, input, 
 	for row := 0; row < outDim; row++ {
 		base := row * inDim
 		grad := dOutput[row]
-		for col := 0; col < inDim; col++ {
-			dWeight[base+col] += grad * input[col]
-			dInput[col] += weight[base+col] * grad
-		}
+		// Row-local gradient updates are independent SAXPY operations. Keep
+		// row accumulation order while dispatching arithmetic to Plan 9.
+		simd.Saxpy(grad, input[:inDim], dWeight[base:base+inDim])
+		simd.Saxpy(grad, weight[base:base+inDim], dInput[:inDim])
 	}
 }

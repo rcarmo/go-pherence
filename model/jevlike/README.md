@@ -2,7 +2,7 @@
 
 Jevlike scores a context against a changing list of text options in one pass. Each option queries the context through a shared attention head; the result is one logit per option. The byte encoder can be trained from scratch, or a frozen local decoder can supply token hidden states while only the head is trained.
 
-The runtime is native Go. Projection and dot operations use the SIMD runtime, including Plan 9 assembly on supported CPUs and portable fallbacks elsewhere. Python is needed only for importing/exporting upstream PyTorch checkpoints and regenerating reference fixtures.
+The runtime is native Go. Projection, dot and linear-backward accumulation operations use the SIMD runtime, including Plan 9 assembly on supported CPUs and portable fallbacks elsewhere. Python is needed only for importing/exporting upstream PyTorch checkpoints and regenerating reference fixtures.
 
 ```sh
 go run ./cmd/jevlike -help
@@ -37,8 +37,8 @@ The package includes frame-difference packing and NCHW conversion. It does not r
 
 ## Tests and current limits
 
-Run `go test ./model/jevlike ./cmd/jevlike` and `go vet ./model/jevlike ./cmd/jevlike`. Tests cover PyTorch tiny/head forward and gradient fixtures, finite-difference gradients, synthetic training loss, checkpoint round trips, context shuffling and CLI workflows. Visual convolution tests compare against a scalar Go reference; they do not yet establish full PyTorch visual-model parity.
+Run `go test ./model/jevlike ./cmd/jevlike` and `go vet ./model/jevlike ./cmd/jevlike`. Tests cover PyTorch tiny/head forward and gradient fixtures, finite-difference gradients, synthetic training loss, checkpoint round trips, context shuffling and CLI workflows. The complete visual encoder also matches a deterministic PyTorch fixture, including RGB/motion preprocessing, GroupNorm/SiLU and patch projections. This does not establish parity for a complete trained game policy.
 
-Synthetic generation is deterministic in Go but does not reproduce Python's RNG sequence. Initialisation uses the native training implementation rather than reproducing PyTorch's random stream. ECE includes confidence exactly equal to one in its last bin, unlike the upstream half-open bin loop.
+Synthetic generation is deterministic in Go but does not reproduce Python's RNG sequence. Initialisation uses upstream-compatible distributions (unit-normal embedding/position weights and bounded uniform projections), but does not reproduce PyTorch's random stream. ECE includes confidence exactly equal to one in its last bin, unlike the upstream half-open bin loop.
 
 Pinned workload measurements and commands are in [VALIDATION.md](VALIDATION.md). Upstream attribution and licence notices are in [PROVENANCE.md](PROVENANCE.md).

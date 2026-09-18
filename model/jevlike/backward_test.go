@@ -213,3 +213,63 @@ func indexLabel(i int) string {
 func inputLabel(kind string, a, b, c int) string {
 	return kind + indexLabel(a) + indexLabel(b) + indexLabel(c)
 }
+
+// Exercise vector blocks and scalar tails with nonzero accumulated gradients.
+// Forward fixtures alone could miss overwrites or over-wide assembly stores.
+func TestLinearBackwardSAXPYMatchesReference(t *testing.T) {
+	for _, inDim := range []int{1, 3, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127} {
+		for _, outDim := range []int{1, 2, 7, 16} {
+			t.Run(fmt.Sprintf("%dx%d", outDim, inDim), func(t *testing.T) {
+				weight, input, dOut := make([]float32, outDim*inDim), make([]float32, inDim), make([]float32, outDim)
+				for i := range weight {
+					weight[i] = float32((i*17)%31-15) / 13
+				}
+				for i := range input {
+					input[i] = float32((i*7)%23-11) / 9
+				}
+				for i := range dOut {
+					dOut[i] = float32((i*13)%19-9) / 7
+				}
+				const guard = float32(12345)
+				wBuf, xBuf := make([]float32, len(weight)+2), make([]float32, inDim+2)
+				wBuf[0], wBuf[len(wBuf)-1], xBuf[0], xBuf[len(xBuf)-1] = guard, guard, guard, guard
+				dw, dx := wBuf[1:len(wBuf)-1], xBuf[1:len(xBuf)-1]
+				for i := range dw {
+					dw[i] = float32(i%5) * .1
+				}
+				for i := range dx {
+					dx[i] = float32(i%3) * .2
+				}
+				wantW, wantX := append([]float32(nil), dw...), append([]float32(nil), dx...)
+				originalW, originalX, originalD := append([]float32(nil), weight...), append([]float32(nil), input...), append([]float32(nil), dOut...)
+				for pass := 0; pass < 3; pass++ {
+					accumulateLinearNoBiasBackward(weight, outDim, inDim, input, dOut, dw, dx)
+					for row, g := range dOut {
+						for col, x := range input {
+							wantW[row*inDim+col] += g * x
+							wantX[col] += weight[row*inDim+col] * g
+						}
+					}
+				}
+				for _, pair := range [][2][]float32{{dw, wantW}, {dx, wantX}} {
+					for i, v := range pair[0] {
+						want := pair[1][i]
+						if math.Abs(float64(v-want)) > 2e-5*math.Max(1, math.Abs(float64(want))) {
+							t.Fatalf("gradient[%d]=%g want %g", i, v, want)
+						}
+					}
+				}
+				if wBuf[0] != guard || wBuf[len(wBuf)-1] != guard || xBuf[0] != guard || xBuf[len(xBuf)-1] != guard {
+					t.Fatal("assembly wrote outside gradient slice")
+				}
+				for _, pair := range [][2][]float32{{weight, originalW}, {input, originalX}, {dOut, originalD}} {
+					for i, v := range pair[0] {
+						if v != pair[1][i] {
+							t.Fatal("modified backward input")
+						}
+					}
+				}
+			})
+		}
+	}
+}
