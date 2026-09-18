@@ -192,3 +192,28 @@ func usedTokenIDs(batch ByteBatch) []int {
 	}
 	return ids
 }
+
+func TestEmbeddingInitialisationMatchesUpstreamDistribution(t *testing.T) {
+	cfg := Config{Width: 64, Rank: 64, ContextTokens: 192, OptionTokens: 32}
+	m, err := NewInitializedTinyScorer(cfg, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range m.EmbeddingWeight[:cfg.Width] {
+		if v != 0 {
+			t.Fatal("padding embedding must be zero")
+		}
+	}
+	for name, x := range map[string][]float32{"embedding": m.EmbeddingWeight[cfg.Width:], "position": m.PositionWeight} {
+		var sum, sum2 float64
+		for _, v := range x {
+			sum += float64(v)
+			sum2 += float64(v) * float64(v)
+		}
+		mean := sum / float64(len(x))
+		variance := sum2/float64(len(x)) - mean*mean
+		if math.Abs(mean) > .05 || variance < .9 || variance > 1.1 {
+			t.Fatalf("%s mean=%g variance=%g want normal(0,1)", name, mean, variance)
+		}
+	}
+}

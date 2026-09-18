@@ -16,8 +16,8 @@ const (
 	adamBeta2                      = float32(0.999)
 	adamEpsilon                    = float32(1e-8)
 	adamWeightDecay                = float32(1e-4)
-	embeddingInitStd               = float32(0.02)
-	positionInitStd                = float32(0.02)
+	embeddingInitStd               = float32(1) // nn.Embedding uses normal_(0, 1)
+	positionInitStd                = float32(1)
 )
 
 // TrainConfig controls native TinyScorer optimisation.
