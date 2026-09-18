@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	defaultTinyWidth         = 16
-	defaultTinyRank          = 16
-	defaultTinyContextTokens = 128
+	defaultTinyWidth         = 64
+	defaultTinyRank          = 64
+	defaultTinyContextTokens = 192
 	defaultTinyOptionTokens  = 32
 )
 
@@ -46,6 +46,12 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "frozen-train":
+		return runFrozenTrain(args[1:], stdout, stderr)
+	case "frozen-predict":
+		return runFrozenPredict(args[1:], stdout, stderr)
+	case "frozen-eval":
+		return runFrozenEval(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		writeUsage(stdout)
 		return nil
@@ -74,6 +80,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w, "  train        train a native tiny scorer and save the best checkpoint")
 	fmt.Fprintln(w, "  predict      score one context with repeated -option flags (tiny checkpoints only)")
 	fmt.Fprintln(w, "  eval         evaluate a tiny checkpoint on JSONL data and print JSON metrics")
+	fmt.Fprintln(w, "  frozen-train / frozen-predict / frozen-eval: frozen local decoder workflows")
 }
 
 func runSynthetic(args []string, stdout, stderr io.Writer) error {
