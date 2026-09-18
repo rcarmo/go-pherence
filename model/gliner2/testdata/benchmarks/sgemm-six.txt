@@ -1,0 +1,9 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model/gliner2
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkPublishedEntityPipeline-6   	       3	 556598481 ns/op	53175232 B/op	    6001 allocs/op
+BenchmarkPublishedEntityPipeline-6   	       3	 566959338 ns/op	53175232 B/op	    6001 allocs/op
+BenchmarkPublishedEntityPipeline-6   	       3	 545769614 ns/op	53175232 B/op	    6001 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model/gliner2	14.960s

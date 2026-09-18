@@ -84,7 +84,10 @@ func (l Linear) ApplyBatch(x, out []float32, batch int) error {
 	if batch == 1 {
 		return l.Apply(x[:l.InDim], out[:l.OutDim])
 	}
-	if !simd.GemmRows(out[:outLen], x[:xLen], l.Weight, batch, l.OutDim, l.InDim) {
+	// Checked SGEMM dispatches to Plan 9 assembly; GemmRows is scalar for
+	// multi-row batches. SGEMM accumulates, so preserve overwrite semantics.
+	clear(out[:outLen])
+	if !simd.SgemmNTTo(out[:outLen], x[:xLen], l.Weight, batch, l.OutDim, l.InDim, 1, l.InDim, l.InDim, l.OutDim) {
 		return fmt.Errorf("linear GEMM rejected batch=%d out=%d in=%d", batch, l.OutDim, l.InDim)
 	}
 	if len(l.Bias) != 0 {
