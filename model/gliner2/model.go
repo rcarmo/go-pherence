@@ -18,6 +18,7 @@ type EntityModel struct {
 	Queries     BoundaryQueryHead
 	Pool        DocumentCandidatePool
 	Scorer      SharedPoolScorer
+	Classifier  ClassificationHead
 	Null, Count *Linear
 }
 
@@ -79,6 +80,10 @@ func LoadEntityModel(dir string) (*EntityModel, error) {
 		return nil, err
 	}
 	m.Scorer, err = LoadSharedPoolScorer(weights, ec.HiddenSize, cfg.BoundaryHead)
+	if err != nil {
+		return nil, err
+	}
+	m.Classifier, err = LoadClassificationHead(weights, ec.HiddenSize)
 	if err != nil {
 		return nil, err
 	}

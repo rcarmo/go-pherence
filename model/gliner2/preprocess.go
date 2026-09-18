@@ -49,6 +49,18 @@ type EntityInput struct {
 // NOT wrap this combined sequence in CLS/SEP. Descriptions and other task
 // schemas are separate APIs, not silently folded into entity labels.
 func (t *Tokenizer) PrepareEntities(text string, labels []string, maxTokens int) (EntityInput, error) {
+	return t.prepareSchema(text, "entities", "[E]", labels, maxTokens)
+}
+
+// PrepareClassification routes choice markers for a single named task.
+func (t *Tokenizer) PrepareClassification(text, task string, labels []string, maxTokens int) (EntityInput, error) {
+	if strings.TrimSpace(task) == "" {
+		return EntityInput{}, fmt.Errorf("classification task required")
+	}
+	return t.prepareSchema(text, task, "[L]", labels, maxTokens)
+}
+
+func (t *Tokenizer) prepareSchema(text, parent, marker string, labels []string, maxTokens int) (EntityInput, error) {
 	if len(labels) == 0 || maxTokens <= 0 {
 		return EntityInput{}, fmt.Errorf("entity labels and token budget required")
 	}
@@ -68,7 +80,7 @@ func (t *Tokenizer) PrepareEntities(text string, labels []string, maxTokens int)
 		result.IDs = append(result.IDs, ids...)
 		return nil
 	}
-	for _, s := range []string{"(", "[P]", "entities", "("} {
+	for _, s := range []string{"(", "[P]", parent, "("} {
 		if err := appendToken(s); err != nil {
 			return EntityInput{}, err
 		}
@@ -80,7 +92,7 @@ func (t *Tokenizer) PrepareEntities(text string, labels []string, maxTokens int)
 		}
 		seen[label] = true
 		result.QueryPositions = append(result.QueryPositions, len(result.IDs))
-		if err := appendToken("[E]"); err != nil {
+		if err := appendToken(marker); err != nil {
 			return EntityInput{}, err
 		}
 		if err := appendToken(label); err != nil {

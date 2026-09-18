@@ -26,6 +26,7 @@ func run(args []string, out, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
+	classify := fs.String("classify", "", "classification task name; returns independent choice scores instead of entities")
 	threshold := fs.Float64("threshold", .5, "sigmoid threshold before checkpoint count/abstention filtering")
 	policy := fs.String("overlap", "flat", "allow, nested, flat, or longest (per label)")
 	maxTokens := fs.Int("max-tokens", 4096, "reject longer formatted subword sequences")
@@ -47,6 +48,15 @@ func run(args []string, out, stderr io.Writer) error {
 	m, err := gliner2.LoadEntityModel(*dir)
 	if err != nil {
 		return err
+	}
+	if *classify != "" {
+		result, err := m.Classify(*text, *classify, labels, *maxTokens)
+		if err != nil {
+			return err
+		}
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
 	}
 	scores, err := m.ScoreEntities(*text, labels, *maxTokens)
 	if err != nil {
