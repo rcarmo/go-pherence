@@ -28,6 +28,7 @@ func run(args []string, out, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	dir := fs.String("model", "", "local GLiNER2.5 checkpoint directory")
 	text := fs.String("text", "", "input text")
+	schemaPath := fs.String("schema", "", "ordered TextSchema JSON file for entities or classification")
 	classify := fs.String("classify", "", "classification task name; returns independent choice scores instead of entities")
 	record := fs.String("record", "", "single record schema name")
 	mode := fs.String("record-mode", "natural", "natural, latent or anchorless")
@@ -47,8 +48,19 @@ func run(args []string, out, stderr io.Writer) error {
 		}
 		return err
 	}
-	if fs.NArg() != 0 || *dir == "" || *text == "" || (len(labels) == 0 && *relation == "" && *record == "") {
+	if fs.NArg() != 0 || *dir == "" || *text == "" || (len(labels) == 0 && *relation == "" && *record == "" && *schemaPath == "") {
 		return fmt.Errorf("-model, -text and at least one -label are required; positional arguments not accepted")
+	}
+	var schema *gliner2.TextSchema
+	if *schemaPath != "" {
+		if *relation != "" || *record != "" || *classify != "" || len(labels) > 0 || len(fields) > 0 || *anchor != "" {
+			return fmt.Errorf("-schema cannot be combined with task/label/field flags")
+		}
+		loaded, err := readTextSchema(*schemaPath)
+		if err != nil {
+			return err
+		}
+		schema = &loaded
 	}
 	if *relation != "" && (*classify != "" || len(labels) != 0) {
 		return fmt.Errorf("-relation cannot be combined with -classify or -label")
@@ -94,6 +106,31 @@ func run(args []string, out, stderr io.Writer) error {
 	m, err := gliner2.LoadEntityModel(*dir)
 	if err != nil {
 		return err
+	}
+	if schema != nil {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		if schema.Marker == "[L]" {
+			result, err := m.ClassifySchema(*text, *schema, *maxTokens)
+			if err != nil {
+				return err
+			}
+			return enc.Encode(result)
+		}
+		scores, err := m.ScoreEntitySchema(*text, *schema, *maxTokens)
+		if err != nil {
+			return err
+		}
+		if *raw {
+			return enc.Encode(scores)
+		}
+		entities, err := gliner2.DecodeConfiguredEntities(*text, scores, *threshold, *policy, m.Config.BoundaryHead)
+		if err != nil {
+			return err
+		}
+		return enc.Encode(struct {
+			Entities []gliner2.Entity `json:"entities"`
+		}{entities})
 	}
 	if *relation != "" {
 		result, err := m.ScoreRelation(*text, *relation, *maxTokens)
@@ -184,4 +221,33 @@ func recordSpec(fields []string, mode, anchor string) (gliner2.RecordSpec, error
 		return s, fmt.Errorf("only natural mode accepts -anchor")
 	}
 	return s, s.Validate()
+}
+
+func readTextSchema(path string) (gliner2.TextSchema, error) {
+	var s gliner2.TextSchema
+	f, err := os.Open(path)
+	if err != nil {
+		return s, err
+	}
+	defer f.Close()
+	d := json.NewDecoder(f)
+	d.DisallowUnknownFields()
+	if err = d.Decode(&s); err != nil {
+		return s, err
+	}
+	var extra any
+	if err = d.Decode(&extra); err != io.EOF {
+		return s, fmt.Errorf("schema contains trailing data")
+	}
+	if (s.Marker != "[E]" && s.Marker != "[L]") || strings.TrimSpace(s.Parent) == "" || len(s.Labels) == 0 {
+		return s, fmt.Errorf("schema needs parent, labels and [E] or [L] marker")
+	}
+	seen := map[string]bool{}
+	for _, label := range s.Labels {
+		if strings.TrimSpace(label) == "" || seen[label] {
+			return s, fmt.Errorf("empty/duplicate schema label")
+		}
+		seen[label] = true
+	}
+	return s, nil
 }
