@@ -18,7 +18,7 @@ JSONL rows contain a string `context`, at least two non-empty strings in `option
 
 `frozen-train`, `frozen-predict` and `frozen-eval` take `-encoder-model` pointing to a local model directory with safetensors, configuration and `tokenizer.json`. The native dense causal decoder supplies final-normalised hidden states without computing logits. Option vectors are means of their token states.
 
-The tokenizer does not automatically add special tokens. `-encoder-bos` explicitly prepends a token ID; the default is -1 (none). Match the tokenizer and special-token policy to the source checkpoint. Arbitrary Hugging Face encoders are not supported: Gemma4 per-layer inputs and mixture-of-experts models are explicitly rejected by the hidden-state API. Real-checkpoint Hugging Face parity has not been established by the current synthetic decoder tests.
+The tokenizer does not automatically add special tokens. `-encoder-bos` explicitly prepends a token ID; the default is -1 (none). Match the tokenizer and special-token policy to the source checkpoint. Arbitrary Hugging Face encoders are not supported: Gemma4 per-layer inputs and mixture-of-experts models are explicitly rejected by the hidden-state API. An opt-in Qwen2.5-0.5B fixture checks real-checkpoint hidden states and scorer logits against Transformers; it is not a guarantee for every supported decoder.
 
 Native checkpoints are versioned JSON containing config and named, shaped tensors. Loads reject missing/duplicate tensors, invalid shapes and non-finite values; saves use a temporary file and rename. Frozen checkpoints contain only the head and encoder reference, not backbone weights.
 
@@ -37,7 +37,7 @@ The package includes frame-difference packing and NCHW conversion. It does not r
 
 ## Tests and current limits
 
-Run `go test ./model/jevlike ./cmd/jevlike` and `go vet ./model/jevlike ./cmd/jevlike`. Tests cover PyTorch tiny/head forward and gradient fixtures, finite-difference gradients, synthetic training loss, checkpoint round trips, context shuffling and CLI workflows. The complete visual encoder also matches a deterministic PyTorch fixture, including RGB/motion preprocessing, GroupNorm/SiLU and patch projections. This does not establish parity for a complete trained game policy.
+Run `go test ./model/jevlike ./cmd/jevlike` and `go vet ./model/jevlike ./cmd/jevlike`. Tests cover PyTorch tiny/head forward and gradient fixtures, finite-difference gradients, synthetic training loss, checkpoint round trips, context shuffling and CLI workflows. The complete visual encoder and multi-read action scorer match deterministic PyTorch fixtures, covering preprocessing, patch features, logits, values and attention traces. This does not establish parity for a complete trained game policy.
 
 Synthetic generation is deterministic in Go but does not reproduce Python's RNG sequence. Initialisation uses upstream-compatible distributions (unit-normal embedding/position weights and bounded uniform projections), but does not reproduce PyTorch's random stream. ECE includes confidence exactly equal to one in its last bin, unlike the upstream half-open bin loop.
 

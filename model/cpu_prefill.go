@@ -308,12 +308,18 @@ func (m *LlamaModel) prefillCPUHiddenRows(bHidden []float32, B int, kvCacheK, kv
 			}
 
 			if layer.QB != nil {
-				simd.VecAdd(q, q, layer.QB.Data())
-				if layer.KB != nil {
-					simd.VecAdd(k, k, layer.KB.Data())
+				if !simd.VecAddTo(q, q, layer.QB.Data()) {
+					return nil, false
 				}
-				if layer.VB != nil {
-					simd.VecAdd(v, v, layer.VB.Data())
+			}
+			if layer.KB != nil {
+				if !simd.VecAddTo(k, k, layer.KB.Data()) {
+					return nil, false
+				}
+			}
+			if layer.VB != nil {
+				if !simd.VecAddTo(v, v, layer.VB.Data()) {
+					return nil, false
 				}
 			}
 

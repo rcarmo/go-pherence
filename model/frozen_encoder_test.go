@@ -1,8 +1,11 @@
 package model
 
 import (
+	"math"
 	"strings"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/tensor"
 )
 
 func encodeTokenHiddenStatesSequentialReference(t *testing.T, m *LlamaModel, tokenIDs []int) [][]float32 {
@@ -113,4 +116,58 @@ func TestEncodeTokenHiddenStatesRejectsInvalidInput(t *testing.T) {
 			t.Fatalf("moe error=%v", err)
 		}
 	})
+}
+
+func TestFrozenQwenProjectionBiasesMatchBatchedAndSingleton(t *testing.T) {
+	for _, which := range []string{"q", "k", "v", "qkv"} {
+		t.Run(which, func(t *testing.T) {
+			t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "0")
+			m := buildPrefillTestModel("qwen2", false, false, false)
+			makeBias := func(n int) *tensor.Tensor {
+				values := make([]float32, n)
+				for i := range values {
+					values[i] = float32((i*7)%13-6) * .2
+				}
+				return tensor.FromFloat32(values, []int{n})
+			}
+			for i := range m.Layers {
+				l := &m.Layers[i]
+				if which == "q" || which == "qkv" {
+					l.QB = makeBias(m.Config.NumHeads * m.Config.HeadDim)
+				}
+				if which == "k" || which == "qkv" {
+					l.KB = makeBias(m.Config.NumKVHeads * m.Config.HeadDim)
+				}
+				if which == "v" || which == "qkv" {
+					l.VB = makeBias(m.Config.NumKVHeads * m.Config.HeadDim)
+				}
+			}
+			ids := []int{1, 5, 9}
+			batch, err := m.EncodeTokenHiddenStates(ids)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("GO_PHERENCE_DISABLE_CPU_PREFILL", "1")
+			sequential, err := m.EncodeTokenHiddenStates(ids)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range batch {
+				for j, v := range batch[i] {
+					if math.Abs(float64(v-sequential[i][j])) > 2e-5 {
+						t.Fatalf("row%d col%d batch=%g sequential=%g", i, j, v, sequential[i][j])
+					}
+				}
+			}
+			one, err := m.EncodeTokenHiddenStates(ids[:1])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for j, v := range one[0] {
+				if math.Abs(float64(v-batch[0][j])) > 2e-5 {
+					t.Fatal("singleton differs from prefix")
+				}
+			}
+		})
+	}
 }
