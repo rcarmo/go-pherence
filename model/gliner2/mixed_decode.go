@@ -6,12 +6,13 @@ import "fmt"
 type DecodedSchemaGroup struct {
 	Parent         string                `json:"parent"`
 	Marker         string                `json:"marker"`
+	Relations      []Relation            `json:"relations,omitempty"`
 	Entities       []Entity              `json:"entities,omitempty"`
 	Classification *ClassificationScores `json:"classification,omitempty"`
 }
 
-// DecodeSchemaGroups currently decodes entity and classification groups. It
-// rejects raw relation/record role groups rather than mislabelling them entities.
+// DecodeSchemaGroups decodes entity, classification and relation groups.
+// Raw record fields require record metadata and are not decoded as entities.
 func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy string, c BoundaryHeadConfig) ([]DecodedSchemaGroup, error) {
 	if len(s.GroupQueryIDs) != len(s.Input.Groups) {
 		return nil, fmt.Errorf("group routing count mismatch")
@@ -21,6 +22,16 @@ func DecodeSchemaGroups(text string, s MixedScores, threshold float64, policy st
 		result[i].Parent = g.Schema.Parent
 		result[i].Marker = g.Schema.Marker
 		switch g.Schema.Marker {
+		case "[R]":
+			r, ok := s.Relations[i]
+			if !ok {
+				return nil, fmt.Errorf("missing relation group %d", i)
+			}
+			decoded, err := DecodeRelations(text, r, threshold, c.RelationTemperature)
+			if err != nil {
+				return nil, err
+			}
+			result[i].Relations = decoded
 		case "[L]":
 			cls, ok := s.Classifications[i]
 			if !ok {

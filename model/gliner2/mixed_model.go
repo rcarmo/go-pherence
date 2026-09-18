@@ -4,17 +4,24 @@ import "fmt"
 
 // MixedScores preserves schema order and maps groups into the single shared
 // extractive query axis. Classification groups have no extractive query IDs.
-// R/C group logits are raw role/field scores, not decoded records or edges.
+// Relation groups also receive contextual pair scores. Record group logits
+// remain raw field scores until record metadata is supplied.
 type MixedScores struct {
 	Input           MixedInput
 	Extraction      *EntityScores
 	GroupQueryIDs   [][]int
 	Classifications map[int]ClassificationScores
+	Relations       map[int]RelationScores
 }
 
 func (m *EntityModel) ScoreSchemas(text string, schemas []TextSchema, maxTokens int) (MixedScores, error) {
 	if m == nil || m.Tokenizer == nil {
 		return MixedScores{}, fmt.Errorf("uninitialised mixed model")
+	}
+	for _, s := range schemas {
+		if s.Marker == "[R]" && (len(s.Labels) != 2 || s.Labels[0] != "head" || s.Labels[1] != "tail" || m.Relation == nil) {
+			return MixedScores{}, fmt.Errorf("relation schema requires loaded scorer and ordered head/tail roles")
+		}
 	}
 	input, err := m.Tokenizer.PrepareSchemas(text, schemas, maxTokens)
 	if err != nil {
@@ -112,5 +119,35 @@ func (m *EntityModel) ScoreSchemas(text string, schemas []TextSchema, maxTokens 
 		}
 	}
 	out.Extraction = result
+	out.Relations = make(map[int]RelationScores)
+	for i, g := range input.Groups {
+		if g.Schema.Marker != "[R]" {
+			continue
+		}
+		ids := out.GroupQueryIDs[i]
+		settings, err := RelationProposalSettingsFromConfig(m.Config.BoundaryHead)
+		if err != nil {
+			return MixedScores{}, err
+		}
+		generator := TypedRelationPairGenerator{Settings: settings}
+		pairs, err := generator.Generate(*result, []RelationTypeSpec{{RelationType: g.Schema.Parent, HeadQueryIDs: []int{ids[0]}, TailQueryIDs: []int{ids[1]}}})
+		if err != nil {
+			return MixedScores{}, err
+		}
+		var state []float32
+		if m.Config.BoundaryHead.DirectionalRelationStates {
+			state = append(append([]float32(nil), queries[ids[0]]...), queries[ids[1]]...)
+		} else {
+			state = make([]float32, len(queries[ids[0]]))
+			for d := range state {
+				state[d] = (queries[ids[0]][d] + queries[ids[1]][d]) * .5
+			}
+		}
+		scores, err := m.Relation.Forward(words, [][]float32{state}, pairs)
+		if err != nil {
+			return MixedScores{}, err
+		}
+		out.Relations[i] = RelationScores{Input: result.Input, Pairs: pairs, Logits: scores}
+	}
 	return out, nil
 }
