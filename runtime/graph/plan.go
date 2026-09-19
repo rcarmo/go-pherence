@@ -1,6 +1,9 @@
 package graph
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // BufferID identifies a planned transient buffer slot.
 type BufferID int
@@ -115,11 +118,20 @@ func BuildPlan(g *Graph) (*Plan, error) {
 				continue
 			}
 			if lastUse[in] == i {
-				free = append(free, valueBuf[in])
+				// A node may consume the same value twice (x*x). Release its buffer
+				// only once, or two later live outputs can be assigned the same slot.
+				if bid, ok := valueBuf[in]; ok {
+					free = append(free, bid)
+					delete(valueBuf, in)
+				}
 			}
 		}
 	}
-	return &Plan{Graph: g, Steps: steps, Buffers: buffers, LastUse: lastUse}, nil
+	plan := &Plan{Graph: g, Steps: steps, Buffers: buffers, LastUse: lastUse}
+	if plan.WorkspaceBytes() < 0 {
+		return nil, fmt.Errorf("workspace byte sum overflows")
+	}
+	return plan, nil
 }
 
 // WorkspaceBytes returns the total transient workspace bytes.
@@ -129,7 +141,11 @@ func (p *Plan) WorkspaceBytes() int {
 	}
 	var n int
 	for _, b := range p.Buffers {
-		n += b.Bytes
+		var ok bool
+		n, ok = checked.AddInt(n, b.Bytes)
+		if !ok {
+			return -1
+		}
 	}
 	return n
 }
