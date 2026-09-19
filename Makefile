@@ -510,6 +510,13 @@ test:
 
 # Native OmniVoice numerical core and audio frontend; no model download required.
 .PHONY: test-omnivoice vet-omnivoice build-omnivoice
+.PHONY: jevlike-data-check
+jevlike-data-check:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test ./model/jevlike ./cmd/jevlike -count=1
+	go vet ./model/jevlike ./cmd/jevlike
+	bun test scripts/jevlike-fetch.test.ts
+	python3 scripts/jevlike-export-parquet.test.py
+
 test-omnivoice:
 	go test -count=1 -timeout=120s ./loader/tokenizer ./loader/omnivoice ./model/omnivoice ./cmd/audio/omnivoice
 

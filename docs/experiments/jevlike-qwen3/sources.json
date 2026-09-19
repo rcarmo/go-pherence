@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "model": {
+    "repository": "Qwen/Qwen3-4B-Base",
+    "revision": "906bfd4b4dc7f14ee4320094d8b41684abff8539",
+    "license": "Apache-2.0",
+    "files": [
+      {
+        "path": "LICENSE",
+        "size": 11343,
+        "sha256": null,
+        "git_blob": "6634c8cc3133b3848ec74b9f275acaaa1ea618ab"
+      },
+      {
+        "path": "config.json",
+        "size": 727,
+        "sha256": null,
+        "git_blob": "df6b6d9d0d1ce7d1456641adb64a5aefe1c4c9bc"
+      },
+      {
+        "path": "generation_config.json",
+        "size": 138,
+        "sha256": null,
+        "git_blob": "cbbb3133034e192527e5321b4c679154e4819ab8"
+      },
+      {
+        "path": "merges.txt",
+        "size": 1671853,
+        "sha256": null,
+        "git_blob": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7"
+      },
+      {
+        "path": "model-00001-of-00003.safetensors",
+        "size": 3957900840,
+        "sha256": "4c807e2503d68ae373d508689d00a41f4b33f33c2536da97ab81a20caddc1241",
+        "git_blob": "08eff67f90241f1f3751201edb680ae377ef344a"
+      },
+      {
+        "path": "model-00002-of-00003.safetensors",
+        "size": 3987450520,
+        "sha256": "f4707585548b2fc75a6b1d732e8465c62040a8699903c32850781beeb9b27826",
+        "git_blob": "9c5f14ec54a47436d1c8ff99a8304d01a08b7ec3"
+      },
+      {
+        "path": "model-00003-of-00003.safetensors",
+        "size": 99630640,
+        "sha256": "c7b1aa8fb672de2e00423c99876926022e50b18d4f0d140670788510a27f9965",
+        "git_blob": "3985ea672dcbbd2e51f3082fccb43d4931a67aac"
+      },
+      {
+        "path": "model.safetensors.index.json",
+        "size": 32819,
+        "sha256": null,
+        "git_blob": "4747b0297d3109f14db49886972e3369c9a00b2a"
+      },
+      {
+        "path": "tokenizer.json",
+        "size": 7031645,
+        "sha256": null,
+        "git_blob": "443909a61d429dff23010e5bddd28ff530edda00"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "size": 9678,
+        "sha256": null,
+        "git_blob": "6a3829ee9491f36113e64df37573be81df0366f5"
+      },
+      {
+        "path": "vocab.json",
+        "size": 2776833,
+        "sha256": null,
+        "git_blob": "4783fe10ac3adce15ac8f358ef5462739852c569"
+      }
+    ]
+  },
+  "datasets": [
+    {
+      "id": "multi_nli",
+      "repository": "nyu-mll/multi_nli",
+      "revision": "da70db2af9d09693783c3320c4249840212ee221",
+      "license": [
+        "cc-by-3.0",
+        "cc-by-sa-3.0",
+        "mit",
+        "other"
+      ],
+      "review": "mixed terms; exclude fiction from pilot, preserve OANC terms; no redistribution",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 8895,
+          "sha256": null,
+          "git_blob": "e300c98b2a3819c7b222dc103724c3368104d2d8"
+        },
+        {
+          "path": "data/train-00000-of-00001.parquet",
+          "size": 213961663,
+          "sha256": "1c1de03640b168e410aabfca19e7cc2f3dfcd7f0e126e935674e56fb102c4529",
+          "git_blob": "6a39010b5a76453be40b9728c6a49f0c5f44650d"
+        },
+        {
+          "path": "data/validation_matched-00000-of-00001.parquet",
+          "size": 4938568,
+          "sha256": "350c26950b55f460b50d36c76aef87d64b49c78812d7abf7bf97e5fede10f186",
+          "git_blob": "b47640e0458c8bcdfb7bcdebd374593d84ba6907"
+        },
+        {
+          "path": "data/validation_mismatched-00000-of-00001.parquet",
+          "size": 5104992,
+          "sha256": "6b0e1231cebedd255000a7d1732af37ad0500902239db625e231ed77c0c8f2f8",
+          "git_blob": "5213659c999878243f41751c749318fd40e5ef36"
+        }
+      ]
+    },
+    {
+      "id": "commonsense_qa",
+      "repository": "tau/commonsense_qa",
+      "revision": "94630fe30dad47192a8546eb75f094926d47e155",
+      "license": [
+        "mit"
+      ],
+      "review": "retain source notice and attribution; no dataset text/cache redistribution",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 7395,
+          "sha256": null,
+          "git_blob": "8c194f8e505ccc0f05654cbd811da75b14f12343"
+        },
+        {
+          "path": "data/train-00000-of-00001.parquet",
+          "size": 1247103,
+          "sha256": "b0449767ed986bfc2ca52b1244a46ef12f732756727f3cb0a4ab69ac8b3d282b",
+          "git_blob": "808dfa3c76503733398a5e6af3715e039cad3127"
+        },
+        {
+          "path": "data/validation-00000-of-00001.parquet",
+          "size": 160240,
+          "sha256": "bdbd9bf9cc4d2349b24901038b2ab2f58e10e4e507ad2fd425dca55cd3cb6660",
+          "git_blob": "9714418326ce9a900733a570ef589cd02549e096"
+        }
+      ]
+    },
+    {
+      "id": "ai2_arc",
+      "repository": "allenai/ai2_arc",
+      "revision": "210d026faf9955653af8916fad021475a3f00453",
+      "license": [
+        "cc-by-sa-4.0"
+      ],
+      "review": "retain source notice and attribution; no dataset text/cache redistribution",
+      "files": [
+        {
+          "path": "ARC-Challenge/test-00000-of-00001.parquet",
+          "size": 203808,
+          "sha256": "62f03257e737aed263f55c6abf87c7bb0028a44a6bdd2a26eb1279eb42c1d1e9",
+          "git_blob": "dccb239c736b6aa3f70117b44820ab50fba7fb53"
+        },
+        {
+          "path": "ARC-Challenge/train-00000-of-00001.parquet",
+          "size": 189909,
+          "sha256": "e488c1587ffdcfc8443f916c53488a95cd471c5790e0746c6bfe4cecf20962cb",
+          "git_blob": "ae987592f5e0913097e4b6637fcfcbae7dcd994c"
+        },
+        {
+          "path": "ARC-Challenge/validation-00000-of-00001.parquet",
+          "size": 55743,
+          "sha256": "395a5c88d1580d69855fbaee9450270578df1ad5af6259771cd0a42c20e99f05",
+          "git_blob": "108b2f1e32ff87935ae766487409bbdf5c169964"
+        },
+        {
+          "path": "ARC-Easy/test-00000-of-00001.parquet",
+          "size": 346257,
+          "sha256": "4160597d618ae851c7eb04e281574f3f654776216ac6b6641588d64527b47177",
+          "git_blob": "6353258399faf3b5432b66afcc7eeaaa6335b717"
+        },
+        {
+          "path": "ARC-Easy/train-00000-of-00001.parquet",
+          "size": 330598,
+          "sha256": "b315db8a4be597dc7daa50a4e70d48dd7c990c32085629e6ccd8c926beaa80b5",
+          "git_blob": "86a868d072039643afe7dabab2502ec1f59e80e7"
+        },
+        {
+          "path": "ARC-Easy/validation-00000-of-00001.parquet",
+          "size": 86080,
+          "sha256": "ed890ff1e4cef7a7140d3a30dcea3ed2c9d467c6458f447ad9ef0176d8dcbb74",
+          "git_blob": "ca37ca123161870fcdbc8e36992a738c8d91d4fa"
+        },
+        {
+          "path": "README.md",
+          "size": 9001,
+          "sha256": null,
+          "git_blob": "d50d3b885a6d04fe8cb16cc9947f64dff0ba941a"
+        }
+      ]
+    },
+    {
+      "id": "clinc_oos",
+      "repository": "clinc/clinc_oos",
+      "revision": "155b9c710419136e17307b80d0a13e68cd46b4ec",
+      "license": [
+        "cc-by-3.0"
+      ],
+      "review": "retain source notice and attribution; no dataset text/cache redistribution",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 23960,
+          "sha256": null,
+          "git_blob": "676eddd998b36b7b132b4a4a6f5e27184a2824e2"
+        },
+        {
+          "path": "plus/test-00000-of-00001.parquet",
+          "size": 135844,
+          "sha256": "3e60e45b25bf86543aa5df8ba4fcc674114164e6184f0197690648c2908d0102",
+          "git_blob": "ffcb85bc5ce4fc3b1e04b6123b688fdb71600e9d"
+        },
+        {
+          "path": "plus/train-00000-of-00001.parquet",
+          "size": 312096,
+          "sha256": "30188119cf9f86fc9db27e1c22442d091cb5cb0913c9496f945fe11e7a02a28f",
+          "git_blob": "486a5fd465afed1eb1cb827967b83b21ba9bc633"
+        },
+        {
+          "path": "plus/validation-00000-of-00001.parquet",
+          "size": 77789,
+          "sha256": "fbd545b46c611c4a7ba4b48cae6c7f09bb5b59f33ff56206ad1cd366c85cdfaa",
+          "git_blob": "b782d0948b9846824122b884cb37c302acc6df59"
+        }
+      ]
+    }
+  ]
+}

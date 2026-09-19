@@ -14,6 +14,12 @@ go run ./cmd/jevlike eval -help
 
 JSONL rows contain a string `context`, at least two non-empty strings in `options`, and a zero-based integer `label`. The tiny encoder truncates UTF-8 bytes, not characters. Defaults are width 64, rank 64, 192 context bytes and 32 option bytes.
 
+The [frozen Qwen3 experiment](../../docs/experiments/jevlike-qwen3/README.md)
+adds pinned dataset preparation through `cmd/jevlike prepare`. GPU extraction,
+cached training and quality comparisons are still in progress, not a new
+validated inference configuration. Conversion of pinned dataset Parquet files
+uses an isolated Python helper; Go owns the task/split contracts.
+
 ## Frozen models and checkpoints
 
 `frozen-train`, `frozen-predict` and `frozen-eval` take `-encoder-model` pointing to a local model directory with safetensors, configuration and `tokenizer.json`. The native dense causal decoder supplies final-normalised hidden states without computing logits. Option vectors are means of their token states.
