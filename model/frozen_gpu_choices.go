@@ -5,20 +5,47 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/rcarmo/go-pherence/half"
 )
+
+// FrozenGPUDecisionStats uses synchronised wall-clock phase timings, not CUDA
+// event timings. Profiling adds one upload synchronisation and is opt-in.
+type FrozenGPUDecisionStats struct {
+	QueueSeconds           float64 `json:"queue_seconds"`
+	EmbeddingUploadSeconds float64 `json:"embedding_upload_seconds"`
+	PrefillSeconds         float64 `json:"prefill_seconds"`
+	DownloadSeconds        float64 `json:"download_seconds"`
+	ProjectionSeconds      float64 `json:"projection_seconds"`
+	UploadBytes            int     `json:"upload_bytes"`
+	DownloadBytes          int     `json:"download_bytes"`
+}
+
+func (e *FrozenGPUEncoder) ProfileSelectedLogits(ids, candidates []int) ([]float32, FrozenGPUDecisionStats, error) {
+	var stats FrozenGPUDecisionStats
+	logits, err := e.prefillSelectedLogits(ids, candidates, &stats)
+	return logits, stats, err
+}
 
 // PrefillSelectedLogits performs one independent prompt prefill and projects
 // only selected output-head rows. The transformer is GPU-resident; the bounded
 // selected-row projection is CPU float64 accumulation over the actual BF16
 // checkpoint rows, explicitly avoiding a full vocabulary buffer or allocation.
 func (e *FrozenGPUEncoder) PrefillSelectedLogits(ids, candidates []int) ([]float32, error) {
+	return e.prefillSelectedLogits(ids, candidates, nil)
+}
+
+func (e *FrozenGPUEncoder) prefillSelectedLogits(ids, candidates []int, timing *FrozenGPUDecisionStats) ([]float32, error) {
 	if e == nil {
 		return nil, fmt.Errorf("nil frozen GPU encoder")
 	}
+	started := time.Now()
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if timing != nil {
+		timing.QueueSeconds = time.Since(started).Seconds()
+	}
 	if e.closed {
 		return nil, fmt.Errorf("encoder closed")
 	}
@@ -57,11 +84,16 @@ func (e *FrozenGPUEncoder) PrefillSelectedLogits(ids, candidates []int) ([]float
 	} else if !strings.HasSuffix(err.Error(), "not found") && !strings.HasSuffix(err.Error(), "not in weight map") {
 		return nil, err
 	}
-	rows, err := e.encodeTokenHiddenStatesLocked(ids, false)
+	rows, err := e.encodeTokenHiddenStatesLocked(ids, false, timing)
 	if err != nil {
 		return nil, err
 	}
-	return selectedBF16Logits(rows[0], raw, e.cfg.VocabSize, candidates, bias)
+	started = time.Now()
+	logits, err := selectedBF16Logits(rows[0], raw, e.cfg.VocabSize, candidates, bias)
+	if timing != nil {
+		timing.ProjectionSeconds = time.Since(started).Seconds()
+	}
+	return logits, err
 }
 
 func selectedBF16Logits(hidden []float32, weights []byte, vocab int, ids []int, bias []float32) ([]float32, error) {

@@ -101,3 +101,21 @@ func TestDirectSoftmaxTinyTemperatureAndTie(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectNearTieAndStableStrictTiePolicy(t *testing.T) {
+	for _, identity := range []string{supportedQwen3ChoiceTemplateSHA256, instructionQwen3ChoiceTemplateSHA256} {
+		p := directTestPrompt()
+		p.TemplateSHA256 = identity
+		r := directTestRequest()
+		next := math.Nextafter32(1, 2)
+		got, err := ScoreChoices(&directFake{logits: []float32{1, next}}, p, r)
+		if err != nil || got.SelectedID != "paris" {
+			t.Fatal("one ULP advantage is not a tie", got, err)
+		}
+		r.Candidates[0], r.Candidates[1] = r.Candidates[1], r.Candidates[0]
+		got, err = ScoreChoices(&directFake{logits: []float32{1, 1}}, p, r)
+		if err != nil || got.SelectedID != "paris" {
+			t.Fatal("strict ties select first supplied candidate", got, err)
+		}
+	}
+}

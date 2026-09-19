@@ -14,6 +14,11 @@ import (
 	backbone "github.com/rcarmo/go-pherence/model"
 )
 
+func pinnedQwen3Reference(repository, revision string) bool {
+	return repository == "Qwen/Qwen3-4B-Base" && revision == "906bfd4b4dc7f14ee4320094d8b41684abff8539" ||
+		repository == "Qwen/Qwen3-4B" && revision == "1cfa9a7208912126459214e8b04321603b3df60c"
+}
+
 // Full local Qwen3 reference gate: ordinary tests never download/load weights.
 func TestQwen3FrozenReference(t *testing.T) {
 	dir, fixture := os.Getenv("JEVLIKE_QWEN3_MODEL_DIR"), os.Getenv("JEVLIKE_QWEN3_REFERENCE")
@@ -21,11 +26,12 @@ func TestQwen3FrozenReference(t *testing.T) {
 		t.Skip("set JEVLIKE_QWEN3_MODEL_DIR and JEVLIKE_QWEN3_REFERENCE")
 	}
 	var ref struct {
-		Version  int    `json:"version"`
-		Revision string `json:"revision"`
-		Width    int    `json:"width"`
-		Contract string `json:"contract"`
-		Fixtures []struct {
+		Version    int    `json:"version"`
+		Repository string `json:"repository"`
+		Revision   string `json:"revision"`
+		Width      int    `json:"width"`
+		Contract   string `json:"contract"`
+		Fixtures   []struct {
 			Text   string      `json:"text"`
 			Tokens []int       `json:"tokens"`
 			Hidden [][]float32 `json:"hidden"`
@@ -38,7 +44,7 @@ func TestQwen3FrozenReference(t *testing.T) {
 	if err = json.Unmarshal(data, &ref); err != nil {
 		t.Fatal(err)
 	}
-	if ref.Version != 1 || ref.Revision != "906bfd4b4dc7f14ee4320094d8b41684abff8539" || ref.Width != 2560 || ref.Contract != "causal/final-rmsnorm/all-token-rows/no-bos-no-eos/no-logits" || len(ref.Fixtures) < 5 {
+	if ref.Version != 1 || (!pinnedQwen3Reference(ref.Repository, ref.Revision) || filepath.Base(filepath.Clean(dir)) != ref.Revision) || ref.Width != 2560 || ref.Contract != "causal/final-rmsnorm/all-token-rows/no-bos-no-eos/no-logits" || len(ref.Fixtures) < 5 {
 		t.Fatal("unexpected reference contract")
 	}
 	started := time.Now()

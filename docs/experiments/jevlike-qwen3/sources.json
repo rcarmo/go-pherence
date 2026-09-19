@@ -229,5 +229,78 @@
         }
       ]
     }
-  ]
+  ],
+  "instruction_model": {
+    "repository": "Qwen/Qwen3-4B",
+    "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+    "license": "apache-2.0",
+    "files": [
+      {
+        "path": "LICENSE",
+        "size": 11343,
+        "sha256": null,
+        "git_blob": "6634c8cc3133b3848ec74b9f275acaaa1ea618ab"
+      },
+      {
+        "path": "config.json",
+        "size": 726,
+        "sha256": null,
+        "git_blob": "e49eccdc32f36da9c09cfa0e737084f9e0105e5e"
+      },
+      {
+        "path": "generation_config.json",
+        "size": 239,
+        "sha256": null,
+        "git_blob": "20a8a9156fc8c3f25295ca067f61fdf120d517c5"
+      },
+      {
+        "path": "merges.txt",
+        "size": 1671853,
+        "sha256": null,
+        "git_blob": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7"
+      },
+      {
+        "path": "model-00001-of-00003.safetensors",
+        "size": 3957900840,
+        "sha256": "328a91d3122359d5547f9d79521205bc0a46e1f79a792dfe650e99fc2d651223",
+        "git_blob": "546625baab99f4de2b975842100c119fec83919f"
+      },
+      {
+        "path": "model-00002-of-00003.safetensors",
+        "size": 3987450520,
+        "sha256": "6cd087b316306a68c562436b5492edbcf6e16c6dba3a1308279caa5a58e21ca5",
+        "git_blob": "3e4d29aad0be87c083e078b50765cd056e793c51"
+      },
+      {
+        "path": "model-00003-of-00003.safetensors",
+        "size": 99630640,
+        "sha256": "e4bf436957184f4eeb86a80e9db394503f1f56446b2e6b7edeac5b81470f4ca1",
+        "git_blob": "79fb0e18fca00d3a2ab04e5b732a2a740539b913"
+      },
+      {
+        "path": "model.safetensors.index.json",
+        "size": 32819,
+        "sha256": null,
+        "git_blob": "95c0a0059df040d75dc6c396b174382cf61d2f91"
+      },
+      {
+        "path": "tokenizer.json",
+        "size": 11422654,
+        "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+        "git_blob": "cd71f61a15a522601badb3dc960d800d9cb3766c"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "size": 9732,
+        "sha256": null,
+        "git_blob": "417d038a63fa3de29cfde265caedae14d1a58d92"
+      },
+      {
+        "path": "vocab.json",
+        "size": 2776833,
+        "sha256": null,
+        "git_blob": "4783fe10ac3adce15ac8f358ef5462739852c569"
+      }
+    ]
+  }
 }

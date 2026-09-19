@@ -19,6 +19,7 @@ def main():
     p.add_argument("--model", required=True)
     p.add_argument("--output", required=True)
     p.add_argument("--revision", required=True)
+    p.add_argument("--repository", required=True, choices=["Qwen/Qwen3-4B-Base", "Qwen/Qwen3-4B"])
     p.add_argument("--threads", type=int, default=6)
     p.add_argument("--layer-trace", default="", help="Optional new directory of long-case F32 layer input/output diagnostics")
     args = p.parse_args()
@@ -77,7 +78,7 @@ def main():
             raise ValueError("nonfinite reference")
         fixtures.append({"text": text, "tokens": ids, "hidden": hidden.tolist(),
             "elapsed_seconds": time.monotonic()-begun})
-    record = {"version":1,"repository":"Qwen/Qwen3-4B-Base","revision":args.revision,
+    record = {"version":1,"repository":args.repository,"revision":args.revision,
         "contract":"causal/final-rmsnorm/all-token-rows/no-bos-no-eos/no-logits",
         "precision":"CPU float32 arithmetic from BF16 source weights", "attention":"eager",
         "torch":torch.__version__,"transformers":transformers.__version__,"threads":args.threads,

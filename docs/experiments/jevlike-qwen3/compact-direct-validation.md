@@ -91,10 +91,12 @@ measurements, not final p50/p95 or a quality/latency promotion result.
 ```bash
 MODEL=checkpoints/jevlike-qwen3/Qwen--Qwen3-4B-Base/906bfd4b4dc7f14ee4320094d8b41684abff8539
 .venv-speaker/bin/python scripts/jevlike-qwen3-reference.py \
-  --model "$MODEL" --revision 906bfd4b4dc7f14ee4320094d8b41684abff8539 \
+  --model "$MODEL" --repository Qwen/Qwen3-4B-Base \
+  --revision 906bfd4b4dc7f14ee4320094d8b41684abff8539 \
   --output checkpoints/jevlike-qwen3/reference/qwen3-4b-f32.json
 .venv-speaker/bin/python scripts/jevlike-direct-reference.py \
-  --model "$MODEL" --revision 906bfd4b4dc7f14ee4320094d8b41684abff8539 \
+  --model "$MODEL" --repository Qwen/Qwen3-4B-Base \
+  --revision 906bfd4b4dc7f14ee4320094d8b41684abff8539 \
   --output checkpoints/jevlike-qwen3/reference/direct-base-v1.json
 
 JEVLIKE_QWEN3_MODEL_DIR="$PWD/$MODEL" \

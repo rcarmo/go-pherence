@@ -1,9 +1,11 @@
 # Frozen Qwen3 choice-scorer experiment
 
 Issue [#2](https://github.com/rcarmo/go-pherence/issues/2) is in progress. The local
-RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and an experimental compact GPU/direct-token path are
-implemented. Numerical fixtures pass for the downloaded Base checkpoint; this
-is not a trained-model quality result or an instruction-following claim.
+RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and
+an experimental compact GPU/direct-token path are implemented. Base and
+Instruction pass separate numerical fixtures; the [direct validation study](direct-study.md)
+reports quality, controls, calibration and timings without promoting either
+configuration. Frozen-head training has not yet been run.
 
 ## Data and model identity
 
@@ -100,12 +102,19 @@ python3 scripts/jevlike-export-parquet.test.py
 
 ## Next gate
 
-Per the [direct-logit-first update](https://github.com/rcarmo/go-pherence/issues/2#issuecomment-5741524821),
-run the direct scorer as a validation baseline before feature caching or head
-training. The prepared final test remains excluded from iterative selection.
-Instruction-tuned Qwen3 requires sequential asset use or an approved budget
-revision; another 8 GB checkpoint must not be added under the 12 GiB cap.
+The [bounded direct study](direct-study.md) is complete: Base reaches 60% and
+Instruction 80% on 60 original validation examples, but both fail the fixed
+option-order requirement. The separate calibration pilot improves Instruction's
+validation NLL from 3.17 to 0.649 without changing its decisions. Neither result
+is a final-test score or a deployment recommendation.
 
-The planned cache stays capped at 12 GiB. Calibration, quality/control comparisons,
-three-seed head comparisons and human-reviewed new evaluation remain pending.
-Numerical parity is not model quality; do not close issue #2 on this milestone.
+The instruction checkpoint now occupies the model budget. Base's reproducible
+weight shards were removed only after preserving its manifests, references and
+results; refetch it only through another sequential swap. The planned feature
+cache stays capped at 12 GiB.
+
+The order failures and measured 1.5--3.2-second prefill motivate the next
+frozen-head comparison. Exact-identity caching, resumable native training,
+three-seed comparisons, prefix isolation and fresh human-reviewed evaluation
+remain pending. Final-test data stays untouched; do not close issue #2 on this
+milestone.

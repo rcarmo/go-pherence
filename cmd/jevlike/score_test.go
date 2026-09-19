@@ -31,9 +31,27 @@ func TestScoreAssetIdentityRejectsTamperingAndMissingShards(t *testing.T) {
 	path := filepath.Join(dir, "verified.json")
 	data, _ := json.Marshal(manifest)
 	os.WriteFile(path, data, 0o600)
-	if _, err := verifyScoreAssets(dir, path); err != nil {
-		t.Fatal(err)
+	first, err := verifyScoreAssets(dir, path)
+	if err != nil || !strings.Contains(first, "#sha256=") {
+		t.Fatal(first, err)
 	}
+	// Manifest ordering and absolute storage paths are not content identity.
+	manifest.Files[0], manifest.Files[1] = manifest.Files[1], manifest.Files[0]
+	data, _ = json.Marshal(manifest)
+	os.WriteFile(path, data, 0o600)
+	second, err := verifyScoreAssets(dir, path)
+	if err != nil || first != second {
+		t.Fatal("unstable identity", second, err)
+	}
+	manifest.Sources[0].Revision = strings.Repeat("z", 40)
+	data, _ = json.Marshal(manifest)
+	os.WriteFile(path, data, 0o600)
+	if _, err = verifyScoreAssets(dir, path); err == nil {
+		t.Fatal("nonhex revision accepted")
+	}
+	manifest.Sources[0].Revision = strings.Repeat("a", 40)
+	data, _ = json.Marshal(manifest)
+	os.WriteFile(path, data, 0o600)
 	os.WriteFile(filepath.Join(dir, "model.safetensors"), []byte("tampered"), 0o600)
 	if _, err := verifyScoreAssets(dir, path); err == nil {
 		t.Fatal("accepted different encoder bytes")

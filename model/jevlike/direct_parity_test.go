@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -18,9 +19,10 @@ func TestDirectQwen3Reference(t *testing.T) {
 		t.Skip("requires local direct-score reference")
 	}
 	var ref struct {
-		Revision string `json:"revision"`
-		Template string `json:"template_sha256"`
-		Fixtures []struct {
+		Repository string `json:"repository"`
+		Revision   string `json:"revision"`
+		Template   string `json:"template_sha256"`
+		Fixtures   []struct {
 			Request         DirectChoiceRequest `json:"request"`
 			Prompt          string              `json:"prompt"`
 			Tokens          []int               `json:"tokens"`
@@ -37,7 +39,7 @@ func TestDirectQwen3Reference(t *testing.T) {
 	if err = json.Unmarshal(b, &ref); err != nil {
 		t.Fatal(err)
 	}
-	if ref.Revision != "906bfd4b4dc7f14ee4320094d8b41684abff8539" || len(ref.Fixtures) < 5 {
+	if !pinnedQwen3Reference(ref.Repository, ref.Revision) || filepath.Base(filepath.Clean(dir)) != ref.Revision || len(ref.Fixtures) < 5 {
 		t.Fatal("unexpected direct fixture")
 	}
 	prompt, err := LoadQwen3ChoicePrompt(dir, 512)
@@ -78,6 +80,15 @@ func TestDirectQwen3Reference(t *testing.T) {
 		}
 		if changed {
 			t.Errorf("case %d changed decision", index)
+		}
+		if index == 0 {
+			profiled, timing, err := encoder.ProfileSelectedLogits(ids, codes)
+			if err != nil || !reflect.DeepEqual(profiled, got.Logits) {
+				t.Fatal("profiled logits changed", profiled, err)
+			}
+			if timing.PrefillSeconds <= 0 || timing.EmbeddingUploadSeconds <= 0 || timing.DownloadSeconds <= 0 || timing.ProjectionSeconds <= 0 || timing.UploadBytes != len(ids)*2560*4 || timing.DownloadBytes != 2560*4 {
+				t.Fatal("invalid phase accounting", timing)
+			}
 		}
 	}
 }

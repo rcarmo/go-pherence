@@ -26,3 +26,23 @@ test("files verify LFS SHA256 or exact Git blob identity, not just length", asyn
     await expect(verifyPinnedFile(path,{...file,size:3})).rejects.toThrow("size");
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
+
+test("combined model budget includes sidecars, partials and all checkpoints", async () => {
+ const {plannedModelBytes}=await import('./jevlike-fetch');
+ const {mkdirSync,symlinkSync}=await import('node:fs');
+ const dir=mkdtempSync(join(tmpdir(),"jevlike-combined-"));
+ const sources=[{repository:"q/base",revision:"a".repeat(40),files:[]},{repository:"q/instruction",revision:"b".repeat(40),files:[]}];
+ try {
+  mkdirSync(join(dir,"q--base"));mkdirSync(join(dir,"q--instruction"));
+  writeFileSync(join(dir,"q--base/config.json"),Buffer.alloc(7));
+  writeFileSync(join(dir,"q--base/model.safetensors"),Buffer.alloc(10));
+  const path=join(dir,"q--instruction/model.safetensors");
+  const task={path,file:{path:"model.safetensors",size:20,sha256:null,git_blob:"a".repeat(40)}};
+  writeFileSync(path+".part",Buffer.alloc(5));
+  expect(plannedModelBytes(dir,sources,[task])).toBe(37);
+  writeFileSync(path+".part",Buffer.alloc(21));
+  expect(()=>plannedModelBytes(dir,sources,[task])).toThrow("partial exceeds");
+  rmSync(path+".part");symlinkSync(join(dir,"q--base/model.safetensors"),path);
+  expect(()=>plannedModelBytes(dir,sources,[task])).toThrow("symlink");
+ } finally {rmSync(dir,{recursive:true,force:true})}
+});

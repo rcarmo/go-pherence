@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"time"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -44,8 +46,8 @@ func verifyScoreAssets(dir, record string) (string, error) {
 	if manifest.Version != 1 || len(manifest.Sources) != 1 || len(manifest.Files) == 0 {
 		return "", fmt.Errorf("invalid verified asset manifest")
 	}
-	if len(manifest.Sources[0].Revision) != 40 {
-		return "", fmt.Errorf("unversioned encoder")
+	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(manifest.Sources[0].Revision) || !regexp.MustCompile(`^[\w.-]+/[\w.-]+$`).MatchString(manifest.Sources[0].Repository) {
+		return "", fmt.Errorf("invalid encoder repository/revision")
 	}
 	base, err := filepath.Abs(dir)
 	if err != nil {
@@ -56,6 +58,7 @@ func verifyScoreAssets(dir, record string) (string, error) {
 		return "", err
 	}
 	seen := map[string]bool{}
+	var identities []string
 	for _, file := range manifest.Files {
 		path := file.Path
 		if !filepath.IsAbs(path) {
@@ -89,6 +92,7 @@ func verifyScoreAssets(dir, record string) (string, error) {
 		if n != file.Bytes || hex.EncodeToString(h.Sum(nil)) != file.SHA256 {
 			return "", fmt.Errorf("asset identity mismatch: %s", path)
 		}
+		identities = append(identities, fmt.Sprintf("%s\x00%d\x00%s\n", filepath.Base(abs), n, file.SHA256))
 	}
 	for _, name := range []string{"config.json", "tokenizer.json", "tokenizer_config.json"} {
 		if !seen[name] {
@@ -119,7 +123,16 @@ func verifyScoreAssets(dir, record string) (string, error) {
 	} else if !seen["model.safetensors"] {
 		return "", fmt.Errorf("unverified model weights")
 	}
-	return manifest.Sources[0].Repository + "@" + manifest.Sources[0].Revision, nil
+	// Repository/revision are provenance claims from a local manifest, not a
+	// signature. Bind identity to the actual verified bytes, independent of paths
+	// and manifest ordering. Callers must keep the asset directory immutable while
+	// open: hashing is not protection against concurrent local file mutation.
+	sort.Strings(identities)
+	h := sha256.New()
+	for _, entry := range identities {
+		_, _ = io.WriteString(h, entry)
+	}
+	return manifest.Sources[0].Repository + "@" + manifest.Sources[0].Revision + "#sha256=" + hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func runScore(args []string, stdout, stderr io.Writer) error {
@@ -157,6 +170,12 @@ func runScore(args []string, stdout, stderr io.Writer) error {
 	if dec.Decode(new(any)) != io.EOF {
 		return fmt.Errorf("trailing request data")
 	}
+	started := time.Now()
+	modelID, err := verifyScoreAssets(*dir, *identity)
+	if err != nil {
+		return err
+	}
+	hashSeconds := time.Since(started).Seconds()
 	prompt, err := jevlike.LoadQwen3ChoicePrompt(*dir, *maxTokens)
 	if err != nil {
 		return err
@@ -164,12 +183,6 @@ func runScore(args []string, stdout, stderr io.Writer) error {
 	if _, _, _, err = prompt.Prepare(input); err != nil {
 		return err
 	} // no GPU for bad input
-	started := time.Now()
-	modelID, err := verifyScoreAssets(*dir, *identity)
-	if err != nil {
-		return err
-	}
-	hashSeconds := time.Since(started).Seconds()
 	encoder, err := backbone.NewFrozenGPUEncoder(*dir, backbone.FrozenGPUOptions{MaxTokens: *maxTokens, BudgetBytes: *budget << 20, ReserveBytes: *reserve << 20})
 	if err != nil {
 		return err

@@ -47,6 +47,14 @@ type Qwen3ChoicePrompt struct {
 }
 
 const supportedQwen3ChoiceTemplateSHA256 = "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+const instructionQwen3ChoiceTemplateSHA256 = "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8"
+
+// Both pinned templates have the same plain-string single-user/no-thinking
+// rendering. Other branches are intentionally unsupported; independent fixtures
+// must check each checkpoint's prompt and token IDs, not merely this allowlist.
+func supportedChoiceTemplate(identity string) bool {
+	return identity == supportedQwen3ChoiceTemplateSHA256 || identity == instructionQwen3ChoiceTemplateSHA256
+}
 
 // LoadQwen3ChoicePrompt implements only the exact verified template's plain
 // single-user/no-tools/no-thinking branch. A different template is rejected,
@@ -67,7 +75,7 @@ func LoadQwen3ChoicePrompt(dir string, maxTokens int) (*Qwen3ChoicePrompt, error
 	}
 	sum := sha256.Sum256([]byte(cfg.Template))
 	identity := hex.EncodeToString(sum[:])
-	if identity != supportedQwen3ChoiceTemplateSHA256 {
+	if !supportedChoiceTemplate(identity) {
 		return nil, fmt.Errorf("unsupported Qwen3 template %s", identity)
 	}
 	tok, err := tokenizer.LoadWithConfig(dir)
@@ -104,7 +112,7 @@ func RenderChoiceContent(r DirectChoiceRequest) (string, error) {
 }
 
 func (p *Qwen3ChoicePrompt) Prepare(r DirectChoiceRequest) (string, []int, []int, error) {
-	if p == nil || p.Tokenizer == nil || p.TemplateSHA256 != supportedQwen3ChoiceTemplateSHA256 {
+	if p == nil || p.Tokenizer == nil || !supportedChoiceTemplate(p.TemplateSHA256) {
 		return "", nil, nil, fmt.Errorf("unverified prompt renderer")
 	}
 	content, err := RenderChoiceContent(r)

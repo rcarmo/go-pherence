@@ -217,10 +217,10 @@ func (e *FrozenGPUEncoder) EncodeTokenHiddenStates(ids []int) ([][]float32, erro
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.encodeTokenHiddenStatesLocked(ids, true)
+	return e.encodeTokenHiddenStatesLocked(ids, true, nil)
 }
 
-func (e *FrozenGPUEncoder) encodeTokenHiddenStatesLocked(ids []int, all bool) ([][]float32, error) {
+func (e *FrozenGPUEncoder) encodeTokenHiddenStatesLocked(ids []int, all bool, timing *FrozenGPUDecisionStats) ([][]float32, error) {
 	if e.closed {
 		return nil, fmt.Errorf("frozen GPU encoder is closed")
 	}
@@ -228,10 +228,19 @@ func (e *FrozenGPUEncoder) encodeTokenHiddenStatesLocked(ids []int, all bool) ([
 		return nil, err
 	}
 	batch, h := len(ids), e.cfg.HiddenSize
+	started := time.Now()
 	for pos, tok := range ids {
 		if err := e.uploadEmbedding(tok, pos); err != nil {
 			return nil, fmt.Errorf("token %d embedding: %w", pos, err)
 		}
+	}
+	if timing != nil {
+		if err := nvidia.SyncErr(); err != nil {
+			return nil, err
+		}
+		timing.EmbeddingUploadSeconds = time.Since(started).Seconds()
+		timing.UploadBytes = batch * h * 4
+		started = time.Now()
 	}
 	for layerIdx := range e.layers {
 		if err := e.forwardLayer(layerIdx, batch); err != nil {
@@ -244,10 +253,18 @@ func (e *FrozenGPUEncoder) encodeTokenHiddenStatesLocked(ids []int, all bool) ([
 	if err := nvidia.SyncErr(); err != nil {
 		return nil, err
 	}
+	if timing != nil {
+		timing.PrefillSeconds = time.Since(started).Seconds()
+		started = time.Now()
+	}
 	if !all {
 		last := make([]float32, h)
 		if err := e.normed.Slice((batch-1)*h, h).GPUBuffer().Download(last); err != nil {
 			return nil, err
+		}
+		if timing != nil {
+			timing.DownloadSeconds = time.Since(started).Seconds()
+			timing.DownloadBytes = h * 4
 		}
 		return [][]float32{last}, nil
 	}

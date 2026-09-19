@@ -21,6 +21,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--model", required=True)
     p.add_argument("--revision", required=True)
+    p.add_argument("--repository", required=True, choices=["Qwen/Qwen3-4B-Base", "Qwen/Qwen3-4B"])
     p.add_argument("--output", required=True)
     p.add_argument("--questions", default="model/jevlike/testdata/direct_questions.json")
     args=p.parse_args()
@@ -55,7 +56,7 @@ def main():
             all_logits=head(hidden)
             if not torch.allclose(logits,all_logits[candidates],atol=1e-4,rtol=1e-5):raise ValueError("selected/full head mismatch")
         fixtures.append({"request":request,"prompt":prompt,"tokens":ids,"candidate_tokens":candidates,"last_hidden":hidden.tolist(),"logits":logits.tolist(),"argmax":int(logits.argmax())})
-    record={"version":1,"repository":"Qwen/Qwen3-4B-Base","revision":args.revision,"template_sha256":template_sha,"torch":torch.__version__,"transformers":transformers.__version__,"dtype":"CPU-f32-from-bf16","head_tied":full.config.tie_word_embeddings,"fixtures":fixtures,"elapsed_seconds":time.monotonic()-start,"peak_rss_kib":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
+    record={"version":1,"repository":args.repository,"revision":args.revision,"template_sha256":template_sha,"torch":torch.__version__,"transformers":transformers.__version__,"dtype":"CPU-f32-from-bf16","head_tied":full.config.tie_word_embeddings,"fixtures":fixtures,"elapsed_seconds":time.monotonic()-start,"peak_rss_kib":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}
     out.parent.mkdir(parents=True,exist_ok=True);part=out.with_suffix(out.suffix+".part")
     part.write_text(json.dumps(record,separators=(",",":"),allow_nan=False));part.rename(out)
     print(json.dumps({"output":str(out),"sha256":hashlib.sha256(out.read_bytes()).hexdigest(),"tokens":[len(f["tokens"])for f in fixtures],"elapsed_seconds":record["elapsed_seconds"]}),flush=True)

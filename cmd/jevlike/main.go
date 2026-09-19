@@ -55,6 +55,12 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "help", "-h", "--help":
 		writeUsage(stdout)
 		return nil
+	case "direct-bench":
+		return runDirectBench(args[1:], stdout, stderr)
+	case "direct-report":
+		return runDirectReport(args[1:], stdout, stderr)
+	case "score-batch":
+		return runScoreBatch(args[1:], stdout, stderr)
 	case "score":
 		return runScore(args[1:], stdout, stderr)
 	case "prepare":
@@ -80,6 +86,9 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  score        one-prefill GPU direct choice logits; pinned local assets only")
+	fmt.Fprintln(w, "  score-batch  independent JSONL decisions with one resident encoder")
+	fmt.Fprintln(w, "  direct-report  partition-aware quality/calibration report from scored JSONL")
+	fmt.Fprintln(w, "  direct-bench   opt-in validation latency/phases and concurrency measurements")
 	fmt.Fprintln(w, "  prepare      validate pinned local dataset exports and write four splits + provenance")
 	fmt.Fprintln(w, "  synthetic    write synthetic train/validation/test JSONL files")
 	fmt.Fprintln(w, "  wikispeedia  build train/validation/test JSONL files from Wikispeedia")

@@ -1,12 +1,37 @@
 #!/usr/bin/env bun
 /** Explicit, revision-pinned issue #2 asset downloads. Default is a dry run. */
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, renameSync, statfsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, lstatSync, mkdirSync, realpathSync, renameSync, rmSync, statfsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { readdirSync } from "node:fs";
+
 import { parseArgs } from "node:util";
 
 type SourceFile = { path: string; size: number; sha256: string | null; git_blob: string };
 type Source = { repository: string; revision: string; files: SourceFile[] };
+
+// Account for complete assets and resumable partials, not just weight suffixes.
+// The budget covers the experiment's model directories, not datasets/references.
+export function plannedModelBytes(root: string, sources: Source[], tasks: {path: string; file: SourceFile}[]): number {
+  const walk = (path: string): number => {
+    if (!existsSync(path)) return 0;
+    const st = lstatSync(path);
+    if (st.isSymbolicLink()) throw new Error("symlink in model asset directory");
+    if (st.isFile()) return st.size;
+    if (!st.isDirectory()) throw new Error("unsupported model asset file");
+    return readdirSync(path).reduce((n, name) => n + walk(resolve(path, name)), 0);
+  };
+  let bytes = sources.reduce((n,s) => n + walk(resolve(root, s.repository.replace("/", "--"))), 0);
+  for (const t of tasks) {
+    // Existing destination is verified, never replaced. Oversized partials must
+    // not yield negative additions that conceal another checkpoint's footprint.
+    if (existsSync(t.path)) continue;
+    const partial = existsSync(t.path + ".part") ? lstatSync(t.path + ".part").size : 0;
+    if (partial > t.file.size) throw new Error("partial exceeds pinned asset size");
+    bytes += t.file.size - partial;
+  }
+  return bytes;
+}
 
 export function validatePinnedSource(source: Source) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(source.repository) || !/^[0-9a-f]{40}$/.test(source.revision)) throw new Error("full pinned repository/revision required");
@@ -35,9 +60,11 @@ if (import.meta.main) {
   }, strict: true });
   const root = resolve(import.meta.dir, "..");
   const manifest = await Bun.file(resolve(root, "docs/experiments/jevlike-qwen3/sources.json")).json();
-  if (!['model', 'datasets'].includes(values.kind!)) throw new Error("--kind must be model or datasets");
-  const sources: Source[] = values.kind === "model" ? [manifest.model] : manifest.datasets;
+  if (!['model', 'instruction-model', 'datasets'].includes(values.kind!)) throw new Error("--kind must be model, instruction-model or datasets");
+  const modelDownload=values.kind!=="datasets";
+  const sources: Source[] = values.kind === "model" ? [manifest.model] : values.kind === "instruction-model" ? [manifest.instruction_model] : manifest.datasets;
   const output = resolve(root, values.output!);
+  if(modelDownload && output !== resolve(root, "checkpoints/jevlike-qwen3")) throw new Error("model downloads require the shared experiment budget root");
   if (output === root || output.startsWith(resolve(root, "model") + "/") || output === resolve(root, "model")) throw new Error("assets cannot be written into model source");
   let bytes = 0;
   const tasks: { path: string; url: string; file: SourceFile }[] = [];
@@ -46,7 +73,7 @@ if (import.meta.main) {
     for (const file of source.files) {
       bytes += file.size;
       const path = resolve(output, source.repository.replace("/", "--"), source.revision, file.path);
-      const prefix = values.kind === "model" ? "" : "datasets/";
+      const prefix = modelDownload ? "" : "datasets/";
       const url = `https://huggingface.co/${prefix}${source.repository}/resolve/${source.revision}/${file.path}`;
       tasks.push({path, url, file});
     }
@@ -58,6 +85,16 @@ if (import.meta.main) {
     process.exit(0);
   }
   mkdirSync(output, { recursive: true });
+  // Serialise budget checks and downloads. On SIGKILL, preserve the lock and
+  // partials; inspect the process before explicitly removing a stale lock.
+  const lock=resolve(output,".fetch-lock");
+  mkdirSync(lock);
+  try {
+  if(modelDownload){
+    if(realpathSync(output)!==resolve(realpathSync(root),"checkpoints/jevlike-qwen3"))throw new Error("symlinked budget root");
+    const planned=plannedModelBytes(output,[manifest.model,manifest.instruction_model],tasks);
+    if(planned>12*2**30)throw new Error("combined model assets exceed 12 GiB; preserve results then remove old reproducible weights before switching checkpoints");
+  }
   const free = statfsSync(output); // reserve all missing bytes plus the safety floor
   const missing = tasks.reduce((n, t) => n + (existsSync(t.path) ? 0 : t.file.size), 0);
   if (free.bavail * free.bsize - missing < 30 * 2**30) throw new Error("download would leave less than 30 GiB free");
@@ -78,4 +115,5 @@ if (import.meta.main) {
   const record = resolve(output, `${values.kind}-verified.json`);
   await Bun.write(record + ".part", JSON.stringify({ version: 1, sources: sources.map(s => ({repository:s.repository, revision:s.revision})), files: evidence }, null, 2) + "\n");
   renameSync(record + ".part", record);
+  } finally { rmSync(lock,{recursive:true}); }
 }
