@@ -135,12 +135,12 @@ func TestCopyingGettersOwnDataAndShapeAfterClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, rawShape, err := f.GetRaw("x")
-	if err != nil {
-		t.Fatal(err)
-	}
+	// GetRaw deliberately borrows both data and metadata and must remain
+	// allocation-free for streaming loaders. Do not mutate that view.
 	shape[0] = 99
-	rawShape[0] = 99
+	if allocs := testing.AllocsPerRun(50, func() { _, _, _, _ = f.GetRaw("x") }); allocs != 0 {
+		t.Fatalf("raw getter allocs=%g", allocs)
+	}
 	if f.Tensors["x"].Shape[0] != 1 {
 		t.Fatal("returned shape aliases metadata")
 	}

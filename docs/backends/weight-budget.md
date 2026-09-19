@@ -238,11 +238,12 @@ is the same, just with an extra copy step.
 
 Safetensors `GetFloat32`, `GetInt32`, `GetBF16` and eager prefetch now coordinate
 with Close, so the mapping cannot be unmapped midway through a conversion or page
-touch. Converted arrays and returned shape slices are owned by the caller;
+touch. Converted arrays and their returned shape slices are owned by the caller;
 metadata maps remain immutable by contract. Repeated/nil Close is safe and failed
 unmapping is reported without discarding the mapping needed for a retry.
 
-`GetRaw` deliberately remains zero-copy. Its bytes and the exported Advisor are
+`GetRaw` deliberately remains zero-copy and allocation-free. Its read-only bytes,
+read-only shape metadata and the exported Advisor are
 borrowed and must not race Close or outlive the file. FrozenGPUEncoder retains
 its source; Ideogram FP8 linears borrow the source's weights; DiffusionGemma's raw
 weight handles likewise require model-owner lifetime. Copy-getter locking does

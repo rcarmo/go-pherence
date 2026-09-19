@@ -244,7 +244,6 @@ func (f *File) rawTensor(name string) (TensorInfo, []byte, error) {
 	if err := validateTensorInfo(name, info, len(f.data)); err != nil {
 		return TensorInfo{}, nil, err
 	}
-	info.Shape = append([]int(nil), info.Shape...)
 	return info, f.data[info.DataOffsets[0]:info.DataOffsets[1]], nil
 }
 
@@ -283,6 +282,7 @@ func (f *File) GetFloat32(name string) ([]float32, []int, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	info.Shape = append([]int(nil), info.Shape...)
 
 	switch info.DType {
 	case "F32":
@@ -503,8 +503,10 @@ func (sf *ShardedFile) TensorInfos() map[string]TensorInfo {
 	return out
 }
 
-// GetRaw returns read-only borrowed bytes valid until Close, and an owned shape.
-// Retained raw weights require File ownership until all inference is joined.
+// GetRaw returns read-only borrowed bytes and shape without allocating.
+// Neither may be mutated; bytes are valid only until Close. Retained raw weights
+// require File ownership until all inference is joined. Copying getters instead
+// return owned data/shapes. Metadata-only callers can use TensorInfos for copies.
 func (f *File) GetRaw(name string) ([]byte, string, []int, error) {
 	if f != nil {
 		f.mu.RLock()
@@ -530,6 +532,7 @@ func (f *File) GetInt32(name string) ([]int32, []int, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	shape = append([]int(nil), shape...)
 	if dtype != "I32" {
 		return nil, nil, fmt.Errorf("tensor %q is %s, not I32", name, dtype)
 	}
@@ -589,6 +592,7 @@ func (f *File) GetBF16(name string) ([]uint16, []int, error) {
 		return nil, nil, err
 	}
 
+	shape = append([]int(nil), shape...)
 	switch dtype {
 	case "BF16":
 		if len(raw)%2 != 0 {
