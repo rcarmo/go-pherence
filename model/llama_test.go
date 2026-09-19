@@ -16,9 +16,9 @@ import (
 func smolLMPath() string {
 	p := os.Getenv("SMOLLM_PATH")
 	if p == "" {
-		p = "../../models/smollm2-135m"
+		p = "../../checkpoints/smollm2-135m"
 		if _, err := os.Stat(p); err != nil {
-			p = "../models/smollm2-135m"
+			p = "../checkpoints/smollm2-135m"
 		}
 	}
 	return p
@@ -27,9 +27,9 @@ func smolLMPath() string {
 func gemma4Path() string {
 	p := os.Getenv("GEMMA4_PATH")
 	if p == "" {
-		p = "../../models/gemma4-e2b-mlx4"
+		p = "../../checkpoints/gemma4-e2b-mlx4"
 		if _, err := os.Stat(p); err != nil {
-			p = "../models/gemma4-e2b-mlx4"
+			p = "../checkpoints/gemma4-e2b-mlx4"
 		}
 	}
 	return p

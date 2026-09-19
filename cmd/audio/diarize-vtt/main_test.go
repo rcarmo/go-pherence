@@ -3,11 +3,11 @@ package main
 import (
 	"testing"
 
-	"github.com/rcarmo/go-pherence/models/speaker"
+	"github.com/rcarmo/go-pherence/model/speaker"
 )
 
 func TestDefaultWhisperTurboPromptContract(t *testing.T) {
-	if defaultWhisperModelPath != "models/whisper-large-v3-turbo-hf/model.safetensors" {
+	if defaultWhisperModelPath != "checkpoints/whisper-large-v3-turbo-hf/model.safetensors" {
 		t.Fatalf("default model=%q", defaultWhisperModelPath)
 	}
 	if defaultWhisperSize != "turbo" {

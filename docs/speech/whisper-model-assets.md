@@ -1,21 +1,21 @@
 # Whisper model assets in use
 
-This project uses local Hugging Face-style Whisper safetensors assets under `models/` for `cmd/audio/diarize-vtt` and related Whisper tests/tools.
+This project uses local Hugging Face-style Whisper safetensors assets under `checkpoints/` for `cmd/audio/diarize-vtt` and related Whisper tests/tools.
 
 ## Production/default translated VTT model
 
 | Field | Value |
 |---|---|
 | Upstream model name | `openai/whisper-large-v3-turbo` |
-| Local directory | `models/whisper-large-v3-turbo-hf/` |
-| Weight file | `models/whisper-large-v3-turbo-hf/model.safetensors` |
+| Local directory | `checkpoints/whisper-large-v3-turbo-hf/` |
+| Weight file | `checkpoints/whisper-large-v3-turbo-hf/model.safetensors` |
 | Local weight size | ~1.6 GiB |
-| Config | `models/whisper-large-v3-turbo-hf/config.json` |
-| Generation config | `models/whisper-large-v3-turbo-hf/generation_config.json` |
-| Preprocessor config | `models/whisper-large-v3-turbo-hf/preprocessor_config.json` |
-| Tokenizer | `models/whisper-large-v3-turbo-hf/tokenizer.json` |
+| Config | `checkpoints/whisper-large-v3-turbo-hf/config.json` |
+| Generation config | `checkpoints/whisper-large-v3-turbo-hf/generation_config.json` |
+| Preprocessor config | `checkpoints/whisper-large-v3-turbo-hf/preprocessor_config.json` |
+| Tokenizer | `checkpoints/whisper-large-v3-turbo-hf/tokenizer.json` |
 | CLI size flag | `-size turbo` or `-size large-v3-turbo` |
-| Go config | `models/whisper.LargeV3Turbo()` |
+| Go config | `model/whisper.LargeV3Turbo()` |
 | Status | **Default/recommended** for translated WebVTT output |
 
 Shape/config used by Go:
@@ -70,7 +70,7 @@ Equivalent explicit `diarize-vtt` form:
 go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
   -output meeting.vtt \
-  -model models/whisper-large-v3-turbo-hf/model.safetensors \
+  -model checkpoints/whisper-large-v3-turbo-hf/model.safetensors \
   -size turbo \
   -task translate \
   -language en
@@ -89,12 +89,12 @@ Notes:
 | Field | Value |
 |---|---|
 | Upstream model name | `openai/whisper-large-v3` |
-| Local directory | `models/whisper-large-v3-hf/` |
-| Weight file | `models/whisper-large-v3-hf/model.safetensors` |
+| Local directory | `checkpoints/whisper-large-v3-hf/` |
+| Weight file | `checkpoints/whisper-large-v3-hf/model.safetensors` |
 | Local weight size | ~2.9 GiB |
-| Tokenizer | `models/whisper-large-v3-hf/tokenizer.json` |
+| Tokenizer | `checkpoints/whisper-large-v3-hf/tokenizer.json` |
 | CLI size flag | `-size large-v3` |
-| Go config | `models/whisper.LargeV3()` |
+| Go config | `model/whisper.LargeV3()` |
 | Status | Reference/fallback when source-language prompting or full large-v3 behavior is required |
 
 Shape/config used by Go:
@@ -121,7 +121,7 @@ Explicit full large-v3 usage:
 go run ./cmd/audio/diarize-vtt \
   -input meeting.m4a \
   -output meeting.vtt \
-  -model models/whisper-large-v3-hf/model.safetensors \
+  -model checkpoints/whisper-large-v3-hf/model.safetensors \
   -size large-v3 \
   -task translate \
   -language pt
@@ -140,13 +140,13 @@ Use these names/paths when referring to current Whisper weights:
 
 ```text
 Default:  openai/whisper-large-v3-turbo
-Path:     models/whisper-large-v3-turbo-hf/model.safetensors
-Tokenizer models/whisper-large-v3-turbo-hf/tokenizer.json
+Path:     checkpoints/whisper-large-v3-turbo-hf/model.safetensors
+Tokenizer checkpoints/whisper-large-v3-turbo-hf/tokenizer.json
 Go size:  turbo / large-v3-turbo
 Prompt:   -task translate -language en
 
 Fallback: openai/whisper-large-v3
-Path:     models/whisper-large-v3-hf/model.safetensors
-Tokenizer models/whisper-large-v3-hf/tokenizer.json
+Path:     checkpoints/whisper-large-v3-hf/model.safetensors
+Tokenizer checkpoints/whisper-large-v3-hf/tokenizer.json
 Go size:  large-v3
 ```

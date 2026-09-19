@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadGemma4MTPDrafter31B4BitKeepsPackedWeights(t *testing.T) {
-	dir := filepath.Join("..", "models", "gemma4-31b-it-mtp-assistant-4bit")
+	dir := filepath.Join("..", "checkpoints", "gemma4-31b-it-mtp-assistant-4bit")
 	if _, err := os.Stat(filepath.Join(dir, "model.safetensors")); err != nil {
 		t.Skipf("local Gemma4 31B 4-bit MTP assistant asset not available: %v", err)
 	}

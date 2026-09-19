@@ -1,7 +1,7 @@
 # Whisper on RISC-V (SpaceMIT K1/K3) — RVV + IME optimization
 
 This document describes the optimization of the Whisper speech-to-text pipeline
-(`cmd/audio/whisper`, `models/whisper`) for the SpaceMIT K1/K3 SoC as found on the
+(`cmd/audio/whisper`, `model/whisper`) for the SpaceMIT K1/K3 SoC as found on the
 **MilkV Jupiter 2** (8× X60 RISC-V cores, RVV 1.0 vector unit, and the **IME**
 integer matrix engine reached via the `vmadot` instruction).
 
@@ -71,7 +71,7 @@ Recommended resident invocation:
 
 ```sh
 WHISPER_INT8=1 WHISPER_THREADS=4 bin/whisper-k3 \
-  -model models/whisper/whisper-large-v3.safetensors -size large-v3 \
+  -model model/whisper/whisper-large-v3.safetensors -size large-v3 \
   -audio jfk16.wav
 ```
 
@@ -99,23 +99,23 @@ x86 host.
 ## Diarization (speaker labels)
 
 `cmd/audio/whisper -timestamps -diarize` produces multi-speaker transcripts using an
-**ECAPA-TDNN** speaker-embedding network (`models/speaker`, SpeechBrain
+**ECAPA-TDNN** speaker-embedding network (`model/speaker`, SpeechBrain
 `spkrec-ecapa-voxceleb` topology, parity-validated to cosine ≈0.9999 vs upstream)
 on top of the optimized Whisper path: energy VAD → ECAPA embeddings per segment →
 agglomerative clustering → singleton-label smoothing → speaker-tagged cues.
 
 ```sh
 # One-time: fetch + convert the speaker weights (torch-free; python3 + numpy only)
-make speaker-weights      # -> models/speaker-ecapa-voxceleb.safetensors
+make speaker-weights      # -> checkpoints/speaker-ecapa-voxceleb.safetensors
 
 # Transcribe with speaker labels
-WHISPER_INT8=1 bin/whisper-k3 -model models/whisper/whisper-large-v3.safetensors \
+WHISPER_INT8=1 bin/whisper-k3 -model model/whisper/whisper-large-v3.safetensors \
   -size large-v3 -timestamps -diarize -audio meeting.wav
 # [0.00 - 5.82] Speaker 1: ...
 # [14.30 - 18.08] Speaker 2: ...
 ```
 
-Flags: `-speaker-model` (default `models/speaker-ecapa-voxceleb.safetensors`) and
+Flags: `-speaker-model` (default `checkpoints/speaker-ecapa-voxceleb.safetensors`) and
 `-speaker-threshold` (default 0.3, lower = more speakers). If the speaker model is
 absent the command logs a warning and falls back to single-speaker labels so
 transcription still succeeds. `cmd/audio/speakercheck` runs the speaker path alone

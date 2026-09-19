@@ -1,6 +1,6 @@
 package speaker
 
-import "github.com/rcarmo/go-pherence/models/whisper"
+import "github.com/rcarmo/go-pherence/model/whisper"
 
 // DiarizedSegment combines transcription with speaker identity.
 type DiarizedSegment struct {

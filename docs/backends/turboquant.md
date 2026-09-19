@@ -7,10 +7,10 @@ inference.
 
 ```bash
 # CPU backend with compressed KV cache
-./bin/llmgen -model models/gemma4-e2b-mlx4 -prompt "..." -tokens 256 --turbo-quant
+./bin/llmgen -model checkpoints/gemma4-e2b-mlx4 -prompt "..." -tokens 256 --turbo-quant
 
 # Existing environment variable remains supported for diagnostics
-TURBO_QUANT=1 ./bin/llmgen -model models/gemma4-e2b-mlx4 -prompt "..." -tokens 256
+TURBO_QUANT=1 ./bin/llmgen -model checkpoints/gemma4-e2b-mlx4 -prompt "..." -tokens 256
 ```
 
 `--turbo-quant` currently applies to the CPU backend only. If `--gpu` is also

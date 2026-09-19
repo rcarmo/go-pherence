@@ -8,8 +8,8 @@ import (
 
 func BenchmarkGemma4MTPGraphCycleGGUF(b *testing.B) {
 	root := findMTPGraphBenchRepoRoot()
-	mainPath := filepath.Join(root, "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf")
-	drafterPath := filepath.Join(root, "models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf")
+	mainPath := filepath.Join(root, "checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf")
+	drafterPath := filepath.Join(root, "checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf")
 	if _, err := os.Stat(mainPath); err != nil {
 		b.Skipf("local Gemma4 GGUF verifier not present: %v", err)
 	}

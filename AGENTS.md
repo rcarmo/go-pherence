@@ -27,20 +27,22 @@ go-pherence/
 │   ├── image/          # Ideogram4, VAE probes, image tools
 │   ├── k3/             # K3-specific benchmarks
 │   ├── llm/            # LLM speculative decoding tools
-│   └── models/         # Model inspection tools
+│   └── checkpoints/         # Model inspection tools
 ├── docs/               # Architecture docs, supported models, GPU options
 ├── gpu/                # GPU management utilities
 ├── half/               # FP16/BF16 conversion
 ├── internal/           # Checked arithmetic, internal utilities
 ├── loader/             # Model loaders (GGUF, safetensors, audio, config, tokenizer)
-├── model/              # GGUF-based LLM models (llama, qwen, etc.)
-│   ├── diffusiongemma/ # Block-diffusion text generation + bounded vision work
-│   ├── ideogram4/      # Ideogram v4 image generation (see model/ideogram4/README.md)
+├── model/              # All model source + shared decoder runtime
+│   ├── diffusiongemma/ # Block-diffusion text + bounded vision work
+│   ├── ideogram4/      # Ideogram v4 image generation
 │   ├── hunyuan3d/      # Hunyuan 3D
-│   └── qwen/           # Qwen native models
-├── models/             # Non-GGUF native models
+│   ├── qwen/           # Qwen native models
+│   ├── bert/           # BERT/GTE encoders
 │   ├── whisper/        # Whisper speech recognition
-│   └── speaker/        # Speaker diarization
+│   ├── speaker/        # Speaker diarization + Community-1
+│   └── omnivoice/      # Native speech synthesis
+├── checkpoints/        # Downloaded weights/config/tokenizers (git-ignored)
 ├── prompts/            # Prompt templates
 ├── research/           # Research prototypes (NPU whisper, etc.)
 └── testdata/           # Test fixtures
@@ -99,7 +101,7 @@ When working on the Milk-V/K3 board via SSH:
 
 ### Architecture conventions
 
-16. **Model-specific code stays in `model/` or `models/`.** Do not put Ideogram-specific logic in `backends/`.
+16. **Model-specific code stays in `model/`.** `checkpoints/` is git-ignored data only. Do not put model-specific logic in `backends/` or revive `models/` source packages.
 17. **Reusable kernels go in `backends/`.** If a kernel (SiLU, FastExp, Q8 packing) is useful to multiple models, put it in the appropriate backend package.
 18. **Build tags for platform-specific code.** Use architecture constraints for ISA kernels and `linux && riscv64` for K3 OS/device execution. Keep portable packing/reference tests runnable. Do not manufacture scalar emulation or omit whole backend folders just to make repository checks pass; retain genuine scalar fallbacks and explicit unsupported stubs.
 19. **The `half` package** owns FP16/BF16 conversion. Do not duplicate it.

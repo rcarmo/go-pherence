@@ -3,7 +3,7 @@ package speaker
 import (
 	"testing"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func TestAlignSpeakers(t *testing.T) {

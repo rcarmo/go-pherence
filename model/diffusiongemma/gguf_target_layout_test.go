@@ -43,7 +43,7 @@ func TestLocalDiffusionGemmaGGUFQ4KMTargetLayout(t *testing.T) {
 	if !ok || down.QType != gguf.QuantQ8_0 {
 		t.Fatalf("blk.0 down experts qtype=%v ok=%v, want Q8_0", down.QType, ok)
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}

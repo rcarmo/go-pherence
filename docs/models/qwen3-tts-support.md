@@ -21,8 +21,8 @@ Qwen3-TTS is a good fit for `go-pherence`, but it is a new multi-stage audio gen
 
 - Qwen-family transformer code, RoPE/MRoPE-adjacent helpers, KV-cache patterns, sampling, and NVIDIA/CPU execution paths;
 - `loader/safetensors`, `loader/tokenizer`, and config parsing patterns;
-- `models/whisper` audio frontend/decoder infrastructure and GPU LM-head work;
-- `models/speaker` ECAPA/SpeechBrain speaker embedding, fbank/mel extraction, smoothing, and validation commands;
+- `model/whisper` audio frontend/decoder infrastructure and GPU LM-head work;
+- `model/speaker` ECAPA/SpeechBrain speaker embedding, fbank/mel extraction, smoothing, and validation commands;
 - SIMD/NVIDIA kernels for RMSNorm, matmul/GEMV, activation, attention, and GPU-side logits operations.
 
 The missing pieces are TTS-specific model ownership and an audio codec decoder/encoder. The recommended first target is **0.6B CustomVoice text-to-speech** because it avoids reference-audio conditioning and speaker-encoder parity while still exercises the full talker → code predictor → decoder path.
@@ -71,8 +71,8 @@ Start with `0.6B CustomVoice` because it avoids ECAPA/reference-codec front-end 
 ### Reusable now
 
 - `model/qwen` already owns Qwen3/Qwen3Next-style decoder logic, QKV layout tests, recurrent/full-attention parity work, MTP code predictor ideas, prompt-state caching, and NVIDIA MLX cache/planner experiments.
-- `models/whisper` proves the repository can host audio models with mel features, tokenization, decoder state, GPU acceleration, and VTT/audio-oriented commands.
-- `models/speaker` already has ECAPA/SpeechBrain-compatible speaker embedding and fbank/mel extraction. This is relevant for Base model x-vector mode, but should not block CustomVoice.
+- `model/whisper` proves the repository can host audio models with mel features, tokenization, decoder state, GPU acceleration, and VTT/audio-oriented commands.
+- `model/speaker` already has ECAPA/SpeechBrain-compatible speaker embedding and fbank/mel extraction. This is relevant for Base model x-vector mode, but should not block CustomVoice.
 - `loader/audio` and the speaker/whisper command work provide WAV/non-WAV loading, resampling expectations, and test patterns for audio fixtures.
 - `backends/nvidia/runtime` has the low-level pieces needed for GPU talker/code-predictor matmul, LM-head, argmax/sampling, and fused kernels.
 - `backends/simd/runtime` and `backends/simd/kernels` provide CPU reference and portable fallback ownership for matmul/RMSNorm/activation/attention primitives.
@@ -222,7 +222,7 @@ Acceptance:
 
 Goal: cover all official conditioning modes.
 
-- [ ] Add Base x-vector mode using `models/speaker` only after confirming preprocessing/tensor compatibility.
+- [ ] Add Base x-vector mode using `model/speaker` only after confirming preprocessing/tensor compatibility.
 - [ ] Add Base ICL mode by implementing/using `Encoder12Hz` to encode reference audio to codec frames.
 - [ ] Add VoiceDesign instruction prompt conditioning.
 - [ ] Add validation that rejects or warns for invalid conditioning/model combinations.
@@ -235,7 +235,7 @@ Acceptance:
 ## Validation plan
 
 - Use small fixture-first tests; avoid committing model weights.
-- Keep model payloads under ignored `models/` directories.
+- Keep model payloads under ignored `checkpoints/` directories.
 - Run normal gates with workspace temp:
 
 ```sh

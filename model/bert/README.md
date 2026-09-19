@@ -1,4 +1,4 @@
-# models/bert
+# model/bert
 
 BERT-family encoder for text embeddings (e.g. reranking / retrieval).
 
@@ -9,4 +9,5 @@ BERT-family encoder for text embeddings (e.g. reranking / retrieval).
 | `workspace.go` | Reusable activation buffers |
 | `checked.go` | Shape/validation helpers |
 
-A standalone (non-GGUF) model, hence under `models/` rather than `model/`.
+BERT has its own encoder pipeline. All model source lives under `model/`,
+regardless of weight format; downloaded weights belong in `checkpoints/`.

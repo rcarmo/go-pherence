@@ -86,7 +86,7 @@ bin/omnivoice -mode block -backend cpu -model "$MODEL" -tokens 128 -iterations 5
 bin/omnivoice -mode stack -backend cpu -model "$MODEL" -tokens 128 \
   -cpuprofile stack.cpu -memprofile stack.allocs
 bin/omnivoice -mode audio -reference "$REFERENCE" -cpuprofile audio.cpu
-GO_PHERENCE_REAL_OMNIVOICE="$MODEL" go test ./models/omnivoice -run '^$' \
+GO_PHERENCE_REAL_OMNIVOICE="$MODEL" go test ./model/omnivoice -run '^$' \
   -bench BenchmarkRealBlockInto -benchmem -benchtime=5x
 go tool pprof -top stack.cpu
 go tool pprof -alloc_space -top stack.allocs
@@ -770,7 +770,7 @@ recorded unrelated SpacemiT/DiffusionGemma packages.
 Reproduce isolated comparisons with:
 
 ```sh
-go test ./models/omnivoice -run '^$' \
+go test ./model/omnivoice -run '^$' \
   -bench 'BenchmarkAttention(KVReuse|Strided)' -benchmem -count=3
 ```
 
@@ -868,9 +868,9 @@ Reproduce with:
 ```sh
 go test ./backends/simd/runtime -run '^$' \
   -bench BenchmarkGEMMAudioHeadDispatch -benchtime=200ms -count=3
-GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./model/omnivoice \
   -run TestRealHeadChunkParity -count=1
-GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./model/omnivoice \
   -run '^$' -bench BenchmarkRealHeadChunk -benchtime=200ms -count=3
 ```
 
@@ -942,7 +942,7 @@ ties, infinities, NaNs, masked rows and 1000 mixed exceptional-value trials
 including signed zero. Existing seeded generation/token/RNG parity tests pass,
 as do race/vet/no-CGo checks and Linux ARM64 build. A focused review found no
 ordering blocker. [Raw evidence](experiments/topk-sort-2026-09-14.json) preserves
-all samples. Reproduce with `go test ./models/omnivoice -run '^$' -bench
+all samples. Reproduce with `go test ./model/omnivoice -run '^$' -bench
 BenchmarkTopKFinalSort -benchtime=200ms -count=3`.
 
 ## Matched prepared-input upstream comparison (2026-09-14)
@@ -1035,7 +1035,7 @@ Model/CLI tests, race/vet/no-CGo checks and Linux ARM64 build pass.
 [Raw evidence](experiments/codec-copy-2026-09-14.json) retains all runs.
 
 ```sh
-GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./model/omnivoice \
   -run '^$' -bench BenchmarkRealCodecDecode75Frames -benchtime=1x -count=3
 /path/to/upstream/python scripts/omnivoice-upstream-codec-benchmark.py \
   --model /path/to/model/audio_tokenizer --output NEW_REPORT.json
@@ -1194,7 +1194,7 @@ and the [rejected scalar-Go patch](experiments/snake-go-fusion-rejected.patch)
 retain both candidates. Reproduce the microbenchmark with:
 
 ```sh
-go test ./models/omnivoice -run '^$' -bench 'BenchmarkSnakeChannel/simd' \
+go test ./model/omnivoice -run '^$' -bench 'BenchmarkSnakeChannel/simd' \
   -benchtime=300ms -count=3
 ```
 
@@ -1356,7 +1356,7 @@ is unchanged. `make test-omnivoice vet-omnivoice` passes. Listening and
 full-synthesis performance are separate from this synthetic decoder test.
 
 ```sh
-GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./models/omnivoice \
+GO_PHERENCE_REAL_OMNIVOICE=/path/to/model go test ./model/omnivoice \
   -run '^$' -bench BenchmarkRealCodecDecodeLengths -benchtime=1x -count=2
 ```
 

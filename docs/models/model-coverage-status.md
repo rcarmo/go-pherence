@@ -92,8 +92,8 @@ make minicpmv-support-summary
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 bin/minicpmvinspect -capabilities
-bin/minicpmvinspect -model models/minicpm-v-2.6 -json
-bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -json
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/minicpm-v-2.6/model.safetensors -require-shapes-ready
 ```
 
 ## Qwen3-TTS
@@ -144,7 +144,7 @@ Useful commands:
 ```bash
 make models-list MODEL_DOWNLOAD_FLAGS='--group qwen3tts'
 make qwen3tts-inspect \
-  QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice \
+  QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice \
   QWEN3TTS_TEXT="Hello world"
 ```
 
@@ -152,7 +152,7 @@ Strict checkpoint validation:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
-  -model models/qwen3-tts-0.6b-customvoice \
+  -model checkpoints/qwen3-tts-0.6b-customvoice \
   -text "Hello world" \
   -strict -json
 ```
@@ -214,14 +214,14 @@ Useful commands:
 
 ```bash
 make models-list MODEL_DOWNLOAD_FLAGS='--group lfm2'
-make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
+make lfm2-inspect LFM2_MODEL=checkpoints/lfm2.5-8b-a1b
 ```
 
 Strict checkpoint validation:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
-  -model models/lfm2.5-8b-a1b \
+  -model checkpoints/lfm2.5-8b-a1b \
   -strict -json
 ```
 

@@ -14,7 +14,7 @@ import (
 
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 )
 
 func runChunked(modelPath, mode, output, text, reference, transcript, cached, language, instruct string, maxFrames, steps int, denoise, preprocess, postprocess bool, residentBytes int64, prepacked bool, workers int, shared bool, guidance float32, columns bool) error {

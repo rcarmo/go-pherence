@@ -5,7 +5,7 @@
 ## `llmgen` — one-shot generation
 
 ```bash
-go run ./cmd/llm/llmgen -model models/qwen3-0.6b-mlx4 -gpu -tokens 50 -prompt "The meaning of life is"
+go run ./cmd/llm/llmgen -model checkpoints/qwen3-0.6b-mlx4 -gpu -tokens 50 -prompt "The meaning of life is"
 ```
 
 Useful flags:
@@ -20,7 +20,7 @@ Useful flags:
 CPU speculative scaffold example:
 
 ```bash
-go run ./cmd/llm/llmgen -model models/smollm2-135m -tokens 32 \
+go run ./cmd/llm/llmgen -model checkpoints/smollm2-135m -tokens 32 \
   -prompt "abc abc abc abc" \
   -speculative -speculative-proposer prompt -speculative-debug
 ```
@@ -34,8 +34,8 @@ Standalone smoke command:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpsmoke \
-  -model models/gemma4-e4b-it-4bit \
-  -drafter models/gemma4-e4b-mtp-drafter
+  -model checkpoints/gemma4-e4b-it-4bit \
+  -drafter checkpoints/gemma4-e4b-mtp-drafter
 ```
 
 The same experimental smoke is exposed through `llmgen`:
@@ -43,8 +43,8 @@ The same experimental smoke is exposed through `llmgen`:
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -model checkpoints/gemma4-e4b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-e4b-mtp-drafter \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 ```
@@ -56,8 +56,8 @@ Use the E4B pair for local MTP development. It fits fully on the RTX 3060 and su
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
-  -model models/gemma4-31b-it-4bit \
-  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 ```
@@ -66,8 +66,8 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -model checkpoints/gemma4-e4b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-e4b-mtp-drafter \
   -mtp-generate \
   -tokens 16 \
   -prompt "Hi"
@@ -114,11 +114,11 @@ go run ./cmd/qwen/qwen36run -model /path/to/qwen3.6-27b-mtp -sweep prompts.txt -
 ## `specbench` / `speccheck`
 
 ```bash
-go run ./cmd/llm/specbench -model models/smollm2-135m \
+go run ./cmd/llm/specbench -model checkpoints/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 -repeat 3 \
   -speculative-proposer prompt -csv specbench.csv
 
-go run ./cmd/llm/speccheck -model models/smollm2-135m \
+go run ./cmd/llm/speccheck -model checkpoints/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 \
   -proposers prompt,repeat-last,none
 ```
@@ -129,14 +129,14 @@ go run ./cmd/llm/speccheck -model models/smollm2-135m \
 ## `llmchat`
 
 ```bash
-go run ./cmd/llm/llmchat -model models/gemma4-e2b-mlx4 -gpu -n 256
+go run ./cmd/llm/llmchat -model checkpoints/gemma4-e2b-mlx4 -gpu -n 256
 ```
 
 
 ## `llmserver`
 
 ```bash
-go run ./cmd/llm/llmserver -model models/gemma4-e2b-mlx4 -gpu -listen :8080
+go run ./cmd/llm/llmserver -model checkpoints/gemma4-e2b-mlx4 -gpu -listen :8080
 curl -s http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gemma4-e2b-mlx4","messages":[{"role":"user","content":"Hello"}]}'
@@ -146,7 +146,7 @@ For llama.cpp-compatible TurboQuant policy diagnostics on CPU/server paths, pass
 
 ```bash
 go run ./cmd/llm/llmserver \
-  -model models/qwen3-moe \
+  -model checkpoints/qwen3-moe \
   -listen :8080 \
   -cache-type-k turbo4 \
   -cache-type-v turbo2 \

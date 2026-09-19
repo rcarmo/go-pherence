@@ -288,5 +288,5 @@ This avoids prematurely coupling Hunyuan3D to the token-generation APIs and keep
 - Which first target should be canonical: `Hunyuan3D-2mini` standard, mini-turbo, or full `Hunyuan3D-2`?
 - Is CPU reference-only acceptable for early parity, even if full generation is slow?
 - Should mesh export be OBJ/PLY first, with GLB later?
-- Should DINO/CLIP vision encoders live under `models/vision`, `model/hunyuan3d`, or a new frontend package?
+- Should DINO/CLIP vision encoders live under `checkpoints/vision`, `model/hunyuan3d`, or a new frontend package?
 - Is texture support in scope for go-pherence, or should native shape generation be the boundary?

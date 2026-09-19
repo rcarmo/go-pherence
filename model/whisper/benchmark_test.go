@@ -12,7 +12,7 @@ import (
 // BenchmarkWhisperTinyRTF measures the real-time factor for whisper-tiny on CPU.
 // RTF < 1.0 means faster than real-time.
 func BenchmarkWhisperTinyRTF(b *testing.B) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		b.Skip("whisper-tiny model not available")
 	}
@@ -68,7 +68,7 @@ func BenchmarkWhisperTinyRTF(b *testing.B) {
 
 // BenchmarkWhisperTinyEncoder measures encoder-only throughput.
 func BenchmarkWhisperTinyEncoder(b *testing.B) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		b.Skip("whisper-tiny model not available")
 	}
@@ -94,7 +94,7 @@ func BenchmarkWhisperTinyEncoder(b *testing.B) {
 
 // BenchmarkWhisperTinyDecoder measures decoder per-token throughput.
 func BenchmarkWhisperTinyDecoder(b *testing.B) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		b.Skip("whisper-tiny model not available")
 	}
@@ -141,7 +141,7 @@ func BenchmarkMelSpectrogram30s(b *testing.B) {
 
 // TestRTFEstimate provides a quick RTF estimate without full benchmark iterations.
 func TestRTFEstimate(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available")
 	}

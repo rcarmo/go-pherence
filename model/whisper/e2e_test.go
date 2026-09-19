@@ -12,7 +12,7 @@ import (
 
 // TestWhisperTinyTranscribe runs the full pipeline with real weights on synthetic audio.
 func TestWhisperTinyTranscribe(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available:", err)
 	}
@@ -41,7 +41,7 @@ func TestWhisperTinyTranscribe(t *testing.T) {
 
 // TestWhisperTinyMelPipeline verifies mel spectrogram → encoder works with real audio.
 func TestWhisperTinyMelPipeline(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available:", err)
 	}

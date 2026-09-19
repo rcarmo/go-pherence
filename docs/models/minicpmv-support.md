@@ -31,7 +31,7 @@ Implemented:
 ```bash
 make models-download-minicpmv   # MiniCPM-V + MiniCPM-O
 make models-download-minicpmo   # MiniCPM-O only
-make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under models/
+make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under checkpoints/
 ```
 
 - Processor sidecar metadata loading from `preprocessor_config.json` or `processor_config.json`, including nested `image_processor` fields, square resize size, mean/std, rescale factor, patch size, and image sequence length.
@@ -84,7 +84,7 @@ make minicpmv-assets-check
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-fixture-ready
-make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
+make minicpmv-inspect-model MINICPMV_MODEL=checkpoints/minicpm-v-2.6 MINICPMV_FLAGS='-require-metadata-ready'
 make minicpmv-inspect-model MINICPMV_MODEL=model/minicpmv/testdata/minicpmo_fixture MINICPMV_AUDIO_DURATION_MS=1234
 bin/minicpmvinspect -version              # support version, runtime status, roadmap path
 bin/minicpmvinspect -support-summary
@@ -95,18 +95,18 @@ bin/minicpmvinspect -require-fixture-ready
 bin/minicpmvinspect -capabilities
 bin/minicpmvinspect -capabilities -json
 bin/minicpmvinspect -capabilities -require-capabilities-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6
-bin/minicpmvinspect -model models/minicpm-v-2.6 -json -require-config-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-metadata-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-shapes-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -strict                 # metadata + tensors + shapes, but not runtime
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -json -require-config-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -require-metadata-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/minicpm-v-2.6/model.safetensors
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -require-tensors-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -require-shapes-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -strict                 # metadata + tensors + shapes, but not runtime
 # Tiny tensor-only fixtures should use the narrower tensor/shape gates:
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-tensors-ready -require-shapes-ready
-bin/minicpmvinspect -model models/minicpm-v-2.6 -require-runtime-ready  # expected to fail until tensor execution lands
-bin/minicpmvinspect -model models/minicpm-v-2.6 -image testdata/example.png
-bin/minicpmvinspect -model models/minicpm-v-2.6 -prompt "Compare these images." -images 2
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -require-tensors-ready -require-shapes-ready
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -require-runtime-ready  # expected to fail until tensor execution lands
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -image testdata/example.png
+bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -prompt "Compare these images." -images 2
 bin/minicpmvinspect -model model/minicpmv/testdata/minicpmo_fixture -audio-duration-ms 1234
 ```
 

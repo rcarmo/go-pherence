@@ -37,7 +37,7 @@ The article's transferable rules are:
 | `GemmRowsBF16Parallel` | Repeated BF16/F32 dot. | Native batched multi-row kernel as above. P0. |
 | `GemvRowsBF16BF16Parallel` | Parallel one-output dots, capped at six workers. | Add x4 output rows and tune worker count from shape/cache rather than a fixed cap. P1. |
 | `tensor.MatMul` / `MatMulTransposed` | Calls serial checked SGEMM regardless of shape. | Dispatch large tensors to parallel/tiled wrappers; `MatMulTransposed` should use the same shape-aware NT policy as model prefill. P1. |
-| `models/whisper` attention SGEMMs | Per-head calls cause many small serial GEMMs. | Batch heads, pack K/V layouts for a head-group kernel, and fuse scale/softmax where practical. Multi-head call amortisation is more valuable than only changing the inner FMA loop. P1. |
+| `model/whisper` attention SGEMMs | Per-head calls cause many small serial GEMMs. | Batch heads, pack K/V layouts for a head-group kernel, and fuse scale/softmax where practical. Multi-head call amortisation is more valuable than only changing the inner FMA loop. P1. |
 | BERT, Hunyuan3D, Trellis2, speaker convolution SGEMMs | Direct serial `SgemmNNTo/NTTo` even for large matrices. | Route through a common shape-aware parallel dispatcher; add model-shape benchmarks before changing arithmetic order. P1/P2. |
 
 ## Quantised CPU kernels
@@ -88,7 +88,7 @@ These are not all new arithmetic kernels, but they prevent existing kernels from
 - `model/diffusiongemma/cpu_dispatcher.go` contains local fallback `dot` loops, although its main GGUF expert path already groups `expertUsers` and includes Q4_K/Q5_0/Q8_0 batched row kernels. Optimise the remaining format/tail fallbacks rather than rebuilding its existing batching.
 - `model/gguf_llama.go` and `loader/gguf/expert_matrix.go` retain scalar F32 row dots. Consolidate them on `simd.GemvRowsParallel`/x4 variants. `loader/gguf/quant_project.go` already has quantised batch paths; only its scalar/tail fallbacks need similar consolidation.
 - `model/internal/ops.GemvNT` should use the checked backend facade and parallel row dispatch for large outputs.
-- `models/whisper/decoder.go` already uses `Sdotx4` for attention scores; add head-group and query-group batching rather than increasing dot width alone.
+- `model/whisper/decoder.go` already uses `Sdotx4` for attention scores; add head-group and query-group batching rather than increasing dot width alone.
 - `model/mosstranscribe/adaptor.go` is a concrete BF16 batched-GEMM target.
 - `model/cpu_prefill.go` correctly distinguishes prefill from decode for dense F32, but quantised `projBatch` routes still depend on repeated-GEMV implementations.
 - MoE paths outside the existing DiffusionGemma `expertUsers` batching should group tokens by active expert and projection type. Per-token expert GEMV leaves cross-row reuse unavailable when several tokens select the same expert.

@@ -107,8 +107,8 @@ Use [mtp-speculative.md](mtp-speculative.md) and [gemma4-31b-runbook.md](gemma4-
 Recommended local development pair:
 
 ```text
-models/gemma4-e4b-it-4bit
-models/gemma4-e4b-mtp-drafter
+checkpoints/gemma4-e4b-it-4bit
+checkpoints/gemma4-e4b-mtp-drafter
 ```
 
 This E4B pair fully fits on the local RTX 3060 with current loader behavior (`42/42` layers resident, compact MLX LM head resident, ~5GiB VRAM free) and is much faster than the 31B stress path.

@@ -42,7 +42,7 @@ go run ./cmd/audio/whisper \
 
 Useful flags:
 
-- `-model PATH` — default `models/whisper-large-v3-turbo-hf/model.safetensors`.
+- `-model PATH` — default `checkpoints/whisper-large-v3-turbo-hf/model.safetensors`.
 - `-size turbo|large-v3|...` — default `turbo`.
 - `-task transcribe|translate` — default `transcribe`; use `translate` for English translation.
 - `-language CODE` — default `en`; for turbo translated English, keep `en`.
@@ -93,7 +93,7 @@ Use this to validate VAD → ECAPA embeddings → clustering without loading Whi
 ```bash
 go run ./cmd/audio/speakercheck \
   -input testdata/jfk.wav \
-  -speaker-model models/speaker-ecapa-voxceleb.safetensors \
+  -speaker-model checkpoints/speaker-ecapa-voxceleb.safetensors \
   -threshold 0.3 \
   -context 0.5
 ```
@@ -103,7 +103,7 @@ For long recordings, spot-check a short window:
 ```bash
 go run ./cmd/audio/speakercheck \
   -input testdata/podcast.wav \
-  -speaker-model models/speaker-ecapa-voxceleb.safetensors \
+  -speaker-model checkpoints/speaker-ecapa-voxceleb.safetensors \
   -start 300 \
   -duration 30 \
   -sims=false

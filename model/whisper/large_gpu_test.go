@@ -11,7 +11,7 @@ import (
 
 // TestLargeV3GPUEncoder loads whisper-large-v3 and benchmarks the GPU encoder on real audio.
 func TestLargeV3GPUEncoder(t *testing.T) {
-	modelPath := "../../models/whisper-large-v3-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-large-v3-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-large-v3 model not available")
 	}

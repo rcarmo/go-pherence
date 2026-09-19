@@ -111,23 +111,23 @@ make whisper-turbo-check
 
 # Optional, non-gating GPU timing smoke. This uses the current turbo assets and
 # is intentionally opt-in because host load can dominate RTF measurements.
-WHISPER_RUN_GPU_RTF=1 GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+WHISPER_RUN_GPU_RTF=1 GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
   -run TestGPURTFEstimate -count=1 -v
 
 # Equivalent explicit form:
-GOTMPDIR=$PWD/.gotmp go test ./models/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime \
+GOTMPDIR=$PWD/.gotmp go test ./model/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime \
   -run 'TestWhisperConv1DFastMatchesScalarOracle|TestWhisperLayerNormUsesSIMDOracleMatchesScalar|TestWhisperFullAttentionMatchesScalarOracle|TestLinearRowBlockUsesSIMDOracleMatchesScalar|TestMelSpectrogramMatchesReferencePath|TestMelSpectrogramFusedUsesLog10|TestDotI8F32|TestDotI8F32x4|TestSdotx4|TestQ4RowDot' \
   -count=1 -v
-GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
   -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' \
   -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime \
   -run TestWhisperAttentivePoolParity -count=1 -v
 WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 \
-  GOTMPDIR=$PWD/.gotmp go test ./models/whisper \
+  GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
   -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
 GOTMPDIR=$PWD/.gotmp go test \
-  ./models/whisper \
+  ./model/whisper \
   ./cmd/audio/... \
   ./loader/audio \
   ./backends/simd/fft \
@@ -176,8 +176,8 @@ GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
 
 # Gemma4 31B packed MTP smoke, when local ignored model assets are present
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-31b-it-4bit \
-  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
   -prompt "Hello"
 
@@ -185,8 +185,8 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
 # If the verifier/drafter snapshots are missing, fetch/provision the local GGUF pair first.
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
-  -model models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
-  -mtp-drafter models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+  -model checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -mtp-drafter checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 
@@ -213,18 +213,18 @@ make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
 # currently expected to fail until real-asset selected verifier logits match
 # llama.cpp --flash-attn on 1:1:
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
-GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
-GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+GO_PHERENCE_GEMMA4_MAIN=checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
 make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp
 
 # Expanded strict commands, if the Makefile target is not available:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
   -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
-  -model models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
-  -drafter models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf
+  -model checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -drafter checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf
 GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
-GO_PHERENCE_GEMMA4_MAIN=models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
-GO_PHERENCE_GEMMA4_MTP_DRAFTER=models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+GO_PHERENCE_GEMMA4_MAIN=checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
 GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
 
 
@@ -239,8 +239,8 @@ Strict Gemma4 QAT+MTP status notes:
 # 31B stress smoke, when VRAM headroom permits
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
-  -model models/gemma4-31b-it-4bit \
-  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 ```

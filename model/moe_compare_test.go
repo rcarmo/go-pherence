@@ -11,9 +11,9 @@ func TestMoECPUvsGPUExpert(t *testing.T) {
 	if os.Getenv("GEMMA4_TRACE_TEST") == "" {
 		t.Skip("set GEMMA4_TRACE_TEST=1")
 	}
-	dir := "../../models/qwen3-30b-a3b-mlx4"
+	dir := "../../checkpoints/qwen3-30b-a3b-mlx4"
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
-		dir = "../models/qwen3-30b-a3b-mlx4"
+		dir = "../checkpoints/qwen3-30b-a3b-mlx4"
 	}
 	if _, err := os.Stat(dir + "/config.json"); err != nil {
 		t.Skip("model not found")

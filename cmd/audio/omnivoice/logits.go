@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 	"os"
 	"runtime"
 	"time"

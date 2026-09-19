@@ -17,9 +17,9 @@ a KV-reusing verifier block is implemented.
 
 ### Drafter models
 
-Local E2B BF16 asset: `models/gemma4-e2b-mtp-drafter`.
+Local E2B BF16 asset: `checkpoints/gemma4-e2b-mtp-drafter`.
 
-Local 31B MLX 4-bit assistant asset: `models/gemma4-31b-it-mtp-assistant-4bit`.
+Local 31B MLX 4-bit assistant asset: `checkpoints/gemma4-31b-it-mtp-assistant-4bit`.
 
 - Top-level `model_type: gemma4_assistant`, `architectures: [Gemma4AssistantForCausalLM]`
 - Nested text config is `model_type: gemma4_text`
@@ -191,8 +191,8 @@ Minimal fixture shape:
 
 ```json
 {
-  "main_model": "models/gemma4-main-q4",
-  "drafter": "models/gemma4-e4b-mtp-drafter",
+  "main_model": "checkpoints/gemma4-main-q4",
+  "drafter": "checkpoints/gemma4-e4b-mtp-drafter",
   "prompt_tokens": [1, 2, 3],
   "max_tokens": 3,
   "draft_count": 2,

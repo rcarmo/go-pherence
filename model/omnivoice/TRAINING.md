@@ -79,7 +79,7 @@ it does not assert that current upstream HEAD is identical to those snapshots.
   preparation state and proposed pilot. These are private workspace references;
   data and source audio are not part of this repository.
 - Native code: `loader/omnivoice/prompt.go`, `weights.go`,
-  `models/omnivoice/reference.go` and [implementation notes](IMPLEMENTATION.md).
+  `model/omnivoice/reference.go` and [implementation notes](IMPLEMENTATION.md).
 
 ## Denoising reuse and few-step distillation assessment (2026-09-14)
 

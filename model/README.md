@@ -1,8 +1,9 @@
 # model
 
-The core **GGUF / LLaMA-family transformer runtime**: model loading, the forward
-pass, MoE, RoPE, attention, KV cache, and speculative / multi-token-prediction
-(MTP) decoding. Image, audio, and other families live in sibling sub-packages.
+All model implementation source lives here. The root Go package owns the shared
+decoder runtime: loading, forward passes, MoE, RoPE, attention, KV integration and
+speculative/multi-token-prediction (MTP) decoding. Family subpackages contain
+language, encoder, image, speech and scoring implementations.
 
 | Area | Files |
 |---|---|
@@ -13,14 +14,17 @@ pass, MoE, RoPE, attention, KV cache, and speculative / multi-token-prediction
 | Speculative / MTP | `speculative*.go`, `mtp_*.go` |
 | GPU | `gpu_forward.go`, `mtp_*_gpu.go` |
 
-## `model/` vs `models/`
+## Source and downloaded weights
 
-- **`model/`** (this package, `package model`) — the LLaMA/GGUF transformer core,
-  with sub-packages for specific families: `llama/`, `qwen/`, `gemma/`, `gemma4/`,
-  `lfm2/`, `qwen3tts/`, and the image/3D models `ideogram4/`, `hunyuan3d/`,
-  `trellis2/`.
-- **`models/`** (`package whisper`, `speaker`, `bert`) — standalone non-GGUF model
-  implementations with their own pipelines.
+`model/` is source. BERT, Whisper, speaker (including Community-1) and OmniVoice
+now live under this tree alongside the other families. Go imports use
+`github.com/rcarmo/go-pherence/model/<family>`; the old `models/<family>` package
+paths have no compatibility wrappers.
+
+`checkpoints/` at the repository root is git-ignored data: downloaded weights,
+configuration and tokenizer files. `cmd/models/` remains the inspector command
+group, and `docs/models/` remains model documentation. Neither is an asset folder.
+See the [asset migration notes](../docs/guides/model-assets.md) for older checkouts.
 
 ## Layering
 

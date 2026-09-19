@@ -7,9 +7,9 @@ import (
 )
 
 // TestLoadWhisperTiny loads real whisper-tiny weights and verifies encoder output shape.
-// Requires: models/whisper-tiny-hf/model.safetensors
+// Requires: checkpoints/whisper-tiny-hf/model.safetensors
 func TestLoadWhisperTiny(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available:", err)
 	}
@@ -51,7 +51,7 @@ func TestLoadWhisperTiny(t *testing.T) {
 
 // TestWhisperTinyEncoderForward runs encoder forward with real weights on a sine wave.
 func TestWhisperTinyEncoderForward(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available:", err)
 	}

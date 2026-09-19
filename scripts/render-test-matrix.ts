@@ -218,7 +218,7 @@ const sections: Section[] = [
     ],
   },
   {
-    title: "model/ + models/ — integration smokes",
+    title: "model/ — family integration smokes",
     rows: [
       { label: "CPU decode, GGUF, and loader handoff", ref: "pass", simd: "pass", nvidia: "na", optional: "na", evidence: "End-to-end reference path" },
       { label: "NVIDIA handoff and optional backend integration", ref: "pass", simd: "pass", nvidia: "gated", optional: "gated", evidence: "Opt-in compares against CPU path" },

@@ -1,7 +1,8 @@
 TMPDIR ?= $(if $(wildcard /workspace/tmp),/workspace/tmp,/tmp)
 GOTMPDIR ?= $(TMPDIR)
 PYTHON ?= python3
-MODELS_DIR ?= models
+# MODELS_DIR remains an input alias for existing automation.
+CHECKPOINTS_DIR ?= $(if $(MODELS_DIR),$(MODELS_DIR),checkpoints)
 MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
 MINICPMV_MODEL ?=
@@ -13,7 +14,7 @@ export TMPDIR GOTMPDIR
 
 SPACEMIT_PACKAGES := ./backends/spacemit/... ./cmd/spacemit/...
 
-.PHONY: host-build host-vet host-test host-check spacemit-hardware-test
+.PHONY: host-build host-vet host-test host-check spacemit-hardware-test model-layout-check
 
 .PHONY: all build test docs-check docs-diagrams docs-diagrams-check test-cpu spacemit-host-check spacemit-cross-compile test-model-coverage gemma4-mtp-parity gemma4-mtp-strict-parity gemma4-mtp-native-parity gemma4-gpu-cpu-parity whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity whisper-turbo-check whisper-backend-compare whisper-backend-podcast-compare whisper-a100-compare whisper-a100-podcast-compare whisper-int8-compare whisper-int8-podcast-compare model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-minicpmv models-download-minicpmo models-download-gemma4 models-download-speaker models-download-one minicpmv-inspect minicpmv-version minicpmv-support-summary minicpmv-capabilities minicpmv-pending-runtime minicpmv-coverage-pending minicpmv-assets-check minicpmv-fixture-path minicpmv-fixture-summary minicpmv-fixture-ready minicpmv-inspect-model minicpmv-fixture-check minicpmv-check gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-check gguf-ci gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect whisper whisper-k3 speaker-weights
 
@@ -30,7 +31,7 @@ speech-go264-public-check:
 
 # Explicit CPU model work; requires host admission and pinned model/PCM paths.
 speech-go264-paired-check:
-	CGO_ENABLED=0 GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_GO264_SPEECH=1 go test -mod=readonly -p=1 -count=1 -timeout=120s ./models/whisper -run TestGo264PairedSpeech
+	CGO_ENABLED=0 GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_GO264_SPEECH=1 go test -mod=readonly -p=1 -count=1 -timeout=120s ./model/whisper -run TestGo264PairedSpeech
 
 # Focused speech-foundation checks: no model weights, driver initialisation,
 # service startup or performance benchmark. FFmpeg integration is opt-in below.
@@ -49,14 +50,14 @@ speech-vulkan-offline-check:
 # and channel-major prepared BatchNorm affine+ReLU. No device/model execution.
 speech-vulkan-community-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/vulkan -run '^(TestVulkanOffline(ChannelAffine|Conv2DCHW|LSTMCell|LSTMSequence)|TestVulkanOfflineShaderContractEmbedded)'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding|LSTM|Segmentation|Diarization)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/speaker/community1 -run '^TestVulkan(BasicBlock|ResNetTrunk|Embedding|LSTM|Segmentation|Diarization)'
 	bun test scripts/check-vulkan-shaders.test.ts
 
 # Model-free Community-1 hybrid server lifecycle and configuration. No VulkanInit.
 speech-vulkan-community-server-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./runtime/speechjob -run '^TestVulkanCommunity'
 	GO_PHERENCE_DISABLE_NVIDIA=1 GOMAXPROCS=2 go test -p=1 -count=1 -timeout=90s ./cmd/audio/speechjobserve -run '^(TestCommunityVulkan|TestCommunityPrepare|TestCombined|TestBuiltProfiles)'
-	go vet ./models/speaker/community1 ./runtime/speechjob ./cmd/audio/speechjobserve
+	go vet ./model/speaker/community1 ./runtime/speechjob ./cmd/audio/speechjobserve
 
 # Explicit real-GPU qualification in a coordinated compute window. No models
 # or services; synthetic numerical fixtures and optional warm host-wall timing.
@@ -68,7 +69,7 @@ speech-vulkan-native-check:
 # explicitly named hardware device and an authorised isolated compute window.
 speech-vulkan-community-native-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY=1 go test -p=1 -count=1 -timeout=300s ./models/speaker/community1 -run '^TestVulkanCommunityNative$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY=1 go test -p=1 -count=1 -timeout=300s ./model/speaker/community1 -run '^TestVulkanCommunityNative$$' -v
 
 # One pinned 30-second trained sample through the fixed-window hybrid owner.
 # Asset variables and the physical device name are mandatory; no downloads.
@@ -78,7 +79,7 @@ speech-vulkan-community-trained-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PLDA_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PLDA_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PUBLIC_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PUBLIC_WAV'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_DIARIZATION=1 go test -p=1 -count=1 -timeout=600s ./models/speaker/community1 -run '^TestVulkanCommunity1TrainedDiarization$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_DIARIZATION=1 go test -p=1 -count=1 -timeout=600s ./model/speaker/community1 -run '^TestVulkanCommunity1TrainedDiarization$$' -v
 
 # Kill a trained native owner after one window, then complete the full sample in
 # a fresh process. Uses the same mandatory assets/device variables as above.
@@ -88,46 +89,46 @@ speech-vulkan-community-trained-recovery-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PLDA_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PLDA_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_PUBLIC_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_PUBLIC_WAV'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_RECOVERY=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestVulkanCommunity1TrainedProcessRecovery$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_COMMUNITY_RECOVERY=1 go test -p=1 -count=1 -timeout=120s ./model/speaker/community1 -run '^TestVulkanCommunity1TrainedProcessRecovery$$' -v
 
 # Whole resident encoder graph: offline contracts or authorised synthetic GPU test.
 .PHONY: speech-vulkan-encoder-check speech-vulkan-encoder-native-check
 speech-vulkan-encoder-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership|PlanConstructorAdmission)|PCMVulkan.*)$$'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/whisper -run '^Test(VulkanEncoder(Layout|RejectsBeforeDevice|Ownership|PlanConstructorAdmission)|PCMVulkan.*)$$'
 
 speech-vulkan-encoder-native-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderNative$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_ENCODER=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestVulkanEncoderNative$$' -v
 
 # Pinned trained Tiny, no implicit downloads. Optional FULL_TINY gate is in test.
 .PHONY: speech-vulkan-trained-tiny-check
 speech-vulkan-trained-tiny-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TRAINED=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanEncoderTrainedTiny$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TRAINED=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestVulkanEncoderTrainedTiny$$' -v
 
 # Public JFK speech fixture via temporary FFmpeg and pinned trained Tiny.
 .PHONY: speech-vulkan-public-speech-check
 speech-vulkan-public-speech-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH_QUALITY=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanPCMSpeechTiny$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_SPEECH_QUALITY=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestVulkanPCMSpeechTiny$$' -v
 
 # Public PT/FR quality diagnostics + digital silence/multi-window parity.
 .PHONY: speech-vulkan-corpus-check
 speech-vulkan-corpus-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_CORPUS=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanPublicCorpus$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_CORPUS=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestVulkanPublicCorpus$$' -v
 
 # Reference-only public fixture export; no foreign neural runtime in production.
 .PHONY: speech-oracle-export-check
 speech-oracle-export-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_ORACLE_EXPORT=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestSpeechOracleExport$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_ORACLE_EXPORT=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestSpeechOracleExport$$' -v
 
 # Heavier pinned Turbo F16-checkpoint/F32-inference gate. Public speech has a
 # separate opt-in; no downloads or automatic service lifecycle changes.
 .PHONY: speech-vulkan-turbo-check
 speech-vulkan-turbo-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurbo$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO=1 go test -p=1 -count=1 -timeout=300s ./model/whisper -run '^TestVulkanTurbo$$' -v
 
 # Attribution only: full Turbo layer-plans vs same stages separately fenced.
 .PHONY: speech-vulkan-turbo-profile
 speech-vulkan-turbo-profile:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboProfile$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_PROFILE=1 go test -p=1 -count=1 -timeout=300s ./model/whisper -run '^TestVulkanTurboProfile$$' -v
 
 # Explicit candidate kernels; neither target changes encoder defaults.
 .PHONY: speech-vulkan-linear-regtile-check speech-vulkan-linear-f16-weight-check speech-vulkan-linear-q8-weight-check speech-vulkan-whisper-q8-weight-check speech-vulkan-turbo-q8-weight-check speech-vulkan-turbo-q8-robustness-check speech-vulkan-turbo-q8-podcast-check speech-vulkan-turbo-regtile-check
@@ -150,21 +151,21 @@ speech-vulkan-linear-q8-weight-check:
 speech-vulkan-whisper-q8-weight-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_TINY_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TINY_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_WHISPER_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=120s ./models/whisper -run '^TestVulkanWhisperQ8Weight$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_WHISPER_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=120s ./model/whisper -run '^TestVulkanWhisperQ8Weight$$' -v
 
 # Explicit trained Turbo Q8 short gate; set SPEECH=1 plus pinned JFK path for
 # the full transcript/timing comparison. No serving/default selection.
 speech-vulkan-turbo-q8-weight-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_TURBO_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TURBO_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=180s ./models/whisper -run '^TestVulkanTurboQ8Weight$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_WEIGHT=1 go test -p=1 -count=1 -timeout=180s ./model/whisper -run '^TestVulkanTurboQ8Weight$$' -v
 
 # Full-Q8 versus exact-timestamp MLP-only Q8 on silence and 63s composition.
 speech-vulkan-turbo-q8-robustness-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_TURBO_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TURBO_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_JFK_PATH)" || (echo 'Set GO_PHERENCE_WHISPER_JFK_PATH'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_ROBUSTNESS=1 go test -p=1 -count=1 -timeout=180s ./models/whisper -run '^TestVulkanTurboQ8Robustness$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_ROBUSTNESS=1 go test -p=1 -count=1 -timeout=180s ./model/whisper -run '^TestVulkanTurboQ8Robustness$$' -v
 
 # Natural 90s/three-window parity at offset 300s in the pinned podcast. This is
 # unlabeled robustness evidence, not WER acceptance or a serving default.
@@ -172,10 +173,10 @@ speech-vulkan-turbo-q8-podcast-check:
 	@test -n "$(GO_PHERENCE_VULKAN_DEVICE)" || (echo 'Set GO_PHERENCE_VULKAN_DEVICE'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_TURBO_DIR)" || (echo 'Set GO_PHERENCE_WHISPER_TURBO_DIR'; exit 1)
 	@test -n "$(GO_PHERENCE_WHISPER_PODCAST_PATH)" || (echo 'Set GO_PHERENCE_WHISPER_PODCAST_PATH'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_PODCAST=1 go test -p=1 -count=1 -timeout=180s ./models/whisper -run '^TestVulkanTurboQ8Podcast$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_Q8_PODCAST=1 go test -p=1 -count=1 -timeout=180s ./model/whisper -run '^TestVulkanTurboQ8Podcast$$' -v
 
 speech-vulkan-turbo-regtile-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE=1 go test -p=1 -count=1 -timeout=300s ./models/whisper -run '^TestVulkanTurboRegTile$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_VULKAN_TURBO_REGTILE=1 go test -p=1 -count=1 -timeout=300s ./model/whisper -run '^TestVulkanTurboRegTile$$' -v
 
 # Optional offline validator/compiler qualification. Explicit new output path;
 # missing tools fail (never skip). No Vulkan loader/device or model execution.
@@ -188,29 +189,29 @@ speech-vulkan-static-check:
 speech-sincnet-fma-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestFMAColumns(Order|Invalid)'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
-	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNetLowered'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/speaker/community1 -run '^TestSincNetLowered'
+	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/speaker/community1 -run '^TestSincNetLowered'
 
 # Trained CPU reference gates require a verified local conversion and explicit admission.
 .PHONY: speech-community-segmentation-check speech-community-segmentation-strict
 speech-community-segmentation-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 go test -p=1 -count=1 -timeout=120s ./model/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
 
 # Known intermediate failures: this target must remain nonzero until corrected.
 speech-community-segmentation-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_SEGMENTATION_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 GO_PHERENCE_TEST_COMMUNITY1_STRICT=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_SEGMENTATION=1 GO_PHERENCE_TEST_COMMUNITY1_STRICT=1 go test -p=1 -count=1 -timeout=120s ./model/speaker/community1 -run '^TestCommunity1TrainedSegmentation$$' -v
 
 .PHONY: speech-community-embedding-check speech-community-embedding-strict
 speech-community-embedding-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 go test -p=1 -count=1 -timeout=180s ./model/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
 
 # Strict frontend/trunk/support failures remain visible; endpoint gate is always enforced.
 speech-community-embedding-strict:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING=1 GO_PHERENCE_TEST_COMMUNITY1_EMBEDDING_STRICT=1 go test -p=1 -count=1 -timeout=180s ./model/speaker/community1 -run '^TestCommunity1TrainedEmbedding$$' -v
 
 .PHONY: speech-community-corpus-contract-check speech-community-diarization-check speech-community-diarization-lowest-ties speech-community-trained-corpus-check
 # Model-free manifest/parser checks. Scoring saved results requires a separate
@@ -221,11 +222,11 @@ speech-community-corpus-contract-check:
 
 # Strict tie policy is the default; the pinned public sample currently rejects a tie.
 speech-community-diarization-check:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 go test -p=1 -count=1 -timeout=180s ./model/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
 
 # Explicit experimental deterministic tie policy, not NumPy tie identity parity.
 speech-community-diarization-lowest-ties:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 GO_PHERENCE_DIARIZATION_LOWEST_TIES=1 go test -p=1 -count=1 -timeout=180s ./models/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_DIARIZATION=1 GO_PHERENCE_DIARIZATION_LOWEST_TIES=1 go test -p=1 -count=1 -timeout=180s ./model/speaker/community1 -run '^TestCommunity1TrainedDiarization$$' -v
 
 # Explicit bounded arbitrary-corpus CPU run. The WAV must already be canonical
 # mono16k PCM and fit the experimental 128-window ceiling. No downloads.
@@ -233,24 +234,24 @@ speech-community-trained-corpus-check:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_WAV)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_WAV'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_WAV_SHA256)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_WAV_SHA256'; exit 1)
 	@test -n "$(GO_PHERENCE_COMMUNITY1_CORPUS_SAMPLES)" || (echo 'Set GO_PHERENCE_COMMUNITY1_CORPUS_SAMPLES'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_CORPUS=1 go test -p=1 -count=1 -timeout=600s ./models/speaker/community1 -run '^TestCommunity1TrainedCorpus$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_CORPUS=1 go test -p=1 -count=1 -timeout=600s ./model/speaker/community1 -run '^TestCommunity1TrainedCorpus$$' -v
 
 .PHONY: speech-community-gemm-check speech-community-gemm-timing
 speech-community-gemm-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./backends/simd/runtime -run '^TestFMAMatrix'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./backends/simd/runtime -run '^TestFMAMatrix(Exact|Rejects)'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
-	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./model/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
+	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./model/speaker/community1 -run '^Test(WeSpeakerTiled(Convolution|FullDepthOracle)|ExperimentalEmbeddingGEMM)'
 
 speech-community-gemm-timing:
 	@test -n "$(GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR)" || (echo 'Set GO_PHERENCE_COMMUNITY1_EMBEDDING_DIR'; exit 1)
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./models/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_TEST_COMMUNITY1_GEMM_TIMING=1 go test -p=1 -count=1 -timeout=120s ./model/speaker/community1 -run '^TestWeSpeakerTiledTiming$$' -v
 
 .PHONY: speech-job-check speech-job-http-check speech-job-cli-check speech-job-media-integration speech-job-serve-check speech-job-serve-integration speech-job-ui-check speech-job-trained-combined-check speech-job-trained-corpus-check
 speech-job-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./models/whisper -run '^TestPCM(Resume|Transcribe)'
-	go vet ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi ./models/whisper
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=90s ./model/whisper -run '^TestPCM(Resume|Transcribe)'
+	go vet ./runtime/resourcebudget ./runtime/speechjob ./runtime/speechjob/httpapi ./model/whisper
 
 speech-job-ui-check:
 	@test -n "$(SPEECHJOB_BROWSER_OUT)" || (echo 'Set SPEECHJOB_BROWSER_OUT to a browser evidence directory'; exit 1)
@@ -300,16 +301,19 @@ speech-job-media-integration:
 speech-affine-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
 	GODEBUG=cpu.avx2=off,cpu.fma=off GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./backends/simd/runtime -run '^TestAffineF32'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1 -run '^TestSincNet(FMA32|Normalization)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/speaker/community1 -run '^TestSincNet(FMA32|Normalization)'
 
 speech-foundations-check:
 	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./loader/audio ./loader/audio/media ./loader/numpy
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|PCMDigitalSilence|SpeechFixture|TurboFixtureSelection|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
-	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./models/speaker/community1
-	go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./models/whisper ./models/speaker/community1
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/whisper -run 'Test(ExactFrontend|ComputeMelFlatWithT|WindowPlan|CheckedTimestamp|PCMTranscribe|PCMVulkan|PCMDigitalSilence|SpeechFixture|TurboFixtureSelection|CheckedLoad|LoadEncoderSource|CheckedConfig|SpeechContext)'
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=60s ./model/speaker/community1
+	go vet -p=1 ./loader/audio ./loader/audio/media ./loader/numpy ./model/whisper ./model/speaker/community1
 
 speech-media-integration:
 	GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
+
+model-layout-check:
+	bun test scripts/model-layout.test.ts
 
 docs-check: docs-diagrams-check
 	bun test scripts/check-doc-links.test.ts
@@ -357,7 +361,7 @@ minicpmv-coverage-pending:
 	$(MAKE) model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 
 minicpmv-assets-check:
-	$(PYTHON) scripts/minicpmv_assets_check.py --models-dir $(MODELS_DIR) $(MINICPMV_FLAGS)
+	$(PYTHON) scripts/minicpmv_assets_check.py --checkpoints-dir $(CHECKPOINTS_DIR) $(MINICPMV_FLAGS)
 
 minicpmv-fixture-path:
 	go run ./cmd/minicpmvinspect -fixture-path $(MINICPMV_FLAGS)
@@ -369,7 +373,7 @@ minicpmv-fixture-ready:
 	go run ./cmd/minicpmvinspect -require-fixture-ready $(MINICPMV_FLAGS)
 
 minicpmv-inspect-model:
-	@if [ -z "$(MINICPMV_MODEL)" ]; then echo "usage: make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 [MINICPMV_SAFETENSORS=...] [MINICPMV_IMAGE=...] [MINICPMV_AUDIO_DURATION_MS=1234] [MINICPMV_FLAGS='-json']"; exit 2; fi
+	@if [ -z "$(MINICPMV_MODEL)" ]; then echo "usage: make minicpmv-inspect-model MINICPMV_MODEL=checkpoints/minicpm-v-2.6 [MINICPMV_SAFETENSORS=...] [MINICPMV_IMAGE=...] [MINICPMV_AUDIO_DURATION_MS=1234] [MINICPMV_FLAGS='-json']"; exit 2; fi
 	go run ./cmd/minicpmvinspect -model $(MINICPMV_MODEL) $(if $(MINICPMV_SAFETENSORS),-safetensors $(MINICPMV_SAFETENSORS),) $(if $(MINICPMV_IMAGE),-image $(MINICPMV_IMAGE),) $(if $(MINICPMV_AUDIO_DURATION_MS),-audio-duration-ms $(MINICPMV_AUDIO_DURATION_MS),) $(MINICPMV_FLAGS)
 
 minicpmv-fixture-check:
@@ -408,24 +412,24 @@ whisper-k3:
 
 whisper-turbo-parity:
 	mkdir -p $(GOTMPDIR)
-	WHISPER_REQUIRE_TURBO_PARITY=1 GOTMPDIR=$(GOTMPDIR) go test ./models/whisper -run TestLargeV3TurboJFKCPUTranscriptParity -count=1
+	WHISPER_REQUIRE_TURBO_PARITY=1 GOTMPDIR=$(GOTMPDIR) go test ./model/whisper -run TestLargeV3TurboJFKCPUTranscriptParity -count=1
 
 whisper-simd-parity:
 	mkdir -p $(GOTMPDIR)
-	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime -run 'TestWhisperConv1DFastMatchesScalarOracle|TestWhisperLayerNormUsesSIMDOracleMatchesScalar|TestWhisperFullAttentionMatchesScalarOracle|TestLinearRowBlockUsesSIMDOracleMatchesScalar|TestMelSpectrogramMatchesReferencePath|TestMelSpectrogramFusedUsesLog10|TestDotI8F32|TestDotI8F32x4|TestSdotx4|TestQ4RowDot' -count=1 -v
+	GOTMPDIR=$(GOTMPDIR) go test ./model/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime -run 'TestWhisperConv1DFastMatchesScalarOracle|TestWhisperLayerNormUsesSIMDOracleMatchesScalar|TestWhisperFullAttentionMatchesScalarOracle|TestLinearRowBlockUsesSIMDOracleMatchesScalar|TestMelSpectrogramMatchesReferencePath|TestMelSpectrogramFusedUsesLog10|TestDotI8F32|TestDotI8F32x4|TestSdotx4|TestQ4RowDot' -count=1 -v
 
 whisper-cuda-parity:
 	mkdir -p $(GOTMPDIR)
-	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' -count=1 -v
+	GOTMPDIR=$(GOTMPDIR) go test ./model/whisper -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' -count=1 -v
 	GOTMPDIR=$(GOTMPDIR) go test ./backends/nvidia/runtime -run TestWhisperAttentivePoolParity -count=1 -v
 
 whisper-gpu-graph-parity:
 	mkdir -p $(GOTMPDIR)
-	WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 GOTMPDIR=$(GOTMPDIR) go test ./models/whisper -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
+	WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 GOTMPDIR=$(GOTMPDIR) go test ./model/whisper -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
 
 whisper-turbo-check: whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity
 	mkdir -p $(GOTMPDIR)
-	GOTMPDIR=$(GOTMPDIR) go test ./models/whisper ./cmd/audio/... ./loader/audio ./backends/simd/fft ./backends/simd/runtime ./backends/cuda/ptx -count=1
+	GOTMPDIR=$(GOTMPDIR) go test ./model/whisper ./cmd/audio/... ./loader/audio ./backends/simd/fft ./backends/simd/runtime ./backends/cuda/ptx -count=1
 	$(PYTHON) scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 	$(PYTHON) scripts/speakercheck_suite.py testdata/speakercheck_suite.json
 
@@ -485,8 +489,8 @@ ideogram4-k3-check:
 	./scripts/ideogram4_k3_coverage.py --fail-missing > $(TMPDIR)/ideogram4/k3check/coverage.json
 	@echo "K3 check passed: native Ideogram tests + riscv64 test binaries + bin/ideogram4gen-k3 + bin/ideogram4vaeprobe-k3 + coverage no-missing gate"
 
-SPEAKER_CKPT ?= $(MODELS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
-SPEAKER_SAFETENSORS ?= $(MODELS_DIR)/speaker-ecapa-voxceleb.safetensors
+SPEAKER_CKPT ?= $(CHECKPOINTS_DIR)/speechbrain-ecapa-voxceleb/embedding_model.ckpt
+SPEAKER_SAFETENSORS ?= $(CHECKPOINTS_DIR)/speaker-ecapa-voxceleb.safetensors
 SPEAKER_CKPT_URL ?= https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/main/embedding_model.ckpt
 
 # Download + convert the SpeechBrain ECAPA-TDNN speaker-embedding weights WITHOUT
@@ -501,22 +505,22 @@ speaker-weights:
 	@echo "Wrote $(SPEAKER_SAFETENSORS). Diarize with: whisper -timestamps -diarize -audio <file.wav> ..."
 
 test:
-	go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
+	go test -count=1 -timeout=120s ./loader/... ./model/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
 # Native OmniVoice numerical core and audio frontend; no model download required.
 .PHONY: test-omnivoice vet-omnivoice build-omnivoice
 test-omnivoice:
-	go test -count=1 -timeout=120s ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+	go test -count=1 -timeout=120s ./loader/tokenizer ./loader/omnivoice ./model/omnivoice ./cmd/audio/omnivoice
 
 vet-omnivoice:
-	go vet ./loader/tokenizer ./loader/omnivoice ./models/omnivoice ./cmd/audio/omnivoice
+	go vet ./loader/tokenizer ./loader/omnivoice ./model/omnivoice ./cmd/audio/omnivoice
 
 build-omnivoice:
 	mkdir -p bin
 	go build -o bin/omnivoice ./cmd/audio/omnivoice
 
 test-cpu:
-	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./models/bert/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
+	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./loader/... ./model/... ./backends/nvidia/... ./backends/placement/... ./backends/simd/... ./backends/vulkan/... ./runtime/... ./tensor/...
 
 # Respect host build constraints; never force foreign tags or omit backend folders.
 host-build:
@@ -665,38 +669,38 @@ clean:
 	rm -rf bin/
 
 models-list:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --dry-run $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --dry-run $(MODEL_DOWNLOAD_FLAGS)
 
 models-download:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-small:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group small $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group small $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-qwen:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group qwen $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group qwen $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-qwen3tts:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group qwen3tts $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group qwen3tts $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-lfm2:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group lfm2 $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group lfm2 $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-minicpmv:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group minicpmv --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group minicpmv --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-minicpmo:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-gemma4:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group gemma4 $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group gemma4 $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-speaker:
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --group speaker $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group speaker $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-one:
 	@if [ -z "$(MODEL)" ]; then echo "usage: make models-download-one MODEL=qwen3.6-27b-mlx4-mtp"; exit 2; fi
-	$(PYTHON) scripts/download_models.py --models-dir $(MODELS_DIR) --only $(MODEL) $(MODEL_DOWNLOAD_FLAGS)
+	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --only $(MODEL) $(MODEL_DOWNLOAD_FLAGS)
 
 GGUF_MODEL ?= /opt/models/Qwen3.6-28B-REAP20-A3B-Q4_K_M.gguf
 GGUF_PROMPT_IDS ?= 0
@@ -809,19 +813,19 @@ LFM2_FIXTURE ?= model/lfm2/testdata/lfm25_8b_a1b_metadata.json
 LFM2_FIXTURE_FLAGS ?= -json
 
 qwen3tts-inspect:
-	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_TEXT='Hello world']"; exit 2; fi
+	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-inspect QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice [QWEN3TTS_TEXT='Hello world']"; exit 2; fi
 	go run ./cmd/qwen/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -text "$(QWEN3TTS_TEXT)" -speaker $(QWEN3TTS_SPEAKER) -language $(QWEN3TTS_LANGUAGE) $(QWEN3TTS_INSPECT_FLAGS)
 
 qwen3tts-fixture-coverage:
-	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice [QWEN3TTS_FIXTURE=model/qwen3tts/testdata/customvoice_prompt_fixture.json]"; exit 2; fi
+	@if [ -z "$(QWEN3TTS_MODEL)" ]; then echo "usage: make qwen3tts-fixture-coverage QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice [QWEN3TTS_FIXTURE=model/qwen3tts/testdata/customvoice_prompt_fixture.json]"; exit 2; fi
 	go run ./cmd/qwen/qwen3ttsinspect -model $(QWEN3TTS_MODEL) -fixture $(QWEN3TTS_FIXTURE) $(QWEN3TTS_FIXTURE_FLAGS)
 
 lfm2-inspect:
-	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b"; exit 2; fi
+	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-inspect LFM2_MODEL=checkpoints/lfm2.5-8b-a1b"; exit 2; fi
 	go run ./cmd/models/lfm2inspect -model $(LFM2_MODEL) $(LFM2_INSPECT_FLAGS)
 
 lfm2-fixture-coverage:
-	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b [LFM2_FIXTURE=model/lfm2/testdata/lfm25_8b_a1b_metadata.json]"; exit 2; fi
+	@if [ -z "$(LFM2_MODEL)" ]; then echo "usage: make lfm2-fixture-coverage LFM2_MODEL=checkpoints/lfm2.5-8b-a1b [LFM2_FIXTURE=model/lfm2/testdata/lfm25_8b_a1b_metadata.json]"; exit 2; fi
 	go run ./cmd/models/lfm2inspect -model $(LFM2_MODEL) -fixture $(LFM2_FIXTURE) $(LFM2_FIXTURE_FLAGS)
 
 HUNYUAN3D_REPO ?= tencent/Hunyuan3D-2mini
@@ -1051,7 +1055,7 @@ ideogram4-vae-probe:
 		-gpu -gpu-stats
 
 DIFFUSIONGEMMA_REPO ?= google/diffusiongemma-26B-A4B-it
-DIFFUSIONGEMMA_MODEL ?= models/diffusiongemma-26B-A4B-it
+DIFFUSIONGEMMA_MODEL ?= checkpoints/diffusiongemma-26B-A4B-it
 DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD ?= no
 
 .PHONY: diffusiongemma-download-metadata diffusiongemma-download
@@ -1253,7 +1257,7 @@ diffusiongemma-help:
 	@echo "  make diffusiongemma-download-plan-report"
 	@echo "  make diffusiongemma-status-refresh"
 	@echo "  make diffusiongemma-ci-no-weights"
-	@echo "  make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=models/diffusiongemma-26B-A4B-it"
+	@echo "  make diffusiongemma-ci-sparse-text DIFFUSIONGEMMA_MODEL=checkpoints/diffusiongemma-26B-A4B-it"
 	@echo ""
 	@echo "DiffusionGemma full checkpoint workflow (~48.10 GiB):"
 	@echo "  make diffusiongemma-download DIFFUSIONGEMMA_ACCEPT_LARGE_DOWNLOAD=yes"

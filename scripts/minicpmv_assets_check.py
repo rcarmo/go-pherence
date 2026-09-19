@@ -30,7 +30,7 @@ def run(cmd: list[str], cwd: Path) -> None:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--models-dir", default="models", help="model root to scan")
+    parser.add_argument("--checkpoints-dir", "--models-dir", dest="models_dir", default="checkpoints", help="checkpoint root to scan (--models-dir is a compatibility alias)")
     parser.add_argument("--require-assets", action="store_true", help="exit non-zero when no MiniCPM assets are found")
     parser.add_argument("--strict", action="store_true", help="pass -strict to minicpmvinspect for every discovered model")
     args = parser.parse_args(argv)

@@ -104,7 +104,7 @@ Recorded snapshot on i7-12700 (`GOTMPDIR=$PWD/.gotmp go test ./model -run '^$' -
 The Orthrus-inspired stock-weight speculative path is currently an **opt-in CPU-only correctness scaffold**, not a performance feature yet:
 
 ```bash
-go run ./cmd/llm/llmgen -model models/smollm2-135m \
+go run ./cmd/llm/llmgen -model checkpoints/smollm2-135m \
   -prompt "abc abc abc abc" -tokens 8 \
   -speculative -speculative-proposer prompt -speculative-debug
 ```
@@ -128,7 +128,7 @@ Example replay-backend smoke results on `smollm2-135m` are intentionally slower 
 Use `specbench` for less noisy comparisons:
 
 ```bash
-go run ./cmd/llm/specbench -model models/smollm2-135m \
+go run ./cmd/llm/specbench -model checkpoints/smollm2-135m \
   -prompt-file prompts.txt -tokens 16 -repeat 3 \
   -speculative-proposer prompt -csv specbench.csv
 ```

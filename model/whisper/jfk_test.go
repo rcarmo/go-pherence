@@ -9,8 +9,8 @@ import (
 )
 
 func TestTranscribeJFK(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
-	tokPath := "../../models/whisper-tiny-hf/tokenizer.json"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
+	tokPath := "../../checkpoints/whisper-tiny-hf/tokenizer.json"
 	audioPath := "../../testdata/jfk.wav"
 	for _, p := range []string{modelPath, tokPath, audioPath} {
 		if _, err := os.Stat(p); err != nil {

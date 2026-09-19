@@ -3,12 +3,12 @@
 
 Reads a torch.save (zip+pickle) checkpoint using only numpy + the stdlib, and
 writes a safetensors file preserving the original float tensor names (the layout
-models/speaker.LoadSpeechBrainECAPASafetensors expects). Used on hosts without
+model/speaker.LoadSpeechBrainECAPASafetensors expects). Used on hosts without
 torch/safetensors (e.g. the RISC-V board).
 
     python3 scripts/ckpt_to_safetensors_numpy.py \
-      --checkpoint models/speechbrain-ecapa-voxceleb/embedding_model.ckpt \
-      --output models/speaker-ecapa-voxceleb.safetensors
+      --checkpoint checkpoints/speechbrain-ecapa-voxceleb/embedding_model.ckpt \
+      --output checkpoints/speaker-ecapa-voxceleb.safetensors
 """
 import argparse
 import collections

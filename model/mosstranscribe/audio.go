@@ -5,7 +5,7 @@ import (
 	"math"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 const (

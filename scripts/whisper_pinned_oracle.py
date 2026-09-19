@@ -108,7 +108,7 @@ def main():
     pinned_policy = json.loads((args.model/'generation_config.json').read_text())
     report = dict(transformers=transformers.__version__, torch=torch.__version__, numpy=np.__version__, tokenizers=tokenizers.__version__,
                   threads=2, dtype='float32', attention='eager', model_hashes=hashes,
-                  script_sha256=digest(pathlib.Path(__file__)), go_export_test_sha256=digest(repo/'models/whisper/oracle_export_test.go'),
+                  script_sha256=digest(pathlib.Path(__file__)), go_export_test_sha256=digest(repo/'model/whisper/oracle_export_test.go'),
                   go_base_commit=subprocess.check_output(['git','-C',str(repo),'rev-parse','HEAD'], text=True).strip(),
                   runtime_integration=False, fixtures=[])
     with torch.inference_mode():

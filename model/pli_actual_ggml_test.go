@@ -15,7 +15,7 @@ import (
 func TestGemma4Layer0ActualPLIBranchGGMLOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}

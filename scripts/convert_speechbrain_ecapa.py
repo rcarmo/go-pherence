@@ -2,13 +2,13 @@
 """Convert a SpeechBrain ECAPA checkpoint to go-pherence safetensors names.
 
 This is an optional development-time bridge for speaker diarization. Production
-Go code only reads the converted safetensors via models/speaker.LoadECAPASafetensors.
+Go code only reads the converted safetensors via model/speaker.LoadECAPASafetensors.
 
 Example after downloading speechbrain/spkrec-ecapa-voxceleb assets:
 
     python3 scripts/convert_speechbrain_ecapa.py \
       --checkpoint /path/to/embedding_model.ckpt \
-      --output models/speaker-ecapa-voxceleb.safetensors \
+      --output checkpoints/speaker-ecapa-voxceleb.safetensors \
       --dump-keys
 
 The exact SpeechBrain key layout can vary by release. Use --dump-keys first,
@@ -16,7 +16,7 @@ then add/adjust --map entries if the default aliases do not match:
 
     --map conv0.weight=mods.compute_features.conv.weight
 
-Default output tensor names match models/speaker/load.go.
+Default output tensor names match model/speaker/load.go.
 """
 
 from __future__ import annotations

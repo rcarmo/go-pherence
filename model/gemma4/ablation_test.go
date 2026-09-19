@@ -60,11 +60,11 @@ func gemma4Path() string {
 	if p := os.Getenv("GEMMA4_PATH"); p != "" {
 		return p
 	}
-	if _, err := os.Stat("models/gemma4-e2b-mlx4/config.json"); err == nil {
-		return "models/gemma4-e2b-mlx4"
+	if _, err := os.Stat("checkpoints/gemma4-e2b-mlx4/config.json"); err == nil {
+		return "checkpoints/gemma4-e2b-mlx4"
 	}
-	if _, err := os.Stat("models/gemma4-e2b-it/config.json"); err == nil {
-		return "models/gemma4-e2b-it"
+	if _, err := os.Stat("checkpoints/gemma4-e2b-it/config.json"); err == nil {
+		return "checkpoints/gemma4-e2b-it"
 	}
-	return "models/gemma4-e2b-mlx4"
+	return "checkpoints/gemma4-e2b-mlx4"
 }

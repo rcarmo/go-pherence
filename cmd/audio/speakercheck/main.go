@@ -2,7 +2,6 @@
 package main
 
 import (
-	"time"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,9 +11,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
-	"github.com/rcarmo/go-pherence/models/speaker"
+	"github.com/rcarmo/go-pherence/model/speaker"
 )
 
 type checkReport struct {
@@ -56,7 +56,7 @@ type checkScore struct {
 
 func main() {
 	input := flag.String("input", "", "Input audio file (WAV directly, other formats via ffmpeg if available)")
-	modelPath := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors model")
+	modelPath := flag.String("speaker-model", "checkpoints/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors model")
 	threshold := flag.Float64("threshold", 0.3, "Cosine similarity threshold for agglomerative clustering")
 	context := flag.Float64("context", 0.5, "Embedding context padding around VAD segments in seconds")
 	startSec := flag.Float64("start", 0, "Start offset in seconds for spot checks")

@@ -4,32 +4,10 @@
 .venv*/
 /tmp/
 
-# Local downloaded model assets live under models/ but source packages do too.
-# Ignore model asset directories by default while explicitly allowing planned
-# source package folders under models/.
-models/*
-!models/bert/
-!models/bert/**
-!models/shared/
-!models/shared/**
-!models/llama/
-!models/llama/**
-!models/qwen2/
-!models/qwen2/**
-!models/qwen3/
-!models/qwen3/**
-!models/gemma3/
-!models/gemma3/**
-!models/gemma4/
-!models/gemma4/**
-!models/moe/
-!models/moe/**
-!models/whisper/
-!models/whisper/**
-!models/speaker/
-!models/speaker/**
-!models/omnivoice/
-!models/omnivoice/**
+# Local downloaded weights are separate from model/ source packages.
+/checkpoints/
+# Older checkouts may still have downloaded assets here; never commit them.
+/models/
 /whisper
 
 # Local generated command binaries and benchmark logs.

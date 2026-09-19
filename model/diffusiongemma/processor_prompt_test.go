@@ -10,7 +10,7 @@ import (
 
 func localDiffusionGemmaModelDir(t *testing.T) string {
 	t.Helper()
-	dir := filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8")
+	dir := filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8")
 	if _, err := os.Stat(filepath.Join(dir, "tokenizer.json")); err != nil {
 		t.Skip("local FP8 DiffusionGemma tokenizer metadata not present")
 	}

@@ -10,8 +10,8 @@ import (
 )
 
 func TestLargeV3TurboJFKCPUTranscriptParity(t *testing.T) {
-	modelPath := "../../models/whisper-large-v3-turbo-hf/model.safetensors"
-	tokPath := "../../models/whisper-large-v3-turbo-hf/tokenizer.json"
+	modelPath := "../../checkpoints/whisper-large-v3-turbo-hf/model.safetensors"
+	tokPath := "../../checkpoints/whisper-large-v3-turbo-hf/tokenizer.json"
 	audioPath := "../../testdata/jfk.wav"
 	requireAssets := os.Getenv("WHISPER_REQUIRE_TURBO_PARITY") == "1"
 	for _, p := range []string{modelPath, tokPath, audioPath} {

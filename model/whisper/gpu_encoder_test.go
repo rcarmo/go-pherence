@@ -36,7 +36,7 @@ func TestGPUEncoderForwardNotReadyFallbackMatchesCPU(t *testing.T) {
 }
 
 func TestGPUEncoderForward(t *testing.T) {
-	modelPath := "../../models/whisper-large-v3-turbo-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-large-v3-turbo-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-large-v3-turbo model not available")
 	}

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/runtime/resourcebudget"
 )
 

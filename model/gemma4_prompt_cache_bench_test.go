@@ -128,7 +128,7 @@ func gemma4PromptCacheRealBenchPath(b *testing.B) string {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
 		root := findMTPGraphBenchRepoRoot()
-		path = filepath.Join(root, "models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join(root, "checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 	}
 	if _, err := os.Stat(path); err != nil {
 		b.Skipf("local Gemma4 GGUF unavailable: %v", err)

@@ -19,7 +19,7 @@ make minicpmv-assets-check
 make minicpmv-fixture-path
 make minicpmv-fixture-summary
 make minicpmv-fixture-ready
-make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS='-json'
+make minicpmv-inspect-model MINICPMV_MODEL=checkpoints/minicpm-v-2.6 MINICPMV_FLAGS='-json'
 make minicpmv-inspect-model MINICPMV_MODEL=model/minicpmv/testdata/minicpmo_fixture MINICPMV_AUDIO_DURATION_MS=1234
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
@@ -44,17 +44,17 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
   -require-fixture-ready
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
-  -model models/minicpm-v-2.6 \
+  -model checkpoints/minicpm-v-2.6 \
   -json
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
-  -model models/minicpm-v-2.6 \
-  -safetensors models/minicpm-v-2.6/model.safetensors \
+  -model checkpoints/minicpm-v-2.6 \
+  -safetensors checkpoints/minicpm-v-2.6/model.safetensors \
   -require-tensors-ready \
   -require-shapes-ready
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect \
-  -model models/minicpm-o-2.6 \
+  -model checkpoints/minicpm-o-2.6 \
   -prompt "Compare these inputs." \
   -images 2 \
   -audio-duration-ms 1234
@@ -86,13 +86,13 @@ Useful flags:
 
 ```bash
 make qwen3tts-inspect \
-  QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice \
+  QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice \
   QWEN3TTS_TEXT="Hello world"
 make qwen3tts-fixture-coverage \
-  QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice
+  QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
-  -model models/qwen3-tts-0.6b-customvoice \
+  -model checkpoints/qwen3-tts-0.6b-customvoice \
   -text "Hello world" \
   -speaker ryan \
   -language en \
@@ -119,7 +119,7 @@ Fixture coverage example:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect \
-  -model models/qwen3-tts-0.6b-customvoice \
+  -model checkpoints/qwen3-tts-0.6b-customvoice \
   -fixture model/qwen3tts/testdata/customvoice_prompt_fixture.json \
   -json
 ```
@@ -132,11 +132,11 @@ The report includes variant/size, talker dimensions, code-predictor dimensions, 
 `cmd/models/lfm2inspect` validates `lfm2_moe` config metadata, counts hybrid conv/full-attention layers, summarizes MoE settings, inspects optional safetensors headers, and reports state/cache sizing.
 
 ```bash
-make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b
-make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b
+make lfm2-inspect LFM2_MODEL=checkpoints/lfm2.5-8b-a1b
+make lfm2-fixture-coverage LFM2_MODEL=checkpoints/lfm2.5-8b-a1b
 
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
-  -model models/lfm2.5-8b-a1b \
+  -model checkpoints/lfm2.5-8b-a1b \
   -json
 ```
 
@@ -155,7 +155,7 @@ Fixture coverage example:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect \
-  -model models/lfm2.5-8b-a1b \
+  -model checkpoints/lfm2.5-8b-a1b \
   -fixture model/lfm2/testdata/lfm25_8b_a1b_metadata.json \
   -json
 ```

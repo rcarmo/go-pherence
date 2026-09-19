@@ -19,8 +19,8 @@ more important than fastest startup, pass `--eager-load` (or set
 and touches one byte per page at model load time.
 
 ```bash
-./bin/llmserver -model models/qwen2.5-7b-mlx4 --eager-load -gpu
-./bin/llmgen -model models/gemma4-e2b-mlx4 --eager-load --turbo-quant
+./bin/llmserver -model checkpoints/qwen2.5-7b-mlx4 --eager-load -gpu
+./bin/llmgen -model checkpoints/gemma4-e2b-mlx4 --eager-load --turbo-quant
 ```
 
 When `GO_PHERENCE_LOAD_DEBUG=1` is set, the loader logs the total mapped bytes and elapsed pre-fault time. Sharded models pre-fault each shard and report the aggregate size through the same opt-in diagnostics gate.

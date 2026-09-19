@@ -4,7 +4,7 @@
 
 ## Model asset downloads
 
-Downloaded model assets live under `models/`, which is ignored by git except for source packages. Use the helper script directly or via Make targets:
+Downloaded weights, configs and tokenizers live under `checkpoints/`, which is entirely ignored by Git. All implementation source lives under `model/`. Use the helper script directly or via Make targets:
 
 ```bash
 make models-list
@@ -19,6 +19,8 @@ make models-download-gemma4
 make models-download-speaker
 make models-download-one MODEL=qwen3.6-27b-mlx4-mtp
 ```
+
+Set `CHECKPOINTS_DIR=/path/to/weights` on Make targets to change the asset root. Python helpers accept `--checkpoints-dir`. Existing `MODELS_DIR` and `--models-dir` overrides remain compatibility aliases; new examples use the checkpoint names.
 
 Forward extra options through `MODEL_DOWNLOAD_FLAGS`:
 
@@ -46,8 +48,8 @@ The speaker group downloads source SpeechBrain checkpoints. Convert them before 
 ```bash
 python3 -m pip install torch safetensors
 python3 scripts/convert_speechbrain_ecapa.py \
-  --checkpoint models/speechbrain-ecapa-voxceleb/embedding_model.ckpt \
-  --output models/speaker-ecapa-voxceleb.safetensors \
+  --checkpoint checkpoints/speechbrain-ecapa-voxceleb/embedding_model.ckpt \
+  --output checkpoints/speaker-ecapa-voxceleb.safetensors \
   --dump-keys
 ```
 
@@ -56,3 +58,21 @@ For gated repositories, set `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`. If an upstrea
 ```bash
 python3 scripts/download_models.py --only gemma4-e4b-it-4bit --repo gemma4-e4b-it-4bit=org/repo
 ```
+
+## Older checkouts
+
+BERT, Whisper, speaker (including Community-1) and OmniVoice source moved from
+`models/<family>` to `model/<family>`. Update downstream Go imports accordingly;
+there are no forwarding packages at the old paths.
+
+After pulling the source move, rename the remaining repository-local `models/`
+directory to `checkpoints/` if that destination does not already exist. If both
+exist, merge assets deliberately rather than overwriting either directory. The
+old root remains ignored by Git so residual weights cannot be committed by
+accident. New downloads default to `checkpoints/`.
+
+User-specified absolute paths and external stores such as `/workspace/models`,
+`/opt/models` and a separate `llama.cpp/models` tree are unchanged. Environment
+variables continue to accept arbitrary paths. Historical benchmark records
+retain their original paths and source revision; translate those paths when
+replaying an older command against the new layout.

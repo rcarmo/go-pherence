@@ -13,7 +13,7 @@ import (
 )
 
 func TestLocalFP8ProjectionCPUvsGPUParity(t *testing.T) {
-	modelDir := filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8")
+	modelDir := filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8")
 	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors.index.json")); err != nil {
 		t.Skip("local FP8 DiffusionGemma model not present")
 	}
@@ -74,7 +74,7 @@ func TestLocalFP8ProjectionCPUvsGPUParity(t *testing.T) {
 }
 
 func TestLocalFP8ProjectionCPUvsGPUParityOnPromptHidden(t *testing.T) {
-	modelDir := filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8")
+	modelDir := filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8")
 	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors.index.json")); err != nil {
 		t.Skip("local FP8 DiffusionGemma model not present")
 	}

@@ -5,13 +5,13 @@
 Main 4-bit MLX checkpoint:
 
 ```text
-models/gemma4-31b-it-4bit
+checkpoints/gemma4-31b-it-4bit
 ```
 
 MTP assistant/drafter 4-bit checkpoint:
 
 ```text
-models/gemma4-31b-it-mtp-assistant-4bit
+checkpoints/gemma4-31b-it-mtp-assistant-4bit
 ```
 
 The main checkpoint is `mlx-community/gemma-4-31b-it-4bit` and uses sharded MLX safetensors. The assistant checkpoint is `guardiangate1775/gemma-4-31B-it-assistant-4bit` and is tagged as `speculative-decoding`/`mtp`/`drafter`.
@@ -32,8 +32,8 @@ The packed-MTP runtime smoke loads the main model on the on-the-fly path, loads 
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-31b-it-4bit \
-  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
   -prompt "Hello"
 ```
@@ -65,8 +65,8 @@ A real-prompt smoke is also available. It prefills the prompt through the main m
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-31b-it-4bit \
-  -mtp-drafter models/gemma4-31b-it-mtp-assistant-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
   -mtp-smoke \
   -mtp-real-prompt \
   -prompt "Hi"
@@ -87,7 +87,7 @@ The compact GPU LM-head smoke also loads successfully:
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 1 \
-  -model models/gemma4-31b-it-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
   -tokens 0 \
   -prompt "Hello"
 ```
@@ -96,7 +96,7 @@ A plain CPU load is not recommended:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-31b-it-4bit \
+  -model checkpoints/gemma4-31b-it-4bit \
   -tokens 0 \
   -prompt "Hello"
 ```
@@ -133,9 +133,9 @@ So the immediate effective run strategy is mmap/on-the-fly MLX loading plus comp
 
 Current Gemma4 MTP status:
 
-- `LoadGemma4MTPDrafter` exists and loads both the BF16 E2B local asset (`models/gemma4-e2b-mtp-drafter`) and the 31B MLX 4-bit assistant.
+- `LoadGemma4MTPDrafter` exists and loads both the BF16 E2B local asset (`checkpoints/gemma4-e2b-mtp-drafter`) and the 31B MLX 4-bit assistant.
 - Internal tests exercise projection-only, synthetic q-only, real-asset contract, one-step, and multi-step MTP flows.
-- The 31B 4-bit assistant asset is present at `models/gemma4-31b-it-mtp-assistant-4bit` and loads while keeping large matrices packed as MLX 4-bit weights.
+- The 31B 4-bit assistant asset is present at `checkpoints/gemma4-31b-it-mtp-assistant-4bit` and loads while keeping large matrices packed as MLX 4-bit weights.
 - `PreProjectInto`, q/o projections, MLP projections, `PostProjectInto`, and token embedding lookup dispatch through packed MLX helpers when packed weights are present. The only dequantization in the 31B assistant smoke is row-local embedding dequantization and normal small BF16 norm/scalar tensors.
 - `llmgen -mtp-smoke` validates the runtime-facing seam and prints shape/timing JSON. With `-mtp-real-prompt`, it first builds real prompt activation/KV via `BuildMTPPromptContext` instead of using zero external KV. With `-gpu`, `GPUModel.BuildMTPPromptContext` uses the hybrid GPU/CPU path and copies GPU-resident KV back into the MTP context. Prompt seeding computes final activation only and intentionally skips the large prompt LM-head projection; `FinalToken` is `-1` in this mode.
 - The experimental `llmgen -mtp-generate` path is wired through `GenerateMTPGraphFromPromptContext`, adaptive graph cycles, logits-derived acceptance validation, float/compressed KV graph commits, and exact token-budget tail fallback. It remains experimental rather than public/default generation.
@@ -148,8 +148,8 @@ Current Gemma4 MTP status:
 For practical MTP iteration on the local RTX 3060, the Gemma4 E4B pair is the best fit:
 
 ```text
-models/gemma4-e4b-it-4bit
-models/gemma4-e4b-mtp-drafter
+checkpoints/gemma4-e4b-it-4bit
+checkpoints/gemma4-e4b-mtp-drafter
 ```
 
 Sources:
@@ -162,8 +162,8 @@ mlx-community/gemma-4-E4B-it-assistant-bf16
 Local asset sizes:
 
 ```text
-models/gemma4-e4b-it-4bit        4.9G
-models/gemma4-e4b-mtp-drafter    183M
+checkpoints/gemma4-e4b-it-4bit        4.9G
+checkpoints/gemma4-e4b-mtp-drafter    183M
 ```
 
 The E4B main model is `hidden=2560`, `layers=42`; the assistant is `hidden=256`, `layers=4`, `backbone_hidden_size=2560`. This pair fully fits on the RTX 3060 GPU with the current loader:
@@ -177,8 +177,8 @@ Minimal MTP smoke:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -model checkpoints/gemma4-e4b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-e4b-mtp-drafter \
   -mtp-smoke \
   -prompt "Hi"
 ```
@@ -190,8 +190,8 @@ Real-prompt full-GPU MTP smoke:
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \
-  -model models/gemma4-e4b-it-4bit \
-  -mtp-drafter models/gemma4-e4b-mtp-drafter \
+  -model checkpoints/gemma4-e4b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-e4b-mtp-drafter \
   -mtp-smoke -mtp-real-prompt \
   -prompt "Hi"
 ```

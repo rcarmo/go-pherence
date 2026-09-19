@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"io"
 	"math"

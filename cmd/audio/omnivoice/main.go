@@ -20,7 +20,7 @@ import (
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 )
 
 func main() {

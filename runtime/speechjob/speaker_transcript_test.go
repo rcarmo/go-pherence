@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio/media"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func speakerDocument(t *testing.T, turns []c1.SpeakerTurn) DiarizationDocument {

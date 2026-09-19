@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func fixturePCMStage(samples int) Stage {

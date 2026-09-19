@@ -58,9 +58,9 @@ func smolLM2Candidates() []string {
 		out = append(out, filepath.Join(dir, "model.safetensors"))
 	}
 	out = append(out,
-		"../../models/smollm2-135m/model.safetensors",
-		"../../../models/smollm2-135m/model.safetensors",
-		"../models/smollm2-135m/model.safetensors",
+		"../../checkpoints/smollm2-135m/model.safetensors",
+		"../../../checkpoints/smollm2-135m/model.safetensors",
+		"../checkpoints/smollm2-135m/model.safetensors",
 	)
 	return out
 }

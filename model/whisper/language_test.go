@@ -6,7 +6,7 @@ import (
 )
 
 func TestDetectLanguage(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-tiny model not available")
 	}

@@ -8,9 +8,9 @@ import (
 
 func localModelPath(name string) string {
 	candidates := []string{
-		filepath.Join("models", name),
-		filepath.Join("..", "models", name),
-		filepath.Join("..", "..", "models", name),
+		filepath.Join("checkpoints", name),
+		filepath.Join("..", "checkpoints", name),
+		filepath.Join("..", "..", "checkpoints", name),
 	}
 	for _, p := range candidates {
 		if _, err := os.Stat(filepath.Join(p, "config.json")); err == nil {

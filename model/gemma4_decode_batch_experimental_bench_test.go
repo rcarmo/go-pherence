@@ -13,7 +13,7 @@ func BenchmarkGemma4ExperimentalDecodeBatchRealE4B(b *testing.B) {
 	}
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join(findMTPGraphBenchRepoRoot(), "models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join(findMTPGraphBenchRepoRoot(), "checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 	}
 	m, err := LoadGemma4GGUFAsLlama(path)
 	if err != nil {

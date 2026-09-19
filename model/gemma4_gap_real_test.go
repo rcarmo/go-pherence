@@ -13,7 +13,7 @@ func TestGemma4RealCPUGap124x48(t *testing.T) {
 	}
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = "../models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		path = "../checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 	}
 	m, err := LoadGemma4GGUFAsLlama(path)
 	if err != nil {

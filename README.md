@@ -11,10 +11,10 @@ The repository is deliberately broad -- it includes production-shaped LLM and sp
 Download a small MLX Qwen checkpoint:
 
 ```bash
-mkdir -p models/qwen3-0.6b
+mkdir -p checkpoints/qwen3-0.6b
 for f in config.json model.safetensors tokenizer.json; do
   curl -L "https://huggingface.co/mlx-community/Qwen3-0.6B-4bit/resolve/main/$f" \
-    -o "models/qwen3-0.6b/$f"
+    -o "checkpoints/qwen3-0.6b/$f"
 done
 ```
 
@@ -23,14 +23,14 @@ Run it on CPU or NVIDIA:
 ```bash
 # AVX2/NEON with checked scalar fallbacks
 go run ./cmd/llm/llmgen \
-  -model models/qwen3-0.6b \
+  -model checkpoints/qwen3-0.6b \
   -tokens 50 \
   -prompt "The meaning of life is"
 
 # Runtime-loaded PTX; no CUDA toolkit required
 go run ./cmd/llm/llmgen \
   -gpu \
-  -model models/qwen3-0.6b \
+  -model checkpoints/qwen3-0.6b \
   -tokens 50 \
   -prompt "The meaning of life is"
 ```
@@ -38,8 +38,8 @@ go run ./cmd/llm/llmgen \
 Interactive chat and the OpenAI-compatible server use the same model loader:
 
 ```bash
-go run ./cmd/llm/llmchat -model models/qwen3-0.6b -gpu -n 256
-go run ./cmd/llm/llmserver -model models/qwen3-0.6b -gpu -listen :8080
+go run ./cmd/llm/llmchat -model checkpoints/qwen3-0.6b -gpu -n 256
+go run ./cmd/llm/llmserver -model checkpoints/qwen3-0.6b -gpu -listen :8080
 ```
 
 ## Speech
@@ -61,7 +61,7 @@ go run ./cmd/audio/diarize-vtt \
 # Native MOSS transcription and diarisation from 16kHz mono PCM WAV
 make moss-transcribe
 bin/moss-transcribe \
-  -model-dir models/MOSS-Transcribe-Diarize \
+  -model-dir checkpoints/MOSS-Transcribe-Diarize \
   -audio meeting.wav \
   -format srt \
   -output meeting.srt
@@ -95,6 +95,18 @@ The [documentation index](docs/README.md) is organised by task rather than by im
 * [MTP and speculative decoding](docs/models/mtp-speculative.md) for the current Gemma/Qwen work.
 
 Current guidance lives in topic folders under `docs/`; dated investigations and chronological logs are indexed in [history](docs/history/README.md). Provenance and package-specific validation remain beside their implementations.
+
+## Source and checkpoints
+
+`model/` contains all model implementation source, including BERT, Whisper,
+speaker and OmniVoice. `checkpoints/` contains downloaded weights, configs and
+tokenizers and is entirely ignored by Git. `cmd/models/` groups inspector tools;
+`docs/models/` contains support guides.
+
+The downloader defaults to `checkpoints/`; use `CHECKPOINTS_DIR` with Make or
+`--checkpoints-dir` with the Python helpers to select another location. See
+[asset setup and migration](docs/guides/model-assets.md) for older checkouts and
+the change from `models/<family>` to `model/<family>` Go imports.
 
 ## Build and test
 

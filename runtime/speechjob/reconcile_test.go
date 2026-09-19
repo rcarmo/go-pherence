@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio/media"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func reconcileConfig() TranscriptStageConfig {

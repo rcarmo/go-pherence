@@ -7,7 +7,7 @@ import (
 )
 
 func TestTokenizerLoad(t *testing.T) {
-	tokPath := "../../models/whisper-tiny-hf/tokenizer.json"
+	tokPath := "../../checkpoints/whisper-tiny-hf/tokenizer.json"
 	if _, err := os.Stat(tokPath); err != nil {
 		t.Skip("tokenizer.json not available")
 	}
@@ -42,8 +42,8 @@ func TestDecodeBPEBytes(t *testing.T) {
 }
 
 func TestTokenizerWithModel(t *testing.T) {
-	modelPath := "../../models/whisper-tiny-hf/model.safetensors"
-	tokPath := "../../models/whisper-tiny-hf/tokenizer.json"
+	modelPath := "../../checkpoints/whisper-tiny-hf/model.safetensors"
+	tokPath := "../../checkpoints/whisper-tiny-hf/tokenizer.json"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("model not available")
 	}

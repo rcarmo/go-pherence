@@ -192,7 +192,7 @@ const zones: Zone[] = [
     boxes: [
       { x: 24, y: 58, w: 270, h: 36, label: "model/", sub: "GGUF and native LLM decode, MoE, GPU handoff", kind: "success" },
       { x: 318, y: 58, w: 270, h: 36, label: "tensor/ + runtime/*", sub: "graph, KV, memory, and quantized execution surfaces", kind: "accent" },
-      { x: 612, y: 58, w: 270, h: 36, label: "models/", sub: "audio, speaker, and native checkpoint integrations", kind: "success" },
+      { x: 612, y: 58, w: 270, h: 36, label: "model/<family>/", sub: "encoders, speech, images, and native scoring pipelines", kind: "success" },
     ],
   },
   {

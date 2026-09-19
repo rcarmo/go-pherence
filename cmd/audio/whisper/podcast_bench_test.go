@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/rcarmo/go-pherence/loader/audio"
-	"github.com/rcarmo/go-pherence/models/speaker"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/speaker"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func TestPodcastDiarizeVTT(t *testing.T) {
-	modelPath := "../../../models/whisper-tiny-hf/model.safetensors"
+	modelPath := "../../../checkpoints/whisper-tiny-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("model not available")
 	}

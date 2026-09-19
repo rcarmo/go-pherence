@@ -14,7 +14,7 @@ import (
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 )
 

@@ -22,7 +22,7 @@ The SpacemiT board wrapper in `backends/spacemit/board/vulkan.go` shows the curr
 
 ## Why OmniVoice does not claim Vulkan support yet
 
-`models/omnivoice/block.go` is a CPU/SIMD implementation. It calls checked SIMD APIs directly for:
+`model/omnivoice/block.go` is a CPU/SIMD implementation. It calls checked SIMD APIs directly for:
 
 - linear projections via `SgemmNTTo` and `SgemmNNTo`
 - RMSNorm

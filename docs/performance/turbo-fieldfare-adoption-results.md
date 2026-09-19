@@ -25,7 +25,7 @@ Raw scaffold metadata lives in [`../benchmarks/turbo-fieldfare-adoption/metadata
 
 | Asset | Path | Status |
 |---|---|---|
-| Qwen3-30B-A3B MLX4 | `models/qwen3-30b-a3b-mlx4/config.json` | unavailable on this host |
+| Qwen3-30B-A3B MLX4 | `checkpoints/qwen3-30b-a3b-mlx4/config.json` | unavailable on this host |
 
 Because the local Qwen3-30B asset is unavailable, this slice only commits synthetic replay and selected-expert compute benchmarks. Full route-set captures against a real 30B checkpoint remain pending.
 

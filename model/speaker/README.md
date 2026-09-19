@@ -1,4 +1,4 @@
-# models/speaker
+# model/speaker
 
 Speaker embedding, verification, and diarization (SpeechBrain ECAPA-TDNN).
 

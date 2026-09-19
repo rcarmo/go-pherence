@@ -132,7 +132,7 @@ func openLocalGGUFTinyGoldenDenoiser(t *testing.T) *TextDenoiser {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	modelDir := filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8")
+	modelDir := filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8")
 	meta, err := LoadMetadata(modelDir)
 	if err != nil {
 		t.Fatal(err)
@@ -498,7 +498,7 @@ type logitRankJSON struct {
 }
 
 func main() {
-    meta, err := dg.LoadMetadata("models/diffusiongemma-26B-A4B-it-FP8")
+    meta, err := dg.LoadMetadata("checkpoints/diffusiongemma-26B-A4B-it-FP8")
     if err != nil { panic(err) }
     g, err := gguf.Open("/workspace/projects/llama.cpp/models/diffusiongemma-gguf/diffusiongemma-26B-A4B-it-Q4_K_M.gguf")
     if err != nil { panic(err) }

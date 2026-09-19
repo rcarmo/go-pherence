@@ -9,9 +9,11 @@ go-pherence keeps model code separate from the machinery that loads weights and 
 A normal inference request moves through four layers:
 
 1. A command under `cmd/` parses user input and chooses model, placement and generation options.
-2. `model/` and `models/` implement decoder, encoder, speech and model-specific graph semantics.
+2. `model/` and its family subpackages implement decoder, encoder, speech and model-specific graph semantics.
 3. `loader/` reads configuration, tokenizers and weights from safetensors, GGUF or model sidecars.
 4. `tensor`, `runtime` and `backends` execute the graph on CPU, NVIDIA, Vulkan or embedded hardware.
+
+Downloaded weights, configs and tokenizers live under the git-ignored `checkpoints/` directory, not in source packages. `cmd/models/` and `docs/models/` remain command and documentation groupings.
 
 This is a dependency boundary rather than a promise that every model uses the same graph engine. LLaMA-family generation is deliberately direct, Whisper has its own encoder/decoder structure, and image models use model-specific schedulers. The shared pieces are loaders, checked kernels, memory policy and validation conventions.
 
@@ -22,7 +24,7 @@ For resumable Gemma4 serving, `InferenceSession` owns request-local prefill/deco
 | Area | Owner | What belongs there |
 |---|---|---|
 | Commands | `cmd/llm`, `cmd/qwen`, `cmd/audio`, `cmd/image`, `cmd/models`, `cmd/spacemit` | Flags, files, prompts, network I/O, board tools and user-facing reporting |
-| Model semantics | `model`, `models/*` | Layers, attention, generation loops, schedulers and model-specific state |
+| Model semantics | `model`, `model/*` | Layers, attention, generation loops, schedulers and model-specific state |
 | Configuration and weights | `loader/config`, `loader/tokenizer`, `loader/weights`, `loader/safetensors`, `loader/gguf` | Checkpoint metadata, tokenization, mmap/shards and quantised layouts |
 | Tensor/runtime support | `tensor`, `runtime/kv`, `runtime/memory` | Lazy tensor operations, KV state, compression, residency and rollback |
 | CPU execution | `backends/simd/runtime`, `backends/simd/kernels`, `backends/simd/quant/*` | Checked dispatch, scalar references, AVX2/NEON/RVV assembly and quantised CPU kernels |

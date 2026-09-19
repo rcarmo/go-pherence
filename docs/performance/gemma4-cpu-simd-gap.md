@@ -1,6 +1,6 @@
 # Gemma4 E4B CPU SIMD gap
 
-This note tracks the exact CPU optimisation work for the Gemma4 E4B Google QAT Q4_0 model at `models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`. The canonical benchmark contract, raw oracle evidence and current reproduction commands live in the [Gemma4 CPU performance-gap programme](../../benchmarks/gemma4-gap/README.md).
+This note tracks the exact CPU optimisation work for the Gemma4 E4B Google QAT Q4_0 model at `checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf`. The canonical benchmark contract, raw oracle evidence and current reproduction commands live in the [Gemma4 CPU performance-gap programme](../../benchmarks/gemma4-gap/README.md).
 
 All accepted measurements use six pinned Intel Core i7-12700 logical CPUs (`taskset -c 0-5`, `GOMAXPROCS=6`). Optimisations must preserve bit-exact activations, logits, generated tokens, K/V state, blockwise FP32 accumulation, eight lane accumulators and the legacy final reduction order.
 

@@ -1,4 +1,4 @@
-# models/whisper
+# model/whisper
 
 Whisper large-v3 speech-to-text: encoder, decoder, and the int8/turbo decode path
 tuned for the SpaceMIT K3 (MilkV Jupiter 2).

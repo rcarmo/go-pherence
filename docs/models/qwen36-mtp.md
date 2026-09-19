@@ -80,13 +80,13 @@ Later HF search found MLX 4-bit native-MTP Qwen3.6 candidates that avoid the ori
 | `stamsam/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP` | ~20.0GB | `qwen3_5_moe` | 2048 | 40 | 1 | MoE; likely more loader/runtime complexity. |
 | `m5max/Huihui-Qwen3.6-35B-A3B-Claude-4.6-Opus-abliterated-mlx-oQ8-mtp` | ~37.7GB | `qwen3_5_moe` | 2048 | 40 | 1 | 8-bit MoE; not suitable for current hardware. |
 
-The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dense, native MTP, MLX affine 4-bit. It is downloaded locally as `models/qwen3.6-27b-mlx4-mtp` (~15GB) and is ignored by git. It is still much larger than Gemma4 E4B and unlikely to fit fully on the RTX 3060, but it avoids the NVFP4 gate and is a better stress target than the original NVFP4 checkpoint.
+The recommended Qwen next target is `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`: dense, native MTP, MLX affine 4-bit. It is downloaded locally as `checkpoints/qwen3.6-27b-mlx4-mtp` (~15GB) and is ignored by git. It is still much larger than Gemma4 E4B and unlikely to fit fully on the RTX 3060, but it avoids the NVFP4 gate and is a better stress target than the original NVFP4 checkpoint.
 
 Local metadata status:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwenmtpmeta \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -strict
 ```
 
@@ -96,7 +96,7 @@ Current loader status:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -113,7 +113,7 @@ Current CPU smoke:
 
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -135,7 +135,7 @@ Initial NVIDIA status:
 ```bash
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -159,7 +159,7 @@ Latest local one-step MTP cache smoke:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing \
   -gpu-cache-mb 11000 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -199,7 +199,7 @@ Latest local one-step MTP smoke with native-only cached MLX:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=false -gpu-timing \
   -gpu-cache-mb 11000 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -237,7 +237,7 @@ Current validation command:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true \
   -gpu-cache-mb 10600 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -266,7 +266,7 @@ Qwen prompt-state reuse is now available in-process and searches for the longest
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-repeat 2 -kv-chunk-size 32 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -290,7 +290,7 @@ Layer-streamed prompt prefill is now available for Qwen diagnostics:
 GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello world again" -steps 1 -mtp -mtp-steps 1
 ```
 
@@ -313,7 +313,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-chunk-size 2 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello world again" \
   -steps 3 -mtp -mtp-generate -mtp-steps 2
 ```
@@ -373,7 +373,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen36run \
   -gpu -gpu-prewarm=true -gpu-lm-head=true -gpu-cache-mb 10600 \
   -kv-reuse -kv-repeat 2 -kv-chunk-size 2 \
   -layer-streamed-prefill -prefill-chunk-size 4 \
-  -model models/qwen3.6-27b-mlx4-mtp \
+  -model checkpoints/qwen3.6-27b-mlx4-mtp \
   -prompt "Hello world again" -steps 1 -mtp -mtp-steps 2
 ```
 
@@ -513,13 +513,13 @@ It emits JSON with parsed Qwen native-MTP config metadata (including `vocab_size
 Use `cmd/qwen/qwen36run` for the current CPU correctness smoke against the downloaded NVFP4 Qwen3.6 checkpoint:
 
 ```bash
-go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model checkpoints/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 2
 
 # Optional, more expensive prefill diagnostic seeded with the base greedy token:
-go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
+go run ./cmd/qwen/qwen36run -model checkpoints/qwen3.6-27b-text-nvfp4-mtp -prompt "Hello" -steps 1 -mtp -greedy-seed
 
 # Sweep newline-separated prompts and summarize MTP acceptance:
-go run ./cmd/qwen/qwen36run -model models/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
+go run ./cmd/qwen/qwen36run -model checkpoints/qwen3.6-27b-text-nvfp4-mtp -sweep prompts.txt -sweep-limit 5 -steps 1 -mtp -mtp-steps 2
 ```
 
 The runner reports base greedy IDs, native-MTP draft IDs, verifier IDs, acceptance prefix length, and rejection margins. It is intentionally a slow CPU smoke path, not the final public generation API.

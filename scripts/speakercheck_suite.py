@@ -8,7 +8,7 @@ Suite format:
     {
       "name": "jfk-single",
       "input": "testdata/jfk.wav",
-      "speaker_model": "models/speaker-ecapa-voxceleb.safetensors",
+      "speaker_model": "checkpoints/speaker-ecapa-voxceleb.safetensors",
       "start": 0,
       "duration": 0,
       "threshold": 0.3,
@@ -55,7 +55,7 @@ def main() -> int:
             "-input",
             str(case["input"]),
             "-speaker-model",
-            str(case.get("speaker_model", "models/speaker-ecapa-voxceleb.safetensors")),
+            str(case.get("speaker_model", "checkpoints/speaker-ecapa-voxceleb.safetensors")),
             "-threshold",
             str(case.get("threshold", 0.3)),
             "-context",

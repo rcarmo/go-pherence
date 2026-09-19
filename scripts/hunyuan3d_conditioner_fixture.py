@@ -15,8 +15,8 @@ Example:
 
     python3 scripts/hunyuan3d_conditioner_fixture.py \
       --hunyuan3d-src /workspace/tmp/Hunyuan3D-2-info \
-      --config models/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini/config.yaml \
-      --checkpoint models/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini/model.fp16.safetensors \
+      --config checkpoints/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini/config.yaml \
+      --checkpoint checkpoints/Hunyuan3D-2mini/hunyuan3d-dit-v2-mini/model.fp16.safetensors \
       --image assets/demo.png \
       --out /workspace/tmp/hunyuan3d-conditioner-fixture.json
 """

@@ -14,7 +14,7 @@ func TestGPURTFEstimate(t *testing.T) {
 	if os.Getenv("WHISPER_RUN_GPU_RTF") != "1" {
 		t.Skip("set WHISPER_RUN_GPU_RTF=1 to run optional GPU RTF estimate")
 	}
-	modelPath := "../../models/whisper-large-v3-turbo-hf/model.safetensors"
+	modelPath := "../../checkpoints/whisper-large-v3-turbo-hf/model.safetensors"
 	if _, err := os.Stat(modelPath); err != nil {
 		t.Skip("whisper-large-v3-turbo model not available")
 	}

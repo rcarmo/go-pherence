@@ -10,7 +10,7 @@ import (
 
 func TestBackendCodeDoesNotImportRuntimeQuant(t *testing.T) {
 	repo := findRepoRoot(t)
-	for _, root := range []string{"backends", "model", "models", "tensor"} {
+	for _, root := range []string{"backends", "model", "tensor"} {
 		rootPath := filepath.Join(repo, root)
 		if _, err := os.Stat(rootPath); err != nil {
 			continue
