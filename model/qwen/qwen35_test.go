@@ -264,12 +264,12 @@ func linearQwen35LayerSource(meta loaderconfig.QwenNativeMTPMetadata, prefix str
 	return fakeQwen35TensorSource{
 		prefix + ".input_layernorm.weight":          tensor.Ones([]int{4}),
 		prefix + ".post_attention_layernorm.weight": tensor.Ones([]int{4}),
-		prefix + ".linear_attn.in_proj_qkvz.weight": tensor.Zeros(shapes.QKV),
-		prefix + ".linear_attn.in_proj_gate.weight": tensor.Zeros(shapes.Gate),
-		prefix + ".linear_attn.conv1d.weight":       tensor.Zeros([]int{shapes.ConvDim, 1, meta.LinearConvKernelDim}),
+		prefix + ".linear_attn.in_proj_qkv.weight":  tensor.Zeros(shapes.QKV),
+		prefix + ".linear_attn.in_proj_z.weight":    tensor.Zeros(shapes.Gate),
+		prefix + ".linear_attn.conv1d.weight":       tensor.Zeros([]int{shapes.ConvDim, meta.LinearConvKernelDim, 1}),
 		prefix + ".linear_attn.dt_bias":             tensor.Zeros(shapes.DTBias),
 		prefix + ".linear_attn.A":                   tensor.Zeros(shapes.A),
-		prefix + ".linear_attn.in_proj_ba.weight":   tensor.Zeros(shapes.Beta),
+		prefix + ".linear_attn.in_proj_b.weight":    tensor.Zeros(shapes.Beta),
 		prefix + ".linear_attn.in_proj_a.weight":    tensor.Zeros(shapes.Alpha),
 		prefix + ".linear_attn.norm.weight":         tensor.Ones(shapes.Norm),
 		prefix + ".linear_attn.out_proj.weight":     tensor.Zeros(shapes.Out),
@@ -306,29 +306,101 @@ func TestLoadQwen35LinearAttentionLayerConvertsALog(t *testing.T) {
 	}
 }
 
-func TestSplitQwen35LinearQKV(t *testing.T) {
+func TestSplitQwen35LinearQKVRaw(t *testing.T) {
 	meta := testQwen35BaseMeta()
 	shapes, err := qwen35LinearAttentionShapesFromMeta(meta)
 	if err != nil {
 		t.Fatal(err)
 	}
-	projected := make([]float32, shapes.QKV[1])
-	for i := range projected {
-		projected[i] = float32(i + 1)
-	}
-	parts, err := splitQwen35LinearQKV(projected, shapes)
+	projected := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+	parts, err := splitQwen35LinearQKVRaw(projected, shapes)
 	if err != nil {
-		t.Fatalf("splitQwen35LinearQKV: %v", err)
+		t.Fatalf("splitQwen35LinearQKVRaw: %v", err)
 	}
-	if len(parts.Q) != shapes.KeyDim || len(parts.K) != shapes.KeyDim || len(parts.V) != shapes.ValueDim {
-		t.Fatalf("parts lens Q/K/V=%d/%d/%d", len(parts.Q), len(parts.K), len(parts.V))
+	check := func(name string, got, want []float32) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s len=%d want %d (%v)", name, len(got), len(want), got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s[%d]=%v want %v (%v)", name, i, got[i], want[i], got)
+			}
+		}
 	}
-	if parts.Q[0] != 1 || parts.K[0] != float32(shapes.KeyDim+1) {
-		t.Fatalf("unexpected split parts=%+v", parts)
+	check("Q", parts.Q, []float32{1, 2})
+	check("K", parts.K, []float32{3, 4})
+	check("V", parts.V, []float32{5, 6, 7, 8})
+	if _, err := splitQwen35LinearQKVRaw(projected[:len(projected)-1], shapes); err == nil {
+		t.Fatal("bad raw projected length returned nil error")
 	}
-	if _, err := splitQwen35LinearQKV(projected[:len(projected)-1], shapes); err == nil {
-		t.Fatal("bad projected length returned nil error")
+}
+
+func TestSplitQwen35LinearQKV(t *testing.T) {
+	check := func(t *testing.T, name string, got, want []float32) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s len=%d want %d (%v)", name, len(got), len(want), got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s[%d]=%v want %v (%v)", name, i, got[i], want[i], got)
+			}
+		}
 	}
+
+	t.Run("expands grouped key heads", func(t *testing.T) {
+		meta := testQwen35BaseMeta()
+		shapes, err := qwen35LinearAttentionShapesFromMeta(meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		projected := []float32{1, 2, 3, 4, 5, 6, 7, 8}
+		parts, err := splitQwen35LinearQKV(projected, shapes)
+		if err != nil {
+			t.Fatalf("splitQwen35LinearQKV: %v", err)
+		}
+		check(t, "Q", parts.Q, []float32{1, 2, 1, 2})
+		check(t, "K", parts.K, []float32{3, 4, 3, 4})
+		check(t, "V", parts.V, []float32{5, 6, 7, 8})
+	})
+
+	t.Run("keeps one to one head order", func(t *testing.T) {
+		shapes := loaderconfig.Qwen35LinearAttentionShapes{KeyDim: 4, ValueDim: 4, HeadVDim: 2}
+		projected := []float32{
+			1, 2, 3, 4, 5, 6,
+			7, 8, 9, 10, 11, 12,
+		}
+		parts, err := splitQwen35LinearQKV(projected, shapes)
+		if err != nil {
+			t.Fatalf("splitQwen35LinearQKV: %v", err)
+		}
+		check(t, "Q", parts.Q, []float32{1, 2, 7, 8})
+		check(t, "K", parts.K, []float32{3, 4, 9, 10})
+		check(t, "V", parts.V, []float32{5, 6, 11, 12})
+	})
+
+	t.Run("rejects bad projected length", func(t *testing.T) {
+		shapes := loaderconfig.Qwen35LinearAttentionShapes{KeyDim: 2, ValueDim: 4, HeadVDim: 2}
+		if _, err := splitQwen35LinearQKV(make([]float32, 7), shapes); err == nil {
+			t.Fatal("bad projected length returned nil error")
+		}
+	})
+
+	t.Run("rejects invalid dimensions", func(t *testing.T) {
+		badShapes := []loaderconfig.Qwen35LinearAttentionShapes{
+			{KeyDim: 2, ValueDim: 4, HeadVDim: 0},
+			{KeyDim: 3, ValueDim: 4, HeadVDim: 2},
+			{KeyDim: 4, ValueDim: 5, HeadVDim: 2},
+			{KeyDim: 4, ValueDim: 6, HeadVDim: 2},
+		}
+		for _, shapes := range badShapes {
+			projected := make([]float32, shapes.KeyDim*2+shapes.ValueDim)
+			if _, err := splitQwen35LinearQKV(projected, shapes); err == nil {
+				t.Fatalf("splitQwen35LinearQKV(%+v) returned nil error", shapes)
+			}
+		}
+	})
 }
 
 func TestApplyQwen35LinearDeltaUpdateUsesTiledKeyHeads(t *testing.T) {

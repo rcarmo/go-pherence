@@ -533,6 +533,17 @@ func SyncErr() error {
 
 var extraModules []CUmodule
 
+// Two pointer-sized CUDA option slots. Only buffer is a Go pointer; size is
+// an integer passed by value, not a pointer to an integer or a Go pointer.
+type jitErrorLogOptionValues struct {
+	buffer unsafe.Pointer
+	size   uintptr
+}
+
+func jitErrorLogOptions(buf []byte) jitErrorLogOptionValues {
+	return jitErrorLogOptionValues{buffer: unsafe.Pointer(unsafe.SliceData(buf)), size: uintptr(len(buf))}
+}
+
 func loadModuleDataWithLog(mod *CUmodule, image unsafe.Pointer) CUresult {
 	if cuModuleLoadDataEx == nil {
 		return cuModuleLoadData(mod, image)
@@ -543,8 +554,13 @@ func loadModuleDataWithLog(mod *CUmodule, image unsafe.Pointer) CUresult {
 	)
 	errLog := make([]byte, 8192)
 	opts := []uint32{cuJITErrorLogBuffer, cuJITErrorLogBufferSizeBytes}
-	vals := []unsafe.Pointer{unsafe.Pointer(&errLog[0]), unsafe.Pointer(uintptr(len(errLog)))}
-	r := cuModuleLoadDataEx(mod, image, uint32(len(opts)), unsafe.Pointer(&opts[0]), unsafe.Pointer(&vals[0]))
+	// CUDA's void** optionValues mixes pointer-valued entries and integers
+	// encoded directly in pointer-sized slots. Keep the latter as uintptr,
+	// not fabricated Go pointers (invalid under vet/checkptr).
+	vals := jitErrorLogOptions(errLog)
+	r := cuModuleLoadDataEx(mod, image, uint32(len(opts)), unsafe.Pointer(&opts[0]), unsafe.Pointer(&vals))
+	// Retain the actual buffer owner until the synchronous call has returned.
+	runtime.KeepAlive(errLog)
 	if r != CUDA_SUCCESS {
 		if msg := strings.TrimRight(string(errLog), "\x00"); msg != "" {
 			fmt.Printf("[gpu] PTX JIT error: %s\n", msg)

@@ -15,4 +15,6 @@ Start with [Validation gates](validation-gates.md). Host tests, hardware tests a
 
 * [Model layout follow-up audit, 2026-09-19](model-layout-audit-20260919.md)
 
+* [Issues #3–#11 validation, 2026-09-19](issues-3-11-20260919.md)
+
 [Documentation index](../README.md)

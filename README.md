@@ -119,7 +119,7 @@ make host-test
 make spacemit-cross-compile
 ```
 
-Host checks respect Go build constraints: Linux/RISC-V AICPU and TCM execution is not forced into amd64 or ARM64 tests, while portable packing and scalar fallbacks remain checked. Cross-build success is compilation evidence only. [Validation gates](docs/validation/validation-gates.md) lists hardware and asset requirements and the remaining whole-tree failures; the host targets do not hide unrelated errors.
+Host checks respect Go build constraints: Linux/RISC-V AICPU and TCM execution is not forced into amd64 or ARM64 tests, while portable packing and scalar fallbacks remain checked. Cross-build success is compilation evidence only. [Validation gates](docs/validation/validation-gates.md) lists hardware and asset requirements and the latest validation results; the host targets do not hide unrelated errors.
 
 ## License
 

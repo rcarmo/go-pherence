@@ -103,3 +103,21 @@ func TestQ6KBlockISumRejectsBadInputs(t *testing.T) {
 		t.Fatal("expected scales rejection")
 	}
 }
+
+func TestQ6KBlockCoeffISumSignedReturn(t *testing.T) {
+	q8 := make([]int8, 256)
+	var coeff [256]int16
+	for _, sign := range []int16{-1, 0, 1} {
+		for i := range q8 {
+			q8[i] = 127
+			coeff[i] = sign * 4096
+		}
+		want := int32(sign) * 256 * 127 * 4096
+		for repeat := 0; repeat < 16; repeat++ {
+			got, ok := q6KBlockCoeffISum(q8, &coeff)
+			if !ok || got != want {
+				t.Fatalf("sign=%d got=%d want=%d ok=%v", sign, got, want, ok)
+			}
+		}
+	}
+}

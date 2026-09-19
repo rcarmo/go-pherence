@@ -1,6 +1,8 @@
 package model
 
 import (
+	"math"
+	"math/rand"
 	"testing"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -37,8 +39,74 @@ func TestProjectMTPVerifierLayerQKVBatchMatchesRows(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !sameFloat32s(got.Q[b*2:(b+1)*2], single.Q) || !sameFloat32s(got.K[b*2:(b+1)*2], single.K) || !sameFloat32s(got.V[b*2:(b+1)*2], single.V) {
+		// Dense batch GEMM and singleton GEMV use different reduction/FMA
+		// orders. This API promises numerical parity, not bitwise identity;
+		// keep exact comparisons in the quantised trajectory fixtures.
+		if !mtpDenseClose(got.Q[b*2:(b+1)*2], single.Q) || !mtpDenseClose(got.K[b*2:(b+1)*2], single.K) || !mtpDenseClose(got.V[b*2:(b+1)*2], single.V) {
 			t.Fatalf("row %d batch q/k/v=%v/%v/%v single=%v/%v/%v", b, got.Q[b*2:(b+1)*2], got.K[b*2:(b+1)*2], got.V[b*2:(b+1)*2], single.Q, single.K, single.V)
+		}
+	}
+}
+
+func mtpDenseClose(a, b []float32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		av, bv := float64(a[i]), float64(b[i])
+		if math.IsNaN(av) || math.IsNaN(bv) || math.IsInf(av, 0) || math.IsInf(bv, 0) || math.Abs(av-bv) > 1e-6*(1+math.Max(math.Abs(av), math.Abs(bv))) {
+			return false
+		}
+	}
+	return true
+}
+
+func TestMTPDenseProjectionReductionBound(t *testing.T) {
+	// Exercise dot/GEMV and tiled GEMM shapes against a float64 sum. Bound
+	// rounding by the absolute products, so cancellation cannot hide errors.
+	rng := rand.New(rand.NewSource(5))
+	for _, width := range []int{2, 8, 64, 128} {
+		const rows, batch = 64, 3
+		w, x := make([]float32, rows*width), make([]float32, batch*width)
+		for i := range w {
+			w[i] = rng.Float32()*2 - 1
+		}
+		for i := range x {
+			x[i] = rng.Float32()*2 - 1
+		}
+		m := &LlamaModel{Large: true}
+		weight := tensor.FromFloat32(w, []int{rows, width})
+		out := make([]float32, batch*rows)
+		if !m.projBatch(out, x, batch, weight, nil, width, rows) {
+			t.Fatal("batch rejected")
+		}
+		for b := 0; b < batch; b++ {
+			single := make([]float32, rows)
+			if !m.projBatch(single, x[b*width:(b+1)*width], 1, weight, nil, width, rows) {
+				t.Fatal("row rejected")
+			}
+			for r := 0; r < rows; r++ {
+				var want, absProducts float64
+				for k := 0; k < width; k++ {
+					p := float64(x[b*width+k]) * float64(w[r*width+k])
+					want += p
+					absProducts += math.Abs(p)
+				}
+				bound := float64(width)*math.Ldexp(1, -23)*absProducts + 1e-7
+				for _, got := range []float32{out[b*rows+r], single[r]} {
+					if math.IsNaN(float64(got)) || math.Abs(float64(got)-want) > bound {
+						t.Fatalf("width=%d row=%d got=%g want=%g bound=%g", width, r, got, want, bound)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestMTPDenseCloseRejectsDrift(t *testing.T) {
+	for _, bad := range []float32{1.01, float32(math.NaN()), float32(math.Inf(1))} {
+		if mtpDenseClose([]float32{1}, []float32{bad}) {
+			t.Fatalf("accepted %g", bad)
 		}
 	}
 }

@@ -405,7 +405,7 @@ func (c ServerConfig) validate() error {
 			return e
 		}
 		if e := speechjob.ValidateCommunity1Config(cc); e != nil {
-			return fmt.Errorf("invalid Community-1 execution policy")
+			return fmt.Errorf("invalid Community-1 execution policy: %w", e)
 		}
 	}
 	if !slug(f.ID) || len(f.Language) < 2 || len(f.Language) > 3 || f.MaxDurationSeconds < 1 || f.MaxDurationSeconds > 14400 || f.DecodeBytes < 46 || f.DecodeBytes > l.ArtifactBytes || f.OverlapSamples < 0 || f.OverlapSamples > 240000 || f.MaxNewTokens < 0 || f.MaxNewTokens > 445 || f.MaxInitialTimestampIndex < 0 || f.MaxInitialTimestampIndex > 1500 || f.WindowBytes < 1 || f.WindowBytes > 1<<20 || f.ResultBytes < f.WindowBytes || f.ResultBytes > 64<<20 || f.ResultBytes > l.ArtifactBytes {
