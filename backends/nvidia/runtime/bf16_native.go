@@ -15,6 +15,8 @@ package nvidia
 
 import (
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
+	"runtime"
+	"sync"
 	"unsafe"
 
 	ptxbf16 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16"
@@ -25,14 +27,18 @@ var (
 	fnNativeBF16VecAdd  CUfunction
 	nativeBF16Mod       CUmodule
 	nativeBF16Ready     bool
+	nativeBF16Mu        sync.Mutex
 )
 
 // InitNativeBF16 loads native BF16 ptx. Call after mega module init.
 func InitNativeBF16() {
-	if !sgemmReady {
+	nativeBF16Mu.Lock()
+	defer nativeBF16Mu.Unlock()
+	if !sgemmReady || nativeBF16Mod != 0 {
 		return
 	}
-	EnsureContext()
+	release := lockDriver()
+	defer release()
 
 	body := stripPTXHeader(ptxbf16.NativeBF16RMSNormPTX) + "\n" + stripPTXHeader(ptxbf16.NativeBF16VecAddPTX)
 	full := ".version 7.8\n.target sm_86\n.address_size 64\n\n" + body
@@ -40,6 +46,7 @@ func InitNativeBF16() {
 
 	var mod CUmodule
 	r := cuModuleLoadData(&mod, unsafe.Pointer(&fullBytes[0]))
+	runtime.KeepAlive(fullBytes)
 	if r != CUDA_SUCCESS {
 		return
 	}
@@ -48,7 +55,10 @@ func InitNativeBF16() {
 	extract := func(name string) CUfunction {
 		nameBytes := append([]byte(name), 0)
 		var fn CUfunction
-		cuModuleGetFunction(&fn, mod, unsafe.Pointer(&nameBytes[0]))
+		if cuModuleGetFunction(&fn, mod, unsafe.Pointer(&nameBytes[0])) != CUDA_SUCCESS {
+			fn = 0
+		}
+		runtime.KeepAlive(nameBytes)
 		return fn
 	}
 
@@ -61,13 +71,12 @@ func InitNativeBF16() {
 	}
 }
 
-func NativeBF16Ready() bool { return nativeBF16Ready }
+func NativeBF16Ready() bool { nativeBF16Mu.Lock(); defer nativeBF16Mu.Unlock(); return nativeBF16Ready }
 
 func shutdownNativeBF16() {
-	if nativeBF16Mod != 0 && cuModuleUnload != nil {
-		EnsureContext()
-		cuModuleUnload(nativeBF16Mod)
-	}
+	nativeBF16Mu.Lock()
+	defer nativeBF16Mu.Unlock()
+	unloadModule(nativeBF16Mod)
 	nativeBF16Mod = 0
 	fnNativeBF16RMSNorm = 0
 	fnNativeBF16VecAdd = 0
@@ -79,12 +88,17 @@ func DevNativeBF16RMSNorm(x, w *Buffer, n int, eps float32) bool {
 	if !validBF16Buffer(x, n) || !validBF16Buffer(w, n) {
 		return false
 	}
-	if !nativeBF16Ready {
+	// Do not hold the native-init mutex through fallback: fallback may lazily
+	// initialise the mega module, which itself calls InitNativeBF16.
+	nativeBF16Mu.Lock()
+	ready, fn := nativeBF16Ready, fnNativeBF16RMSNorm
+	nativeBF16Mu.Unlock()
+	if !ready {
 		return DevBF16RMSNorm(x, w, n, eps) // fall back to emulated
 	}
 	EnsureContext()
 	nn := uint32(n)
-	if err := LaunchKernel(fnNativeBF16RMSNorm, 1, 1, 1, 256, 1, 1, 256*4,
+	if err := LaunchKernel(fn, 1, 1, 1, 256, 1, 1, 256*4,
 		unsafe.Pointer(&x.Ptr), unsafe.Pointer(&w.Ptr),
 		unsafe.Pointer(&nn), unsafe.Pointer(&eps)); err != nil {
 		return DevBF16RMSNorm(x, w, n, eps)
@@ -97,7 +111,10 @@ func DevNativeBF16VecAdd(dst, a, b *Buffer, n int) bool {
 	if !validBF16Buffer(dst, n) || !validBF16Buffer(a, n) || !validBF16Buffer(b, n) {
 		return false
 	}
-	if !nativeBF16Ready {
+	nativeBF16Mu.Lock()
+	ready, fn := nativeBF16Ready, fnNativeBF16VecAdd
+	nativeBF16Mu.Unlock()
+	if !ready {
 		return DevBF16VecAdd(dst, a, b, n)
 	}
 	EnsureContext()
@@ -106,7 +123,7 @@ func DevNativeBF16VecAdd(dst, a, b *Buffer, n int) bool {
 		return false
 	}
 	nn := uint32(n)
-	if err := LaunchKernel(fnNativeBF16VecAdd, grid, 1, 1, 256, 1, 1, 0,
+	if err := LaunchKernel(fn, grid, 1, 1, 256, 1, 1, 0,
 		unsafe.Pointer(&a.Ptr), unsafe.Pointer(&b.Ptr),
 		unsafe.Pointer(&dst.Ptr), unsafe.Pointer(&nn)); err != nil {
 		return DevBF16VecAdd(dst, a, b, n)

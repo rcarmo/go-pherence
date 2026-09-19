@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"runtime"
+	"sync"
 	"unsafe"
 )
 
@@ -61,16 +62,18 @@ var (
 
 // initStreams creates CUDA streams and events for overlapped execution.
 func initStreams() error {
-	if streamsReady {
-		return nil
-	}
-
 	if !Init() {
 		return fmt.Errorf("CUDA not initialized")
 	}
-
+	release := lockDriver()
+	defer release()
+	return initStreamsLocked()
+}
+func initStreamsLocked() error {
+	if streamsReady {
+		return nil
+	}
 	// Create prefetch stream (non-blocking, can overlap with default stream)
-	EnsureContext()
 	if r := cuStreamCreate(&prefetchStream, 1); r != CUDA_SUCCESS { // CU_STREAM_NON_BLOCKING = 1
 		return fmt.Errorf("create prefetch stream: error %d", r)
 	}
@@ -106,11 +109,11 @@ func initStreams() error {
 // PrefetchWeights launches a lightweight read kernel on the prefetch stream
 // to warm L2 cache for the given GPU weight buffers.
 func PrefetchWeights(weights ...*GPUQuantWeight) {
+	release := lockDriver()
+	defer release()
 	if !streamsReady || prefetchStream == 0 {
 		return
 	}
-	EnsureContext()
-
 	// Wait for compute to finish current layer before prefetching next.
 	if r := cuEventRecord(computeEvent, 0); r != CUDA_SUCCESS { // record on default stream
 		return
@@ -138,13 +141,15 @@ func PrefetchWeights(weights ...*GPUQuantWeight) {
 		if !okGrid {
 			continue
 		}
-		_ = LaunchKernelOnStream(fnPrefetch, grid, 1, 1, 256, 1, 1, 0, prefetchStream,
+		_ = launchKernelOnStreamLocked(fnPrefetch, grid, 1, 1, 256, 1, 1, 0, prefetchStream,
 			unsafe.Pointer(&w.QWeight.Ptr), unsafe.Pointer(&n))
 	}
 }
 
 // MarkComputeDone records an event on the default (compute) stream.
 func MarkComputeDone() {
+	release := lockDriver()
+	defer release()
 	if streamsReady && computeEvent != 0 && cuEventRecord != nil {
 		_ = cuEventRecord(computeEvent, 0)
 	}
@@ -152,6 +157,8 @@ func MarkComputeDone() {
 
 // WaitPrefetch makes the default stream wait for prefetch to complete.
 func WaitPrefetch() {
+	release := lockDriver()
+	defer release()
 	if streamsReady && prefetchStream != 0 && prefetchEvent != 0 {
 		if r := cuEventRecord(prefetchEvent, prefetchStream); r != CUDA_SUCCESS {
 			return
@@ -190,6 +197,7 @@ func GraphsReady() bool {
 
 // CapturedGraph holds an instantiated CUDA graph for replay.
 type CapturedGraph struct {
+	mu    sync.Mutex
 	graph CUgraph
 	exec  CUgraphExec
 }
@@ -199,10 +207,8 @@ func BeginCapture() error {
 	if !GraphsReady() {
 		return fmt.Errorf("CUDA graphs not available")
 	}
-	if !streamsReady {
-		if err := initStreams(); err != nil {
-			return err
-		}
+	if err := initStreams(); err != nil {
+		return err
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -211,6 +217,9 @@ func BeginCapture() error {
 	ensureContextLocked()
 	if graphCaptureStream == 0 {
 		return fmt.Errorf("CUDA graph capture stream unavailable")
+	}
+	if captureLaunchStream != 0 {
+		return fmt.Errorf("CUDA graph capture already active")
 	}
 	captureLaunchStream = graphCaptureStream
 	// CU_STREAM_CAPTURE_MODE_GLOBAL = 0
@@ -252,7 +261,12 @@ func EndCapture() (*CapturedGraph, error) {
 
 // Launch replays the captured graph on the default stream.
 func (cg *CapturedGraph) Launch() error {
-	if cg == nil || cg.exec == 0 {
+	if cg == nil {
+		return fmt.Errorf("nil CUDA graph executable")
+	}
+	cg.mu.Lock()
+	defer cg.mu.Unlock()
+	if cg.exec == 0 {
 		return fmt.Errorf("nil CUDA graph executable")
 	}
 	if cuGraphLaunch == nil {
@@ -274,6 +288,8 @@ func (cg *CapturedGraph) Destroy() {
 	if cg == nil {
 		return
 	}
+	cg.mu.Lock()
+	defer cg.mu.Unlock()
 	exec := cg.exec
 	graph := cg.graph
 	cg.exec = 0
@@ -289,6 +305,9 @@ func (cg *CapturedGraph) Destroy() {
 	cudaMu.Lock()
 	defer cudaMu.Unlock()
 	ensureContextLocked()
+	if cuCtxSynchronize != nil {
+		_ = cuCtxSynchronize()
+	}
 	if exec != 0 && cuGraphExecDestroy != nil {
 		cuGraphExecDestroy(exec)
 	}
@@ -299,6 +318,14 @@ func (cg *CapturedGraph) Destroy() {
 
 // LaunchKernelOnStream is like LaunchKernel but on a specific stream.
 func LaunchKernelOnStream(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem uint32, stream CUstream, args ...unsafe.Pointer) error {
+	release := lockDriver()
+	defer release()
+	return launchKernelOnStreamLocked(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, stream, args...)
+}
+func launchKernelOnStreamLocked(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem uint32, stream CUstream, args ...unsafe.Pointer) error {
+	if cuLaunchKernel == nil {
+		return fmt.Errorf("CUDA launch unavailable")
+	}
 	if fn == 0 {
 		return fmt.Errorf("nil CUDA function")
 	}
@@ -310,14 +337,12 @@ func LaunchKernelOnStream(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, bl
 			return fmt.Errorf("nil CUDA kernel argument %d", i)
 		}
 	}
-	EnsureContext()
 	var argPtr unsafe.Pointer
 	if len(args) > 0 {
-		ptrs := make([]unsafe.Pointer, len(args))
-		copy(ptrs, args)
-		argPtr = unsafe.Pointer(&ptrs[0])
+		argPtr = unsafe.Pointer(&args[0])
 	}
 	r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, uintptr(stream), argPtr, nil)
+	runtime.KeepAlive(args)
 	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuLaunchKernel(stream): error %d", r)
 	}
@@ -327,10 +352,14 @@ func LaunchKernelOnStream(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, bl
 var fnPrefetch CUfunction
 
 func shutdownStreams() {
+	release := lockDriver()
+	defer release()
 	if !streamsReady {
 		return
 	}
-	EnsureContext()
+	if cuCtxSynchronize != nil {
+		_ = cuCtxSynchronize()
+	}
 	if computeEvent != 0 && cuEventDestroy != nil {
 		cuEventDestroy(computeEvent)
 		computeEvent = 0

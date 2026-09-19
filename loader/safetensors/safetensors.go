@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/rcarmo/go-pherence/half"
@@ -32,7 +34,7 @@ type File struct {
 	Advisor    *memory.MmapAdvisor // madvise tracking (nil if not mmap'd)
 }
 
-var eagerLoadSink byte
+var eagerLoadSink atomic.Uint32
 
 // EagerLoad asks the OS to read the mmap'd file and then touches one byte per
 // page to fault pages in now instead of during first-token inference.
@@ -56,7 +58,7 @@ func (f *File) EagerLoad() (int64, error) {
 	}
 	// Touch the final byte so short/non-page-aligned files are fully covered.
 	sink ^= f.mmapData[len(f.mmapData)-1]
-	eagerLoadSink ^= sink
+	eagerLoadSink.Add(uint32(sink))
 	runtime.KeepAlive(f.mmapData)
 	return int64(len(f.mmapData)), nil
 }
@@ -368,8 +370,23 @@ func OpenSharded(indexPath string) (*ShardedFile, error) {
 		return nil, fmt.Errorf("parse index: %w", err)
 	}
 
-	// Determine directory
-	dir := filepath.Dir(indexPath)
+	if len(index.WeightMap) == 0 {
+		return nil, fmt.Errorf("empty safetensors weight map")
+	}
+	// Shards must stay inside the model directory; callers keep files immutable.
+	dir, err := filepath.Abs(filepath.Dir(indexPath))
+	if err != nil {
+		return nil, err
+	}
+	dir, err = filepath.EvalSymlinks(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, filename := range index.WeightMap {
+		if filename == "" || filename == "." || filename == ".." || filepath.Base(filename) != filename || strings.ContainsAny(filename, "/\\") {
+			return nil, fmt.Errorf("unsafe shard filename %q", filename)
+		}
+	}
 
 	sf := &ShardedFile{
 		shards:  map[string]*File{},
@@ -382,7 +399,15 @@ func OpenSharded(indexPath string) (*ShardedFile, error) {
 		shardFiles[filename] = true
 	}
 	for filename := range shardFiles {
-		path := filepath.Join(dir, filename)
+		path, err := filepath.EvalSymlinks(filepath.Join(dir, filename))
+		if err != nil {
+			_ = sf.Close()
+			return nil, fmt.Errorf("resolve shard %s: %w", filename, err)
+		}
+		if filepath.Dir(path) != dir {
+			_ = sf.Close()
+			return nil, fmt.Errorf("shard %s escapes model directory", filename)
+		}
 		f, err := Open(path)
 		if err != nil {
 			_ = sf.Close()

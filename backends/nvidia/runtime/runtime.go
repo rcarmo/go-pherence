@@ -580,12 +580,21 @@ func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) 
 	if kernelName == "" {
 		return 0, 0, fmt.Errorf("empty CUDA kernel name")
 	}
+	release := lockDriver()
+	defer release()
+	return loadPTXModuleLocked(ptx, kernelName)
+}
+
+// loadPTXModuleLocked requires lockDriver and validated nonempty strings.
+func loadPTXModuleLocked(ptx, kernelName string) (CUmodule, CUfunction, error) {
 	ptxBytes := append([]byte(ptx), 0) // null-terminate
+	defer runtime.KeepAlive(ptxBytes)
 	var mod CUmodule
 	if r := loadModuleDataWithLog(&mod, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
 		return 0, 0, fmt.Errorf("cuModuleLoadData: error %d", r)
 	}
 	nameBytes := append([]byte(kernelName), 0)
+	defer runtime.KeepAlive(nameBytes)
 	var fn CUfunction
 	if r := cuModuleGetFunction(&fn, mod, unsafe.Pointer(&nameBytes[0])); r != CUDA_SUCCESS {
 		if cuModuleUnload != nil {
@@ -599,7 +608,12 @@ func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) 
 // LoadPTX loads a PTX module and returns a kernel function by name.
 // The backing module is retained until Shutdown() so the function pointer stays valid.
 func LoadPTX(ptx string, kernelName string) (CUfunction, error) {
-	mod, fn, err := loadPTXModule(ptx, kernelName)
+	if ptx == "" || kernelName == "" {
+		return 0, fmt.Errorf("PTX and kernel name required")
+	}
+	release := lockDriver()
+	defer release()
+	mod, fn, err := loadPTXModuleLocked(ptx, kernelName)
 	if err != nil {
 		return 0, err
 	}
@@ -669,7 +683,9 @@ func MemInfo() (uint64, uint64) {
 }
 
 // Shutdown releases global CUDA-side resources so a fresh context can be created.
-// Intended primarily for tests and one-shot diagnostic processes.
+// Intended for a quiescent process owner only: stop/join all inference and
+// release every encoder first. Per-driver locks cannot make global handle/cache
+// teardown safe against arbitrary concurrent model execution.
 func Shutdown() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -681,6 +697,9 @@ func Shutdown() {
 	shutdownNativeBF16()
 	shutdownMegaModule()
 	shutdownStreams()
+	resetLazyKernelHandles()
+	release := lockDriver()
+	defer release()
 	for _, mod := range extraModules {
 		if mod != 0 && cuModuleUnload != nil {
 			cuModuleUnload(mod)
@@ -695,5 +714,6 @@ func Shutdown() {
 	gpuOK = false
 	gpuName = ""
 	gpuSMs = 0
+	gpuCCMajor, gpuCCMinor = 0, 0
 	gpuOnce = sync.Once{}
 }

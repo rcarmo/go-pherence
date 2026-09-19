@@ -59,7 +59,7 @@ func TestVulkanWrapperStubsValidBuffers(t *testing.T) {
 			{"gemv", func() error { return VkGemvF32(bare, bare, bare, n, n) }},
 			{"silu", func() error { return VkSiLUMulF32(bare, bare, bare, n) }},
 			{"gelu", func() error { return VkGELUTanhMulF32(bare, bare, n) }},
-			{"rope", func() error { return VkRoPEPartialF32(bare, bare, 0, 1, 4, 2) }},
+			{"rope", func() error { return VkRoPEPartialF32(bare, &VkBuf{size: floatsPerBuf * 4}, 0, 1, 4, 2) }},
 			{"attention", func() error { return VkAttentionScoresF32(bare, bare, bare, n, n, 1, n, 1) }},
 		}
 		for _, tc := range cases {
@@ -140,4 +140,30 @@ func TestVulkanWrapperStubsValidBuffers(t *testing.T) {
 			}
 		}
 	})
+}
+
+// Geometry is validated before backend admission, so these synthetic buffers
+// never reach a driver even on an online host. Shader indices are uint32.
+func TestVulkanWrappersRejectShaderIndexOverflow(t *testing.T) {
+	if ^uint(0)>>32 == 0 {
+		t.Skip("requires 64-bit int")
+	}
+	huge := uint64(1) << 32
+	n := int(huge)
+	b := &VkBuf{size: ^uint64(0)}
+	for name, fn := range map[string]func() error{
+		"vec":               func() error { return VkVecAddF32(b, b, b, n) },
+		"bf16":              func() error { return VkVecAddBF16(b, b, b, n) },
+		"rms":               func() error { return VkRMSNormF32(b, b, n, 1e-6) },
+		"gemv_product":      func() error { return VkGemvF32(b, b, b, 65536, 65536) },
+		"silu":              func() error { return VkSiLUMulF32(b, b, b, n) },
+		"gelu":              func() error { return VkGELUTanhMulF32(b, b, n) },
+		"attention_product": func() error { return VkAttentionScoresF32(b, b, b, 65536, 65536, 1, 1, 1) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := fn(); err == nil || !strings.Contains(err.Error(), "invalid") {
+				t.Fatalf("err=%v, want invalid geometry", err)
+			}
+		})
+	}
 }
