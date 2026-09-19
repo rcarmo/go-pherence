@@ -119,7 +119,8 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 		}
 	} else if info.QuantBits == 4 {
 		// INT4 quantized: packed weights + scales + biases
-		// Packed: inDim * outDim / 8 bytes (4-bit)
+		// Eight INT4 values per uint32, not per byte. Round each packed row
+		// up to a full word; metadata dimensions need not be pack-aligned.
 		// Scales: outDim * numGroups * 4 bytes
 		// Biases: outDim * numGroups * 4 bytes
 		groupSize := int64(64) // MLX default
@@ -128,7 +129,7 @@ func EstimateLayerWeightBytes(info ModelSizeInfo, layerIdx int) int64 {
 				return 0
 			}
 			numGroups := divCeilInt64(inD, groupSize)
-			packed := checked.SaturatingMulInt64(inD, outD) / 8
+			packed := checked.SaturatingMulInt64(checked.SaturatingMulInt64(divCeilInt64(inD, 8), outD), 4)
 			scales := checked.SaturatingMulInt64(checked.SaturatingMulInt64(outD, numGroups), 4)
 			biases := checked.SaturatingMulInt64(checked.SaturatingMulInt64(outD, numGroups), 4)
 			return checked.SaturatingAddInt64(packed, checked.SaturatingAddInt64(scales, biases))
