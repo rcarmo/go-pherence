@@ -1,5 +1,40 @@
 package tensor
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
+// Shared preflight keeps dimension arithmetic safe before allocation/indexing.
+func conv1DGeometry(inChannels, inLength, outChannels, kernelSize, stride, padding int) (outLength, inputSize, weightSize, outputSize int, ok bool) {
+	if inChannels <= 0 || inLength <= 0 || outChannels <= 0 || kernelSize <= 0 || stride <= 0 || padding < 0 {
+		return
+	}
+	twicePad, ok := checked.MulInt(padding, 2)
+	if !ok {
+		return
+	}
+	padded, ok := checked.AddInt(inLength, twicePad)
+	if !ok || padded < kernelSize {
+		return 0, 0, 0, 0, false
+	}
+	outLength, ok = checked.AddInt((padded-kernelSize)/stride, 1)
+	if !ok {
+		return
+	}
+	inputSize, ok = checked.MulInt(inChannels, inLength)
+	if !ok {
+		return
+	}
+	rowWeights, ok := checked.MulInt(inChannels, kernelSize)
+	if !ok {
+		return
+	}
+	weightSize, ok = checked.MulInt(outChannels, rowWeights)
+	if !ok {
+		return
+	}
+	outputSize, ok = checked.MulInt(outChannels, outLength)
+	return
+}
+
 // Conv1D computes 1D convolution: out[oc][j] = sum_ic sum_k input[ic][j*stride+k-padding] * weight[oc][ic][k] + bias[oc]
 //
 // input:  [inChannels, inLength]
@@ -25,9 +60,24 @@ func Conv1D(input [][]float32, weight [][][]float32, bias []float32, stride, pad
 		padding = 0
 	}
 
-	outLength := (inLength+2*padding-kernelSize)/stride + 1
-	if outLength <= 0 {
+	outLength, _, _, _, ok := conv1DGeometry(inChannels, inLength, outChannels, kernelSize, stride, padding)
+	if !ok {
 		return nil
+	}
+	for _, row := range input {
+		if len(row) != inLength {
+			return nil
+		}
+	}
+	for _, outWeights := range weight {
+		if len(outWeights) != inChannels {
+			return nil
+		}
+		for _, row := range outWeights {
+			if len(row) != kernelSize {
+				return nil
+			}
+		}
 	}
 
 	output := make([][]float32, outChannels)
@@ -65,15 +115,8 @@ func Conv1D(input [][]float32, weight [][][]float32, bias []float32, stride, pad
 // bias:   [outChannels] (may be nil)
 // output: [outChannels * outLength]
 func Conv1DFlat(output, input, weight, bias []float32, inChannels, inLength, outChannels, kernelSize, stride, padding int) {
-	if inChannels <= 0 || inLength <= 0 || outChannels <= 0 || kernelSize <= 0 || stride <= 0 {
-		return
-	}
-
-	outLength := (inLength+2*padding-kernelSize)/stride + 1
-	if outLength <= 0 {
-		return
-	}
-	if len(output) < outChannels*outLength || len(input) < inChannels*inLength || len(weight) < outChannels*inChannels*kernelSize {
+	outLength, inputSize, weightSize, outputSize, ok := conv1DGeometry(inChannels, inLength, outChannels, kernelSize, stride, padding)
+	if !ok || len(output) < outputSize || len(input) < inputSize || len(weight) < weightSize {
 		return
 	}
 

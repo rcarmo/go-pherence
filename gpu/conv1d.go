@@ -8,10 +8,8 @@ import "github.com/rcarmo/go-pherence/tensor"
 // bias: [outChannels] (may be nil)
 // output: [outChannels * outLength]
 func Conv1D(output, input, weight, bias []float32, inChannels, inLength, outChannels, kernelSize, stride, padding int) {
-	outLength := (inLength+2*padding-kernelSize)/stride + 1
-	if outLength <= 0 || len(input) < inChannels*inLength || len(weight) < outChannels*inChannels*kernelSize || len(output) < outChannels*outLength {
-		return
-	}
+	// Geometry/overflow checks belong to the shared implementation. Computing
+	// output length here first used to divide by zero for stride=0.
 
 	// TODO: GPU fast path when Conv1D PTX kernel is available
 	// For now: CPU fallback only
