@@ -57,7 +57,10 @@ func valueBytes(v Value) int {
 	return n * DTypeSize(v.DType)
 }
 
-// BuildPlan validates g and assigns reusable transient buffers.
+// BuildPlan validates g and assigns reusable transient buffers. The graph and
+// its nested attributes must remain immutable for the lifetime of the plan.
+// View-like operations conservatively retain backing inputs through their
+// descendants, even when a backend elects to materialise a copy instead.
 func BuildPlan(g *Graph) (*Plan, error) {
 	if g == nil {
 		return nil, fmt.Errorf("nil graph")
@@ -69,6 +72,36 @@ func BuildPlan(g *Graph) (*Plan, error) {
 	for i, n := range g.Nodes {
 		for _, in := range n.Inputs {
 			lastUse[in] = i
+		}
+	}
+
+	// View/reshape/slice/transpose may alias input storage in a lowering. Walk
+	// backwards so view chains extend the original backing value's lifetime too.
+	for i := len(g.Nodes) - 1; i >= 0; i-- {
+		node := g.Nodes[i]
+		if node.Op != OpView && node.Op != OpReshape && node.Op != OpSlice && node.Op != OpTranspose && node.Op != OpContiguous {
+			continue
+		}
+		end := i
+		for _, out := range node.Outputs {
+			use, ok := lastUse[out]
+			if !ok {
+				use = len(g.Nodes)
+			}
+			if use > end {
+				end = use
+			}
+		}
+		for _, in := range node.Inputs {
+			if end > lastUse[in] {
+				lastUse[in] = end
+			}
+		}
+	}
+	releaseAt := make([][]ValueID, len(g.Nodes))
+	for _, v := range g.Values {
+		if step, ok := lastUse[v.ID]; ok && step < len(g.Nodes) && !v.Persistent {
+			releaseAt[step] = append(releaseAt[step], v.ID)
 		}
 	}
 
@@ -112,18 +145,12 @@ func BuildPlan(g *Graph) (*Plan, error) {
 		}
 		steps = append(steps, step)
 
-		// Release inputs whose lifetime ends here.
-		for _, in := range n.Inputs {
-			if g.Values[in].Persistent {
-				continue
-			}
-			if lastUse[in] == i {
-				// A node may consume the same value twice (x*x). Release its buffer
-				// only once, or two later live outputs can be assigned the same slot.
-				if bid, ok := valueBuf[in]; ok {
-					free = append(free, bid)
-					delete(valueBuf, in)
-				}
+		// Release each value once, including backing storage whose final use was
+		// extended to a descendant view consumer rather than a direct input here.
+		for _, in := range releaseAt[i] {
+			if bid, ok := valueBuf[in]; ok {
+				free = append(free, bid)
+				delete(valueBuf, in)
 			}
 		}
 	}

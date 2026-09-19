@@ -72,3 +72,45 @@ func TestAddValueOwnsShape(t *testing.T) {
 		t.Fatal("shape aliases caller")
 	}
 }
+
+func TestPlanViewChainsRetainBackingStorage(t *testing.T) {
+	for _, op := range []OpKind{OpView, OpReshape, OpSlice, OpTranspose, OpContiguous} {
+		t.Run(string(op), func(t *testing.T) {
+			g := New("view lifetime")
+			x := g.AddValue("x", Shape{8}, F32, false)
+			v := g.AddValue("view", Shape{8}, F32, false)
+			v2 := g.AddValue("view2", Shape{8}, F32, false)
+			other := g.AddValue("other", Shape{8}, F32, false)
+			result := g.AddValue("result", Shape{8}, F32, false)
+			g.AddNode("input", OpInput, nil, []ValueID{x}, nil)
+			g.AddNode("view", op, []ValueID{x}, []ValueID{v}, nil)
+			g.AddNode("view2", OpReshape, []ValueID{v}, []ValueID{v2}, nil)
+			g.AddNode("other", OpConst, nil, []ValueID{other}, nil)
+			g.AddNode("consumer", OpAdd, []ValueID{v2, other}, []ValueID{result}, nil)
+			p, err := BuildPlan(g)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backing := p.Steps[0].OutputBufs[0]
+			if p.LastUse[x] != 4 || p.LastUse[v] != 4 || p.Steps[3].OutputBufs[0] == backing || p.Steps[4].OutputBufs[0] == backing {
+				t.Fatalf("view backing reused prematurely: %+v", p)
+			}
+		})
+	}
+}
+func TestPlanTerminalViewRetainsInput(t *testing.T) {
+	g := New("terminal view")
+	x := g.AddValue("x", Shape{8}, F32, false)
+	v := g.AddValue("returned view", Shape{8}, F32, false)
+	other := g.AddValue("other", Shape{8}, F32, false)
+	g.AddNode("input", OpInput, nil, []ValueID{x}, nil)
+	g.AddNode("view", OpView, []ValueID{x}, []ValueID{v}, nil)
+	g.AddNode("other", OpConst, nil, []ValueID{other}, nil)
+	p, err := BuildPlan(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.LastUse[x] != len(g.Nodes) || p.Steps[0].OutputBufs[0] == p.Steps[2].OutputBufs[0] {
+		t.Fatal("returned view overwritten")
+	}
+}
