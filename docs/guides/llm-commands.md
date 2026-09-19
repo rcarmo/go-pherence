@@ -156,3 +156,16 @@ curl -s http://localhost:8080/health | jq '.turboquant, .reap'
 ```
 
 The health payload reports native go-pherence interpretation of those policy names: key/value bits, KV shape, full/estimated/saved bytes, ratio, KV layer count, protected-layer count, and REAP summary/source when the loaded model has REAP enabled.
+
+## HTTP admission limits
+
+The LLM server now admits one generation request at a time, with no waiting
+queue: busy requests receive HTTP 429 before body parsing/tokenisation. Requests
+must contain one JSON value under 1MiB; trailing data is rejected. The HTTP limits
+are 4,096 generated tokens and 8,192 prepared prompt tokens, separate from CLI
+limits and any lower model context limit. Zero max_tokens selects 4,096.
+
+Cancellation is checked before session creation/prefill and before/after legacy
+monolithic generation. It cannot preempt a running native call. Header/body/idle
+timeouts do not substitute for output write deadlines, authentication or model
+resource accounting. These remaining limits are tracked in the [audit](../validation/repository-safety-third-pass-20260919.md).

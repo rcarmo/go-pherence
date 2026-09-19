@@ -1,5 +1,7 @@
 ## Repository audit: follow-on findings
 
+Next slice: [third-pass findings](repository-safety-third-pass-20260919.md) updates prompt-cache accounting, graph-view lifetime and LLM admission, and expands the shared-helper/native-backend review. Counts below are the follow-on snapshot.
+
 The first host sweep passed while its shared floating-point comparator silently
 accepted NaNs. The next source-review pass exposed that false positive, alongside
 request-admission, worker-teardown, mapped-file and graph-lifetime defects. These

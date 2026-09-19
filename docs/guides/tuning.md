@@ -61,3 +61,13 @@ Known unsupported placement and sampling keys in `llmserver` model presets retur
 - Backend placement is a coarse CPU/GPU layer count, not multi-GPU tensor splitting.
 - DiffusionGemma implements its own canvas denoising schedule and sampling API rather than llama.cpp diffusion algorithm IDs.
 - Speculative decoding controls configure proposal/verification, not token sampling.
+
+## Prompt-cache byte accounting
+
+Prompt-cache UsedBytes includes snapshot payload plus copied token/identity bytes
+and a fixed 256-byte entry allowance. Zero-payload entries therefore consume
+budget; oversized declared snapshots are rejected before cloning. This is a
+logical retained-byte budget, not measured RSS or a bound on transient cloning
+memory. Snapshot implementations must return independent immutable clones and
+report retained bytes honestly. Lookup cloning runs outside the cache mutex.
+See the [cache audit](../validation/repository-safety-third-pass-20260919.md).
