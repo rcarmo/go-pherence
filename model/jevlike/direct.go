@@ -24,10 +24,11 @@ type ChoiceCandidate struct {
 	Text string `json:"text"`
 }
 type DirectChoiceRequest struct {
-	Evidence    string            `json:"evidence"`
-	Question    string            `json:"question"`
-	Candidates  []ChoiceCandidate `json:"candidates"`
-	Temperature float64           `json:"temperature"`
+	CandidateContract string            `json:"candidate_contract,omitempty"`
+	Evidence          string            `json:"evidence"`
+	Question          string            `json:"question"`
+	Candidates        []ChoiceCandidate `json:"candidates"`
+	Temperature       float64           `json:"temperature"`
 }
 type DirectChoiceResult struct {
 	IDs               []string  `json:"ids"`

@@ -5,7 +5,8 @@ RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and
 an experimental compact GPU/direct-token path are implemented. Base and
 Instruction pass separate numerical fixtures; the [direct validation study](direct-study.md)
 reports quality, controls, calibration and timings without promoting either
-configuration. Frozen-head training has not yet been run.
+configuration. The [three-seed frozen-head learning check](frozen-head-study.md)
+also failed its expansion gate; its cache and resume mechanics passed.
 
 ## Data and model identity
 
@@ -113,8 +114,13 @@ weight shards were removed only after preserving its manifests, references and
 results; refetch it only through another sequential swap. The planned feature
 cache stays capped at 12 GiB.
 
-The order failures and measured 1.5--3.2-second prefill motivate the next
-frozen-head comparison. Exact-identity caching, resumable native training,
-three-seed comparisons, prefix isolation and fresh human-reviewed evaluation
-remain pending. Final-test data stays untouched; do not close issue #2 on this
-milestone.
+The [bounded frozen-head study](frozen-head-study.md) is complete: the three
+seeds average 17.78%, below random, and fail evidence-dependence requirements.
+Exact-identity caching, offline native training, real interruption/resume and
+fresh/cache logit equality pass, but that does not justify dataset expansion.
+F32 plus FP16 caches use only 160.2 MB.
+
+Human-reviewed new cases and transformer-prefix isolation remain open. A new
+learning recipe needs an explicit follow-up decision rather than tuning until
+this validation slice passes. Final-test data stays untouched; issue #2 is not
+complete.

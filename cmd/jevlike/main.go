@@ -46,6 +46,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "head-permutation":
+		return runHeadPermutation(args[1:], stdout, stderr)
+	case "head-online-bench":
+		return runHeadOnlineBench(args[1:], stdout, stderr)
 	case "feature-score":
 		return runFeatureScore(args[1:], stdout, stderr)
 	case "cache-compare":
@@ -101,6 +105,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w, "  cache-compare / cached-similarity: FP16 representation and cosine controls")
 	fmt.Fprintln(w, "  cached-train / cached-score: offline native head training and evaluation")
 	fmt.Fprintln(w, "  feature-score: fresh-text GPU features with an exact-contract trained head")
+	fmt.Fprintln(w, "  head-permutation / head-online-bench: equivariance and three online latency scenarios")
 	fmt.Fprintln(w, "  score        one-prefill GPU direct choice logits; pinned local assets only")
 	fmt.Fprintln(w, "  score-batch  independent JSONL decisions with one resident encoder")
 	fmt.Fprintln(w, "  direct-report  partition-aware quality/calibration report from scored JSONL")

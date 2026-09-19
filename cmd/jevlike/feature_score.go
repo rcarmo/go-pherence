@@ -51,7 +51,7 @@ func runFeatureScore(args []string, stdout, stderr io.Writer) error {
 	if e = json.Unmarshal(bytes, &r); e != nil {
 		return e
 	}
-	if _, e = jevlike.RenderChoiceContent(r); e != nil {
+	if e = jevlike.ValidateCandidateContract(r); e != nil {
 		return e
 	}
 	ex, e := featureRequestExample(directBatchInput{Request: r, GoldID: r.Candidates[0].ID})
@@ -94,5 +94,5 @@ func runFeatureScore(args []string, stdout, stderr io.Writer) error {
 		}
 	}
 	result.SelectedID = result.IDs[best]
-	return writeJSON(stdout, map[string]any{"model_id": id, "feature_contract": contract.ID(), "load_seconds": load, "fresh_decision_seconds": elapsed, "result": result, "cache_reads": 0, "gpu": encoder.Stats()})
+	return writeJSON(stdout, map[string]any{"model_id": id, "feature_contract": contract.ID(), "load_seconds": load, "fresh_decision_seconds": elapsed, "result": result, "cache_reads": 0, "candidate_contract": r.CandidateContract, "semantic_review_verified": false, "gpu": encoder.Stats()})
 }
