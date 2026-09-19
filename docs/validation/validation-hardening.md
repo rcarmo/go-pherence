@@ -1,5 +1,7 @@
 # Validation and hardening status
 
+The [follow-on audit](repository-safety-followon-20260919.md) adds mapped-copy/Close coordination, HTTP bounds, worker joins, finite numeric comparison and graph/CPU-fallback regressions. Raw mmap views still require owner lifetime, and K3 teardown is compile-only off-device.
+
 The [repository audit](repository-safety-audit-20260919.md) and [coverage matrix](repository-safety-audit-coverage-20260919.md) distinguish implemented guards from inspected source and unavailable hardware validation. These checks do not establish concurrent model/Close safety, capture-owner isolation or exhaustive malformed-input coverage.
 
 This page summarizes recent malformed-input and boundary-hardening work. Phase-level commands live in [validation-gates.md](validation-gates.md); detailed coverage tables live in [malformed-input-coverage.md](malformed-input-coverage.md), [kernel-coverage.md](../architecture/kernel-coverage.md), and [final-coverage-acceptance.md](../history/final-coverage-acceptance.md).

@@ -8,6 +8,11 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| HTTP decoding/admission | `internal/httpinput/json_test.go`, `cmd/diffusiongemmaserver/admission_test.go`, `cmd/llm/llmserver/body_test.go` | Single bounded JSON document, oversized/trailing body, busy rejection, work caps, prompt IDs and per-step cancellation; mock execution only. |
+| Worker lifecycle | `backends/spacemit/ime2/worker_pool_test.go`, AICPU platform lifecycle test | Concurrent submissions, drain/join, idempotent close, post-close no-op; IME host protocol tests, AICPU compile-only pending K3. |
+| Graph lifetime | `runtime/graph/safety_test.go` | Negative IDs, shape/workspace overflow, redefinition and duplicate-input double-release causing live-output aliasing. |
+| Finite parity checks | `internal/floatcmp/floatcmp_test.go` | NaN false-positive rejection, same-sign infinities and finite nonnegative tolerances. |
+| Legacy CPU attention/convolution | `gpu/attention_safety_test.go`, `gpu/conv1d_test.go`, `tensor/conv1d_safety_test.go` | Output overwrite, scalar oracle, tails, checked geometry, zero stride, ragged convolution and one score-row allocation. |
 | WAV parser | `loader/audio/wav_invalid_test.go` | Zero channel/width panic prevention, RIFF/chunk bounds, truncation, sample alignment and odd ancillary padding. Whole-audio RAM limits remain caller-owned. |
 | Safetensors lifetime/resolution | `loader/safetensors/audit_safety_test.go` | Parallel eager-prefetch sink, shard traversal/symlink containment, symlinked workspace regression, broken-index fail-closed and explicit-index resolution. Immutable files and exclusive Close remain required. |
 | GGUF rejected-header ownership | `loader/gguf/open_lifetime_linux_test.go` | Bad magic/version/count close descriptors on semantic errors, tested without finalizer masking. |

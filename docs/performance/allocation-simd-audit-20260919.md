@@ -1,5 +1,7 @@
 ## CPU allocation and SIMD profiling
 
+Follow-on: the legacy `gpu/` CPU attention helper now reuses checked SIMD GQA with one score row per call (128 allocations/32,768 bytes to one/256 in a synthetic 32-query workload). Scalar-oracle/repeated-call tests also caught stale output accumulation. See [the follow-on audit](../validation/repository-safety-followon-20260919.md); this is CPU helper work, not GPU execution.
+
 Top-p sampling allocated six MiB per 128K-vocabulary draw, mostly to sort a
 permutation and copy candidate/weight arrays. Top-k allocated 46 objects for 40
 survivors. Those are avoidable costs before any new assembly is needed.
