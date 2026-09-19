@@ -260,6 +260,9 @@ func (c *FeatureCache) feature(text string, limit int, pooled bool) ([][]float32
 		}
 		rows = [][]float32{vector}
 	}
+	if err = validateFeatureRows(rows, c.Contract.Width); err != nil {
+		return nil, err
+	}
 	payload, err := featurePayload(rows, c.Contract.DType)
 	if err != nil {
 		return nil, err
@@ -272,12 +275,16 @@ func (c *FeatureCache) feature(text string, limit int, pooled bool) ([][]float32
 	if c.bytes+int64(len(data)) > c.budget {
 		return nil, fmt.Errorf("feature cache budget exceeded")
 	}
+	// Reject invalid rounded output before immutable publication.
+	rounded, err := c.decodeFeature(data, key, text, limit, pooled)
+	if err != nil {
+		return nil, err
+	}
 	if err = featurePublish(path, data); err != nil {
 		return nil, err
 	}
 	c.bytes += int64(len(data))
-	// Use exactly the representation future offline epochs will read.
-	return c.decodeFeature(data, key, text, limit, pooled)
+	return rounded, nil
 }
 func validateFeatureRows(rows [][]float32, width int) error {
 	if len(rows) < 1 || len(rows) > 512 {

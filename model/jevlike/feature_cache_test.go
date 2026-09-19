@@ -255,3 +255,19 @@ func TestFreshFeatureEncoderMatchesCached(t *testing.T) {
 		cache.Close()
 	}
 }
+
+func TestInvalidFeatureNeverPublished(t *testing.T) {
+	dir := t.TempDir()
+	c, e := OpenFeatureCache(dir, cacheTestContract("f16"), 1<<20, cacheTokenizer, func(ids []int) ([][]float32, error) { return [][]float32{{70000, 0, 0, 0}}, nil })
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer c.Close()
+	if _, e = c.Encode("a", 8); e == nil {
+		t.Fatal("overflow accepted")
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "*.jvf"))
+	if len(files) != 0 {
+		t.Fatal("invalid immutable entry published")
+	}
+}
