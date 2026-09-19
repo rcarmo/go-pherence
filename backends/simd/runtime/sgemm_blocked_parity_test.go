@@ -20,6 +20,17 @@ func TestSgemmNTBlockedFMAFourColumnAndTails(t *testing.T) {
 			t.Fatalf("serial rejected shape %+v", s)
 		}
 		SgemmNTBlockedFMA(s.m, s.n, s.k, 0.75, unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), unsafe.Pointer(&got[0]), s.k, s.k, s.n)
+		if !HasSgemmAsm {
+			// This low-level assembly wrapper deliberately rejects unavailable ISA;
+			// the checked SgemmNTTo above is the scalar-capable public alternative.
+			initial := randFloats(s.m*s.n, int64(300+s.k))
+			for i := range got {
+				if got[i] != initial[i] {
+					t.Fatalf("unavailable assembly changed C[%d]", i)
+				}
+			}
+			continue
+		}
 		for i := range want {
 			if diff := math.Abs(float64(got[i] - want[i])); diff > 3e-5 {
 				t.Fatalf("shape=%+v index=%d got=%g want=%g diff=%g", s, i, got[i], want[i], diff)
