@@ -120,7 +120,14 @@ Exact-identity caching, offline native training, real interruption/resume and
 fresh/cache logit equality pass, but that does not justify dataset expansion.
 F32 plus FP16 caches use only 160.2 MB.
 
-Human-reviewed new cases and transformer-prefix isolation remain open. A new
-learning recipe needs an explicit follow-up decision rather than tuning until
-this validation slice passes. Final-test data stays untouched; issue #2 is not
-complete.
+The [native prefix and label-mass checks](prefix-study.md) now pass their bounded
+execution gates. True K/V reuse preserves independent logits, including sibling
+isolation and interrupted reuse; the offline diagnostic demonstrates that high
+candidate-conditional confidence can coexist with low total allowed-label mass.
+These checks do not remove the recorded quality failures.
+
+Independently human-reviewed new cases remain open. A 24-case machine-authored
+review packet is explicitly unreviewed and unscored, not a substitute for the
+broader fresh-evaluation target. A new learning recipe needs an explicit decision
+rather than tuning until this validation slice passes. Final-test data stays
+untouched; issue #2 is not complete.

@@ -170,16 +170,16 @@ Raw checkpoints, datasets and feature records stay outside Git; the published
 report includes their hashes.
 
 The whole issue is **not complete**. The conditional expansion gate stopped this
-recipe. Independently human-reviewed new cases are still missing, and exact
-transformer-prefix reuse has not been implemented or validated. Current direct
-prefills are independent and serialised; the earlier concurrency check is not a
-prefix-reuse test. The compact encoder retains no per-layer KV prefix state, so
-adding it now would be a new optimisation experiment on an unpromoted scorer,
-not an honest way to check off the remaining quality work.
+recipe. Independently human-reviewed new cases are still missing. At the time of
+this head study, direct prefills were independent and serialised and the compact
+encoder retained no per-layer KV prefix state; these measurements did not test
+transformer-prefix reuse.
 
-Further work needs a reviewed failure set and an explicit decision about a new
-learning recipe or prefix-optimisation experiment. There is no final-test result,
-no LoRA justification and no desktop-integration claim.
+The later [native prefix study](prefix-study.md), explicitly included in issue #2
+by the additional acceptance comment, implements and validates that execution
+path without changing this head recipe or its quality results. There is still
+no final-test result, LoRA justification or desktop-integration claim. Further
+learning work needs a reviewed failure set and an explicit new recipe.
 
 [policy]: frozen-head-policy.md
 [results]: frozen-head-results.json

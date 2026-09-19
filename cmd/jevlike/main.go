@@ -46,6 +46,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "prefix-bench":
+		return runPrefixBench(args[1:], stdout, stderr)
 	case "head-permutation":
 		return runHeadPermutation(args[1:], stdout, stderr)
 	case "head-online-bench":
@@ -101,6 +103,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: jevlike <subcommand> [flags]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Subcommands:")
+	fmt.Fprintln(w, "  prefix-bench  exact KV-prefix serial/packed numerical and latency study")
 	fmt.Fprintln(w, "  cache-extract  bounded immutable frozen-feature extraction (or -plan)")
 	fmt.Fprintln(w, "  cache-compare / cached-similarity: FP16 representation and cosine controls")
 	fmt.Fprintln(w, "  cached-train / cached-score: offline native head training and evaluation")

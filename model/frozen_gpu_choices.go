@@ -59,29 +59,8 @@ func (e *FrozenGPUEncoder) prefillSelectedLogits(ids, candidates []int, timing *
 		}
 		seen[id] = true
 	}
-	name := "lm_head.weight"
-	if e.cfg.TieEmbeddings {
-		name = "model.embed_tokens.weight"
-	}
-	raw, dtype, shape, err := e.source.GetRaw(name)
+	raw, bias, err := e.selectedHeadLocked(candidates)
 	if err != nil {
-		return nil, err
-	}
-	if dtype != "BF16" || len(shape) != 2 || shape[0] != e.cfg.VocabSize || shape[1] != e.cfg.HiddenSize || shape[0] > int(^uint(0)>>1)/2/shape[1] || len(raw) != shape[0]*shape[1]*2 {
-		return nil, fmt.Errorf("invalid selected head tensor %s", name)
-	}
-	// Bias is optional, but malformed existing tensors must not be ignored.
-	var bias []float32
-	if _, _, _, err := e.source.GetRaw("lm_head.bias"); err == nil {
-		var shape []int
-		bias, shape, err = e.source.GetFloat32("lm_head.bias")
-		if err != nil {
-			return nil, err
-		}
-		if len(shape) != 1 || shape[0] != e.cfg.VocabSize || len(bias) != e.cfg.VocabSize {
-			return nil, fmt.Errorf("invalid output bias")
-		}
-	} else if !strings.HasSuffix(err.Error(), "not found") && !strings.HasSuffix(err.Error(), "not in weight map") {
 		return nil, err
 	}
 	rows, err := e.encodeTokenHiddenStatesLocked(ids, false, timing)
@@ -94,6 +73,45 @@ func (e *FrozenGPUEncoder) prefillSelectedLogits(ids, candidates []int, timing *
 		timing.ProjectionSeconds = time.Since(started).Seconds()
 	}
 	return logits, err
+}
+
+func (e *FrozenGPUEncoder) selectedHeadLocked(candidates []int) ([]byte, []float32, error) {
+	if len(candidates) < 2 || len(candidates) > 32 {
+		return nil, nil, fmt.Errorf("candidate count must be 2..32")
+	}
+	seen := map[int]bool{}
+	for _, id := range candidates {
+		if id < 0 || id >= e.cfg.VocabSize || seen[id] {
+			return nil, nil, fmt.Errorf("invalid candidate token")
+		}
+		seen[id] = true
+	}
+	name := "lm_head.weight"
+	if e.cfg.TieEmbeddings {
+		name = "model.embed_tokens.weight"
+	}
+	raw, dtype, shape, err := e.source.GetRaw(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	if dtype != "BF16" || len(shape) != 2 || shape[0] != e.cfg.VocabSize || shape[1] != e.cfg.HiddenSize || shape[0] > int(^uint(0)>>1)/2/shape[1] || len(raw) != shape[0]*shape[1]*2 {
+		return nil, nil, fmt.Errorf("invalid selected head tensor %s", name)
+	}
+	// Bias is optional, but malformed existing tensors must not be ignored.
+	var bias []float32
+	if _, _, _, err := e.source.GetRaw("lm_head.bias"); err == nil {
+		var shape []int
+		bias, shape, err = e.source.GetFloat32("lm_head.bias")
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(shape) != 1 || shape[0] != e.cfg.VocabSize || len(bias) != e.cfg.VocabSize {
+			return nil, nil, fmt.Errorf("invalid output bias")
+		}
+	} else if !strings.HasSuffix(err.Error(), "not found") && !strings.HasSuffix(err.Error(), "not in weight map") {
+		return nil, nil, err
+	}
+	return raw, bias, nil
 }
 
 func selectedBF16Logits(hidden []float32, weights []byte, vocab int, ids []int, bias []float32) ([]float32, error) {

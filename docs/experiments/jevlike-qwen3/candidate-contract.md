@@ -92,8 +92,9 @@ latency under load.
 All three scenarios produced identical logits. The head still selected the red
 drawer, so complete candidate statements and lower latency did not establish
 quality on this probe. It is machine-authored, not independently reviewed.
-Feature reuse here is **not transformer-prefix/KV reuse**; those branch-isolation
-checks remain a separate pending optimisation experiment.
+Feature reuse here is **not transformer-prefix/KV reuse**. The later
+[native prefix study](prefix-study.md) covers that distinct execution path and
+branch-isolation checks within issue #2.
 
 [Head experiment and reproduction][head] | [Machine-readable observations][data]
 

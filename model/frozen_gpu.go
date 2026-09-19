@@ -102,11 +102,16 @@ type FrozenGPUEncoder struct {
 	mu     sync.Mutex
 	closed bool
 
-	dir       string
-	cfg       LlamaConfig
-	maxTokens int
-	source    weights.Source
-	stats     FrozenGPUStats
+	dir               string
+	cfg               LlamaConfig
+	maxTokens         int
+	source            weights.Source
+	stats             FrozenGPUStats
+	prefix            *FrozenPrefix
+	prefixGateOnce    sync.Once
+	prefixGate        chan struct{}
+	prefixAdmissionMu sync.Mutex
+	prefixQueued      prefixWork
 
 	embedRaw []byte
 	embedRow []float32
@@ -247,8 +252,15 @@ func (e *FrozenGPUEncoder) encodeTokenHiddenStatesLocked(ids []int, all bool, ti
 			return nil, fmt.Errorf("layer %d: %w", layerIdx, err)
 		}
 	}
-	if err := e.normRows(e.normed, e.hidden, e.finalNorm, batch, h); err != nil {
-		return nil, err
+	// Extraction needs all rows; terminal choice scoring needs only the last.
+	if all {
+		if err := e.normRows(e.normed, e.hidden, e.finalNorm, batch, h); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := e.normRows(e.normed.Slice((batch-1)*h, h), e.hidden.Slice((batch-1)*h, h), e.finalNorm, 1, h); err != nil {
+			return nil, err
+		}
 	}
 	if err := nvidia.SyncErr(); err != nil {
 		return nil, err
@@ -300,6 +312,7 @@ func (e *FrozenGPUEncoder) Close() {
 		return
 	}
 	e.closed = true
+	e.closePrefixLocked()
 	// Buffers may still be referenced by queued kernels on an error path.
 	nvidia.SyncAll()
 	if e.source != nil {
@@ -894,6 +907,10 @@ func (e *FrozenGPUEncoder) normRows(out, input *nvidia.DevBuf, weight *nvidia.Bu
 }
 
 func (e *FrozenGPUEncoder) forwardLayer(layerIdx, batch int) error {
+	return e.forwardLayerAttention(layerIdx, batch, nil)
+}
+
+func (e *FrozenGPUEncoder) forwardLayerAttention(layerIdx, batch int, attention func() error) error {
 	l := &e.layers[layerIdx]
 	h, q, k, inter := e.cfg.HiddenSize, l.qDim, l.kvDim, e.cfg.Intermediate
 	if err := frozenGPUCopy(e.residual, e.hidden, batch*h); err != nil {
@@ -917,13 +934,11 @@ func (e *FrozenGPUEncoder) forwardLayer(layerIdx, batch int) error {
 	if err := e.normRows(e.kNormed, e.k, l.kNorm, batch*e.cfg.NumKVHeads, l.headDim); err != nil {
 		return err
 	}
-	for pos := 0; pos < batch; pos++ {
-		if !nvidia.DevRoPE(e.qNormed.Slice(pos*q, q), e.ropeTable, pos, e.cfg.NumHeads, l.headDim) || !nvidia.DevRoPE(e.kNormed.Slice(pos*k, k), e.ropeTable, pos, e.cfg.NumKVHeads, l.headDim) {
-			return fmt.Errorf("GPU RoPE rejected")
-		}
-		if !nvidia.DevAttentionOK(e.attnOut.Slice(pos*q, q), e.qNormed.Slice(pos*q, q), e.kNormed.Slice(0, (pos+1)*k), e.v.Slice(0, (pos+1)*k), pos+1, e.cfg.NumHeads, e.cfg.NumKVHeads, l.headDim, attentionScale(e.cfg, l.headDim)) {
-			return fmt.Errorf("GPU attention rejected")
-		}
+	if attention == nil {
+		attention = func() error { return e.independentFrozenAttention(layerIdx, batch) }
+	}
+	if err := attention(); err != nil {
+		return err
 	}
 	if err := e.projectBF16(e.oOut, e.attnOut, l.oProj, batch, h, q); err != nil {
 		return err
@@ -957,6 +972,20 @@ func (e *FrozenGPUEncoder) forwardLayer(layerIdx, batch int) error {
 	nvidia.DevAdd(out, e.residual.Slice(0, batch*h), e.down.Slice(0, batch*h))
 	if !out.OnGPU() {
 		return fmt.Errorf("GPU residual unavailable")
+	}
+	return nil
+}
+
+func (e *FrozenGPUEncoder) independentFrozenAttention(layerIdx, batch int) error {
+	l := &e.layers[layerIdx]
+	q, k := l.qDim, l.kvDim
+	for pos := 0; pos < batch; pos++ {
+		if !nvidia.DevRoPE(e.qNormed.Slice(pos*q, q), e.ropeTable, pos, e.cfg.NumHeads, l.headDim) || !nvidia.DevRoPE(e.kNormed.Slice(pos*k, k), e.ropeTable, pos, e.cfg.NumKVHeads, l.headDim) {
+			return fmt.Errorf("GPU RoPE rejected")
+		}
+		if !nvidia.DevAttentionOK(e.attnOut.Slice(pos*q, q), e.qNormed.Slice(pos*q, q), e.kNormed.Slice(0, (pos+1)*k), e.v.Slice(0, (pos+1)*k), pos+1, e.cfg.NumHeads, e.cfg.NumKVHeads, l.headDim, attentionScale(e.cfg, l.headDim)) {
+			return fmt.Errorf("GPU attention rejected")
+		}
 	}
 	return nil
 }
