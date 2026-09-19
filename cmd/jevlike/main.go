@@ -46,6 +46,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "final-eval":
+		return runFinalEval(args[1:], stdout, stderr)
 	case "prefix-bench":
 		return runPrefixBench(args[1:], stdout, stderr)
 	case "head-permutation":
@@ -103,6 +105,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: jevlike <subcommand> [flags]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Subcommands:")
+	fmt.Fprintln(w, "  final-eval   explicitly frozen held-out direct/head evaluation; resumable immutable outcomes")
 	fmt.Fprintln(w, "  prefix-bench  exact KV-prefix serial/packed numerical and latency study")
 	fmt.Fprintln(w, "  cache-extract  bounded immutable frozen-feature extraction (or -plan)")
 	fmt.Fprintln(w, "  cache-compare / cached-similarity: FP16 representation and cosine controls")
