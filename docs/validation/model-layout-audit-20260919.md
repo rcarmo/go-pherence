@@ -23,7 +23,9 @@ no Git, Bun, Python, model weights or hardware.
 `make model-layout-check` adds the mocked Python/default/alias tests.
 `make docs-check` includes it, and `make host-check` runs it before build/vet/test.
 The GitHub layout workflow runs `make docs-check` on pushes and pull requests
-without weights. Its hosted result is separate from the local checks below.
+without weights. The [first hosted run](https://github.com/rcarmo/go-pherence/actions/runs/35436280379)
+passed on a clean Ubuntu runner without checkpoints, in addition to the local
+checks below.
 
 Checkpoint payloads are not traversed. External stores, `cmd/models/`,
 `docs/models/`, upstream Python paths, metadata keys and historical numerical
