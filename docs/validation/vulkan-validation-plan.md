@@ -12,7 +12,7 @@ The Vulkan backend currently has loader/buffer scaffolding, embedded shader asse
 2. **SPIR-V pipeline cache wiring**
    - `initVkKernels` populates optional kernels from embedded SPIR-V.
    - Keep every pipeline optional: a failed shader/pipeline disables that operation without disabling the entire backend.
-   - Preserve validating wrappers, which reject malformed dimensions/buffers before dispatch.
+   - Preserve validating wrappers, which reject malformed dimensions/buffers and uint32 shader-index overflow before optional pipeline initialisation or dispatch.
 
 3. **Wrapper parity tests**
    - Use availability-gated tests so normal CPU-only CI skips cleanly when Vulkan is unavailable.

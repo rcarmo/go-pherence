@@ -3,6 +3,8 @@
 Companion to [the audit report](repository-safety-audit-20260919.md).
 
 This table records all 161 host-listed packages, not a safety clearance.
+Selected sections in 26 packages were inspected; **135 packages have
+inventory/test coverage only** and need source review.
 "Boundary inspection" means selected functions/sections in the listed files were
 read for ownership, bounds or lifecycle behaviour; it does **not** mean the whole
 file or package was reviewed. Blank source coverage is explicit outstanding work.

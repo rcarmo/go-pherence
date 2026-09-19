@@ -45,7 +45,7 @@ Public wrapper functions now exist for:
 - `VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error`
 - `VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error` — one workgroup per head×time pair; integral GQA head ratios only
 
-The wrappers validate dimensions, buffer capacities, and product overflow before dispatch. `initVkKernels` now attempts to populate optional pipeline cache entries from embedded SPIR-V; a failed shader/pipeline disables only that operation and surfaces a not-available error. `backends/vulkan/vulkan_wrapper_test.go` covers invalid-input rejection and unavailable-pipeline errors without requiring a Vulkan device.
+The wrappers validate dimensions, buffer capacities and uint32 shader-index/product bounds before optional pipeline initialisation. Dispatch rounding avoids uint32 overflow; RoPE requires separate data/frequency buffers. `initVkKernels` now attempts to populate optional pipeline cache entries from embedded SPIR-V; a failed shader/pipeline disables only that operation and surfaces a not-available error. `backends/vulkan/vulkan_wrapper_test.go` covers invalid-input rejection and unavailable-pipeline errors without requiring a Vulkan device.
 
 Availability-gated CPU-vs-Vulkan parity tests now cover `VkVecAddF32`, `VkRMSNormF32`, `VkRMSNormNoScaleF32`, `VkGemvF32`, `VkSiLUMulF32`, `VkGELUTanhMulF32`, `VkRoPEPartialF32`, and `VkAttentionScoresF32`.
 

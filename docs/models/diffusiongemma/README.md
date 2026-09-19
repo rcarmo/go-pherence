@@ -2,6 +2,15 @@
 
 Native text execution is implemented for Google's DiffusionGemma block-diffusion model, including a GGUF Q4_K_M path. Overall `runtime_ready` and `reference_complete` remain false: broader reference fixtures and full image-sequence vision validation are still missing. Those flags describe the complete model boundary, not the absence of a text runtime.
 
+The RTX 3060 quantisation/offload assessment is tracked separately in
+[issue #14](https://github.com/rcarmo/go-pherence/issues/14). CPU/GPU offload is a
+requirement, not just a GPU-only fit test. Q4_K_M is a provisional comparison
+baseline against FP8/Q3_K_M/Q2_K, not a selected winner. The later
+[repository audit](../../validation/repository-safety-audit-20260919.md) fixed
+shared loader boundaries and passed local CPU integration tests; no new weights
+were downloaded or recovered-GPU parity measured. The HTTP generator's body,
+queue and cancellation limits remain review items, not production safety claims.
+
 ## Run text
 
 The runner requires `-cpu-dispatcher` or `-gpu-dispatcher` for inference. Without either it uses a scaffold with no attached denoiser. Start by inspecting the checkpoint:

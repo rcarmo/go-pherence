@@ -1,11 +1,17 @@
 # Malformed-input coverage tracker
 
+Current host regressions and unreviewed packages are listed in the [repository audit](repository-safety-audit-20260919.md). This table indexes tested contracts, not exhaustive parser fuzzing or hardware clearance.
+
 This tracker records exported backend/model wrapper malformed-input coverage added during the backend coverage work. It is not a replacement for package-local tests; it is an index for Phase 10 acceptance.
 
 ## Covered or staged for validation
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| WAV parser | `loader/audio/wav_invalid_test.go` | Zero channel/width panic prevention, RIFF/chunk bounds, truncation, sample alignment and odd ancillary padding. Whole-audio RAM limits remain caller-owned. |
+| Safetensors lifetime/resolution | `loader/safetensors/audit_safety_test.go` | Parallel eager-prefetch sink, shard traversal/symlink containment, symlinked workspace regression, broken-index fail-closed and explicit-index resolution. Immutable files and exclusive Close remain required. |
+| GGUF rejected-header ownership | `loader/gguf/open_lifetime_linux_test.go` | Bad magic/version/count close descriptors on semantic errors, tested without finalizer masking. |
+| Sampling | `runtime/sampling/allocation_test.go` | Huge K capacity bound, unchanged inputs, ties/nonfinite logits/draw thresholds against a separate oracle, allocation ceiling independent of K. |
 | SIMD RoPE | `backends/simd/kernels/rope_test.go`, `backends/simd/runtime/rope_test.go`, `rope_freqs_test.go` | Negative positions, empty/short freqs, zero heads/dims, odd head dims, head/tail preservation, frequency-table overflow/bad-theta guards, runtime wrapper smoke. |
 | SIMD dense/softmax/norm/attention | `backends/simd/runtime/gemv_test.go`, `sgemm_checked_test.go`, `softmax_test.go`, `layernorm_test.go`, `attention_test.go`, `import_boundary_test.go`; `tensor/tensor_test.go`; `model/bert/bert_test.go` | Dense GEMV/GEMM, SGEMM, and row-bias zero-dimension, short-buffer, leading-dimension, tail-preservation, product-overflow, stride-overflow, and tensor Linear checked-path tests; softmax and LayerNorm nil/non-finite/row-shape/last-axis/affine/overflow/aliasing guards plus tensor checked-path, unsafe-slice, and SIMD import-boundary validation; checked GQA attention caller-owned/custom-scale/default-scale short-buffer/head-group/overflow guards; BERT checked linear and MHA helper no-op behavior plus fast/regular MHA softmax parity and BLAS import-boundary coverage; non-SIMD packages are guarded against direct kernel imports and unsafe SGEMM calls; model-family/tensor code is guarded against `runtime/quant` compatibility imports. |
 | SIMD activations | `backends/simd/kernels/activation_test.go`, `backends/simd/runtime/activation_checked_test.go`; `tensor/tensor_test.go` | Short inputs preserve destination tails; checked SiLU/GELU entrypoints reject malformed inputs; tensor GELU zero-sized path covered; scalar golden tolerance names are explicit. |
@@ -17,7 +23,7 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 | Shared model RoPE | `model/rope_test.go` | RoPE frequency allocation overflow/bad dims/bad theta fallback. |
 | Shared model/BERT/tensor/loader/KV/ioctl helpers | `model/checked_test.go`, `model/speculative_state_test.go`, `model/bert/bert_test.go`, `tensor/tensor_test.go`, `loader/safetensors/safetensors_test.go`, `runtime/kv/cache_test.go`, `backends/nvidia/ioctl/helpers_test.go` | Checked product/multiplication/addition/shape helpers reject negative and overflowing dimensions/offsets before allocation/slicing/file-range guards; speculative CPU decode rejects prepared+maxTokens overflow before KV allocation; KV compressed-entry and compressed bytes-per-head guards reject invalid dimensions. |
 | MoE loaders/forward | `model/moe_test.go`, `model/moe_gpu_test.go` | Switch-MLX dtype handling, malformed MoE inputs, incomplete expert weight handling, GPU active-expert clamping, and expert-pool size overflow rejection before native uploads. |
-| Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go`, `vulkan_kernel_create_test.go`, `vulkan_buf_guard_test.go`, `vulkan_spirv_test.go` | Wrapper-level dimension/buffer rejection, kernel creation guards, buffer transfer guards, SPIR-V loader input validation, and pending-pipeline errors without requiring a Vulkan device. |
+| Vulkan wrappers | `backends/vulkan/vulkan_wrapper_test.go`, `vulkan_kernel_create_test.go`, `vulkan_buf_guard_test.go`, `vulkan_spirv_test.go` | Wrapper-level dimension/buffer rejection before initialisation, uint32 shader-index/product bounds, overflow-safe dispatch rounding, kernel creation guards, buffer transfer guards, SPIR-V loader input validation, and pending-pipeline errors without requiring a Vulkan device. |
 
 ## Remaining Phase 10 gaps
 

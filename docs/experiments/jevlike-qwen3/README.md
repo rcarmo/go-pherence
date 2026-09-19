@@ -1,5 +1,14 @@
 # Frozen Qwen3 choice-scorer experiment
 
+Current final-evaluation status: **676/1,440 immutable four-arm records**, blocked
+at original 677 after repeated Xid79/Xid154 bus loss. The user explicitly accepted
+experimental closure with broader human-reviewed coverage deferred, then froze
+the policy and permitted held-out evaluation. No partial accuracy was inspected,
+no completed row replayed and no new training/calibration selected. The GPU is
+unavailable; resume requires separately authorised recovery and synthetic safety
+checks. See [current status](status-report-20260919.md) and the
+[repository audit](../../validation/repository-safety-audit-20260919.md).
+
 Issue [#2](https://github.com/rcarmo/go-pherence/issues/2) is in progress. The local
 RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and
 an experimental compact GPU/direct-token path are implemented. Base and
@@ -114,8 +123,7 @@ is a final-test score or a deployment recommendation.
 
 The instruction checkpoint now occupies the model budget. Base's reproducible
 weight shards were removed only after preserving its manifests, references and
-results; refetch it only through another sequential swap. The planned feature
-cache stays capped at 12 GiB.
+results; refetch it only through another sequential swap. The feature cache stays capped at 12 GiB.
 
 The [bounded frozen-head study](frozen-head-study.md) is complete: the three
 seeds average 17.78%, below random, and fail evidence-dependence requirements.
@@ -129,8 +137,9 @@ isolation and interrupted reuse; the offline diagnostic demonstrates that high
 candidate-conditional confidence can coexist with low total allowed-label mass.
 These checks do not remove the recorded quality failures.
 
-Independently human-reviewed new cases remain open. A 24-case machine-authored
-review packet is explicitly unreviewed and unscored, not a substitute for the
-broader fresh-evaluation target. A new learning recipe needs an explicit decision
-rather than tuning until this validation slice passes. Final-test data stays
-untouched; issue #2 is not complete.
+Independently human-reviewed new cases were explicitly deferred for this closure,
+not counted as completed coverage. The 24-case machine-authored packet remains
+unreviewed/unscored. The frozen final run has started but cannot be reported until
+all 1,440 normal originals have complete records. Only missing rows may resume;
+no new recipe, prompts, calibration, seeds or CPU scoring substitution are allowed.
+Issue #2 remains open as an unfinished experiment, not a production promotion.

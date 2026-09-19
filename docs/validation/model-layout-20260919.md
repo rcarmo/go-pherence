@@ -1,5 +1,7 @@
 # Source and checkpoint layout validation, 2026-09-19
 
+Historical validation snapshot. Preserve the recorded results below; later fixes and current limitations are in the [repository safety audit](repository-safety-audit-20260919.md). Earlier failed host checks were subsequently corrected. Any GPU success here predates the later bus-loss incidents and is not validation of the current candidate.
+
 All model source now lives under `model/`. BERT, Whisper, speaker (including
 Community-1) and OmniVoice moved from `models/<family>` to `model/<family>`;
 344 tracked files moved without changing the native kernels. Downstream imports

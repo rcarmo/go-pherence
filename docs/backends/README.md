@@ -1,5 +1,7 @@
 # Backends
 
+The [safety audit](../validation/repository-safety-audit-20260919.md) records current driver/loader fixes and remaining lifecycle limits; [CPU profiles](../performance/allocation-simd-audit-20260919.md) separate measured allocation improvements from proposed SIMD work. Hardware availability and a passing host build are different gates.
+
 Backend support depends on the operation, model and host. Start with [selection and fallback](backend-selection.md). K3/SpacemiT execution requires its target hardware; portable packing tests and cross-builds do not validate IME instructions.
 
 * [ARM CPU ISA feasibility for Gemma inference](arm-cpu-isa-feasibility.md)

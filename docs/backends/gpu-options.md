@@ -1,10 +1,10 @@
 # GPU Compute Options
 
-go-pherence currently has a production NVIDIA backend plus Vulkan backend scaffolding. NVIDIA/Vulkan use `purego` dlopen (no CGo):
+go-pherence has an integrated NVIDIA backend plus opt-in Vulkan primitive dispatch. NVIDIA/Vulkan use `purego` dlopen (no CGo):
 
 ## NVIDIA PTX (NVIDIA)
 
-Primary GPU backend. 29 hand-written PTX kernels. Source strings are owned by `backends/nvidia/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the `backends/nvidia/runtime` package. Set `GO_PHERENCE_DISABLE_NVIDIA=1` to force CPU/non-NVIDIA behavior in tests or diagnostics:
+Primary GPU backend. Hand-written PTX entry points include the families below; this table is not a complete kernel count. Source strings are owned by `backends/nvidia/ptx`; runtime loading, launch helpers, `DevBuf`, and GPU-resident resources remain in the `backends/nvidia/runtime` package. Set `GO_PHERENCE_DISABLE_NVIDIA=1` to force CPU/non-NVIDIA behavior in tests or diagnostics:
 
 | Category | Kernels | Notes |
 |---|---|---|
@@ -81,7 +81,7 @@ For that frozen Gemma4 performance-gap programme, further NVIDIA optimisation is
 
 ```
 if NVIDIA GPU available and enabled:
-    → NVIDIA PTX (fastest, 29 kernels)
+    -> NVIDIA PTX for supported model paths
 elif an explicit Vulkan wrapper is used and a non-software Vulkan device is available:
     → backends/vulkan SPIR-V for covered primitives
 else:
@@ -89,7 +89,7 @@ else:
     → Go scalar (universal fallback)
 ```
 
-The current production LLM model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan wrappers are usable for the covered primitive tests and explicit dispatch calls, but model-level Vulkan placement is still intentionally opt-in/experimental. Ideogram 4 is a separate image pipeline: its default path remains CPU/SIMD fp8/DiT/VAE, with opt-in FP8 linear streaming/lazy residency and batched projection offload via `GO_PHERENCE_IDEOGRAM4_GPU_FP8=1` and `GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE=1`, optional temporary FP8→F32 dequant plus tiled SGEMM for batched no-bias projections via `GO_PHERENCE_NVIDIA_FP8_SGEMM=1` / `ideogram4gen -gpu-fp8-sgemm`, fused CFG/scheduler update via `GO_PHERENCE_IDEOGRAM4_GPU_CFG=1`, normalization/adaLN kernels via `GO_PHERENCE_IDEOGRAM4_GPU_NORM=1`, MRoPE rotation via `GO_PHERENCE_IDEOGRAM4_GPU_MROPE=1`, full DiT attention via `GO_PHERENCE_IDEOGRAM4_GPU_ATTN=1`, and MLP/final vector ops via `GO_PHERENCE_IDEOGRAM4_GPU_MLP=1`; full activation residency across the entire Ideogram graph is still in progress. See [backend-selection.md](backend-selection.md) for detailed gates, fallback rules, and wrapper coverage.
+The integrated LLM model path chooses NVIDIA when requested/available, otherwise CPU SIMD/scalar. Vulkan wrappers are usable for the covered primitive tests and explicit dispatch calls, but model-level Vulkan placement is still intentionally opt-in/experimental. Ideogram 4 is a separate image pipeline: its default path remains CPU/SIMD fp8/DiT/VAE, with opt-in FP8 linear streaming/lazy residency and batched projection offload via `GO_PHERENCE_IDEOGRAM4_GPU_FP8=1` and `GO_PHERENCE_IDEOGRAM4_GPU_FP8_CACHE=1`, optional temporary FP8→F32 dequant plus tiled SGEMM for batched no-bias projections via `GO_PHERENCE_NVIDIA_FP8_SGEMM=1` / `ideogram4gen -gpu-fp8-sgemm`, fused CFG/scheduler update via `GO_PHERENCE_IDEOGRAM4_GPU_CFG=1`, normalization/adaLN kernels via `GO_PHERENCE_IDEOGRAM4_GPU_NORM=1`, MRoPE rotation via `GO_PHERENCE_IDEOGRAM4_GPU_MROPE=1`, full DiT attention via `GO_PHERENCE_IDEOGRAM4_GPU_ATTN=1`, and MLP/final vector ops via `GO_PHERENCE_IDEOGRAM4_GPU_MLP=1`; full activation residency across the entire Ideogram graph is still in progress. See [backend-selection.md](backend-selection.md) for detailed gates, fallback rules, and wrapper coverage.
 
 ### Debug and diagnostics gates
 
@@ -117,4 +117,9 @@ The `backends/nvidia/runtime` package is hardened at backend API boundaries:
 - BF16 NVIDIA wrappers validate nil/undersized buffers and length overflow before emulated/native dispatch; parity expectations for no-scale RMSNorm and BF16 LM-head are tracked in [bf16-parity.md](../validation/bf16-parity.md).
 - RoPE, partial RoPE, softmax-row, and GQA attention wrappers validate dimensions, sequence windows, tensor lengths, and product overflow before launch.
 
-These guards are part of the current backend baseline and should stay with the NVIDIA runtime package as it continues to be refined.
+Driver scopes, module/JIT ownership, stale-function reset and capture-copy checks
+are described in the [repository audit](../validation/repository-safety-audit-20260919.md).
+Global Shutdown requires all inference joined and encoders closed; per-call driver
+locks do not isolate multi-call capture or protect borrowed scratch. GPU sanitizer,
+long-run lifetime and candidate parity checks remain unavailable after RTX 3060
+bus loss. The fixes are not a demonstrated crash cure.

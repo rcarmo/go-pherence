@@ -11,7 +11,7 @@ Run commands from the repository root. Each command's `-h` output is the source 
 | Transcribe, translate or add speaker labels | `cmd/audio/whisper`, `cmd/audio/diarize-vtt`, `cmd/audio/moss-transcribe` | [Speech commands](speech-commands.md) |
 | Score variable choices and train a small scorer | `cmd/jevlike` | [Jevlike](../../model/jevlike/README.md) |
 | Extract entities, classes, relations or records | `cmd/gliner2` | [GLiNER 2.5](../../model/gliner2/README.md) |
-| Run block-diffusion text generation | `cmd/diffusiongemmarun`, `cmd/diffusiongemmaserve` | [DiffusionGemma](../models/diffusiongemma/README.md) |
+| Run block-diffusion text generation | `cmd/diffusiongemmarun`, `cmd/diffusiongemmaserver` | [DiffusionGemma](../models/diffusiongemma/README.md) |
 | Generate images | `cmd/image/ideogram4gen` | [Ideogram 4](../models/ideogram4-support.md) |
 
 ## Native scorers and extraction
@@ -33,6 +33,28 @@ go run ./cmd/jevlike eval -checkpoint /tmp/jevlike.json -data /tmp/jevlike-data/
 ```
 
 Reusable visual/action encoders are library APIs; the Jevlike CLI does not launch games, record sessions or orchestrate demonstrations.
+
+## Jevlike experiment commands
+
+These are distinct paths, not interchangeable benchmarks. Use the subcommand's
+`-help` before providing local files; merely reading help does not load weights.
+
+| Work | Commands | Reproduction/results |
+|---|---|---|
+| Prepare pinned grouped data | `prepare` | [Experiment preparation](../experiments/jevlike-qwen3/README.md) |
+| Direct selected-label scoring/calibration | `score`, `direct-bench`, `direct-report`, `direct-calibrate` | [Direct study](../experiments/jevlike-qwen3/direct-study.md) |
+| Feature materialisation/offline heads | `cache-extract`, `feature-score`, `cache-compare`, `cached-similarity`, `cached-train`, `cached-score`, `head-calibrate` | [Frozen-head study](../experiments/jevlike-qwen3/frozen-head-study.md) |
+| Fresh/reused candidates and permutations | `head-online-bench`, `head-permutation`, `score-batch` | [Head results](../experiments/jevlike-qwen3/frozen-head-study.md), [candidate contract](../experiments/jevlike-qwen3/candidate-contract.md) |
+| Actual transformer prefix reuse | `prefix-bench` (plus library prefix APIs) | [Prefix study](../experiments/jevlike-qwen3/prefix-study.md) |
+| Immutable held-out evaluation/reporting | `final-eval`, `final-report` | [Frozen policy](../experiments/jevlike-qwen3/final-evaluation-policy.md), [current status](../experiments/jevlike-qwen3/status-report-20260919.md) |
+
+`final-eval` requires the frozen manifests/hashes and retains existing outcomes;
+`final-report` verifies completeness and applies existing calibrations without
+refitting. The current run is blocked at 676/1,440. Do not rebuild/replace its
+pinned executable, replay completed rows, inspect partial accuracy or use CPU
+scoring to get around GPU failure. New runs, recovery and missing-row resumption
+need the existing approval and validation gates; the commands are not an
+invitation to retune the experiment.
 
 ## Checks and hardware
 

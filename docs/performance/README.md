@@ -1,5 +1,7 @@
 # Performance
 
+The [repository allocation/SIMD pass](allocation-simd-audit-20260919.md) combines an all-source lexical inventory with CPU profiles for sampling, tensor fusion, FFT/mel and tiny scoring. It records measured allocation reductions, noisy timing results, missing benchmarks and proposed work separately.
+
 [Performance](performance.md) separates retained measurements from historical snapshots. Compare identical checkpoints, prompts, thread counts and execution phases, after checking numerical parity. Microbenchmarks and compile-only checks do not establish end-to-end performance.
 
 * [Narrow CUDA Graph batch-1 benchmark](cuda-graph-benchmark.md)

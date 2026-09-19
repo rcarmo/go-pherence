@@ -2,6 +2,15 @@
 
 This document defines the common, intentionally small tuning surface for go-pherence. It is not a promise of command-line compatibility with `llama.cpp`: a similarly named control is accepted only when go-pherence can give it a documented meaning.
 
+## Measure before changing dispatch
+
+Use the [allocation/SIMD profiling workflow](../performance/allocation-simd-audit-20260919.md)
+for synthetic `pprof` CPU/heap capture and the all-source lexical inventory.
+Compare the same workload, CPU affinity, thread count and numerical contract;
+allocation sites alone are not hot paths. Existing approximate SIMD softmax is
+not a drop-in replacement for exact float64 sampling. New workspaces must have
+explicit caller ownership rather than a global scratch buffer.
+
 ## Common controls
 
 | Area | Control | Meaning | Availability |

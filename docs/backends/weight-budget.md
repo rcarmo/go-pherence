@@ -25,6 +25,11 @@ and touches one byte per page at model load time.
 
 When `GO_PHERENCE_LOAD_DEBUG=1` is set, the loader logs the total mapped bytes and elapsed pre-fault time. Sharded models pre-fault each shard and report the aggregate size through the same opt-in diagnostics gate.
 
+Prefetch does not transfer ownership: raw safetensors slices borrow the mmap and
+must not survive Close or race it. Parallel prefetch on independent files has an
+atomic sink, but concurrent Close/read is not made safe by that change. Shard
+containment assumes immutable files, not adversarial filesystem replacement.
+
 ## Memory Tiers
 
 ```

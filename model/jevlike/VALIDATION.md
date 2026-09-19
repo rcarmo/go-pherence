@@ -1,5 +1,12 @@
 ## Jevlike validation record
 
+The measurements below are the historical 2026-09-18 port checks. Later Qwen3
+GPU/direct/head/prefix results and failed quality gates are in the
+[current experiment status](../../docs/experiments/jevlike-qwen3/status-report-20260919.md).
+The final evaluation remains blocked at 676/1,440 records; GPU safety candidates
+have host tests, not recovered-device validation. The later [CPU profile](../../docs/performance/allocation-simd-audit-20260919.md)
+measures tiny-scorer allocation hotspots without reopening the held-out study.
+
 Host: Intel Core i7-12700, linux/amd64. Tests and measurements collected on 2026-09-18.
 
 Passed: package and CLI tests, package/CLI vet, race tests and cgo-disabled tests. ARM64 and RISC-V test binaries cross-compile; this is not runtime validation on either architecture.

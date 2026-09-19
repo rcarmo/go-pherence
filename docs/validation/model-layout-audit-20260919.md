@@ -1,5 +1,7 @@
 # Model layout follow-up audit, 2026-09-19
 
+Historical validation snapshot. Preserve the recorded results below; later fixes and current limitations are in the [repository safety audit](repository-safety-audit-20260919.md). Earlier failed host checks were subsequently corrected. Any GPU success here predates the later bus-loss incidents and is not validation of the current candidate.
+
 The follow-up checked source paths and asset defaults across the 4,214 tracked
 files present at the start of the audit, including code, Make targets, generators,
 fixtures, documentation examples and CI scaffolding. It found three live gaps:

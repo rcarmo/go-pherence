@@ -5,7 +5,7 @@ Jevlike scores a context against a changing list of text options in one pass. Ea
 The runtime is native Go. Projection, dot and linear-backward accumulation operations use the SIMD runtime, including Plan 9 assembly on supported CPUs and portable fallbacks elsewhere. Python is needed only for importing/exporting upstream PyTorch checkpoints and regenerating reference fixtures.
 
 ```sh
-go run ./cmd/jevlike -help
+go run ./cmd/jevlike --help
 go run ./cmd/jevlike synthetic -output-dir /tmp/choices
 go run ./cmd/jevlike train -help
 go run ./cmd/jevlike predict -help
@@ -15,10 +15,14 @@ go run ./cmd/jevlike eval -help
 JSONL rows contain a string `context`, at least two non-empty strings in `options`, and a zero-based integer `label`. The tiny encoder truncates UTF-8 bytes, not characters. Defaults are width 64, rank 64, 192 context bytes and 32 option bytes.
 
 The [frozen Qwen3 experiment](../../docs/experiments/jevlike-qwen3/README.md)
-adds pinned dataset preparation through `cmd/jevlike prepare`. GPU extraction,
-cached training and quality comparisons are still in progress, not a new
-validated inference configuration. Conversion of pinned dataset Parquet files
-uses an isolated Python helper; Go owns the task/split contracts.
+adds pinned preparation, compact GPU extraction, selected-token scoring, cached
+head training and isolated K/V-prefix APIs. Those bounded runtime checks passed;
+direct scorers failed option-order gates and frozen heads failed learning gates.
+The final frozen evaluation stopped at 676/1,440 originals after GPU bus loss.
+It is not a validated decision model. [Current status](../../docs/experiments/jevlike-qwen3/status-report-20260919.md)
+and [command families](../../docs/guides/commands.md#jevlike-experiment-commands)
+separate available APIs from blocked execution. Conversion uses an isolated
+Python helper; Go owns task/split contracts.
 
 ## Frozen models and checkpoints
 

@@ -1,5 +1,7 @@
 # Validation and hardening status
 
+The [repository audit](repository-safety-audit-20260919.md) and [coverage matrix](repository-safety-audit-coverage-20260919.md) distinguish implemented guards from inspected source and unavailable hardware validation. These checks do not establish concurrent model/Close safety, capture-owner isolation or exhaustive malformed-input coverage.
+
 This page summarizes recent malformed-input and boundary-hardening work. Phase-level commands live in [validation-gates.md](validation-gates.md); detailed coverage tables live in [malformed-input-coverage.md](malformed-input-coverage.md), [kernel-coverage.md](../architecture/kernel-coverage.md), and [final-coverage-acceptance.md](../history/final-coverage-acceptance.md).
 
 ## Runtime and tensor layers
@@ -24,6 +26,14 @@ This page summarizes recent malformed-input and boundary-hardening work. Phase-l
 - Tokenizer byte maps are initialized with `sync.Once`.
 - Malformed tokenizer BPE merges are rejected.
 
+The latest shared-loader checks also reject malformed WAV format/rate/alignment,
+truncated data and bad chunk padding; prevent sharded path escapes under an
+immutable-filesystem contract; use an atomic safetensors prefetch sink; and refuse
+metadata fallback from a broken index to another checkpoint. Explicit index paths
+are supported. GGUF semantic header rejection now closes the descriptor before
+return, with a failing-before/passing-after regression. Raw mmap slices remain
+borrowed and must not outlive or race Close.
+
 ## NVIDIA runtime
 
 `backends/nvidia/runtime` preflights:
@@ -41,6 +51,20 @@ This page summarizes recent malformed-input and boundary-hardening work. Phase-l
 - BF16 buffers before dispatch.
 
 Failed `DevBuf` transfers preserve authoritative state or fall back safely. NVIDIA progress diagnostics are quiet unless `GO_PHERENCE_GPU_DEBUG` is set.
+
+Context-dependent driver calls now retain the OS-thread pin and driver lock
+through launch/copy/module/stream/event operations. Foreign-call argument owners
+remain live; JIT cache keys include constants and topology, launch buffer counts
+must match the ABI, and shutdown invalidates lazy functions. KV copies join the
+capture stream. These host/fake-driver checks are not GPU memory-safety proof;
+global capture/scratch ownership and quiescent-only Shutdown remain open.
+
+## Vulkan boundaries
+
+Malformed geometry is rejected before optional pipeline initialisation. Shader
+index products fit uint32 and dispatch ceil-division cannot wrap. Availability
+errors on valid buffers are distinct from invalid-input errors; no failed GPU
+test is silently counted as device validation.
 
 ## SIMD runtime
 

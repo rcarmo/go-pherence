@@ -1,5 +1,21 @@
 ## Issue #2: the runtime works; the decision model is not ready
 
+Update after the frozen final run: the historical development measurements below
+are unchanged. The user approved narrower experimental closure and explicitly
+deferred broader human review. The pre-test [policy](final-evaluation-policy.md)
+and [freeze](final-freeze.json) were committed before held-out evaluation. Four
+arms (Instruction direct and heads 7/17/27) reached **676 of 1,440 originals**;
+original 677 failed at layer 9 with CUDA error 719 and repeated Xid79/Xid154.
+No partial accuracy has been consulted. Resume is missing-row-only after
+separately authorised GPU recovery and synthetic diagnostics; the pinned binary,
+freeze hashes and completed records remain unchanged.
+
+The [repository safety audit](../../validation/repository-safety-audit-20260919.md)
+now covers all packages at inventory/test level with explicit source-review gaps.
+Its candidate fixes pass host regressions, not GPU sanitizer or post-crash parity.
+Serving was restored only through CPU fallback. InvokeAI/ComfyUI remain stopped
+with restart disabled; this report does not authorise resetting or rebooting.
+
 The native Qwen3 path fits the RTX 3060, agrees with independent numerical
 references, and now supports isolated K/V-prefix reuse. The frozen-head
 experiment also runs end to end, including cached training, exact interruption
@@ -154,16 +170,14 @@ results and references. Model assets remain below 12 GiB and caches below 12 GiB
 | Direct scorer quality | Failed option-order requirement; not promoted |
 | Frozen-head learning and context dependence | Failed the fixed pilot; expansion stopped |
 | Calibration and probability diagnostics | Measured on separate development samples; no deferral policy approved |
-| Independent human-reviewed fresh cases | Outstanding; 24 proposed cases are unreviewed and unscored |
-| Broader held-out evaluation and final test | Not performed; final test deliberately kept closed |
+| Independent human-reviewed fresh cases | Explicitly deferred by the user; 24 proposed cases stay unreviewed/unscored |
+| Frozen final evaluation | Started under the committed policy; 676/1,440 complete, GPU-blocked, no final metrics |
 
-The immediate human dependency is real, but it should not be described as a
-paperwork-only blocker. The packet has six closely related templates with four
-entity substitutions; it does not satisfy the original 200--500-case target or
-broad transfer coverage. It needs independent checking, corrections, broader
-coverage and recorded provenance before evaluation. Any final-test run also
-needs a frozen evaluation policy. Human review will not retrospectively make the
-current option-order or head-learning failures pass.
+The packet has six closely related templates with four entity substitutions;
+it does not satisfy the original 200--500-case target or broad transfer coverage.
+That coverage was deferred, not waived into a pass. The current operational
+blocker is GPU recovery, and eventual completion of the frozen final run cannot
+retrospectively make the option-order or head-learning failures pass.
 
 The original ticket contains a wider comparison and stress-test matrix than this
 bounded study: withheld domains/templates, systematic paraphrase and
@@ -172,20 +186,16 @@ precision/recall and confusion matrices, and a separate relevance reranker where
 appropriate. Those results have not been established by the current reports.
 The direct scorer is a joint-prompt baseline, not a completed separate relevance
 reranker comparison. Untested portions are not implied by the checked
-implementation work or by the Plan sidebar. A decision to accept a narrower
-negative research result would need to be explicit; the ticket must not be
-closed by silently marking the whole original matrix complete.
+implementation work or by the Plan sidebar. The user explicitly accepted a narrower negative research closure; the ticket
+must still not be closed by silently marking the whole original matrix complete.
 
-At this report's verification, the worktree was clean, local and remote source
-revisions matched, and the latest model-layout CI run had passed. Recorded host,
-documentation, vet, race and script checks passed; ARM64/RISC-V results are
-compile-only, not hardware parity. The serving model is active and healthy.
-Current free workspace space is about **64 GiB**, above the 30 GiB floor; the
-73 GiB values in the experiment logs describe those earlier measurements.
-
-The next useful input is a reviewed failure set and an explicit evaluation
-coverage decision. More unreviewed examples or another training sweep would
-create activity without resolving the reason this issue is still open.
+The earlier verification had a clean worktree, matching local/remote revisions
+and passing model-layout CI. Its GPU-serving and disk-space statements were
+point-in-time observations, not current health guarantees. The later audit has
+90 passing host race packages, 71 without tests and compile-only ARM64/RISC-V
+checks; serving is CPU fallback after bus loss. The next gate is authorised
+hardware recovery, synthetic safety/parity checks, missing-row-only completion
+and the frozen report. Another training sweep is outside the approved scope.
 
 ## Supporting reports
 

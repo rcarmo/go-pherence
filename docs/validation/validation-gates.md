@@ -1,5 +1,7 @@
 # Validation gates
 
+Latest status: the [repository safety audit](repository-safety-audit-20260919.md) records 90 passing host race packages and 71 without tests, plus vet/build/docs checks. The RTX 3060 was subsequently lost during evaluation; GPU examples below are reproduction recipes for separately authorised recovery, not tests executed on the current candidate. Preserve the pinned evaluation binary/records. No reset/reboot or held-out replay is authorised by these commands.
+
 This repository uses phase-level validation for backend coverage work. Do not run the full test/vet matrix after every small mechanical change; run it when a complete plan phase is ready to validate.
 
 ## Standard phase gate
@@ -26,7 +28,7 @@ make spacemit-cross-compile
 
 The cross target builds Linux/RISC-V packages with CGo disabled and uses `go test -c` for test binaries. It never executes them. Native IME/AICPU tests additionally require `GO_PHERENCE_TEST_K3=1` and `/proc/set_ai_thread`; plain RISC-V architecture support does not imply IME hardware. On the K3 board, `make spacemit-hardware-test` checks those prerequisites and opts into execution. A skipped hardware suite is not a parity pass. ARM64/RISC-V compilation is not runtime validation.
 
-The 2026-09-19 issue-fix run passes `make host-check` (whole-tree CPU-disabled tests, build and vet) and a serial-package GPU-enabled `go test -p=1 ./...` on the RTX 3060. The earlier GGUF/MTP/Qwen fixture failures and NVIDIA/DiffusionGemma vet defects are resolved, not excluded. Speech-job race checks also pass; ARM64/RISC-V whole-tree builds pass with explicitly unavailable speech-job execution on unsupported platforms. See the [issue-fix validation record](issues-3-11-20260919.md) for commands, scope and GPU service restoration. Asset-dependent tests can still skip when their external checkpoints are absent.
+The earlier 2026-09-19 issue-fix run passed `make host-check` (whole-tree NVIDIA-disabled tests, build and vet) and a serial-package GPU-enabled `go test -p=1 ./...` on the RTX 3060. The earlier GGUF/MTP/Qwen fixture failures and NVIDIA/DiffusionGemma vet defects are resolved, not excluded. Speech-job race checks also pass; ARM64/RISC-V whole-tree builds pass with explicitly unavailable speech-job execution on unsupported platforms. See the [issue-fix validation record](issues-3-11-20260919.md) for commands, scope and GPU service restoration. Asset-dependent tests can still skip when their external checkpoints are absent.
 
 ## TurboFieldfare adoption gates
 
@@ -97,7 +99,7 @@ GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
 # The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
 # surfaces; it may skip on CPU-only hosts, but on CUDA hosts it must initialize
 # the NVIDIA runtime, load the Whisper PTX entries, and run real numeric assertions
-# instead of silently falling back. Current shared-host evidence: RTX 3060 loads
+# instead of silently falling back. Historical shared-host evidence (before bus loss): RTX 3060 loaded
 # all 83 mega-module kernels and TestGPUEncoderForward passes on large-v3-turbo
 # with max_diff≈1.9e-4.
 # The GPU graph parity target runs the same JFK transcript contract with the
@@ -132,7 +134,7 @@ GOTMPDIR=$PWD/.gotmp go test \
   ./loader/audio \
   ./backends/simd/fft \
   ./backends/simd/runtime \
-  ./backends/cuda/ptx
+  ./backends/nvidia/ptx
 python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
 # whisper_turbo_smoke covers standalone translate/transcribe, standalone chunked
 # no-timestamp, standalone timestamp VTT for translate/transcribe, standalone timestamp+diarize VTT,
@@ -181,7 +183,7 @@ GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -mtp-smoke \
   -prompt "Hello"
 
-# Recommended real-prompt Gemma4 E4B QAT GGUF + BF16 MTP smoke on the local RTX 3060 profile
+# After authorised recovery only: Gemma4 E4B QAT GGUF + BF16 MTP smoke
 # If the verifier/drafter snapshots are missing, fetch/provision the local GGUF pair first.
 GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
   -gpu -gpu-layers 0 \

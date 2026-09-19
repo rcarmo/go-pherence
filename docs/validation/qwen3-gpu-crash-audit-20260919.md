@@ -59,11 +59,13 @@ The independent audit delegate timed out, so it supplied no corroborating review
 
 ## Validation status and recovery sequence
 
-Affected NVIDIA runtime/model/CLI race tests, targeted vet, host compilation,
-docs/link checks and ARM64/RISC-V compile-only checks pass. The full host check
-was attempted and failed in the separate Vulkan invalid-input test: this host
-now returns `vulkan not initialized` where that test expects `invalid`. Do not
-report a full-host pass or alter those tests to conceal the failed GPU state.
+This initial patch passed affected-package race checks, vet, builds and docs
+checks, but its first full sweep failed Vulkan validation ordering. That failed
+run is retained. The later [repository-wide audit](repository-safety-audit-20260919.md)
+fixed validation ordering without suppressing hardware errors, added shader bounds
+and broadened CUDA stream/module/JIT/reset/capture-copy scopes. Its final host
+race sweep passed 90 packages, with 71 having no tests. GPU canaries and sanitizer
+remain unrun; these host results do not establish crash causation.
 
 Keep this as a diagnostic candidate, not the confirmed crash fix. The original
 final-evaluation executable, all676 immutable outcomes, frozen model/prompt/

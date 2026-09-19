@@ -1,10 +1,12 @@
 # Backend selection
 
+Backend selection does not confer lifecycle safety. The [repository audit](../validation/repository-safety-audit-20260919.md) tracks process-global CUDA capture/scratch ownership and quiescent-only shutdown. Its driver fixes have host regressions, not post-crash GPU validation.
+
 Backend selection is intentionally conservative: model execution should prefer the fastest validated backend, but every backend boundary must fail closed to a checked CPU/SIMD or scalar path rather than performing unsafe/device work with malformed inputs.
 
 ## Selection order
 
-1. **NVIDIA PTX** — selected for production GPU execution when NVIDIA is enabled, initialized, and the requested primitive has a validating runtime wrapper.
+1. **NVIDIA PTX** — selected for integrated GPU execution when NVIDIA is enabled, initialized, and the requested primitive has a validating runtime wrapper.
 2. **Vulkan SPIR-V** — portable GPU dispatch for explicit Vulkan wrapper calls and availability-gated tests. Software Vulkan devices are rejected by default and are only allowed with `GO_PHERENCE_VULKAN_ALLOW_CPU=1`.
 3. **CPU SIMD runtime** — AVX2/FMA on amd64 and NEON on arm64 where implemented, with runtime capability gates.
 4. **Go scalar/reference kernels** — universal fallback and correctness oracle for parity tests.
@@ -35,7 +37,7 @@ The current model forward path still treats Vulkan as explicit/experimental rath
 - `VkRoPEPartialF32`
 - `VkAttentionScoresF32`
 
-Each wrapper validates dimensions and buffer sizes before dispatch. Availability-gated CPU-vs-Vulkan tests cover the exported wrappers; the tests skip cleanly when Vulkan is unavailable and keep software devices opt-in.
+Each wrapper validates dimensions, buffer sizes and uint32 shader-index products before optional pipeline initialisation and dispatch. Availability-gated CPU-vs-Vulkan tests cover the exported wrappers; the tests skip cleanly when Vulkan is unavailable and keep software devices opt-in.
 
 ## Fallback rules
 

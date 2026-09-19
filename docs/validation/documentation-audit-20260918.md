@@ -1,5 +1,7 @@
 # Documentation and host-check audit, 2026-09-18
 
+Historical validation snapshot. Preserve the recorded results below; later fixes and current limitations are in the [repository safety audit](repository-safety-audit-20260919.md). Earlier failed host checks were subsequently corrected. Any GPU success here predates the later bus-loss incidents and is not validation of the current candidate.
+
 Current guides are organised under `guides/`, `models/`, `speech/`, `backends/`, `architecture/`, `validation/` and `performance/`. Seventy-seven existing pages were moved into those folders or `history/`; the command catalogue was split by task and DiffusionGemma now has separate runtime, vision and validation guides. The previous DiffusionGemma support diary is retained in [history](../history/diffusiongemma/implementation-log.md).
 
 Model summaries distinguish native Jevlike/GLiNER support from upstream API compatibility, and DiffusionGemma text execution from complete multimodal readiness. Ideogram's CPU reference path and opt-in partial NVIDIA offload are described separately. Older performance numbers remain workload-specific historical observations. No new broad performance claim or full DiffusionGemma parity claim is made.
