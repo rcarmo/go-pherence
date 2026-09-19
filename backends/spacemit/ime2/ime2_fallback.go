@@ -53,7 +53,11 @@ func PackTiles(src []int8, rows, K int) []int8 {
 	if rows%4 != 0 || K%8 != 0 {
 		panic("ime2: PackTiles requires rows%4==0, K%8==0")
 	}
-	dst := make([]int8, rows*K)
+	needed := packedSize(rows, K)
+	if len(src) < needed {
+		panic("ime2: short pack source")
+	}
+	dst := make([]int8, needed)
 	return PackTilesInto(src, rows, K, dst)
 }
 
@@ -61,7 +65,10 @@ func PackTilesInto(src []int8, rows, K int, dst []int8) []int8 {
 	if rows%4 != 0 || K%8 != 0 {
 		panic("ime2: PackTilesInto requires rows%4==0, K%8==0")
 	}
-	needed := rows * K
+	needed := packedSize(rows, K)
+	if len(src) < needed || len(dst) < needed {
+		panic("ime2: short pack buffers")
+	}
 	out := dst[:needed]
 	for rg := 0; rg < rows; rg += 4 {
 		for ki := 0; ki < K; ki += 8 {
@@ -76,6 +83,9 @@ func PackTilesInto(src []int8, rows, K int, dst []int8) []int8 {
 }
 
 func GemmINT8Packed(M, N, K int, Apacked, Bpacked []int8, C []int32) {
+	if !validatePacked(M, N, K, Apacked, Bpacked, C) {
+		return
+	}
 	if M%4 != 0 || N%4 != 0 || K%8 != 0 {
 		panic("ime2: dimensions must be multiples of 4/4/8")
 	}

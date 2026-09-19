@@ -105,6 +105,9 @@ func (p *WorkerPool) Close() {
 
 // GemmINT8PackedPool performs C[M×N] = A * B^T using a persistent worker pool.
 func GemmINT8PackedPool(M, N, K int, Apacked, Bpacked []int8, C []int32, pool *WorkerPool) {
+	if !validatePacked(M, N, K, Apacked, Bpacked, C) {
+		return
+	}
 	tilesPerRow := K / 8
 
 	pool.Run(func(workerID, nWorkers int) {
