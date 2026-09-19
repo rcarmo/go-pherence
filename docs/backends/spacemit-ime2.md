@@ -745,3 +745,17 @@ Next optimization from profile data: the down projection dominates, followed by
 QKV. Focus on the exact C-M1 residual kernel/layout and high-K down projection
 memory/dispatch behavior. Do not implement M4 for decode unless a real batched or
 prefill caller supplies four activation vectors.
+
+## Worker shutdown contract
+
+The IME channel and condition pools now serialise Run/Close, make Close
+idempotent and wait for workers to exit. Concurrent submitters cannot overwrite
+the shared condition-pool dispatch state. Run after Close is a no-op; callbacks
+must return normally and must not re-enter Run/Close on their own pool.
+
+Lifecycle tests exercise the actual channel/condition protocols with ordinary
+Go callbacks and no affinity setup or native GEMM. They pass repeated host race
+checks; that does not execute IME instructions. The AICPU spin-pool counterpart
+also drains and joins before unmapping TCM, but its platform-gated regression is
+compile-only until K3 hardware is available. Affinity-modified threads are not
+unlocked back into Go's shared pool on exit.
