@@ -110,3 +110,47 @@ func BenchmarkMatVecQ4K_1024x1024(b *testing.B) {
 		MatVecQ4K(M, K, wPacked, x, out, 0.01)
 	}
 }
+
+func TestActivationBoundsAndTail(t *testing.T) {
+	dst := []int8{8, 9}
+	if scale := QuantizeF32ToINT8([]float32{1, 2, 3}, dst); scale != 0 || dst[0] != 8 {
+		t.Fatal("short destination written")
+	}
+	if scale := QuantizeF32ToINT8([]float32{float32(math.NaN())}, dst); scale != 0 || dst[0] != 8 {
+		t.Fatal("nonfinite written")
+	}
+	QuantizeF32ToINT8([]float32{0}, dst)
+	if dst[0] != 0 || dst[1] != 9 {
+		t.Fatal("tail touched", dst)
+	}
+	x := make([]float32, 9)
+	x[0] = 1
+	x[8] = 999
+	want, scale := PackActivation(x[:8], 8)
+	buf := make([]int8, 65)
+	buf[64] = 11
+	got, gotScale := PackActivationInto(x, 8, make([]int8, 8), buf)
+	if len(got) != 32 || gotScale != scale || buf[64] != 11 {
+		t.Fatal(len(got), gotScale, scale)
+	}
+	for i := range want {
+		if want[i] != got[i] {
+			t.Fatal("prefix mismatch")
+		}
+	}
+	if p, _ := PackActivationInto(x, 8, make([]int8, 8), make([]int8, 32)); p != nil {
+		t.Fatal("undersized packed scratch admitted")
+	}
+	if p, _ := PackActivation(x, -8); p != nil {
+		t.Fatal("negative K admitted")
+	}
+	out := []float32{37}
+	MatVecQ4K(4, 8, nil, x, out, 1)
+	if out[0] != 37 {
+		t.Fatal("malformed matvec wrote output")
+	}
+	RMSNorm([]float32{1, 2}, []float32{1}, out, 1e-6)
+	if out[0] != 37 {
+		t.Fatal("short norm wrote output")
+	}
+}

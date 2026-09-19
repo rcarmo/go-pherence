@@ -3,8 +3,8 @@
 package inference
 
 import (
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
-	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
@@ -48,12 +48,21 @@ type Layer struct {
 	FFNDown []int8 // packed [NFF → NEmbd]
 
 	// Quantization scales per weight (for dequant after vmadot)
-	WQScale, WKScale, WVScale, WOScale       float32
-	FFNGateScale, FFNUpScale, FFNDownScale    float32
+	WQScale, WKScale, WVScale, WOScale     float32
+	FFNGateScale, FFNUpScale, FFNDownScale float32
 }
 
 // QuantizeF32ToINT8 quantizes a float32 slice to int8, returning the scale.
 func QuantizeF32ToINT8(src []float32, dst []int8) float32 {
+	if len(src) == 0 || len(dst) < len(src) {
+		return 0
+	}
+	for _, v := range src {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return 0
+		}
+	}
+	dst = dst[:len(src)]
 	var maxAbs float32
 	for _, v := range src {
 		if a := float32(math.Abs(float64(v))); a > maxAbs {
@@ -82,6 +91,9 @@ func QuantizeF32ToINT8(src []float32, dst []int8) float32 {
 // RMSNorm computes RMS normalization: out[i] = x[i] / rms(x) * weight[i]
 func RMSNorm(x, weight, out []float32, eps float32) {
 	n := len(x)
+	if n == 0 || len(weight) < n || len(out) < n || eps < 0 || math.IsNaN(float64(eps)) || math.IsInf(float64(eps), 0) {
+		return
+	}
 	var ss float32
 	for i := 0; i < n; i++ {
 		ss += x[i] * x[i]
@@ -96,6 +108,10 @@ func RMSNorm(x, weight, out []float32, eps float32) {
 // where W is stored as pre-packed INT8 tiles and x is quantized on the fly.
 // wScale is the weight quantization scale.
 func MatVecQ4K(M, K int, wPacked []int8, x []float32, out []float32, wScale float32) {
+	if !validMatVec(M, K, len(wPacked), len(x), len(out)) {
+		return
+	}
+	x = x[:K]
 	// Quantize activation to INT8
 	xI8 := make([]int8, K)
 	xScale := QuantizeF32ToINT8(x, xI8)
@@ -127,17 +143,28 @@ func MatVecQ4K(M, K int, wPacked []int8, x []float32, out []float32, wScale floa
 
 // Decode performs one token decode step. Returns logits.
 func (m *Model) Decode(tokenID int) []float32 {
+	if m == nil || m.NVocab <= 0 || tokenID < 0 || tokenID >= m.NVocab {
+		return nil
+	}
 	// TODO: implement full decode loop
 	// For now, just return zeros
 	return make([]float32, m.NVocab)
 }
 
-// ensure unsafe import is used
-var _ = unsafe.Pointer(nil)
+func validMatVec(m, k, weights, input, output int) bool {
+	wk, ok := checked.MulInt(m, k)
+	_, okM := checked.MulInt(m, 4)
+	_, okK := checked.MulInt(k, 8)
+	return ok && okM && okK && m > 0 && k > 0 && m%4 == 0 && k%8 == 0 && weights >= wk && input >= k && output >= m
+}
 
 // MatVecQ4KParallel performs matrix-vector multiply using multi-threaded GEMM.
 // Same as MatVecQ4K but uses 8 threads for the vmadot inner loop.
 func MatVecQ4KParallel(M, K int, wPacked []int8, x []float32, out []float32, wScale float32, nThreads int) {
+	if !validMatVec(M, K, len(wPacked), len(x), len(out)) {
+		return
+	}
+	x = x[:K]
 	// Quantize activation to INT8
 	xI8 := make([]int8, K)
 	xScale := QuantizeF32ToINT8(x, xI8)
@@ -170,6 +197,13 @@ func MatVecINT8Parallel(M, K int, wPacked []int8, actPacked []int8, out []int32,
 // PackActivation quantizes F32 activation to INT8 and packs into 4-row tile format.
 // Returns the packed data and the dequant scale.
 func PackActivation(x []float32, K int) ([]int8, float32) {
+	if K <= 0 || K%8 != 0 || len(x) < K {
+		return nil, 0
+	}
+	if _, ok := checked.MulInt(K, 8); !ok {
+		return nil, 0
+	}
+	x = x[:K]
 	xI8 := make([]int8, K)
 	scale := QuantizeF32ToINT8(x, xI8)
 	// Replicate into 4 rows
@@ -187,9 +221,14 @@ func MatVecINT8Pool(M, K int, wPacked []int8, actPacked []int8, out []int32, poo
 }
 
 // PackActivationInto quantizes and packs activation into pre-allocated buffers.
-// xI8Buf must be at least K bytes. broadcastBuf must be at least 4*K bytes.
+// xI8Buf must be at least K bytes. broadcastBuf needs 8*K bytes: the first
+// 4*K hold row-major broadcasts and the second 4*K receive packed tiles.
 // Returns the packed slice (from broadcastBuf) and scale.
 func PackActivationInto(x []float32, K int, xI8Buf, broadcastBuf []int8) ([]int8, float32) {
+	needed, ok := checked.MulInt(K, 8)
+	if !ok || K <= 0 || K%8 != 0 || len(x) < K || len(xI8Buf) < K || len(broadcastBuf) < needed {
+		return nil, 0
+	}
 	xI8 := xI8Buf[:K]
 	scale := QuantizeF32ToINT8(x[:K], xI8)
 	broadcast := broadcastBuf[:4*K]
