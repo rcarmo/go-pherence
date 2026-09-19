@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 
@@ -24,8 +25,12 @@ type TensorInfo struct {
 	DataOffsets [2]int `json:"data_offsets"`
 }
 
-// File represents a loaded safetensors file.
+// File owns a mapping. Do not copy File after use or mutate Tensors/Advisor.
+// Copying getters and EagerLoad coordinate with Close. GetRaw bytes and Advisor
+// remain borrowed: their users must finish before Close.
 type File struct {
+	mu         sync.RWMutex
+	closed     bool
 	Tensors    map[string]TensorInfo
 	data       []byte // tensor data region (after header)
 	headerSize int
@@ -40,7 +45,16 @@ var eagerLoadSink atomic.Uint32
 // page to fault pages in now instead of during first-token inference.
 // It returns the number of bytes covered. Safe to call on non-mmap'd files.
 func (f *File) EagerLoad() (int64, error) {
-	if f == nil || len(f.mmapData) == 0 {
+	if f == nil {
+		return 0, nil
+	}
+	// Prefetch mutates advisor bookkeeping; serialize concurrent eager loads.
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return 0, fmt.Errorf("safetensors: file closed")
+	}
+	if len(f.mmapData) == 0 {
 		return 0, nil
 	}
 	if f.Advisor != nil {
@@ -63,18 +77,32 @@ func (f *File) EagerLoad() (int64, error) {
 	return int64(len(f.mmapData)), nil
 }
 
-// Close releases mmap resources. Safe to call on non-mmap'd files.
+// Close waits for copying getters/prefetch before releasing the mapping.
+// Borrowed raw views must already have been released by their caller.
 func (f *File) Close() error {
-	if f.mmapData != nil {
-		syscall.Munmap(f.mmapData)
-		f.mmapData = nil
-		f.data = nil
+	if f == nil {
+		return nil
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return nil
+	}
+	var closeErr error
+	if f.mmapData != nil {
+		if err := syscall.Munmap(f.mmapData); err != nil {
+			return err
+		}
+		f.mmapData = nil
+	}
+	f.data = nil
+	f.Advisor = nil
+	f.closed = true
 	if f.mmapFd != nil {
-		f.mmapFd.Close()
+		closeErr = f.mmapFd.Close()
 		f.mmapFd = nil
 	}
-	return nil
+	return closeErr
 }
 
 // Open loads a safetensors file using mmap for zero-copy access.
@@ -201,9 +229,13 @@ func validateTensorInfo(name string, info TensorInfo, dataLen int) error {
 	return nil
 }
 
+// rawTensor requires a read/write lock for non-nil f.
 func (f *File) rawTensor(name string) (TensorInfo, []byte, error) {
 	if f == nil {
 		return TensorInfo{}, nil, fmt.Errorf("safetensors: nil file")
+	}
+	if f.closed {
+		return TensorInfo{}, nil, fmt.Errorf("safetensors: file closed")
 	}
 	info, ok := f.Tensors[name]
 	if !ok {
@@ -212,6 +244,7 @@ func (f *File) rawTensor(name string) (TensorInfo, []byte, error) {
 	if err := validateTensorInfo(name, info, len(f.data)); err != nil {
 		return TensorInfo{}, nil, err
 	}
+	info.Shape = append([]int(nil), info.Shape...)
 	return info, f.data[info.DataOffsets[0]:info.DataOffsets[1]], nil
 }
 
@@ -242,6 +275,10 @@ func (f *File) TensorInfos() map[string]TensorInfo {
 
 // GetFloat32 returns a tensor's data as float32, converting from the stored dtype.
 func (f *File) GetFloat32(name string) ([]float32, []int, error) {
+	if f != nil {
+		f.mu.RLock()
+		defer f.mu.RUnlock()
+	}
 	info, raw, err := f.rawTensor(name)
 	if err != nil {
 		return nil, nil, err
@@ -466,8 +503,16 @@ func (sf *ShardedFile) TensorInfos() map[string]TensorInfo {
 	return out
 }
 
-// GetRaw returns raw bytes and shape for a tensor without conversion.
+// GetRaw returns read-only borrowed bytes valid until Close, and an owned shape.
+// Retained raw weights require File ownership until all inference is joined.
 func (f *File) GetRaw(name string) ([]byte, string, []int, error) {
+	if f != nil {
+		f.mu.RLock()
+		defer f.mu.RUnlock()
+	}
+	return f.getRawLocked(name)
+}
+func (f *File) getRawLocked(name string) ([]byte, string, []int, error) {
 	t, data, err := f.rawTensor(name)
 	if err != nil {
 		return nil, "", nil, err
@@ -477,7 +522,11 @@ func (f *File) GetRaw(name string) ([]byte, string, []int, error) {
 
 // GetInt32 returns a tensor's data as []int32.
 func (f *File) GetInt32(name string) ([]int32, []int, error) {
-	raw, dtype, shape, err := f.GetRaw(name)
+	if f != nil {
+		f.mu.RLock()
+		defer f.mu.RUnlock()
+	}
+	raw, dtype, shape, err := f.getRawLocked(name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -531,7 +580,11 @@ func (sf *ShardedFile) GetInt32(name string) ([]int32, []int, error) {
 // For F32 dtype, converts F32→BF16 (truncation).
 // For F16 dtype, converts F16→BF16 via F32 intermediate.
 func (f *File) GetBF16(name string) ([]uint16, []int, error) {
-	raw, dtype, shape, err := f.GetRaw(name)
+	if f != nil {
+		f.mu.RLock()
+		defer f.mu.RUnlock()
+	}
+	raw, dtype, shape, err := f.getRawLocked(name)
 	if err != nil {
 		return nil, nil, err
 	}

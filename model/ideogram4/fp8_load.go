@@ -12,6 +12,8 @@ import (
 // RawTensorSource abstracts a (sharded) safetensors file: it returns raw bytes,
 // the safetensors dtype string, and the shape for a tensor name. Both
 // *safetensors.File and *safetensors.ShardedFile satisfy this via GetRaw.
+// Weight bytes are borrowed: keep the source open and immutable until every
+// derived linear/layer has finished inference and device-resource cleanup.
 type RawTensorSource interface {
 	GetRaw(name string) ([]byte, string, []int, error)
 }

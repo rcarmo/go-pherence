@@ -26,8 +26,9 @@ and touches one byte per page at model load time.
 When `GO_PHERENCE_LOAD_DEBUG=1` is set, the loader logs the total mapped bytes and elapsed pre-fault time. Sharded models pre-fault each shard and report the aggregate size through the same opt-in diagnostics gate.
 
 Prefetch does not transfer ownership: raw safetensors slices borrow the mmap and
-must not survive Close or race it. Parallel prefetch on independent files has an
-atomic sink, but concurrent Close/read is not made safe by that change. Shard
+must not survive Close or race it. Parallel prefetch has an atomic sink and per-file close coordination. Copied
+getters are protected during conversion; borrowed raw views still require caller
+ownership after the getter returns. Shard
 containment assumes immutable files, not adversarial filesystem replacement.
 
 ## Memory Tiers
@@ -232,3 +233,18 @@ The key difference: ds4 runs on unified memory (Metal shared), so madvise
 directly controls GPU-visible residency. go-pherence runs on discrete GPU,
 so we need explicit DMA staging — but the budget/tracking/eviction logic
 is the same, just with an extra copy step.
+
+## Mapping close and converted tensors
+
+Safetensors `GetFloat32`, `GetInt32`, `GetBF16` and eager prefetch now coordinate
+with Close, so the mapping cannot be unmapped midway through a conversion or page
+touch. Converted arrays and returned shape slices are owned by the caller;
+metadata maps remain immutable by contract. Repeated/nil Close is safe and failed
+unmapping is reported without discarding the mapping needed for a retry.
+
+`GetRaw` deliberately remains zero-copy. Its bytes and the exported Advisor are
+borrowed and must not race Close or outlive the file. FrozenGPUEncoder retains
+its source; Ideogram FP8 linears borrow the source's weights; DiffusionGemma's raw
+weight handles likewise require model-owner lifetime. Copy-getter locking does
+not establish safe concurrent Generate/Close for those models. The host race
+regression uses real mmaps and never dereferences an invalid borrowed pointer.
