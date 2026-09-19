@@ -8,6 +8,9 @@ reports quality, controls, calibration and timings without promoting either
 configuration. The [three-seed frozen-head learning check](frozen-head-study.md)
 also failed its expansion gate; its cache and resume mechanics passed.
 
+The [consolidated status report](status-report-20260919.md) separates completed
+runtime checks, failed quality requirements and outstanding evaluation coverage.
+
 ## Data and model identity
 
 [sources.json](sources.json) pins full Hugging Face revisions, file lengths,
