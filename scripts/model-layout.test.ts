@@ -35,6 +35,27 @@ test("Make defaults to checkpoints and honours explicit/legacy overrides", () =>
   expect(dry("MODELS_DIR=/legacy/weights", "CHECKPOINTS_DIR=/new/weights")).toContain("--checkpoints-dir /new/weights");
 });
 
+test("standard Make gates enforce the layout before broad validation", () => {
+  for (const target of ["model-layout-check", "docs-check", "host-check"]) {
+    const output = run(["make", "-n", target]);
+    expect(output, target).toContain("go test ./docs -run '^TestModelLayout' -count=1");
+    expect(output, target).toContain("bun test scripts/model-layout.test.ts");
+    if (target === "host-check") {
+      expect(output.indexOf("TestModelLayout")).toBeLessThan(output.indexOf("go build ./..."));
+    }
+  }
+});
+
+test("GitHub workflow runs the no-weights documentation and layout gate", () => {
+  const workflow = Bun.YAML.parse(readFileSync(join(root, ".github/workflows/model-layout.yml"), "utf8")) as {
+    on: Record<string, unknown>;
+    jobs: { layout: { steps: Array<{ run?: string }> } };
+  };
+  expect(Object.keys(workflow.on)).toContain("push");
+  expect(Object.keys(workflow.on)).toContain("pull_request");
+  expect(workflow.jobs.layout.steps.some(step => step.run === "make docs-check")).toBe(true);
+});
+
 test("Python asset helpers use checkpoints by default and preserve path overrides", () => {
   const dir = mkdtempSync(join(tmpdir(), "go-pherence-layout-"));
   try {

@@ -3,10 +3,24 @@ package main
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/model"
 )
+
+func TestDefaultParityFixtureUsesCheckpointRoot(t *testing.T) {
+	fxPath := filepath.Join("..", "..", "..", "model", "testdata", "gemma4-mtp-llamacpp-fixture.json")
+	fx, err := loadParityFixture(fxPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, path := range map[string]string{"main_model": fx.MainModel, "drafter": fx.Drafter} {
+		if !strings.HasPrefix(path, "checkpoints/") {
+			t.Errorf("%s=%q; default fixture must use the repository checkpoint root", name, path)
+		}
+	}
+}
 
 func TestRunParityDefaultFixtureTrimmedFallback(t *testing.T) {
 	fixturePath := filepath.Join("..", "..", "..", "model", "testdata", "gemma4-mtp-llamacpp-fixture.json")

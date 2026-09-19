@@ -76,3 +76,17 @@ User-specified absolute paths and external stores such as `/workspace/models`,
 variables continue to accept arbitrary paths. Historical benchmark records
 retain their original paths and source revision; translate those paths when
 replaying an older command against the new layout.
+
+## Keeping the layout consistent
+
+`make model-layout-check` checks worktree source, new templates, executable
+scaffolding, live fixtures and fenced documentation examples. It also tests
+Make/Python download defaults and compatibility aliases without downloading
+anything. `make docs-check` includes it, `make host-check` runs it first, and
+ordinary `go test ./...` runs the Go-only source/path guard.
+
+The guard scans foreign-platform files as text rather than executing them.
+Checkpoint payloads, external stores and dated benchmark records stay outside
+that scan. New benchmark scripts are checked; the few frozen reproducer scripts
+have explicit, documented exceptions. The GitHub layout workflow runs these
+checks without model assets on pushes and pull requests.

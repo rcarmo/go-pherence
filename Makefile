@@ -313,9 +313,10 @@ speech-media-integration:
 	GO_PHERENCE_TEST_FFMPEG=1 GO_PHERENCE_DISABLE_NVIDIA=1 go test -p=1 -count=1 -timeout=30s ./loader/audio/media -run TestFFmpegIntegration
 
 model-layout-check:
+	go test ./docs -run '^TestModelLayout' -count=1
 	bun test scripts/model-layout.test.ts
 
-docs-check: docs-diagrams-check
+docs-check: docs-diagrams-check model-layout-check
 	bun test scripts/check-doc-links.test.ts
 	bun run scripts/check-doc-links.ts
 	go test ./docs -count=1
@@ -533,6 +534,7 @@ host-test:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./...
 
 host-check:
+	$(MAKE) model-layout-check
 	$(MAKE) host-build
 	$(MAKE) host-vet
 	$(MAKE) host-test

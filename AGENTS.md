@@ -56,6 +56,7 @@ go-pherence/
 - **`go vet`** — run before every commit. Do not commit code that fails vet.
 - **`go test`** — run affected packages before committing. `make host-test` scans the repository with GPU defaults disabled; when touching `backends/`, also run affected backend tests. Respect GOOS/GOARCH build constraints, never force foreign code into host checks.
 - **`gofmt -w`** — format all modified `.go` files before committing.
+- **`make model-layout-check`** — run after editing source paths, checkpoint defaults, generators, templates or build scaffolding. It is included in `make docs-check` and runs first in `make host-check`; the source/path guard also runs under ordinary `go test ./...`. Do not disable the guard to accommodate new `models/` paths.
 
 ### Recommended
 

@@ -13,7 +13,7 @@ GOTMPDIR=$PWD/.gotmp make host-vet
 GOTMPDIR=$PWD/.gotmp make host-test
 ```
 
-`host-build` and `host-vet` scan `./...`. `host-test` scans the same tree with NVIDIA disabled and Vulkan software devices left opt-in. `host-check` runs all three in order and stops on failure. The older `test` and `test-cpu` targets use selected package lists; neither is an all-repository check. GPU hardware tests still require their own environment and serialisation rules.
+`host-build` and `host-vet` scan `./...`. `host-test` scans the same tree with NVIDIA disabled and Vulkan software devices left opt-in. `host-check` first runs `model-layout-check`, then all three host gates in order, stopping on failure. The Go-only source/path guard also runs in ordinary `go test ./...`; `docs-check` includes the full layout/default checks. The older `test` and `test-cpu` targets use selected package lists; neither is an all-repository check. GPU hardware tests still require their own environment and serialisation rules.
 
 ## Platform and hardware checks
 
@@ -63,7 +63,7 @@ GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
   -run 'TestDotQ4_0Q8_0Tokens8SoARandomExact|TestQuantizeQ8_0BatchParallelExact' \
   -count=1 -v
 
-MODEL="$PWD/models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+MODEL="$PWD/checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 taskset -c 0-5 env \
   GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \
   GO_PHERENCE_GEMMA4_GAP_REAL=1 \
