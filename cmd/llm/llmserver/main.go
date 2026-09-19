@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/httpinput"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -164,11 +165,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer r.Body.Close()
-	dec := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	dec.DisallowUnknownFields()
 	var req ChatCompletionRequest
-	if err := dec.Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("bad request: %v", err), http.StatusBadRequest)
+	if err := httpinput.DecodeJSON(w, r, &req, 1<<20, true); err != nil {
+		http.Error(w, fmt.Sprintf("bad request: %v", err), httpinput.ErrorStatus(err))
 		return
 	}
 

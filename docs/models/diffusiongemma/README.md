@@ -8,8 +8,9 @@ requirement, not just a GPU-only fit test. Q4_K_M is a provisional comparison
 baseline against FP8/Q3_K_M/Q2_K, not a selected winner. The later
 [repository audit](../../validation/repository-safety-audit-20260919.md) fixed
 shared loader boundaries and passed local CPU integration tests; no new weights
-were downloaded or recovered-GPU parity measured. The HTTP generator's body,
-queue and cancellation limits remain review items, not production safety claims.
+were downloaded or recovered-GPU parity measured. The HTTP generator now has bounded single-document bodies, fail-fast admission
+and per-step cancellation; see [HTTP limits](runtime.md#http-admission-and-cancellation).
+This does not establish production service safety or kernel preemption.
 
 ## Run text
 

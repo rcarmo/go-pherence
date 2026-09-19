@@ -76,3 +76,27 @@ When `-k3` and `-k3-a100-q8` are both set, `cmd/diffusiongemmarun` auto-enables 
 
 
 These are command forms, not fresh successful inference runs. The [historical logs](../../history/diffusiongemma/README.md) identify the assets and revisions used for earlier measurements. Do not treat their old sparse outputs as parity for the current runtime.
+
+## HTTP admission and cancellation
+
+`cmd/diffusiongemmaserver` accepts one active generation request and no waiting
+queue. Excess requests receive HTTP 429 before body parsing/tokenisation. Bodies
+must contain one JSON value and at most 1MiB including trailing whitespace;
+oversize requests return 413 and malformed/trailing input returns 400. The LLM
+server uses the same bounded single-document decoder (with unknown fields
+rejected); its separate inference queue policy is unchanged.
+
+DiffusionGemma's HTTP-only bounds are 8,192 prompt tokens, 4,096 new tokens,
+256 canvas positions, 256 denoising steps and 1,048,576 total canvas-position
+steps (including a full canvas for the last partial block). Nested denoising
+settings and checkpoint defaults are checked too; these are admission ceilings,
+not claims that every maximum fits memory or meets a latency target. Prompt IDs
+must be within the model vocabulary. CLI/library limits are separate.
+
+Cancellation is checked before inference and at every completed denoising step,
+including nonstreamed requests. It does not preempt a denoiser call or native
+kernel. Streaming no longer retains a second copy of every step for an unused
+response. HTTP header/body/idle timeouts bound slow input; output backpressure,
+transport write deadlines, authentication and lower-level cooperative
+cancellation remain separate service-hardening work. Tests use mock inference,
+not recovered GPU hardware.

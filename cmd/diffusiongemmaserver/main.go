@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/httpinput"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
 )
@@ -261,7 +262,8 @@ func main() {
 	mux.HandleFunc("/v1/completions", s.handleCompletions)
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	log.Printf("diffusiongemmaserver: listening on %s model=%s", *listen, *modelID)
-	log.Fatal(http.ListenAndServe(*listen, logRequests(mux)))
+	httpServer := &http.Server{Addr: *listen, Handler: logRequests(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	log.Fatal(httpServer.ListenAndServe())
 }
 
 func flagWasSet(name string) bool {
@@ -340,14 +342,35 @@ func (s *server) handleGenerate(w http.ResponseWriter, r *http.Request, chat boo
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 		return
 	}
+	// Reject excess work before body decoding/tokenisation; a mutex queue alone
+	// bounds neither waiting requests nor their retained bodies. One active owner,
+	// no waiting queue. Ownership extends through response/stream completion.
+	if !s.mu.TryLock() {
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": "inference busy; retry later"})
+		return
+	}
+	defer s.mu.Unlock()
+	defer r.Body.Close()
+	if err := r.Context().Err(); err != nil {
+		writeJSON(w, http.StatusRequestTimeout, map[string]any{"error": err.Error()})
+		return
+	}
 	var req completionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	if err := httpinput.DecodeJSON(w, r, &req, maxRequestBytes, false); err != nil {
+		writeJSON(w, httpinput.ErrorStatus(err), map[string]any{"error": err.Error()})
 		return
 	}
 	promptIDs, err := s.promptIDs(req, chat)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if err := s.validateRequest(req, promptIDs); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if err := r.Context().Err(); err != nil {
+		writeJSON(w, http.StatusRequestTimeout, map[string]any{"error": err.Error()})
 		return
 	}
 	if req.Stream {
@@ -356,18 +379,23 @@ func (s *server) handleGenerate(w http.ResponseWriter, r *http.Request, chat boo
 	}
 	steps := make([]renderStep, 0)
 	opts := s.options(req, func(idx int, snap diffusiongemma.DiffusionStepSnapshot) error {
+		if err := r.Context().Err(); err != nil {
+			return err
+		}
 		if req.ReturnDiffusionSteps {
 			steps = append(steps, s.renderStep(idx, snap))
 		}
 		return nil
 	})
 	start := time.Now()
-	s.mu.Lock()
 	res, err := s.engine.GenerateTokenIDs(promptIDs, opts)
-	s.mu.Unlock()
 	latency := time.Since(start)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		status := http.StatusInternalServerError
+		if r.Context().Err() != nil {
+			status = http.StatusRequestTimeout
+		}
+		writeJSON(w, status, map[string]any{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, s.response(req, promptIDs, res, steps, latency, chat, false))
@@ -384,16 +412,14 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req comple
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 	ctx := r.Context()
-	steps := make([]renderStep, 0)
 	opts := s.options(req, func(idx int, snap diffusiongemma.DiffusionStepSnapshot) error {
-		step := s.renderStep(idx, snap)
-		steps = append(steps, step)
-		return writeSSE(ctx, w, flusher, "diffusion_step", step)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return writeSSE(ctx, w, flusher, "diffusion_step", s.renderStep(idx, snap))
 	})
 	start := time.Now()
-	s.mu.Lock()
 	res, err := s.engine.GenerateTokenIDs(promptIDs, opts)
-	s.mu.Unlock()
 	latency := time.Since(start)
 	if err != nil {
 		_ = writeSSE(ctx, w, flusher, "error", map[string]any{"error": err.Error()})
@@ -403,7 +429,6 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request, req comple
 	_ = writeSSEData(ctx, w, flusher, chunk)
 	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	flusher.Flush()
-	_ = steps
 }
 
 func (s *server) options(req completionRequest, cb func(int, diffusiongemma.DiffusionStepSnapshot) error) diffusiongemma.InferenceOptions {
