@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 )
 
 const (
@@ -446,8 +447,14 @@ func clipGradientMapByGlobalNorm(grads map[string][]float32, maxNorm float32) fl
 		return 0
 	}
 	var sumSquares float64
-	for _, values := range grads {
-		for _, value := range values {
+	// Fixed reduction order makes clipping identical across process resumes.
+	names := make([]string, 0, len(grads))
+	for name := range grads {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		for _, value := range grads[name] {
 			sumSquares += float64(value) * float64(value)
 		}
 	}

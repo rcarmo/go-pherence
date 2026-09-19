@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-/** Build validation-only direct-score requests and controls; never reads test. */
+/** Build partition-specific study requests and controls; never reads final test. */
 import { createHash } from "node:crypto";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 const hash=(s:string)=>createHash("sha256").update(s).digest("hex");
 const {values}=parseArgs({args:Bun.argv.slice(2),options:{dataset:{type:"string",default:"checkpoints/jevlike-qwen3/pilot-v4"},output:{type:"string",default:"checkpoints/jevlike-qwen3/direct-pilot-v1"},"per-task":{type:"string",default:"12"},partition:{type:"string",default:"validation"}}});
-const partition=values.partition!;if(!["validation","calibration"].includes(partition))throw new Error("only validation/calibration selection is supported; final test stays untouched");
+const partition=values.partition!;if(!["train","validation","calibration"].includes(partition))throw new Error("only train/validation/calibration selection is supported; final test stays untouched");
 const source=resolve(values.dataset!),out=resolve(values.output!);const n=Number(values["per-task"]);if(!Number.isInteger(n)||n<2||n>100)throw new Error("per-task must be 2..100");if(existsSync(out))throw new Error("output exists");
 const manifest=JSON.parse(readFileSync(source+"/manifest.json","utf8"));
 const text=readFileSync(source+"/"+partition+".jsonl","utf8");const artifact=manifest.artifacts.find((a:any)=>a.path===partition+".jsonl");if(hash(text)!==artifact.sha256)throw new Error("validation identity changed");
@@ -44,7 +44,7 @@ for(const [task,list]of [...groups].sort()){
 }
 // Calibration fits only original requests; do not spend GPU time scoring
 // ablations which cannot contribute to that fit.
-if(partition==="calibration")requests=requests.filter(x=>x.variant==="normal");
+if(partition!=="validation")requests=requests.filter(x=>x.variant==="normal");
 mkdirSync(out,{recursive:true});const payload=requests.map(x=>JSON.stringify(x)).join("\n")+"\n";writeFileSync(out+"/requests.jsonl",payload);
 writeFileSync(out+"/selection.json",JSON.stringify({version:2,partition,source_manifest_sha256:hash(readFileSync(source+"/manifest.json","utf8")),partition_sha256:artifact.sha256,per_task:n,requests:requests.length,request_sha256:hash(payload),policies:["lowest sha256(direct-pilot-v1:source_id) per source/config","reverse candidate order preserves stable text IDs","task-matched different-example evidence; evidence controls only NLI/CLINC","QA option-only is not an evidence-shuffle metric","no final-test reads"],counts:[...groups].map(([task,x])=>({task,available:x.length,selected:Math.min(x.length,n)}))},null,2)+"\n");
 console.log(JSON.stringify({output:out,requests:requests.length,perTask:n}));

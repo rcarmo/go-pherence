@@ -2,6 +2,7 @@ package jevlike
 
 import (
 	"fmt"
+	"strings"
 
 	backbone "github.com/rcarmo/go-pherence/model"
 )
@@ -11,6 +12,12 @@ import (
 // own tokenizer contract. They must not mutate model weights.
 type TokenEncoder interface {
 	Encode(text string, maxTokens int) ([][]float32, error)
+}
+
+// PooledOptionEncoder stores deduplicated option vectors after F32 pooling,
+// avoiding re-pooling rounded token states on every cached epoch.
+type PooledOptionEncoder interface {
+	EncodeOption(text string, maxTokens int) ([]float32, error)
 }
 
 // DecoderEncoder adapts a loaded go-pherence dense causal decoder. Tokenize is
@@ -61,6 +68,12 @@ func (c Checkpoint) Frozen(encoder TokenEncoder) (*FrozenScorer, error) {
 	}
 	if c.Encoder != "frozen" || encoder == nil {
 		return nil, fmt.Errorf("frozen checkpoint and encoder required")
+	}
+	if strings.HasPrefix(c.EncoderReference, "feature:") {
+		identified, ok := encoder.(interface{ FeatureReference() string })
+		if !ok || identified.FeatureReference() != c.EncoderReference {
+			return nil, fmt.Errorf("exact feature encoder identity required")
+		}
 	}
 	h, err := NewAttentionHead(c.Config.Width, c.Config.Rank)
 	if err != nil {
@@ -132,6 +145,17 @@ func (m *FrozenScorer) encodeBatch(examples []ChoiceExample) (frozenEncodedBatch
 
 		options[i] = make([][]float32, len(item.Options))
 		for j, text := range item.Options {
+			if encoder, ok := m.Encoder.(PooledOptionEncoder); ok {
+				pooled, err := encoder.EncodeOption(text, m.Config.OptionTokens)
+				if err != nil {
+					return frozenEncodedBatch{}, err
+				}
+				if err = validateFeatureRows([][]float32{pooled}, m.Config.Width); err != nil {
+					return frozenEncodedBatch{}, err
+				}
+				options[i][j] = pooled
+				continue
+			}
 			tokens, err := m.Encoder.Encode(text, m.Config.OptionTokens)
 			if err != nil {
 				return frozenEncodedBatch{}, err

@@ -33,7 +33,7 @@ func readDirectSelection(spec, requests, dataset string) (directSelection, map[s
 	if err = json.Unmarshal(b, &s); err != nil {
 		return s, nil, err
 	}
-	if s.Partition != "validation" && s.Partition != "calibration" && s.Partition != "test" {
+	if s.Partition != "train" && s.Partition != "validation" && s.Partition != "calibration" && s.Partition != "test" {
 		return s, nil, fmt.Errorf("explicit evaluation partition required")
 	}
 	manifest, err := os.ReadFile(filepath.Join(dataset, "manifest.json"))
