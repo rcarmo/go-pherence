@@ -7,6 +7,7 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/internal/checked"
+	"runtime"
 	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -565,7 +566,12 @@ func CopyDtoD(dst, src CUdeviceptr, bytes uint64) error {
 	if dst == 0 || src == 0 || bytes == 0 {
 		return nil
 	}
-	EnsureContext()
+	// Context selection and the driver call must remain on the same OS thread.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	if r := cuMemcpyDtoD(dst, src, bytes); r != CUDA_SUCCESS {
 		return fmt.Errorf("cuMemcpyDtoD: error %d", r)
 	}
@@ -581,8 +587,12 @@ func ZeroFloat32Buffer(buf *Buffer, n int) error {
 	if buf == nil || buf.Ptr == 0 || buf.Size < n*4 {
 		return fmt.Errorf("invalid zero buffer n=%d", n)
 	}
-	EnsureContext()
 	if cuMemsetD32 != nil {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		cudaMu.Lock()
+		defer cudaMu.Unlock()
+		ensureContextLocked()
 		if r := cuMemsetD32(buf.Ptr, 0, uint64(n)); r != CUDA_SUCCESS {
 			return fmt.Errorf("cuMemsetD32: error %d", r)
 		}

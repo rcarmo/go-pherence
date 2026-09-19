@@ -259,7 +259,10 @@ func ensureContextLocked() {
 	}
 }
 
-// EnsureContext sets the CUDA context on the calling thread.
+// EnsureContext sets the CUDA context on the calling thread. It does not pin
+// a subsequent driver call. Internal driver wrappers must instead hold an
+// OS-thread pin and cudaMu across ensureContextLocked and the driver operation,
+// as the checked buffer/launch methods do.
 func EnsureContext() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -631,6 +634,14 @@ func LaunchKernel(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ uin
 	if gpuStatsEnabled.Load() {
 		gpuStatsKernelLaunches.Add(1)
 	}
+	// Diagnostic only: CUDA launch errors can otherwise surface on a later
+	// operation, obscuring the first failing kernel. Never use this timing mode
+	// for performance reports, or during graph capture.
+	if stream == 0 && os.Getenv("GO_PHERENCE_CUDA_LAUNCH_CHECK") == "1" {
+		if r := cuCtxSynchronize(); r != CUDA_SUCCESS {
+			return fmt.Errorf("CUDA post-launch sync fn=%#x grid=(%d,%d,%d) block=(%d,%d,%d): error %d", fn, gridX, gridY, gridZ, blockX, blockY, blockZ, r)
+		}
+	}
 	return nil
 }
 
@@ -642,12 +653,18 @@ func init() {
 
 // MemInfo returns (free, total) GPU memory in bytes.
 func MemInfo() (uint64, uint64) {
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	var free, total uint64
 	if cuMemGetInfo == nil {
 		return 0, 0
 	}
-	cuMemGetInfo(&free, &total)
+	if cuMemGetInfo(&free, &total) != CUDA_SUCCESS {
+		return 0, 0
+	}
 	return free, total
 }
 

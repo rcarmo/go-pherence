@@ -162,7 +162,11 @@ func WaitPrefetch() {
 
 // SyncAll synchronizes both streams.
 func SyncAll() {
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	if streamsReady && prefetchStream != 0 && cuStreamSynchronize != nil {
 		_ = cuStreamSynchronize(prefetchStream)
 	}
