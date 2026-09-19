@@ -2,6 +2,7 @@ package lfm2
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"strings"
 
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -15,6 +16,10 @@ func ValidateTensorShapes(cfg Config, infos map[string]safetensors.TensorInfo) T
 	v := TensorShapeValidation{Valid: true}
 	for name, info := range infos {
 		shape := info.Shape
+		if tensorElements(shape) <= 0 {
+			v.Add(fmt.Sprintf("%s invalid/overflowing shape %v", name, shape))
+			continue
+		}
 		lower := strings.ToLower(name)
 		switch {
 		case strings.Contains(lower, "embed_tokens"):
@@ -26,12 +31,20 @@ func ValidateTensorShapes(cfg Config, infos map[string]safetensors.TensorInfo) T
 				v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d", name, shape, cfg.HiddenSize))
 			}
 		case strings.Contains(lower, "k_proj") || strings.Contains(lower, "v_proj"):
-			kvWidth := cfg.NumKeyValueHeads * cfg.HeadDim
+			kvWidth, ok := checked.MulInt(cfg.NumKeyValueHeads, cfg.HeadDim)
+			if !ok {
+				v.Add("KV width overflows")
+				continue
+			}
 			if cfg.HiddenSize > 0 && kvWidth > 0 && !inspect.MatrixMatches(shape, cfg.HiddenSize, kvWidth) {
 				v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d and kv_width=%d", name, shape, cfg.HiddenSize, kvWidth))
 			}
 		case strings.Contains(lower, "conv") && strings.Contains(lower, "weight"):
-			want := cfg.HiddenSize * cfg.ConvLCache
+			want, ok := checked.MulInt(cfg.HiddenSize, cfg.ConvLCache)
+			if !ok {
+				v.Add("conv size overflows")
+				continue
+			}
 			if cfg.HiddenSize > 0 && cfg.ConvLCache > 0 && tensorElements(shape) != want {
 				v.Add(fmt.Sprintf("%s shape=%v want %d conv kernel elements", name, shape, want))
 			}
@@ -61,7 +74,11 @@ func tensorElements(shape []int) int {
 		if d <= 0 {
 			return 0
 		}
-		n *= d
+		var ok bool
+		n, ok = checked.MulInt(n, d)
+		if !ok {
+			return 0
+		}
 	}
 	return n
 }

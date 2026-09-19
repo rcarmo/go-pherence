@@ -6,6 +6,7 @@ package lfm2
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"os"
 	"path/filepath"
 )
@@ -74,8 +75,12 @@ func (c Config) Validate() error {
 	if c.HiddenSize <= 0 || c.NumAttentionHeads <= 0 || c.NumKeyValueHeads <= 0 || c.HeadDim <= 0 {
 		return fmt.Errorf("invalid LFM2 attention dims: hidden=%d heads=%d kv_heads=%d head_dim=%d", c.HiddenSize, c.NumAttentionHeads, c.NumKeyValueHeads, c.HeadDim)
 	}
-	if c.HiddenSize != c.NumAttentionHeads*c.HeadDim {
+	width, ok := checked.MulInt(c.NumAttentionHeads, c.HeadDim)
+	if !ok || c.HiddenSize != width {
 		return fmt.Errorf("invalid LFM2 head dims: hidden=%d heads=%d head_dim=%d", c.HiddenSize, c.NumAttentionHeads, c.HeadDim)
+	}
+	if c.NumKeyValueHeads > c.NumAttentionHeads || c.NumAttentionHeads%c.NumKeyValueHeads != 0 {
+		return fmt.Errorf("invalid LFM2 GQA head grouping")
 	}
 	if c.NumHiddenLayers <= 0 || len(c.LayerTypes) != c.NumHiddenLayers {
 		return fmt.Errorf("invalid LFM2 layer pattern: layers=%d layer_types=%d", c.NumHiddenLayers, len(c.LayerTypes))

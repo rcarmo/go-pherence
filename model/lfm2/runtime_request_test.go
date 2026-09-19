@@ -42,3 +42,31 @@ func TestRuntimeRequestPlanRejectsMalformed(t *testing.T) {
 		t.Fatal("expected max sequence mismatch")
 	}
 }
+
+func TestRuntimeRequestRejectsWrappedSequenceAndTensorProducts(t *testing.T) {
+	meta, err := LoadReferenceMetadata(filepath.Join("testdata", "lfm25_8b_a1b_metadata.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	max := int(^uint(0) >> 1)
+	if _, err := NewRuntimeRequestPlan(meta.Config, RuntimeRequest{Tokens: []uint32{1}, MaxNewTokens: max, BytesPerFloat: 2}); err == nil {
+		t.Fatal("wrapped sequence admitted")
+	}
+	plan, err := NewRuntimeRequestPlan(meta.Config, RuntimeRequest{Tokens: []uint32{1}, MaxNewTokens: 1, BytesPerFloat: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.MaxNewTokens = max
+	plan.MaxSequence = plan.PromptTokens + max
+	if err = plan.Validate(); err == nil {
+		t.Fatal("wrapped forged request admitted")
+	}
+	if got := tensorElements([]int{max, 2}); got != 0 {
+		t.Fatal("tensor product overflow", got)
+	}
+	cfg := meta.Config
+	cfg.NumKeyValueHeads = cfg.NumAttentionHeads + 1
+	if err = cfg.Validate(); err == nil {
+		t.Fatal("invalid GQA accepted")
+	}
+}
