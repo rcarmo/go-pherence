@@ -55,6 +55,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "help", "-h", "--help":
 		writeUsage(stdout)
 		return nil
+	case "score":
+		return runScore(args[1:], stdout, stderr)
 	case "prepare":
 		return runPrepare(args[1:], stdout, stderr)
 	case "synthetic":
@@ -77,6 +79,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: jevlike <subcommand> [flags]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Subcommands:")
+	fmt.Fprintln(w, "  score        one-prefill GPU direct choice logits; pinned local assets only")
 	fmt.Fprintln(w, "  prepare      validate pinned local dataset exports and write four splits + provenance")
 	fmt.Fprintln(w, "  synthetic    write synthetic train/validation/test JSONL files")
 	fmt.Fprintln(w, "  wikispeedia  build train/validation/test JSONL files from Wikispeedia")

@@ -1,8 +1,9 @@
 # Frozen Qwen3 choice-scorer experiment
 
 Issue [#2](https://github.com/rcarmo/go-pherence/issues/2) is in progress. The local
-RTX 3060 host was explicitly approved on 2026-09-19. The current milestone is
-pinned data preparation, not trained-model quality or GPU extraction readiness.
+RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and an experimental compact GPU/direct-token path are
+implemented. Numerical fixtures pass for the downloaded Base checkpoint; this
+is not a trained-model quality result or an instruction-following claim.
 
 ## Data and model identity
 
@@ -17,11 +18,14 @@ The Qwen3-4B-Base revision is
 including 4,022,468,096 BF16 parameters. The config has width 2560, 36 layers,
 32 attention heads, 8 KV heads, head width 128 and vocabulary 151936.
 
-The existing dense GPU loader expands tensor data into F32 device buffers and
-allocates generation resources. It is not the accepted 4B extractor: compact
-storage, all-token final-normalised output and no LM-head allocation must be
-implemented/validated before extraction. No GPU or reference-parity claim follows
-from downloading these weights.
+The ordinary dense GPU loader expands tensor data into F32 device buffers and
+allocates generation resources. The separate experimental `FrozenGPUEncoder`
+keeps BF16 transformer matrices resident, widens/transposes one matrix into
+reusable F32 scratch, and returns either all final-normalised rows or the last
+row for selected-token scoring. It allocates no vocabulary projection buffer.
+See [compact/direct validation](compact-direct-validation.md) for limits,
+reference comparisons, cleanup and the explicitly reported CPU selected-head
+projection.
 
 ## Licences and pilot policy
 
@@ -96,9 +100,12 @@ python3 scripts/jevlike-export-parquet.test.py
 
 ## Next gate
 
-Produce independent Qwen3 reference fixtures and an actual memory-allocation
-report, then implement/validate compact GPU hidden-state extraction. The planned
-cache is capped at 12 GiB and expansion depends on pilot learning and meaningful
-context controls. Final calibration, three-seed comparisons and a human-reviewed
-new evaluation set are still pending. Do not promote or close issue #2 on this
-preparation milestone.
+Per the [direct-logit-first update](https://github.com/rcarmo/go-pherence/issues/2#issuecomment-5741524821),
+run the direct scorer as a validation baseline before feature caching or head
+training. The prepared final test remains excluded from iterative selection.
+Instruction-tuned Qwen3 requires sequential asset use or an approved budget
+revision; another 8 GB checkpoint must not be added under the 12 GiB cap.
+
+The planned cache stays capped at 12 GiB. Calibration, quality/control comparisons,
+three-seed head comparisons and human-reviewed new evaluation remain pending.
+Numerical parity is not model quality; do not close issue #2 on this milestone.

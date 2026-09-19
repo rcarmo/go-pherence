@@ -145,7 +145,8 @@ func Init() bool {
 			debuglog.Println("[gpu] NVIDIA backend disabled by GO_PHERENCE_DISABLE_NVIDIA")
 			return
 		}
-		runtime.LockOSThread() // CUDA context is thread-local
+		runtime.LockOSThread()         // CUDA context is thread-local
+		defer runtime.UnlockOSThread() // do not strand/terminate caller OS threads
 		lib, err := purego.Dlopen("libcuda.so.1", purego.RTLD_LAZY)
 		if err != nil {
 			// Try versioned names
