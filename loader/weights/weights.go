@@ -9,7 +9,9 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
-// Source is the common tensor lookup surface used by model loaders.
+// Source is the common tensor lookup surface used by model loaders. Converted
+// arrays are owned; GetRaw data/shape are read-only borrowed and need the source
+// to stay open until every consumer/native use is finished.
 type Source interface {
 	GetFloat32(name string) ([]float32, []int, error)
 	GetInt32(name string) ([]int32, []int, error)
@@ -27,7 +29,7 @@ type EagerSource interface {
 // model.safetensors file from dir.
 func OpenSafetensors(dir string) (Source, error) {
 	indexPath := filepath.Join(dir, "model.safetensors.index.json")
-	if _, err := os.Stat(indexPath); err == nil {
+	if _, err := os.Lstat(indexPath); err == nil {
 		sf, err := safetensors.OpenSharded(indexPath)
 		if err != nil {
 			return nil, fmt.Errorf("open sharded: %w", err)

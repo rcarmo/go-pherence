@@ -32,3 +32,18 @@ func TestOpenSafetensorsMissingSingle(t *testing.T) {
 		t.Fatalf("err=%v, want os.ErrNotExist", err)
 	}
 }
+
+func TestDanglingIndexDoesNotFallback(t *testing.T) {
+	dir := t.TempDir()
+	index := filepath.Join(dir, "model.safetensors.index.json")
+	if err := os.Symlink("missing-index.json", index); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "model.safetensors"), []byte("not a checkpoint"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenSafetensors(dir)
+	if err == nil || !strings.Contains(err.Error(), "open sharded") {
+		t.Fatalf("broken index selected fallback: %v", err)
+	}
+}
