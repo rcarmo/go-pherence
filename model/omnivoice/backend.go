@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/commandcapture"
 )
 
 // BackendMode names the user-visible OmniVoice execution policy.
@@ -333,9 +333,8 @@ func initVulkanRuntimeProbe() vulkanRuntimeProbeResult {
 	// should supply its own capability policy; unsupported hosts return unknown.
 	for _, software := range []bool{false, true} {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		cmd := exec.CommandContext(ctx, exe, "-mode", "vulkan-probe-internal")
-		cmd.Env = append(os.Environ(), "GO_PHERENCE_VULKAN_ALLOW_CPU="+map[bool]string{false: "0", true: "1"}[software])
-		raw, err := cmd.Output()
+		env := append(os.Environ(), "GO_PHERENCE_VULKAN_ALLOW_CPU="+map[bool]string{false: "0", true: "1"}[software])
+		raw, _, err := commandcapture.Run(ctx, exe, []string{"-mode", "vulkan-probe-internal"}, env, 64<<10)
 		cancel()
 		if err != nil {
 			continue
