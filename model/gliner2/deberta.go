@@ -292,8 +292,11 @@ func LoadDeberta(source TensorSource, cfg DebertaConfig) (Deberta, error) {
 	norm := func(r *weightReader, name string, dim int) LayerNorm {
 		return LayerNorm{Weight: r.tensor(name+".weight", dim), Bias: r.tensor(name+".bias", dim), Epsilon: cfg.LayerNormEps}
 	}
+	relRows, ok := checked.MulInt(2, cfg.relativeEmbeddingSpan())
+	if !ok {
+		return m, fmt.Errorf("deberta relative embedding rows overflow")
+	}
 	r := weightReader{source: source}
-	relRows := 2 * cfg.relativeEmbeddingSpan()
 	m = Deberta{
 		Config:              cfg,
 		WordEmbeddings:      r.tensor("encoder.embeddings.word_embeddings.weight", cfg.VocabSize, cfg.HiddenSize),
@@ -301,7 +304,7 @@ func LoadDeberta(source TensorSource, cfg DebertaConfig) (Deberta, error) {
 		RelativeEmbeddings:  r.tensor("encoder.encoder.rel_embeddings.weight", relRows, cfg.HiddenSize),
 		RelativeLayerNorm:   norm(&r, "encoder.encoder.LayerNorm", cfg.HiddenSize),
 	}
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
+	for i := 0; i < cfg.NumHiddenLayers && r.err == nil; i++ {
 		prefix := fmt.Sprintf("encoder.encoder.layer.%d", i)
 		m.Layers = append(m.Layers, DebertaLayer{
 			QueryProjection:    r.linear(prefix+".attention.self.query_proj", cfg.HiddenSize, cfg.HiddenSize),

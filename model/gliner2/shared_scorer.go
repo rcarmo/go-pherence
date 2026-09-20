@@ -143,6 +143,9 @@ func LoadSharedPoolScorer(source TensorSource, hiddenSize int, c BoundaryHeadCon
 		FilmOutputInput:      r.linear(prefix+".film_output.0", c.PairDim, 64),
 		FilmOutputOutput:     r.linear(prefix+".film_output.3", 64, 1),
 	}
+	if r.err != nil {
+		return SharedPoolScorer{}, r.err
+	}
 	if c.EnableSpanContent {
 		pooler, err := LoadSpanContentPooler(source, hiddenSize, c.ContentDim, c.ContentSoftMaxPool, prefix+".content_pooler")
 		if err != nil {
@@ -151,6 +154,9 @@ func LoadSharedPoolScorer(source TensorSource, hiddenSize int, c BoundaryHeadCon
 		projection := r.linear(prefix+".content_projection", pooler.OutputDim(), c.PairDim)
 		s.ContentPooler = &pooler
 		s.ContentProjection = &projection
+	}
+	if r.err != nil {
+		return SharedPoolScorer{}, r.err
 	}
 	for i := 0; i < c.CandidateAttentionLayers; i++ {
 		layer, err := LoadOverlapBiasedCandidateAttention(source, c.PairDim, c.CandidateAttentionHeads, fmt.Sprintf("%s.candidate_layers.%d", prefix, i))

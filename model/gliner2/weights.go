@@ -1,6 +1,11 @@
 package gliner2
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // TensorSource is implemented by loader/safetensors.File. GetFloat32 returns
 // owned decoded weights, so modules remain valid after the file is closed.
@@ -17,6 +22,16 @@ func (r *weightReader) tensor(name string, shape ...int) []float32 {
 	if r.err != nil {
 		return nil
 	}
+	// Validate expected dimensions before requesting a potentially expensive decode.
+	n := 1
+	for _, d := range shape {
+		var ok bool
+		n, ok = checked.MulInt(n, d)
+		if d <= 0 || !ok {
+			r.err = fmt.Errorf("%s invalid/overflowing shape %v", name, shape)
+			return nil
+		}
+	}
 	x, s, err := r.source.GetFloat32(name)
 	if err != nil {
 		r.err = fmt.Errorf("%s: %w", name, err)
@@ -26,13 +41,11 @@ func (r *weightReader) tensor(name string, shape ...int) []float32 {
 		r.err = fmt.Errorf("%s rank mismatch", name)
 		return nil
 	}
-	n := 1
 	for i, d := range shape {
-		if d <= 0 || s[i] != d {
+		if s[i] != d {
 			r.err = fmt.Errorf("%s shape %v want %v", name, s, shape)
 			return nil
 		}
-		n *= d
 	}
 	if len(x) != n {
 		r.err = fmt.Errorf("%s length mismatch", name)
@@ -58,17 +71,34 @@ func LoadBoundaryModules(source TensorSource, hidden int, c BoundaryHeadConfig) 
 	if err := c.Validate(); err != nil {
 		return e, h, err
 	}
-	r := weightReader{source: source}
 	d := c.BoundaryDim
-	p := "boundary_head.boundary_encoder"
-	e = BoundaryEncoder{HiddenSize: hidden, BoundaryDim: d, LeftProjection: r.linear(p+".left_projection", hidden, d), RightProjection: r.linear(p+".right_projection", hidden, d), OutputProjection: r.linear(p+".output_projection", 2*d, d), LayerNorm: r.norm(p+".layer_norm", d), BosState: r.tensor(p+".bos_state", hidden), EosState: r.tensor(p+".eos_state", hidden)}
-	for i := 0; i < c.BoundaryAttentionLayers; i++ {
-		n := fmt.Sprintf("%s.attention_blocks.%d", p, i)
-		e.AttentionBlocks = append(e.AttentionBlocks, BoundaryAttentionBlock{NumHeads: c.BoundaryAttentionHeads, Window: c.BoundaryAttentionWindow, Norm: r.norm(n+".norm", d), QKVProjection: r.linear(n+".qkv_projection", d, 3*d), OutputProjection: r.linear(n+".output_projection", d, d)})
+	doubled, ok := checked.MulInt(2, d)
+	if !ok {
+		return e, h, fmt.Errorf("boundary output projection width overflow")
 	}
-	for i := 0; i < c.BoundaryRefinementLayers; i++ {
+	qkv, ok := checked.MulInt(3, d)
+	if c.BoundaryAttentionLayers > 0 && !ok {
+		return e, h, fmt.Errorf("boundary QKV width overflow")
+	}
+	// Check the floating-point product before narrowing; the upper boundary is
+	// exclusive because float64(MaxInt) may round upwards. Input projection is 2*ff.
+	ff := 1
+	if c.BoundaryRefinementLayers > 0 {
+		width := float64(d) * c.BoundaryFFNMultiplier
+		if math.IsNaN(width) || math.IsInf(width, 0) || width <= 0 || width >= float64(int(^uint(0)>>1)/2) {
+			return e, h, fmt.Errorf("boundary FFN width invalid or overflowing")
+		}
+		ff = max(1, int(width))
+	}
+	r := weightReader{source: source}
+	p := "boundary_head.boundary_encoder"
+	e = BoundaryEncoder{HiddenSize: hidden, BoundaryDim: d, LeftProjection: r.linear(p+".left_projection", hidden, d), RightProjection: r.linear(p+".right_projection", hidden, d), OutputProjection: r.linear(p+".output_projection", doubled, d), LayerNorm: r.norm(p+".layer_norm", d), BosState: r.tensor(p+".bos_state", hidden), EosState: r.tensor(p+".eos_state", hidden)}
+	for i := 0; i < c.BoundaryAttentionLayers && r.err == nil; i++ {
+		n := fmt.Sprintf("%s.attention_blocks.%d", p, i)
+		e.AttentionBlocks = append(e.AttentionBlocks, BoundaryAttentionBlock{NumHeads: c.BoundaryAttentionHeads, Window: c.BoundaryAttentionWindow, Norm: r.norm(n+".norm", d), QKVProjection: r.linear(n+".qkv_projection", d, qkv), OutputProjection: r.linear(n+".output_projection", d, d)})
+	}
+	for i := 0; i < c.BoundaryRefinementLayers && r.err == nil; i++ {
 		n := fmt.Sprintf("%s.refinement_blocks.%d", p, i)
-		ff := max(1, int(float64(d)*c.BoundaryFFNMultiplier))
 		e.RefinementBlocks = append(e.RefinementBlocks, ResidualSwiGLU{Norm: r.norm(n+".norm", d), InputProjection: r.linear(n+".input_projection", d, 2*ff), OutputProjection: r.linear(n+".output_projection", ff, d)})
 	}
 	p = "boundary_head.boundary_query_head"
