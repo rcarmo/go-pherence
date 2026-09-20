@@ -6,6 +6,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 |---|---|
 | Run a CLI or service | [Command index](guides/commands.md) |
 | Use the embedded llama.cpp UI | [Build, hosting and limits](../webui/README.md); [validation](validation/embedded-llama-ui-20260920.md) |
+| Run/train Needle 3 or Needle 2 | [Native FP32 baseline and outstanding deployment work](../model/needle/README.md) |
 | Choose a model or checkpoint format | [Supported models](models/supported-models.md) |
 | Select a backend or adjust placement | [Backends](backends/README.md) and [runtime tuning](guides/tuning.md) |
 | Understand package ownership | [Architecture](architecture/README.md) |

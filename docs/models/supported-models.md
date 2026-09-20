@@ -2,6 +2,10 @@
 
 This page tracks model architecture and weight-format support. The top-level README stays high-level; detailed backend and validation state lives under `docs/`.
 
+## Needle implementation in progress
+
+[Needle 3 and Needle 2](../../model/needle/README.md) have a native FP32 language-model trunk, token-ID generation and full-trunk/LoRA training with upstream small-model logits/loss/gradient parity. Dense forward/backward products use amd64/ARM64 SIMD dispatch. This is not yet full Needle application support: quantized `.cact`/CQ-A8 training, tokenizer/tool calling, auxiliary heads, ladder slicing, full SIMD coverage and native ARM qualification remain pending.
+
 ## Performance snapshot
 
 | Model | Arch | Format | GPU tok/s | CPU tok/s |
