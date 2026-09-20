@@ -13,7 +13,8 @@ func TestHashTokenChunkChainsPrefix(t *testing.T) {
 }
 
 func TestChunkCacheContainsTracksEviction(t *testing.T) {
-	c := NewChunkCache(8)
+	// Payload + token/key/entry accounting admits exactly one small entry.
+	c := NewChunkCache(273)
 	k1 := ChunkKey{ModelID: "m", TokenHash: 1}
 	k2 := ChunkKey{ModelID: "m", TokenHash: 2}
 	if c.Contains(k1) {
@@ -34,7 +35,7 @@ func TestChunkCacheContainsTracksEviction(t *testing.T) {
 }
 
 func TestChunkCacheCloneAndEvict(t *testing.T) {
-	c := NewChunkCache(64)
+	c := NewChunkCache(400)
 	k1 := ChunkKey{ModelID: "m", TokenHash: 1, EndPos: 2}
 	s1 := Snapshot{SeqLen: 2, Hidden: []float32{1, 2}, Layers: []LayerKVSnapshot{{K: []float32{1, 2}, V: []float32{3, 4}, SeqLen: 2, KVDim: 1}}}
 	if err := c.Put(k1, []int{1, 2}, s1); err != nil {
@@ -51,11 +52,11 @@ func TestChunkCacheCloneAndEvict(t *testing.T) {
 		t.Fatalf("cache did not clone values: %+v", got2)
 	}
 	k2 := ChunkKey{ModelID: "m", TokenHash: 2, EndPos: 4}
-	big := Snapshot{SeqLen: 4, Hidden: make([]float32, 32)}
-	if err := c.Put(k2, []int{3, 4}, big); err != nil {
-		t.Fatal(err)
+	big := Snapshot{SeqLen: 4, Hidden: make([]float32, 128)}
+	if err := c.Put(k2, []int{3, 4}, big); err == nil {
+		t.Fatal("oversized entry accepted")
 	}
-	if c.Len() != 0 || c.UsedBytes() != 0 {
-		t.Fatalf("oversized entry should evict all, len=%d used=%d", c.Len(), c.UsedBytes())
+	if c.Len() != 1 || !c.Contains(k1) || c.Contains(k2) {
+		t.Fatal("rejected insert evicted valid entry")
 	}
 }
