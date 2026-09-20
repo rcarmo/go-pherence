@@ -2,9 +2,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,8 +15,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/commandcapture"
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/model/speaker"
+)
+
+const (
+	ffmpegDecodeTimeout = 30 * time.Second
+	ffmpegOutputLimit   = 64 << 10
+)
+
+var (
+	wavLoader      = audio.WAV
+	ffmpegLookPath = exec.LookPath
+	tempDirMaker   = os.MkdirTemp
+	removeAll      = os.RemoveAll
+	commandRunner  = commandcapture.Run
 )
 
 type checkReport struct {
@@ -52,6 +68,8 @@ type checkScore struct {
 	PairwiseAgree int     `json:"pairwise_agree"`
 	PairwiseTotal int     `json:"pairwise_total"`
 	PairwiseScore float64 `json:"pairwise_score"`
+	Passed        bool    `json:"passed"`
+	Failure       string  `json:"failure,omitempty"`
 }
 
 func main() {
@@ -69,6 +87,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, "-input is required")
 		os.Exit(2)
 	}
+	if err := validateParameters(*threshold, *context, *startSec, *durationSec); err != nil {
+		fatalf("flags: %v", err)
+	}
 
 	dbg := os.Getenv("SPEAKER_DEBUG") != ""
 	tick := time.Now()
@@ -80,8 +101,10 @@ func main() {
 	}
 
 	samples, sr, cleanup, err := loadAudioSamples(*input)
+	// WAV loader returns owned samples; release the temporary file before any
+	// later fatal exit (os.Exit does not run defers).
 	if cleanup != nil {
-		defer cleanup()
+		cleanup()
 	}
 	if err != nil {
 		fatalf("audio: %v", err)
@@ -113,17 +136,18 @@ func main() {
 		}
 		report.Score = scoreExpected(report.Segments, expected)
 	}
+	exitCode := exitCodeForReport(report)
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(report); err != nil {
 			fatalf("json: %v", err)
 		}
-		return
+	} else {
+		printTextReport(report)
 	}
-	printTextReport(report)
-	if report.Score != nil && report.Score.PairwiseScore < 1 {
-		os.Exit(1)
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
 }
 
@@ -176,7 +200,11 @@ func printTextReport(report checkReport) {
 	}
 	fmt.Println()
 	if report.Score != nil {
-		fmt.Printf("score exact=%d/%d accuracy=%.3f pairwise=%d/%d pairwise_score=%.3f\n", report.Score.ExactMatches, report.Score.Total, report.Score.Accuracy, report.Score.PairwiseAgree, report.Score.PairwiseTotal, report.Score.PairwiseScore)
+		if report.Score.Failure != "" {
+			fmt.Printf("score failed: %s\n", report.Score.Failure)
+		} else {
+			fmt.Printf("score exact=%d/%d accuracy=%.3f pairwise=%d/%d pairwise_score=%.3f passed=%t\n", report.Score.ExactMatches, report.Score.Total, report.Score.Accuracy, report.Score.PairwiseAgree, report.Score.PairwiseTotal, report.Score.PairwiseScore, report.Score.Passed)
+		}
 	}
 	for _, sim := range report.Sims {
 		fmt.Printf("sim %02d-%02d %.3f\n", sim.I, sim.J, sim.Cosine)
@@ -197,56 +225,127 @@ func parseExpectedLabels(value string) ([]int, error) {
 		}
 		out = append(out, v)
 	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("expected labels must not be empty")
+	}
 	return out, nil
 }
 
 func scoreExpected(segments []checkSegment, expected []int) *checkScore {
-	total := len(segments)
-	if len(expected) < total {
-		total = len(expected)
+	score := &checkScore{Expected: append([]int(nil), expected...), Total: len(segments)}
+	if len(expected) != len(segments) {
+		score.Failure = fmt.Sprintf("expected %d labels for %d segments", len(expected), len(segments))
+		return score
 	}
-	exact := 0
-	for i := 0; i < total; i++ {
-		if segments[i].Speaker == expected[i] {
-			exact++
+	predicted := make([]int, len(segments))
+	for i, seg := range segments {
+		if seg.Speaker <= 0 || expected[i] <= 0 {
+			score.Failure = "speaker labels must be positive"
+			return score
+		}
+		predicted[i] = seg.Speaker
+	}
+	predicted = canonicalizeLabels(predicted)
+	expected = canonicalizeLabels(expected)
+	for i := range predicted {
+		if predicted[i] == expected[i] {
+			score.ExactMatches++
 		}
 	}
-	pairAgree, pairTotal := 0, 0
-	for i := 0; i < total; i++ {
-		for j := i + 1; j < total; j++ {
-			pairTotal++
-			predSame := segments[i].Speaker == segments[j].Speaker
+	if score.Total == 0 {
+		score.Accuracy = 1
+	} else {
+		score.Accuracy = float64(score.ExactMatches) / float64(score.Total)
+	}
+	for i := 0; i < len(predicted); i++ {
+		for j := i + 1; j < len(predicted); j++ {
+			score.PairwiseTotal++
+			predSame := predicted[i] == predicted[j]
 			expSame := expected[i] == expected[j]
 			if predSame == expSame {
-				pairAgree++
+				score.PairwiseAgree++
 			}
 		}
 	}
-	s := &checkScore{Expected: expected, ExactMatches: exact, Total: total, PairwiseAgree: pairAgree, PairwiseTotal: pairTotal}
-	if total > 0 {
-		s.Accuracy = float64(exact) / float64(total)
+	if score.PairwiseTotal == 0 {
+		score.PairwiseScore = 1
+	} else {
+		score.PairwiseScore = float64(score.PairwiseAgree) / float64(score.PairwiseTotal)
 	}
-	if pairTotal > 0 {
-		s.PairwiseScore = float64(pairAgree) / float64(pairTotal)
+	score.Passed = score.ExactMatches == score.Total
+	return score
+}
+
+func canonicalizeLabels(labels []int) []int {
+	out := make([]int, len(labels))
+	seen := make(map[int]int, len(labels))
+	next := 1
+	for i, label := range labels {
+		mapped, ok := seen[label]
+		if !ok {
+			mapped = next
+			seen[label] = mapped
+			next++
+		}
+		out[i] = mapped
 	}
-	return s
+	return out
+}
+
+func exitCodeForReport(report checkReport) int {
+	if report.Score == nil || report.Score.Passed {
+		return 0
+	}
+	return 1
+}
+
+func validateParameters(threshold, context, startSec, durationSec float64) error {
+	if threshold < -1 || threshold > 1 || context < 0 || context > 30 || startSec < 0 || durationSec < 0 {
+		return fmt.Errorf("threshold must be -1..1, context0..30 seconds, start/duration nonnegative")
+	}
+	for _, param := range []struct {
+		name  string
+		value float64
+	}{
+		{name: "threshold", value: threshold},
+		{name: "context", value: context},
+		{name: "start", value: startSec},
+		{name: "duration", value: durationSec},
+	} {
+		if !isFinite(param.value) {
+			return fmt.Errorf("-%s must be finite", param.name)
+		}
+	}
+	return nil
+}
+
+func isFinite(v float64) bool {
+	return !math.IsNaN(v) && !math.IsInf(v, 0)
 }
 
 func loadAudioSamples(path string) ([]float32, int, func(), error) {
-	samples, sr, err := audio.WAV(path)
+	samples, sr, err := wavLoader(path)
 	if err == nil {
 		return samples, sr, nil, nil
 	}
-	if _, lookErr := exec.LookPath("ffmpeg"); lookErr != nil {
+	ffmpegPath, lookErr := ffmpegLookPath("ffmpeg")
+	if lookErr != nil {
 		return nil, 0, nil, fmt.Errorf("wav decode failed (%v), and ffmpeg was not found for fallback decode", err)
 	}
-	tmp := filepath.Join(os.TempDir(), fmt.Sprintf("speakercheck-%d.wav", os.Getpid()))
-	cmd := exec.Command("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", tmp)
-	if out, runErr := cmd.CombinedOutput(); runErr != nil {
-		return nil, 0, nil, fmt.Errorf("ffmpeg decode: %v: %s", runErr, strings.TrimSpace(string(out)))
+	tmpDir, tempErr := tempDirMaker("", "speakercheck-")
+	if tempErr != nil {
+		return nil, 0, nil, fmt.Errorf("temp dir: %w", tempErr)
 	}
-	cleanup := func() { _ = os.Remove(tmp) }
-	samples, sr, err = audio.WAV(tmp)
+	cleanup := func() { _ = removeAll(tmpDir) }
+	tmp := filepath.Join(tmpDir, "decoded.wav")
+	ctx, cancel := context.WithTimeout(context.Background(), ffmpegDecodeTimeout)
+	defer cancel()
+	_, stderr, runErr := commandRunner(ctx, ffmpegPath, []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-i", path, "-ar", "16000", "-ac", "1", tmp}, nil, ffmpegOutputLimit)
+	if runErr != nil {
+		cleanup()
+		return nil, 0, nil, fmt.Errorf("ffmpeg decode: %w%s", runErr, formatCapturedStderr(stderr))
+	}
+	samples, sr, err = wavLoader(tmp)
 	if err != nil {
 		cleanup()
 		return nil, 0, nil, fmt.Errorf("decoded wav: %w", err)
@@ -254,25 +353,51 @@ func loadAudioSamples(path string) ([]float32, int, func(), error) {
 	return samples, sr, cleanup, nil
 }
 
+func formatCapturedStderr(stderr []byte) string {
+	msg := strings.TrimSpace(string(stderr))
+	if msg == "" {
+		return ""
+	}
+	return ": " + msg
+}
+
 func sliceSamples(samples []float32, sampleRate int, startSec, durationSec float64) []float32 {
 	if len(samples) == 0 || sampleRate <= 0 {
 		return samples
 	}
-	start := int(startSec * float64(sampleRate))
-	if start < 0 {
-		start = 0
-	}
-	if start > len(samples) {
-		start = len(samples)
-	}
+	start := sampleOffset(startSec, sampleRate, len(samples))
 	end := len(samples)
 	if durationSec > 0 {
-		end = start + int(durationSec*float64(sampleRate))
+		end = start + sampleOffset(durationSec, sampleRate, len(samples)-start)
 		if end > len(samples) {
 			end = len(samples)
 		}
 	}
+	if end < start {
+		end = start
+	}
 	return samples[start:end]
+}
+
+func sampleOffset(seconds float64, sampleRate, maxSamples int) int {
+	if sampleRate <= 0 || maxSamples <= 0 {
+		return 0
+	}
+	if math.IsNaN(seconds) || math.IsInf(seconds, -1) || seconds <= 0 {
+		return 0
+	}
+	maxSeconds := float64(maxSamples) / float64(sampleRate)
+	if math.IsInf(seconds, 1) || seconds >= maxSeconds {
+		return maxSamples
+	}
+	offset := seconds * float64(sampleRate)
+	if offset <= 0 {
+		return 0
+	}
+	if offset >= float64(maxSamples) {
+		return maxSamples
+	}
+	return int(offset)
 }
 
 func fatalf(format string, args ...any) {
