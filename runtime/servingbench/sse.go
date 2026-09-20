@@ -3,6 +3,7 @@ package servingbench
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -33,13 +34,25 @@ type ChatCompletionChunk struct {
 	Done             bool
 }
 
-// ParseSSE parses an SSE stream without scanner token limits.
+// MaxSSEEventBytes bounds a single line/frame, including comments and fields.
+// This permits large payloads beyond Scanner's default64KiB without unbounded
+// memory growth on an unterminated stream. It does not limit total stream bytes.
+const MaxSSEEventBytes = 4 << 20
+
+var ErrSSETooLarge = errors.New("SSE event exceeds size limit")
+
+// ParseSSE parses an SSE stream with a bounded frame/line size.
 func ParseSSE(r io.Reader, fn func(SSEEvent) error) error {
+	if r == nil || fn == nil {
+		return fmt.Errorf("nil SSE reader/callback")
+	}
 	br := bufio.NewReader(r)
 	var event SSEEvent
 	var dataLines []string
 	haveFields := false
+	frameBytes := 0
 	flush := func() error {
+		frameBytes = 0
 		if !haveFields && len(dataLines) == 0 {
 			return nil
 		}
@@ -48,6 +61,7 @@ func ParseSSE(r io.Reader, fn func(SSEEvent) error) error {
 			return err
 		}
 		event = SSEEvent{}
+		clear(dataLines) // release prior frame strings retained by slice capacity
 		dataLines = dataLines[:0]
 		haveFields = false
 		return nil
@@ -61,6 +75,10 @@ func ParseSSE(r io.Reader, fn func(SSEEvent) error) error {
 		if err == io.EOF && len(line) == 0 {
 			return flush()
 		}
+		if len(line)+1 > MaxSSEEventBytes-frameBytes {
+			return ErrSSETooLarge
+		}
+		frameBytes += len(line) + 1
 		if line == "" {
 			if err := flush(); err != nil {
 				return err
@@ -115,6 +133,9 @@ func readSSELine(br *bufio.Reader) (string, error) {
 			}
 			return "", err
 		}
+		if len(frag) > MaxSSEEventBytes-len(b) {
+			return "", ErrSSETooLarge
+		}
 		b = append(b, frag...)
 		if !isPrefix {
 			return strings.TrimSuffix(string(b), "\r"), nil
@@ -125,6 +146,9 @@ func readSSELine(br *bufio.Reader) (string, error) {
 // ParseChatCompletionStream parses an OpenAI-compatible streaming chat
 // completion response carried over SSE.
 func ParseChatCompletionStream(r io.Reader, fn func(ChatCompletionChunk) error) error {
+	if fn == nil {
+		return fmt.Errorf("nil chat callback")
+	}
 	type streamChoice struct {
 		Index int `json:"index"`
 		Delta struct {
@@ -134,21 +158,29 @@ func ParseChatCompletionStream(r io.Reader, fn func(ChatCompletionChunk) error) 
 		FinishReason *string `json:"finish_reason"`
 	}
 	type streamChunk struct {
-		Choices []streamChoice `json:"choices"`
-		Usage   *Usage         `json:"usage"`
+		Choices []streamChoice  `json:"choices"`
+		Usage   *Usage          `json:"usage"`
+		Error   json.RawMessage `json:"error"`
 	}
 
-	return ParseSSE(r, func(event SSEEvent) error {
+	done := errors.New("chat stream complete")
+	err := ParseSSE(r, func(event SSEEvent) error {
 		data := strings.TrimSpace(event.Data)
 		if data == "" {
 			return nil
 		}
 		if data == "[DONE]" {
-			return fn(ChatCompletionChunk{Done: true})
+			if err := fn(ChatCompletionChunk{Done: true}); err != nil {
+				return err
+			}
+			return done
 		}
 		var chunk streamChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			return fmt.Errorf("decode stream chunk: %w", err)
+		}
+		if event.Event == "error" || len(chunk.Error) > 0 && string(chunk.Error) != "null" {
+			return fmt.Errorf("server stream error: %s", data)
 		}
 		if len(chunk.Choices) == 0 {
 			if chunk.Usage != nil {
@@ -172,4 +204,11 @@ func ParseChatCompletionStream(r io.Reader, fn func(ChatCompletionChunk) error) 
 		}
 		return nil
 	})
+	if errors.Is(err, done) {
+		return nil
+	}
+	if err == nil {
+		return io.ErrUnexpectedEOF
+	}
+	return err
 }

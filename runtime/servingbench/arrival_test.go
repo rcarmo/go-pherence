@@ -89,3 +89,11 @@ func TestGenerateArrivalOffsetsErrors(t *testing.T) {
 		t.Fatalf("zero-count len = %d, want 0", len(got))
 	}
 }
+
+func TestArrivalOffsetsRejectUnrepresentableDuration(t *testing.T) {
+	for _, cfg := range []ArrivalConfig{{Mode: ArrivalFixed, Rate: 1e-300}, {Mode: ArrivalFixed, Rate: 1e-10}, {Mode: ArrivalGamma, Rate: 1, GammaShape: 1e-320}} {
+		if _, err := GenerateArrivalOffsets(3, cfg, 1); err == nil {
+			t.Fatalf("invalid duration accepted: %+v", cfg)
+		}
+	}
+}

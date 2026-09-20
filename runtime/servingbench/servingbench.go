@@ -211,6 +211,9 @@ func (r RequestResult) TotalTokenCount() int {
 
 // Run executes a single benchmark run.
 func Run(ctx context.Context, cfg Config) (Report, error) {
+	if ctx == nil {
+		return Report{}, fmt.Errorf("nil benchmark context")
+	}
 	cfg = cfg.normalized()
 	if err := cfg.Validate(); err != nil {
 		return Report{}, err
@@ -240,7 +243,7 @@ func Run(ctx context.Context, cfg Config) (Report, error) {
 		client = &http.Client{}
 	}
 	var wg sync.WaitGroup
-	for worker := 0; worker < cfg.Concurrency; worker++ {
+	for worker := 0; worker < min(cfg.Concurrency, cfg.RequestCount); worker++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
