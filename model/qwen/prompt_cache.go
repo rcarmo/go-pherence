@@ -29,14 +29,16 @@ func NewPromptCache(maxBytes int64) *PromptCache {
 	return &PromptCache{cache: kv.NewChunkCache(maxBytes), sidecar: map[kv.ChunkKey]PromptSnapshot{}}
 }
 
+// PromptPrefixKey returns a zero key for an invalid chunk size.
 func PromptPrefixKey(modelID, layout, dtype string, tokens []int, chunkSize int) kv.ChunkKey {
+	if chunkSize <= 0 {
+		return kv.ChunkKey{}
+	}
 	prev := uint64(0)
-	for start := 0; start < len(tokens); start += chunkSize {
-		end := start + chunkSize
-		if end > len(tokens) {
-			end = len(tokens)
-		}
+	for start := 0; start < len(tokens); {
+		end := start + min(chunkSize, len(tokens)-start)
 		prev = kv.HashTokenChunk(prev, tokens[start:end])
+		start = end
 	}
 	return kv.ChunkKey{ModelID: modelID, Backend: "qwen36run", DType: dtype, LayerLayout: layout, TokenHash: prev, ChunkSize: chunkSize, EndPos: len(tokens)}
 }
@@ -75,7 +77,7 @@ func (c *PromptCache) PruneSidecar() {
 }
 
 func (c *PromptCache) Store(modelID, layout, dtype string, tokens []int, chunkSize int, snap PromptSnapshot) bool {
-	if c == nil || c.cache == nil {
+	if c == nil || c.cache == nil || chunkSize <= 0 {
 		return false
 	}
 	key := PromptPrefixKey(modelID, layout, dtype, tokens, chunkSize)
