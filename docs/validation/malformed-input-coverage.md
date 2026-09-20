@@ -8,6 +8,10 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| Qwen3-TTS planning/config | `model/qwen3tts/sizing_safety_test.go`, `config_safety_test.go` | Wrapped products/sums/bytes, nonfinite controls, seconds conversion, exact integer parsing, code-group bound and nested predictor shapes. No synthesis execution. |
+| Packed Q4 native entry | `loader/gguf/internal/q4layout/layout_test.go`, C/Plan9 wrapper bounds tests | Counter narrowing, packed extents, rounded groups and nil destinations; malformed calls rejected before native entry. CPU synthetic parity, feature-disabled stubs and foreign compilation only. |
+| BF16 representation | `half/half_test.go`, `backends/simd/quant/bf16/nonfinite_test.go` | NaNs remain NaNs; exhaustive BF16 round trips and tie/special tests; invalid RMSNorm epsilon does not write. Separate FP16 narrowing policy not fixed here. |
+| Compressed cache storage | `runtime/kv/cache_storage_safety_test.go` | Paired/token-count checks, wrapped head geometry, reset clears payload references. Borrowed views and concurrent ownership remain caller responsibilities. |
 | GLiNER failed loading | `model/gliner2/loading_safety_test.go` | Reject wrapped expected shapes and derived widths before decode; stop layer allocation on missing weights; preserve copied ownership and first error. Not whole-model resource admission. |
 | Helper and benchmark limits | `internal/commandcapture/capture_test.go`, `runtime/servingbench/run_test.go` | Aggregate captured output, cancellation/pipe lifetime, whole-response/content-event bounds, malformed usage and metric arithmetic. Synthetic helpers/HTTP only. |
 | ioctl descriptors | `backends/nvidia/ioctl/files_test.go` | Partial opens, descriptor zero, idempotent close, counter races and mapping-file ownership. No NVIDIA device calls; submission/drain remains unverified. |

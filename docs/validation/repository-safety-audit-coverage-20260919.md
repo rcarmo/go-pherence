@@ -2,15 +2,15 @@
 
 Companion to [the audit report](repository-safety-audit-20260919.md).
 
-This table began with 161 host-listed packages; shared HTTP decoding and command
-capture bring it to 163. It is not a safety clearance. Selected sections in
-82 packages were inspected; **81 packages have inventory/test coverage only**.
-See the [fifth-pass findings](repository-safety-fifth-pass-20260920.md) for current fixes
+This table began with 161 host-listed packages; shared HTTP decoding, command
+capture and packed-Q4 validation bring it to 164. It is not a safety clearance. Selected sections in
+97 packages were inspected; **67 packages have inventory/test coverage only**.
+See the [sixth-pass findings](repository-safety-sixth-pass-20260920.md) for current fixes
 and open native/backend gaps.
 "Boundary inspection" means selected functions/sections in the listed files were
 read for ownership, bounds or lifecycle behaviour; it does **not** mean the whole
 file or package was reviewed. Blank source coverage is explicit outstanding work.
-The race column is the fifth-pass NVIDIA-disabled host sweep: 102 pass and 61
+The race column is the sixth-pass NVIDIA-disabled host sweep: 105 pass and 59
 have no tests. Optional CGo/native implementations remain unexecuted even when
 their host stubs build. A passing package may
 contain skipped GPU, K3 or missing-fixture tests. Foreign-only files were not
@@ -20,13 +20,13 @@ executed. Test-source files explain regressions rather than broaden source cover
 |---|---|---|
 | `backends/cuda/ptx` | pass | Inventory/tests only; source review outstanding |
 | `backends/ggmlcompute` | no test files | `ggmlcompute.go` (native sections source-only; required libraries unavailable) |
-| `backends/ggmlexec` | no test files | Inventory/tests only; source review outstanding |
+| `backends/ggmlexec` | no test files | `ggmlexec.go` (capability/island planner; no native execution) |
 | `backends/ggmlgraph` | no test files | `ggmlgraph.go`, `stub.go` (native sections source-only; required libraries unavailable) |
 | `backends/ggmlquant` | no test files | `ggmlquant.go`, `stub.go` (native sections source-only; required libraries unavailable) |
 | `backends/internal/ggmlutil` | pass | `ggmlutil.go`, `ggmlutil_test.go` |
-| `backends/llamagraph` | no test files | Inventory/tests only; source review outstanding |
+| `backends/llamagraph` | no test files | `llamagraph.go`, `stub.go` (native narrowing/config/lifecycle and stub parity gaps; source-only) |
 | `backends/mlx` | pass | `validate.go`, `load.go`, `gemv.go` |
-| `backends/nvidia` | no test files | Inventory/tests only; source review outstanding |
+| `backends/nvidia` | no test files | `doc.go` (namespace only) |
 | `backends/nvidia/internal/debuglog` | no test files | `debug.go` |
 | `backends/nvidia/ioctl` | pass | `ioctl.go`, `files.go`, `memory.go`, `gpfifo.go` (fake descriptor tests; no device calls) |
 | `backends/nvidia/ptx` | no test files | `attention.go`, `conversion.go`, `norm.go`, `sgemm_compensated.go` |
@@ -40,10 +40,10 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/nvidia/ptx/q8` | no test files | Inventory/tests only; source review outstanding |
 | `backends/nvidia/runtime` | pass | `driver_scope.go`, `driver_call_inventory_test.go`, `driver_scope_test.go`, `context_boundary_test.go`, `runtime.go`, `streams.go`, `compiler.go`, `compiler_test.go`, `devbuf.go`, `argmax.go`, `bf16_native.go`, `mega_module.go`, `module_state.go`, `attention_splitkv.go`, `bf16_projection.go` |
 | `backends/placement` | pass | `placement.go` (selected sizing/placement sections) |
-| `backends/simd` | no test files | Inventory/tests only; source review outstanding |
+| `backends/simd` | no test files | `doc.go` (namespace only) |
 | `backends/simd/fft` | pass | `fft_simd.go`, `mel_fused.go` |
 | `backends/simd/kernels` | pass | `activation.go`, `attention.go`, `rope.go`, `shape.go`, `softmax.go`, `layernorm.go`, `gelu.go` |
-| `backends/simd/quant/bf16` | pass | Inventory/tests only; source review outstanding |
+| `backends/simd/quant/bf16` | pass | `bf16.go`, `checked.go`, nonfinite/rounding regressions |
 | `backends/simd/quant/fp8` | pass | `fp8.go`, `batch.go`, `dot_amd64.go` |
 | `backends/simd/quant/nvfp4` | pass | `validate.go` |
 | `backends/simd/quant/q4` | pass | `validate.go` |
@@ -60,7 +60,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/spacemit/tcm` | pass | `tcm.go`, `tcm_stub.go` (borrowed-pointer/Close gaps; native source-only) |
 | `backends/vulkan` | pass | `vulkan_init.go`, `vulkan_ops.go`, `vulkan_wrapper_test.go`, `vulkan_buf.go` |
 | `cmd/audio/diarize-vtt` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/internal/whisperflags` | pass | Inventory/tests only; source review outstanding |
+| `cmd/audio/internal/whisperflags` | pass | `whisperflags.go` (process environment policy) |
 | `cmd/audio/moss-transcribe` | pass | Inventory/tests only; source review outstanding |
 | `cmd/audio/omnivoice` | pass | Inventory/tests only; source review outstanding |
 | `cmd/audio/speakercheck` | no test files | Inventory/tests only; source review outstanding |
@@ -78,13 +78,13 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `cmd/image/ideogram4inspect` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/image/ideogram4vaeprobe` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/image/ideogram4vaesmoke` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/image/internal/k3flags` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/image/internal/k3flags` | no test files | `k3flags.go` (process environment policy) |
 | `cmd/image/zimageinspect` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/internal/dgflags` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/internal/dgflags` | pass | `dgflags.go`, budget-conversion regressions |
 | `cmd/internal/testexec` | no test files | `helper.go` |
 | `cmd/jevlike` | pass | `frozen.go` |
-| `cmd/llm/internal/pathutil` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/llm/internal/promptfile` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/llm/internal/pathutil` | no test files | `base.go` |
+| `cmd/llm/internal/promptfile` | no test files | `promptfile.go` (aggregate admission remains caller-owned) |
 | `cmd/llm/llmchat` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/llm/llmgen` | pass | Inventory/tests only; source review outstanding |
 | `cmd/llm/llmserver` | pass | `main.go` |
@@ -136,8 +136,9 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `loader/audio/media` | pass | `wav.go` |
 | `loader/config` | pass | `config.go`, `fixture_tensor_summary.go`, `fixture_tensor_summary_test.go` |
 | `loader/gguf` | pass | `gguf.go`, `tokenizer.go`, lifetime/token bounds regressions |
-| `loader/gguf/llamaq4` | no test files | Inventory/tests only; source review outstanding |
-| `loader/gguf/llamaq4plan9` | pass | Inventory/tests only; source review outstanding |
+| `loader/gguf/internal/q4layout` | pass | `layout.go`, overflow/narrowing/tail tests |
+| `loader/gguf/llamaq4` | pass | `kernel_cgo_amd64.go`, `kernel_nocgo.go`, selected `kernel_amd64.c` orchestration (CPU synthetic tests; not exhaustive native audit) |
+| `loader/gguf/llamaq4plan9` | pass | `kernel_amd64.go`, `kernel_other.go` (bounds/dispatch and stub parity; assembly internals not exhaustively reviewed) |
 | `loader/numpy` | pass | `npz.go` |
 | `loader/omnivoice` | pass | `layer_buffer.go`, `wav.go` |
 | `loader/safetensors` | pass | `safetensors.go`, `resolve.go`, `audit_safety_test.go` (copy/close and borrowed raw contracts) |
@@ -163,7 +164,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/mosstranscribe` | pass | `load.go`, `native.go`, `audio.go`, `native_test.go` |
 | `model/omnivoice` | pass | `workers.go`, `backend.go` (probe subprocess boundary) |
 | `model/qwen` | pass | Inventory/tests only; source review outstanding |
-| `model/qwen3tts` | pass | `embedding_layout.go`, `attention_layout.go`, `ffn_layout.go` (overflow/nonfinite findings reproduced but not yet fixed) |
+| `model/qwen3tts` | pass | `config.go`, `config_numbers.go`, `sizing.go`, embedding/attention/FFN/prefill/input layouts, frame/decoder/speaker/request sizing, `shapes.go`, tensor shape and stage-contract validation (metadata only; execution not implemented) |
 | `model/speaker` | pass | Inventory/tests only; source review outstanding |
 | `model/speaker/community1` | pass | Inventory/tests only; source review outstanding |
 | `model/trellis2` | pass | Inventory/tests only; source review outstanding |
@@ -171,8 +172,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `runtime/expertstream` | pass | `reader.go`, `manifest.go`, `alloc.go`, `types.go`, `lifetime_test.go` |
 | `runtime/graph` | pass | `graph.go`, `plan.go`, `executor.go`, `safety_test.go` |
 | `runtime/inferencesched` | pass | `scheduler.go` |
-| `runtime/kv` | pass | Inventory/tests only; source review outstanding |
-| `runtime/memory` | pass | Inventory/tests only; source review outstanding |
+| `runtime/kv` | pass | `cache.go`, `layered_f32_store.go`, selected `turboquant.go` constructor/ownership sections; storage/reset regressions (not full quantisation review) |
+| `runtime/memory` | pass | `mmap_advisor.go` (borrowed mapping, stale eviction snapshot and overlap-accounting findings open) |
 | `runtime/promptcache` | pass | `cache.go`, `identity.go` |
 | `runtime/quant` | pass | `gptq.go`, `mlx.go`, `nvfp4.go`, `gemv_q4.go`, `gemv_q4_validate.go`, `gptq_validate.go` |
 | `runtime/resourcebudget` | pass | `budget.go` |
@@ -192,7 +193,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 
 ## Outside the host package table
 
-Bun: 22 script tests across nine files, 2,615 assertions. Python: six label-mass
+Bun: 22 script tests across nine files, 2,626 assertions. Python: six label-mass
 and two parquet adapter tests from the first pass (not rerun here). Documentation/link/layout checks pass. ARM64 and
 RISC-V builds are compile-only. Other scripts, individual assembly kernels and
 external integration services have inventory coverage, not exhaustive review.

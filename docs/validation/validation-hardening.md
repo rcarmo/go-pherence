@@ -4,7 +4,7 @@ The [follow-on audit](repository-safety-followon-20260919.md) adds mapped-copy/C
 
 The [repository audit](repository-safety-audit-20260919.md) and [coverage matrix](repository-safety-audit-coverage-20260919.md) distinguish implemented guards from inspected source and unavailable hardware validation. These checks do not establish concurrent model/Close safety, capture-owner isolation or exhaustive malformed-input coverage.
 
-The [fifth pass](repository-safety-fifth-pass-20260920.md) adds aggregate helper/stream limits, fake-tested ioctl descriptor ownership, scalar RoPE and resampling bounds, and fail-fast GLiNER loading. Qwen3-TTS planning overflow and native TCM/C-shim ownership/extent findings are open, not validated away by host tests.
+The [fifth pass](repository-safety-fifth-pass-20260920.md) adds aggregate helper/stream limits, fake-tested ioctl descriptor ownership, scalar RoPE and resampling bounds, and fail-fast GLiNER loading. The [sixth pass](repository-safety-sixth-pass-20260920.md) fixes the reproduced Qwen3-TTS planning/config issues and adds packed-Q4, BF16 and compressed-cache regressions. Native TCM/C-shim and GGML ownership/extent findings remain open, not validated away by host tests.
 
 This page summarizes recent malformed-input and boundary-hardening work. Phase-level commands live in [validation-gates.md](validation-gates.md); detailed coverage tables live in [malformed-input-coverage.md](malformed-input-coverage.md), [kernel-coverage.md](../architecture/kernel-coverage.md), and [final-coverage-acceptance.md](../history/final-coverage-acceptance.md).
 

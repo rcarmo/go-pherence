@@ -1,5 +1,9 @@
 ## Repository audit: failed loads, bounded helpers and descriptor ownership
 
+Later update: the [sixth pass](repository-safety-sixth-pass-20260920.md) fixes the
+Qwen3-TTS planning/config findings below. Native ownership gaps remain open; the
+rest of this report preserves the fifth-pass results.
+
 A missing GLiNER tensor did not stop the loader from building the rest of its
 layer stack. With a synthetic 10,000-layer configuration, rejecting the first
 weight still caused roughly 360,000 boundary-loader allocations or 420,000
