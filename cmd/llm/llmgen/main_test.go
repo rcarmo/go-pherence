@@ -6,7 +6,7 @@ func TestGeneratedSuffixFromFullOutput(t *testing.T) {
 	if got := generatedSuffixFromFullOutput(2, 3, []int{10, 11, 12, 13, 14}); !sameIntsForLLMGenTest(got, []int{12, 13, 14}) {
 		t.Fatalf("unwrapped suffix=%v", got)
 	}
-	if got := generatedSuffixFromFullOutput(1, 1, []int{2, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109}); !sameIntsForLLMGenTest(got, []int{109}) {
+	if got := generatedSuffixFromFullOutput(10, 1, []int{2, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109}); !sameIntsForLLMGenTest(got, []int{109}) {
 		t.Fatalf("templated suffix=%v", got)
 	}
 	if got := generatedSuffixFromFullOutput(3, 0, []int{1, 2, 3}); len(got) != 0 {
@@ -83,5 +83,20 @@ func TestMTPKVExtentValidation(t *testing.T) {
 	}
 	if n, err := mtpKVElements(3, 4); err != nil || n != 12 {
 		t.Fatal(n, err)
+	}
+}
+
+func TestPreparedWrapperCannotBecomeGeneratedSuffix(t *testing.T) {
+	// Ten prepared tokens and one result with a generous budget: the old raw
+	// count plus budget heuristic incorrectly labelled wrapper tokens as output.
+	out := []int{2, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109}
+	if got := generatedSuffixFromFullOutput(10, 50, out); !sameIntsForLLMGenTest(got, []int{109}) {
+		t.Fatal(got)
+	}
+	if got := generatedSuffixFromFullOutput(10, 50, out[:10]); len(got) != 0 {
+		t.Fatal("wrapper emitted", got)
+	}
+	if got := generatedSuffixFromFullOutput(12, 50, out); len(got) != 0 {
+		t.Fatal("short failed output emitted", got)
 	}
 }
