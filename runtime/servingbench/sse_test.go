@@ -102,3 +102,14 @@ func TestSSEBoundsAndCompletionFailClosed(t *testing.T) {
 		t.Fatal(err, count)
 	}
 }
+
+func TestStreamUsageRejectsNegativeInconsistentOrOverflowingCounts(t *testing.T) {
+	max := int(^uint(0) >> 1)
+	for _, u := range []Usage{{-1, 1, 0}, {1, 2, 2}, {max, 1, max}, {0, -1, 0}} {
+		body, _ := json.Marshal(map[string]any{"usage": u})
+		stream := "data: " + string(body) + "\n\ndata: [DONE]\n\n"
+		if err := ParseChatCompletionStream(strings.NewReader(stream), func(ChatCompletionChunk) error { return nil }); err == nil {
+			t.Fatal("bad usage admitted", u)
+		}
+	}
+}

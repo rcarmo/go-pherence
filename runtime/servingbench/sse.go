@@ -24,6 +24,14 @@ type Usage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
+// Validate rejects impossible accounting supplied by a remote server.
+func (u Usage) Validate() error {
+	if u.PromptTokens < 0 || u.CompletionTokens < 0 || u.TotalTokens < 0 || u.PromptTokens > int(^uint(0)>>1)-u.CompletionTokens || u.TotalTokens != u.PromptTokens+u.CompletionTokens {
+		return fmt.Errorf("invalid streamed token usage")
+	}
+	return nil
+}
+
 // ChatCompletionChunk is one logical update from a streaming chat completion.
 type ChatCompletionChunk struct {
 	Index            int
@@ -181,6 +189,11 @@ func ParseChatCompletionStream(r io.Reader, fn func(ChatCompletionChunk) error) 
 		}
 		if event.Event == "error" || len(chunk.Error) > 0 && string(chunk.Error) != "null" {
 			return fmt.Errorf("server stream error: %s", data)
+		}
+		if chunk.Usage != nil {
+			if err := chunk.Usage.Validate(); err != nil {
+				return err
+			}
 		}
 		if len(chunk.Choices) == 0 {
 			if chunk.Usage != nil {

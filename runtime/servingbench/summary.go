@@ -3,6 +3,7 @@ package servingbench
 import (
 	"encoding/csv"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -44,7 +45,7 @@ type Summary struct {
 
 // Percentile returns the linear-interpolated percentile for q in [0,1].
 func Percentile(values []time.Duration, q float64) time.Duration {
-	if len(values) == 0 {
+	if len(values) == 0 || math.IsNaN(q) {
 		return 0
 	}
 	if q <= 0 {
@@ -66,8 +67,16 @@ func Percentile(values []time.Duration, q float64) time.Duration {
 	}
 	frac := pos - float64(lo)
 	base := float64(ordered[lo])
-	span := float64(ordered[hi] - ordered[lo])
-	return time.Duration(base + frac*span)
+	// Widen before subtracting: signed Duration spans can overflow int64.
+	span := float64(ordered[hi]) - base
+	v := base + frac*span
+	if v >= float64(math.MaxInt64) {
+		return time.Duration(math.MaxInt64)
+	}
+	if v <= float64(math.MinInt64) {
+		return time.Duration(math.MinInt64)
+	}
+	return time.Duration(v)
 }
 
 func buildPercentiles(values []time.Duration) Percentiles {
@@ -99,6 +108,22 @@ func maxDuration(values []time.Duration) time.Duration {
 	return max
 }
 
+// Token counters are nonnegative and saturate instead of wrapping exported
+// aggregate reports. Invalid remote usage is rejected by the stream parser.
+func saturatingTokenSum(a, b int) int {
+	if a < 0 {
+		a = 0
+	}
+	if b < 0 {
+		b = 0
+	}
+	max := int(^uint(0) >> 1)
+	if a > max-b {
+		return max
+	}
+	return a + b
+}
+
 // Summarize aggregates per-request results into headline metrics.
 func Summarize(requests []RequestResult, totalDuration time.Duration, slo SLOConfig) Summary {
 	summary := Summary{
@@ -122,9 +147,9 @@ func Summarize(requests []RequestResult, totalDuration time.Duration, slo SLOCon
 		if req.PromptTokens != nil || req.CompletionTokens != nil || req.TotalTokens != nil {
 			summary.UsageRequests++
 		}
-		summary.InputTokens += req.InputTokenCount()
-		summary.OutputTokens += req.OutputTokenCount()
-		summary.TotalTokens += req.TotalTokenCount()
+		summary.InputTokens = saturatingTokenSum(summary.InputTokens, req.InputTokenCount())
+		summary.OutputTokens = saturatingTokenSum(summary.OutputTokens, req.OutputTokenCount())
+		summary.TotalTokens = saturatingTokenSum(summary.TotalTokens, req.TotalTokenCount())
 		if v, ok := req.QueueTime(); ok {
 			queueTimes = append(queueTimes, v)
 		}

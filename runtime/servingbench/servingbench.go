@@ -34,6 +34,10 @@ type Config struct {
 	Arrival      ArrivalConfig `json:"arrival"`
 	SLO          SLOConfig     `json:"slo"`
 	HTTPClient   *http.Client  `json:"-"`
+	// Zero uses64MiB. Includes every event/comment/whitespace byte up to DONE.
+	MaxResponseBytes int64 `json:"max_response_bytes,omitempty"`
+	// Zero uses1M timed content events per request (events are not token counts).
+	MaxStreamEvents int `json:"max_stream_events,omitempty"`
 }
 
 // RequestResult records one benchmarked request.
@@ -69,6 +73,12 @@ type Report struct {
 
 func (cfg Config) normalized() Config {
 	cfg.Arrival = cfg.Arrival.normalized()
+	if cfg.MaxResponseBytes == 0 {
+		cfg.MaxResponseBytes = 64 << 20
+	}
+	if cfg.MaxStreamEvents == 0 {
+		cfg.MaxStreamEvents = 1 << 20
+	}
 	return cfg
 }
 
@@ -81,14 +91,17 @@ func (cfg Config) Validate() error {
 	if len(cfg.Prompts) == 0 {
 		return fmt.Errorf("at least one prompt is required")
 	}
-	if cfg.RequestCount <= 0 {
-		return fmt.Errorf("request count must be positive")
+	if cfg.RequestCount <= 0 || cfg.RequestCount > 1<<20 {
+		return fmt.Errorf("request count must be within 1..1048576")
 	}
-	if cfg.Concurrency <= 0 {
-		return fmt.Errorf("concurrency must be positive")
+	if cfg.Concurrency <= 0 || cfg.Concurrency > 65536 {
+		return fmt.Errorf("concurrency must be within 1..65536")
 	}
 	if cfg.MaxTokens < 0 {
 		return fmt.Errorf("max tokens must be non-negative")
+	}
+	if cfg.MaxResponseBytes < 1 || cfg.MaxStreamEvents < 1 {
+		return fmt.Errorf("response/event limits must be positive")
 	}
 	if cfg.Timeout < 0 {
 		return fmt.Errorf("timeout must be non-negative")
@@ -206,7 +219,7 @@ func (r RequestResult) TotalTokenCount() int {
 	if r.TotalTokens != nil {
 		return *r.TotalTokens
 	}
-	return r.InputTokenCount() + r.OutputTokenCount()
+	return saturatingTokenSum(r.InputTokenCount(), r.OutputTokenCount())
 }
 
 // Run executes a single benchmark run.
@@ -349,7 +362,8 @@ func runRequest(parent context.Context, client *http.Client, cfg Config, started
 		return
 	}
 
-	err = ParseChatCompletionStream(resp.Body, func(chunk ChatCompletionChunk) error {
+	reader := &responseLimitReader{r: resp.Body, remaining: cfg.MaxResponseBytes}
+	err = ParseChatCompletionStream(reader, func(chunk ChatCompletionChunk) error {
 		if chunk.Usage != nil {
 			applyUsage(result, *chunk.Usage)
 		}
@@ -361,6 +375,9 @@ func runRequest(parent context.Context, client *http.Client, cfg Config, started
 		}
 		if chunk.Content == "" && chunk.ReasoningContent == "" {
 			return nil
+		}
+		if len(result.TokenOffsets) >= cfg.MaxStreamEvents {
+			return fmt.Errorf("stream content-event limit exceeded")
 		}
 		offset := time.Since(startedAt)
 		result.TokenOffsets = append(result.TokenOffsets, offset)
@@ -375,6 +392,28 @@ func runRequest(parent context.Context, client *http.Client, cfg Config, started
 	}
 }
 
+// Stop before a remote response can grow storage without bound. Unlike an
+// io.LimitReader, exhaustion is an error rather than apparent complete EOF.
+type responseLimitReader struct {
+	r         io.Reader
+	remaining int64
+}
+
+func (r *responseLimitReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if r.remaining == 0 {
+		return 0, fmt.Errorf("response byte limit exceeded")
+	}
+	if int64(len(p)) > r.remaining {
+		p = p[:r.remaining]
+	}
+	n, err := r.r.Read(p)
+	r.remaining -= int64(n)
+	return n, err
+}
+
 func finalizeRequest(result *RequestResult, startedAt time.Time) {
 	end := time.Since(startedAt)
 	result.EndOffset = durationPtr(end)
@@ -383,7 +422,7 @@ func finalizeRequest(result *RequestResult, startedAt time.Time) {
 		result.CompletionTokens = intPtr(value)
 	}
 	if result.TotalTokens == nil && result.PromptTokens != nil && result.CompletionTokens != nil {
-		value := *result.PromptTokens + *result.CompletionTokens
+		value := saturatingTokenSum(*result.PromptTokens, *result.CompletionTokens)
 		result.TotalTokens = intPtr(value)
 	}
 	switch {

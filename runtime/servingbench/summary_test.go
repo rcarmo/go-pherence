@@ -3,6 +3,7 @@ package servingbench
 import (
 	"bytes"
 	"encoding/csv"
+	"math"
 	"reflect"
 	"strconv"
 	"testing"
@@ -170,4 +171,19 @@ func durationTestPtr(v time.Duration) *time.Duration {
 
 func intTestPtr(v int) *int {
 	return &v
+}
+
+func TestPercentileNaNAndExtremeDurations(t *testing.T) {
+	if got := Percentile([]time.Duration{1, 2}, math.NaN()); got != 0 {
+		t.Fatal(got)
+	}
+	if got := Percentile([]time.Duration{time.Duration(math.MinInt64), time.Duration(math.MaxInt64)}, .5); got != 0 {
+		t.Fatal(got)
+	}
+	max := int(^uint(0) >> 1)
+	r := RequestResult{PromptTokens: &max, CompletionTokens: &max, TotalTokens: &max}
+	sum := Summarize([]RequestResult{r, r}, time.Second, SLOConfig{})
+	if sum.InputTokens != max || sum.OutputTokens != max || sum.TotalTokens != max {
+		t.Fatal(sum)
+	}
 }

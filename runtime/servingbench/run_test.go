@@ -238,3 +238,33 @@ func writeTestStreamResponse(t *testing.T, w http.ResponseWriter, chunks []any) 
 	}
 	flusher.Flush()
 }
+
+func TestRunBoundsWholeStreamAndContentEvents(t *testing.T) {
+	for _, events := range []bool{false, true} {
+		t.Run(fmt.Sprint(events), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				if events {
+					for i := 0; i < 5; i++ {
+						fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n")
+					}
+				} else {
+					fmt.Fprint(w, strings.Repeat(":ping\n\n", 1024))
+				}
+				fmt.Fprint(w, "data: [DONE]\n\n")
+			}))
+			defer srv.Close()
+			cfg := Config{Endpoint: srv.URL, Prompts: []string{"x"}, RequestCount: 1, Concurrency: 1, Timeout: time.Second, Arrival: ArrivalConfig{Rate: 1}, MaxResponseBytes: 128, MaxStreamEvents: 2}
+			if events {
+				cfg.MaxResponseBytes = 8192
+			}
+			report, err := Run(context.Background(), cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Summary.Successful != 0 || report.Requests[0].Error == "" {
+				t.Fatal(report)
+			}
+		})
+	}
+}
