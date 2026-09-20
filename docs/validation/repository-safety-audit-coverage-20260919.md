@@ -11,7 +11,7 @@ and open native/backend gaps.
 "Boundary inspection" means selected functions/sections in the listed files were
 read for ownership, bounds or lifecycle behaviour; it does **not** mean the whole
 file or package was reviewed. Native and deeper semantic gaps remain in the [open-findings ledger](repository-safety-audit-open-findings-20260920.md); package coverage is not remediation completion.
-The race column is the eighth-pass NVIDIA-disabled host sweep: 109 pass and 55
+The race column is the post-audit host-remediation NVIDIA-disabled sweep: 110 pass and 54
 have no tests. Optional CGo/native implementations remain unexecuted even when
 their host stubs build. A passing package may
 contain skipped GPU, K3 or missing-fixture tests. Foreign-only files were not
@@ -64,7 +64,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `cmd/audio/internal/whisperflags` | pass | `whisperflags.go` (process environment policy) |
 | `cmd/audio/moss-transcribe` | pass | `main.go`: run/flags, native load/Close, WAV/prompt/generation/output paths; trusted-local workload |
 | `cmd/audio/omnivoice` | pass | `main.go`, `serve.go`: flag admission, NDJSON bounds, phrase cache, chunk/file ownership; sequential local worker, not network server |
-| `cmd/audio/speakercheck` | no test files | `main.go`: waveform slicing, ffmpeg fallback, expected-label scoring and output; temp-path/size/score completeness findings open |
+| `cmd/audio/speakercheck` | pass | `main.go`: waveform slicing, ffmpeg fallback, expected-label scoring and output; private temp/finite offsets/complete score fixes tested; whole-audio/size admission open |
 | `cmd/audio/speechjob` | pass | `main.go`, `client.go`: endpoint/token/deadline policy, response bounds, authenticated artifact hashing and no-clobber publication |
 | `cmd/audio/speechjobserve` | pass | `config.go`, `server.go`, `server_start_linux_amd64.go`, startup/profile stubs: bounded asset/config policy, connection admission, drain/quarantine ownership (native execution unverified) |
 | `cmd/audio/whisper` | pass | `main.go`: flags, loader/GPU choice, materialisation/chunking/output (legacy whole-audio and subprocess admission gaps) |
@@ -164,7 +164,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/minicpmv` | pass | `tensors.go` |
 | `model/mosstranscribe` | pass | `load.go`, `native.go`, `audio.go`, `native_test.go` |
 | `model/omnivoice` | pass | `workers.go`, `backend.go` (probe subprocess boundary) |
-| `model/qwen` | pass | `prompt_cache.go`, `schedule.go`, `qwen35_source.go`, `qwen35_load_helpers.go`, `qwen35_validate_helpers.go` (selected loading/key/planning sections; GPU/sidecar lifecycle and budget gaps remain) |
+| `model/qwen` | pass | `prompt_cache.go`, `schedule.go`, `qwen35_source.go`, `qwen35_load_helpers.go`, `qwen35_validate_helpers.go` (selected loading/key/planning sections; CPU sidecar admission/locking fixed; GPU lifecycle validation remains) |
 | `model/qwen3tts` | pass | `config.go`, `config_numbers.go`, `sizing.go`, embedding/attention/FFN/prefill/input layouts, frame/decoder/speaker/request sizing, `shapes.go`, tensor shape and stage-contract validation (metadata only; execution not implemented) |
 | `model/speaker` | pass | `config.go`, `load.go`, `embed.go`, `diarize.go`, selected `ecapa.go` construction: copied weights and legacy unchecked inference/VAD/clustering inputs; findings open |
 | `model/speaker/community1` | pass | `diarization_pcm.go`, `load_segmentation.go`, `load_resnet.go`, `vulkan_diarization.go`: bounds before payload/PCM allocation, copied ownership and native owner gate (selected sections only; device/numerical qualification open) |
@@ -173,7 +173,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `runtime/expertstream` | pass | `reader.go`, `manifest.go`, `alloc.go`, `types.go`, `lifetime_test.go` |
 | `runtime/graph` | pass | `graph.go`, `plan.go`, `executor.go`, `safety_test.go` |
 | `runtime/inferencesched` | pass | `scheduler.go` |
-| `runtime/kv` | pass | `cache.go`, `layered_f32_store.go`, selected `turboquant.go` constructor/ownership sections; storage/reset regressions (not full quantisation review) |
+| `runtime/kv` | pass | `cache.go`, `layered_f32_store.go`, selected `turboquant.go` constructor/ownership sections; storage/reset and `reuse.go` metadata/pre-clone/concurrency regressions (not full quantisation review) |
 | `runtime/memory` | pass | `mmap_advisor.go`, Detach/serialised eviction/overlap-union tests; independent raw mappings still caller-owned |
 | `runtime/promptcache` | pass | `cache.go`, `identity.go` |
 | `runtime/quant` | pass | `gptq.go`, `mlx.go`, `nvfp4.go`, `gemv_q4.go`, `gemv_q4_validate.go`, `gptq_validate.go` |

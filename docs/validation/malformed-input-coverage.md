@@ -8,6 +8,9 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| Legacy cache admission | `runtime/kv/reuse_safety_test.go`, `model/qwen/prompt_admission_test.go` | Charge owned payload/metadata before cloning, zero disables, oversized replacement preserves prior entry, concurrent calls and independent snapshots. Logical accounting, not RSS. |
+| Speaker CLI and cluster merging | `cmd/audio/speakercheck/main_test.go`, `model/speaker/cluster_safety_test.go` | Complete relabel-invariant scores, finite/clamped time controls, private fallback temp ownership, bounded fake-runner capture and stable source label across merges. No model-quality claim. |
+| Prepared prompt accounting | `cmd/llm/llmgen/main_test.go`, `cmd/qwen/qwen36run/admission_test.go` | Wrapper tokens cannot become generated suffix; explicit end-to-end timing, diagnostic work/MiB/finite-control checks before model setup. |
 | Parity and metadata reporting | `cmd/models/gemma4mtpparity/main_test.go`, `cmd/qwen/qwenmtpmeta/main_test.go` | Missing models cannot report execution parity; missing/invalid/nonfinite logit probes fail; broken checkpoint indexes do not silently fall back. Fixture-only checks remain explicitly non-executed. |
 | Diagnostic validation | GGUF inspector/smoke, speccheck, llmgen, modelcoverage, VAE smoke and ORT probe command tests | Expectation-only plans, propagated plan errors,16MiB single golden document, checked MTP allocation, nonempty family checklist, bounded/closed VAE diagnostic and opaque Python argv paths. Synthetic host tests only. |
 | Older DiffusionGemma server | `cmd/diffusiongemmaserve/admission_test.go` | One1MiB JSON document, message/output/prompt limits,429 busy and transport deadlines. Monolithic/native inference is not preempted. |

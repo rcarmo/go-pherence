@@ -1,5 +1,9 @@
 ## Repository audit: package review complete, remediation still open
 
+Later [host remediation](repository-safety-host-remediation-20260920.md) fixes the
+legacy cache/sidecar and selected CLI/speaker findings. This closeout preserves
+the package-audit results; current dispositions are in the linked findings ledger.
+
 All **164 host-listed Go packages** now have a recorded source-boundary review.
 There are **zero inventory-only packages** in the [coverage matrix][coverage].
 That closes the package-review gap from the first pass; it does not certify every

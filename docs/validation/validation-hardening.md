@@ -1,5 +1,7 @@
 # Validation and hardening status
 
+[Post-audit host remediation](repository-safety-host-remediation-20260920.md) fixes legacy cache/sidecar admission and concurrent ownership, speakercheck's scoring/temp/time boundaries, prepared-prompt accounting and a speaker merge-label defect. Zero legacy cache budget now disables storage; native issues and remaining host admission work stay open.
+
 The [package audit closeout](repository-safety-audit-closeout-20260920.md) records selected source-boundary review across164/164 packages. [Open findings](repository-safety-audit-open-findings-20260920.md) remain tracked in #16 and platform/backend issues #17--#21; this is not exhaustive correctness or device clearance.
 
 The [follow-on audit](repository-safety-followon-20260919.md) adds mapped-copy/Close coordination, HTTP bounds, worker joins, finite numeric comparison and graph/CPU-fallback regressions. Raw mmap views still require owner lifetime, and K3 teardown is compile-only off-device.
