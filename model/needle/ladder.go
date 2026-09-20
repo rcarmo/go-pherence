@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
 )
 
@@ -280,5 +281,36 @@ func (m *Model) SliceDepth(depth int) (*Model, error) {
 			cp.Tensors[name] = cloneCheckpointTensor(t)
 		}
 	}
-	return New(cp)
+	child, err := New(cp)
+	if err != nil {
+		return nil, err
+	}
+	if len(m.packed) > 0 {
+		child.packed = make(map[packedKey]*simd.CQMatrix)
+		for key, p := range m.packed {
+			next := key
+			if key.layer >= 0 {
+				idx := slices.Index(selected, key.layer)
+				if idx < 0 {
+					continue
+				}
+				next.layer = idx
+			}
+			if strings.HasPrefix(key.name, "engrams_") {
+				site, rest, ok := parseEngramTensorName(key.name)
+				if !ok || !selectedSet[m.config.EngramLayers[site]] {
+					continue
+				}
+				newSite := 0
+				for _, layer := range m.config.EngramLayers[:site] {
+					if selectedSet[layer] {
+						newSite++
+					}
+				}
+				next.name = fmt.Sprintf("engrams_%d%s", newSite, rest)
+			}
+			child.packed[next] = p // immutable matrices can be shared
+		}
+	}
+	return child, nil
 }

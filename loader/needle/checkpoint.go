@@ -107,15 +107,12 @@ func Load(path string) (*Checkpoint, error) {
 		Tensors:       make(map[string]Tensor, len(specs)),
 	}
 	dataBase := 8 + headerLen
+	scratch := make([]byte, 64<<10)
 	for _, spec := range specs {
 		if spec.ByteLen > int64(maxInt()) {
 			return nil, fmt.Errorf("needle: tensor %q byte size %d exceeds platform limit", spec.Name, spec.ByteLen)
 		}
-		raw := make([]byte, int(spec.ByteLen))
-		if _, err := f.ReadAt(raw, dataBase+spec.Start); err != nil {
-			return nil, fmt.Errorf("needle: read tensor %q: %w", spec.Name, err)
-		}
-		data, err := decodeFloat32(spec.Name, spec.DType, raw)
+		data, err := readTensorChunks(f, dataBase+spec.Start, spec, scratch)
 		if err != nil {
 			return nil, err
 		}
@@ -348,7 +345,7 @@ func parseHeader(header []byte, dataLen int64) (json.RawMessage, int, []tensorSp
 	config := append(json.RawMessage(nil), []byte(configText)...)
 
 	specs := make([]tensorSpec, 0, len(raw))
-	var totalBytes int64
+	var totalBytes, decodedBytes int64
 	for name, rawInfo := range raw {
 		if name == "" {
 			return nil, 0, nil, fmt.Errorf("needle: empty tensor name")
@@ -360,6 +357,11 @@ func parseHeader(header []byte, dataLen int64) (json.RawMessage, int, []tensorSp
 		spec, err := validateTensorInfo(name, info, dataLen)
 		if err != nil {
 			return nil, 0, nil, err
+		}
+		// Half-precision payloads expand to float32; cap retained bytes too.
+		decodedBytes, err = addTensorBytes(decodedBytes, int64(spec.Elements)*4)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("needle: decoded %w", err)
 		}
 		totalBytes, err = addTensorBytes(totalBytes, spec.ByteLen)
 		if err != nil {
@@ -504,43 +506,6 @@ func validateShapeForSave(name string, shape []int) ([]int, int, error) {
 	return out, elements, nil
 }
 
-func decodeFloat32(name, dtype string, raw []byte) ([]float32, error) {
-	switch dtype {
-	case "F32":
-		if len(raw)%4 != 0 {
-			return nil, fmt.Errorf("needle: tensor %q F32 byte length %d is not divisible by 4", name, len(raw))
-		}
-		n := len(raw) / 4
-		out := make([]float32, n)
-		for i := 0; i < n; i++ {
-			out[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
-		}
-		return out, nil
-	case "F16":
-		if len(raw)%2 != 0 {
-			return nil, fmt.Errorf("needle: tensor %q F16 byte length %d is not divisible by 2", name, len(raw))
-		}
-		n := len(raw) / 2
-		out := make([]float32, n)
-		for i := 0; i < n; i++ {
-			out[i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
-		}
-		return out, nil
-	case "BF16":
-		if len(raw)%2 != 0 {
-			return nil, fmt.Errorf("needle: tensor %q BF16 byte length %d is not divisible by 2", name, len(raw))
-		}
-		n := len(raw) / 2
-		out := make([]float32, n)
-		for i := 0; i < n; i++ {
-			out[i] = math.Float32frombits(uint32(binary.LittleEndian.Uint16(raw[i*2:])) << 16)
-		}
-		return out, nil
-	default:
-		return nil, fmt.Errorf("needle: tensor %q unsupported dtype %q", name, dtype)
-	}
-}
-
 func validateFinite(name string, data []float32) error {
 	for _, v := range data {
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
@@ -602,4 +567,34 @@ func checkedMulInt64(a, b int64) (int64, bool) {
 
 func maxInt() int {
 	return int(^uint(0) >> 1)
+}
+
+// Decode through one bounded buffer instead of retaining a whole raw tensor
+// beside its expanded float32 copy. Offsets/shapes are already fully admitted.
+func readTensorChunks(f *os.File, offset int64, spec tensorSpec, scratch []byte) ([]float32, error) {
+	out := make([]float32, spec.Elements)
+	width := 2
+	if spec.DType == "F32" {
+		width = 4
+	}
+	per := len(scratch) / width
+	for start := 0; start < len(out); {
+		n := min(per, len(out)-start)
+		raw := scratch[:n*width]
+		if _, err := f.ReadAt(raw, offset+int64(start*width)); err != nil {
+			return nil, fmt.Errorf("needle: read tensor %q: %w", spec.Name, err)
+		}
+		for i := 0; i < n; i++ {
+			switch spec.DType {
+			case "F32":
+				out[start+i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
+			case "F16":
+				out[start+i] = half.F16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+			case "BF16":
+				out[start+i] = half.BF16ToF32(binary.LittleEndian.Uint16(raw[i*2:]))
+			}
+		}
+		start += n
+	}
+	return out, nil
 }

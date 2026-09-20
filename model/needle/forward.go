@@ -13,6 +13,7 @@ import (
 type Options struct {
 	MaxWorkBytes int64
 	Quant        *Quantization
+	Packed       bool // opt-in direct CQ projections for an archive; dense reference remains default
 }
 type execution struct {
 	t              *tape
@@ -24,6 +25,7 @@ type execution struct {
 	cells          []*value
 	parameterViews map[string]*value // immutable inference-only prepared tensors
 	decode         *decodeStep
+	packedEnabled  bool
 }
 
 func (m *Model) execution(train bool, opts Options) *execution {
@@ -31,7 +33,7 @@ func (m *Model) execution(train bool, opts Options) *execution {
 	if limit == 0 {
 		limit = 512 << 20
 	}
-	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}, qp: map[string]*value{}, q: opts.Quant}
+	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}, qp: map[string]*value{}, q: opts.Quant, packedEnabled: opts.Packed}
 }
 func (e *execution) param(name string, layer int) *value {
 	if e.parameterViews != nil {
@@ -52,8 +54,7 @@ func (e *execution) param(name string, layer int) *value {
 				r *= d
 			}
 		}
-		e.t.reserve(128)
-		return &value{x: p.x[start : start+r*c : start+r*c], r: r, c: c}
+		return e.t.view(p.x[start:start+r*c:start+r*c], r, c)
 	}
 	p, ok := e.p[name]
 	if !ok {
@@ -85,6 +86,11 @@ func (e *execution) param(name string, layer int) *value {
 }
 func (e *execution) bp(key string, l int) *value { return e.param("stack/layers/block/"+key, l) }
 func (e *execution) linear(x *value, key string, l int) *value {
+	if e.packedEnabled {
+		if p := e.m.packed[packedKey{key, l}]; p != nil {
+			return e.packedLinear(x, p)
+		}
+	}
 	return e.t.mm(x, e.param(key, l), false)
 }
 func (e *execution) norm(x *value, key string, l int) *value { return e.t.norm(x, e.param(key, l)) }
@@ -101,17 +107,19 @@ func (t *tape) ropeAt(a *value, theta float64, position int) *value {
 			o.x[k] = a.x[k]*co + a.x[i]*si
 		}
 	}
-	t.record(func() {
-		for r := 0; r < a.r; r++ {
-			for j := 0; j < half; j++ {
-				angle := float64(r+position) / math.Pow(theta, float64(2*j)/float64(a.c))
-				co, si := float32(math.Cos(angle)), float32(math.Sin(angle))
-				i, k := r*a.c+j, r*a.c+j+half
-				a.g[i] += o.g[i]*co + o.g[k]*si
-				a.g[k] += -o.g[i]*si + o.g[k]*co
+	if t.train {
+		t.record(func() {
+			for r := 0; r < a.r; r++ {
+				for j := 0; j < half; j++ {
+					angle := float64(r+position) / math.Pow(theta, float64(2*j)/float64(a.c))
+					co, si := float32(math.Cos(angle)), float32(math.Sin(angle))
+					i, k := r*a.c+j, r*a.c+j+half
+					a.g[i] += o.g[i]*co + o.g[k]*si
+					a.g[k] += -o.g[i]*si + o.g[k]*co
+				}
 			}
-		}
-	})
+		})
+	}
 	return o
 }
 func (e *execution) attention(x *value, l, window int) *value {
@@ -147,6 +155,15 @@ func (e *execution) attention(x *value, l, window int) *value {
 	return e.linear(e.aq(t.mul(joined, gate)), p+"out_proj/kernel", l)
 }
 func (t *tape) permute(a *value, p []int) *value {
+	if !t.train {
+		o := t.alloc(a.r, a.c)
+		for row := 0; row < a.r; row++ {
+			for col, src := range p {
+				o.x[row*a.c+col] = a.x[row*a.c+src]
+			}
+		}
+		return o
+	}
 	idx := t.ints(len(a.x))
 	for r := 0; r < a.r; r++ {
 		for j, v := range p {
@@ -157,6 +174,26 @@ func (t *tape) permute(a *value, p []int) *value {
 }
 func (t *tape) kron(z, a, b *value) *value {
 	ba, bb := a.r, b.r
+	if !t.train {
+		za := t.alloc(z.r*bb, ba)
+		for token := 0; token < z.r; token++ {
+			for i := 0; i < ba; i++ {
+				for j := 0; j < bb; j++ {
+					za.x[(token*bb+j)*ba+i] = z.x[token*z.c+i*bb+j]
+				}
+			}
+		}
+		za = t.mm(za, a, false)
+		zb := t.alloc(z.r*ba, bb)
+		for token := 0; token < z.r; token++ {
+			for i := 0; i < ba; i++ {
+				for j := 0; j < bb; j++ {
+					zb.x[(token*ba+i)*bb+j] = za.x[(token*bb+j)*ba+i]
+				}
+			}
+		}
+		return t.slice(t.mm(zb, b, false), 0, z.r, z.c)
+	}
 	idx := t.ints(len(z.x))
 	for token := 0; token < z.r; token++ {
 		for i := 0; i < ba; i++ {
@@ -200,28 +237,38 @@ func (t *tape) walsh(z *value) *value {
 		}
 	}
 	apply(o.x)
-	t.record(func() {
-		g := append([]float32(nil), o.g...)
-		apply(g)
-		for i, v := range g {
-			z.g[i] += v
-		}
-	})
+	if t.train {
+		t.record(func() {
+			g := append([]float32(nil), o.g...)
+			apply(g)
+			for i, v := range g {
+				z.g[i] += v
+			}
+		})
+	}
 	return o
 }
 func (e *execution) hadamard(x *value, l int) *value {
 	t, c := e.t, e.m.config
 	n := padded(c.DModel)
-	idx := t.ints(x.r * n)
-	for r := 0; r < x.r; r++ {
-		for j := 0; j < n; j++ {
-			idx[r*n+j] = -1
-			if j < x.c {
-				idx[r*n+j] = r*x.c + j
+	var z *value
+	if !t.train {
+		z = t.alloc(x.r, n)
+		for r := 0; r < x.r; r++ {
+			copy(z.x[r*n:], x.x[r*x.c:(r+1)*x.c])
+		}
+	} else {
+		idx := t.ints(x.r * n)
+		for r := 0; r < x.r; r++ {
+			for j := 0; j < n; j++ {
+				idx[r*n+j] = -1
+				if j < x.c {
+					idx[r*n+j] = r*x.c + j
+				}
 			}
 		}
+		z = t.gather(x, x.r, n, idx)
 	}
-	z := t.gather(x, x.r, n, idx)
 	p := "hadamard_mlp/"
 	mul := func(a *value, key string) *value { return t.mul(a, t.broadcast(e.bp(p+key, l), a.r)) }
 	if c.Generation == 2 {
@@ -304,13 +351,15 @@ func (e *execution) block(u *value, l int, ek, ev *value) *value {
 			}
 			alpha.x[r] /= float32(math.Sqrt(float64(x.c)))
 		}
-		t.record(func() {
-			for r := 0; r < x.r; r++ {
-				for j := 0; j < x.c; j++ {
-					product.g[r*x.c+j] += alpha.g[r] / float32(math.Sqrt(float64(x.c)))
+		if t.train {
+			t.record(func() {
+				for r := 0; r < x.r; r++ {
+					for j := 0; j < x.c; j++ {
+						product.g[r*x.c+j] += alpha.g[r] / float32(math.Sqrt(float64(x.c)))
+					}
 				}
-			}
-		})
+			})
+		}
 		gate := t.unary(alpha, "sigmoid")
 		idx := t.ints(len(x.x))
 		for i := range idx {
@@ -332,17 +381,7 @@ func (e *execution) block(u *value, l int, ek, ev *value) *value {
 	return t.add(x, e.hadamard(t.norm(x, e.bp("pre_hada_norm/scale", l)), l))
 }
 func (e *execution) forward(ids []int) *value {
-	x := e.trunk(ids, false)
-	emb := e.param("embedding/embedding", -1)
-	var head *value
-	if e.parameterViews != nil {
-		n := e.m.config.OutVocab * emb.c
-		e.t.reserve(128)
-		head = &value{x: emb.x[:n:n], r: e.m.config.OutVocab, c: emb.c}
-	} else {
-		head = e.t.rows(emb, 0, e.m.config.OutVocab)
-	}
-	return e.t.mm(e.aq(x), head, true)
+	return e.outputProjection(e.trunk(ids, false))
 }
 func (e *execution) trunk(ids []int, collect bool) *value {
 	c, t := e.m.config, e.t
@@ -407,10 +446,7 @@ func (e *execution) trunk(ids []int, collect bool) *value {
 		tokens := make([]*value, len(ids))
 		for token := range ids {
 			mat := t.slice(res, token*c.Lanes*c.Lanes, c.Lanes, c.Lanes)
-			for iter := 0; iter < 20; iter++ {
-				mat = t.transpose(t.logsoftmax(t.transpose(t.logsoftmax(mat))))
-			}
-			mat = t.unary(mat, "exp")
+			mat = t.sinkhorn(mat)
 			old := t.slice(stream, token*c.Lanes*c.DModel, c.Lanes, c.DModel)
 			mixed := t.mm(mat, old, false)
 			g := t.slice(post, token*c.Lanes, c.Lanes, 1)
@@ -458,6 +494,9 @@ func recoverWork(err *error) {
 	}
 }
 func (m *Model) resolveOptions(opts Options) (Options, error) {
+	if opts.Packed && (!m.deployed || len(m.packed) == 0) {
+		return opts, fmt.Errorf("needle: packed projections require original .cact weights")
+	}
 	if m.deployed {
 		if opts.Quant != nil && (opts.Quant.WeightBits != 0 || opts.Quant.ActivationBits != 8 || opts.Quant.KVBits != 8) {
 			return opts, fmt.Errorf("needle: archive already quantized; numerics fixed to A8/KV8")
@@ -490,8 +529,8 @@ func (m *Model) LossGrad(ids []int, mask []float32, opts Options) (loss float64,
 	if err = m.validateTokens(ids); err != nil {
 		return 0, nil, err
 	}
-	if m.deployed {
-		return 0, nil, fmt.Errorf("needle: train from source safetensors, not deployed archive")
+	if m.deployed || opts.Packed {
+		return 0, nil, fmt.Errorf("needle: train from source safetensors, not deployed/packed weights")
 	}
 	if len(ids) < 2 {
 		return 0, nil, fmt.Errorf("needle: training requires at least two tokens")

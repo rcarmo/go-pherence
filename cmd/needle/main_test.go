@@ -161,3 +161,32 @@ func TestCLIReferenceAndCachedTextParity(t *testing.T) {
 		t.Fatalf("cached/reference differ %v", generated)
 	}
 }
+
+func TestCLIArchivePacked(t *testing.T) {
+	text := filepath.Join(t.TempDir(), "prompt.txt")
+	if err := os.WriteFile(text, []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var results [2]string
+	for i, flag := range []string{"false", "true"} {
+		var out bytes.Buffer
+		if err := run(context.Background(), []string{"-model", "../../loader/needle/testdata/needle3.cact", "-text-file", text, "-packed=" + flag, "-max-new", "3", "-eos=-1"}, &out, new(bytes.Buffer)); err != nil {
+			t.Fatal(err)
+		}
+		var obj struct {
+			IDs    []int `json:"generated_ids"`
+			Packed bool
+		}
+		if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+			t.Fatal(err)
+		}
+		if obj.Packed != (i == 1) {
+			t.Fatal("incorrect packed report")
+		}
+		b, _ := json.Marshal(obj.IDs)
+		results[i] = string(b)
+	}
+	if results[0] != results[1] {
+		t.Fatalf("packed/dense generation differs %v", results)
+	}
+}

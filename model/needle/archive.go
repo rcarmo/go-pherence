@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
 )
 
@@ -16,9 +17,12 @@ func LoadArchive(path string) (*Model, *checkpoint.Tokenizer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelFromArchive(a)
+	return mapArchive(a, true)
 }
 func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, error) {
+	return mapArchive(a, false)
+}
+func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.Tokenizer, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("needle: nil archive")
 	}
@@ -66,9 +70,16 @@ func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, err
 	// still hold unrelated models; no hidden unbounded copy plan is admitted.
 	var decoded int64
 	for _, r := range a.Records {
-		decoded += int64(len(r.Data))*4 + int64(len(r.Raw))
+		decoded += int64(len(r.Data))*4 + int64(len(r.Raw)) + int64(len(r.CQBlob))
 	}
-	if decoded > (1<<30)/4 || expanded > (1<<30)/3 || decoded*4+expanded*3 > 1<<30 {
+	// Fresh file loads transfer private buffers into the model, so retained
+	// decoded records plus restacking/transposes/packed copies are sufficient.
+	// Caller-provided archives retain the more conservative copy plan.
+	peak := decoded*4 + expanded*3
+	if takeOwnership {
+		peak = decoded*2 + 16<<20
+	}
+	if peak > 1<<30 {
 		return nil, nil, fmt.Errorf("needle: archive materialization exceeds 1 GiB logical peak budget")
 	}
 	if int(h[14]) != padded(c.DModel) || h[23] != 4 || int(h[24]) != slices.Max(c.EngramOrders) {
@@ -76,6 +87,7 @@ func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, err
 	}
 	cp := &checkpoint.Checkpoint{FormatVersion: 2, Tensors: map[string]checkpoint.Tensor{}}
 	cursor := 0
+	packed := map[packedKey]*simd.CQMatrix{}
 	take := func(shape []int) (checkpoint.Tensor, error) {
 		if cursor >= len(a.Records) {
 			return checkpoint.Tensor{}, fmt.Errorf("needle: missing archive tensor %d", cursor)
@@ -108,6 +120,14 @@ func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, err
 		record, err := take(shape)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
+		}
+		raw := a.Records[cursor-1]
+		if raw.DType == 3 && (trans || name == "embedding/embedding") {
+			matrix, err := simd.NewCQMatrix(shape[0], shape[1], raw.Bits, raw.CQBlob, a.Codebook)
+			if err != nil {
+				return fmt.Errorf("%s packed: %w", name, err)
+			}
+			packed[packedKey{name, layer}] = matrix
 		}
 		if trans {
 			record = transpose(record)
@@ -307,12 +327,13 @@ func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, err
 		return nil, nil, fmt.Errorf("needle: unknown archive Hadamard permutation")
 	}
 	cp.Config, _ = json.Marshal(c)
-	m, err := New(cp)
+	m, err := newModel(cp, takeOwnership)
 	if err != nil {
 		return nil, nil, err
 	}
 	m.p1, m.p2 = perms[0], perms[1]
 	m.deployed = true
+	m.packed = packed
 	m.archiveWindow = int(h[3])
 	for _, kind := range []HeadKind{Embedding, Confidence, Router} {
 		if _, ok := m.tensors[string(kind)+"_head/probes"]; ok {

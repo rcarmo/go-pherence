@@ -21,6 +21,16 @@ func (m *Model) Checkpoint() *checkpoint.Checkpoint {
 	}
 	return cp
 }
+
+// checkpointView is private: unchanged immutable tensors can be shared when
+// constructing a derived model. Any writer must replace a tensor before editing.
+func (m *Model) checkpointView() *checkpoint.Checkpoint {
+	cp := &checkpoint.Checkpoint{FormatVersion: 2, Config: append(json.RawMessage(nil), m.rawConfig...), Tensors: make(map[string]checkpoint.Tensor, len(m.tensors))}
+	for name, w := range m.tensors {
+		cp.Tensors[name] = w
+	}
+	return cp
+}
 func (m *Model) Configuration() Config {
 	b, _ := json.Marshal(m.config)
 	var c Config
@@ -129,9 +139,11 @@ func (m *Model) Merge(a *Adapter) (*Model, error) {
 	if err := m.validateAdapter(a); err != nil {
 		return nil, err
 	}
-	cp := m.Checkpoint()
+	cp := m.checkpointView()
 	for name, w := range a.Weights {
 		base := cp.Tensors[name]
+		base.Data = append([]float32(nil), base.Data...)
+		cp.Tensors[name] = base
 		l, k, n := base.Shape[0], base.Shape[1], base.Shape[2]
 		delta := make([]float32, k*n)
 		for layer := 0; layer < l; layer++ {
@@ -141,7 +153,7 @@ func (m *Model) Merge(a *Adapter) (*Model, error) {
 			simd.Saxpy(a.Scale, delta, base.Data[layer*k*n:(layer+1)*k*n])
 		}
 	}
-	return New(cp)
+	return newModel(cp, true) // cp already owns its tensors; avoid a second full copy
 }
 func (m *Model) AdapterLossGrad(a *Adapter, ids []int, mask []float32, opts Options) (float64, map[string]checkpoint.Tensor, error) {
 	merged, err := m.Merge(a)
@@ -262,11 +274,11 @@ func (m *Model) TrainStep(opt *AdamW, ids []int, mask []float32, lr float64, opt
 	if err != nil {
 		return nil, 0, err
 	}
-	cp := m.Checkpoint()
+	cp := m.checkpointView()
 	for name, w := range updated {
 		cp.Tensors[name] = w
 	}
-	next, err := New(cp)
+	next, err := newModel(cp, true)
 	return next, loss, err
 }
 func (m *Model) TrainAdapterStep(a *Adapter, opt *AdamW, ids []int, mask []float32, lr float64, opts Options) (*Adapter, float64, error) {

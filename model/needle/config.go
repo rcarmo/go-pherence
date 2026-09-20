@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
 )
 
@@ -150,6 +151,7 @@ type Model struct {
 	p1, p2        []int
 	deployed      bool
 	archiveWindow int
+	packed        map[packedKey]*simd.CQMatrix // archive hybrid path, immutable
 }
 
 func Load(path string) (*Model, error) {
@@ -159,7 +161,11 @@ func Load(path string) (*Model, error) {
 	}
 	return New(c)
 }
-func New(cp *checkpoint.Checkpoint) (*Model, error) {
+func New(cp *checkpoint.Checkpoint) (*Model, error) { return newModel(cp, false) }
+
+// takeOwnership is restricted to freshly built, private archive checkpoints.
+// Public New always copies caller-owned tensors.
+func newModel(cp *checkpoint.Checkpoint, takeOwnership bool) (*Model, error) {
 	if cp == nil {
 		return nil, fmt.Errorf("needle: nil checkpoint")
 	}
@@ -217,7 +223,11 @@ func New(cp *checkpoint.Checkpoint) (*Model, error) {
 				return nil, fmt.Errorf("needle: nonfinite tensor %s", name)
 			}
 		}
-		m.tensors[name] = checkpoint.Tensor{Shape: append([]int{}, got.Shape...), Data: append([]float32(nil), got.Data...)}
+		data := got.Data
+		if !takeOwnership {
+			data = append([]float32(nil), data...)
+		}
+		m.tensors[name] = checkpoint.Tensor{Shape: append([]int{}, got.Shape...), Data: data}
 	}
 	n := padded(c.DModel)
 	m.p1 = numpyPermutation(n, 11, len(c.LadderWidths) > 0)

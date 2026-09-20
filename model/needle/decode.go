@@ -209,6 +209,7 @@ func (d *Decoder) Step(ctx context.Context, token int) (logits []float32, err er
 		return nil, fmt.Errorf("needle: decoder capacity exhausted")
 	}
 	e := d.model.execution(false, d.opts)
+	e.t.arena = &inferenceArena{limit: e.t.limit}
 	e.parameterViews = d.params
 	e.t.reserve(int64(len(d.layers))*96 + int64(len(d.engrams))*8)
 	step := &decodeStep{d: d, ctx: ctx, layers: make([]pendingLayer, len(d.layers)), engrams: make([]*value, len(d.engrams))}
@@ -222,6 +223,9 @@ func (d *Decoder) Step(ctx context.Context, token int) (logits []float32, err er
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
+	// Return only the logits, not a view retaining an arena block.
+	e.t.reserve(int64(len(out.x)) * 4)
+	logits = append([]float32(nil), out.x...)
 	// Every possible fallible operation is above. Commit has no allocations.
 	pos := d.position
 	for l, p := range step.layers {
@@ -239,7 +243,7 @@ func (d *Decoder) Step(ctx context.Context, token int) (logits []float32, err er
 	}
 	d.ids[pos] = token
 	d.position++
-	return out.x, nil
+	return logits, nil
 }
 func (e *execution) cachedConv(current, taps *value, history rowRing, dilation, window int) *value {
 	out := e.t.alloc(1, current.c)

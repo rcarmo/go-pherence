@@ -139,3 +139,19 @@ func FuzzParseArchive(f *testing.F) {
 		_, _ = ParseArchive(b)
 	})
 }
+
+func TestCQBlobOwned(t *testing.T) {
+	bytes := archiveFixture(t)
+	a, err := ParseArchive(bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Records[0].CQBlob) == 0 {
+		t.Fatal("missing CQ bytes")
+	}
+	saved := append([]byte(nil), a.Records[0].CQBlob...)
+	clear(bytes)
+	if !reflect.DeepEqual(a.Records[0].CQBlob, saved) {
+		t.Fatal("CQ blob aliases caller bytes")
+	}
+}

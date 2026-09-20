@@ -431,3 +431,10 @@ func TestUnsignedHeaderCannotWrap(t *testing.T) {
 		t.Fatal("wrapped header accepted")
 	}
 }
+
+func TestDecodedExpansionAdmission(t *testing.T) {
+	header := []byte(`{"__metadata__":{"format_version":"2","config":"{}"},"half":{"dtype":"F16","shape":[600000000],"data_offsets":[0,1200000000]}}`)
+	if _, _, _, err := parseHeader(header, 1200000000); err == nil || !strings.Contains(err.Error(), "decoded") {
+		t.Fatalf("half expansion accepted: %v", err)
+	}
+}

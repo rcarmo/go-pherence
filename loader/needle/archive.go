@@ -83,12 +83,13 @@ type Archive struct {
 
 // ArchiveRecord is one nameless tensor payload from a .cact archive.
 type ArchiveRecord struct {
-	DType int
-	Shape []int
-	Group int
-	Bits  int
-	Data  []float32
-	Raw   []byte
+	DType  int
+	Shape  []int
+	Group  int
+	Bits   int
+	Data   []float32
+	Raw    []byte
+	CQBlob []byte // Owned original indices/norms, retained for direct packed execution.
 }
 
 type archiveRecordSpec struct {
@@ -192,7 +193,11 @@ func ParseArchive(data []byte) (*Archive, error) {
 			return nil, err
 		}
 		var ok bool
-		decodedTotal, ok = checkedAddInt64(decodedTotal, spec.decodedBytes)
+		charge := spec.decodedBytes
+		if spec.dtype == archiveDTypeCQ {
+			charge += spec.nbytes
+		}
+		decodedTotal, ok = checkedAddInt64(decodedTotal, charge)
 		if !ok {
 			return nil, fmt.Errorf("needle: decoded tensor bytes overflow")
 		}
@@ -604,6 +609,7 @@ func decodeArchiveRecord(spec archiveRecordSpec, blob []byte, codebook []float32
 		rec.Data = data
 		return rec, nil
 	case archiveDTypeCQ:
+		rec.CQBlob = append([]byte(nil), blob...)
 		data, err := decodeArchiveCQ(spec.index, spec.shape[0], spec.shape[1], spec.bits, blob, codebook)
 		if err != nil {
 			return ArchiveRecord{}, err

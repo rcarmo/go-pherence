@@ -51,15 +51,17 @@ func (e *execution) attentionSoftmax(a *value, window int) *value {
 			}
 		}
 	}
-	t.record(func() {
-		for r := 0; r < a.r; r++ {
-			for col := 0; col < a.c; col++ {
-				if col <= r && (window == 0 || r-col < window) && e.keep[col] {
-					a.g[r*a.c+col] += masked.g[r*a.c+col]
+	if t.train {
+		t.record(func() {
+			for r := 0; r < a.r; r++ {
+				for col := 0; col < a.c; col++ {
+					if col <= r && (window == 0 || r-col < window) && e.keep[col] {
+						a.g[r*a.c+col] += masked.g[r*a.c+col]
+					}
 				}
 			}
-		}
-	})
+		})
+	}
 	return t.softmax(masked, false, 0)
 }
 
@@ -140,7 +142,9 @@ func (e *execution) headWeight(name string) *value {
 			panic(workLimit{fmt.Errorf("needle: head CQ overflow")})
 		}
 	}
-	e.t.record(func() { simd.Saxpy(1, o.g, v.g) })
+	if e.t.train {
+		e.t.record(func() { simd.Saxpy(1, o.g, v.g) })
+	}
 	return o
 }
 

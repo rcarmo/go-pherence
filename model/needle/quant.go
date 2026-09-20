@@ -66,11 +66,13 @@ func (t *tape) fakeA8(x *value) *value {
 			o.x[off+j] = float32(math.RoundToEven(float64(x.x[off+j]/scale))) * scale
 		}
 	}
-	t.record(func() {
-		for i, g := range o.g {
-			x.g[i] += g
-		}
-	})
+	if t.train {
+		t.record(func() {
+			for i, g := range o.g {
+				x.g[i] += g
+			}
+		})
+	}
 	return o
 }
 func (e *execution) aq(x *value) *value {
@@ -179,11 +181,13 @@ func (e *execution) quantParam(name string, p *value) *value {
 			panic(workLimit{fmt.Errorf("needle: CQ norm overflow in %s", name)})
 		}
 	}
-	e.t.record(func() {
-		for i, g := range o.g {
-			source.g[i] += g
-		}
-	})
+	if e.t.train {
+		e.t.record(func() {
+			for i, g := range o.g {
+				source.g[i] += g
+			}
+		})
+	}
 	if _, ok := e.m.tensors["ab_scales/"+name+"/a"]; ok {
 		return e.t.mul(o, e.abScale(name, "a"))
 	}

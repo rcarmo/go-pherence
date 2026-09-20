@@ -58,6 +58,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
 	maxNew := fs.Int("max-new", 8, "maximum greedy tokens")
 	cached := fs.Bool("cached", true, "use bounded incremental KV/convolution state (infer only)")
+	packed := fs.Bool("packed", false, "opt-in direct CQ projections from original .cact; dense tensors remain retained")
 	cacheMiB := fs.Int64("cache-mib", 512, "decoder retained/preparation budget (MiB)")
 	eos := fs.Int("eos", 1, "EOS token, -1 disables early stop")
 	steps := fs.Int("steps", 1, "number of optimization steps on the input example")
@@ -160,7 +161,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return e
 		}
 	}
-	opts := needle.Options{MaxWorkBytes: *work << 20}
+	opts := needle.Options{MaxWorkBytes: *work << 20, Packed: *packed}
 	if *numerics == "needle3-cq4-a8-kv8" {
 		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}
 	}
@@ -175,7 +176,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		if e != nil {
 			return e
 		}
-		result := map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated, "cached": *cached}
+		result := map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated, "cached": *cached, "packed": *packed}
 		if tok != nil {
 			decoded, err := tok.Decode(generated)
 			if err != nil {
@@ -190,7 +191,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "head": *mode, "values": values, "calibrated": false})
+		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "head": *mode, "values": values, "calibrated": false, "packed": *packed})
 	}
 	opt := needle.NewAdamW()
 	var ad *needle.Adapter
