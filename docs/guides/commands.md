@@ -10,7 +10,7 @@ Run commands from the repository root. Each command's `-h` output is the source 
 | Inspect incomplete model families without claiming inference support | `cmd/minicpmvinspect`, `cmd/qwen/qwen3ttsinspect`, `cmd/models/lfm2inspect` | [Model inspection](model-inspection.md) |
 | Transcribe, translate or add speaker labels | `cmd/audio/whisper`, `cmd/audio/diarize-vtt`, `cmd/audio/moss-transcribe` | [Speech commands](speech-commands.md) |
 | Score variable choices and train a small scorer | `cmd/jevlike` | [Jevlike](../../model/jevlike/README.md) |
-| Run/train Needle 3/2; Needle 3 archive text/head inference | `cmd/needle` | [Needle limits and validation](../../model/needle/README.md); [head training and width slicing](needle-head-training.md) |
+| Run/train Needle 3/2; Needle 3 archive text/head inference | `cmd/needle` | [Needle limits and validation](../../model/needle/README.md); [head training and width slicing](needle-head-training.md); [bounded tool calls](needle-tool-calls.md) |
 | Extract entities, classes, relations or records | `cmd/gliner2` | [GLiNER 2.5](../../model/gliner2/README.md) |
 | Run block-diffusion text generation | `cmd/diffusiongemmarun`, `cmd/diffusiongemmaserver` | [DiffusionGemma](../models/diffusiongemma/README.md) |
 | Generate images | `cmd/image/ideogram4gen` | [Ideogram 4](../models/ideogram4-support.md) |

@@ -317,3 +317,35 @@ func decodeUTF8Replacement(s string) string {
 	}
 	return b.String()
 }
+
+// PieceBytes returns literal continuation bytes, without dummy-prefix removal
+// or UTF-8 replacement. This is required for token masks and incremental output.
+// Control, unknown and user-defined special markers are not ordinary JSON text.
+func (t *Tokenizer) PieceBytes(id int) ([]byte, bool) {
+	if t == nil || id < 0 || id >= len(t.pieces) {
+		return nil, false
+	}
+	p := t.pieces[id]
+	switch p.kind {
+	case tokenByte:
+		b, err := strconv.ParseUint(p.text[3:5], 16, 8)
+		if err != nil {
+			return nil, false
+		}
+		return []byte{byte(b)}, true
+	case tokenNormal:
+		return []byte(strings.ReplaceAll(p.text, "▁", " ")), true
+	default:
+		return nil, false
+	}
+}
+
+// MarkerID resolves an exact user-defined marker, without treating user text as
+// a prompt template or performing normalization.
+func (t *Tokenizer) MarkerID(marker string) (int, bool) {
+	if t == nil {
+		return 0, false
+	}
+	id, ok := t.ids[marker]
+	return id, ok && t.pieces[id].kind == tokenUser
+}

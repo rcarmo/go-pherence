@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
@@ -223,5 +224,36 @@ func TestCLIHeadTrainingAndWidth(t *testing.T) {
 	}
 	if e = run(context.Background(), []string{"-model", out, "-input", inp, "-mode", "confidence"}, new(bytes.Buffer), new(bytes.Buffer)); e != nil {
 		t.Fatal(e)
+	}
+}
+
+func TestToolModeAdmission(t *testing.T) {
+	base := []string{"-model", "missing.cact", "-mode", "tools", "-text-file", "query.txt", "-tools", "tools.json"}
+	for _, extra := range [][]string{{"-cached=false"}, {"-eos", "1"}, {"-width", "8"}, {"-max-new", "0"}, {"-max-new", "1025"}, {"-max-calls", "0"}, {"-steps", "1"}} {
+		var out bytes.Buffer
+		err := run(context.Background(), append(append([]string(nil), base...), extra...), &out, &out)
+		if err == nil || !strings.Contains(err.Error(), "tools mode") || out.Len() != 0 {
+			t.Fatalf("%v: output=%q err=%v", extra, out.String(), err)
+		}
+	}
+	dir := t.TempDir()
+	query := filepath.Join(dir, "query.txt")
+	tools := filepath.Join(dir, "tools.json")
+	if err := os.WriteFile(query, []byte("Turn it on."), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, schema := range []string{`[{"name":"x","parameters":{"type":"object"},"unknown":1}]`, `[] []`, `[{"name":"x","parameters":{"type":"object"}}]`} {
+		if err := os.WriteFile(tools, []byte(schema), 0600); err != nil {
+			t.Fatal(err)
+		}
+		var out bytes.Buffer
+		err := run(context.Background(), []string{"-model", "../../loader/needle/testdata/needle3.cact", "-mode", "tools", "-tools", tools, "-text-file", query}, &out, &out)
+		if err == nil || out.Len() != 0 {
+			t.Fatalf("fixture admitted schema/tokenizer: %s %v", out.String(), err)
+		}
+	}
+	var out bytes.Buffer
+	if err := run(context.Background(), []string{"-model", "missing", "-input", "tokens.json", "-tools", tools}, &out, &out); err == nil || !strings.Contains(err.Error(), "requires tools mode") {
+		t.Fatal(err)
 	}
 }

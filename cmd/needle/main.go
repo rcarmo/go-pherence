@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -54,12 +55,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	path := fs.String("model", "", "Needle safetensors or Needle3 .cact archive")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
 	textPath := fs.String("text-file", "", "UTF-8 text file, .cact tokenizer required; prepends BOS")
-	mode := fs.String("mode", "infer", "infer, train, train-head, embedding, confidence or router")
+	mode := fs.String("mode", "infer", "infer, tools, train, train-head, embedding, confidence or router")
+	toolsPath := fs.String("tools", "", "tool schema JSON array (tools mode, no execution)")
+	systemText := fs.String("system", "", "optional tool-mode system instruction")
+	maxCalls := fs.Int("max-calls", 1, "maximum schema-constrained tool calls (1..4)")
 	headKind := fs.String("head", "confidence", "train-head objective: confidence BCE, router CE, embedding MSE")
 	width := fs.Int("width", 0, "source Needle3 half-width rung; 0 keeps width")
 	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
-	maxNew := fs.Int("max-new", 8, "maximum greedy tokens")
+	maxNew := fs.Int("max-new", 8, "maximum greedy tokens (tools mode defaults to 128)")
 	cached := fs.Bool("cached", true, "use bounded incremental KV/convolution state (infer only)")
 	packed := fs.Bool("packed", false, "opt-in direct CQ projections from original .cact; dense tensors remain retained")
 	cacheMiB := fs.Int64("cache-mib", 512, "decoder retained/preparation budget (MiB)")
@@ -77,8 +81,45 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if fs.NArg() != 0 || *path == "" || ((*tokens == "") == (*textPath == "")) {
 		return fmt.Errorf("-model and exactly one of -input/-text-file are required; positional arguments are not accepted")
 	}
-	if *mode != "infer" && *mode != "train" && *mode != "train-head" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
-		return fmt.Errorf("mode must be infer, train, train-head, embedding, confidence or router")
+	if *mode != "infer" && *mode != "tools" && *mode != "train" && *mode != "train-head" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
+		return fmt.Errorf("mode must be infer, tools, train, train-head, embedding, confidence or router")
+	}
+	if *mode == "tools" && (*toolsPath == "" || *textPath == "") {
+		return fmt.Errorf("tools mode requires -tools and -text-file")
+	}
+	if *mode == "tools" {
+		var incompatible string
+		explicitMax := false
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "max-new":
+				explicitMax = true
+			case "eos", "out", "head", "steps", "lr", "lora-rank", "lora-alpha", "seed":
+				incompatible = f.Name
+			}
+		})
+		if incompatible != "" {
+			return fmt.Errorf("tools mode does not support -%s", incompatible)
+		}
+		if !*cached || *width != 0 {
+			return fmt.Errorf("tools mode requires cached decoding and does not support width slicing")
+		}
+		if !explicitMax {
+			*maxNew = 128
+		}
+		if *maxNew < 1 || *maxNew > 1024 || *maxCalls < 1 || *maxCalls > 4 {
+			return fmt.Errorf("tools mode requires -max-new 1..1024 and -max-calls 1..4")
+		}
+	} else {
+		var toolControl string
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "tools" || f.Name == "system" || f.Name == "max-calls" {
+				toolControl = f.Name
+			}
+		})
+		if toolControl != "" {
+			return fmt.Errorf("-%s requires tools mode", toolControl)
+		}
 	}
 	training := *mode == "train" || *mode == "train-head"
 	if *width < 0 || *width > 4096 {
@@ -139,6 +180,42 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		if training {
 			return fmt.Errorf("train from source safetensors, not a deployment archive")
 		}
+	}
+	if *mode == "tools" {
+		if tok == nil {
+			return fmt.Errorf("tools mode requires original archive tokenizer")
+		}
+		b, err := readText(*toolsPath)
+		if err != nil {
+			return err
+		}
+		if len(b) > 128<<10 {
+			return fmt.Errorf("tool schema list exceeds 128 KiB")
+		}
+		var tools []needle.ToolSchema
+		dec := json.NewDecoder(bytes.NewReader(b))
+		dec.DisallowUnknownFields()
+		if err = dec.Decode(&tools); err != nil {
+			return err
+		}
+		if err = dec.Decode(new(any)); err != io.EOF {
+			return fmt.Errorf("tool schema file has trailing data")
+		}
+		query, err := readText(*textPath)
+		if err != nil {
+			return err
+		}
+		if *layers > 0 {
+			m, err = m.SliceDepth(*layers)
+			if err != nil {
+				return err
+			}
+		}
+		result, err := m.GenerateTools(ctx, tok, tools, *systemText, string(query), needle.ToolOptions{MaxNewTokens: *maxNew, MaxCalls: *maxCalls, Decoder: needle.DecoderOptions{MaxCacheBytes: *cacheMiB << 20, Execution: needle.Options{MaxWorkBytes: *work << 20, Packed: *packed}}})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(stdout).Encode(result)
 	}
 	var in input
 	if *textPath != "" {

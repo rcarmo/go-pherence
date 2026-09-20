@@ -102,3 +102,28 @@ func TestTokenizerRejectsWrappedSpecialID(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenizerRawPieceBytes(t *testing.T) {
+	tok, _ := tokenizerFixture(t)
+	for b := 0; b < 256; b++ {
+		piece, ok := tok.PieceBytes(4 + b)
+		if !ok || len(piece) != 1 || piece[0] != byte(b) {
+			t.Fatal("byte changed")
+		}
+	}
+	for _, id := range []int{-1, 0, 1, 2, 3, 99999} {
+		if _, ok := tok.PieceBytes(id); ok {
+			t.Fatalf("control/invalid piece %d", id)
+		}
+	}
+	id, ok := tok.MarkerID("<|im_start|>")
+	if !ok {
+		t.Fatal("marker missing")
+	}
+	if _, ok = tok.PieceBytes(id); ok {
+		t.Fatal("marker admitted as ordinary JSON")
+	}
+	if _, ok = tok.MarkerID("hello"); ok {
+		t.Fatal("normal piece called marker")
+	}
+}
