@@ -26,8 +26,9 @@ type TensorInfo struct {
 }
 
 // File owns a mapping. Do not copy File after use or mutate Tensors/Advisor.
-// Copying getters and EagerLoad coordinate with Close. GetRaw bytes and Advisor
-// remain borrowed: their users must finish before Close.
+// Copying getters and EagerLoad coordinate with Close. GetRaw bytes remain
+// borrowed: their users must finish before Close. Retained Advisor handles are
+// detached before unmap; obtaining the Advisor field must not race with Close.
 type File struct {
 	mu         sync.RWMutex
 	closed     bool
@@ -89,6 +90,9 @@ func (f *File) Close() error {
 		return nil
 	}
 	var closeErr error
+	if f.Advisor != nil {
+		f.Advisor.Detach()
+	}
 	if f.mmapData != nil {
 		if err := syscall.Munmap(f.mmapData); err != nil {
 			return err
