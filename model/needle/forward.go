@@ -392,6 +392,9 @@ func (m *Model) validateTokens(ids []int) error {
 	if m == nil {
 		return fmt.Errorf("needle: nil model")
 	}
+	if m.deployed && m.archiveWindow > 0 && len(ids) > m.archiveWindow {
+		return fmt.Errorf("needle: prefix exceeds archive KV window; streaming window eviction not implemented")
+	}
 	if len(ids) == 0 || len(ids) > m.config.MaxSeq {
 		return fmt.Errorf("needle: token count must be 1..%d", m.config.MaxSeq)
 	}
@@ -411,12 +414,24 @@ func recoverWork(err *error) {
 		}
 	}
 }
+func (m *Model) resolveOptions(opts Options) (Options, error) {
+	if m.deployed {
+		if opts.Quant != nil && (opts.Quant.WeightBits != 0 || opts.Quant.ActivationBits != 8 || opts.Quant.KVBits != 8) {
+			return opts, fmt.Errorf("needle: archive already quantized; numerics fixed to A8/KV8")
+		}
+		opts.Quant = &Quantization{ActivationBits: 8, KVBits: 8}
+	}
+	return opts, nil
+}
 func (m *Model) Forward(ids []int, opts Options) (logits []float32, err error) {
 	defer recoverWork(&err)
 	if err = m.validateTokens(ids); err != nil {
 		return nil, err
 	}
 	if err = opts.Quant.validate(m.config.Generation); err != nil {
+		return nil, err
+	}
+	if opts, err = m.resolveOptions(opts); err != nil {
 		return nil, err
 	}
 	e := m.execution(false, opts)
@@ -431,6 +446,9 @@ func (m *Model) LossGrad(ids []int, mask []float32, opts Options) (loss float64,
 	defer recoverWork(&err)
 	if err = m.validateTokens(ids); err != nil {
 		return 0, nil, err
+	}
+	if m.deployed {
+		return 0, nil, fmt.Errorf("needle: train from source safetensors, not deployed archive")
 	}
 	if len(ids) < 2 {
 		return 0, nil, fmt.Errorf("needle: training requires at least two tokens")

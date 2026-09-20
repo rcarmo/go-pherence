@@ -38,6 +38,9 @@ type Adapter struct {
 type LoRA struct{ A, B checkpoint.Tensor }
 
 func (m *Model) NewAdapter(rank int, alpha float32, seed uint64) (*Adapter, error) {
+	if m == nil || m.deployed {
+		return nil, fmt.Errorf("needle: adapters require source model weights")
+	}
 	if rank < 1 || rank > 256 || alpha <= 0 || !finite(alpha) {
 		return nil, fmt.Errorf("needle: invalid LoRA rank/alpha")
 	}
@@ -97,6 +100,9 @@ func loraTarget(name string) bool {
 }
 func finite(v float32) bool { return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0) }
 func (m *Model) validateAdapter(a *Adapter) error {
+	if m == nil || m.deployed {
+		return fmt.Errorf("needle: adapters require source model weights")
+	}
 	if a == nil || a.Rank < 1 || a.Rank > 256 || a.Scale <= 0 || !finite(a.Scale) || len(a.Weights) == 0 {
 		return fmt.Errorf("needle: invalid adapter")
 	}

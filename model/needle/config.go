@@ -13,6 +13,8 @@ import (
 
 type Config struct {
 	Generation        int     `json:"generation,omitempty"`
+	ArchiveDecoded    bool    `json:"go_archive_decoded,omitempty"`
+	ArchiveKVWindow   int     `json:"go_archive_kv_window,omitempty"`
 	VocabSize         int     `json:"vocab_size"`
 	DModel            int     `json:"d_model"`
 	AttnDim           int     `json:"attn_dim,omitempty"`
@@ -49,6 +51,9 @@ type Config struct {
 func (c *Config) validate() error {
 	if c.Generation != 2 && c.Generation != 3 {
 		return fmt.Errorf("needle: generation must be 2 or 3")
+	}
+	if c.ArchiveDecoded && (c.Generation != 3 || c.ArchiveKVWindow < 0 || c.ArchiveKVWindow > c.MaxSeq) {
+		return fmt.Errorf("needle: invalid decoded archive metadata")
 	}
 	if c.Generation == 2 {
 		if c.AttnDim == 0 {
@@ -139,10 +144,12 @@ func (c *Config) validate() error {
 // Model owns an immutable copy of a checkpoint. Training returns a new checkpoint.
 // Forward and LossGrad may run concurrently; caller-owned tensors never alias it.
 type Model struct {
-	config    Config
-	tensors   map[string]checkpoint.Tensor
-	rawConfig json.RawMessage
-	p1, p2    []int
+	config        Config
+	tensors       map[string]checkpoint.Tensor
+	rawConfig     json.RawMessage
+	p1, p2        []int
+	deployed      bool
+	archiveWindow int
 }
 
 func Load(path string) (*Model, error) {
@@ -175,7 +182,7 @@ func New(cp *checkpoint.Checkpoint) (*Model, error) {
 	if e := c.validate(); e != nil {
 		return nil, e
 	}
-	m := &Model{config: c, tensors: make(map[string]checkpoint.Tensor), rawConfig: append(json.RawMessage(nil), cp.Config...)}
+	m := &Model{config: c, tensors: make(map[string]checkpoint.Tensor), rawConfig: append(json.RawMessage(nil), cp.Config...), deployed: c.ArchiveDecoded, archiveWindow: c.ArchiveKVWindow}
 	if err := validateAB(cp.Tensors); err != nil {
 		return nil, err
 	}

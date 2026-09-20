@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
@@ -49,8 +50,9 @@ func readInput(path string) (input, error) {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("needle", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	path := fs.String("model", "", "Needle safetensors checkpoint (explicit generation 2/3)")
+	path := fs.String("model", "", "Needle safetensors or Needle3 .cact archive")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
+	textPath := fs.String("text-file", "", "UTF-8 text file, .cact tokenizer required; prepends BOS")
 	mode := fs.String("mode", "infer", "infer, train, embedding, confidence or router")
 	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
@@ -66,8 +68,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if e := fs.Parse(args); e != nil {
 		return e
 	}
-	if fs.NArg() != 0 || *path == "" || *tokens == "" {
-		return fmt.Errorf("-model and -input are required; positional arguments are not accepted")
+	if fs.NArg() != 0 || *path == "" || ((*tokens == "") == (*textPath == "")) {
+		return fmt.Errorf("-model and exactly one of -input/-text-file are required; positional arguments are not accepted")
 	}
 	if *mode != "infer" && *mode != "train" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
 		return fmt.Errorf("mode must be infer, train, embedding, confidence or router")
@@ -94,16 +96,58 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return e
 		}
 	}
-	in, e := readInput(*tokens)
+	if e := ctx.Err(); e != nil {
+		return e
+	}
+	var m *needle.Model
+	var tok *checkpoint.Tokenizer
+	var e error
+	if strings.HasSuffix(strings.ToLower(*path), ".cact") {
+		m, tok, e = needle.LoadArchive(*path)
+	} else {
+		m, e = needle.Load(*path)
+	}
 	if e != nil {
 		return e
 	}
-	if e = ctx.Err(); e != nil {
-		return e
+	if m.Configuration().ArchiveDecoded {
+		if *numerics != "fp32" {
+			return fmt.Errorf("archive numerics are fixed; omit -numerics")
+		}
+		*numerics = "archive-a8-kv8"
+		if *mode == "train" {
+			return fmt.Errorf("train from source safetensors, not a deployment archive")
+		}
 	}
-	m, e := needle.Load(*path)
-	if e != nil {
-		return e
+	var in input
+	if *textPath != "" {
+		if tok == nil {
+			return fmt.Errorf("text input requires archive tokenizer")
+		}
+		b, err := readText(*textPath)
+		if err != nil {
+			return err
+		}
+		ids, err := tok.Encode(string(b))
+		if err != nil {
+			return err
+		}
+		_, defaultEOS, bos, _ := tok.SpecialIDs()
+		in.Tokens = append([]int{bos}, ids...)
+		setEOS := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "eos" {
+				setEOS = true
+			}
+		})
+		if !setEOS {
+			*eos = defaultEOS
+		}
+	} else {
+		in, e = readInput(*tokens)
+		if e != nil {
+			return e
+		}
 	}
 	if *layers > 0 {
 		m, e = m.SliceDepth(*layers)
@@ -121,7 +165,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		if e != nil {
 			return e
 		}
-		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated})
+		result := map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated}
+		if tok != nil {
+			decoded, err := tok.Decode(generated)
+			if err != nil {
+				return err
+			}
+			result["generated_text"] = decoded
+		}
+		return enc.Encode(result)
 	}
 	if *mode != "train" {
 		values, err := m.Head(in.Tokens, needle.HeadKind(*mode), opts)
@@ -175,4 +227,20 @@ func main() {
 		fmt.Fprintln(os.Stderr, e)
 		os.Exit(1)
 	}
+}
+
+func readText(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > 1<<20 {
+		return nil, fmt.Errorf("text input exceeds 1 MiB")
+	}
+	return b, nil
 }

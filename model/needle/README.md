@@ -2,7 +2,7 @@
 
 This package implements the language-model trunk of both Needle generations in Go, with **Needle 3 as the primary target**. It includes full-sequence inference, bounded greedy token-ID decoding, reverse-mode gradients, full-trunk training, LoRA and AdamW. Python/JAX is used only to generate reference fixtures; it is not part of the Go runtime.
 
-This is a tested **FP32 baseline**, not yet a replacement for the upstream Needle application. Needle 3 additionally has an explicit dequantized CQ-W4/A8/KV8 straight-through reference mode with upstream logits/loss/all-gradient parity. Needle 3 also supports broadcast AB scales (including STE gradients), embedding/confidence/router head inference, and nested depth-rung slicing. The packed `.cact` runtime, Needle 2 quantized training/heads, SentencePiece-driven tool calling, auxiliary-head training, width slicing and production-sized performance qualification remain unfinished. Do not confuse successful small-model parity with production readiness.
+This is a tested **FP32 baseline**, not yet a replacement for the upstream Needle application. Needle 3 additionally has an explicit dequantized CQ-W4/A8/KV8 straight-through reference mode with upstream logits/loss/all-gradient parity. Needle 3 also supports broadcast AB scales (including STE gradients), embedding/confidence/router head inference, and nested depth-rung slicing. Needle 3 `.cact` loading, archive BPE tokenization and text-file inference are implemented through a decoded-weight compatibility path. Direct packed-weight kernels, Needle 2 archives/quantized training/heads, schema-constrained tool calling, auxiliary-head training, width slicing and production-sized performance qualification remain unfinished. Do not confuse successful small-model parity with production readiness.
 
 ## Architecture and source pins
 
@@ -13,10 +13,10 @@ The Go implementation adapts the mathematical architecture under upstream's [Apa
 
 ## Boundaries
 
-- `loader/needle` reads/writes non-executable safetensors, including F32/F16/BF16 input. No pickle deserialization. Saving writes F32, with bounded shapes/headers, finite checks and an atomic same-directory rename.
+- `loader/needle` reads/writes non-executable safetensors, including F32/F16/BF16 input. No pickle deserialization. Saving writes F32, with bounded shapes/headers, finite checks and an atomic same-directory rename. It also parses Needle 3 `.cact` records (FP16/FP32/CQ/raw) and the embedded BPE tokenizer.
 - `model/needle` owns architecture, tape, LoRA and optimizer behavior. Loaded weights are copied and private. Public checkpoint/config access returns copies. Auxiliary tensors are retained on checkpoint save and can be executed with `Head`; they are not trained by the language-model loss.
 - `backends/simd/runtime.MatMul` validates dimensions, overflow, lengths and destination aliasing, then dispatches to existing native SGEMM/Sdot/Saxpy kernels. Both forward and reverse matrix products use it. Intel AVX2/FMA and ARM64 NEON are selected through runtime capability checks; other targets have portable fallback.
-- `cmd/needle` exposes the baseline without pretending to have a tokenizer or quantized deployment engine.
+- `cmd/needle` exposes token-ID and archive text-file inference, head inference and source-checkpoint training. The archive path expands weights once to FP32; it is not a direct packed-weight execution engine.
 
 Dense products use SIMD. Scalar control, gather/index, transcendental, lane-normalization and some elementwise/backward operations remain; this is **not yet full hot-path SIMD coverage**. The tape is intentionally simple and allocation-heavy. `Options.MaxWorkBytes` bounds logical tensor/index/closure accounting, not total process RSS, resident model bytes or optimizer state.
 
@@ -43,6 +43,14 @@ Use separate optimizer instances for different parameter sets. Optimizers are se
 
 `m.SliceDepth(depth)` selects Needle 3's nested bisection rung, remaps global/engram sites and head rows, and preserves the parent's order for subsequent slices. It returns an independent model. Invalid depths/orders or unknown stacked geometry fail. Reduced-depth AB-scaled models currently fail explicitly: upstream's slice leaves those scales unchanged, so supporting their remapping requires a separately defined contract. Width slicing and runtime exit-depth sampling are not implemented.
 
+## Needle 3 archives and tokenizer
+
+`needle.LoadArchive(path)` returns a model and, when present, its embedded `loader/needle.Tokenizer`. The archive reader validates the 196-byte header, 44-byte positional directory, 64-byte alignment, record overlap/extents, shapes, codebooks and finite values. It reads binary, 2/3/4-bit CQ and ternary crumbs at group size 128. Bounds are 512 MiB for file and decoded data, 32 MiB for an individual raw attachment, plus a conservative 1 GiB logical materialization budget including optional heads and copies. These are admission limits, not an RSS guarantee.
+
+Weights are decoded once, transposed/restacked into model layout, and **not requantized**. The executable path currently requires KV8 and fixes A8/KV8 numerics. It rejects training/LoRA on decoded archives and prefixes longer than the archive's KV window; eviction/cached streaming is not implemented. Saved decoded checkpoints retain a Go-specific archive-numerics marker so reloading cannot silently turn off A8 or enable training. Archive depth slices keep this marker. KV2/3/4 execution fails explicitly despite the reader understanding their metadata.
+
+The tokenizer matches upstream `RefTokenizer`'s exported BPE contract: score-prioritized merges with leftmost tie-breaking, longest user-marker matching, dummy prefix, whitespace escape and byte fallback. Encoding is limited to 1 MiB of valid UTF-8; decoding validates IDs and caps output. It does not implement arbitrary SentencePiece normalization or schema-constrained generation. Untrusted user text containing user-defined chat markers is interpreted as such, like upstream; callers must construct/escape prompts deliberately.
+
 ## CLI
 
 ```sh
@@ -59,6 +67,9 @@ bin/needle -mode train -model checkpoints/needle3.safetensors \
 bin/needle -mode embedding -model checkpoints/needle3.safetensors \
   -input /tmp/needle-ids.json -layers 8
 # -mode confidence or -mode router returns raw logits.
+# Archive numerics are fixed; omit -numerics. Text mode prepends archive BOS.
+bin/needle -model checkpoints/needle3.cact -text-file prompt.txt -max-new 8
+bin/needle -model checkpoints/needle3.cact -text-file prompt.txt -mode embedding
 ```
 
 An output path that already exists is rejected by the CLI. The saved training output is a **merged full checkpoint**, not an upstream adapter archive. Numerics mode is chosen explicitly when loading it; a trained F32 checkpoint does not become a packed archive. Fine-tuning does not retrain/calibrate the preserved confidence/router heads, so their old calibration must not be presented as qualified for the new weights. Do not use these example token IDs as a quality evaluation. A current full-width model may exceed the default reference-tape budget; increasing it is not a substitute for the pending streaming/memory work.
@@ -68,6 +79,8 @@ An output path that already exists is rejected by the CLI. The saved training ou
 The fixtures are small, deterministic, perturbed upstream models, not hand-written expected values. Needle 3 checks logits, mean next-token loss and all **42** gradient tensors; Needle 2 checks all **29** trunk-gradient tensors. Upstream's unused Needle 2 MTP training leaves are excluded, as its loader does.
 
 The four-layer extended fixture additionally checks all three head outputs with interior padding in FP32 and CQ, AB-scaled logits/loss and every nonzero upstream gradient (including broadcast scale gradients), and exact tensor/output parity for direct 3-/2-layer and nested 3→2 slices. Admission and regression tests cover invalid AB broadcasts/pairs, missing heads, padding, nil models, tiny-value A8 quantization, and depth/geometry failures. A review caught and corrected a spurious A8 minimum-scale floor; upstream only special-cases exactly-zero rows.
+
+The archive fixture comes from the pinned exporter: all 154 decoded records match upstream, and an independent reconstruction into the pinned JAX model matches mapped Go logits and all head outputs. This is **not a comparison against the native C++ engine**. Ten tokenizer cases cover merges, overlapping markers, Unicode/byte fallback and whitespace; five additional cases check Python-compatible malformed-byte replacement. Short five-second fuzz runs covered both parsers (63,979 archive and 128,562 tokenizer executions), with malformed/truncated/overflow/overlap admission tests and a 32-bit wrapped-special-ID regression. These are bounded smoke runs, not exhaustive fuzzing or security clearance.
 
 Tests also cover full-model loss reduction for both versions, Needle 3 LoRA loss reduction and a finite-difference gradient, atomic optimizer rejection, checkpoint round-trips, auxiliary-tensor preservation, owned state, concurrent inference, token/work bounds and the train/save/load/generate CLI flow.
 
@@ -90,10 +103,12 @@ python scripts/needle-reference.py --upstream /path/to/pinned/needle \
   --quantized --output model/needle/testdata/needle3-cq.json
 python scripts/needle-extended-reference.py --upstream /path/to/pinned/needle \
   --output model/needle/testdata/needle3-extended.json
+python scripts/needle-archive-reference.py --upstream /path/to/pinned/needle \
+  --output-dir loader/needle/testdata
 ```
 
 `testdata/cq-codebooks.json` records upstream `_cq_codebook_np(bits, 128)` for 1, 1.58, 2, 4 and 8 bits from the same Needle 3 pin. Four-bit end-to-end parity is tested; the other tables are present but not separately end-to-end qualified.
 
 Measured on the Intel i7-12700 host: dense `[32,768] × [768,576]` forward multiplication about **0.399 ms**, zero allocations; transposed variants about **0.864–1.262 ms**. The tiny five-token, width-eight Needle 3 fixture takes about **0.172 ms**, 298 KB and 5065 allocations per forward. These are short local microbenchmarks, not real-model token/s or comparisons against upstream.
 
-ARM64 test binaries and the CLI cross-compile, as does the RISC-V CLI; **no native ARM execution has been performed for this slice**. Full native Intel/ARM model throughput, scalar-versus-SIMD parity/performance, packed quantized formats, reduced-depth AB remapping, Needle 2 quantized objectives/heads, tokenizer, head training, width slicing and deployment behavior remain open. Frozen evaluation artifacts and GPU services are unrelated and untouched.
+ARM64 test binaries and the CLI cross-compile, as does the RISC-V CLI; **no native ARM execution has been performed for this slice**. Full native Intel/ARM model throughput, scalar-versus-SIMD parity/performance, direct packed-weight kernels, KV eviction/caching, reduced-depth AB remapping, Needle 2 archives/quantized objectives/heads, schema-constrained tool calling, head training, width slicing and production deployment behavior remain open. Frozen evaluation artifacts and GPU services are unrelated and untouched.

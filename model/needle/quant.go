@@ -165,7 +165,7 @@ func cqValues(dst, src []float32, shape []int, second bool, bits float64) {
 	}
 }
 func (e *execution) quantParam(name string, p *value) *value {
-	if e.q == nil || e.q.WeightBits == 0 || !isCQ(name) || len(e.m.tensors[name].Shape) < 2 {
+	if e.m.deployed || e.q == nil || e.q.WeightBits == 0 || !isCQ(name) || len(e.m.tensors[name].Shape) < 2 {
 		return p
 	}
 	source := p

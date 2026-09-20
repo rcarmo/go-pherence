@@ -107,3 +107,27 @@ func TestCLIHeadsAndDepth(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIArchiveText(t *testing.T) {
+	path := "../../loader/needle/testdata/needle3.cact"
+	text := filepath.Join(t.TempDir(), "prompt.txt")
+	if err := os.WriteFile(text, []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"infer", "embedding", "router"} {
+		var out bytes.Buffer
+		if err := run(context.Background(), []string{"-model", path, "-text-file", text, "-mode", mode, "-max-new", "2", "-eos", "-1"}, &out, new(bytes.Buffer)); err != nil {
+			t.Fatal(err)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+			t.Fatal(err)
+		}
+		if obj["numerics"] != "archive-a8-kv8" {
+			t.Fatal("wrong archive numerics")
+		}
+	}
+	if err := run(context.Background(), []string{"-model", path, "-text-file", text, "-numerics", "needle3-cq4-a8-kv8"}, new(bytes.Buffer), new(bytes.Buffer)); err == nil {
+		t.Fatal("requantization accepted")
+	}
+}

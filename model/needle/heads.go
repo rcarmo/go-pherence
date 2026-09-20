@@ -130,7 +130,7 @@ func (e *execution) headWeight(name string) *value {
 	// Upstream first cq_ste_params quantizes kernels, then head_weight applies
 	// its own W4 CQ; probes/query only get the latter. Preserve that order.
 	v := e.param(name, -1)
-	if e.q == nil {
+	if e.q == nil || e.m.deployed {
 		return v
 	}
 	o := e.t.alloc(v.r, v.c)
@@ -150,6 +150,9 @@ func (e *execution) headWeight(name string) *value {
 func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, err error) {
 	defer recoverWork(&err)
 	if err = m.validateTokens(ids); err != nil {
+		return nil, err
+	}
+	if opts, err = m.resolveOptions(opts); err != nil {
 		return nil, err
 	}
 	if err = opts.Quant.validate(m.config.Generation); err != nil {
