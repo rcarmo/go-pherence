@@ -20,11 +20,7 @@ var (
 )
 
 func validWhisperMatrixBuffers(out, in *Buffer, rows, cols int) bool {
-	if out == nil || in == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
-		return false
-	}
-	n := rows * cols
-	return n > 0 && out.Size >= n*4 && in.Size >= n*4
+	return whisperF32Extent(out, rows, cols) && whisperF32Extent(in, rows, cols)
 }
 
 // WhisperRowAffineBuffer computes out[row,col] = x[row,col]*weight[col]+bias[col].
@@ -62,7 +58,7 @@ func WhisperTransposeBuffer(out, in *Buffer, rows, cols int) error {
 
 // WhisperGELUTanhBuffer applies the tanh GELU approximation in-place.
 func WhisperGELUTanhBuffer(x *Buffer, n int) error {
-	if fnWhisperGELUTanh == 0 || !megaModuleOK || x == nil || n <= 0 || !fitsUint32(n) || x.Size < n*4 {
+	if fnWhisperGELUTanh == 0 || !megaModuleOK || !whisperF32Extent(x, n) {
 		return fmt.Errorf("invalid Whisper GELU device buffer")
 	}
 	nn := uint32(n)
@@ -72,7 +68,7 @@ func WhisperGELUTanhBuffer(x *Buffer, n int) error {
 // WhisperMelSpectrogramBuffer launches the correctness-first fused Whisper mel
 // PTX kernel over GPU-resident buffers. Output is mel-major [numMels,numFrames].
 func WhisperMelSpectrogramBuffer(out, audio, window, filters *Buffer, numFrames, fftSize, hopLength, numMels, numBins int) error {
-	if fnWhisperMelSpectrogram == 0 || !megaModuleOK || out == nil || audio == nil || window == nil || filters == nil || numFrames <= 0 || fftSize <= 0 || hopLength <= 0 || numMels <= 0 || numBins <= 0 || !fitsUint32(numFrames) || !fitsUint32(fftSize) || !fitsUint32(hopLength) || !fitsUint32(numMels) || !fitsUint32(numBins) {
+	if fnWhisperMelSpectrogram == 0 || !megaModuleOK || !validWhisperMel(out, audio, window, filters, numFrames, fftSize, hopLength, numMels, numBins) {
 		return fmt.Errorf("invalid Whisper mel device buffers")
 	}
 	frames, fs, hop, mels, bins := uint32(numFrames), uint32(fftSize), uint32(hopLength), uint32(numMels), uint32(numBins)
@@ -90,7 +86,7 @@ func WhisperConv1DK3S2Buffer(out, in, weight, bias *Buffer, inChannels, inLength
 }
 
 func whisperConv1DBuffer(fn CUfunction, out, in, weight, bias *Buffer, inChannels, inLength, outChannels, outLength int, name string) error {
-	if fn == 0 || !megaModuleOK || out == nil || in == nil || weight == nil || inChannels <= 0 || inLength <= 0 || outChannels <= 0 || outLength <= 0 || !fitsUint32(inChannels) || !fitsUint32(inLength) || !fitsUint32(outChannels) || !fitsUint32(outLength) {
+	if fn == 0 || !megaModuleOK || !validWhisperConv(out, in, weight, bias, inChannels, inLength, outChannels, outLength, name) {
 		return fmt.Errorf("invalid Whisper conv1d %s device buffers", name)
 	}
 	ic, il, oc, ol := uint32(inChannels), uint32(inLength), uint32(outChannels), uint32(outLength)
@@ -121,7 +117,7 @@ func WhisperCrossAttentionBuffer(out, q, k, v *Buffer, decLen, encLen, numHeads,
 }
 
 func whisperAttentionBuffer(fn CUfunction, out, q, k, v *Buffer, seqQ, seqKV, numHeads, headDim int, scale float32, name string, blockX uint32) error {
-	if fn == 0 || !megaModuleOK || out == nil || q == nil || k == nil || v == nil || seqQ <= 0 || seqKV <= 0 || numHeads <= 0 || headDim <= 0 || !fitsUint32(seqQ) || !fitsUint32(seqKV) || !fitsUint32(numHeads) || !fitsUint32(headDim) {
+	if fn == 0 || !megaModuleOK || !validWhisperAttention(out, q, k, v, seqQ, seqKV, numHeads, headDim, scale, name) {
 		return fmt.Errorf("invalid Whisper %s attention device buffers", name)
 	}
 	sq, skv, nh, hd := uint32(seqQ), uint32(seqKV), uint32(numHeads), uint32(headDim)
