@@ -73,3 +73,28 @@ func TestBF16ToF32(t *testing.T) {
 		}
 	}
 }
+
+func TestF32ToBF16RoundTripAndTies(t *testing.T) {
+	for bits := 0; bits <= 0xffff; bits++ {
+		b := uint16(bits)
+		f := BF16ToF32(b)
+		got := F32ToBF16(f)
+		if b&0x7f80 == 0x7f80 && b&0x7f != 0 {
+			if !math.IsNaN(float64(BF16ToF32(got))) {
+				t.Fatalf("NaN lost %04x", b)
+			}
+			continue
+		}
+		if got != b {
+			t.Fatalf("roundtrip %04x -> %04x", b, got)
+		}
+	}
+	for _, c := range []struct {
+		bits uint32
+		want uint16
+	}{{0x3f808000, 0x3f80}, {0x3f818000, 0x3f82}, {0xbf808000, 0xbf80}, {0xbf818000, 0xbf82}, {0x7f7fffff, 0x7f80}, {0xff7fffff, 0xff80}, {0x7f800001, 0x7fc0}, {0xff800001, 0xffc0}} {
+		if got := F32ToBF16(math.Float32frombits(c.bits)); got != c.want {
+			t.Fatalf("%08x -> %04x want %04x", c.bits, got, c.want)
+		}
+	}
+}

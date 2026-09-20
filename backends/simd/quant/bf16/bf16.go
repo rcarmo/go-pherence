@@ -5,6 +5,7 @@ package bf16
 // This halves memory bandwidth vs the F32 emulation path.
 
 import (
+	"github.com/rcarmo/go-pherence/half"
 	"github.com/rcarmo/go-pherence/internal/checked"
 	"math"
 	"unsafe"
@@ -21,10 +22,7 @@ func BF16ToF32(b BF16) float32 {
 // F32ToBF16 converts a single float32 to BF16 using round-to-nearest-even,
 // matching GGML/llama.cpp BF16 narrowing semantics.
 func F32ToBF16(f float32) BF16 {
-	bits := math.Float32bits(f)
-	lsb := (bits >> 16) & 1
-	bits += 0x7FFF + lsb
-	return BF16(bits >> 16)
+	return half.F32ToBF16(f)
 }
 
 // BF16DotF32 computes dot(bf16_x, f32_y) accumulating in F32.
@@ -76,7 +74,7 @@ func BF16Dot(x, y []uint16) float32 {
 // Accumulates sum-of-squares in F32, outputs BF16.
 func BF16RMSNorm(x, w []uint16, eps float32) {
 	n := len(x)
-	if n == 0 || len(w) < n {
+	if n == 0 || len(w) < n || !validEpsilon(eps) {
 		return
 	}
 	// Sum of squares in F32

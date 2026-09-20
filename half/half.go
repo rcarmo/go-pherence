@@ -67,6 +67,17 @@ func F16ToF32(u uint16) float32 {
 	return math.Float32frombits(sign<<31 | (exp+112)<<23 | mant<<13)
 }
 
+// F32ToBF16 narrows with round-to-nearest-even. NaNs remain NaNs (quieted),
+// including payloads entirely below the BF16 mantissa; rounding those as finite
+// values would produce infinity or wrap the exponent/sign bits.
+func F32ToBF16(f float32) uint16 {
+	bits := math.Float32bits(f)
+	if bits&0x7fffffff > 0x7f800000 {
+		return uint16(bits>>16) | 0x0040
+	}
+	return uint16((bits + 0x7fff + ((bits >> 16) & 1)) >> 16)
+}
+
 // BF16ToF32 converts a bfloat16 value (the high 16 bits of a float32) to float32.
 func BF16ToF32(b uint16) float32 {
 	return math.Float32frombits(uint32(b) << 16)
