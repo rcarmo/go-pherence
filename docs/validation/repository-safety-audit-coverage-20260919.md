@@ -3,14 +3,15 @@
 Companion to [the audit report](repository-safety-audit-20260919.md).
 
 This table began with 161 host-listed packages; shared HTTP decoding, command
-capture and packed-Q4 validation bring it to 164. It is not a safety clearance. Selected sections in
-100 packages were inspected; **64 packages have inventory/test coverage only**.
-See the [seventh-pass findings](repository-safety-seventh-pass-20260920.md) for current fixes
+capture and packed-Q4 validation bring it to 164. All **164 packages** now have
+selected source-boundary review; **zero are inventory-only**. This is not a safety
+clearance or full-file semantic review.
+See the [closeout findings](repository-safety-audit-closeout-20260920.md) for current fixes
 and open native/backend gaps.
 "Boundary inspection" means selected functions/sections in the listed files were
 read for ownership, bounds or lifecycle behaviour; it does **not** mean the whole
-file or package was reviewed. Blank source coverage is explicit outstanding work.
-The race column is the seventh-pass NVIDIA-disabled host sweep: 106 pass and 58
+file or package was reviewed. Native and deeper semantic gaps remain in the [open-findings ledger](repository-safety-audit-open-findings-20260920.md); package coverage is not remediation completion.
+The race column is the eighth-pass NVIDIA-disabled host sweep: 109 pass and 55
 have no tests. Optional CGo/native implementations remain unexecuted even when
 their host stubs build. A passing package may
 contain skipped GPU, K3 or missing-fixture tests. Foreign-only files were not
@@ -18,7 +19,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 
 | Package | Host race result | Source boundary inspection (selected sections) |
 |---|---|---|
-| `backends/cuda/ptx` | pass | Inventory/tests only; source review outstanding |
+| `backends/cuda/ptx` | pass | `attention_full.go`, `conv1d.go`, `fft.go`, `pool.go`, `encoder_ops.go`: signatures/index geometry; host Whisper preflight fixed, PTX execution unavailable |
 | `backends/ggmlcompute` | no test files | `ggmlcompute.go` (native sections source-only; required libraries unavailable) |
 | `backends/ggmlexec` | no test files | `ggmlexec.go` (capability/island planner; no native execution) |
 | `backends/ggmlgraph` | no test files | `ggmlgraph.go`, `stub.go` (native sections source-only; required libraries unavailable) |
@@ -30,15 +31,15 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/nvidia/internal/debuglog` | no test files | `debug.go` |
 | `backends/nvidia/ioctl` | pass | `ioctl.go`, `files.go`, `memory.go`, `gpfifo.go` (fake descriptor tests; no device calls) |
 | `backends/nvidia/ptx` | no test files | `attention.go`, `conversion.go`, `norm.go`, `sgemm_compensated.go` |
-| `backends/nvidia/ptx/bf16` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/fp8` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/ideogram` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/mlx` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/nvfp4` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/q4` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/q5` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ptx/q8` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/runtime` | pass | `driver_scope.go`, `driver_call_inventory_test.go`, `driver_scope_test.go`, `context_boundary_test.go`, `runtime.go`, `streams.go`, `compiler.go`, `compiler_test.go`, `devbuf.go`, `argmax.go`, `bf16_native.go`, `mega_module.go`, `module_state.go`, `attention_splitkv.go`, `bf16_projection.go` |
+| `backends/nvidia/ptx/bf16` | no test files | `bf16.go`, `native.go`: norm/GEMV block/shared extents and narrowing (delegated source review; native execution unavailable) |
+| `backends/nvidia/ptx/fp8` | no test files | `fp8.go`: GEMV/GEMM/dequant indexing and wrapper contracts (delegated; u32 products open) |
+| `backends/nvidia/ptx/ideogram` | no test files | `ideogram.go`: norm/adaLN/RoPE/attention signatures and indexing (delegated source-only) |
+| `backends/nvidia/ptx/mlx` | no test files | `mlx.go`, `selected_expert.go`: GEMM/persistent-work/pointer lifetime contracts (delegated; product bounds open) |
+| `backends/nvidia/ptx/nvfp4` | no test files | `nvfp4.go`: dequant/GEMV groups and extents (delegated; GEMV product bounds open) |
+| `backends/nvidia/ptx/q4` | no test files | `gemv_q4k.go`, `gate_up_gelu_q4k_work.go`, `gemm.go`: launch/reduction/group contracts (delegated; batched u32 products open) |
+| `backends/nvidia/ptx/q5` | no test files | `q5.go`, `q5_scatter_work.go`, `q5_scatter_work_ptrs.go`: batching/scatter/indexing (delegated; product bounds open) |
+| `backends/nvidia/ptx/q8` | no test files | `q8.go`, `q8_batch.go`, `q8_scatter.go`, `q8_scatter_work.go`, `q8_scatter_work_ptrs.go`: scatter/indexing; duplicate-position race remains source finding |
+| `backends/nvidia/runtime` | pass | `whisper.go`, `whisper_bounds.go`, `driver_scope.go`, `driver_call_inventory_test.go`, `driver_scope_test.go`, `context_boundary_test.go`, `runtime.go`, `streams.go`, `compiler.go`, `compiler_test.go`, `devbuf.go`, `argmax.go`, `bf16_native.go`, `mega_module.go`, `module_state.go`, `attention_splitkv.go`, `bf16_projection.go` |
 | `backends/placement` | pass | `placement.go` (selected sizing/placement sections) |
 | `backends/simd` | no test files | `doc.go` (namespace only) |
 | `backends/simd/fft` | pass | `fft_simd.go`, `mel_fused.go` |
@@ -48,7 +49,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/simd/quant/nvfp4` | pass | `validate.go` |
 | `backends/simd/quant/q4` | pass | `validate.go` |
 | `backends/simd/runtime` | pass | `gemm_parallel.go`, `rope.go` (selected dispatch/fallback boundary) |
-| `backends/spacemit/aicpu` | no test files | Inventory/tests only; source review outstanding |
+| `backends/spacemit/aicpu` | no test files | `main.go`, `parallel_decode_ai.go`, `q4k_llama_x32.go`, `q4k_ai.go`, `q4k_m4_dispatch.go`, `q4k_tcm_bwave.go`, `tcm_parallel.go`, C-shim native/stub and pooled dispatch (delegated source-only; ownership/extent gaps open) |
 | `backends/spacemit/aicpu/aipool` | no test files | `ai_pool.go`, `ai_pool_new.go`, `ai_thread.go`, `ai_pool_lifecycle_riscv64_test.go` (cross-build only) |
 | `backends/spacemit/aicpu/config` | no test files | `flags.go` (initialisation and mutable configuration contract) |
 | `backends/spacemit/aicpu/q4kcshim` | no test files | `q4kcshim.go`, `q4kcshim_stub.go` (native buffer/narrowing gaps; source-only) |
@@ -56,74 +57,74 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/spacemit/ime2` | pass | `worker_pool.go`, `worker_pool_test.go` |
 | `backends/spacemit/inference` | pass | `inference.go`, `inference_test.go` |
 | `backends/spacemit/ort` | pass | `spacemitort.go`, `options.go` (native sections source-only; required libraries unavailable) |
-| `backends/spacemit/rvv` | pass | Inventory/tests only; source review outstanding |
+| `backends/spacemit/rvv` | pass | `f16.go`, `fallback_other.go`, `packed_outer_common.go`, GEMM/quant/W4 wrappers, `copy_rvv.go`, `f16_convert.go` (delegated; ISA/extent/tail contracts open) |
 | `backends/spacemit/tcm` | pass | `tcm.go`, `tcm_stub.go` (borrowed-pointer/Close gaps; native source-only) |
 | `backends/vulkan` | pass | `vulkan_init.go`, `vulkan_ops.go`, `vulkan_wrapper_test.go`, `vulkan_buf.go` |
-| `cmd/audio/diarize-vtt` | pass | Inventory/tests only; source review outstanding |
+| `cmd/audio/diarize-vtt` | pass | `main.go`: flags, model/audio setup, chunk construction and materialisation; whole-audio/subprocess admission and nonfinite knobs open |
 | `cmd/audio/internal/whisperflags` | pass | `whisperflags.go` (process environment policy) |
-| `cmd/audio/moss-transcribe` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/omnivoice` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/speakercheck` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/audio/speechjob` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/speechjobserve` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/whisper` | pass | Inventory/tests only; source review outstanding |
-| `cmd/audio/whisperffndiag` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/diffusiongemmainspect` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/diffusiongemmarun` | pass | Inventory/tests only; source review outstanding |
-| `cmd/diffusiongemmaserve` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/audio/moss-transcribe` | pass | `main.go`: run/flags, native load/Close, WAV/prompt/generation/output paths; trusted-local workload |
+| `cmd/audio/omnivoice` | pass | `main.go`, `serve.go`: flag admission, NDJSON bounds, phrase cache, chunk/file ownership; sequential local worker, not network server |
+| `cmd/audio/speakercheck` | no test files | `main.go`: waveform slicing, ffmpeg fallback, expected-label scoring and output; temp-path/size/score completeness findings open |
+| `cmd/audio/speechjob` | pass | `main.go`, `client.go`: endpoint/token/deadline policy, response bounds, authenticated artifact hashing and no-clobber publication |
+| `cmd/audio/speechjobserve` | pass | `config.go`, `server.go`, `server_start_linux_amd64.go`, startup/profile stubs: bounded asset/config policy, connection admission, drain/quarantine ownership (native execution unverified) |
+| `cmd/audio/whisper` | pass | `main.go`: flags, loader/GPU choice, materialisation/chunking/output (legacy whole-audio and subprocess admission gaps) |
+| `cmd/audio/whisperffndiag` | no test files | `main.go`: load/resample/mel/probe setup (delegated; whole-audio diagnostic bounds open) |
+| `cmd/diffusiongemmainspect` | no test files | `main.go`: metadata/shard/readiness gates, optional weight owner and residency estimates; nonfinite GiB conversion open |
+| `cmd/diffusiongemmarun` | pass | `main.go`: flags/environment, prompt framing, GGUF open/prewarm/fatal-cleanup and profile ownership (selected sections; native lifetime remains unverified) |
+| `cmd/diffusiongemmaserve` | pass | `main.go`: HTTP framing/admission/token/transport limits and model lock; host-only handler tests, native preemption/auth open |
 | `cmd/diffusiongemmaserver` | pass | `main.go` |
-| `cmd/gliner2` | pass | Inventory/tests only; source review outstanding |
-| `cmd/image/hy3dinspect` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/image/ideogram4gen` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/image/ideogram4inspect` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/image/ideogram4vaeprobe` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/image/ideogram4vaesmoke` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/gliner2` | pass | `main.go`: task compatibility, schema parser, budget/threshold checks and owned model scoring; aggregate local schema/text admission open |
+| `cmd/image/hy3dinspect` | no test files | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
+| `cmd/image/ideogram4gen` | no test files | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
+| `cmd/image/ideogram4inspect` | no test files | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
+| `cmd/image/ideogram4vaeprobe` | no test files | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
+| `cmd/image/ideogram4vaesmoke` | pass | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
 | `cmd/image/internal/k3flags` | no test files | `k3flags.go` (process environment policy) |
-| `cmd/image/zimageinspect` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/image/zimageinspect` | no test files | `main.go`: input/setup/load/output ownership (delegated; local allocation caps remain except bounded/closed VAE smoke fix) |
 | `cmd/internal/dgflags` | pass | `dgflags.go`, budget-conversion regressions |
 | `cmd/internal/testexec` | no test files | `helper.go` |
 | `cmd/jevlike` | pass | `frozen.go` |
 | `cmd/llm/internal/pathutil` | no test files | `base.go` |
 | `cmd/llm/internal/promptfile` | no test files | `promptfile.go` (aggregate admission remains caller-owned) |
-| `cmd/llm/llmchat` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/llm/llmgen` | pass | Inventory/tests only; source review outstanding |
+| `cmd/llm/llmchat` | no test files | `main.go`: flag/REPL/model/generation boundaries (delegated; local output/work caps open) |
+| `cmd/llm/llmgen` | pass | `main.go`: generation accounting and MTP sizing (delegated plus direct); arithmetic fixed, prepared-prompt accounting follow-up |
 | `cmd/llm/llmserver` | pass | `main.go` |
 | `cmd/llm/servebench` | pass | `main.go`, `main_test.go` |
-| `cmd/llm/specbench` | pass | Inventory/tests only; source review outstanding |
-| `cmd/llm/speccheck` | pass | Inventory/tests only; source review outstanding |
+| `cmd/llm/specbench` | pass | `main.go`: flags/model/prompt loops/CSV (delegated; no new selected-boundary finding) |
+| `cmd/llm/speccheck` | pass | `main.go`: golden parse/write and compare (delegated plus direct); bounded single JSON fixed |
 | `cmd/minicpmvinspect` | no test files | `main.go` |
 | `cmd/models/embcheck` | pass | `main.go`, `main_test.go` |
-| `cmd/models/gemma4mtpparity` | pass | Inventory/tests only; source review outstanding |
-| `cmd/models/gemma4mtpsmoke` | pass | Inventory/tests only; source review outstanding |
-| `cmd/models/ggufinspect` | pass | Inventory/tests only; source review outstanding |
-| `cmd/models/ggufsmoke` | pass | Inventory/tests only; source review outstanding |
+| `cmd/models/gemma4mtpparity` | pass | `main.go`: fixture-only versus execution, probe validation and strict reporting; false parity fixed; host-only fixtures |
+| `cmd/models/gemma4mtpsmoke` | pass | `main.go`: flags, load, checked KV allocation and step reporting (delegated) |
+| `cmd/models/ggufinspect` | pass | `main.go`: metadata/expectation/readiness gates; expectation-only plan admission fixed |
+| `cmd/models/ggufsmoke` | pass | `main.go`: static/runtime expectations, prompt helpers and generation paths; runtime planner failure no longer ignored |
 | `cmd/models/lfm2inspect` | pass | `main.go`, `main_test.go` |
-| `cmd/models/modelcoverage` | pass | Inventory/tests only; source review outstanding |
+| `cmd/models/modelcoverage` | pass | `main.go`: manifest/summarise/filter/roadmap; empty family rejection fixed; category/filtered scope distinction retained |
 | `cmd/models/shapecheck` | pass | `main.go`, `main_test.go` |
-| `cmd/qwen/qwen36run` | pass | Inventory/tests only; source review outstanding |
+| `cmd/qwen/qwen36run` | pass | `main.go` flag/setup/owner/cache/prefill sections, `mlx_lmhead.go` upload/GEMV/readback; cache conversion/work/sync findings open |
 | `cmd/qwen/qwen3ttsinspect` | pass | `main.go`, `main_test.go` |
-| `cmd/qwen/qwenmtpmeta` | pass | Inventory/tests only; source review outstanding |
-| `cmd/qwen/qwenmtpsmoke` | pass | Inventory/tests only; source review outstanding |
-| `cmd/qwen/qwenmtpsynth` | pass | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/ime2run` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/ime2test` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/npu-tcm` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_bench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_ffnblockbench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_ggmlbench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_ggmlplan` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_graphfusebench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_graphrun` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_llama` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_ortbench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_ortlayerbench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_plandump` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_qbench` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/spacemit_run` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/testi8i4` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/spacemit/verifydot` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/tinydemo` | no test files | Inventory/tests only; source review outstanding |
-| `docs` | pass | Inventory/tests only; source review outstanding |
+| `cmd/qwen/qwenmtpmeta` | pass | `main.go`: resolver errors, metadata enumeration and report claims fixed; no load/execution parity implied |
+| `cmd/qwen/qwenmtpsmoke` | pass | `main.go`: metadata/load/synthetic input/forward (delegated; local dimension admission open) |
+| `cmd/qwen/qwenmtpsynth` | pass | `main.go`: steps/draft/plan output (delegated; local maximum-step admission open) |
+| `cmd/spacemit/ime2run` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/ime2test` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/npu-tcm` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_bench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_ffnblockbench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_ggmlbench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_ggmlplan` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_graphfusebench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_graphrun` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_llama` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_ortbench` | pass | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_ortlayerbench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_plandump` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_qbench` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/spacemit_run` | no test files | `main.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/testi8i4` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/spacemit/verifydot` | no test files | `main.go`, `main_stub.go`: CLI sizing/error/owner/hardware side effects (delegated source review; native execution unavailable; dispositions in open-findings ledger) |
+| `cmd/tinydemo` | no test files | `main.go`: fixed small tensor demo (delegated; no external input) |
+| `docs` | pass | `model_layout_test.go`, `model_coverage_manifest_test.go`: worktree exclusions/path guards, metadata-to-file assertions; test-only package, not runtime validation |
 | `gpu` | pass | `attention_full.go`, `cross_attention.go`, `conv1d.go`, `attention_safety_test.go`, `conv1d_test.go` |
 | `half` | pass | `half.go`, FP16/BF16 NaN classification/finite rounding regressions |
 | `internal/httpinput` | pass | `json.go`, `json_test.go` |
@@ -131,7 +132,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `internal/checked` | no test files | `int.go` |
 | `internal/floatcmp` | pass | `floatcmp.go`, `floatcmp_test.go` |
 | `internal/ggmlfp16` | pass | `gelu.go`, `gelu_amd64.go`, `gelu_other.go` |
-| `internal/modelcoverage` | no test files | Inventory/tests only; source review outstanding |
+| `internal/modelcoverage` | no test files | `manifest.go`: shared schema definitions only (delegated and direct) |
 | `loader/audio` | pass | `wav.go`, `resample.go`, bounds regressions |
 | `loader/audio/media` | pass | `wav.go` |
 | `loader/config` | pass | `config.go`, `fixture_tensor_summary.go`, `fixture_tensor_summary_test.go` |
@@ -165,8 +166,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/omnivoice` | pass | `workers.go`, `backend.go` (probe subprocess boundary) |
 | `model/qwen` | pass | `prompt_cache.go`, `schedule.go`, `qwen35_source.go`, `qwen35_load_helpers.go`, `qwen35_validate_helpers.go` (selected loading/key/planning sections; GPU/sidecar lifecycle and budget gaps remain) |
 | `model/qwen3tts` | pass | `config.go`, `config_numbers.go`, `sizing.go`, embedding/attention/FFN/prefill/input layouts, frame/decoder/speaker/request sizing, `shapes.go`, tensor shape and stage-contract validation (metadata only; execution not implemented) |
-| `model/speaker` | pass | Inventory/tests only; source review outstanding |
-| `model/speaker/community1` | pass | Inventory/tests only; source review outstanding |
+| `model/speaker` | pass | `config.go`, `load.go`, `embed.go`, `diarize.go`, selected `ecapa.go` construction: copied weights and legacy unchecked inference/VAD/clustering inputs; findings open |
+| `model/speaker/community1` | pass | `diarization_pcm.go`, `load_segmentation.go`, `load_resnet.go`, `vulkan_diarization.go`: bounds before payload/PCM allocation, copied ownership and native owner gate (selected sections only; device/numerical qualification open) |
 | `model/trellis2` | pass | `sparse.go`, wrapped sizing/forged row/projection tests (sparse primitive, not full pipeline) |
 | `model/whisper` | pass | `load_checked.go` |
 | `runtime/expertstream` | pass | `reader.go`, `manifest.go`, `alloc.go`, `types.go`, `lifetime_test.go` |
@@ -193,8 +194,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 
 ## Outside the host package table
 
-Bun: 22 script tests across nine files, 2,635 assertions. Python: six label-mass
+Bun: 22 script tests across nine files (assertion count varies with document inventory). Python: six label-mass
 and two parquet adapter tests from the first pass (not rerun here). Documentation/link/layout checks pass. ARM64 and
 RISC-V builds are compile-only. Other scripts, individual assembly kernels and
 external integration services have inventory coverage, not exhaustive review.
-The attempted independent CPU/model and Qwen3-TTS delegates timed out and add no coverage.
+Earlier CPU/model and Qwen3-TTS delegates timed out and add no coverage. Eighth-pass completed delegated reviews covered the image/small CLI, model diagnostics, SpacemiT CLI, PTX interface and native-wrapper groups. Two larger command delegates timed out; their selected entry boundaries were read directly, with no credit for unfinished delegate work.

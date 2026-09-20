@@ -8,6 +8,10 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| Parity and metadata reporting | `cmd/models/gemma4mtpparity/main_test.go`, `cmd/qwen/qwenmtpmeta/main_test.go` | Missing models cannot report execution parity; missing/invalid/nonfinite logit probes fail; broken checkpoint indexes do not silently fall back. Fixture-only checks remain explicitly non-executed. |
+| Diagnostic validation | GGUF inspector/smoke, speccheck, llmgen, modelcoverage, VAE smoke and ORT probe command tests | Expectation-only plans, propagated plan errors,16MiB single golden document, checked MTP allocation, nonempty family checklist, bounded/closed VAE diagnostic and opaque Python argv paths. Synthetic host tests only. |
+| Older DiffusionGemma server | `cmd/diffusiongemmaserve/admission_test.go` | One1MiB JSON document, message/output/prompt limits,429 busy and transport deadlines. Monolithic/native inference is not preempted. |
+| Whisper GPU preflight | `backends/nvidia/runtime/whisper_bounds_test.go` | PTX attention limits, u32 float extents, conv geometry and fixed512-point DFT/input/thread bounds; fake pointers never initialise CUDA. |
 | Mapping advice lifetime | `runtime/memory/advice_lifetime_test.go`, `advice_ranges_test.go`, `loader/safetensors/advisor_lifetime_test.go` | Detach waits for advice; retained file-advisor handles become inert before unmap; overlap union, recent-overlap and conservative partial eviction. Raw consumers/independent advisors remain owner-managed. |
 | FP16 conversion/GELU | `half/fp16_nonfinite_test.go`, `internal/ggmlfp16/gelu_test.go` | Quiet NaN classification/sign and finite legacy rounding; exhaustive native/scalar GELU bit equality including aliased inputs. |
 | LLaMA native config | `backends/llamagraph/config_validation_test.go` | Host-only array/narrowing/reshape/extent checks; stub parity and foreign compilation. Native build blocked by missing headers. |
