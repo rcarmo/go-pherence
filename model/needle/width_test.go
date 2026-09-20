@@ -1,7 +1,11 @@
 package needle
 
 import (
+	"compress/gzip"
+	"context"
 	"encoding/json"
+	"io"
+	"os"
 	"slices"
 	"testing"
 
@@ -118,5 +122,128 @@ func TestWidthRejectsUnlistedRung(t *testing.T) {
 	}
 	if _, err = m.SliceWidth(8); err == nil {
 		t.Fatal("unlisted width rung accepted")
+	}
+}
+
+func TestWidthEngramUpstream(t *testing.T) {
+	file, err := os.Open("testdata/needle3-engram-width.json.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	gz, err := gzip.NewReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gz.Close()
+	var f struct {
+		UpstreamPin    string                       `json:"upstream_pin"`
+		Config         json.RawMessage              `json:"config"`
+		Tensors        map[string]checkpoint.Tensor `json:"tensors"`
+		Tokens         []int                        `json:"tokens"`
+		ChildConfig    json.RawMessage              `json:"child_config"`
+		ChildTensors   map[string]checkpoint.Tensor `json:"child_tensors"`
+		ChildCQTensors map[string]checkpoint.Tensor `json:"child_cq_tensors"`
+		Outputs        map[string]struct {
+			Logits checkpoint.Tensor            `json:"logits"`
+			Heads  map[string]checkpoint.Tensor `json:"heads"`
+		} `json:"outputs"`
+	}
+	raw, err := io.ReadAll(io.LimitReader(gz, (64<<20)+1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) > 64<<20 {
+		t.Fatal("fixture exceeds 64 MiB")
+	}
+	if err = json.Unmarshal(raw, &f); err != nil {
+		t.Fatal(err)
+	}
+	if f.UpstreamPin != "fc5bae0f9b6138828fe7589f6b531fb9a26968de" {
+		t.Fatal("upstream pin changed")
+	}
+	tensors := map[string]checkpoint.Tensor{}
+	for n, v := range f.Tensors {
+		tensors[n] = checkpoint.Tensor{Shape: v.Shape, Data: v.Data}
+	}
+	m, err := New(&checkpoint.Checkpoint{FormatVersion: 2, Config: f.Config, Tensors: tensors})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := m.SliceWidth(512)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if child.config.EngramHeads != 2 || child.config.EngramSeedHeads != 4 || len(child.config.EngramLayers) != 1 {
+		t.Fatalf("child engram geometry %+v", child.config)
+	}
+	if len(child.tensors) != len(f.ChildTensors) {
+		t.Fatal("child tensor count")
+	}
+	for n, w := range f.ChildTensors {
+		got := child.tensors[n]
+		if !slices.Equal(got.Shape, w.Shape) || !slices.Equal(got.Data, w.Data) {
+			t.Fatalf("child tensor %s differs", n)
+		}
+	}
+	for name, want := range f.ChildCQTensors {
+		got := child.tensors[name]
+		data := got.Data
+		if isCQ(name) && len(got.Shape) >= 2 {
+			data = make([]float32, len(got.Data))
+			cqValues(data, got.Data, got.Shape, cqSecondLast(name), 4)
+		}
+		compare(t, "quantized child "+name, data, want.Data, 4e-5, 2e-3)
+	}
+	// The retained head seeds must remain parent-strided, not child-strided.
+	for i, opts := range []Options{{}, {Quant: &Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}}} {
+		mode := "fp32"
+		if i == 1 {
+			mode = "cq"
+		}
+		want := f.Outputs[mode]
+		logits, err := child.Forward(f.Tokens, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mode == "cq" {
+			golden, e := New(&checkpoint.Checkpoint{FormatVersion: 2, Config: f.ChildConfig, Tensors: f.ChildCQTensors})
+			if e != nil {
+				t.Fatal(e)
+			}
+			v, e := golden.Forward(f.Tokens, Options{Quant: &Quantization{ActivationBits: 8, KVBits: 8}})
+			if e != nil {
+				t.Fatal(e)
+			}
+			compare(t, "golden-dequant inference", v, want.Logits.Data, 4e-5, 2e-3)
+		}
+		compare(t, mode+" engram-width logits", logits, want.Logits.Data, 4e-5, 2e-3)
+		for name, w := range want.Heads {
+			got, err := child.Head(f.Tokens, HeadKind(name), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compare(t, mode+" engram-width "+name, got, w.Data, 1e-5, 3e-3)
+		}
+		d, err := child.NewDecoder(DecoderOptions{Capacity: len(f.Tokens), Execution: opts})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for j, id := range f.Tokens {
+			got, err := d.Step(context.Background(), id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			all, err := child.Forward(f.Tokens[:j+1], opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compare(t, mode+" cached engram-width", got, all[len(all)-child.config.OutVocab:], 4e-5, 2e-3)
+		}
+	}
+	for n, w := range f.Tensors {
+		if !slices.Equal(m.tensors[n].Data, w.Data) {
+			t.Fatalf("parent changed: %s", n)
+		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/half"
 )
 
@@ -93,23 +94,10 @@ func isCQ(name string) bool {
 func cqSecondLast(name string) bool {
 	return strings.HasSuffix(name, "/kernel") || strings.HasPrefix(name, "stack/mhc_phi")
 }
-func walsh128(x []float32) {
-	for stride := 1; stride < 128; stride *= 2 {
-		for start := 0; start < 128; start += 2 * stride {
-			for j := 0; j < stride; j++ {
-				a, b := x[start+j], x[start+j+stride]
-				x[start+j], x[start+j+stride] = a+b, a-b
-			}
-		}
-	}
-	scale := float32(1 / math.Sqrt(128))
-	for i := range x {
-		x[i] *= scale
-	}
-}
 func nearestFP16(x float32) float32 { return half.F16ToF32(half.F32ToF16Even(x)) }
 
-// CQ quantizes groups along the reduction axis, after normalized Walsh rotation.
+// CQ reference preparation uses upstream-style pre-scaled dense Hadamard
+// products. Packed archive execution retains its separate fast butterfly.
 // Norms use IEEE ties-even FP16, unlike legacy half.F32ToF16's finite tie policy.
 func cqValues(dst, src []float32, shape []int, second bool, bits float64) {
 	key := fmt.Sprint(bits)
@@ -135,7 +123,7 @@ func cqValues(dst, src []float32, shape []int, second bool, bits float64) {
 					}
 					group[j] = src[idx]
 				}
-				walsh128(group[:])
+				referenceWalsh128(group[:])
 				var norm2 float32
 				for _, v := range group {
 					norm2 += v * v
@@ -154,7 +142,7 @@ func cqValues(dst, src []float32, shape []int, second bool, bits float64) {
 					}
 					group[i] = cb[pick] * rounded
 				}
-				walsh128(group[:])
+				referenceWalsh128(group[:])
 				for j := 0; j < n; j++ {
 					idx := l*width + start + j
 					if second {
@@ -192,4 +180,12 @@ func (e *execution) quantParam(name string, p *value) *value {
 		return e.t.mul(o, e.abScale(name, "a"))
 	}
 	return o
+}
+
+func referenceWalsh128(x []float32) {
+	var out [128]float32
+	if !simd.Walsh128ReferenceTo(out[:], x) {
+		panic("needle: invalid CQ group")
+	}
+	copy(x, out[:])
 }

@@ -86,6 +86,8 @@ This names the tested geometry, not a distributed pretrained checkpoint. Slicing
 
 ## Validation and limits
 
+An engram-bearing source fixture checks the admissible 1,024-to-512 rung, retained parent hash seeds, FP32/CQ logits and heads, and cached decoding on Intel and native ARM; see the [engram-width validation record](../validation/needle-engram-width-20260920.md). Source CQ reference preparation uses pre-scaled dense Hadamard products to preserve upstream rounding behavior; deployed archive and packed execution are unchanged.
+
 The [head/width validation report][validation] records FP32/CQ loss and gradient comparisons, exact tensor cuts, native ARM execution and allocation measurements. It also lists the combinations not yet qualified. The implementation does not claim a calibrated confidence head, production training throughput, or that every source checkpoint supports a width rung.
 
 [real]: ../validation/needle-packed-real-model-20260920.md
