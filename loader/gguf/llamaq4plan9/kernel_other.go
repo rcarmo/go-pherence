@@ -17,3 +17,16 @@ func ProjectQ4_0x8Q8_0StageRows(q4, q8 []byte, rowBase, rowGroups, rows, tokens,
 func ProjectQ4_0x8Q8_0Stage(q4, q8 []byte, rows, tokens, blocks int, out []float32) error {
 	return fmt.Errorf("llama Q4_0x8 Plan 9 kernel is unavailable")
 }
+
+func DotQ4_0x8Q8_0x8CompilerPlan9(q4, q8 []byte, blocks int, out *[64]float32) error {
+	return fmt.Errorf("llama Q4_0x8 Plan 9 kernel is unavailable")
+}
+func DotQ4_0x8Q8_0x8StagePlan9(q4, q8 []byte, blocks int, out *[64]float32) error {
+	return fmt.Errorf("llama Q4_0x8 Plan 9 kernel is unavailable")
+}
+func DotQ4_0x8Q8_0x16CompilerPlan9(q4, q8 []byte, blocks int, out *[128]float32) error {
+	return fmt.Errorf("llama Q4_0x8 Plan 9 kernel is unavailable")
+}
+func DotQ4_0x8Q8_0x16PairPlan9(q4, q8 []byte, blocks int, out *[128]float32) error {
+	return fmt.Errorf("llama Q4_0x8 Plan 9 kernel is unavailable")
+}
