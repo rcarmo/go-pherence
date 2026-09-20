@@ -6,6 +6,8 @@ The [repository audit](repository-safety-audit-20260919.md) and [coverage matrix
 
 The [fifth pass](repository-safety-fifth-pass-20260920.md) adds aggregate helper/stream limits, fake-tested ioctl descriptor ownership, scalar RoPE and resampling bounds, and fail-fast GLiNER loading. The [sixth pass](repository-safety-sixth-pass-20260920.md) fixes the reproduced Qwen3-TTS planning/config issues and adds packed-Q4, BF16 and compressed-cache regressions. Native TCM/C-shim and GGML ownership/extent findings remain open, not validated away by host tests.
 
+The [seventh pass](repository-safety-seventh-pass-20260920.md) coordinates mmap advice with unmap, fixes overlap/eviction bookkeeping, preserves FP16 NaNs through scalar/SIMD GELU dispatch, and checks LLaMA configs, sparse rows and Qwen key/planner loops. Retained raw views, native library lifecycle, frozen tokenizer semantics and older prompt-sidecar budgeting remain distinct gaps.
+
 This page summarizes recent malformed-input and boundary-hardening work. Phase-level commands live in [validation-gates.md](validation-gates.md); detailed coverage tables live in [malformed-input-coverage.md](malformed-input-coverage.md), [kernel-coverage.md](../architecture/kernel-coverage.md), and [final-coverage-acceptance.md](../history/final-coverage-acceptance.md).
 
 ## Runtime and tensor layers

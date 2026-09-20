@@ -1,5 +1,10 @@
 ## Repository audit: planning arithmetic and native entry points
 
+Later update: the [seventh pass](repository-safety-seventh-pass-20260920.md) fixes
+the mmap advisor and FP16 findings below and adds host-tested LLaMA config checks.
+Native allocation/upload/decode lifecycle validation remains open. This report
+preserves the sixth-pass results.
+
 Qwen3-TTS's planning structs could return negative KV byte counts without an
 error. The embedding and FFN validators also accepted dimensions whose products
 wrapped, provided the caller supplied the same wrapped totals. Those defects

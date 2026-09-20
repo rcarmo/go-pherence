@@ -13,7 +13,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Extract entities, relations, records or classes | [GLiNER 2.5](../model/gliner2/README.md) |
 | Run block-diffusion text generation | [DiffusionGemma](models/diffusiongemma/README.md) |
 | Test changes on this host or cross-build | [Validation gates](validation/validation-gates.md) |
-| Review cross-repository safety findings and limits | [Safety audit](validation/repository-safety-audit-20260919.md), [latest findings](validation/repository-safety-sixth-pass-20260920.md) and [package coverage](validation/repository-safety-audit-coverage-20260919.md) |
+| Review cross-repository safety findings and limits | [Safety audit](validation/repository-safety-audit-20260919.md), [latest findings](validation/repository-safety-seventh-pass-20260920.md) and [package coverage](validation/repository-safety-audit-coverage-20260919.md) |
 | Compare measured workloads | [Performance](performance/README.md) |
 | Investigate an older result or design decision | [History](history/README.md) |
 
