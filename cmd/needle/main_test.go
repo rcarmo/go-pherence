@@ -64,3 +64,46 @@ func TestCLIAdmission(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIHeadsAndDepth(t *testing.T) {
+	b, e := os.ReadFile("../../model/needle/testdata/needle3-extended.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var f struct {
+		Base struct {
+			Config  json.RawMessage
+			Tensors map[string]checkpoint.Tensor
+			Tokens  []int
+		}
+	}
+	if e = json.Unmarshal(b, &f); e != nil {
+		t.Fatal(e)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "base.safetensors")
+	if e = checkpoint.Save(path, &checkpoint.Checkpoint{Config: f.Base.Config, FormatVersion: 2, Tensors: f.Base.Tensors}); e != nil {
+		t.Fatal(e)
+	}
+	inp := filepath.Join(dir, "tokens.json")
+	data, _ := json.Marshal(map[string]any{"tokens": f.Base.Tokens})
+	if e = os.WriteFile(inp, data, 0600); e != nil {
+		t.Fatal(e)
+	}
+	for _, mode := range []string{"embedding", "confidence", "router"} {
+		var out bytes.Buffer
+		if e = run(context.Background(), []string{"-model", path, "-input", inp, "-mode", mode, "-layers", "2"}, &out, new(bytes.Buffer)); e != nil {
+			t.Fatal(e)
+		}
+		var got struct {
+			Values     []float32
+			Calibrated bool
+		}
+		if e = json.Unmarshal(out.Bytes(), &got); e != nil {
+			t.Fatal(e)
+		}
+		if len(got.Values) == 0 || got.Calibrated {
+			t.Fatal("invalid head result")
+		}
+	}
+}

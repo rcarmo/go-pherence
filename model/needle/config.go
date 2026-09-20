@@ -12,31 +12,38 @@ import (
 )
 
 type Config struct {
-	Generation      int     `json:"generation,omitempty"`
-	VocabSize       int     `json:"vocab_size"`
-	DModel          int     `json:"d_model"`
-	AttnDim         int     `json:"attn_dim,omitempty"`
-	Heads           int     `json:"num_heads"`
-	KVHeads         int     `json:"num_kv_heads"`
-	Layers          int     `json:"num_layers"`
-	QKDim           int     `json:"qk_head_dim"`
-	VDim            int     `json:"v_head_dim"`
-	MaxSeq          int     `json:"max_seq_len"`
-	RopeTheta       float64 `json:"rope_theta"`
-	Lanes           int     `json:"mhc_lanes"`
-	ConvTaps        int     `json:"qkv_conv_taps"`
-	Window          int     `json:"sliding_window"`
-	GlobalLayers    []int   `json:"global_layers"`
-	EngramLayers    []int   `json:"engram_layers"`
-	EngramOrders    []int   `json:"engram_orders"`
-	EngramHeads     int     `json:"engram_heads"`
-	EngramSlots     int     `json:"engram_slots"`
-	EngramSeedHeads int     `json:"engram_seed_heads"`
-	LadderWidths    []int   `json:"ladder_widths"`
-	LadderOrder     []int   `json:"ladder_order"`
-	OutVocab        int     `json:"out_vocab"`
-	DType           string  `json:"dtype"`
-	PadID           int     `json:"pad_token_id"`
+	Generation        int     `json:"generation,omitempty"`
+	VocabSize         int     `json:"vocab_size"`
+	DModel            int     `json:"d_model"`
+	AttnDim           int     `json:"attn_dim,omitempty"`
+	Heads             int     `json:"num_heads"`
+	KVHeads           int     `json:"num_kv_heads"`
+	Layers            int     `json:"num_layers"`
+	QKDim             int     `json:"qk_head_dim"`
+	VDim              int     `json:"v_head_dim"`
+	MaxSeq            int     `json:"max_seq_len"`
+	RopeTheta         float64 `json:"rope_theta"`
+	Lanes             int     `json:"mhc_lanes"`
+	ConvTaps          int     `json:"qkv_conv_taps"`
+	Window            int     `json:"sliding_window"`
+	GlobalLayers      []int   `json:"global_layers"`
+	EngramLayers      []int   `json:"engram_layers"`
+	EngramOrders      []int   `json:"engram_orders"`
+	EngramHeads       int     `json:"engram_heads"`
+	EngramSlots       int     `json:"engram_slots"`
+	EngramSeedHeads   int     `json:"engram_seed_heads"`
+	LadderWidths      []int   `json:"ladder_widths"`
+	LadderOrder       []int   `json:"ladder_order"`
+	OutVocab          int     `json:"out_vocab"`
+	DType             string  `json:"dtype"`
+	PadID             int     `json:"pad_token_id"`
+	EmbeddingDim      int     `json:"embedding_dim"`
+	EmbeddingProbes   int     `json:"embedding_probes"`
+	EmbeddingQueries  int     `json:"embedding_queries"`
+	ConfidenceProbes  int     `json:"confidence_probes"`
+	ConfidenceQueries int     `json:"confidence_queries"`
+	RouterProbes      int     `json:"router_probes"`
+	RouterQueries     int     `json:"router_queries"`
 }
 
 func (c *Config) validate() error {
@@ -71,6 +78,23 @@ func (c *Config) validate() error {
 	}
 	if c.DModel < 2 || c.DModel > 4096 || c.VocabSize < 4 || c.VocabSize > 131072 || c.OutVocab < 1 || c.OutVocab > c.VocabSize || c.Heads < 1 || c.Heads > 128 || c.KVHeads < 1 || c.KVHeads > c.Heads || c.Heads%c.KVHeads != 0 || c.Layers < 1 || c.Layers > 128 || c.QKDim < 2 || c.QKDim > 512 || c.QKDim%2 != 0 || c.VDim < 1 || c.VDim > 512 || c.MaxSeq < 1 || c.MaxSeq > 65536 || c.Lanes < 1 || c.Lanes > 8 || c.ConvTaps < 0 || c.ConvTaps > 32 || c.Window < 0 || c.Window > c.MaxSeq || c.RopeTheta <= 0 || math.IsNaN(c.RopeTheta) || math.IsInf(c.RopeTheta, 0) {
 		return fmt.Errorf("needle: invalid or excessive model geometry")
+	}
+	if c.PadID < 0 || c.PadID >= c.VocabSize {
+		return fmt.Errorf("needle: invalid padding token")
+	}
+	if c.EmbeddingDim == 0 {
+		c.EmbeddingDim = 128
+	}
+	if c.EmbeddingDim < 1 || c.EmbeddingDim > 4096 {
+		return fmt.Errorf("needle: invalid embedding dimension")
+	}
+	for _, n := range []*int{&c.EmbeddingProbes, &c.EmbeddingQueries, &c.ConfidenceProbes, &c.ConfidenceQueries, &c.RouterProbes, &c.RouterQueries} {
+		if *n == 0 {
+			*n = 4
+		}
+		if *n < 1 || *n > 64 {
+			return fmt.Errorf("needle: invalid head geometry")
+		}
 	}
 	if c.Generation == 2 && c.AttnDim%c.Heads != 0 {
 		return fmt.Errorf("needle: attn_dim must divide heads")
@@ -152,6 +176,9 @@ func New(cp *checkpoint.Checkpoint) (*Model, error) {
 		return nil, e
 	}
 	m := &Model{config: c, tensors: make(map[string]checkpoint.Tensor), rawConfig: append(json.RawMessage(nil), cp.Config...)}
+	if err := validateAB(cp.Tensors); err != nil {
+		return nil, err
+	}
 	shapes := expectedShapes(c)
 	for name, want := range shapes {
 		got, ok := cp.Tensors[name]
@@ -161,7 +188,7 @@ func New(cp *checkpoint.Checkpoint) (*Model, error) {
 	}
 	var total int64
 	// Preserve auxiliary heads and calibration tensors on checkpoint round-trip;
-	// this trunk path does not execute them, but must not destroy them on save.
+	// the trunk loss does not train them, but must not destroy them on save.
 	for name, got := range cp.Tensors {
 		want := got.Shape
 		if len(want) > 8 {

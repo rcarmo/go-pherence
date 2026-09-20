@@ -51,7 +51,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	path := fs.String("model", "", "Needle safetensors checkpoint (explicit generation 2/3)")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
-	mode := fs.String("mode", "infer", "infer or train")
+	mode := fs.String("mode", "infer", "infer, train, embedding, confidence or router")
+	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
 	maxNew := fs.Int("max-new", 8, "maximum greedy tokens (recomputes prefix)")
 	eos := fs.Int("eos", 1, "EOS token, -1 disables early stop")
@@ -68,8 +69,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if fs.NArg() != 0 || *path == "" || *tokens == "" {
 		return fmt.Errorf("-model and -input are required; positional arguments are not accepted")
 	}
-	if *mode != "infer" && *mode != "train" {
-		return fmt.Errorf("mode must be infer or train")
+	if *mode != "infer" && *mode != "train" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
+		return fmt.Errorf("mode must be infer, train, embedding, confidence or router")
+	}
+	if *layers < 0 || *layers == 1 || *layers > 128 {
+		return fmt.Errorf("layers must be 0 or 2..128")
 	}
 	if *numerics != "fp32" && *numerics != "needle3-cq4-a8-kv8" {
 		return fmt.Errorf("unsupported numerics mode")
@@ -101,6 +105,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if e != nil {
 		return e
 	}
+	if *layers > 0 {
+		m, e = m.SliceDepth(*layers)
+		if e != nil {
+			return e
+		}
+	}
 	opts := needle.Options{MaxWorkBytes: *work << 20}
 	if *numerics == "needle3-cq4-a8-kv8" {
 		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}
@@ -112,6 +122,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return e
 		}
 		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated})
+	}
+	if *mode != "train" {
+		values, err := m.Head(in.Tokens, needle.HeadKind(*mode), opts)
+		if err != nil {
+			return err
+		}
+		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "head": *mode, "values": values, "calibrated": false})
 	}
 	opt := needle.NewAdamW()
 	var ad *needle.Adapter

@@ -51,14 +51,17 @@ func (t *tape) fakeA8(x *value) *value {
 	o := t.alloc(x.r, x.c)
 	for r := 0; r < x.r; r++ {
 		off := r * x.c
-		mx := float32(1e-5)
+		mx := float32(0)
 		for _, v := range x.x[off : off+x.c] {
 			a := float32(math.Abs(float64(v)))
 			if a > mx {
 				mx = a
 			}
 		}
-		scale := mx / 127
+		scale := float32(1)
+		if mx > 0 {
+			scale = mx / 127
+		}
 		for j := 0; j < x.c; j++ {
 			o.x[off+j] = float32(math.RoundToEven(float64(x.x[off+j]/scale))) * scale
 		}
@@ -165,15 +168,12 @@ func (e *execution) quantParam(name string, p *value) *value {
 	if e.q == nil || e.q.WeightBits == 0 || !isCQ(name) || len(e.m.tensors[name].Shape) < 2 {
 		return p
 	}
-	// AB-scaled checkpoints require sandwich derivatives; fail before execution
-	// rather than silently applying unscaled CQ.
-	for key := range e.m.tensors {
-		if strings.HasPrefix(key, "ab_scales/") {
-			panic(workLimit{fmt.Errorf("needle: AB-scaled CQ checkpoints not implemented")})
-		}
+	source := p
+	if _, ok := e.m.tensors["ab_scales/"+name+"/b"]; ok {
+		source = e.t.mul(p, e.abScale(name, "b"))
 	}
 	o := e.t.alloc(p.r, p.c)
-	cqValues(o.x, p.x, e.m.tensors[name].Shape, cqSecondLast(name), e.q.WeightBits)
+	cqValues(o.x, source.x, e.m.tensors[name].Shape, cqSecondLast(name), e.q.WeightBits)
 	for _, v := range o.x {
 		if !finite(v) {
 			panic(workLimit{fmt.Errorf("needle: CQ norm overflow in %s", name)})
@@ -181,8 +181,11 @@ func (e *execution) quantParam(name string, p *value) *value {
 	}
 	e.t.record(func() {
 		for i, g := range o.g {
-			p.g[i] += g
+			source.g[i] += g
 		}
 	})
+	if _, ok := e.m.tensors["ab_scales/"+name+"/a"]; ok {
+		return e.t.mul(o, e.abScale(name, "a"))
+	}
 	return o
 }

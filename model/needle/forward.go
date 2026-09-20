@@ -15,11 +15,13 @@ type Options struct {
 	Quant        *Quantization
 }
 type execution struct {
-	t  *tape
-	m  *Model
-	p  map[string]*value
-	qp map[string]*value
-	q  *Quantization
+	t     *tape
+	m     *Model
+	p     map[string]*value
+	qp    map[string]*value
+	q     *Quantization
+	keep  []bool // nil for ordinary LM forward; heads mask padding keys.
+	cells []*value
 }
 
 func (m *Model) execution(train bool, opts Options) *execution {
@@ -96,9 +98,9 @@ func (e *execution) attention(x *value, l, window int) *value {
 	k := e.linear(x, p+"k_proj/kernel", l)
 	v := e.linear(x, p+"v_proj/kernel", l)
 	if c.ConvTaps > 0 {
-		q = t.conv(q, e.param(p+"q_taps", l), 1, window)
-		k = t.conv(k, e.param(p+"k_taps", l), 1, window)
-		v = t.conv(v, e.param(p+"v_taps", l), 1, window)
+		q = e.conv(q, e.param(p+"q_taps", l), 1, window, false)
+		k = e.conv(k, e.param(p+"k_taps", l), 1, window, false)
+		v = e.conv(v, e.param(p+"v_taps", l), 1, window, false)
 	}
 	qs, ks := e.param(p+"q_norm/scale", l), e.param(p+"k_norm/scale", l)
 	out := make([]*value, c.Heads)
@@ -110,7 +112,7 @@ func (e *execution) attention(x *value, l, window int) *value {
 		qh = e.aq(qh)
 		kk = e.kvq(kk)
 		vv = e.kvq(vv)
-		prob := t.softmax(t.scale(t.mm(qh, kk, true), float32(1/math.Sqrt(float64(c.QKDim)))), true, window)
+		prob := e.attentionSoftmax(t.scale(t.mm(qh, kk, true), float32(1/math.Sqrt(float64(c.QKDim)))), window)
 		out[h] = t.mm(prob, vv, false)
 	}
 	joined := t.concat(out)
@@ -241,7 +243,7 @@ func (e *execution) engrams(ids []int) ([]*value, []*value) {
 				for j := 0; j < sub; j++ {
 					i := (token*tables+table)*sub + j
 					indices[i] = -1
-					if token >= order-1 {
+					if token >= order-1 && (e.keep == nil || e.keep[token-order+1]) {
 						indices[i] = (table*c.EngramSlots+slot)*sub + j
 					}
 				}
@@ -255,7 +257,7 @@ func (e *execution) engrams(ids []int) ([]*value, []*value) {
 		fetched := e.aq(t.gather(emb, len(ids), c.DModel, indices))
 		keys[site] = e.linear(fetched, p+"key_proj/kernel", -1)
 		v := e.linear(fetched, p+"value_proj/kernel", -1)
-		values[site] = t.conv(v, e.param(p+"taps", -1), dilation, 0)
+		values[site] = e.conv(v, e.param(p+"taps", -1), dilation, 0, true)
 	}
 	return keys, values
 }
@@ -300,6 +302,11 @@ func (e *execution) block(u *value, l int, ek, ev *value) *value {
 	return t.add(x, e.hadamard(t.norm(x, e.bp("pre_hada_norm/scale", l)), l))
 }
 func (e *execution) forward(ids []int) *value {
+	x := e.trunk(ids, false)
+	head := e.t.rows(e.param("embedding/embedding", -1), 0, e.m.config.OutVocab)
+	return e.t.mm(e.aq(x), head, true)
+}
+func (e *execution) trunk(ids []int, collect bool) *value {
 	c, t := e.m.config, e.t
 	embedding := e.param("embedding/embedding", -1)
 	indices := t.ints(len(ids) * c.DModel)
@@ -309,6 +316,9 @@ func (e *execution) forward(ids []int) *value {
 		}
 	}
 	x := t.scale(t.gather(embedding, len(ids), c.DModel, indices), float32(math.Sqrt(float64(c.DModel))))
+	if collect {
+		e.cells = append(e.cells, x)
+	}
 	lanes := make([]*value, c.Lanes)
 	for i := range lanes {
 		lanes[i] = x
@@ -368,16 +378,20 @@ func (e *execution) forward(ids []int) *value {
 		// Concatenate token rows without changing the stream's token-major layout.
 		joined := t.concat(tokens)
 		stream = t.slice(joined, 0, len(ids), c.Lanes*c.DModel)
+		if collect {
+			e.cells = append(e.cells, e.meanLanes(stream))
+		}
 	}
-	x = t.constant(len(ids), c.DModel, 0)
-	for lane := 0; lane < c.Lanes; lane++ {
-		x = t.add(x, t.scale(t.cols(stream, lane*c.DModel, c.DModel), 1/float32(c.Lanes)))
-	}
-	x = e.norm(x, "stack/final_norm/scale", -1)
-	head := t.rows(embedding, 0, c.OutVocab)
-	return t.mm(e.aq(x), head, true)
+	x = e.meanLanes(stream)
+	if collect {
+		return x
+	} // Upstream heads collect cells before final_norm.
+	return e.norm(x, "stack/final_norm/scale", -1)
 }
 func (m *Model) validateTokens(ids []int) error {
+	if m == nil {
+		return fmt.Errorf("needle: nil model")
+	}
 	if len(ids) == 0 || len(ids) > m.config.MaxSeq {
 		return fmt.Errorf("needle: token count must be 1..%d", m.config.MaxSeq)
 	}

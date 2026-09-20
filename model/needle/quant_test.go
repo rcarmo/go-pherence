@@ -64,15 +64,25 @@ func TestCQCodebooks(t *testing.T) {
 	}
 }
 
-func TestCQRejectsABScales(t *testing.T) {
-	m, f := fixture(t)
+func TestCQRejectsIncompleteABScales(t *testing.T) {
+	m, _ := fixture(t)
 	cp := m.Checkpoint()
 	cp.Tensors["ab_scales/embedding/embedding/a"] = checkpoint.Tensor{Shape: []int{1}, Data: []float32{1}}
-	m, err := New(cp)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := New(cp); err == nil {
+		t.Fatal("incomplete AB scales accepted")
 	}
-	if _, err = m.Forward(f.Tokens, Options{Quant: &Quantization{WeightBits: 4}}); err == nil {
-		t.Fatal("AB scales silently ignored")
+}
+
+func TestA8TinyAndZeroRows(t *testing.T) {
+	tp := &tape{train: true, limit: 1 << 20}
+	x := tp.leaf([]float32{1e-8, -1e-8, 0})
+	y := tp.fakeA8(x)
+	compare(t, "tiny row", y.x, x.x, 1e-15, 0)
+	for i := range y.g {
+		y.g[i] = 1
 	}
+	tp.back()
+	compare(t, "STE", x.g, []float32{1, 1, 1}, 0, 0)
+	z := tp.fakeA8(tp.leaf([]float32{0, 0}))
+	compare(t, "zero", z.x, []float32{0, 0}, 0, 0)
 }
