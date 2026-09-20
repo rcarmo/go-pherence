@@ -15,13 +15,15 @@ type Options struct {
 	Quant        *Quantization
 }
 type execution struct {
-	t     *tape
-	m     *Model
-	p     map[string]*value
-	qp    map[string]*value
-	q     *Quantization
-	keep  []bool // nil for ordinary LM forward; heads mask padding keys.
-	cells []*value
+	t              *tape
+	m              *Model
+	p              map[string]*value
+	qp             map[string]*value
+	q              *Quantization
+	keep           []bool // nil for ordinary LM forward; heads mask padding keys.
+	cells          []*value
+	parameterViews map[string]*value // immutable inference-only prepared tensors
+	decode         *decodeStep
 }
 
 func (m *Model) execution(train bool, opts Options) *execution {
@@ -32,6 +34,27 @@ func (m *Model) execution(train bool, opts Options) *execution {
 	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}, qp: map[string]*value{}, q: opts.Quant}
 }
 func (e *execution) param(name string, layer int) *value {
+	if e.parameterViews != nil {
+		p, ok := e.parameterViews[name]
+		if !ok {
+			panic("needle: missing prepared parameter " + name)
+		}
+		shape := e.m.tensors[name].Shape
+		start := 0
+		if layer >= 0 {
+			start = layer * len(p.x) / shape[0]
+			shape = shape[1:]
+		}
+		r, c := 1, 1
+		if len(shape) > 0 {
+			c = shape[len(shape)-1]
+			for _, d := range shape[:len(shape)-1] {
+				r *= d
+			}
+		}
+		e.t.reserve(128)
+		return &value{x: p.x[start : start+r*c : start+r*c], r: r, c: c}
+	}
 	p, ok := e.p[name]
 	if !ok {
 		tensor := e.m.tensors[name]
@@ -65,12 +88,13 @@ func (e *execution) linear(x *value, key string, l int) *value {
 	return e.t.mm(x, e.param(key, l), false)
 }
 func (e *execution) norm(x *value, key string, l int) *value { return e.t.norm(x, e.param(key, l)) }
-func (t *tape) rope(a *value, theta float64) *value {
+func (t *tape) rope(a *value, theta float64) *value          { return t.ropeAt(a, theta, 0) }
+func (t *tape) ropeAt(a *value, theta float64, position int) *value {
 	o := t.alloc(a.r, a.c)
 	half := a.c / 2
 	for r := 0; r < a.r; r++ {
 		for j := 0; j < half; j++ {
-			angle := float64(r) / math.Pow(theta, float64(2*j)/float64(a.c))
+			angle := float64(r+position) / math.Pow(theta, float64(2*j)/float64(a.c))
 			co, si := float32(math.Cos(angle)), float32(math.Sin(angle))
 			i, k := r*a.c+j, r*a.c+j+half
 			o.x[i] = a.x[i]*co - a.x[k]*si
@@ -80,7 +104,7 @@ func (t *tape) rope(a *value, theta float64) *value {
 	t.record(func() {
 		for r := 0; r < a.r; r++ {
 			for j := 0; j < half; j++ {
-				angle := float64(r) / math.Pow(theta, float64(2*j)/float64(a.c))
+				angle := float64(r+position) / math.Pow(theta, float64(2*j)/float64(a.c))
 				co, si := float32(math.Cos(angle)), float32(math.Sin(angle))
 				i, k := r*a.c+j, r*a.c+j+half
 				a.g[i] += o.g[i]*co + o.g[k]*si
@@ -91,6 +115,9 @@ func (t *tape) rope(a *value, theta float64) *value {
 	return o
 }
 func (e *execution) attention(x *value, l, window int) *value {
+	if e.decode != nil {
+		return e.cachedAttention(x, l, window)
+	}
 	t, c := e.t, e.m.config
 	p := "stack/layers/block/self_attn/"
 	x = e.aq(x)
@@ -214,6 +241,9 @@ func (e *execution) hadamard(x *value, l int) *value {
 	return t.cols(mul(z, "d4"), 0, c.DModel)
 }
 func (e *execution) engrams(ids []int) ([]*value, []*value) {
+	if e.decode != nil {
+		return e.cachedEngrams(ids[0])
+	}
 	c, t := e.m.config, e.t
 	keys, values := make([]*value, len(c.EngramLayers)), make([]*value, len(c.EngramLayers))
 	if len(keys) == 0 {
@@ -303,7 +333,15 @@ func (e *execution) block(u *value, l int, ek, ev *value) *value {
 }
 func (e *execution) forward(ids []int) *value {
 	x := e.trunk(ids, false)
-	head := e.t.rows(e.param("embedding/embedding", -1), 0, e.m.config.OutVocab)
+	emb := e.param("embedding/embedding", -1)
+	var head *value
+	if e.parameterViews != nil {
+		n := e.m.config.OutVocab * emb.c
+		e.t.reserve(128)
+		head = &value{x: emb.x[:n:n], r: e.m.config.OutVocab, c: emb.c}
+	} else {
+		head = e.t.rows(emb, 0, e.m.config.OutVocab)
+	}
 	return e.t.mm(e.aq(x), head, true)
 }
 func (e *execution) trunk(ids []int, collect bool) *value {
@@ -326,6 +364,11 @@ func (e *execution) trunk(ids []int, collect bool) *value {
 	stream := t.concat(lanes)
 	ek, ev := e.engrams(ids)
 	for l := 0; l < c.Layers; l++ {
+		if e.decode != nil {
+			if err := e.decode.ctx.Err(); err != nil {
+				panic(workLimit{err})
+			}
+		}
 		nx := e.aq(t.rms(stream))
 		hc := func(kind string, cols int) *value {
 			a := e.param("stack/mhc_a_"+kind, l)

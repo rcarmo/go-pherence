@@ -131,3 +131,33 @@ func TestCLIArchiveText(t *testing.T) {
 		t.Fatal("requantization accepted")
 	}
 }
+
+func TestCLIReferenceAndCachedTextParity(t *testing.T) {
+	path := "../../loader/needle/testdata/needle3.cact"
+	text := filepath.Join(t.TempDir(), "prompt.txt")
+	if err := os.WriteFile(text, []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var generated [2]string
+	for i, cache := range []string{"true", "false"} {
+		var out bytes.Buffer
+		if err := run(context.Background(), []string{"-model", path, "-text-file", text, "-cached=" + cache, "-max-new", "4", "-eos=-1"}, &out, new(bytes.Buffer)); err != nil {
+			t.Fatal(err)
+		}
+		var obj struct {
+			IDs    []int `json:"generated_ids"`
+			Cached bool
+		}
+		if err := json.Unmarshal(out.Bytes(), &obj); err != nil {
+			t.Fatal(err)
+		}
+		if obj.Cached != (i == 0) {
+			t.Fatal("wrong cache report")
+		}
+		b, _ := json.Marshal(obj.IDs)
+		generated[i] = string(b)
+	}
+	if generated[0] != generated[1] {
+		t.Fatalf("cached/reference differ %v", generated)
+	}
+}

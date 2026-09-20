@@ -69,7 +69,7 @@ func testReference(t *testing.T, name string) {
 		compare(t, key, got.Data, want.Data, 3e-6, 5e-3)
 	}
 }
-func compare(t *testing.T, name string, a, b []float32, abs, rel float64) {
+func compare(t testing.TB, name string, a, b []float32, abs, rel float64) {
 	t.Helper()
 	if len(a) != len(b) {
 		t.Fatalf("%s lengths %d/%d", name, len(a), len(b))

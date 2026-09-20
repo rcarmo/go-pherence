@@ -56,7 +56,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	mode := fs.String("mode", "infer", "infer, train, embedding, confidence or router")
 	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
-	maxNew := fs.Int("max-new", 8, "maximum greedy tokens (recomputes prefix)")
+	maxNew := fs.Int("max-new", 8, "maximum greedy tokens")
+	cached := fs.Bool("cached", true, "use bounded incremental KV/convolution state (infer only)")
+	cacheMiB := fs.Int64("cache-mib", 512, "decoder retained/preparation budget (MiB)")
 	eos := fs.Int("eos", 1, "EOS token, -1 disables early stop")
 	steps := fs.Int("steps", 1, "number of optimization steps on the input example")
 	lr := fs.Float64("lr", .001, "AdamW learning rate")
@@ -79,6 +81,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if *numerics != "fp32" && *numerics != "needle3-cq4-a8-kv8" {
 		return fmt.Errorf("unsupported numerics mode")
+	}
+	if *cacheMiB < 1 || *cacheMiB > 8192 {
+		return fmt.Errorf("cache-mib must be 1..8192")
 	}
 	if *work < 1 || *work > 4096 {
 		return fmt.Errorf("work-mib must be 1..4096")
@@ -161,11 +166,16 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	enc := json.NewEncoder(stdout)
 	if *mode == "infer" {
-		generated, e := m.Generate(ctx, in.Tokens, *maxNew, *eos, opts)
+		var generated []int
+		if *cached {
+			generated, e = m.GenerateCached(ctx, in.Tokens, *maxNew, *eos, needle.DecoderOptions{Execution: opts, MaxCacheBytes: *cacheMiB << 20})
+		} else {
+			generated, e = m.Generate(ctx, in.Tokens, *maxNew, *eos, opts)
+		}
 		if e != nil {
 			return e
 		}
-		result := map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated}
+		result := map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated, "cached": *cached}
 		if tok != nil {
 			decoded, err := tok.Decode(generated)
 			if err != nil {

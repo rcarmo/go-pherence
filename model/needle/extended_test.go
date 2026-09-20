@@ -34,7 +34,7 @@ type extendedFixture struct {
 	AB reference
 }
 
-func extended(t *testing.T) (*Model, extendedFixture) {
+func extended(t testing.TB) (*Model, extendedFixture) {
 	t.Helper()
 	b, err := os.ReadFile("testdata/needle3-extended.json")
 	if err != nil {
