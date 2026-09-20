@@ -16,6 +16,12 @@ type TalkerInputLayout struct {
 }
 
 func NewTalkerInputLayout(cfg ParsedConfig, prefill PrefillLayout) (TalkerInputLayout, error) {
+	if err := prefill.Validate(); err != nil {
+		return TalkerInputLayout{}, err
+	}
+	if prefill.TalkerHiddenSize != cfg.TalkerHiddenSize {
+		return TalkerInputLayout{}, fmt.Errorf("Qwen3-TTS prefill/config hidden width mismatch")
+	}
 	layout := TalkerInputLayout{
 		TextHiddenSize:   cfg.TalkerTextHiddenSize,
 		TalkerHiddenSize: cfg.TalkerHiddenSize,
@@ -23,8 +29,8 @@ func NewTalkerInputLayout(cfg ParsedConfig, prefill PrefillLayout) (TalkerInputL
 		CodecTokens:      prefill.CodecTokens,
 		OverlayPosition:  prefill.OverlayPosition,
 	}
-	layout.ProjectionFloats = layout.TextHiddenSize * layout.TalkerHiddenSize
-	layout.FusedInputFloats = layout.TextTokens * layout.TalkerHiddenSize
+	layout.ProjectionFloats = sizeProduct(layout.TextHiddenSize, layout.TalkerHiddenSize)
+	layout.FusedInputFloats = sizeProduct(layout.TextTokens, layout.TalkerHiddenSize)
 	return layout, layout.Validate()
 }
 
@@ -35,11 +41,13 @@ func (l TalkerInputLayout) Validate() error {
 	if l.OverlayPosition != CustomVoiceFirstTextIndex {
 		return fmt.Errorf("invalid Qwen3-TTS talker overlay position=%d want=%d", l.OverlayPosition, CustomVoiceFirstTextIndex)
 	}
-	if l.ProjectionFloats != l.TextHiddenSize*l.TalkerHiddenSize {
-		return fmt.Errorf("invalid Qwen3-TTS text projection floats=%d want=%d", l.ProjectionFloats, l.TextHiddenSize*l.TalkerHiddenSize)
+	projection := sizeProduct(l.TextHiddenSize, l.TalkerHiddenSize)
+	if projection < 0 || l.ProjectionFloats != projection {
+		return fmt.Errorf("invalid Qwen3-TTS text projection floats=%d want=%d", l.ProjectionFloats, projection)
 	}
-	if l.FusedInputFloats != l.TextTokens*l.TalkerHiddenSize {
-		return fmt.Errorf("invalid Qwen3-TTS fused input floats=%d want=%d", l.FusedInputFloats, l.TextTokens*l.TalkerHiddenSize)
+	fused := sizeProduct(l.TextTokens, l.TalkerHiddenSize)
+	if fused < 0 || l.FusedInputFloats != fused {
+		return fmt.Errorf("invalid Qwen3-TTS fused input floats=%d want=%d", l.FusedInputFloats, fused)
 	}
 	return nil
 }

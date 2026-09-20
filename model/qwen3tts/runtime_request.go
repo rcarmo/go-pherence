@@ -1,6 +1,9 @@
 package qwen3tts
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // RuntimeRequest captures the minimal inputs and limits a future Qwen3-TTS
 // runtime needs before executing Talker, CodePredictor, and Decoder12Hz. It is
@@ -46,9 +49,16 @@ func NewRuntimeRequestPlan(cfg ParsedConfig, req RuntimeRequest) (RuntimeRequest
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
+	if req.MaxSeconds < 0 || math.IsNaN(req.MaxSeconds) || math.IsInf(req.MaxSeconds, 0) {
+		return RuntimeRequestPlan{}, fmt.Errorf("invalid Qwen3-TTS max seconds=%g", req.MaxSeconds)
+	}
 	maxFrames := req.MaxFrames
 	if maxFrames == 0 && req.MaxSeconds > 0 {
-		maxFrames = int(req.MaxSeconds * float64(decoderInput.FrameRateHz))
+		frames := req.MaxSeconds * float64(decoderInput.FrameRateHz)
+		if frames >= float64(int(^uint(0)>>1)) {
+			return RuntimeRequestPlan{}, fmt.Errorf("Qwen3-TTS max seconds overflows frame count")
+		}
+		maxFrames = int(frames)
 	}
 	if maxFrames <= 0 {
 		return RuntimeRequestPlan{}, fmt.Errorf("invalid Qwen3-TTS max frames=%d max_seconds=%g", req.MaxFrames, req.MaxSeconds)

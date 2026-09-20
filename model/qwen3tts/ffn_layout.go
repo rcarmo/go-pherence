@@ -34,7 +34,7 @@ func NewCodePredictorFFNLayout(cfg ParsedConfig) (FFNLayout, error) {
 }
 
 func newFFNLayout(name string, hidden, intermediate, layers int) FFNLayout {
-	proj := hidden * intermediate
+	proj := sizeProduct(hidden, intermediate)
 	layout := FFNLayout{
 		Name:                 name,
 		HiddenSize:           hidden,
@@ -44,8 +44,8 @@ func newFFNLayout(name string, hidden, intermediate, layers int) FFNLayout {
 		UpProjectionFloats:   proj,
 		DownProjectionFloats: proj,
 	}
-	layout.FloatsPerLayer = layout.GateProjectionFloats + layout.UpProjectionFloats + layout.DownProjectionFloats
-	layout.TotalFloats = layout.FloatsPerLayer * layers
+	layout.FloatsPerLayer = sizeSum(layout.GateProjectionFloats, layout.UpProjectionFloats, layout.DownProjectionFloats)
+	layout.TotalFloats = sizeProduct(layout.FloatsPerLayer, layers)
 	return layout
 }
 
@@ -53,16 +53,17 @@ func (l FFNLayout) Validate() error {
 	if l.Name == "" || l.HiddenSize <= 0 || l.IntermediateSize <= 0 || l.Layers <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS FFN layout dims: %+v", l)
 	}
-	wantProj := l.HiddenSize * l.IntermediateSize
-	if l.GateProjectionFloats != wantProj || l.UpProjectionFloats != wantProj || l.DownProjectionFloats != wantProj {
+	wantProj := sizeProduct(l.HiddenSize, l.IntermediateSize)
+	if wantProj < 0 || l.GateProjectionFloats != wantProj || l.UpProjectionFloats != wantProj || l.DownProjectionFloats != wantProj {
 		return fmt.Errorf("invalid Qwen3-TTS %s FFN projection floats: %+v", l.Name, l)
 	}
-	wantLayer := l.GateProjectionFloats + l.UpProjectionFloats + l.DownProjectionFloats
-	if l.FloatsPerLayer != wantLayer {
+	wantLayer := sizeSum(l.GateProjectionFloats, l.UpProjectionFloats, l.DownProjectionFloats)
+	if wantLayer < 0 || l.FloatsPerLayer != wantLayer {
 		return fmt.Errorf("invalid Qwen3-TTS %s FFN floats/layer=%d want=%d", l.Name, l.FloatsPerLayer, wantLayer)
 	}
-	if l.TotalFloats != l.FloatsPerLayer*l.Layers {
-		return fmt.Errorf("invalid Qwen3-TTS %s FFN total floats=%d want=%d", l.Name, l.TotalFloats, l.FloatsPerLayer*l.Layers)
+	wantTotal := sizeProduct(l.FloatsPerLayer, l.Layers)
+	if wantTotal < 0 || l.TotalFloats != wantTotal {
+		return fmt.Errorf("invalid Qwen3-TTS %s FFN total floats=%d want=%d", l.Name, l.TotalFloats, wantTotal)
 	}
 	return nil
 }

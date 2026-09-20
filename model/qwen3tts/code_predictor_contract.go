@@ -46,8 +46,8 @@ func (c CodePredictorExecutionContract) Validate() error {
 	if c.MaxFrames <= 0 || c.MaxFrames != c.Plan.MaxFrames || c.CodesPerFrame != c.FrameLayout.AcousticCodesPerFrame {
 		return fmt.Errorf("invalid Qwen3-TTS CodePredictor contract limits: %+v", c)
 	}
-	wantCodes := c.MaxFrames * c.CodesPerFrame
-	if c.MaxAcousticCodes != wantCodes || c.Plan.MaxCodes != wantCodes {
+	wantCodes := sizeProduct(c.MaxFrames, c.CodesPerFrame)
+	if wantCodes < 0 || c.MaxAcousticCodes != wantCodes || c.Plan.MaxCodes != wantCodes {
 		return fmt.Errorf("invalid Qwen3-TTS CodePredictor max codes=%d plan=%d want=%d", c.MaxAcousticCodes, c.Plan.MaxCodes, wantCodes)
 	}
 	return nil

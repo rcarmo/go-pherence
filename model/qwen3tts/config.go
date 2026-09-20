@@ -117,10 +117,13 @@ func ParseConfig(data []byte) (ParsedConfig, error) {
 }
 
 func (c ParsedConfig) Validate() error {
+	if !finitePositive(c.TalkerRMSNormEps) || !finitePositive(c.TalkerRoPETheta) || !finitePositive(c.CPRMSNormEps) || !finitePositive(c.CPRoPETheta) {
+		return fmt.Errorf("invalid Qwen3-TTS norm/rope controls")
+	}
 	if c.TalkerHiddenSize <= 0 || c.TalkerNumAttentionHeads <= 0 || c.TalkerNumKeyValueHeads <= 0 || c.TalkerHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS talker attention dims: %+v", c)
 	}
-	if c.TalkerHiddenSize != c.TalkerNumAttentionHeads*c.TalkerHeadDim {
+	if c.TalkerHiddenSize != sizeProduct(c.TalkerNumAttentionHeads, c.TalkerHeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS talker head dims: hidden=%d heads=%d head_dim=%d", c.TalkerHiddenSize, c.TalkerNumAttentionHeads, c.TalkerHeadDim)
 	}
 	if c.TalkerNumKeyValueHeads > c.TalkerNumAttentionHeads || c.TalkerNumAttentionHeads%c.TalkerNumKeyValueHeads != 0 {
@@ -129,7 +132,7 @@ func (c ParsedConfig) Validate() error {
 	if c.CPHiddenSize <= 0 || c.CPNumAttentionHeads <= 0 || c.CPNumKeyValueHeads <= 0 || c.CPHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor attention dims: %+v", c)
 	}
-	if c.CPHiddenSize != c.CPNumAttentionHeads*c.CPHeadDim {
+	if c.CPHiddenSize != sizeProduct(c.CPNumAttentionHeads, c.CPHeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor head dims: hidden=%d heads=%d head_dim=%d", c.CPHiddenSize, c.CPNumAttentionHeads, c.CPHeadDim)
 	}
 	if c.CPNumKeyValueHeads > c.CPNumAttentionHeads || c.CPNumAttentionHeads%c.CPNumKeyValueHeads != 0 {

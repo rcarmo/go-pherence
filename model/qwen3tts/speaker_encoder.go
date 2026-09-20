@@ -46,8 +46,8 @@ func (l SpeakerEncoderLayout) Validate() error {
 	if l.EmbeddingFloats != l.EmbeddingDim {
 		return fmt.Errorf("invalid Qwen3-TTS speaker embedding floats=%d want=%d", l.EmbeddingFloats, l.EmbeddingDim)
 	}
-	wantSamples := l.SampleRateHz * l.ReferenceChannels
-	if l.SamplesPerSecond != wantSamples {
+	wantSamples := sizeProduct(l.SampleRateHz, l.ReferenceChannels)
+	if wantSamples < 0 || l.SamplesPerSecond != wantSamples {
 		return fmt.Errorf("invalid Qwen3-TTS speaker samples/second=%d want=%d", l.SamplesPerSecond, wantSamples)
 	}
 	return nil
@@ -63,5 +63,5 @@ func (l SpeakerEncoderLayout) ReferenceSamples(seconds int) (int, error) {
 	if seconds < 0 {
 		return 0, fmt.Errorf("invalid Qwen3-TTS reference duration seconds=%d", seconds)
 	}
-	return seconds * l.SamplesPerSecond, nil
+	return sizeCount(seconds, l.SamplesPerSecond)
 }

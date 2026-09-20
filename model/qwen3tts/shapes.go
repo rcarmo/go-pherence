@@ -256,11 +256,14 @@ func (p TransformerPlan) Validate(label string) error {
 	if p.HiddenSize <= 0 || p.Layers <= 0 || p.Heads <= 0 || p.KVHeads <= 0 || p.HeadDim <= 0 || p.VocabSize <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS %s plan: %+v", label, p)
 	}
-	if p.HiddenSize != p.Heads*p.HeadDim {
+	if p.HiddenSize != sizeProduct(p.Heads, p.HeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS %s hidden/head dims: hidden=%d heads=%d head_dim=%d", label, p.HiddenSize, p.Heads, p.HeadDim)
 	}
-	wantKV := 2 * p.Layers * p.KVHeads * p.HeadDim
-	if p.KVFloatsPerToken != wantKV {
+	if p.Heads%p.KVHeads != 0 {
+		return fmt.Errorf("invalid Qwen3-TTS %s GQA grouping", label)
+	}
+	wantKV := sizeProduct(2, p.Layers, p.KVHeads, p.HeadDim)
+	if wantKV < 0 || p.KVFloatsPerToken != wantKV {
 		return fmt.Errorf("invalid Qwen3-TTS %s KV floats/token=%d want=%d", label, p.KVFloatsPerToken, wantKV)
 	}
 	return nil
@@ -277,8 +280,11 @@ func (p TransformerPlan) MatchesFFNLayout(layout FFNLayout) error {
 }
 
 func (p TransformerPlan) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
+	if err := p.Validate("KV sizing"); err != nil {
+		return 0, err
+	}
 	if maxSeq < 0 || bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid KV sizing arguments: max_seq=%d bytes_per_float=%d", maxSeq, bytesPerFloat)
 	}
-	return int64(maxSeq) * int64(p.KVFloatsPerToken) * int64(bytesPerFloat), nil
+	return sizeBytes(maxSeq, p.KVFloatsPerToken, bytesPerFloat)
 }

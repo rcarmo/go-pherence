@@ -30,12 +30,12 @@ func NewEmbeddingLayout(cfg ParsedConfig) (EmbeddingLayout, error) {
 		TalkerCodecVocabSize:    cfg.TalkerVocabSize,
 		CodePredictorHiddenSize: cfg.CPHiddenSize,
 		CodePredictorVocabSize:  cfg.CPVocabSize,
-		TextEmbeddingFloats:     cfg.TalkerTextVocabSize * cfg.TalkerTextHiddenSize,
-		TextProjectionFloats:    cfg.TalkerTextHiddenSize * cfg.TalkerHiddenSize,
-		CodecHeadFloats:         cfg.TalkerHiddenSize * cfg.TalkerVocabSize,
-		CodecEmbeddingFloats:    cfg.CPVocabSize * cfg.CPHiddenSize,
+		TextEmbeddingFloats:     sizeProduct(cfg.TalkerTextVocabSize, cfg.TalkerTextHiddenSize),
+		TextProjectionFloats:    sizeProduct(cfg.TalkerTextHiddenSize, cfg.TalkerHiddenSize),
+		CodecHeadFloats:         sizeProduct(cfg.TalkerHiddenSize, cfg.TalkerVocabSize),
+		CodecEmbeddingFloats:    sizeProduct(cfg.CPVocabSize, cfg.CPHiddenSize),
 	}
-	layout.TotalBridgeFloats = layout.TextEmbeddingFloats + layout.TextProjectionFloats + layout.CodecHeadFloats + layout.CodecEmbeddingFloats
+	layout.TotalBridgeFloats = sizeSum(layout.TextEmbeddingFloats, layout.TextProjectionFloats, layout.CodecHeadFloats, layout.CodecEmbeddingFloats)
 	return layout, layout.Validate()
 }
 
@@ -43,10 +43,13 @@ func (l EmbeddingLayout) Validate() error {
 	if l.TalkerTextVocabSize <= 0 || l.TalkerTextHiddenSize <= 0 || l.TalkerHiddenSize <= 0 || l.TalkerCodecVocabSize <= 0 || l.CodePredictorHiddenSize <= 0 || l.CodePredictorVocabSize <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS embedding layout dims: %+v", l)
 	}
-	wantTextEmbedding := l.TalkerTextVocabSize * l.TalkerTextHiddenSize
-	wantTextProjection := l.TalkerTextHiddenSize * l.TalkerHiddenSize
-	wantCodecHead := l.TalkerHiddenSize * l.TalkerCodecVocabSize
-	wantCodecEmbedding := l.CodePredictorVocabSize * l.CodePredictorHiddenSize
+	wantTextEmbedding := sizeProduct(l.TalkerTextVocabSize, l.TalkerTextHiddenSize)
+	wantTextProjection := sizeProduct(l.TalkerTextHiddenSize, l.TalkerHiddenSize)
+	wantCodecHead := sizeProduct(l.TalkerHiddenSize, l.TalkerCodecVocabSize)
+	wantCodecEmbedding := sizeProduct(l.CodePredictorVocabSize, l.CodePredictorHiddenSize)
+	if !nonnegativeSizes(wantTextEmbedding, wantTextProjection, wantCodecHead, wantCodecEmbedding) {
+		return fmt.Errorf("Qwen3-TTS embedding size overflow")
+	}
 	if l.TextEmbeddingFloats != wantTextEmbedding {
 		return fmt.Errorf("invalid Qwen3-TTS text embedding floats=%d want=%d", l.TextEmbeddingFloats, wantTextEmbedding)
 	}
@@ -59,8 +62,8 @@ func (l EmbeddingLayout) Validate() error {
 	if l.CodecEmbeddingFloats != wantCodecEmbedding {
 		return fmt.Errorf("invalid Qwen3-TTS codec embedding floats=%d want=%d", l.CodecEmbeddingFloats, wantCodecEmbedding)
 	}
-	wantTotal := l.TextEmbeddingFloats + l.TextProjectionFloats + l.CodecHeadFloats + l.CodecEmbeddingFloats
-	if l.TotalBridgeFloats != wantTotal {
+	wantTotal := sizeSum(l.TextEmbeddingFloats, l.TextProjectionFloats, l.CodecHeadFloats, l.CodecEmbeddingFloats)
+	if wantTotal < 0 || l.TotalBridgeFloats != wantTotal {
 		return fmt.Errorf("invalid Qwen3-TTS embedding bridge total=%d want=%d", l.TotalBridgeFloats, wantTotal)
 	}
 	return nil

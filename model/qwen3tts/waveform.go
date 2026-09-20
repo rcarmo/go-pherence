@@ -40,5 +40,5 @@ func (l WaveformLayout) SamplesForFrames(frames int) (int, error) {
 	if frames < 0 {
 		return 0, fmt.Errorf("invalid Qwen3-TTS frame count=%d", frames)
 	}
-	return frames * l.SamplesPerFrame, nil
+	return sizeCount(frames, l.SamplesPerFrame)
 }

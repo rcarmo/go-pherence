@@ -22,7 +22,7 @@ func NewPrefillLayout(cfg ParsedConfig, prompt PromptIDs) (PrefillLayout, error)
 		OverlayPosition:  CustomVoiceFirstTextIndex,
 		TalkerHiddenSize: cfg.TalkerHiddenSize,
 	}
-	layout.EmbeddingFloats = layout.TextTokens * layout.TalkerHiddenSize
+	layout.EmbeddingFloats = sizeProduct(layout.TextTokens, layout.TalkerHiddenSize)
 	return layout, layout.Validate()
 }
 
@@ -33,8 +33,9 @@ func (l PrefillLayout) Validate() error {
 	if l.FirstTextIndex != CustomVoiceFirstTextIndex || l.OverlayPosition != CustomVoiceFirstTextIndex {
 		return fmt.Errorf("invalid Qwen3-TTS prefill first/overlay indices: %+v", l)
 	}
-	if l.EmbeddingFloats != l.TextTokens*l.TalkerHiddenSize {
-		return fmt.Errorf("invalid Qwen3-TTS prefill embedding_floats=%d want=%d", l.EmbeddingFloats, l.TextTokens*l.TalkerHiddenSize)
+	want := sizeProduct(l.TextTokens, l.TalkerHiddenSize)
+	if want < 0 || l.EmbeddingFloats != want {
+		return fmt.Errorf("invalid Qwen3-TTS prefill embedding_floats=%d want=%d", l.EmbeddingFloats, want)
 	}
 	return nil
 }
@@ -46,5 +47,5 @@ func (l PrefillLayout) EmbeddingBytes(bytesPerFloat int) (int64, error) {
 	if bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid prefill bytes/float=%d", bytesPerFloat)
 	}
-	return int64(l.EmbeddingFloats) * int64(bytesPerFloat), nil
+	return sizeBytes(l.EmbeddingFloats, bytesPerFloat)
 }

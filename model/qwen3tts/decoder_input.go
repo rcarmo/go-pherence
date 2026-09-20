@@ -39,8 +39,8 @@ func (l DecoderInputLayout) Validate() error {
 	if l.CodesPerFrame != l.AcousticGroups {
 		return fmt.Errorf("invalid Qwen3-TTS decoder codes/frame=%d want=%d", l.CodesPerFrame, l.AcousticGroups)
 	}
-	if l.LastCodeGroup != l.FirstCodeGroup+l.AcousticGroups-1 {
-		return fmt.Errorf("invalid Qwen3-TTS decoder last code group=%d want=%d", l.LastCodeGroup, l.FirstCodeGroup+l.AcousticGroups-1)
+	if l.LastCodeGroup != l.AcousticGroups {
+		return fmt.Errorf("invalid Qwen3-TTS decoder last code group=%d want=%d", l.LastCodeGroup, l.AcousticGroups)
 	}
 	return nil
 }
@@ -59,7 +59,7 @@ func (l DecoderInputLayout) CodesForFrames(frames int) (int, error) {
 	if frames < 0 {
 		return 0, fmt.Errorf("invalid Qwen3-TTS decoder frame count=%d", frames)
 	}
-	return frames * l.CodesPerFrame, nil
+	return sizeCount(frames, l.CodesPerFrame)
 }
 
 func (l DecoderInputLayout) ValidateCodes(codes []uint32) error {
