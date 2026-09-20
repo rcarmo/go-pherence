@@ -190,3 +190,38 @@ func TestCLIArchivePacked(t *testing.T) {
 		t.Fatalf("packed/dense generation differs %v", results)
 	}
 }
+
+func TestCLIHeadTrainingAndWidth(t *testing.T) {
+	b, e := os.ReadFile("../../model/needle/testdata/needle3-head-width.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var f struct {
+		Width struct {
+			Config  json.RawMessage
+			Tensors map[string]checkpoint.Tensor
+			Tokens  []int
+		}
+	}
+	if e = json.Unmarshal(b, &f); e != nil {
+		t.Fatal(e)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "source.safetensors")
+	if e = checkpoint.Save(path, &checkpoint.Checkpoint{FormatVersion: 2, Config: f.Width.Config, Tensors: f.Width.Tensors}); e != nil {
+		t.Fatal(e)
+	}
+	inp := filepath.Join(dir, "tokens.json")
+	data, _ := json.Marshal(map[string]any{"tokens": f.Width.Tokens, "target": []float32{1}})
+	if e = os.WriteFile(inp, data, 0600); e != nil {
+		t.Fatal(e)
+	}
+	out := filepath.Join(dir, "head.safetensors")
+	var result bytes.Buffer
+	if e = run(context.Background(), []string{"-model", path, "-input", inp, "-mode", "train-head", "-head", "confidence", "-width", "8", "-steps", "2", "-out", out}, &result, new(bytes.Buffer)); e != nil {
+		t.Fatal(e)
+	}
+	if e = run(context.Background(), []string{"-model", out, "-input", inp, "-mode", "confidence"}, new(bytes.Buffer), new(bytes.Buffer)); e != nil {
+		t.Fatal(e)
+	}
+}

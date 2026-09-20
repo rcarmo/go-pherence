@@ -2,7 +2,7 @@
 
 This package implements the language-model trunk of both Needle generations in Go, with **Needle 3 as the primary target**. It includes full-sequence inference, bounded greedy token-ID decoding, reverse-mode gradients, full-trunk training, LoRA and AdamW. Python/JAX is used only to generate reference fixtures; it is not part of the Go runtime.
 
-This is a tested **FP32 baseline**, not yet a replacement for the upstream Needle application. Needle 3 additionally has an explicit dequantized CQ-W4/A8/KV8 straight-through reference mode with upstream logits/loss/all-gradient parity. Needle 3 also supports broadcast AB scales (including STE gradients), embedding/confidence/router head inference, and nested depth-rung slicing. Needle 3 `.cact` loading, archive BPE tokenization and text-file inference are implemented through a decoded-weight compatibility path. A direct packed CQ projection path is available as an opt-in hybrid (decoded tensors remain retained); it is slower in the current tests. Packed-only loading, Needle 2 archives/quantized training/heads, schema-constrained tool calling, auxiliary-head training, width slicing and production-sized performance qualification remain unfinished. Do not confuse successful small-model parity with production readiness.
+This is a tested **FP32 baseline**, not yet a replacement for the upstream Needle application. Needle 3 additionally has an explicit dequantized CQ-W4/A8/KV8 straight-through reference mode with upstream logits/loss/all-gradient parity. Needle 3 also supports broadcast AB scales (including STE gradients), embedding/confidence/router head inference, and nested depth-rung slicing. Needle 3 `.cact` loading, archive BPE tokenization and text-file inference are implemented through a decoded-weight compatibility path. A direct packed CQ projection path is available as an opt-in hybrid (decoded tensors remain retained); it is slower in the current tests. Source Needle 3 models also support frozen-trunk supervised head updates and admissible trained half-width slicing. Packed-only loading, Needle 2 archives/quantized training/heads, schema-constrained tool calling, dataset-level training/calibration and production-sized performance qualification remain unfinished. Do not confuse successful small-model parity with production readiness.
 
 ## Architecture and source pins
 
@@ -51,7 +51,7 @@ Every cached token is checked against a fresh full-prefix forward for Needle 2/3
 
 `m.Head(ids, needle.Embedding, opts)` returns the normalized embedding. `needle.Confidence` returns one raw logit and `needle.Router` returns three raw logits. These are **not calibrated probabilities**; this API deliberately does not apply stored router thresholds or advertise confidence after fine-tuning. It implements upstream's padding-aware token probes, RMS gains and query pooling over input/per-layer hidden cells. All-padding input fails; leading/interior padding otherwise follows upstream, including its finite all-masked attention-row behavior. Head tensor dimensions must agree with the config.
 
-`m.SliceDepth(depth)` selects Needle 3's nested bisection rung, remaps global/engram sites and head rows, and preserves the parent's order for subsequent slices. It returns an independent model. Invalid depths/orders or unknown stacked geometry fail. Reduced-depth AB-scaled models currently fail explicitly: upstream's slice leaves those scales unchanged, so supporting their remapping requires a separately defined contract. Width slicing and runtime exit-depth sampling are not implemented.
+`m.SliceDepth(depth)` selects Needle 3's nested bisection rung, remaps global/engram sites and head rows, and preserves the parent's order for subsequent slices. It returns an independent model. Invalid depths/orders or unknown stacked geometry fail. Reduced-depth AB-scaled models currently fail explicitly: upstream's slice leaves those scales unchanged, so supporting their remapping requires a separately defined contract. `SliceWidth` supports a trained half-width source rung subject to strict attention/Hadamard/engram geometry checks; it rejects deployment archives and AB scales. Runtime exit-depth sampling is not implemented. The [head-training and width guide](../../docs/guides/needle-head-training.md) has objectives, target JSON, API/CLI examples and limits.
 
 ## Needle 3 archives and tokenizer
 
@@ -84,7 +84,7 @@ bin/needle -model checkpoints/needle3.cact -text-file prompt.txt -max-new 8
 bin/needle -model checkpoints/needle3.cact -text-file prompt.txt -mode embedding
 ```
 
-An output path that already exists is rejected by the CLI. The saved training output is a **merged full checkpoint**, not an upstream adapter archive. Numerics mode is chosen explicitly when loading it; a trained F32 checkpoint does not become a packed archive. Fine-tuning does not retrain/calibrate the preserved confidence/router heads, so their old calibration must not be presented as qualified for the new weights. Do not use these example token IDs as a quality evaluation. A current full-width model may exceed the default reference-tape budget; increasing it is not a substitute for the pending streaming/memory work.
+An output path that already exists is rejected by the CLI. The saved training output is a **merged full checkpoint**, not an upstream adapter archive. Numerics mode is chosen explicitly when loading it; a trained F32 checkpoint does not become a packed archive. Language-model fine-tuning does not retrain the preserved confidence/router heads. `-mode train-head` can update one selected head with a frozen trunk, but does not recalibrate it; old calibration must not be presented as qualified for changed weights. Do not use these example token IDs as a quality evaluation. A current full-width model may exceed the default reference-tape budget; increasing it is not a substitute for the pending streaming/memory work.
 
 ## Validation
 
@@ -117,6 +117,8 @@ python scripts/needle-extended-reference.py --upstream /path/to/pinned/needle \
   --output model/needle/testdata/needle3-extended.json
 python scripts/needle-archive-reference.py --upstream /path/to/pinned/needle \
   --output-dir loader/needle/testdata
+python scripts/needle-head-width-reference.py --upstream /path/to/pinned/needle \
+  --output model/needle/testdata/needle3-head-width.json
 ```
 
 `testdata/cq-codebooks.json` records upstream `_cq_codebook_np(bits, 128)` for 1, 1.58, 2, 4 and 8 bits from the same Needle 3 pin. Four-bit end-to-end parity is tested; the other tables are present but not separately end-to-end qualified.
@@ -127,4 +129,4 @@ Native ARM64 fixture qualification now passes on the CIX P1 CD8160: Needle model
 
 The released 20-layer Needle 3 archive now passes bounded text smoke tests on Intel and native ARM, with identical twelve-token continuations across decoded and direct-CQ paths. This is not task-quality or native-C++ parity validation; the [packed/real-model report](../../docs/validation/needle-packed-real-model-20260920.md) records the model pin/hash, exact output, cold timing and RSS. Packed remained slower and remains opt-in.
 
-Full-size warmed Intel/ARM throughput, packed-only model storage, vectorised unpacking/Hadamard work, global KV eviction, reduced-depth AB remapping, Needle 2 archives/quantized objectives/heads, schema-constrained tool calling, head training, width slicing and production deployment behaviour remain open. Frozen evaluation artifacts and GPU services are unrelated and untouched.
+Full-size warmed Intel/ARM throughput, packed-only model storage, vectorised unpacking/Hadamard work, global KV eviction, reduced-depth AB remapping, Needle 2 archives/quantized objectives/heads, schema-constrained tool calling, dataset-level head training/calibration and production deployment behaviour remain open. Frozen evaluation artifacts and GPU services are unrelated and untouched.

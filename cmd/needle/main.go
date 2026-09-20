@@ -21,6 +21,7 @@ import (
 type input struct {
 	Tokens []int     `json:"tokens"`
 	Mask   []float32 `json:"mask,omitempty"`
+	Target []float32 `json:"target,omitempty"`
 }
 
 func readInput(path string) (input, error) {
@@ -53,7 +54,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	path := fs.String("model", "", "Needle safetensors or Needle3 .cact archive")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
 	textPath := fs.String("text-file", "", "UTF-8 text file, .cact tokenizer required; prepends BOS")
-	mode := fs.String("mode", "infer", "infer, train, embedding, confidence or router")
+	mode := fs.String("mode", "infer", "infer, train, train-head, embedding, confidence or router")
+	headKind := fs.String("head", "confidence", "train-head objective: confidence BCE, router CE, embedding MSE")
+	width := fs.Int("width", 0, "source Needle3 half-width rung; 0 keeps width")
 	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
 	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
 	maxNew := fs.Int("max-new", 8, "maximum greedy tokens")
@@ -74,8 +77,20 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if fs.NArg() != 0 || *path == "" || ((*tokens == "") == (*textPath == "")) {
 		return fmt.Errorf("-model and exactly one of -input/-text-file are required; positional arguments are not accepted")
 	}
-	if *mode != "infer" && *mode != "train" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
-		return fmt.Errorf("mode must be infer, train, embedding, confidence or router")
+	if *mode != "infer" && *mode != "train" && *mode != "train-head" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
+		return fmt.Errorf("mode must be infer, train, train-head, embedding, confidence or router")
+	}
+	training := *mode == "train" || *mode == "train-head"
+	if *width < 0 || *width > 4096 {
+		return fmt.Errorf("width must be 0..4096")
+	}
+	if *mode == "train-head" {
+		if *headKind != "embedding" && *headKind != "confidence" && *headKind != "router" {
+			return fmt.Errorf("invalid training head")
+		}
+		if *rank != 0 || *textPath != "" {
+			return fmt.Errorf("train-head requires token JSON with target and no LoRA")
+		}
 	}
 	if *layers < 0 || *layers == 1 || *layers > 128 {
 		return fmt.Errorf("layers must be 0 or 2..128")
@@ -92,7 +107,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if *steps < 1 || *steps > 100000 || *rank < 0 || *rank > 256 || *lr <= 0 || math.IsNaN(*lr) || math.IsInf(*lr, 0) || *alpha <= 0 || math.IsNaN(*alpha) || math.IsInf(*alpha, 0) || *alpha > math.MaxFloat32 {
 		return fmt.Errorf("invalid training controls")
 	}
-	if *mode == "train" {
+	if training {
 		if *out == "" {
 			return fmt.Errorf("train requires -out")
 		}
@@ -121,7 +136,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return fmt.Errorf("archive numerics are fixed; omit -numerics")
 		}
 		*numerics = "archive-a8-kv8"
-		if *mode == "train" {
+		if training {
 			return fmt.Errorf("train from source safetensors, not a deployment archive")
 		}
 	}
@@ -161,6 +176,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return e
 		}
 	}
+	if *width > 0 {
+		m, e = m.SliceWidth(*width)
+		if e != nil {
+			return e
+		}
+	}
 	opts := needle.Options{MaxWorkBytes: *work << 20, Packed: *packed}
 	if *numerics == "needle3-cq4-a8-kv8" {
 		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}
@@ -186,7 +207,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		}
 		return enc.Encode(result)
 	}
-	if *mode != "train" {
+	if !training {
 		values, err := m.Head(in.Tokens, needle.HeadKind(*mode), opts)
 		if err != nil {
 			return err
@@ -207,7 +228,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return e
 		}
 		var loss float64
-		if ad == nil {
+		if *mode == "train-head" {
+			m, loss, e = m.TrainHeadStep(opt, in.Tokens, needle.HeadKind(*headKind), in.Target, *lr, opts)
+		} else if ad == nil {
 			m, loss, e = m.TrainStep(opt, in.Tokens, in.Mask, *lr, opts)
 		} else {
 			ad, loss, e = m.TrainAdapterStep(ad, opt, in.Tokens, in.Mask, *lr, opts)
@@ -229,7 +252,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if e = checkpoint.Save(*out, m.Checkpoint()); e != nil {
 		return e
 	}
-	return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "steps": *steps, "losses": losses, "checkpoint": *out, "lora_rank": *rank})
+	return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "steps": *steps, "losses": losses, "checkpoint": *out, "lora_rank": *rank, "mode": *mode, "calibrated": false})
 }
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

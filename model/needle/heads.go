@@ -162,7 +162,7 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 	if err = opts.Quant.validate(m.config.Generation); err != nil {
 		return nil, err
 	}
-	k, q, dim, err := m.headGeometry(kind)
+	_, _, _, err = m.headGeometry(kind)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,17 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 		return nil, fmt.Errorf("needle: auxiliary heads require a non-padding token")
 	}
 	e.trunk(ids, true)
-	t := e.t
+	result := e.probeHead(kind)
+	for _, v := range result.x {
+		if !finite(v) {
+			return nil, fmt.Errorf("needle: nonfinite head output")
+		}
+	}
+	return result.x, nil
+}
+func (e *execution) probeHead(kind HeadKind) *value {
+	m, t := e.m, e.t
+	k, q, _, _ := m.headGeometry(kind)
 	l, d := m.config.Layers+1, m.config.DModel
 	prefix := string(kind) + "_head/"
 	probes := e.headWeight(prefix + "probes")
@@ -192,24 +202,26 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 	for layer, cell := range e.cells {
 		p := t.slice(probes, layer*k*d, k, d)
 		scores := t.scale(t.mm(p, cell, true), scale)
-		for probe := 0; probe < k; probe++ {
-			for token, keep := range e.keep {
-				if !keep {
-					scores.x[probe*len(ids)+token] = float32(math.Inf(-1))
-				}
-			}
-		}
+		scores = e.maskProbeScores(scores)
 		r := t.rms(t.mm(t.softmax(scores, false, 0), cell, false))
 		for probe := 0; probe < k; probe++ {
 			g := gain.x[layer*k+probe]
 			dst := pooled.x[(layer*k+probe)*d : (layer*k+probe+1)*d]
 			simd.Saxpy(g, r.x[probe*d:(probe+1)*d], dst)
 		}
+		if t.train {
+			layer, r := layer, r
+			t.record(func() {
+				for probe := 0; probe < k; probe++ {
+					grad := pooled.g[(layer*k+probe)*d : (layer*k+probe+1)*d]
+					simd.Saxpy(gain.x[layer*k+probe], grad, r.g[probe*d:(probe+1)*d])
+					gain.g[layer*k+probe] += simd.Sdot(grad, r.x[probe*d:(probe+1)*d])
+				}
+			})
+		}
 	}
 	scores := t.scale(t.mm(query, pooled, true), scale)
-	for i := range scores.x {
-		scores.x[i] += bias.x[i]
-	}
+	scores = t.add(scores, t.slice(bias, 0, scores.r, scores.c))
 	rows := t.mm(t.softmax(scores, false, 0), pooled, false)
 	flat := t.slice(rows, 0, 1, q*d)
 	proj := e.headWeight(prefix + "proj/kernel")
@@ -220,19 +232,46 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 			sum += v * v
 		}
 		norm := float32(math.Sqrt(float64(sum + 1e-12)))
+		raw := result
+		result = t.alloc(raw.r, raw.c)
 		for i := range result.x {
-			result.x[i] /= norm
+			result.x[i] = raw.x[i] / norm
+		}
+		if t.train {
+			normalized := result
+			t.record(func() {
+				dot := simd.Sdot(normalized.g, normalized.x)
+				for i, g := range normalized.g {
+					raw.g[i] += (g - normalized.x[i]*dot) / norm
+				}
+			})
 		}
 	} else {
-		b := e.param(prefix+"proj/bias", -1)
-		for i := 0; i < dim; i++ {
-			result.x[i] += b.x[i]
+		result = t.add(result, e.param(prefix+"proj/bias", -1))
+	}
+	return result
+}
+func (e *execution) maskProbeScores(scores *value) *value {
+	t := e.t
+	o := t.alloc(scores.r, scores.c)
+	copy(o.x, scores.x)
+	for row := 0; row < scores.r; row++ {
+		for i, keep := range e.keep {
+			if !keep {
+				o.x[row*scores.c+i] = float32(math.Inf(-1))
+			}
 		}
 	}
-	for _, v := range result.x {
-		if !finite(v) {
-			return nil, fmt.Errorf("needle: nonfinite head output")
-		}
+	if t.train {
+		t.record(func() {
+			for row := 0; row < scores.r; row++ {
+				for i, keep := range e.keep {
+					if keep {
+						scores.g[row*scores.c+i] += o.g[row*scores.c+i]
+					}
+				}
+			}
+		})
 	}
-	return result.x, nil
+	return o
 }
