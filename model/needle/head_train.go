@@ -11,7 +11,8 @@ import (
 // HeadLossGrad freezes the language trunk as upstream _head_cells does. The
 // caller selects a supervised objective, not a confidence-calibration claim:
 // confidence BCE with target[0] in [0,1]; router CE with one integer class;
-// embedding mean squared error against a supplied normalized target vector.
+// embedding/contrastive MSE against a supplied normalized target vector (not
+// paired contrastive/InfoNCE training).
 // This is not the upstream unpublished end-to-end head dataset/training recipe.
 func (m *Model) HeadLossGrad(ids []int, kind HeadKind, target []float32, opts Options) (loss float64, grads map[string]checkpoint.Tensor, err error) {
 	defer recoverWork(&err)
@@ -42,7 +43,7 @@ func (m *Model) HeadLossGrad(ids []int, kind HeadKind, target []float32, opts Op
 		if len(target) != 1 || target[0] < 0 || target[0] >= float32(dim) || target[0] != float32(int(target[0])) {
 			return 0, nil, fmt.Errorf("needle: router target must be one class index")
 		}
-	case Embedding:
+	case Embedding, Contrastive:
 		if len(target) != dim {
 			return 0, nil, fmt.Errorf("needle: embedding target dimension mismatch")
 		}
@@ -104,7 +105,7 @@ func (m *Model) HeadLossGrad(ids []int, kind HeadKind, target []float32, opts Op
 			result.g[i] = float32(math.Exp(float64(v-mx)) / sum)
 		}
 		result.g[label] -= 1
-	case Embedding:
+	case Embedding, Contrastive:
 		for i, v := range result.x {
 			delta := float64(v - target[i])
 			loss += delta * delta / float64(dim)

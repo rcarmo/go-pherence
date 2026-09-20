@@ -41,6 +41,7 @@ type Config struct {
 	DType             string  `json:"dtype"`
 	PadID             int     `json:"pad_token_id"`
 	EmbeddingDim      int     `json:"embedding_dim"`
+	ContrastiveDim    int     `json:"contrastive_dim"`
 	EmbeddingProbes   int     `json:"embedding_probes"`
 	EmbeddingQueries  int     `json:"embedding_queries"`
 	ConfidenceProbes  int     `json:"confidence_probes"`

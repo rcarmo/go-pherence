@@ -70,12 +70,16 @@ func (e *execution) attentionSoftmax(a *value, window int) *value {
 type HeadKind string
 
 const (
-	Embedding  HeadKind = "embedding"
-	Confidence HeadKind = "confidence"
-	Router     HeadKind = "router"
+	Embedding   HeadKind = "embedding"
+	Contrastive HeadKind = "contrastive"
+	Confidence  HeadKind = "confidence"
+	Router      HeadKind = "router"
 )
 
 func (m *Model) headGeometry(kind HeadKind) (k, q, out int, err error) {
+	if m.config.Generation == 2 {
+		return m.headGeometryV2(kind)
+	}
 	if m.config.Generation != 3 {
 		return 0, 0, 0, fmt.Errorf("needle: probe-head API requires Needle3")
 	}
@@ -189,6 +193,9 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 	return result.x, nil
 }
 func (e *execution) probeHead(kind HeadKind) *value {
+	if e.m.config.Generation == 2 {
+		return e.probeHeadV2(kind)
+	}
 	m, t := e.m, e.t
 	k, q, _, _ := m.headGeometry(kind)
 	l, d := m.config.Layers+1, m.config.DModel
@@ -227,27 +234,32 @@ func (e *execution) probeHead(kind HeadKind) *value {
 	proj := e.headWeight(prefix + "proj/kernel")
 	result := t.mm(flat, proj, false)
 	if kind == Embedding {
-		var sum float32
-		for _, v := range result.x {
-			sum += v * v
-		}
-		norm := float32(math.Sqrt(float64(sum + 1e-12)))
-		raw := result
-		result = t.alloc(raw.r, raw.c)
-		for i := range result.x {
-			result.x[i] = raw.x[i] / norm
-		}
-		if t.train {
-			normalized := result
-			t.record(func() {
-				dot := simd.Sdot(normalized.g, normalized.x)
-				for i, g := range normalized.g {
-					raw.g[i] += (g - normalized.x[i]*dot) / norm
-				}
-			})
-		}
+		return t.unitHead(result)
 	} else {
 		result = t.add(result, e.param(prefix+"proj/bias", -1))
+	}
+	return result
+}
+
+func (t *tape) unitHead(result *value) *value {
+	var sum float32
+	for _, v := range result.x {
+		sum += v * v
+	}
+	norm := float32(math.Sqrt(float64(sum + 1e-12)))
+	raw := result
+	result = t.alloc(raw.r, raw.c)
+	for i := range result.x {
+		result.x[i] = raw.x[i] / norm
+	}
+	if t.train {
+		normalized := result
+		t.record(func() {
+			dot := simd.Sdot(normalized.g, normalized.x)
+			for i, g := range normalized.g {
+				raw.g[i] += (g - normalized.x[i]*dot) / norm
+			}
+		})
 	}
 	return result
 }

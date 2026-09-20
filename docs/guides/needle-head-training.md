@@ -1,4 +1,4 @@
-## Needle 3 head training and half-width models
+## Needle head training and half-width models
 
 Needle's auxiliary heads can be trained without updating the language-model trunk. `HeadLossGrad` computes a supervised loss and gradients for one selected head; `TrainHeadStep` applies AdamW and returns a new model. The input embeddings and layer cells are computed once per call with the requested numerics, then treated as constants, matching upstream's stop-gradient boundary.
 
@@ -65,7 +65,25 @@ next, loss, err := m.TrainHeadStep(optimizer, ids, needle.Confidence, []float32{
 
 The explicit objectives above are also used by the JAX parity fixture. That checks the mathematics, not whether the labels or training recipe are useful for a real task.
 
-## Half-width slicing
+## Needle 2 heads
+
+Needle 2 uses different parameter names and pooling: `contrastive_head` has four probes, `confidence_head` eight, with one softmax over all token/layer cells. It does not use Needle 3's per-layer RMS and second query pool. Call `Head(ids, needle.Contrastive, opts)` or `Head(ids, needle.Confidence, opts)` on a source checkpoint that contains the corresponding tensors. `contrastive_dim` sets the output width (upstream default 128); normalized outputs use the same epsilon as upstream. Confidence returns raw logits, not calibrated probabilities.
+
+For frozen-trunk training, `HeadLossGrad` and `TrainHeadStep` accept `Contrastive` with a unit-vector MSE target or `Confidence` with a BCE target. Contrastive MSE is **not** the upstream paired contrastive/InfoNCE objective. `contrastive_head/log_temp` is preserved as a scalar checkpoint parameter and does not participate in this objective; no zero-gradient optimizer update or weight decay is applied to it. There is no Needle 2 router or Needle 3-style `embedding` head. CQ options and deployment archives remain unsupported for these heads.
+
+```sh
+# tokens.json contains {"tokens":[2,7,4,9,3],"target":[1,0,0,0]}
+# The source checkpoint must have a four-dimensional contrastive head.
+bin/needle -model checkpoints/needle2-source.safetensors -input tokens.json \
+  -mode train-head -head contrastive -steps 5 -lr 0.001 \
+  -out checkpoints/needle2-contrastive-trained.safetensors
+bin/needle -model checkpoints/needle2-contrastive-trained.safetensors \
+  -input tokens.json -mode contrastive
+```
+
+Both commands use source safetensors and token IDs; they do not imply Needle 2 `.cact` loading or text tokenizer support. See the [Needle 2 validation record](../validation/needle2-heads-20260920.md) for pinned upstream outputs, padding masks, head gradients and native ARM checks.
+
+## Half-width slicing (Needle 3)
 
 `m.SliceWidth(width)` implements the pinned Needle 3 `width_config` and `width_slice` tensor selection, not arbitrary truncation. `cmd/needle -width N` applies the same operation before inference or training. If `-layers` is also specified, depth slicing runs first.
 

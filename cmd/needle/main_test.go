@@ -257,3 +257,46 @@ func TestToolModeAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNeedle2HeadCLI(t *testing.T) {
+	raw, err := os.ReadFile("../../model/needle/testdata/needle2-heads.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Config  json.RawMessage              `json:"config"`
+		Tensors map[string]checkpoint.Tensor `json:"tensors"`
+	}
+	if err = json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "v2.safetensors")
+	out := filepath.Join(dir, "trained.safetensors")
+	input := filepath.Join(dir, "tokens.json")
+	if err = checkpoint.Save(src, &checkpoint.Checkpoint{FormatVersion: 2, Config: fixture.Config, Tensors: fixture.Tensors}); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(input, []byte(`{"tokens":[2,7,4,9,3],"target":[1,0,0,0]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if err = run(context.Background(), []string{"-model", src, "-input", input, "-mode", "train-head", "-head", "contrastive", "-steps", "2", "-out", out}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if err = run(context.Background(), []string{"-model", out, "-input", input, "-mode", "contrastive"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Head       string    `json:"head"`
+		Values     []float32 `json:"values"`
+		Calibrated bool      `json:"calibrated"`
+	}
+	if err = json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Head != "contrastive" || len(result.Values) != 4 || result.Calibrated {
+		t.Fatalf("%s", stdout.String())
+	}
+}

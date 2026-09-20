@@ -55,7 +55,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	path := fs.String("model", "", "Needle safetensors or Needle3 .cact archive")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
 	textPath := fs.String("text-file", "", "UTF-8 text file, .cact tokenizer required; prepends BOS")
-	mode := fs.String("mode", "infer", "infer, tools, train, train-head, embedding, confidence or router")
+	mode := fs.String("mode", "infer", "infer, tools, train, train-head, embedding, contrastive, confidence or router")
 	toolsPath := fs.String("tools", "", "tool schema JSON array (tools mode, no execution)")
 	systemText := fs.String("system", "", "optional tool-mode system instruction")
 	maxCalls := fs.Int("max-calls", 1, "maximum schema-constrained tool calls (1..4)")
@@ -81,8 +81,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if fs.NArg() != 0 || *path == "" || ((*tokens == "") == (*textPath == "")) {
 		return fmt.Errorf("-model and exactly one of -input/-text-file are required; positional arguments are not accepted")
 	}
-	if *mode != "infer" && *mode != "tools" && *mode != "train" && *mode != "train-head" && *mode != "embedding" && *mode != "confidence" && *mode != "router" {
-		return fmt.Errorf("mode must be infer, tools, train, train-head, embedding, confidence or router")
+	if *mode != "infer" && *mode != "tools" && *mode != "train" && *mode != "train-head" && *mode != "embedding" && *mode != "contrastive" && *mode != "confidence" && *mode != "router" {
+		return fmt.Errorf("mode must be infer, tools, train, train-head, embedding, contrastive, confidence or router")
 	}
 	if *mode == "tools" && (*toolsPath == "" || *textPath == "") {
 		return fmt.Errorf("tools mode requires -tools and -text-file")
@@ -126,7 +126,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("width must be 0..4096")
 	}
 	if *mode == "train-head" {
-		if *headKind != "embedding" && *headKind != "confidence" && *headKind != "router" {
+		if *headKind != "embedding" && *headKind != "contrastive" && *headKind != "confidence" && *headKind != "router" {
 			return fmt.Errorf("invalid training head")
 		}
 		if *rank != 0 || *textPath != "" {
