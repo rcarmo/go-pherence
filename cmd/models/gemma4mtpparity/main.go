@@ -44,6 +44,8 @@ type parityReport struct {
 	Drafter          string                              `json:"drafter"`
 	CompressedKV     bool                                `json:"compressed_kv"`
 	Matched          bool                                `json:"matched"`
+	Executed         bool                                `json:"executed"`
+	FixtureValidated bool                                `json:"fixture_validated"`
 	Got              model.MTPGraphGenerationStepSummary `json:"got"`
 	Want             parityCycle                         `json:"want"`
 	LogitMismatches  []string                            `json:"logit_mismatches,omitempty"`
@@ -61,6 +63,7 @@ type selectedLogitDelta struct {
 	Want  float64 `json:"want"`
 	Delta float64 `json:"delta"`
 	Abs   float64 `json:"abs"`
+	Error string  `json:"error,omitempty"`
 	Tol   float64 `json:"tol"`
 }
 
@@ -77,6 +80,7 @@ func main() {
 	mainModel := flag.String("model", "", "override main model path from fixture")
 	drafterPath := flag.String("drafter", "", "override MTP drafter path from fixture")
 	pretty := flag.Bool("pretty", true, "pretty-print JSON report")
+	fixtureOnly := flag.Bool("fixture-only", false, "validate fixture consistency only; never report execution parity")
 	flag.Parse()
 	if *fixturePath == "" {
 		fmt.Fprintln(os.Stderr, "usage: gemma4mtpparity -fixture <fixture.json> [-model main] [-drafter assistant]")
@@ -93,7 +97,12 @@ func main() {
 	if *drafterPath != "" {
 		fx.Drafter = *drafterPath
 	}
-	report, err := runParity(*fixturePath, fx)
+	var report parityReport
+	if *fixtureOnly {
+		report, err = checkFixture(*fixturePath, fx)
+	} else {
+		report, err = runParity(*fixturePath, fx)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "parity: %v\n", err)
 		os.Exit(1)
@@ -109,7 +118,7 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println(string(out))
-	if !report.Matched {
+	if !report.Matched && !(*fixtureOnly && report.FixtureValidated) {
 		os.Exit(1)
 	}
 }
@@ -146,6 +155,9 @@ func loadParityFixture(path string) (parityFixture, error) {
 	}
 	if fx.Tolerance == 0 {
 		fx.Tolerance = 1e-3
+	}
+	if fx.Tolerance < 0 || math.IsNaN(fx.Tolerance) || math.IsInf(fx.Tolerance, 0) {
+		return parityFixture{}, fmt.Errorf("invalid logit tolerance")
 	}
 	return fx, nil
 }
@@ -240,12 +252,8 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 	defer func() { model.ForceOnTheFly = oldForceOnTheFly }()
 	fx.MainModel = resolveParityPath(path, fx.MainModel)
 	fx.Drafter = resolveParityPath(path, fx.Drafter)
-	if (!parityFileExists(fx.MainModel) || !parityFileExists(fx.Drafter)) && len(fx.Cycle.DrafterLogits) == 0 && len(fx.Cycle.VerifierLogits) == 0 {
-		if err := validateTrimmedParityFixture(fx); err != nil {
-			return parityReport{}, err
-		}
-		caps := model.Gemma4MTPGraphCapabilities()
-		return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: true, Got: trimmedStepSummary(fx.Cycle), Want: fx.Cycle, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+	if !parityFileExists(fx.MainModel) || !parityFileExists(fx.Drafter) {
+		return parityReport{}, fmt.Errorf("model assets unavailable: execution parity requires both models; use -fixture-only for schema consistency")
 	}
 	m, err := loadMainModelForParity(fx.MainModel)
 	if err != nil {
@@ -308,7 +316,15 @@ func runParity(path string, fx parityFixture) (parityReport, error) {
 		got.BonusToken == fx.Cycle.BonusToken &&
 		got.AllDraftsAccepted == fx.Cycle.AllDraftsAccepted
 	caps := model.Gemma4MTPGraphCapabilities()
-	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, LogitDeltas: deltas, LogitSummary: selectedLogitSummaries(deltas), Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, Matched: matched, Executed: true, Got: got, Want: fx.Cycle, LogitMismatches: mismatches, LogitDeltas: deltas, LogitSummary: selectedLogitSummaries(deltas), Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
+}
+
+func checkFixture(path string, fx parityFixture) (parityReport, error) {
+	if err := validateTrimmedParityFixture(fx); err != nil {
+		return parityReport{}, err
+	}
+	caps := model.Gemma4MTPGraphCapabilities()
+	return parityReport{Fixture: path, MainModel: fx.MainModel, Drafter: fx.Drafter, CompressedKV: fx.Compressed, FixtureValidated: true, Want: fx.Cycle, Capabilities: caps, MissingForPublic: caps.MissingForPublicGeneration()}, nil
 }
 
 func trimmedStepSummary(c parityCycle) model.MTPGraphGenerationStepSummary {
@@ -369,8 +385,14 @@ func newStepSummary(step model.MTPGraphDecodeStepResult) model.MTPGraphGeneratio
 
 func selectedLogitDeltas(name string, got [][]float32, want []map[string]float64, tol float64) []selectedLogitDelta {
 	var deltas []selectedLogitDelta
-	if len(want) == 0 || len(got) < len(want) {
+	if tol < 0 || math.IsNaN(tol) || math.IsInf(tol, 0) {
+		return []selectedLogitDelta{{Name: name, Error: "invalid tolerance"}}
+	}
+	if len(want) == 0 {
 		return deltas
+	}
+	if len(got) < len(want) {
+		return []selectedLogitDelta{{Name: name, Error: "missing logit rows"}}
 	}
 	for row, probes := range want {
 		keys := make([]string, 0, len(probes))
@@ -389,9 +411,14 @@ func selectedLogitDeltas(name string, got [][]float32, want []map[string]float64
 			wantLogit := probes[key]
 			id, err := strconv.Atoi(key)
 			if err != nil || id < 0 || id >= len(got[row]) {
+				deltas = append(deltas, selectedLogitDelta{Name: name, Row: row, Error: "invalid or missing probe token " + key})
 				continue
 			}
 			gotLogit := float64(got[row][id])
+			if math.IsNaN(gotLogit) || math.IsInf(gotLogit, 0) || math.IsNaN(wantLogit) || math.IsInf(wantLogit, 0) {
+				deltas = append(deltas, selectedLogitDelta{Name: name, Row: row, Token: id, Error: "nonfinite logit"})
+				continue
+			}
 			delta := gotLogit - wantLogit
 			deltas = append(deltas, selectedLogitDelta{Name: name, Row: row, Token: id, Got: gotLogit, Want: wantLogit, Delta: delta, Abs: math.Abs(delta), Tol: tol})
 		}
@@ -402,6 +429,10 @@ func selectedLogitDeltas(name string, got [][]float32, want []map[string]float64
 func selectedLogitMismatches(deltas []selectedLogitDelta) []string {
 	var mismatches []string
 	for _, d := range deltas {
+		if d.Error != "" {
+			mismatches = append(mismatches, fmt.Sprintf("%s row=%d: %s", d.Name, d.Row, d.Error))
+			continue
+		}
 		if d.Abs > d.Tol {
 			mismatches = append(mismatches, fmt.Sprintf("%s row=%d token=%d got=%g want=%g delta=%+g tol=%g", d.Name, d.Row, d.Token, d.Got, d.Want, d.Delta, d.Tol))
 		}
@@ -420,6 +451,9 @@ func selectedLogitSummaries(deltas []selectedLogitDelta) []selectedLogitSummary 
 	byKey := map[string]*acc{}
 	keys := make([]string, 0)
 	for _, d := range deltas {
+		if d.Error != "" {
+			continue
+		}
 		key := d.Name + ":" + strconv.Itoa(d.Row)
 		a := byKey[key]
 		if a == nil {
