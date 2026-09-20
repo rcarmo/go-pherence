@@ -287,6 +287,10 @@ func main() {
 	sweep := flag.String("sweep", "", "newline-separated prompt file for MTP acceptance sweep")
 	sweepLimit := flag.Int("sweep-limit", 0, "maximum prompts to run from -sweep; 0 means all")
 	flag.Parse()
+	if err := validateWorkloadFlags(*steps, *mtpSteps, *kvChunkSize, *kvRepeat, *prefillChunkSize, *mtpMinAcceptance, *gpuVerifyTol, []int{*kvCacheMB, *kvGPUCacheMB, *kvGPUHeadroomMB, *gpuCacheMB, *gpuWindowReserveMB, *gpuCacheHeadroomMB, *prefillScratchMB}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	if *kvCacheMB < 0 {
 		*kvCacheMB = 0
 	}
