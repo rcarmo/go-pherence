@@ -15,6 +15,12 @@ type expertStreamSource interface {
 	Load(keys []uint64) ([]expertstream.LoadedExpert, error)
 }
 
+// Prefer a scoped slot owner when available. Legacy injected sources retain
+// their external-serialization contract; ordinary decode never constructs one.
+type scopedExpertStreamSource interface {
+	WithExperts([]uint64, func([]expertstream.LoadedExpert) error) error
+}
+
 func mlxWeightFromStreamComponent(c expertstream.Component) (*mlx.QuantWeight, error) {
 	if c.Quant == nil || c.DType != expertstream.DTypeMLXQuant {
 		return nil, fmt.Errorf("component is not MLX affine quantized")
@@ -67,10 +73,18 @@ func uploadStreamExpertsToPool(pool *nvidia.ExpertPool, source expertStreamSourc
 			missing = append(missing, uint64(key))
 		}
 	}
+	upload := func(loaded []expertstream.LoadedExpert) error { return uploadLoadedStreamExperts(pool, loaded) }
+	if scoped, ok := source.(scopedExpertStreamSource); ok {
+		return scoped.WithExperts(missing, upload)
+	}
 	loaded, err := source.Load(missing)
 	if err != nil {
 		return err
 	}
+	return upload(loaded)
+}
+
+func uploadLoadedStreamExperts(pool *nvidia.ExpertPool, loaded []expertstream.LoadedExpert) error {
 	for _, expert := range loaded {
 		gate, err := mlxWeightFromStreamComponent(expert.Gate)
 		if err != nil {
