@@ -27,6 +27,8 @@ Use `make gguf-ci-qwen36-reap` for the pinned local Qwen3.6 REAP/TurboQuant gate
 
 ## Architecture support
 
+[ModernBERT-large](../../model/modernbert/README.md) has a native FP32 encoder with strict safetensor/config loading, tokenizer special-token validation, full/sliding bidirectional attention, local/global RoPE and GeGLU. Tiny all-layer and released layers 0/13/27/final outputs match pinned Transformers; warm `Session.ForwardInto` is zero-allocation. The [validation record](../validation/modernbert-native-20260920.md) separates Intel released-model evidence from native ARM tiny-fixture execution. Task heads, training and quantization remain separate work; Laya integration builds on this encoder.
+
 | Architecture | Models | Formats | Status |
 |---|---|---|---|
 | **llama** | SmolLM2, LLaMA 3.x | BF16, F16, F32 | ✅ |
