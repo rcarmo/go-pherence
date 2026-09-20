@@ -1,5 +1,7 @@
 package kernels
 
+import "github.com/rcarmo/go-pherence/internal/checked"
+
 // ApplyRoPE applies full-half rotary position embedding in-place.
 func ApplyRoPE(x, freqs []float32, pos, numHeads, headDim int) {
 	ApplyRoPEPartial(x, freqs, pos, numHeads, headDim, headDim/2)
@@ -14,16 +16,20 @@ func ApplyRoPEPartial(x, freqs []float32, pos, numHeads, headDim, rotHalf int) {
 	if rotHalf > headDim/2 {
 		rotHalf = headDim / 2
 	}
+	// Bound the initial pair offset before multiplication; retain the existing
+	// partial-frequency behaviour without letting huge positions wrap negative.
+	start, ok := checked.MulInt(pos, rotHalf)
+	if !ok || start >= len(freqs)/2 {
+		return
+	}
+	pairs := min(rotHalf, len(freqs)/2-start)
 	maxHeads := len(x) / headDim
 	if numHeads > maxHeads {
 		numHeads = maxHeads
 	}
 	for h := 0; h < numHeads; h++ {
-		for i := 0; i < rotHalf; i++ {
-			freqOff := (pos*rotHalf + i) * 2
-			if freqOff+1 >= len(freqs) {
-				break
-			}
+		for i := 0; i < pairs; i++ {
+			freqOff := (start + i) * 2
 			cos := freqs[freqOff]
 			sin := freqs[freqOff+1]
 			idx0 := h*headDim + i

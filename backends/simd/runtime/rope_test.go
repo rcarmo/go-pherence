@@ -108,3 +108,13 @@ func TestApplyRoPEPartialRuntimeWrapper(t *testing.T) {
 		}
 	}
 }
+
+func TestRoPEVoidFallbackHugePosition(t *testing.T) {
+	x := []float32{1, 2, 3, 4}
+	ApplyRoPEPartial(x, []float32{0, 1, 0, 1}, int(^uint(0)>>1), 1, 4, 2)
+	for i, v := range []float32{1, 2, 3, 4} {
+		if x[i] != v {
+			t.Fatal(x)
+		}
+	}
+}

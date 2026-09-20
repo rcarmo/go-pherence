@@ -147,3 +147,15 @@ func assertFloat32SlicesClose(t *testing.T, got, want []float32, tol float64) {
 		}
 	}
 }
+
+func TestRoPEHugePositionCannotWrapFrequencyIndex(t *testing.T) {
+	for _, pos := range []int{int(^uint(0) >> 1), int(^uint(0)>>1)/2 + 1} {
+		x := []float32{1, 2, 3, 4}
+		ApplyRoPEPartial(x, []float32{0, 1, 0, 1}, pos, 1, 4, 2)
+		for i, v := range []float32{1, 2, 3, 4} {
+			if x[i] != v {
+				t.Fatal(x)
+			}
+		}
+	}
+}
