@@ -1,0 +1,6 @@
+# Generated bundles and upstream Markdown-in-template fixtures contain deliberate
+# whitespace inside strings. Keep those bytes intact rather than rewriting UX.
+webui/dist/** -whitespace linguist-generated=true
+webui/frontend/tests/stories/fixtures/ai-tutorial.ts -whitespace
+webui/frontend/tests/stories/fixtures/api-docs.ts -whitespace
+webui/frontend/tests/stories/fixtures/blog-post.ts -whitespace

@@ -17,6 +17,7 @@ import (
 	"github.com/rcarmo/go-pherence/internal/httpinput"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/diffusiongemma"
+	"github.com/rcarmo/go-pherence/webui"
 )
 
 type server struct {
@@ -119,9 +120,34 @@ type completionResponse struct {
 	DiffusionStats    diffusionStats `json:"diffusion_stats"`
 }
 
+func (s *server) routes(enableWebUI bool) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", s.handleHealth)
+	mux.HandleFunc("/v1/models", s.handleModels)
+	mux.HandleFunc("/v1/completions", s.handleCompletions)
+	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	if enableWebUI {
+		contextSize := 0 // Omit unknown context size rather than inventing one.
+		if s.model != nil {
+			contextSize = s.model.Config.TextConfig.MaxPositionEmbeddings
+		}
+		defaultMax := s.defaultMaxNew
+		if defaultMax <= 0 {
+			defaultMax = 1
+		}
+		limit := max(defaultMax, 4096)
+		webui.Register(mux, webui.Config{
+			ModelID: s.modelID, ContextSize: contextSize, MaxTokens: limit,
+			DefaultMaxTokens: defaultMax, ChatHandler: http.HandlerFunc(s.handleChatCompletions),
+		})
+	}
+	return mux
+}
+
 func main() {
 	modelDir := flag.String("model", "", "DiffusionGemma model directory")
 	listen := flag.String("listen", ":8080", "listen address")
+	enableWebUI := flag.Bool("webui", false, "serve the embedded llama.cpp UI at /")
 	modelID := flag.String("model-id", "diffusiongemma-k3", "OpenAI model id to advertise")
 	maxNew := flag.Int("max-new", 1, "default maximum generated tokens")
 	canvas := flag.Int("canvas", 0, "default canvas length")
@@ -256,11 +282,7 @@ func main() {
 	}
 	s := &server{modelID: *modelID, modelDir: *modelDir, model: m, engine: eng, tok: tok, vocab: vocab, defaultMaxNew: *maxNew, defaultCanvas: *canvas, defaultDenoiseStep: *denoiseSteps, defaultSeed: *seed, addBOS: *addBOS, addGenerationPrompt: *addGenerationPrompt}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", s.handleHealth)
-	mux.HandleFunc("/v1/models", s.handleModels)
-	mux.HandleFunc("/v1/completions", s.handleCompletions)
-	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	mux := s.routes(*enableWebUI)
 	log.Printf("diffusiongemmaserver: listening on %s model=%s", *listen, *modelID)
 	httpServer := &http.Server{Addr: *listen, Handler: logRequests(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	log.Fatal(httpServer.ListenAndServe())

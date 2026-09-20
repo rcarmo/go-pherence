@@ -1565,3 +1565,17 @@ diffusiongemma-k3-check: diffusiongemma-k3-smoke diffusiongemma-k3-fp8-fallback-
 	HOME=/home/me TMPDIR=/tmp GOTMPDIR=/tmp GOCACHE=/home/me/.cache/go-build GOMODCACHE=/home/me/go/pkg/mod go test ./model/diffusiongemma ./cmd/diffusiongemmarun ./backends/spacemit/aicpu/aipool ./backends/spacemit/ime2
 	HOME=/home/me TMPDIR=/tmp GOTMPDIR=/tmp GOCACHE=/home/me/.cache/go-build GOMODCACHE=/home/me/go/pkg/mod GO_PHERENCE_DIFFUSIONGEMMA_TEST_MODEL=$(DIFFUSIONGEMMA_K3_MODEL) go test -run 'TestCachedFloatTensorAppliesFP8Scale|TestK3A100Q80ModelProjection' -v ./model/diffusiongemma
 	@echo "DiffusionGemma K3 check passed: A100 smoke + scaled-FP8 fallback smoke + model-backed Q80/FP8 tests + affected Go tests"
+
+# The llama.cpp UI is built with Bun and embedded in Go (no JS server at runtime).
+.PHONY: webui-build webui-check webui-test
+webui-build:
+	cd webui/frontend && bun install --frozen-lockfile
+	cd webui/frontend && LLAMA_UI_OUT_DIR=../dist bun run build
+
+webui-check:
+	cd webui/frontend && bun run check
+	cd webui/frontend && bun run test:unit --run
+
+webui-test:
+	GO_PHERENCE_DISABLE_NVIDIA=1 go test -race ./webui ./cmd/llm/llmserver ./cmd/diffusiongemmaserver
+	cd webui/frontend && bun x playwright test --config playwright.go.config.ts

@@ -21,6 +21,7 @@ import (
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
+	"github.com/rcarmo/go-pherence/webui"
 )
 
 // OpenAI API types
@@ -664,10 +665,30 @@ func loadRuntimeModelWithKV(path string, useGPU bool, gpuLayers int, cacheTypeK,
 	return m, tok, gpu, nil
 }
 
+func (s *Server) routes(enableWebUI bool) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/v1/models", s.handleModels)
+	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	if enableWebUI {
+		webui.Register(mux, webui.Config{
+			ModelID: s.modelID, ContextSize: s.maxCtx, MaxTokens: 4096,
+			CurrentModel: func() (string, int) {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				return s.modelID, s.maxCtx
+			},
+			ChatHandler: http.HandlerFunc(s.handleChatCompletions),
+		})
+	}
+	return mux
+}
+
 func main() {
 	dir := flag.String("model", "", "model directory")
 	modelPresets := flag.String("model-presets", "", "llama.cpp-compatible models.ini preset file")
 	listen := flag.String("listen", ":8080", "address to listen on")
+	enableWebUI := flag.Bool("webui", false, "serve the embedded llama.cpp UI at /")
 	useGPU := flag.Bool("gpu", false, "use GPU")
 	gpuLayers := flag.Int("gpu-layers", 0, "number of layers on GPU (0=all)")
 	threads := flag.Int("threads", 4, "decode CPU threads hint for llama.cpp-compatible deployments")
@@ -754,10 +775,7 @@ func main() {
 		log.Printf("GPU model ready")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", srv.handleHealth)
-	mux.HandleFunc("/v1/models", srv.handleModels)
-	mux.HandleFunc("/v1/chat/completions", srv.handleChatCompletions)
+	mux := srv.routes(*enableWebUI)
 
 	log.Printf("Listening on %s", *listen)
 	log.Printf("  GET  /health")
