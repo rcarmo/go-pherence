@@ -69,7 +69,7 @@ func main() {
 	}
 	reap := m.REAP.Summary()
 	fmt.Printf("loaded architecture=%s layers=%d hidden=%d experts=%d active=%d qwennext=%v reap=%.2f reap_source=%s reap_static_masks=%v reap_default_experts=%d reap_layer_masks=%d reap_layer_experts=%d bos=%d eos=%d in %.2fs\n", m.Config.Architecture, m.Config.NumLayers, m.Config.HiddenSize, m.Config.NumExperts, m.Config.NumExpertsPerTok, m.Config.IsQwenNextHybridGGUF(), reap.PruneRatio, reap.Source, reap.HasStaticMasks, reap.DefaultExperts, reap.LayerMasks, reap.LayerExpertTotal, m.Config.BOSTokenID, m.Config.EOSTokenID, time.Since(t0).Seconds())
-	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
+	if kvPlanRequested(*cacheTypeK, *cacheTypeV, *kvResidualWindow, *expectSIMDRotation, *expectFullKVBytes, *expectEstimatedKVBytes, *expectSavedKVBytes, *expectEstimatedScratchBytes, *expectEstimatedTotalBytes, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes, *expectRuntimeScratchBytes, *expectRuntimeTotalBytes, int64(*kvSmokeTokens)-1) {
 		plan, err := m.TurboQuantPlan(*cacheTypeK, *cacheTypeV, *kvResidualWindow)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufsmoke: turboquant plan failed: %v\n", err)
@@ -85,7 +85,12 @@ func main() {
 		}
 		fmt.Printf("turboquant enabled=%v key_bits=%d value_bits=%d residual=%d layers=%d cache_layers=%d protected_cache_layers=%d max_seq=%d kv_dim=%d full_kv_bytes=%d estimated_kv_bytes=%d estimated_saved_kv_bytes=%d estimated_kv_ratio=%.4f estimated_scratch_bytes=%d estimated_total_bytes=%d simd_arch=%s simd_rotation=%v simd_vec=%v simd_avx2=%v simd_neon=%v simd_rvv=%v\n", plan.Enabled, plan.KeyBits, plan.ValueBits, plan.ResidualWindow, plan.Layers, plan.CacheLayers, plan.ProtectedCacheLayers, plan.MaxSeqLen, plan.KVDim, plan.FullKVBytes, plan.EstimatedKVBytes, plan.EstimatedSavedKVBytes, plan.EstimatedKVRatio, plan.EstimatedScratchBytes, plan.EstimatedTotalBytes, plan.SIMDArch, plan.SIMDRotation, plan.SIMDVec, plan.SIMDAVX2, plan.SIMDNEON, plan.SIMDRVv)
 		planPromptIDs, _ := resolvePromptIDs(*path, *promptText, *promptIDsCSV)
-		if rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow}); err == nil {
+		rt, err := m.GenerationKVRuntimePlan(len(planPromptIDs), *maxNew, model.GGUFGenerationOptions{CacheTypeK: *cacheTypeK, CacheTypeV: *cacheTypeV, KVResidualWindow: *kvResidualWindow})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ggufsmoke: runtime plan failed: %v\n", err)
+			os.Exit(1)
+		}
+		{
 			if err := checkExpectedRuntimeKV(rt, *expectRuntimeFloatBytes, *expectRuntimeCompressedBytes, *expectRuntimeScratchBytes, *expectRuntimeTotalBytes); err != nil {
 				fmt.Fprintf(os.Stderr, "ggufsmoke: %v\n", err)
 				os.Exit(1)
@@ -585,4 +590,16 @@ func loadGGUFTokenizerForDecode(modelPath string) *gguf.Tokenizer {
 	}
 	tok.SetModelPath(modelPath)
 	return tok
+}
+
+func kvPlanRequested(k, v string, residual int, simd bool, expectations ...int64) bool {
+	if k != "" || v != "" || residual >= 0 || simd {
+		return true
+	}
+	for _, n := range expectations {
+		if n >= 0 {
+			return true
+		}
+	}
+	return false
 }

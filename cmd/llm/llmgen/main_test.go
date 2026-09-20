@@ -74,3 +74,14 @@ func TestValidateMTPCLIFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestMTPKVExtentValidation(t *testing.T) {
+	for _, dims := range [][2]int{{0, 1}, {1, 0}, {-1, 4}, {int(^uint(0) >> 1), 4}, {int(^uint(0)>>1) / 2, 1}} {
+		if _, err := mtpKVElements(dims[0], dims[1]); err == nil {
+			t.Fatal(dims)
+		}
+	}
+	if n, err := mtpKVElements(3, 4); err != nil || n != 12 {
+		t.Fatal(n, err)
+	}
+}

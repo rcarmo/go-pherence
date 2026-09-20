@@ -34,3 +34,17 @@ func TestGGUFTurboQuantPlanFromInspectionRejectsPolicy(t *testing.T) {
 		t.Fatal("expected invalid policy error")
 	}
 }
+
+func TestExpectationAloneRequestsPlan(t *testing.T) {
+	if kvPlanRequested("", "", -1, false, -1, -1) {
+		t.Fatal("unexpected plan")
+	}
+	for _, n := range []int64{0, 1, 1 << 60} {
+		if !kvPlanRequested("", "", -1, false, -1, n, -1) {
+			t.Fatal("expectation ignored", n)
+		}
+	}
+	if !kvPlanRequested("", "", -1, true) {
+		t.Fatal("SIMD expectation ignored")
+	}
+}

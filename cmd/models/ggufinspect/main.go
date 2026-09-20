@@ -170,7 +170,7 @@ func main() {
 		os.Exit(1)
 	}
 	var tqPlan any
-	if *cacheTypeK != "" || *cacheTypeV != "" || *kvResidualWindow >= 0 {
+	if kvPlanRequested(*cacheTypeK, *cacheTypeV, *kvResidualWindow, *expectSIMDRotation, *expectFullKVBytes, *expectEstimatedKVBytes, *expectSavedKVBytes, *expectEstimatedScratchBytes, *expectEstimatedTotalBytes, int64(*expectProtectedCacheLayers)) {
 		plan, err := ggufTurboQuantPlanFromInspection(in, *cacheTypeK, *cacheTypeV, *kvResidualWindow)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ggufinspect: turboquant plan: %v\n", err)
@@ -297,4 +297,16 @@ func inspectUsesKVLayer(in gguf.Inspection, layer uint32) bool {
 		return true
 	}
 	return (layer+1)%in.FullAttentionInterval == 0
+}
+
+func kvPlanRequested(k, v string, residual int, simd bool, expectations ...int64) bool {
+	if k != "" || v != "" || residual >= 0 || simd {
+		return true
+	}
+	for _, n := range expectations {
+		if n >= 0 {
+			return true
+		}
+	}
+	return false
 }

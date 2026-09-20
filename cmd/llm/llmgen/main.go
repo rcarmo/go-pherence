@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
 	"github.com/rcarmo/go-pherence/model"
@@ -200,6 +201,18 @@ func main() {
 	_ = genText
 }
 
+// Check arithmetic before allocation; trusted-local callers still choose workload size.
+func mtpKVElements(seqLen, kvDim int) (int, error) {
+	n, ok := checked.MulInt(seqLen, kvDim)
+	if seqLen <= 0 || kvDim <= 0 || !ok {
+		return 0, fmt.Errorf("invalid/overflowing MTP KV shape")
+	}
+	if _, ok := checked.MulInt(n, 4); !ok {
+		return 0, fmt.Errorf("MTP KV byte size overflow")
+	}
+	return n, nil
+}
+
 func generatedSuffixFromFullOutput(inputIDs, maxTokens int, output []int) []int {
 	if maxTokens <= 0 || len(output) == 0 {
 		return nil
@@ -372,8 +385,12 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 			if err != nil {
 				return fmt.Errorf("drafter layer %d KV dim: %w", i, err)
 			}
-			k[i] = make([]float32, seqLen*kvDim)
-			v[i] = make([]float32, seqLen*kvDim)
+			elements, err := mtpKVElements(seqLen, kvDim)
+			if err != nil {
+				return err
+			}
+			k[i] = make([]float32, elements)
+			v[i] = make([]float32, elements)
 		}
 		var err error
 		externalKV, err = model.NewMTPDrafterExternalKV(d, k, v, seqLen)
