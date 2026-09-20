@@ -356,7 +356,7 @@ rn_apply_scalar:
 rn_apply_scalar_loop:
     FMOVS   (R0), F0
     FMOVS   (R1), F5
-    FMULS   F4, F0, F0       // x * invRMS
+    FMULS   F6, F0, F0       // invRMS survives vector weight loads in V4
     FMULS   F5, F0, F0       // * w
     FMOVS   F0, (R0)
     ADD     $4, R0
@@ -523,7 +523,7 @@ bf16add_arm_loop8:
     WORD    $0x4e23d442   // FADD  V2.4S, V2.4S, V3.4S
     // Narrow F32→BF16: USHR #16 + XTN
     WORD    $0x6f300442   // USHR  V2.4S, V2.4S, #16
-    WORD    $0x0ea12842   // XTN   V2.4H, V2.4S
+    WORD    $0x0e612842   // XTN   V2.4H, V2.4S
     VST1    [V2.H4], (R3)
     ADD     $8, R0
     ADD     $8, R1
@@ -641,7 +641,7 @@ bf16rn_arm_apply_loop4:    // 4-wide is optimal for apply (compute-bound)
     WORD    $0x6e26dc42    // FMUL V2.4S, V2.4S, V6.4S
     WORD    $0x6e23dc42    // FMUL V2.4S, V2.4S, V3.4S
     WORD    $0x6f300442    // USHR V2.4S, V2.4S, #16
-    WORD    $0x0ea12842    // XTN  V2.4H, V2.4S
+    WORD    $0x0e612842    // XTN  V2.4H, V2.4S
     VST1    [V2.H4], (R0)
     ADD     $8, R0
     ADD     $8, R1
@@ -741,8 +741,8 @@ bfn_arm_loop8:
     WORD    $0x6f300400    // USHR V0.4S, V0.4S, #16
     WORD    $0x6f300421    // USHR V1.4S, V1.4S, #16
     // Narrow: XTN V0.4H, V0.4S then XTN2 V0.8H, V1.4S
-    WORD    $0x0ea12800    // XTN  V0.4H, V0.4S
-    WORD    $0x4ea12820    // XTN2 V0.8H, V1.4S
+    WORD    $0x0e612800    // XTN  V0.4H, V0.4S
+    WORD    $0x4e612820    // XTN2 V0.8H, V1.4S
     // Store 8× BF16 (16 bytes)
     VST1.P  [V0.H8], 16(R3)
     SUB     $8, R2, R2
@@ -754,7 +754,7 @@ bfn_arm_tail4:
     BLT     bfn_arm_scalar
     VLD1.P  16(R0), [V0.S4]
     WORD    $0x6f300400
-    WORD    $0x0ea12800
+    WORD    $0x0e612800
     VST1    [V0.H4], (R3)
     ADD     $8, R3
     SUB     $4, R2, R2
@@ -876,7 +876,7 @@ rnns_arm_apply_scalar:
 
 rnns_arm_scalar_loop:
     FMOVS   (R0), F0
-    FMULS   F4, F0, F0
+    FMULS   F6, F0, F0       // V4 was overwritten by the vector apply loop
     FMOVS   F0, (R0)
     ADD     $4, R0
     SUB     $1, R2, R2
