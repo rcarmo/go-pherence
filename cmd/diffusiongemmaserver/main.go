@@ -271,7 +271,18 @@ func main() {
 			}
 			log.Printf("diffusiongemmaserver: K3 Q80 prewarmed layers=%d tensors=%d include_experts=%v", *q80PrewarmLayers, n, *q80PrewarmExperts)
 		}
-		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction})
+		idx, fp8Owner, setupErr := diffusiongemma.OpenCPUExpertIndex(*modelDir, m.Shape, weights)
+		if setupErr != nil {
+			log.Fatal(setupErr)
+		}
+		if fp8Owner != nil {
+			defer fp8Owner.Close()
+		}
+		finalSoftcap := float32(m.Shape.FinalLogitSoftcapping)
+		if finalSoftcap == 0 {
+			finalSoftcap = float32(m.Config.TextConfig.FinalLogitSoftcapping)
+		}
+		denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction, ExpertIndex: idx, FinalLogitSoftcapping: finalSoftcap})
 		if err != nil {
 			log.Fatal(err)
 		}

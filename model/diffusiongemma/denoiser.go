@@ -11,9 +11,9 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-// TextDenoiser is the future native tensor-backed DiffusionGemma denoiser. It
-// currently validates and owns the metadata/weight binding needed by a forward
-// pass, but does not yet implement layer math.
+// TextDenoiser owns the native tensor-backed DiffusionGemma text forward path.
+// Dispatcher implementations provide CPU/SIMD, GPU or device-specific layer
+// math; the denoiser validates plans and manages prompt KV lifecycle.
 type TextDenoiser struct {
 	Shape            Shape
 	Weights          *TextWeights

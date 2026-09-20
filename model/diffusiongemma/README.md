@@ -39,8 +39,7 @@ expert selection across 128 experts.
 
 ### Current status
 
-The native text scaffold now accepts both original fused 3D expert tensors and
-the FP8 per-expert tensor format. On riscv64/K3, large FP8 projections can be
+The native text path accepts both original fused 3D expert tensors and the FP8 per-expert tensor format. Indexed FP8 checkpoints build a direct layer/expert index at startup for CPU/SIMD routing; fused checkpoints need no separate index. On riscv64/K3, large FP8 projections can be
 packed into row-scale Q80x32 tiles and dispatched through the SpacemiT A100
 worker pool, with X100 cores packing activations in parallel.
 
@@ -56,7 +55,7 @@ worker pool, with X100 cores packing activations in parallel.
 | `cpu_dispatcher.go` | Full CPU/SIMD forward: flash/materialized attention, MLP, MoE experts, router |
 | `gpu_dispatcher.go` | GPU/CUDA dispatcher scaffold with CPU fallback |
 | `encoder.go` | Encoder integration |
-| `denoiser.go` | Block-diffusion denoiser (not yet implemented) |
+| `denoiser.go` | Block-diffusion text denoiser, dispatcher integration and prompt-KV lifecycle |
 | `sampler.go` | Token sampling (top-k, top-p) |
 | `chat_prompt.go`, `chat_template.go` | Chat message formatting |
 | `vocab.go` | Vocabulary/tokenizer integration |
@@ -512,3 +511,5 @@ The F32 fallback uses the same occupancy grouping and batched `GemmRows` helper.
 Dense MLP, self-conditioning, and router fallback paths also use batched GEMM for
 multi-position canvases, avoiding accidental loops of independent row GEMVs on
 256-canvas runs.
+
+The [FP8 end-to-end CPU validation](../../docs/validation/diffusiongemma-fp8-end-to-end-20260920.md) records real safetensor generation, deterministic output, HTTP chat and embedded UI checks. Capability metadata remains `runtime_ready=false` until broader text and full vision-sequence reference fixtures are complete.

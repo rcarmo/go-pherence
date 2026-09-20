@@ -652,7 +652,14 @@ func main() {
 				gpuDisp.SCEmbed = nil
 			}
 		} else {
-			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction, FinalLogitSoftcapping: finalSoftcap}
+			idx, fp8Owner, setupErr := diffusiongemma.OpenCPUExpertIndex(*modelDir, m.Shape, weights)
+			if setupErr != nil {
+				fatal(setupErr)
+			}
+			if fp8Owner != nil {
+				defer fp8Owner.Close()
+			}
+			cpuDisp := diffusiongemma.CPUDispatcher{ResidentLayerPrefix: *residentLayers, MaxLayers: *maxDispatchLayers, TailAfterMaxLayers: *tailAfterMaxLayers, LMHeadTopK: *lmHeadTopK, Progress: *dispatchProgress, SkipEviction: *skipEviction, ExpertIndex: idx, FinalLogitSoftcapping: finalSoftcap}
 			denoiser, err = diffusiongemma.NewTextDenoiserWithDispatcher(m.Shape, weights, cpuDisp)
 		}
 		if err != nil {
