@@ -147,12 +147,15 @@ type uvmRegisterGPUVASpaceParams struct {
 
 // --- NV Device ---
 
+// Setup/Close require a quiescent owner; descriptor closure does not drain GPU work.
 type NVDevice struct {
-	fdCtl      int // /dev/nvidiactl
-	fdDev      int // /dev/nvidia0
-	fdDevAlloc int // /dev/nvidia0 (for memory allocs)
-	fdUVM      int // /dev/nvidia-uvm
-	fdUVM2     int // second UVM fd
+	allocMu     sync.Mutex
+	filesOpened bool
+	fdCtl       int // /dev/nvidiactl
+	fdDev       int // /dev/nvidia0
+	fdDevAlloc  int // /dev/nvidia0 (for memory allocs)
+	fdUVM       int // /dev/nvidia-uvm
+	fdUVM2      int // second UVM fd
 
 	root      uint32 // root client handle
 	device    uint32 // NV01_DEVICE_0
@@ -187,35 +190,20 @@ func NVAvailable() bool {
 	return err == nil && dev != nil
 }
 
-func nvInit() (*NVDevice, error) {
+func nvInit() (result *NVDevice, err error) {
 	d := &NVDevice{
+		fdCtl: -1, fdDev: -1, fdDevAlloc: -1, fdUVM: -1, fdUVM2: -1,
 		handleCounter: 0x1000,
 		vaAllocator:   0x1000000000, // start VA at 64GB
 	}
 
-	var err error
-
-	// Open device nodes
-	d.fdCtl, err = unix.Open("/dev/nvidiactl", unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open /dev/nvidiactl: %w", err)
-	}
-	d.fdDev, err = unix.Open("/dev/nvidia0", unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open /dev/nvidia0: %w", err)
-	}
-	// Keep a separate fd for memory allocs (driver may consume it)
-	d.fdDevAlloc, err = unix.Open("/dev/nvidia0", unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open /dev/nvidia0 (alloc): %w", err)
-	}
-	d.fdUVM, err = unix.Open("/dev/nvidia-uvm", unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open /dev/nvidia-uvm: %w", err)
-	}
-	d.fdUVM2, err = unix.Open("/dev/nvidia-uvm", unix.O_RDWR|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open /dev/nvidia-uvm (2): %w", err)
+	defer func() {
+		if err != nil {
+			d.Close()
+		}
+	}()
+	if err = d.openDeviceFiles(unix.Open, unix.Close); err != nil {
+		return nil, err
 	}
 
 	// Allocate root client
@@ -272,6 +260,11 @@ func (d *NVDevice) nextHandle() uint32 {
 	if d == nil {
 		return 0
 	}
+	d.allocMu.Lock()
+	defer d.allocMu.Unlock()
+	if d.handleCounter == ^uint32(0) {
+		return 0
+	}
 	d.handleCounter++
 	return d.handleCounter
 }
@@ -280,6 +273,8 @@ func (d *NVDevice) allocVA(size uint64) uint64 {
 	if d == nil || size == 0 || size > ^uint64(0)-0xFFF {
 		return 0
 	}
+	d.allocMu.Lock()
+	defer d.allocMu.Unlock()
 	// Simple bump allocator, 4KB aligned
 	size = (size + 0xFFF) &^ 0xFFF
 	addr := d.vaAllocator
@@ -327,6 +322,9 @@ func (d *NVDevice) rmAlloc(parent uint32, class uint32, allocParams unsafe.Point
 		return 0, fmt.Errorf("nil allocation params for size %d", allocSize)
 	}
 	handle := d.nextHandle()
+	if handle == 0 {
+		return 0, fmt.Errorf("RM handle space exhausted")
+	}
 	root := d.root
 	if root == 0 {
 		root = handle // first alloc is root itself
@@ -380,18 +378,7 @@ func (d *NVDevice) Close() {
 	if d == nil {
 		return
 	}
-	if d.fdCtl > 0 {
-		unix.Close(d.fdCtl)
-	}
-	if d.fdDev > 0 {
-		unix.Close(d.fdDev)
-	}
-	if d.fdUVM > 0 {
-		unix.Close(d.fdUVM)
-	}
-	if d.fdUVM2 > 0 {
-		unix.Close(d.fdUVM2)
-	}
+	d.closeDeviceFiles(unix.Close)
 }
 
 // Temporary file handle for mmap
