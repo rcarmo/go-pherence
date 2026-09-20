@@ -72,3 +72,11 @@ func TestPromptCacheRejectPreservesValueAndConcurrentCalls(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestLegacyPayloadEstimateIncludesUnmatchedV(t *testing.T) {
+	snap := PromptSnapshot{State: Qwen35BaseForwardState{FullV: [][]float32{{1, 2}}}}
+	n, err := kv.EstimateSnapshotBytes(PromptSnapshotForBudget(snap))
+	if err != nil || n != 8 {
+		t.Fatal(n, err)
+	}
+}

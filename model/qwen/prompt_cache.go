@@ -67,14 +67,20 @@ func ClonePromptSnapshot(s PromptSnapshot) PromptSnapshot {
 	return PromptSnapshot{State: state, Next: s.Next, Logit: s.Logit, Hidden: append([]float32(nil), s.Hidden...), PreNorm: append([]float32(nil), s.PreNorm...), EndPos: s.EndPos}
 }
 
+// PromptSnapshotForBudget is a legacy payload-only reporting adapter. Store
+// uses promptSnapshotBytes instead, including metadata and sidecar ownership.
+// Returned layer rows borrow the input; Hidden is a copy. No admission uses it.
 func PromptSnapshotForBudget(s PromptSnapshot) kv.Snapshot {
-	layers := make([]kv.LayerKVSnapshot, 0, len(s.State.FullK)+len(s.State.Linear))
-	for i := range s.State.FullK {
-		var v []float32
+	layers := make([]kv.LayerKVSnapshot, 0, max(len(s.State.FullK), len(s.State.FullV))+len(s.State.Linear))
+	for i := 0; i < max(len(s.State.FullK), len(s.State.FullV)); i++ {
+		var k, v []float32
+		if i < len(s.State.FullK) {
+			k = s.State.FullK[i]
+		}
 		if i < len(s.State.FullV) {
 			v = s.State.FullV[i]
 		}
-		layers = append(layers, kv.LayerKVSnapshot{K: s.State.FullK[i], V: v, SeqLen: s.State.Pos})
+		layers = append(layers, kv.LayerKVSnapshot{K: k, V: v, SeqLen: s.State.Pos})
 	}
 	for _, lin := range s.State.Linear {
 		layers = append(layers, kv.LayerKVSnapshot{K: lin.Conv, V: lin.SSM, SeqLen: lin.Pos})
