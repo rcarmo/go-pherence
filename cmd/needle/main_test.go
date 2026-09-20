@@ -345,3 +345,36 @@ func TestNeedle2CQCLI(t *testing.T) {
 		t.Fatal("mismatched generation")
 	}
 }
+
+func TestNeedle2ArchiveCLI(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "prompt.txt")
+	if err := os.WriteFile(input, []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	base := []string{"-model", "../../loader/needle/testdata/needle2.cact", "-archive-config", "../../loader/needle/testdata/needle2-archive-config.json", "-text-file", input, "-max-new", "3"}
+	var stdout, stderr bytes.Buffer
+	if err := run(context.Background(), base, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Numerics string `json:"numerics"`
+		IDs      []int  `json:"generated_ids"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Numerics != "archive-a8-fp32kv" || len(result.IDs) == 0 {
+		t.Fatal(stdout.String())
+	}
+	stdout.Reset()
+	if err := run(context.Background(), append(base, "-mode", "contrastive"), &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), `"calibrated":false`) {
+		t.Fatal(stdout.String())
+	}
+	if err := run(context.Background(), []string{"-model", "../../loader/needle/testdata/needle2.cact", "-text-file", input}, &stdout, &stderr); err == nil {
+		t.Fatal("no sidecar")
+	}
+}

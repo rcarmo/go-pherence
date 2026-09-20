@@ -1,0 +1,24 @@
+{
+  "generation": 2,
+  "vocab_size": 280,
+  "d_model": 8,
+  "attn_dim": 8,
+  "num_heads": 2,
+  "num_kv_heads": 1,
+  "num_layers": 2,
+  "max_seq_len": 16,
+  "mhc_lanes": 2,
+  "engram_orders": [
+    2,
+    3
+  ],
+  "engram_heads": 1,
+  "engram_slots": 8,
+  "engram_layers": [
+    0
+  ],
+  "rope_theta": 100000.0,
+  "pad_token_id": 0,
+  "contrastive_dim": 4,
+  "dtype": "float32"
+}

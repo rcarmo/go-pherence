@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -131,6 +132,11 @@ func TestCQRecordWidths(t *testing.T) {
 }
 func FuzzParseArchive(f *testing.F) {
 	f.Add(archiveFixture(f))
+	v2, err := os.ReadFile("testdata/needle2.cact")
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(v2)
 	f.Add([]byte{0, 1, 2})
 	f.Fuzz(func(t *testing.T, b []byte) {
 		if len(b) > 1<<20 {
@@ -153,5 +159,80 @@ func TestCQBlobOwned(t *testing.T) {
 	clear(bytes)
 	if !reflect.DeepEqual(a.Records[0].CQBlob, saved) {
 		t.Fatal("CQ blob aliases caller bytes")
+	}
+}
+
+func TestNeedle2ArchiveRecords(t *testing.T) {
+	var ref struct {
+		Records []struct {
+			Name  string    `json:"name"`
+			Shape []int     `json:"shape"`
+			Data  []float32 `json:"data"`
+		} `json:"records"`
+	}
+	raw, err := os.ReadFile("testdata/needle2-archive-reference.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(raw, &ref); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("testdata/needle2.cact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := ParseArchive(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Header[0] != archiveTagV2 || len(a.Records) != len(ref.Records)+1 {
+		t.Fatal("v2 record count")
+	}
+	for i, w := range ref.Records {
+		got := a.Records[i]
+		if !slices.Equal(got.Shape, w.Shape) || len(got.Data) != len(w.Data) {
+			t.Fatal("shape " + w.Name)
+		}
+		for j, x := range got.Data {
+			if math.Abs(float64(x-w.Data[j])) > 1e-6+1e-5*math.Abs(float64(w.Data[j])) {
+				t.Fatalf("%s[%d] %g != %g", w.Name, j, x, w.Data[j])
+			}
+		}
+	}
+	before := append([]float32(nil), a.Records[0].Data...)
+	clear(data)
+	if !slices.Equal(before, a.Records[0].Data) {
+		t.Fatal("input alias")
+	}
+}
+
+func TestNeedle2ArchiveMalformed(t *testing.T) {
+	base, err := os.ReadFile("testdata/needle2.cact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := 20 + 28*4
+	cases := map[string]func([]byte){
+		"count":    func(b []byte) { binary.LittleEndian.PutUint32(b[4:], 4097) },
+		"codebook": func(b []byte) { binary.LittleEndian.PutUint32(b[8:], 27) },
+		"window":   func(b []byte) { binary.LittleEndian.PutUint32(b[12:], 65537) },
+		"kvbits":   func(b []byte) { binary.LittleEndian.PutUint32(b[16:], 7) },
+		"rank":     func(b []byte) { b[dir+1] = 5 },
+		"offset":   func(b []byte) { binary.LittleEndian.PutUint64(b[dir+20:], ^uint64(0)) },
+		"overlap":  func(b []byte) { copy(b[dir+44+20:dir+44+28], b[dir+20:dir+28]) },
+	}
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			b := append([]byte(nil), base...)
+			mutate(b)
+			if _, err := ParseArchive(b); err == nil {
+				t.Fatal("malformed accepted")
+			}
+		})
+	}
+	for _, n := range []int{0, 4, 19, 20, dir, dir + 43, len(base) - 1} {
+		if _, err := ParseArchive(base[:n]); err == nil {
+			t.Fatalf("truncated at %d", n)
+		}
 	}
 }

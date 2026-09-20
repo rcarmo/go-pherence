@@ -39,9 +39,12 @@ func (t *tape) alloc(r, c int) *value {
 		v.r, v.c = r, c
 		return v
 	}
-	v := &value{x: make([]float32, r*c), r: r, c: c}
+	v := &value{r: r, c: c}
 	if t.train {
-		v.g = make([]float32, len(v.x))
+		storage := make([]float32, 2*r*c)
+		v.x, v.g = storage[:r*c:r*c], storage[r*c:]
+	} else {
+		v.x = make([]float32, r*c)
 	}
 	return v
 }
@@ -53,7 +56,16 @@ func (t *tape) reserve(n int64) {
 }
 func (t *tape) ints(n int) []int {
 	t.reserve(int64(n) * 8)
+	if t.arena != nil && !t.train {
+		return t.arena.ints(n)
+	}
 	return make([]int, n)
+}
+func (t *tape) pointers(n int) []*value {
+	if t.arena != nil && !t.train {
+		return t.arena.pointers(n)
+	}
+	return make([]*value, n)
 }
 func (t *tape) record(f func()) {
 	if t.train {
@@ -285,6 +297,9 @@ func (t *tape) rms(a *value) *value {
 	o := t.alloc(a.r, a.c)
 	t.reserve(int64(a.r) * 4)
 	inv := make([]float32, a.r)
+	if t.arena != nil && !t.train {
+		inv = t.arena.alloc(a.r).x
+	}
 	for r := 0; r < a.r; r++ {
 		x := a.x[r*a.c : (r+1)*a.c]
 		ss := simd.Sdot(x, x) / float32(a.c)

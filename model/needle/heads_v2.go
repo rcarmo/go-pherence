@@ -26,7 +26,8 @@ func (m *Model) headGeometryV2(kind HeadKind) (k, q, out int, err error) {
 	shapes := map[string][]int{"probes": {k, m.config.DModel}, "proj/kernel": {k * m.config.DModel, out}}
 	if kind == Confidence {
 		shapes["proj/bias"] = []int{1}
-	} else {
+	} else if !m.deployed {
+		// Deployment format omits temperature; inference does not consume it.
 		shapes["log_temp"] = []int{}
 	}
 	for name, shape := range shapes {

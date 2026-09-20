@@ -54,7 +54,7 @@ func (c *Config) validate() error {
 	if c.Generation != 2 && c.Generation != 3 {
 		return fmt.Errorf("needle: generation must be 2 or 3")
 	}
-	if c.ArchiveDecoded && (c.Generation != 3 || c.ArchiveKVWindow < 0 || c.ArchiveKVWindow > c.MaxSeq) {
+	if c.ArchiveDecoded && (c.ArchiveKVWindow < 0 || c.ArchiveKVWindow > c.MaxSeq) {
 		return fmt.Errorf("needle: invalid decoded archive metadata")
 	}
 	if c.Generation == 2 {

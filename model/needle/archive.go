@@ -23,27 +23,62 @@ func modelFromArchive(a *checkpoint.Archive) (*Model, *checkpoint.Tokenizer, err
 	return mapArchive(a, false)
 }
 func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.Tokenizer, error) {
+	return mapArchiveConfig(a, takeOwnership, nil)
+}
+
+// LoadArchiveWithConfig loads Needle2 with an explicit architecture JSON sidecar.
+// Needle3 archives already encode geometry and reject sidecars.
+func LoadArchiveWithConfig(path string, config json.RawMessage) (*Model, *checkpoint.Tokenizer, error) {
+	a, err := checkpoint.LoadArchive(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mapArchiveConfig(a, true, config)
+}
+func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.RawMessage) (*Model, *checkpoint.Tokenizer, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("needle: nil archive")
 	}
 	h := a.Header
+	v2 := h[0] == 0x05E12A82
+	if h[0] != 0x05E12A84 && !v2 {
+		return nil, nil, fmt.Errorf("needle: unknown archive generation")
+	}
+	if v2 && len(config) == 0 {
+		return nil, nil, fmt.Errorf("needle: Needle2 archive requires explicit architecture JSON (-archive-config)")
+	}
+	if !v2 && len(config) != 0 {
+		return nil, nil, fmt.Errorf("needle: sidecar only supported for Needle2 archives")
+	}
 	if h[4] != 8 {
 		return nil, nil, fmt.Errorf("needle: archive KV%d execution not implemented", h[4])
 	}
 	c := Config{Generation: 3, VocabSize: int(h[5]), OutVocab: int(h[6]), DModel: int(h[7]), Heads: int(h[8]), KVHeads: int(h[9]), Layers: int(h[10]), QKDim: int(h[11]), VDim: int(h[12]), MaxSeq: int(h[13]), Lanes: int(h[15]), Window: int(h[16]), ConvTaps: int(h[19]), EngramSlots: int(h[20]), EngramSeedHeads: int(h[25]), RopeTheta: float64(a.RopeTheta), DType: "float32"}
-	for i := 0; i < int(h[26]); i++ {
-		c.EngramOrders = append(c.EngramOrders, int(h[27+i]))
+	if !v2 {
+		for i := 0; i < int(h[26]); i++ {
+			c.EngramOrders = append(c.EngramOrders, int(h[27+i]))
+		}
+		if len(c.EngramOrders) > 0 {
+			c.EngramHeads = int(h[22]) / len(c.EngramOrders)
+		}
+		for i := 0; i < int(h[31]); i++ {
+			c.EngramLayers = append(c.EngramLayers, int(h[32+i]))
+		}
+		gmask := uint64(h[17]) | uint64(h[18])<<32
+		for i := 0; i < c.Layers; i++ {
+			if gmask&(1<<i) != 0 {
+				c.GlobalLayers = append(c.GlobalLayers, i)
+			}
+		}
 	}
-	if len(c.EngramOrders) > 0 {
-		c.EngramHeads = int(h[22]) / len(c.EngramOrders)
-	}
-	for i := 0; i < int(h[31]); i++ {
-		c.EngramLayers = append(c.EngramLayers, int(h[32+i]))
-	}
-	gmask := uint64(h[17]) | uint64(h[18])<<32
-	for i := 0; i < c.Layers; i++ {
-		if gmask&(1<<i) != 0 {
-			c.GlobalLayers = append(c.GlobalLayers, i)
+	if v2 {
+		var err error
+		c, err = parseArchiveConfigV2(config)
+		if err != nil {
+			return nil, nil, err
+		}
+		if int(h[3]) > c.MaxSeq {
+			return nil, nil, fmt.Errorf("needle: archive window exceeds sidecar context")
 		}
 	}
 	if err := c.validate(); err != nil {
@@ -82,7 +117,7 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 	if peak > 1<<30 {
 		return nil, nil, fmt.Errorf("needle: archive materialization exceeds 1 GiB logical peak budget")
 	}
-	if int(h[14]) != padded(c.DModel) || h[23] != 4 || int(h[24]) != slices.Max(c.EngramOrders) {
+	if !v2 && (int(h[14]) != padded(c.DModel) || h[23] != 4 || int(h[24]) != slices.Max(c.EngramOrders)) {
 		return nil, nil, fmt.Errorf("needle: unsupported archive Hadamard/engram geometry")
 	}
 	cp := &checkpoint.Checkpoint{FormatVersion: 2, Tensors: map[string]checkpoint.Tensor{}}
@@ -160,13 +195,19 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 			fields = append(fields, field{"self_attn/q_taps", []int{c.ConvTaps, c.Heads * c.QKDim}, false}, field{"self_attn/k_taps", []int{c.ConvTaps, c.KVHeads * c.QKDim}, false}, field{"self_attn/v_taps", []int{c.ConvTaps, c.KVHeads * c.VDim}, false})
 		}
 		fields = append(fields, field{"self_attn/q_norm/scale", []int{c.QKDim}, false}, field{"self_attn/k_norm/scale", []int{c.QKDim}, false}, field{"self_attn/gate_proj/kernel", []int{c.Heads * c.VDim, d}, true}, field{"self_attn/out_proj/kernel", []int{d, c.Heads * c.VDim}, true}, field{"post_attn_norm/scale", []int{d}, false}, field{"attn_gate", []int{1}, false}, field{"pre_hada_norm/scale", []int{d}, false})
-		for _, name := range []string{"d1", "d2", "b2", "d3", "d4"} {
+		hadaNames := []string{"d1", "d2", "b2", "d3", "d4"}
+		if v2 {
+			hadaNames = []string{"d1", "d2", "d3"}
+		}
+		for _, name := range hadaNames {
 			fields = append(fields, field{"hadamard_mlp/" + name, []int{n}, false})
 		}
-		for i := 1; i <= 3; i++ {
-			fields = append(fields, field{fmt.Sprintf("hadamard_mlp/w%da", i), []int{ba, ba}, false}, field{fmt.Sprintf("hadamard_mlp/w%db", i), []int{bb, bb}, false})
+		if !v2 {
+			for i := 1; i <= 3; i++ {
+				fields = append(fields, field{fmt.Sprintf("hadamard_mlp/w%da", i), []int{ba, ba}, false}, field{fmt.Sprintf("hadamard_mlp/w%db", i), []int{bb, bb}, false})
+			}
+			fields = append(fields, field{"hadamard_mlp/cond_v", []int{d, 8}, false}, field{"hadamard_mlp/cond_u", []int{8, n}, false})
 		}
-		fields = append(fields, field{"hadamard_mlp/cond_v", []int{d, 8}, false}, field{"hadamard_mlp/cond_u", []int{8, n}, false})
 		for _, f := range fields {
 			if err := put("stack/layers/block/"+f.name, f.shape, f.trans, layer); err != nil {
 				return nil, nil, err
@@ -208,25 +249,27 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 		cp.Tensors["stack/mhc_phi_"+kind] = out
 	}
 	perms := make([][]int, 2)
-	for i := range perms {
-		r, err := take([]int{n})
-		if err != nil {
-			return nil, nil, err
-		}
-		perms[i] = make([]int, n)
-		seen := make([]bool, n)
-		for j, v := range r.Data {
-			id := int(v)
-			if float32(id) != v || id < 0 || id >= n || seen[id] {
-				return nil, nil, fmt.Errorf("needle: invalid archive permutation")
+	if !v2 {
+		for i := range perms {
+			r, err := take([]int{n})
+			if err != nil {
+				return nil, nil, err
 			}
-			seen[id] = true
-			perms[i][j] = id
+			perms[i] = make([]int, n)
+			seen := make([]bool, n)
+			for j, v := range r.Data {
+				id := int(v)
+				if float32(id) != v || id < 0 || id >= n || seen[id] {
+					return nil, nil, fmt.Errorf("needle: invalid archive permutation")
+				}
+				seen[id] = true
+				perms[i][j] = id
+			}
 		}
 	}
 	for site := range c.EngramLayers {
 		prefix := fmt.Sprintf("engrams_%d/", site)
-		tables, sub := int(h[22]), int(h[21])
+		tables, sub := len(c.EngramOrders)*c.EngramHeads, d/(len(c.EngramOrders)*c.EngramHeads)
 		r, err := take([]int{tables * c.EngramSlots, sub})
 		if err != nil {
 			return nil, nil, err
@@ -245,7 +288,49 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 	if err := put("stack/final_norm/scale", []int{d}, false, -1); err != nil {
 		return nil, nil, err
 	}
-	if cursor < len(a.Records) && a.Records[cursor].DType != 4 {
+	if v2 && cursor < len(a.Records) && a.Records[cursor].DType != 4 {
+		manifest := a.Records[cursor]
+		cursor++
+		if manifest.DType != 1 || len(manifest.Shape) != 1 || len(manifest.Data) < 1 || len(manifest.Data) > 2 || manifest.Shape[0] != len(manifest.Data) {
+			return nil, nil, fmt.Errorf("needle: invalid Needle2 head manifest")
+		}
+		last := 0
+		for _, code := range manifest.Data {
+			id := int(code)
+			if float32(id) != code || id <= last || id > 2 {
+				return nil, nil, fmt.Errorf("needle: invalid Needle2 head code")
+			}
+			last = id
+			kind, k, out := "contrastive", 4, c.ContrastiveDim
+			if out == 0 {
+				out = 128
+			}
+			if id == 2 {
+				kind, k, out = "confidence", 8, 1
+			}
+			if out < 1 || out > 4096 {
+				return nil, nil, fmt.Errorf("needle: invalid Needle2 head width")
+			}
+			prefix := kind + "_head/"
+			for _, f := range []field{{"probes", []int{k, d}, false}, {"proj/kernel", []int{out, k * d}, true}, {"proj/bias", []int{out}, false}} {
+				if cursor >= len(a.Records) || a.Records[cursor].DType != 1 {
+					return nil, nil, fmt.Errorf("needle: Needle2 heads must be FP16")
+				}
+				if err := put(prefix+f.name, f.shape, f.trans, -1); err != nil {
+					return nil, nil, err
+				}
+			}
+			if id == 1 {
+				for _, v := range cp.Tensors[prefix+"proj/bias"].Data {
+					if v != 0 {
+						return nil, nil, fmt.Errorf("needle: contrastive archive bias must be zero")
+					}
+				}
+				delete(cp.Tensors, prefix+"proj/bias")
+			}
+		}
+	}
+	if !v2 && cursor < len(a.Records) && a.Records[cursor].DType != 4 {
 		manifest := a.Records[cursor]
 		if len(manifest.Shape) != 1 || manifest.Shape[0] < 1 || manifest.Shape[0] > 3 || len(manifest.Data) != manifest.Shape[0] {
 			return nil, nil, fmt.Errorf("needle: invalid head manifest")
@@ -309,6 +394,9 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 			return nil, nil, err
 		}
 		pad, _, _, _ := tok.SpecialIDs()
+		if v2 && (pad != c.PadID || tok.VocabSize() != c.VocabSize) {
+			return nil, nil, fmt.Errorf("needle: tokenizer does not match Needle2 sidecar")
+		}
 		c.PadID = pad
 		if tok.VocabSize() > c.VocabSize {
 			return nil, nil, fmt.Errorf("needle: tokenizer larger than model vocabulary")
@@ -320,7 +408,9 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 	}
 	c.ArchiveDecoded = true
 	c.ArchiveKVWindow = int(h[3])
-	if slices.Equal(perms[0], numpyPermutation(n, 11, false)) && slices.Equal(perms[1], numpyPermutation(n, 13, false)) {
+	if v2 {
+		// V2 exports neither permutations nor contrastive log_temp.
+	} else if slices.Equal(perms[0], numpyPermutation(n, 11, false)) && slices.Equal(perms[1], numpyPermutation(n, 13, false)) {
 	} else if slices.Equal(perms[0], numpyPermutation(n, 11, true)) && slices.Equal(perms[1], numpyPermutation(n, 13, true)) {
 		c.LadderWidths = []int{d}
 	} else {
@@ -335,7 +425,7 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 	m.deployed = true
 	m.packed = packed
 	m.archiveWindow = int(h[3])
-	for _, kind := range []HeadKind{Embedding, Confidence, Router} {
+	for _, kind := range []HeadKind{Embedding, Contrastive, Confidence, Router} {
 		if _, ok := m.tensors[string(kind)+"_head/probes"]; ok {
 			if _, _, _, err = m.headGeometry(kind); err != nil {
 				return nil, nil, err

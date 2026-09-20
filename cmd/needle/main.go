@@ -58,6 +58,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	mode := fs.String("mode", "infer", "infer, tools, train, train-head, embedding, contrastive, confidence or router")
 	toolsPath := fs.String("tools", "", "tool schema JSON array (tools mode, no execution)")
 	systemText := fs.String("system", "", "optional tool-mode system instruction")
+	archiveConfig := fs.String("archive-config", "", "explicit Needle2 .cact architecture JSON sidecar")
 	maxCalls := fs.Int("max-calls", 1, "maximum schema-constrained tool calls (1..4)")
 	headKind := fs.String("head", "confidence", "train-head objective: confidence BCE, router CE, embedding/contrastive MSE")
 	width := fs.Int("width", 0, "source Needle3 half-width rung; 0 keeps width")
@@ -165,8 +166,22 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	var tok *checkpoint.Tokenizer
 	var e error
 	if strings.HasSuffix(strings.ToLower(*path), ".cact") {
-		m, tok, e = needle.LoadArchive(*path)
+		if *archiveConfig != "" {
+			b, err := readText(*archiveConfig)
+			if err != nil {
+				return err
+			}
+			if len(b) > 64<<10 {
+				return fmt.Errorf("archive sidecar exceeds 64 KiB")
+			}
+			m, tok, e = needle.LoadArchiveWithConfig(*path, b)
+		} else {
+			m, tok, e = needle.LoadArchive(*path)
+		}
 	} else {
+		if *archiveConfig != "" {
+			return fmt.Errorf("-archive-config requires a Needle2 .cact archive")
+		}
 		m, e = needle.Load(*path)
 	}
 	if e != nil {
@@ -180,6 +195,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return fmt.Errorf("archive numerics are fixed; omit -numerics")
 		}
 		*numerics = "archive-a8-kv8"
+		if m.Configuration().Generation == 2 {
+			*numerics = "archive-a8-fp32kv"
+		}
 		if training {
 			return fmt.Errorf("train from source safetensors, not a deployment archive")
 		}

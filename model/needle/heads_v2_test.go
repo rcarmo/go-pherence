@@ -25,7 +25,7 @@ type v2HeadFixture struct {
 	} `json:"heads"`
 }
 
-func loadV2Heads(t *testing.T) (*Model, v2HeadFixture) {
+func loadV2Heads(t testing.TB) (*Model, v2HeadFixture) {
 	t.Helper()
 	var f v2HeadFixture
 	b, err := os.ReadFile("testdata/needle2-heads.json")

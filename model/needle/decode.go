@@ -33,6 +33,9 @@ type Decoder struct {
 	layers             []decodeLayer
 	engrams            []rowRing
 	ids                []int
+	arena              *inferenceArena
+	pendingLayers      []pendingLayer
+	pendingEngrams     []*value
 }
 type rowRing struct {
 	data        []float32
@@ -209,10 +212,25 @@ func (d *Decoder) Step(ctx context.Context, token int) (logits []float32, err er
 		return nil, fmt.Errorf("needle: decoder capacity exhausted")
 	}
 	e := d.model.execution(false, d.opts)
-	e.t.arena = &inferenceArena{limit: e.t.limit}
+	if d.arena == nil {
+		d.arena = &inferenceArena{limit: e.t.limit}
+	} else {
+		d.arena.reset()
+	}
+	e.t.arena = d.arena
 	e.parameterViews = d.params
 	e.t.reserve(int64(len(d.layers))*96 + int64(len(d.engrams))*8)
-	step := &decodeStep{d: d, ctx: ctx, layers: make([]pendingLayer, len(d.layers)), engrams: make([]*value, len(d.engrams))}
+	if len(d.pendingLayers) != len(d.layers) {
+		d.pendingLayers = make([]pendingLayer, len(d.layers))
+	} else {
+		clear(d.pendingLayers)
+	}
+	if len(d.pendingEngrams) != len(d.engrams) {
+		d.pendingEngrams = make([]*value, len(d.engrams))
+	} else {
+		clear(d.pendingEngrams)
+	}
+	step := &decodeStep{d: d, ctx: ctx, layers: d.pendingLayers, engrams: d.pendingEngrams}
 	e.decode = step
 	out := e.forward([]int{token})
 	for _, v := range out.x {
@@ -292,7 +310,7 @@ func (e *execution) cachedAttention(x *value, l, window int) *value {
 	e.decode.layers[l] = pending
 	count := min(pos+1, cache.key.rows)
 	start := pos - count + 1
-	heads := make([]*value, c.Heads)
+	heads := t.pointers(c.Heads)
 	scale := float32(1 / math.Sqrt(float64(c.QKDim)))
 	for h := 0; h < c.Heads; h++ {
 		kh := h / (c.Heads / c.KVHeads)
@@ -327,7 +345,7 @@ func (e *execution) cachedAttention(x *value, l, window int) *value {
 }
 func (e *execution) cachedEngrams(token int) ([]*value, []*value) {
 	c, t, d := e.m.config, e.t, e.decode.d
-	keys, values := make([]*value, len(c.EngramLayers)), make([]*value, len(c.EngramLayers))
+	keys, values := t.pointers(len(c.EngramLayers)), t.pointers(len(c.EngramLayers))
 	if len(keys) == 0 {
 		return keys, values
 	}

@@ -33,9 +33,49 @@ func (m *Model) execution(train bool, opts Options) *execution {
 	if limit == 0 {
 		limit = 512 << 20
 	}
-	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}, qp: map[string]*value{}, q: opts.Quant, packedEnabled: opts.Packed}
+	t := &tape{train: train, limit: limit}
+	if !train {
+		t.arena = &inferenceArena{limit: limit}
+	}
+	return &execution{t: t, m: m, q: opts.Quant, packedEnabled: opts.Packed}
 }
 func (e *execution) param(name string, layer int) *value {
+	if !e.t.train && e.parameterViews == nil {
+		tensor, ok := e.m.tensors[name]
+		if !ok {
+			panic("needle: missing parameter " + name)
+		}
+		if e.p == nil {
+			e.p = make(map[string]*value, len(e.m.tensors))
+			e.qp = make(map[string]*value, len(e.m.tensors))
+		}
+		p, ok := e.p[name]
+		if !ok {
+			p = e.t.view(tensor.Data, 1, len(tensor.Data))
+			e.p[name] = p
+		}
+		quantized, ok := e.qp[name]
+		if !ok {
+			quantized = e.quantParam(name, p)
+			e.qp[name] = quantized
+		}
+		p = quantized
+		shape := tensor.Shape
+		start := 0
+		if layer >= 0 {
+			size := len(p.x) / shape[0]
+			start = layer * size
+			shape = shape[1:]
+		}
+		r, c := 1, 1
+		if len(shape) > 0 {
+			c = shape[len(shape)-1]
+			for _, d := range shape[:len(shape)-1] {
+				r *= d
+			}
+		}
+		return e.t.view(p.x[start:start+r*c:start+r*c], r, c)
+	}
 	if e.parameterViews != nil {
 		p, ok := e.parameterViews[name]
 		if !ok {
@@ -55,6 +95,10 @@ func (e *execution) param(name string, layer int) *value {
 			}
 		}
 		return e.t.view(p.x[start:start+r*c:start+r*c], r, c)
+	}
+	if e.p == nil {
+		e.p = make(map[string]*value, len(e.m.tensors))
+		e.qp = make(map[string]*value, len(e.m.tensors))
 	}
 	p, ok := e.p[name]
 	if !ok {
@@ -84,7 +128,48 @@ func (e *execution) param(name string, layer int) *value {
 	}
 	return e.t.slice(p, start, r, c)
 }
-func (e *execution) bp(key string, l int) *value { return e.param("stack/layers/block/"+key, l) }
+func (e *execution) bp(key string, l int) *value {
+	var name string
+	switch key {
+	case "ZCRMSNorm_0/scale":
+		name = "stack/layers/block/ZCRMSNorm_0/scale"
+	case "attn_gate":
+		name = "stack/layers/block/attn_gate"
+	case "post_attn_norm/scale":
+		name = "stack/layers/block/post_attn_norm/scale"
+	case "pre_hada_norm/scale":
+		name = "stack/layers/block/pre_hada_norm/scale"
+	case "hadamard_mlp/d1":
+		name = "stack/layers/block/hadamard_mlp/d1"
+	case "hadamard_mlp/d2":
+		name = "stack/layers/block/hadamard_mlp/d2"
+	case "hadamard_mlp/b2":
+		name = "stack/layers/block/hadamard_mlp/b2"
+	case "hadamard_mlp/d3":
+		name = "stack/layers/block/hadamard_mlp/d3"
+	case "hadamard_mlp/d4":
+		name = "stack/layers/block/hadamard_mlp/d4"
+	case "hadamard_mlp/cond_v":
+		name = "stack/layers/block/hadamard_mlp/cond_v"
+	case "hadamard_mlp/cond_u":
+		name = "stack/layers/block/hadamard_mlp/cond_u"
+	case "hadamard_mlp/w1a":
+		name = "stack/layers/block/hadamard_mlp/w1a"
+	case "hadamard_mlp/w1b":
+		name = "stack/layers/block/hadamard_mlp/w1b"
+	case "hadamard_mlp/w2a":
+		name = "stack/layers/block/hadamard_mlp/w2a"
+	case "hadamard_mlp/w2b":
+		name = "stack/layers/block/hadamard_mlp/w2b"
+	case "hadamard_mlp/w3a":
+		name = "stack/layers/block/hadamard_mlp/w3a"
+	case "hadamard_mlp/w3b":
+		name = "stack/layers/block/hadamard_mlp/w3b"
+	default:
+		panic("needle: unknown block parameter " + key)
+	}
+	return e.param(name, l)
+}
 func (e *execution) linear(x *value, key string, l int) *value {
 	if e.packedEnabled {
 		if p := e.m.packed[packedKey{key, l}]; p != nil {
@@ -138,7 +223,7 @@ func (e *execution) attention(x *value, l, window int) *value {
 		v = e.conv(v, e.param(p+"v_taps", l), 1, window, false)
 	}
 	qs, ks := e.param(p+"q_norm/scale", l), e.param(p+"k_norm/scale", l)
-	out := make([]*value, c.Heads)
+	out := t.pointers(c.Heads)
 	for h := 0; h < c.Heads; h++ {
 		kh := h / (c.Heads / c.KVHeads)
 		qh := t.rope(t.norm(t.cols(q, h*c.QKDim, c.QKDim), qs), c.RopeTheta)
@@ -294,7 +379,7 @@ func (e *execution) engrams(ids []int) ([]*value, []*value) {
 		return e.cachedEngrams(ids[0])
 	}
 	c, t := e.m.config, e.t
-	keys, values := make([]*value, len(c.EngramLayers)), make([]*value, len(c.EngramLayers))
+	keys, values := t.pointers(len(c.EngramLayers)), t.pointers(len(c.EngramLayers))
 	if len(keys) == 0 {
 		return keys, values
 	}
@@ -398,7 +483,7 @@ func (e *execution) trunk(ids []int, collect bool) *value {
 	if collect {
 		e.cells = append(e.cells, x)
 	}
-	lanes := make([]*value, c.Lanes)
+	lanes := t.pointers(c.Lanes)
 	for i := range lanes {
 		lanes[i] = x
 	}
@@ -500,10 +585,14 @@ func (m *Model) resolveOptions(opts Options) (Options, error) {
 		return opts, fmt.Errorf("needle: packed projections require original .cact weights")
 	}
 	if m.deployed {
-		if opts.Quant != nil && (opts.Quant.WeightBits != 0 || opts.Quant.ActivationBits != 8 || opts.Quant.KVBits != 8) {
-			return opts, fmt.Errorf("needle: archive already quantized; numerics fixed to A8/KV8")
+		kvBits := 8
+		if m.config.Generation == 2 {
+			kvBits = 0
 		}
-		opts.Quant = &Quantization{ActivationBits: 8, KVBits: 8}
+		if opts.Quant != nil && (opts.Quant.WeightBits != 0 || opts.Quant.ActivationBits != 8 || opts.Quant.KVBits != kvBits) {
+			return opts, fmt.Errorf("needle: archive already quantized; fixed A8/KV%d (0 means FP32)", kvBits)
+		}
+		opts.Quant = &Quantization{ActivationBits: 8, KVBits: kvBits}
 	}
 	return opts, nil
 }

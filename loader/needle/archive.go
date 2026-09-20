@@ -13,6 +13,8 @@ import (
 
 const (
 	archiveTag             uint32 = 0x05E12A84
+	archiveTagV2           uint32 = 0x05E12A82
+	archiveV2HeaderBytes          = 20
 	archiveHeaderFields           = 48
 	archiveHeaderBytes            = archiveHeaderFields*4 + 4 // <48If = 196 bytes.
 	archiveRecordBytes            = 44
@@ -103,7 +105,7 @@ type archiveRecordSpec struct {
 	decodedBytes int64
 }
 
-// LoadArchive reads and parses a Needle3 .cact archive.
+// LoadArchive reads and parses a Needle2/3 .cact archive.
 func LoadArchive(path string) (*Archive, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -116,7 +118,7 @@ func LoadArchive(path string) (*Archive, error) {
 		return nil, fmt.Errorf("needle: stat %s: %w", path, err)
 	}
 	size := fi.Size()
-	if size < archiveHeaderBytes {
+	if size < archiveV2HeaderBytes {
 		return nil, fmt.Errorf("needle: archive too short: %d", size)
 	}
 	if size > archiveMaxFileBytes {
@@ -133,9 +135,10 @@ func LoadArchive(path string) (*Archive, error) {
 	return ParseArchive(buf)
 }
 
-// ParseArchive parses a Needle3 .cact archive from memory.
+// ParseArchive parses a Needle2/3 .cact archive from memory. Needle2 has only
+// the first five header fields; architecture recovery belongs to the model layer.
 func ParseArchive(data []byte) (*Archive, error) {
-	if len(data) < archiveHeaderBytes {
+	if len(data) < archiveV2HeaderBytes {
 		return nil, fmt.Errorf("needle: archive too short: %d", len(data))
 	}
 	if int64(len(data)) > archiveMaxFileBytes {
@@ -143,12 +146,25 @@ func ParseArchive(data []byte) (*Archive, error) {
 	}
 
 	var a Archive
-	for i := 0; i < archiveHeaderFields; i++ {
+	headerBytes, fields := archiveHeaderBytes, archiveHeaderFields
+	if binary.LittleEndian.Uint32(data) == archiveTagV2 {
+		headerBytes, fields = archiveV2HeaderBytes, 5
+	}
+	if len(data) < headerBytes {
+		return nil, fmt.Errorf("needle: archive header truncated")
+	}
+	for i := 0; i < fields; i++ {
 		a.Header[i] = binary.LittleEndian.Uint32(data[i*4:])
 	}
-	a.RopeTheta = math.Float32frombits(binary.LittleEndian.Uint32(data[archiveHeaderFields*4:]))
-	if err := validateArchiveHeader(a.Header, a.RopeTheta); err != nil {
-		return nil, err
+	if fields == 5 {
+		if a.Header[1] == 0 || a.Header[1] > archiveMaxRecords || a.Header[2] != archiveCodebookLen || a.Header[3] > 65536 || (a.Header[4] != 2 && a.Header[4] != 3 && a.Header[4] != 4 && a.Header[4] != 8) {
+			return nil, fmt.Errorf("needle: invalid Needle2 archive header")
+		}
+	} else {
+		a.RopeTheta = math.Float32frombits(binary.LittleEndian.Uint32(data[archiveHeaderFields*4:]))
+		if err := validateArchiveHeader(a.Header, a.RopeTheta); err != nil {
+			return nil, err
+		}
 	}
 
 	numRecords := int(a.Header[archiveHdrNumTensors])
@@ -157,7 +173,7 @@ func ParseArchive(data []byte) (*Archive, error) {
 	if !ok {
 		return nil, fmt.Errorf("needle: archive codebook size overflow")
 	}
-	metadataStart := int64(archiveHeaderBytes)
+	metadataStart := int64(headerBytes)
 	metadataEnd, ok := checkedAddInt64(metadataStart, codebookBytes)
 	if !ok {
 		return nil, fmt.Errorf("needle: archive metadata size overflow")
@@ -175,7 +191,7 @@ func ParseArchive(data []byte) (*Archive, error) {
 	}
 
 	a.Codebook = make([]float32, codebookLen)
-	codebookOffset := archiveHeaderBytes
+	codebookOffset := headerBytes
 	for i := range a.Codebook {
 		a.Codebook[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[codebookOffset+i*4:]))
 	}
@@ -185,7 +201,7 @@ func ParseArchive(data []byte) (*Archive, error) {
 
 	specs := make([]archiveRecordSpec, numRecords)
 	var decodedTotal int64
-	dirOffset := archiveHeaderBytes + codebookLen*4
+	dirOffset := headerBytes + codebookLen*4
 	for i := 0; i < numRecords; i++ {
 		off := dirOffset + i*archiveRecordBytes
 		spec, err := parseArchiveRecordSpec(i, data[off:off+archiveRecordBytes], decodedTotal)
