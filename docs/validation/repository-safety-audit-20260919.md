@@ -1,6 +1,6 @@
 ## Repository-wide safety audit: coverage and findings
 
-Follow-on: [additional audit findings](repository-safety-followon-20260919.md) address HTTP admission, worker drain/join, copied mmap lifetime, NaN comparison false positives, CPU attention/convolution and graph buffer aliasing. The findings below describe the first pass; use the linked update and coverage matrix for current dispositions.
+Latest: the [fifth-pass findings](repository-safety-fifth-pass-20260920.md) cover failed GLiNER loads, helper/stream limits, ioctl descriptors and RoPE/audio bounds, with open Qwen3-TTS sizing and native ownership findings. Earlier [follow-on findings](repository-safety-followon-20260919.md) address HTTP admission, worker drain/join, copied mmap lifetime, NaN comparisons and graph/CPU-fallback bugs. The findings below describe the first pass; use the linked reports and coverage matrix for current dispositions.
 
 The Qwen GPU failure exposed a context-boundary bug, but the owner requested an
 audit of **the entire repository**, not just Qwen or CUDA. This report records

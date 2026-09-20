@@ -8,6 +8,10 @@ This tracker records exported backend/model wrapper malformed-input coverage add
 
 | Area | Package/file | Coverage |
 |---|---|---|
+| GLiNER failed loading | `model/gliner2/loading_safety_test.go` | Reject wrapped expected shapes and derived widths before decode; stop layer allocation on missing weights; preserve copied ownership and first error. Not whole-model resource admission. |
+| Helper and benchmark limits | `internal/commandcapture/capture_test.go`, `runtime/servingbench/run_test.go` | Aggregate captured output, cancellation/pipe lifetime, whole-response/content-event bounds, malformed usage and metric arithmetic. Synthetic helpers/HTTP only. |
+| ioctl descriptors | `backends/nvidia/ioctl/files_test.go` | Partial opens, descriptor zero, idempotent close, counter races and mapping-file ownership. No NVIDIA device calls; submission/drain remains unverified. |
+| RoPE and resampling | `backends/simd/kernels/rope_test.go`, `loader/audio/resample_bounds_test.go` | Scalar fallback offset overflow; invalid rates, exact length and allocation bounds. CPU-only tests. |
 | HTTP decoding/admission | `internal/httpinput/json_test.go`, `cmd/diffusiongemmaserver/admission_test.go`, `cmd/llm/llmserver/body_test.go` | Single bounded JSON document, oversized/trailing body, busy rejection, work caps, prompt IDs and per-step cancellation; mock execution only. |
 | Worker lifecycle | `backends/spacemit/ime2/worker_pool_test.go`, AICPU platform lifecycle test | Concurrent submissions, drain/join, idempotent close, post-close no-op; IME host protocol tests, AICPU compile-only pending K3. |
 | Graph lifetime | `runtime/graph/safety_test.go` | Negative IDs, shape/workspace overflow, redefinition and duplicate-input double-release causing live-output aliasing. |
