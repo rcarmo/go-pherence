@@ -129,7 +129,9 @@ func CosineSimilarity(a, b []float32) float32 {
 }
 
 // AgglomerativeCluster performs agglomerative clustering on embeddings
-// using cosine distance, stopping when the minimum similarity drops below threshold.
+// using cosine similarity and legacy equal-cluster (WPGMA) linkage, stopping
+// when the maximum similarity drops below threshold. This is not size-weighted
+// UPGMA; changing that numerical policy requires separate qualification.
 // Returns cluster labels (0-indexed) for each embedding.
 func AgglomerativeCluster(embeddings [][]float32, threshold float32) []int {
 	n := len(embeddings)
@@ -186,13 +188,14 @@ func AgglomerativeCluster(embeddings [][]float32, threshold float32) []int {
 
 		// Merge j into i
 		active[bestJ] = false
+		from, to := labels[bestJ], labels[bestI]
 		for k := 0; k < n; k++ {
-			if labels[k] == labels[bestJ] {
-				labels[k] = labels[bestI]
+			if labels[k] == from {
+				labels[k] = to
 			}
 		}
 
-		// Update similarity: average linkage
+		// Update similarity: preserve legacy equal-cluster average linkage.
 		for k := 0; k < n; k++ {
 			if !active[k] || k == bestI {
 				continue
