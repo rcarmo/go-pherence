@@ -2,6 +2,7 @@ package expertstream
 
 import (
 	"errors"
+	"os"
 	"testing"
 	"time"
 )
@@ -9,11 +10,13 @@ import (
 func TestSlotBudgetIncludesAlignmentAndInventory(t *testing.T) {
 	r, path, _ := mustOpenFixture(t, Options{Slots: 2})
 	r.Close()
-	// largest span=192 and alignment=64; each mapping reserves256 bytes.
-	if _, err := Open(path, Options{Slots: 2, MaxSlotBytes: 511}); !errors.Is(err, ErrMemoryBudget) {
+	// largest span=192 plus alignment64 fits one page, but the OS still maps
+	// a complete page per slot. Budget actual page-rounded mapping footprints.
+	budget := int64(2 * os.Getpagesize())
+	if _, err := Open(path, Options{Slots: 2, MaxSlotBytes: budget - 1}); !errors.Is(err, ErrMemoryBudget) {
 		t.Fatal(err)
 	}
-	r, err := Open(path, Options{Slots: 2, MaxSlotBytes: 512})
+	r, err := Open(path, Options{Slots: 2, MaxSlotBytes: budget})
 	if err != nil {
 		t.Fatal(err)
 	}

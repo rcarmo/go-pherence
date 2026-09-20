@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -51,6 +52,12 @@ func Open(manifestPath string, opts Options) (*Reader, error) {
 		budget = DefaultMaxSlotBytes
 	}
 	mappingBytes, err := checkedAdd(slotSize, manifest.Alignment)
+	if err != nil {
+		closeFiles(files)
+		return nil, err
+	}
+	// The OS maps whole pages even when the requested slice is shorter.
+	mappingBytes, err = alignUp(mappingBytes, int64(os.Getpagesize()))
 	if err != nil {
 		closeFiles(files)
 		return nil, err
