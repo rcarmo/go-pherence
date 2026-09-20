@@ -47,6 +47,30 @@ func F32ToF16(f float32) uint16 {
 	return sign | uint16(exp<<10) | uint16(rounded>>13)
 }
 
+// F32ToF16Even converts with IEEE round-to-nearest-even without changing the
+// legacy finite tie policy of F32ToF16. Used by model formats requiring RNE.
+func F32ToF16Even(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16(bits>>16) & 0x8000
+	magnitude := math.Float32frombits(bits & 0x7fffffff)
+	h := F32ToF16(magnitude)
+	if bits&0x7fffffff >= 0x7f800000 || h == 0x7c00 {
+		return sign | h
+	}
+	best, distance := h, math.Abs(float64(magnitude-F16ToF32(h)))
+	for _, delta := range []int{-1, 1} {
+		candidate := int(h) + delta
+		if candidate < 0 || candidate >= 0x7c00 {
+			continue
+		}
+		d := math.Abs(float64(magnitude - F16ToF32(uint16(candidate))))
+		if d < distance || (d == distance && candidate&1 == 0) {
+			best, distance = uint16(candidate), d
+		}
+	}
+	return sign | best
+}
+
 // F16ToF32 converts an IEEE-754 half-precision value to float32 (no unsafe).
 func F16ToF32(u uint16) float32 {
 	sign := uint32(u >> 15)

@@ -8,13 +8,18 @@ import (
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
 )
 
-// Options bounds per-call tape allocations. Zero selects 512 MiB. Inference is
-// the full-sequence FP32 reference path, not a claim of quantized cached decoding.
-type Options struct{ MaxWorkBytes int64 }
+// Options bounds per-call tape allocations. Zero selects 512 MiB. Quant is an
+// explicit dequantized/STE reference mode, not packed or KV-cached decoding.
+type Options struct {
+	MaxWorkBytes int64
+	Quant        *Quantization
+}
 type execution struct {
-	t *tape
-	m *Model
-	p map[string]*value
+	t  *tape
+	m  *Model
+	p  map[string]*value
+	qp map[string]*value
+	q  *Quantization
 }
 
 func (m *Model) execution(train bool, opts Options) *execution {
@@ -22,7 +27,7 @@ func (m *Model) execution(train bool, opts Options) *execution {
 	if limit == 0 {
 		limit = 512 << 20
 	}
-	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}}
+	return &execution{t: &tape{train: train, limit: limit}, m: m, p: map[string]*value{}, qp: map[string]*value{}, q: opts.Quant}
 }
 func (e *execution) param(name string, layer int) *value {
 	p, ok := e.p[name]
@@ -31,6 +36,12 @@ func (e *execution) param(name string, layer int) *value {
 		p = e.t.leaf(tensor.Data)
 		e.p[name] = p
 	}
+	quantized, ok := e.qp[name]
+	if !ok {
+		quantized = e.quantParam(name, p)
+		e.qp[name] = quantized
+	}
+	p = quantized
 	shape := e.m.tensors[name].Shape
 	start := 0
 	if layer >= 0 {
@@ -80,6 +91,7 @@ func (t *tape) rope(a *value, theta float64) *value {
 func (e *execution) attention(x *value, l, window int) *value {
 	t, c := e.t, e.m.config
 	p := "stack/layers/block/self_attn/"
+	x = e.aq(x)
 	q := e.linear(x, p+"q_proj/kernel", l)
 	k := e.linear(x, p+"k_proj/kernel", l)
 	v := e.linear(x, p+"v_proj/kernel", l)
@@ -95,12 +107,15 @@ func (e *execution) attention(x *value, l, window int) *value {
 		qh := t.rope(t.norm(t.cols(q, h*c.QKDim, c.QKDim), qs), c.RopeTheta)
 		kk := t.rope(t.norm(t.cols(k, kh*c.QKDim, c.QKDim), ks), c.RopeTheta)
 		vv := t.cols(v, kh*c.VDim, c.VDim)
+		qh = e.aq(qh)
+		kk = e.kvq(kk)
+		vv = e.kvq(vv)
 		prob := t.softmax(t.scale(t.mm(qh, kk, true), float32(1/math.Sqrt(float64(c.QKDim)))), true, window)
 		out[h] = t.mm(prob, vv, false)
 	}
 	joined := t.concat(out)
 	gate := t.unary(e.linear(x, p+"gate_proj/kernel", l), "sigmoid")
-	return e.linear(t.mul(joined, gate), p+"out_proj/kernel", l)
+	return e.linear(e.aq(t.mul(joined, gate)), p+"out_proj/kernel", l)
 }
 func (t *tape) permute(a *value, p []int) *value {
 	idx := t.ints(len(a.x))
@@ -237,7 +252,7 @@ func (e *execution) engrams(ids []int) ([]*value, []*value) {
 	for site := range keys {
 		p := fmt.Sprintf("engrams_%d/", site)
 		emb := e.param(p+"embedding", -1)
-		fetched := t.gather(emb, len(ids), c.DModel, indices)
+		fetched := e.aq(t.gather(emb, len(ids), c.DModel, indices))
 		keys[site] = e.linear(fetched, p+"key_proj/kernel", -1)
 		v := e.linear(fetched, p+"value_proj/kernel", -1)
 		values[site] = t.conv(v, e.param(p+"taps", -1), dilation, 0)
@@ -301,7 +316,7 @@ func (e *execution) forward(ids []int) *value {
 	stream := t.concat(lanes)
 	ek, ev := e.engrams(ids)
 	for l := 0; l < c.Layers; l++ {
-		nx := t.rms(stream)
+		nx := e.aq(t.rms(stream))
 		hc := func(kind string, cols int) *value {
 			a := e.param("stack/mhc_a_"+kind, l)
 			bias := e.param("stack/mhc_b_"+kind, l)
@@ -360,7 +375,7 @@ func (e *execution) forward(ids []int) *value {
 	}
 	x = e.norm(x, "stack/final_norm/scale", -1)
 	head := t.rows(embedding, 0, c.OutVocab)
-	return t.mm(x, head, true)
+	return t.mm(e.aq(x), head, true)
 }
 func (m *Model) validateTokens(ids []int) error {
 	if len(ids) == 0 || len(ids) > m.config.MaxSeq {
@@ -387,13 +402,17 @@ func (m *Model) Forward(ids []int, opts Options) (logits []float32, err error) {
 	if err = m.validateTokens(ids); err != nil {
 		return nil, err
 	}
+	if err = opts.Quant.validate(m.config.Generation); err != nil {
+		return nil, err
+	}
 	e := m.execution(false, opts)
 	out := e.forward(ids)
 	return out.x, nil
 }
 
 // LossGrad computes teacher-forced next-token CE. mask[i] weights the target
-// ids[i+1]; nil includes every next-token position. Gradients are native FP32.
+// ids[i+1]; nil includes every next-token position. Gradients are native FP32;
+// Quant optionally applies Needle3 CQ/A8/KV8 straight-through numerics.
 func (m *Model) LossGrad(ids []int, mask []float32, opts Options) (loss float64, grad map[string]checkpoint.Tensor, err error) {
 	defer recoverWork(&err)
 	if err = m.validateTokens(ids); err != nil {
@@ -421,6 +440,9 @@ func (m *Model) LossGrad(ids []int, mask []float32, opts Options) (loss float64,
 	}
 	if total == 0 {
 		return 0, nil, fmt.Errorf("needle: loss mask has no supervised targets")
+	}
+	if err = opts.Quant.validate(m.config.Generation); err != nil {
+		return 0, nil, err
 	}
 	e := m.execution(true, opts)
 	out := e.forward(ids)

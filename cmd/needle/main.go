@@ -1,4 +1,4 @@
-// Command needle runs the native FP32 Needle2/Needle3 token-ID reference path.
+// Command needle runs native Needle2/Needle3 token-ID reference inference/training.
 package main
 
 import (
@@ -51,7 +51,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.SetOutput(stderr)
 	path := fs.String("model", "", "Needle safetensors checkpoint (explicit generation 2/3)")
 	tokens := fs.String("input", "", "JSON {tokens:[...],mask:[...]} input file")
-	mode := fs.String("mode", "infer", "infer or train (FP32 only)")
+	mode := fs.String("mode", "infer", "infer or train")
+	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
 	maxNew := fs.Int("max-new", 8, "maximum greedy tokens (recomputes prefix)")
 	eos := fs.Int("eos", 1, "EOS token, -1 disables early stop")
 	steps := fs.Int("steps", 1, "number of optimization steps on the input example")
@@ -69,6 +70,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if *mode != "infer" && *mode != "train" {
 		return fmt.Errorf("mode must be infer or train")
+	}
+	if *numerics != "fp32" && *numerics != "needle3-cq4-a8-kv8" {
+		return fmt.Errorf("unsupported numerics mode")
 	}
 	if *work < 1 || *work > 4096 {
 		return fmt.Errorf("work-mib must be 1..4096")
@@ -98,13 +102,16 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return e
 	}
 	opts := needle.Options{MaxWorkBytes: *work << 20}
+	if *numerics == "needle3-cq4-a8-kv8" {
+		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}
+	}
 	enc := json.NewEncoder(stdout)
 	if *mode == "infer" {
 		generated, e := m.Generate(ctx, in.Tokens, *maxNew, *eos, opts)
 		if e != nil {
 			return e
 		}
-		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": "fp32", "generated_ids": generated})
+		return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "generated_ids": generated})
 	}
 	opt := needle.NewAdamW()
 	var ad *needle.Adapter
@@ -142,7 +149,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if e = checkpoint.Save(*out, m.Checkpoint()); e != nil {
 		return e
 	}
-	return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": "fp32", "steps": *steps, "losses": losses, "checkpoint": *out, "lora_rank": *rank})
+	return enc.Encode(map[string]any{"generation": m.Configuration().Generation, "numerics": *numerics, "steps": *steps, "losses": losses, "checkpoint": *out, "lora_rank": *rank})
 }
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

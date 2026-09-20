@@ -130,3 +130,23 @@ func TestGeneration(t *testing.T) {
 		t.Fatal("ignored context cap")
 	}
 }
+
+func TestNeedle3QuantizedUpstream(t *testing.T) {
+	m, f := fixtureFile(t, "needle3-cq.json")
+	opts := Options{Quant: &Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}}
+	out, err := m.Forward(f.Tokens, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compare(t, "CQ logits", out, f.Logits.Data, 8e-5, 1e-3)
+	loss, g, err := m.LossGrad(f.Tokens, nil, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(loss-f.Loss) > 8e-6 {
+		t.Errorf("CQ loss %g want %g", loss, f.Loss)
+	}
+	for key, want := range f.Gradients {
+		compare(t, key, g[key].Data, want.Data, 1e-5, 1e-2)
+	}
+}

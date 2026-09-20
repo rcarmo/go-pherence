@@ -4,7 +4,7 @@ This page tracks model architecture and weight-format support. The top-level REA
 
 ## Needle implementation in progress
 
-[Needle 3 and Needle 2](../../model/needle/README.md) have a native FP32 language-model trunk, token-ID generation and full-trunk/LoRA training with upstream small-model logits/loss/gradient parity. Dense forward/backward products use amd64/ARM64 SIMD dispatch. This is not yet full Needle application support: quantized `.cact`/CQ-A8 training, tokenizer/tool calling, auxiliary heads, ladder slicing, full SIMD coverage and native ARM qualification remain pending.
+[Needle 3 and Needle 2](../../model/needle/README.md) have a native FP32 language-model trunk, token-ID generation and full-trunk/LoRA training with upstream small-model logits/loss/gradient parity. Dense forward/backward products use amd64/ARM64 SIMD dispatch. This is not yet full Needle application support: packed `.cact`, AB-scaled CQ and Needle 2 quantized training, tokenizer/tool calling, auxiliary heads, ladder slicing, full SIMD coverage and native ARM qualification remain pending. Needle 3 CQ-W4/A8/KV8 STE reference inference/training has a separate upstream parity fixture; it computes with dequantized weights, not packed kernels.
 
 ## Performance snapshot
 

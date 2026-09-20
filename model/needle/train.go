@@ -29,8 +29,7 @@ func (m *Model) Configuration() Config {
 }
 
 // Adapter uses upstream LoRA orientation: A[...,input,rank], B[...,rank,output].
-// FP32 training is explicit. CQ straight-through/A8 deployment training is not
-// silently approximated by this path.
+// Options.Quant explicitly selects CQ/A8 STE training; the default is FP32.
 type Adapter struct {
 	Rank    int
 	Scale   float32

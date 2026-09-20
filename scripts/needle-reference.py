@@ -188,7 +188,7 @@ def _named_tensor_map(tree: dict[str, Any], *, integer: bool = False) -> dict[st
     return out
 
 
-def _build_fixture(arch: Any, upstream: Path, head: str) -> dict[str, Any]:
+def _build_fixture(arch: Any, upstream: Path, head: str, quantized: bool = False) -> dict[str, Any]:
     if jax.default_backend() != "cpu":
         raise SystemExit(f"expected cpu backend, got {jax.default_backend()}")
 
@@ -225,8 +225,11 @@ def _build_fixture(arch: Any, upstream: Path, head: str) -> dict[str, Any]:
     params = model.init(jax.random.key(SEED), tokens, quant=False)["params"]
     params = _mutate_params(params)
 
+    arch._quantize.configure_deploy(act_bits=8, kv_bits=8)
     def loss_fn(p):
-        logits = model.apply({"params": p}, tokens, quant=False)
+        if quantized:
+            p = arch._quantize.cq_ste_params(p, 4)
+        logits = model.apply({"params": p}, tokens, quant=quantized)
         next_ids = tokens[:, 1:]
         log_probs = jax.nn.log_softmax(logits[:, :-1, :], axis=-1)
         token_log_probs = jnp.take_along_axis(log_probs, next_ids[..., None], axis=-1)[..., 0]
@@ -252,7 +255,7 @@ def _build_fixture(arch: Any, upstream: Path, head: str) -> dict[str, Any]:
             "seed": SEED,
             "device": "cpu",
             "dtype": "float32",
-            "quant": False,
+            "quant": quantized,
             "upstream": os.fspath(upstream),
             "upstream_pin": head,
             "jax_platforms": os.environ.get("JAX_PLATFORMS"),
@@ -292,13 +295,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upstream", required=True, type=Path, help="local pinned needle-upstream checkout")
     parser.add_argument("--output", required=True, type=Path, help="output fixture JSON path")
+    parser.add_argument('--quantized', action='store_true', help='CQ W4/A8/KV8 straight-through reference')
     args = parser.parse_args()
 
     upstream = args.upstream.resolve()
     output = args.output.resolve()
     head = _assert_upstream_pin(upstream)
     arch = _load_architecture(upstream)
-    fixture = _build_fixture(arch, upstream, head)
+    fixture = _build_fixture(arch, upstream, head, args.quantized)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
