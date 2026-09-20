@@ -204,3 +204,29 @@ func TestCloseWaitsForOwnedConversionsAndPrefetch(t *testing.T) {
 		}
 	}
 }
+
+func TestOptionalMetadataOmitsOnlyAbsentDefault(t *testing.T) {
+	dir := t.TempDir()
+	if _, present, err := OptionalTensorInfosFrom(dir, ""); err != nil || present {
+		t.Fatal(present, err)
+	}
+	if _, _, err := OptionalTensorInfosFrom(dir, filepath.Join(dir, "explicit.safetensors")); err == nil {
+		t.Fatal("missing explicit source suppressed")
+	}
+	index := filepath.Join(dir, "model.safetensors.index.json")
+	if err := os.WriteFile(index, []byte(`{"weight_map":{"x":"missing.safetensors"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := OptionalTensorInfosFrom(dir, ""); err == nil {
+		t.Fatal("missing shard suppressed")
+	}
+	if err := os.Remove(index); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("missing-index", index); err != nil {
+		t.Skip(err)
+	}
+	if _, _, err := OptionalTensorInfosFrom(dir, ""); err == nil {
+		t.Fatal("dangling index suppressed")
+	}
+}

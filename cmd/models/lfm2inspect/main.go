@@ -64,7 +64,11 @@ func main() {
 			out.RuntimeRequestPlan = &requestPlan
 		}
 	}
-	if infos, err := safetensors.TensorInfosFrom(*modelDir, *safetensorPath); err == nil {
+	infos, present, err := safetensors.OptionalTensorInfosFrom(*modelDir, *safetensorPath)
+	if err != nil {
+		fatal(err)
+	}
+	if present {
 		names := make([]string, 0, len(infos))
 		for name := range infos {
 			names = append(names, name)

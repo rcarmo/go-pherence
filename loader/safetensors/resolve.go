@@ -50,6 +50,26 @@ func TensorInfosFrom(modelDir, explicit string) (map[string]TensorInfo, error) {
 	return f.TensorInfos(), nil
 }
 
+// OptionalTensorInfosFrom distinguishes a genuinely absent default checkpoint
+// from a broken explicit path, index, shard or present file. Inspectors may omit
+// weights only in the first case; errors must not masquerade as metadata-only.
+func OptionalTensorInfosFrom(modelDir, explicit string) (map[string]TensorInfo, bool, error) {
+	path, sharded, err := resolveMetadataPath(modelDir, explicit)
+	if err != nil {
+		return nil, false, err
+	}
+	if explicit == "" && !sharded {
+		if _, err := os.Lstat(path); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, false, nil
+			}
+			return nil, false, err
+		}
+	}
+	infos, err := TensorInfosFrom(modelDir, explicit)
+	return infos, err == nil, err
+}
+
 // NamesFrom resolves a safetensors source (see TensorInfosFrom) and returns its
 // tensor names.
 func NamesFrom(modelDir, explicit string) ([]string, error) {

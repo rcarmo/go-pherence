@@ -128,3 +128,13 @@ func TestReportValidStrictInputs(t *testing.T) {
 func TestHelperProcess(t *testing.T) {
 	testexec.HelperProcess(t, main)
 }
+
+func TestInspectRejectsBrokenCheckpointInsteadOfOmittingIt(t *testing.T) {
+	dir := t.TempDir()
+	testexec.WriteFile(t, filepath.Join(dir, "config.json"), `{"model_type":"lfm2_moe","hidden_size":2048,"num_hidden_layers":1,"num_attention_heads":32,"num_key_value_heads":8,"layer_types":["conv"],"num_experts":32,"num_experts_per_tok":4,"moe_intermediate_size":1792,"conv_L_cache":3}`)
+	testexec.WriteFile(t, filepath.Join(dir, "model.safetensors.index.json"), `{"weight_map":{"x":"missing.safetensors"}}`)
+	out, err := testexec.RunInspectRaw("-model", dir, "-json")
+	if err == nil {
+		t.Fatalf("broken checkpoint omitted: %s", out)
+	}
+}
