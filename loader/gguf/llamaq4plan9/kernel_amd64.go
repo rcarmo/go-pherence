@@ -7,12 +7,13 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf/internal/q4layout"
 	"unsafe"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"golang.org/x/sys/cpu"
 )
 
 // Available reports whether the Plan 9 fused kernels can execute on this CPU.
 func Available() bool {
-	return cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA
+	return cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA && simd.RuntimeCapabilities().HasF16C
 }
 
 //go:noescape
@@ -48,8 +49,8 @@ var stagedConstants = [64]uint32{
 // retained compiler kernel. It exists as a performance baseline for the
 // hand-scheduled implementation.
 func DotQ4_0x8Q8_0x4CompilerPlan9(q4, q8 []byte, blocks int, out *[32]float32) error {
-	if !(cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA) {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+	if !Available() {
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 1) {
 		return fmt.Errorf("llama tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -60,8 +61,8 @@ func DotQ4_0x8Q8_0x4CompilerPlan9(q4, q8 []byte, blocks int, out *[32]float32) e
 
 // DotQ4_0x8Q8_0x16CompilerPlan9 computes one fused 8-row by 16-token tile.
 func DotQ4_0x8Q8_0x16CompilerPlan9(q4, q8 []byte, blocks int, out *[128]float32) error {
-	if !(cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA) {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+	if !Available() {
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 4) {
 		return fmt.Errorf("llama 8x16 tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -72,8 +73,8 @@ func DotQ4_0x8Q8_0x16CompilerPlan9(q4, q8 []byte, blocks int, out *[128]float32)
 
 // DotQ4_0x8Q8_0x8CompilerPlan9 computes one dual-panel 8-row by 8-token tile.
 func DotQ4_0x8Q8_0x8CompilerPlan9(q4, q8 []byte, blocks int, out *[64]float32) error {
-	if !(cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA) {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+	if !Available() {
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 2) {
 		return fmt.Errorf("llama 8x8 tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -86,7 +87,7 @@ func DotQ4_0x8Q8_0x8CompilerPlan9(q4, q8 []byte, blocks int, out *[64]float32) e
 // pairs and writes token-major contiguous output.
 func DotQ4_0x8Q8_0x16PairPlan9(q4, q8 []byte, blocks int, out *[128]float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 4) {
 		return fmt.Errorf("llama paired 8x16 tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -98,7 +99,7 @@ func DotQ4_0x8Q8_0x16PairPlan9(q4, q8 []byte, blocks int, out *[128]float32) err
 // DotQ4_0x8Q8_0x8StagePlan9 computes one dual-panel tile with stage-local decoded weights.
 func DotQ4_0x8Q8_0x8StagePlan9(q4, q8 []byte, blocks int, out *[64]float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 2) {
 		return fmt.Errorf("llama staged 8x8 tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -113,7 +114,7 @@ func DotQ4_0x8Q8_0x8StagePlan9(q4, q8 []byte, blocks int, out *[64]float32) erro
 // copied into the logical output.
 func ProjectQ4_0x8Q8_0StageRows(q4, q8 []byte, rowBase, rowGroups, rows, tokens, blocks int, out []float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if !q4layout.Rows(len(q4), len(q8), len(out), rowBase, rowGroups, rows, tokens, blocks) {
 		return fmt.Errorf("llama Plan 9 projection rows size: q4=%d q8=%d out=%d base=%d groups=%d rows=%d tokens=%d blocks=%d", len(q4), len(q8), len(out), rowBase, rowGroups, rows, tokens, blocks)

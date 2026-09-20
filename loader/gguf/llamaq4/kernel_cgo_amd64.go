@@ -16,17 +16,18 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf/internal/q4layout"
 	"unsafe"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"golang.org/x/sys/cpu"
 )
 
 // Available reports whether the fused kernels can execute on this build and CPU.
 func Available() bool {
-	return cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA
+	return cpu.X86.HasAVX2 && cpu.X86.HasAVXVNNI && cpu.X86.HasFMA && simd.RuntimeCapabilities().HasF16C
 }
 
 func DotQ4_0x8Q8_0x4VNNI(q4, q8 []byte, blocks int, out *[32]float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if out == nil || !q4layout.Tile(len(q4), len(q8), blocks, 1) {
 		return fmt.Errorf("llama tile size: q4=%d q8=%d blocks=%d", len(q4), len(q8), blocks)
@@ -42,7 +43,7 @@ func DotQ4_0x8Q8_0x4VNNI(q4, q8 []byte, blocks int, out *[32]float32) error {
 
 func ProjectQ4_0x8Q8_0x4VNNI(q4, q8 []byte, rows, tokens, blocks int, out []float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if !q4layout.Rows(len(q4), len(q8), len(out), 0, q4layout.Groups(rows, 8), rows, tokens, blocks) {
 		return fmt.Errorf("llama projection size: q4=%d q8=%d out=%d rows=%d tokens=%d blocks=%d", len(q4), len(q8), len(out), rows, tokens, blocks)
@@ -58,7 +59,7 @@ func ProjectQ4_0x8Q8_0x4VNNI(q4, q8 []byte, rows, tokens, blocks int, out []floa
 
 func ProjectQ4_0x8Q8_0x4RowsVNNI(q4, q8 []byte, rowBase, rowGroups, rows, tokens, blocks int, out []float32) error {
 	if !Available() {
-		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI and FMA")
+		return fmt.Errorf("llama Q4_0x8 kernel requires AVX2, AVX-VNNI, FMA and F16C")
 	}
 	if !q4layout.Rows(len(q4), len(q8), len(out), rowBase, rowGroups, rows, tokens, blocks) {
 		return fmt.Errorf("llama projection rows size: q4=%d q8=%d out=%d base=%d groups=%d rows=%d tokens=%d blocks=%d", len(q4), len(q8), len(out), rowBase, rowGroups, rows, tokens, blocks)
