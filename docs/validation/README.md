@@ -1,5 +1,7 @@
 # Validation
 
+Latest continuation: [fourth-pass sizing, slot and diagnostic review](repository-safety-fourth-pass-20260919.md). Selected source coverage is 75/162 packages; 87 remain inventory/test-only. Earlier totals below are historical snapshots, not exhaustive clearance.
+
 Further continuation: [cache, graph and native-boundary review](repository-safety-third-pass-20260919.md). Selected source sections now cover 59/162 packages, with 103 inventory/test-only. Native GGML/ORT risks are explicit open findings; host stubs do not validate their CGo implementations.
 
 Latest continuation: [follow-on audit](repository-safety-followon-20260919.md). Selected source sections now cover 40 of 162 packages; 122 remain inventory/test-only. New tests cover HTTP admission, worker lifecycle, mapping close, finite comparisons, CPU fallback attention/convolution and graph buffer reuse. Earlier counts below describe the first pass.

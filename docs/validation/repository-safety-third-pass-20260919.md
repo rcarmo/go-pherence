@@ -1,5 +1,7 @@
 ## Repository audit: cache, graph and backend boundaries
 
+The [fourth pass](repository-safety-fourth-pass-20260919.md) addresses remaining LFM2 size formulas, scoped expert-stream ownership and mapping budgets, benchmark completion and inspection error handling. Earlier open-item dispositions below describe this third-pass snapshot.
+
 A cache can respect its snapshot-byte budget while retaining unlimited metadata.
 A graph can validate every tensor size while reusing a buffer behind a live view.
 Both gaps were present in the next source-review slice, which also expanded

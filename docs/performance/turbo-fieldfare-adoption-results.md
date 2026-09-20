@@ -206,3 +206,16 @@ The adoption series does not enable RDADVISE/read-ahead, speculative cross-layer
 ## Pending real-model rows
 
 The Qwen3-30B-A3B MLX4 asset is unavailable on this host. Cold/warm decode, real route traces, upload bytes and full-token throughput remain explicitly pending rather than inferred from synthetic work. When the checkpoint is installed, these replay and selected-expert fixtures are the fixed controls for choosing LRU/LFU/layer-aware policy and any broader persistent-kernel experiment.
+
+## Later ownership and measurement hardening
+
+The [fourth audit pass](../validation/repository-safety-fourth-pass-20260919.md)
+adds callback-scoped expert-slot ownership through `WithExperts`, used by the
+experimental upload adapter when available. Aggregate slot mappings now include
+alignment/page overhead under a 1GiB default budget with an explicit override.
+Legacy Load results remain borrowed until reuse/Close. Historical throughput
+numbers above were not rerun and are not a new hardware validation claim.
+
+Serving benchmarks now require `[DONE]`, reject streamed error objects, bound
+individual SSE frames to 4MiB and reject unrepresentable arrival durations.
+HTTP200 or partial streamed text alone is not successful benchmark completion.

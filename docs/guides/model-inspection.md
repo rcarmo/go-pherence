@@ -254,3 +254,15 @@ This runs tests and vet for:
 - reference/fixture gates are checked with `-fail-pending`
 - parity/readiness gates are checked with `-fail-pending` and may fail while implementation is incomplete
 - `cmd/models/modelcoverage`
+
+## Missing and broken weight files
+
+LFM2 and Qwen3-TTS may inspect a model directory without default checkpoint files.
+That is metadata-only output, not weight/runtime readiness. A present but broken
+index, a missing shard, a dangling link or an explicit missing `-safetensors` path
+is now an error rather than silently omitted tensor coverage. Both inspectors
+accept explicit `.index.json` paths as well as single files.
+
+The `embcheck` and `shapecheck` diagnostics validate arguments and tensor ranges
+before printing samples; they still dequantise full requested tensors and should
+not be exposed as resource-unlimited service endpoints.

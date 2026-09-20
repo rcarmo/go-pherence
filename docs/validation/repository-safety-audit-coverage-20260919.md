@@ -3,14 +3,14 @@
 Companion to [the audit report](repository-safety-audit-20260919.md).
 
 This table began with 161 host-listed packages; the shared HTTP decoder adds a
-162nd package. It is not a safety clearance. Selected sections in 59 packages
-were inspected; **103 packages have inventory/test coverage only**. See the
-[third-pass findings](repository-safety-third-pass-20260919.md) for current fixes
+162nd package. It is not a safety clearance. Selected sections in 75 packages
+were inspected; **87 packages have inventory/test coverage only**. See the
+[fourth-pass findings](repository-safety-fourth-pass-20260919.md) for current fixes
 and open native/backend gaps.
 "Boundary inspection" means selected functions/sections in the listed files were
 read for ownership, bounds or lifecycle behaviour; it does **not** mean the whole
 file or package was reviewed. Blank source coverage is explicit outstanding work.
-The race column is the third-pass NVIDIA-disabled host sweep: 98 pass and 64
+The race column is the fourth-pass NVIDIA-disabled host sweep: 101 pass and 61
 have no tests. Optional CGo/native implementations remain unexecuted even when
 their host stubs build. A passing package may
 contain skipped GPU, K3 or missing-fixture tests. Foreign-only files were not
@@ -27,8 +27,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/llamagraph` | no test files | Inventory/tests only; source review outstanding |
 | `backends/mlx` | pass | `validate.go`, `load.go`, `gemv.go` |
 | `backends/nvidia` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/internal/debuglog` | no test files | Inventory/tests only; source review outstanding |
-| `backends/nvidia/ioctl` | pass | Inventory/tests only; source review outstanding |
+| `backends/nvidia/internal/debuglog` | no test files | `debug.go` |
+| `backends/nvidia/ioctl` | pass | `memory.go`, `gpfifo.go`, `ioctl.go` (source-only; no device calls) |
 | `backends/nvidia/ptx` | no test files | `attention.go`, `conversion.go`, `norm.go`, `sgemm_compensated.go` |
 | `backends/nvidia/ptx/bf16` | no test files | Inventory/tests only; source review outstanding |
 | `backends/nvidia/ptx/fp8` | no test files | Inventory/tests only; source review outstanding |
@@ -52,7 +52,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `backends/spacemit/aicpu/aipool` | no test files | `ai_pool.go`, `ai_pool_new.go`, `ai_thread.go`, `ai_pool_lifecycle_riscv64_test.go` (cross-build only) |
 | `backends/spacemit/aicpu/config` | no test files | Inventory/tests only; source review outstanding |
 | `backends/spacemit/aicpu/q4kcshim` | no test files | Inventory/tests only; source review outstanding |
-| `backends/spacemit/board` | no test files | Inventory/tests only; source review outstanding |
+| `backends/spacemit/board` | pass | `backend.go`, `select.go`, `ops.go`, `simd.go`, `spacemit.go`, `vulkan.go` |
 | `backends/spacemit/ime2` | pass | `worker_pool.go`, `worker_pool_test.go` |
 | `backends/spacemit/inference` | pass | `inference.go`, `inference_test.go` |
 | `backends/spacemit/ort` | pass | `spacemitort.go`, `options.go` (native sections source-only; required libraries unavailable) |
@@ -81,27 +81,27 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `cmd/image/internal/k3flags` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/image/zimageinspect` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/internal/dgflags` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/internal/testexec` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/internal/testexec` | no test files | `helper.go` |
 | `cmd/jevlike` | pass | `frozen.go` |
 | `cmd/llm/internal/pathutil` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/llm/internal/promptfile` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/llm/llmchat` | no test files | Inventory/tests only; source review outstanding |
 | `cmd/llm/llmgen` | pass | Inventory/tests only; source review outstanding |
 | `cmd/llm/llmserver` | pass | `main.go` |
-| `cmd/llm/servebench` | pass | Inventory/tests only; source review outstanding |
+| `cmd/llm/servebench` | pass | `main.go`, `main_test.go` |
 | `cmd/llm/specbench` | pass | Inventory/tests only; source review outstanding |
 | `cmd/llm/speccheck` | pass | Inventory/tests only; source review outstanding |
-| `cmd/minicpmvinspect` | no test files | Inventory/tests only; source review outstanding |
-| `cmd/models/embcheck` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/minicpmvinspect` | no test files | `main.go` |
+| `cmd/models/embcheck` | pass | `main.go`, `main_test.go` |
 | `cmd/models/gemma4mtpparity` | pass | Inventory/tests only; source review outstanding |
 | `cmd/models/gemma4mtpsmoke` | pass | Inventory/tests only; source review outstanding |
 | `cmd/models/ggufinspect` | pass | Inventory/tests only; source review outstanding |
 | `cmd/models/ggufsmoke` | pass | Inventory/tests only; source review outstanding |
-| `cmd/models/lfm2inspect` | pass | Inventory/tests only; source review outstanding |
+| `cmd/models/lfm2inspect` | pass | `main.go`, `main_test.go` |
 | `cmd/models/modelcoverage` | pass | Inventory/tests only; source review outstanding |
-| `cmd/models/shapecheck` | no test files | Inventory/tests only; source review outstanding |
+| `cmd/models/shapecheck` | pass | `main.go`, `main_test.go` |
 | `cmd/qwen/qwen36run` | pass | Inventory/tests only; source review outstanding |
-| `cmd/qwen/qwen3ttsinspect` | pass | Inventory/tests only; source review outstanding |
+| `cmd/qwen/qwen3ttsinspect` | pass | `main.go`, `main_test.go` |
 | `cmd/qwen/qwenmtpmeta` | pass | Inventory/tests only; source review outstanding |
 | `cmd/qwen/qwenmtpsmoke` | pass | Inventory/tests only; source review outstanding |
 | `cmd/qwen/qwenmtpsynth` | pass | Inventory/tests only; source review outstanding |
@@ -133,7 +133,7 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `internal/modelcoverage` | no test files | Inventory/tests only; source review outstanding |
 | `loader/audio` | pass | `wav.go`, `wav_invalid_test.go` |
 | `loader/audio/media` | pass | `wav.go` |
-| `loader/config` | pass | Inventory/tests only; source review outstanding |
+| `loader/config` | pass | `config.go`, `fixture_tensor_summary.go`, `fixture_tensor_summary_test.go` |
 | `loader/gguf` | pass | `gguf.go`, `open_lifetime_linux_test.go` |
 | `loader/gguf/llamaq4` | no test files | Inventory/tests only; source review outstanding |
 | `loader/gguf/llamaq4plan9` | pass | Inventory/tests only; source review outstanding |
@@ -146,8 +146,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/bert` | pass | `bert.go` |
 | `model/common` | pass | `config.go`, `config_test.go` |
 | `model/diffusiongemma` | pass | `expert_lru_cache.go` |
-| `model/gemma` | pass | Inventory/tests only; source review outstanding |
-| `model/gemma4` | no test files | Inventory/tests only; source review outstanding |
+| `model/gemma` | pass | `config.go`, `config_test.go` |
+| `model/gemma4` | no test files | `compat.go`, `doc.go` |
 | `model/gliner2` | pass | Inventory/tests only; source review outstanding |
 | `model/hunyuan3d` | pass | `runtime.go` |
 | `model/ideogram4` | pass | `fp8_load.go`, `fp8_linear.go` |
@@ -156,8 +156,8 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/internal/readiness` | pass | `report.go`, `report_test.go` |
 | `model/internal/tensorinspect` | pass | `shape.go`, `tensors.go`, `tensors_test.go` |
 | `model/jevlike` | pass | `checkpoint.go`, `model.go`, `frozen_train.go` |
-| `model/lfm2` | pass | `config.go`, `state.go`, `runtime_request.go`, `context.go`, `conv_state.go`, `attention_kv.go`, `embedding_layout.go`, `router_layout.go`, `tensor_shape_validation.go` |
-| `model/llama` | no test files | Inventory/tests only; source review outstanding |
+| `model/lfm2` | pass | `config.go`, `state.go`, `runtime_request.go`, `context.go`, `conv_state.go`, `attention_kv.go`, `embedding_layout.go`, `router_layout.go`, `tensor_shape_validation.go`, `sizing.go`, stage/layout validators and schedule membership checks |
+| `model/llama` | no test files | `rope.go` |
 | `model/minicpmv` | pass | `tensors.go` |
 | `model/mosstranscribe` | pass | `load.go`, `native.go`, `audio.go`, `native_test.go` |
 | `model/omnivoice` | pass | `workers.go` |
@@ -167,16 +167,16 @@ executed. Test-source files explain regressions rather than broaden source cover
 | `model/speaker/community1` | pass | Inventory/tests only; source review outstanding |
 | `model/trellis2` | pass | Inventory/tests only; source review outstanding |
 | `model/whisper` | pass | `load_checked.go` |
-| `runtime/expertstream` | pass | `reader.go`, `manifest.go`, `alloc.go` |
+| `runtime/expertstream` | pass | `reader.go`, `manifest.go`, `alloc.go`, `types.go`, `lifetime_test.go` |
 | `runtime/graph` | pass | `graph.go`, `plan.go`, `executor.go`, `safety_test.go` |
 | `runtime/inferencesched` | pass | `scheduler.go` |
 | `runtime/kv` | pass | Inventory/tests only; source review outstanding |
 | `runtime/memory` | pass | Inventory/tests only; source review outstanding |
 | `runtime/promptcache` | pass | `cache.go`, `identity.go` |
-| `runtime/quant` | pass | Inventory/tests only; source review outstanding |
+| `runtime/quant` | pass | `gptq.go`, `mlx.go`, `nvfp4.go`, `gemv_q4.go`, `gemv_q4_validate.go`, `gptq_validate.go` |
 | `runtime/resourcebudget` | pass | `budget.go` |
 | `runtime/sampling` | pass | `sampling.go`, `allocation_test.go` |
-| `runtime/servingbench` | pass | Inventory/tests only; source review outstanding |
+| `runtime/servingbench` | pass | `sse.go`, `servingbench.go`, `arrival.go`, `summary.go` |
 | `runtime/speechjob` | pass | `queue.go` |
 | `runtime/speechjob/httpapi` | pass | `http.go` |
 | `tensor` | pass | `shape.go`, `unsafe.go`, `tensor.go`, `conv1d.go`, `fuse.go` |
