@@ -332,3 +332,10 @@ func TestLoadManifest(t *testing.T) {
 		t.Fatal("expected missing manifest error")
 	}
 }
+
+func TestEmptyCoverageCannotReportComplete(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{"empty": {}}}
+	if _, err := summarize(m, "", coverageFilter{}); err == nil {
+		t.Fatal("empty family accepted")
+	}
+}

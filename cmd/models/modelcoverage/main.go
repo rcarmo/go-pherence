@@ -411,6 +411,11 @@ func loadManifest(path string) (manifest, error) {
 	if m.Version <= 0 || len(m.Families) == 0 {
 		return manifest{}, fmt.Errorf("invalid model coverage manifest: version=%d families=%d", m.Version, len(m.Families))
 	}
+	for name, f := range m.Families {
+		if strings.TrimSpace(name) == "" || len(f.Coverage) == 0 {
+			return manifest{}, fmt.Errorf("family %q has no coverage entries", name)
+		}
+	}
 	return m, nil
 }
 
@@ -438,6 +443,9 @@ func summarize(m manifest, family string, filter coverageFilter) ([]familySummar
 	out := make([]familySummary, 0, len(names))
 	for _, name := range names {
 		fam := m.Families[name]
+		if len(fam.Coverage) == 0 {
+			return nil, fmt.Errorf("family %q has no coverage entries", name)
+		}
 		s := familySummary{Name: name, Status: fam.Status, RuntimeGeneration: fam.RuntimeGeneration, ValidationTarget: fam.ValidationTarget}
 		keys := make([]string, 0, len(fam.Coverage))
 		for key := range fam.Coverage {
