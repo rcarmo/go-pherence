@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -382,6 +383,25 @@ func TestLoadRejections(t *testing.T) {
 		}
 	}
 }
+func TestModernBERTNumberRunTokenization(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_MODERNBERT_MODEL")
+	if dir == "" {
+		t.Skip("set local model")
+	}
+	tok, e := LoadTokenizer(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	got, e := tok.Encode(" level 0: Unsupported", false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	want := []int{1268, 470, 27, 914, 19391}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
 func TestReleasedTokenizer(t *testing.T) {
 	dir := os.Getenv("GO_PHERENCE_MODERNBERT_MODEL")
 	if dir == "" {
