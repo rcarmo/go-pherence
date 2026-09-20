@@ -166,6 +166,9 @@ func (m *Model) Head(ids []int, kind HeadKind, opts Options) (output []float32, 
 	if err = opts.Quant.validate(m.config.Generation); err != nil {
 		return nil, err
 	}
+	if m.config.Generation == 2 && opts.Quant != nil {
+		return nil, fmt.Errorf("needle: Needle2 head quantization is not qualified; use FP32")
+	}
 	_, _, _, err = m.headGeometry(kind)
 	if err != nil {
 		return nil, err

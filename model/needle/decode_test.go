@@ -440,10 +440,10 @@ func TestDecoderInvalidQuantValidation(t *testing.T) {
 		fn   func(testing.TB) error
 	}{
 		{
-			name: "needle2 rejects cq",
+			name: "needle2 rejects simulated kv8",
 			fn: func(t testing.TB) error {
 				m, _ := fixtureFile(t, "needle2.json")
-				_, err := m.NewDecoder(DecoderOptions{Execution: Options{Quant: &Quantization{WeightBits: 4}}})
+				_, err := m.NewDecoder(DecoderOptions{Execution: Options{Quant: &Quantization{WeightBits: 4, KVBits: 8}}})
 				return err
 			},
 		},

@@ -1,8 +1,10 @@
 package needle
 
 import (
+	"context"
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -40,8 +42,8 @@ func TestQuantizationAdmission(t *testing.T) {
 		}
 	}
 	v2, _ := fixtureFile(t, "needle2.json")
-	if _, err := v2.Forward(f.Tokens, Options{Quant: &Quantization{WeightBits: 4}}); err == nil {
-		t.Fatal("advertised unsupported v2 CQ")
+	if _, err := v2.Forward(f.Tokens, Options{Quant: &Quantization{WeightBits: 4, KVBits: 8}}); err == nil {
+		t.Fatal("advertised unsupported v2 simulated KV8")
 	}
 }
 func TestCQCodebooks(t *testing.T) {
@@ -85,4 +87,62 @@ func TestA8TinyAndZeroRows(t *testing.T) {
 	compare(t, "STE", x.g, []float32{1, 1, 1}, 0, 0)
 	z := tp.fakeA8(tp.leaf([]float32{0, 0}))
 	compare(t, "zero", z.x, []float32{0, 0}, 0, 0)
+}
+
+func TestNeedle2CQTrainingAndCache(t *testing.T) {
+	m, f := fixtureFile(t, "needle2-cq.json")
+	opts := Options{Quant: &Quantization{WeightBits: 4, ActivationBits: 8}}
+	decoder, err := m.NewDecoder(DecoderOptions{Capacity: 16, Execution: opts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, id := range f.Tokens {
+		got, err := decoder.Step(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := m.Forward(f.Tokens[:i+1], opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		compare(t, "v2 CQ cache", got, want[len(want)-m.config.OutVocab:], 3e-5, 1e-3)
+	}
+	a, err := m.Generate(context.Background(), f.Tokens, 8, -1, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := m.GenerateCached(context.Background(), f.Tokens, 8, -1, DecoderOptions{Execution: opts})
+	if err != nil || !slices.Equal(a, b) {
+		t.Fatalf("generated %v != %v: %v", a, b, err)
+	}
+	ad, err := m.NewAdapter(2, 4, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, _, err := m.AdapterLossGrad(ad, f.Tokens, nil, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opt := NewAdamW()
+	for i := 0; i < 12; i++ {
+		ad, _, err = m.TrainAdapterStep(ad, opt, f.Tokens, nil, .003, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	after, _, err := m.AdapterLossGrad(ad, f.Tokens, nil, opts)
+	if err != nil || after >= initial {
+		t.Fatalf("adapter loss %g -> %g %v", initial, after, err)
+	}
+	next, initial, err := m.TrainStep(NewAdamW(), f.Tokens, nil, .001, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _, err = next.LossGrad(f.Tokens, nil, opts)
+	if err != nil || after >= initial {
+		t.Fatalf("trunk loss %g -> %g %v", initial, after, err)
+	}
+	for name, w := range f.Tensors {
+		compare(t, "original "+name, m.tensors[name].Data, w.Data, 0, 0)
+	}
 }

@@ -144,7 +144,9 @@ func (e *execution) attention(x *value, l, window int) *value {
 		qh := t.rope(t.norm(t.cols(q, h*c.QKDim, c.QKDim), qs), c.RopeTheta)
 		kk := t.rope(t.norm(t.cols(k, kh*c.QKDim, c.QKDim), ks), c.RopeTheta)
 		vv := t.cols(v, kh*c.VDim, c.VDim)
-		qh = e.aq(qh)
+		if c.Generation == 3 {
+			qh = e.aq(qh)
+		}
 		kk = e.kvq(kk)
 		vv = e.kvq(vv)
 		prob := e.attentionSoftmax(t.scale(t.mm(qh, kk, true), float32(1/math.Sqrt(float64(c.QKDim)))), window)

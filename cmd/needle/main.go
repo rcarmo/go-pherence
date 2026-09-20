@@ -59,10 +59,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	toolsPath := fs.String("tools", "", "tool schema JSON array (tools mode, no execution)")
 	systemText := fs.String("system", "", "optional tool-mode system instruction")
 	maxCalls := fs.Int("max-calls", 1, "maximum schema-constrained tool calls (1..4)")
-	headKind := fs.String("head", "confidence", "train-head objective: confidence BCE, router CE, embedding MSE")
+	headKind := fs.String("head", "confidence", "train-head objective: confidence BCE, router CE, embedding/contrastive MSE")
 	width := fs.Int("width", 0, "source Needle3 half-width rung; 0 keeps width")
 	layers := fs.Int("layers", 0, "Needle3 depth rung (0 keeps all loaded layers)")
-	numerics := fs.String("numerics", "fp32", "fp32 or needle3-cq4-a8-kv8 (STE training)")
+	numerics := fs.String("numerics", "fp32", "fp32, needle3-cq4-a8-kv8 or needle2-cq4-a8-fp32kv (STE training)")
 	maxNew := fs.Int("max-new", 8, "maximum greedy tokens (tools mode defaults to 128)")
 	cached := fs.Bool("cached", true, "use bounded incremental KV/convolution state (infer only)")
 	packed := fs.Bool("packed", false, "opt-in direct CQ projections from original .cact; dense tensors remain retained")
@@ -136,7 +136,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if *layers < 0 || *layers == 1 || *layers > 128 {
 		return fmt.Errorf("layers must be 0 or 2..128")
 	}
-	if *numerics != "fp32" && *numerics != "needle3-cq4-a8-kv8" {
+	if *numerics != "fp32" && *numerics != "needle3-cq4-a8-kv8" && *numerics != "needle2-cq4-a8-fp32kv" {
 		return fmt.Errorf("unsupported numerics mode")
 	}
 	if *cacheMiB < 1 || *cacheMiB > 8192 {
@@ -171,6 +171,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if e != nil {
 		return e
+	}
+	if (*numerics == "needle3-cq4-a8-kv8" && m.Configuration().Generation != 3) || (*numerics == "needle2-cq4-a8-fp32kv" && m.Configuration().Generation != 2) {
+		return fmt.Errorf("numerics mode does not match model generation")
 	}
 	if m.Configuration().ArchiveDecoded {
 		if *numerics != "fp32" {
@@ -262,6 +265,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	opts := needle.Options{MaxWorkBytes: *work << 20, Packed: *packed}
 	if *numerics == "needle3-cq4-a8-kv8" {
 		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8, KVBits: 8}
+	} else if *numerics == "needle2-cq4-a8-fp32kv" {
+		opts.Quant = &needle.Quantization{WeightBits: 4, ActivationBits: 8}
 	}
 	enc := json.NewEncoder(stdout)
 	if *mode == "infer" {

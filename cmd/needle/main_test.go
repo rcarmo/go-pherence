@@ -300,3 +300,48 @@ func TestNeedle2HeadCLI(t *testing.T) {
 		t.Fatalf("%s", stdout.String())
 	}
 }
+
+func TestNeedle2CQCLI(t *testing.T) {
+	raw, err := os.ReadFile("../../model/needle/testdata/needle2-cq.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f struct {
+		Config  json.RawMessage              `json:"config"`
+		Tensors map[string]checkpoint.Tensor `json:"tensors"`
+	}
+	if err = json.Unmarshal(raw, &f); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "v2.safetensors")
+	output := filepath.Join(dir, "trained.safetensors")
+	input := filepath.Join(dir, "input.json")
+	if err = checkpoint.Save(src, &checkpoint.Checkpoint{FormatVersion: 2, Config: f.Config, Tensors: f.Tensors}); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(input, []byte(`{"tokens":[2,7,4,9,3]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if err = run(context.Background(), []string{"-model", src, "-input", input, "-mode", "train", "-steps", "2", "-numerics", "needle2-cq4-a8-fp32kv", "-out", output}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if err = run(context.Background(), []string{"-model", output, "-input", input, "-numerics", "needle2-cq4-a8-fp32kv", "-max-new", "3"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Numerics string `json:"numerics"`
+		IDs      []int  `json:"generated_ids"`
+	}
+	if err = json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Numerics != "needle2-cq4-a8-fp32kv" || len(result.IDs) != 3 {
+		t.Fatal(stdout.String())
+	}
+	if err = run(context.Background(), []string{"-model", src, "-input", input, "-numerics", "needle3-cq4-a8-kv8"}, &stdout, &stderr); err == nil {
+		t.Fatal("mismatched generation")
+	}
+}

@@ -296,7 +296,10 @@ func (e *execution) cachedAttention(x *value, l, window int) *value {
 	scale := float32(1 / math.Sqrt(float64(c.QKDim)))
 	for h := 0; h < c.Heads; h++ {
 		kh := h / (c.Heads / c.KVHeads)
-		qh := e.aq(t.ropeAt(t.norm(t.cols(q, h*c.QKDim, c.QKDim), qs), c.RopeTheta, pos))
+		qh := t.ropeAt(t.norm(t.cols(q, h*c.QKDim, c.QKDim), qs), c.RopeTheta, pos)
+		if c.Generation == 3 {
+			qh = e.aq(qh)
+		}
 		scores := t.alloc(1, count)
 		for j := 0; j < count; j++ {
 			absolute := start + j

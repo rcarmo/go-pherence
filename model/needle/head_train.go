@@ -19,6 +19,9 @@ func (m *Model) HeadLossGrad(ids []int, kind HeadKind, target []float32, opts Op
 	if err = m.validateTokens(ids); err != nil {
 		return 0, nil, err
 	}
+	if m.config.Generation == 2 && opts.Quant != nil {
+		return 0, nil, fmt.Errorf("needle: Needle2 head quantization is not qualified; use FP32")
+	}
 	if m.deployed || opts.Packed {
 		return 0, nil, fmt.Errorf("needle: head training requires source checkpoint")
 	}

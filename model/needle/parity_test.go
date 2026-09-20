@@ -150,3 +150,61 @@ func TestNeedle3QuantizedUpstream(t *testing.T) {
 		compare(t, key, g[key].Data, want.Data, 1e-5, 1e-2)
 	}
 }
+
+func TestNeedle2QuantizedUpstream(t *testing.T) {
+	m, f := fixtureFile(t, "needle2-cq.json")
+	opts := Options{Quant: &Quantization{WeightBits: 4, ActivationBits: 8}}
+	got, err := m.Forward(f.Tokens, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compare(t, "v2 CQ logits", got, f.Logits.Data, 3e-5, 1e-3)
+	loss, grads, err := m.LossGrad(f.Tokens, nil, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(loss-f.Loss) > 2e-6 {
+		t.Fatalf("loss %g != %g", loss, f.Loss)
+	}
+	for name, want := range f.Gradients {
+		compare(t, name, grads[name].Data, want.Data, 4e-5, 3e-3)
+	}
+}
+
+func TestNeedle2CQPreparationAndActivationParity(t *testing.T) {
+	m, f := fixtureFile(t, "needle2-cq.json")
+	raw, err := os.ReadFile("testdata/needle2-cq.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var extra struct {
+		CQ map[string]checkpoint.Tensor `json:"cq_tensors"`
+		A8 checkpoint.Tensor            `json:"a8_logits"`
+	}
+	if err = json.Unmarshal(raw, &extra); err != nil {
+		t.Fatal(err)
+	}
+	for name, w := range extra.CQ {
+		p := m.tensors[name]
+		data := p.Data
+		if isCQ(name) && len(p.Shape) >= 2 {
+			data = make([]float32, len(p.Data))
+			cqValues(data, p.Data, p.Shape, cqSecondLast(name), 4)
+		}
+		compare(t, "cq tensor "+name, data, w.Data, 4e-5, 3e-3)
+	}
+	golden, err := New(&checkpoint.Checkpoint{FormatVersion: 2, Config: m.rawConfig, Tensors: extra.CQ})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logits, err := golden.Forward(f.Tokens, Options{Quant: &Quantization{ActivationBits: 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compare(t, "golden-dequant", logits, f.Logits.Data, 3e-5, 1e-3)
+	logits, err = m.Forward(f.Tokens, Options{Quant: &Quantization{ActivationBits: 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compare(t, "A8-only", logits, extra.A8.Data, 3e-5, 1e-3)
+}

@@ -22,7 +22,9 @@ var cqCodebooks = func() map[string][]float32 {
 	return out
 }()
 
-// Quantization selects Needle3's dequantized CQ-weight/A8/KV8 STE reference.
+// Quantization selects the dequantized CQ-weight/A8 STE reference. Needle3
+// supports KV8 simulation; pinned Needle2 deploy KV8 keeps full-precision KV,
+// represented by KVBits=0 here (lower-bit v2 CQ KV is not implemented).
 // Packed .cact execution is a separate format/runtime, not selected here.
 type Quantization struct {
 	WeightBits     float64
@@ -34,8 +36,11 @@ func (q *Quantization) validate(generation int) error {
 	if q == nil {
 		return nil
 	}
-	if generation != 3 {
-		return fmt.Errorf("needle: CQ/A8 mode currently requires Needle3")
+	if generation != 2 && generation != 3 {
+		return fmt.Errorf("needle: CQ/A8 mode requires Needle2 or Needle3")
+	}
+	if generation == 2 && q.KVBits != 0 {
+		return fmt.Errorf("needle: Needle2 requires KVBits=0 (FP32 KV); lower-bit CQ KV unsupported")
 	}
 	if q.WeightBits != 0 && q.WeightBits != 1 && q.WeightBits != 1.58 && q.WeightBits != 2 && q.WeightBits != 4 && q.WeightBits != 8 {
 		return fmt.Errorf("needle: unsupported CQ weight bits")
