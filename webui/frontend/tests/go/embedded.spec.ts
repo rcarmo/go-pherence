@@ -6,6 +6,15 @@ test('embedded upstream chat streams, persists, renders errors and fits mobile',
 	const errors: string[] = [];
 	page.on('pageerror', (e) => errors.push(e.message));
 	await page.goto('/');
+	const brand = page.getByRole('link', { name: 'go-pherence', exact: true });
+	await expect(brand).toBeVisible();
+	await expect(brand.locator('img')).toHaveAttribute('src', '/favicon.svg');
+	await expect
+		.poll(() => brand.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth))
+		.toBe(64);
+	const favicon = await page.request.get('/favicon.svg');
+	expect(favicon.status()).toBe(200);
+	expect(await favicon.text()).toContain('<title>go-pherence</title>');
 	await expect(page.locator('textarea').first()).toBeVisible();
 	await expect(page.getByRole('button', { name: 'fixture-model', exact: true })).toBeVisible();
 	const response = page.waitForResponse((r) => r.url().includes('/webui/v1/chat/completions'));

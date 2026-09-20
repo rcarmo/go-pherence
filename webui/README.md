@@ -1,6 +1,6 @@
 # Embedded llama.cpp UI
 
-This is the llama.cpp Svelte UI, not a recreation. The component tree, CSS, icons, hash routes, browser storage, chat editor, settings and import/export screens come from upstream. Bun builds static assets; Go embeds and serves them. There is no production JavaScript server.
+This is the llama.cpp Svelte UI, not a recreation. The component tree, CSS, interface icons, hash routes, browser storage, chat editor, settings and import/export screens come from upstream. The sidebar name/logo and browser favicon use go-pherence branding, as requested; the icon is a 64px rendition of `docs/icon-256.png` embedded in an SVG wrapper. Bun builds static assets; Go embeds and serves them. There is no production JavaScript server.
 
 The frontend and the inference API are different things. This port preserves the upstream UI, but does **not** give go-pherence every llama-server capability. Unsupported inference controls return errors rather than silently changing the request.
 
@@ -62,6 +62,7 @@ Local changes to copied files:
 - `vite.config.ts`: leave Svelte assets hashed instead of flattening them for C++; add the development compatibility-route proxy.
 - `svelte.config.js`: output to the sibling embedded directory; fix the build ID for reproducibility.
 - `src/lib/constants/api-endpoints.ts`: send chat to the separate compatibility route.
+- `src/lib/constants/ui.ts`, `SidebarNavigation.svelte` and `static/favicon.svg`: go-pherence name and existing project artwork for the sidebar and browser tab. Storage keys stay unchanged, preserving existing conversations/settings.
 - `src/routes/settings/[[section]]/+page.svelte`: defer the default-section `replaceState` until SvelteKit's root exists on direct hash loads. No layout or navigation redesign.
 - `src/lib/utils/model-names.ts`, its unit test and `vitest-setup-client.ts`: repository-conforming example/fixture paths only.
 - `README.md`: point three links at the pinned upstream documents outside this vendored subtree.

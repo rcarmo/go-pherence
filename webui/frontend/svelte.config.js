@@ -13,7 +13,7 @@ const config = {
 
 	kit: {
 		// No wall-clock build ID: checked-in assets must be reproducible.
-		version: { name: 'llama-4a6735f1-go-1' },
+		version: { name: 'llama-4a6735f1-go-2' },
 		paths: {
 			relative: true
 		},

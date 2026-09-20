@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { Trash2, Pencil, Pin, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -182,7 +183,8 @@
 		<Sidebar.Header class="gap-4 bg-sidebar/50 p-3 backdrop-blur-lg md:pt-4 md:pb-2">
 			<div class="flex items-center justify-between">
 				<a href={ROUTES.START} onclick={handleMobileSidebarItemClick}>
-					<h1 class="inline-flex items-center gap-1 px-2 text-xl font-semibold">
+					<h1 class="inline-flex items-center gap-2 px-2 text-xl font-semibold">
+						<img src={`${base}/favicon.svg`} alt="" class="h-8 w-8 shrink-0 rounded-md" />
 						{APP_NAME}
 					</h1>
 				</a>

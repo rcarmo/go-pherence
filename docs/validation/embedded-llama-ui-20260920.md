@@ -35,6 +35,10 @@ The first full race attempt exceeded its outer tool timeout and is not counted. 
 
 An independent delegated review timed out and supplied no findings; it is not counted as review coverage.
 
+## Requested branding follow-up
+
+After the initial port, the sidebar and browser favicon were changed to the existing go-pherence artwork (`docs/icon-256.png`, reduced to 64px) and the displayed name to `go-pherence`. No storage keys were changed. Chromium verifies the header image loads and the favicon is served; both browser scenarios, all 199 unit tests, Svelte diagnostics, affected Go race tests, vet/build and documentation checks passed again. The original source-comparison counts above describe the initial port; the package README records these additional branding changes.
+
 ## What this does not establish
 
 The UI does not implement llama-server's inference stack. It advertises one text model, not router mode or multimodal support. Non-neutral unsupported controls fail explicitly. The existing strict OpenAI routes remain separate. UI title settings, browser-local functionality and other upstream controls are retained, but only the scenarios above were tested: this is not exhaustive interactive-feature qualification or a pixel-diff comparison against a running native llama-server.
