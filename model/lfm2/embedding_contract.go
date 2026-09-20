@@ -25,11 +25,14 @@ func NewEmbeddingExecutionContract(cfg Config, plan RuntimeRequestPlan) (Embeddi
 	if err != nil {
 		return EmbeddingExecutionContract{}, err
 	}
-	contract := EmbeddingExecutionContract{Plan: plan, Context: plan.Context, Embedding: embedding, PromptTokens: plan.PromptTokens, HiddenSize: embedding.HiddenSize, OutputFloats: plan.PromptTokens * embedding.HiddenSize}
+	contract := EmbeddingExecutionContract{Plan: plan, Context: plan.Context, Embedding: embedding, PromptTokens: plan.PromptTokens, HiddenSize: embedding.HiddenSize, OutputFloats: sizeProduct(plan.PromptTokens, embedding.HiddenSize)}
 	return contract, contract.Validate()
 }
 
 func (c EmbeddingExecutionContract) Validate() error {
+	if !nonnegativeSizes(c.OutputFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if err := c.Plan.Validate(); err != nil {
 		return err
 	}
@@ -42,8 +45,8 @@ func (c EmbeddingExecutionContract) Validate() error {
 	if c.PromptTokens <= 0 || c.PromptTokens != c.Plan.PromptTokens || c.HiddenSize != c.Embedding.HiddenSize {
 		return fmt.Errorf("invalid LFM2 embedding contract limits: %+v", c)
 	}
-	if c.OutputFloats != c.PromptTokens*c.HiddenSize {
-		return fmt.Errorf("invalid LFM2 embedding output floats=%d want=%d", c.OutputFloats, c.PromptTokens*c.HiddenSize)
+	if c.OutputFloats != sizeProduct(c.PromptTokens, c.HiddenSize) {
+		return fmt.Errorf("invalid LFM2 embedding output floats=%d want=%d", c.OutputFloats, sizeProduct(c.PromptTokens, c.HiddenSize))
 	}
 	return nil
 }

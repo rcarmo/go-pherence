@@ -25,29 +25,35 @@ func NewConvStateLayout(cfg Config, schedule LayerSchedule) (ConvStateLayout, er
 			return ConvStateLayout{}, err
 		}
 	}
+	if err := schedule.Validate(cfg.NumHiddenLayers); err != nil {
+		return ConvStateLayout{}, err
+	}
 	layout := ConvStateLayout{
 		Layers:         len(schedule.ConvIndices),
 		HiddenSize:     cfg.HiddenSize,
 		LCache:         cfg.ConvLCache,
-		FloatsPerLayer: cfg.ConvLCache * cfg.HiddenSize,
+		FloatsPerLayer: sizeProduct(cfg.ConvLCache, cfg.HiddenSize),
 		LayerIndices:   append([]int(nil), schedule.ConvIndices...),
 	}
-	layout.TotalFloats = layout.Layers * layout.FloatsPerLayer
+	layout.TotalFloats = sizeProduct(layout.Layers, layout.FloatsPerLayer)
 	return layout, layout.Validate()
 }
 
 func (l ConvStateLayout) Validate() error {
+	if !nonnegativeSizes(l.FloatsPerLayer, l.TotalFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.Layers <= 0 || l.HiddenSize <= 0 || l.LCache <= 0 {
 		return fmt.Errorf("invalid LFM2 conv state layout dims: %+v", l)
 	}
 	if len(l.LayerIndices) != l.Layers {
 		return fmt.Errorf("invalid LFM2 conv state layer index count=%d want=%d", len(l.LayerIndices), l.Layers)
 	}
-	if l.FloatsPerLayer != l.LCache*l.HiddenSize {
-		return fmt.Errorf("invalid LFM2 conv state floats/layer=%d want=%d", l.FloatsPerLayer, l.LCache*l.HiddenSize)
+	if l.FloatsPerLayer != sizeProduct(l.LCache, l.HiddenSize) {
+		return fmt.Errorf("invalid LFM2 conv state floats/layer=%d want=%d", l.FloatsPerLayer, sizeProduct(l.LCache, l.HiddenSize))
 	}
-	if l.TotalFloats != l.Layers*l.FloatsPerLayer {
-		return fmt.Errorf("invalid LFM2 conv state total_floats=%d want=%d", l.TotalFloats, l.Layers*l.FloatsPerLayer)
+	if l.TotalFloats != sizeProduct(l.Layers, l.FloatsPerLayer) {
+		return fmt.Errorf("invalid LFM2 conv state total_floats=%d want=%d", l.TotalFloats, sizeProduct(l.Layers, l.FloatsPerLayer))
 	}
 	prev := -1
 	for _, idx := range l.LayerIndices {
@@ -63,5 +69,8 @@ func (l ConvStateLayout) Bytes(bytesPerFloat int) (int64, error) {
 	if bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid conv state bytes/float=%d", bytesPerFloat)
 	}
-	return int64(l.TotalFloats) * int64(bytesPerFloat), nil
+	if err := l.Validate(); err != nil {
+		return 0, err
+	}
+	return sizeBytes(l.TotalFloats, bytesPerFloat)
 }

@@ -27,21 +27,24 @@ func NewEmbeddingLayout(cfg Config) (EmbeddingLayout, error) {
 		VocabSize:         vocab,
 		HiddenSize:        cfg.HiddenSize,
 		TieWordEmbeddings: cfg.TieWordEmbeddings,
-		EmbeddingFloats:   vocab * cfg.HiddenSize,
+		EmbeddingFloats:   sizeProduct(vocab, cfg.HiddenSize),
 		OutputSharesInput: cfg.TieWordEmbeddings,
 	}
 	if !cfg.TieWordEmbeddings {
-		layout.LMHeadFloats = vocab * cfg.HiddenSize
+		layout.LMHeadFloats = sizeProduct(vocab, cfg.HiddenSize)
 	}
-	layout.TotalUntiedFloats = layout.EmbeddingFloats + layout.LMHeadFloats
+	layout.TotalUntiedFloats = sizeSum(layout.EmbeddingFloats, layout.LMHeadFloats)
 	return layout, layout.Validate()
 }
 
 func (l EmbeddingLayout) Validate() error {
+	if !nonnegativeSizes(l.EmbeddingFloats, l.LMHeadFloats, l.TotalUntiedFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.VocabSize <= 0 || l.HiddenSize <= 0 {
 		return fmt.Errorf("invalid LFM2 embedding layout dims: %+v", l)
 	}
-	wantEmbedding := l.VocabSize * l.HiddenSize
+	wantEmbedding := sizeProduct(l.VocabSize, l.HiddenSize)
 	if l.EmbeddingFloats != wantEmbedding {
 		return fmt.Errorf("invalid LFM2 embedding floats=%d want=%d", l.EmbeddingFloats, wantEmbedding)
 	}
@@ -55,8 +58,8 @@ func (l EmbeddingLayout) Validate() error {
 	if l.OutputSharesInput != l.TieWordEmbeddings {
 		return fmt.Errorf("invalid LFM2 embedding sharing flag: shares=%v tied=%v", l.OutputSharesInput, l.TieWordEmbeddings)
 	}
-	if l.TotalUntiedFloats != l.EmbeddingFloats+l.LMHeadFloats {
-		return fmt.Errorf("invalid LFM2 embedding total floats=%d want=%d", l.TotalUntiedFloats, l.EmbeddingFloats+l.LMHeadFloats)
+	if l.TotalUntiedFloats != sizeSum(l.EmbeddingFloats, l.LMHeadFloats) {
+		return fmt.Errorf("invalid LFM2 embedding total floats=%d want=%d", l.TotalUntiedFloats, sizeSum(l.EmbeddingFloats, l.LMHeadFloats))
 	}
 	return nil
 }
@@ -68,5 +71,5 @@ func (l EmbeddingLayout) Bytes(bytesPerFloat int) (int64, error) {
 	if bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid LFM2 embedding bytes/float=%d", bytesPerFloat)
 	}
-	return int64(l.TotalUntiedFloats) * int64(bytesPerFloat), nil
+	return sizeBytes(l.TotalUntiedFloats, bytesPerFloat)
 }

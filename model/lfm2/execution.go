@@ -62,8 +62,14 @@ func (p ExecutionPlan) Validate(numLayers int) error {
 		}
 		switch step.FFN {
 		case FFNDense:
+			if dense >= len(p.DenseIndices) || p.DenseIndices[dense] != step.Index {
+				return fmt.Errorf("LFM2 index list disagrees with step %d", step.Index)
+			}
 			dense++
 		case FFNMoE:
+			if moe >= len(p.MoEIndices) || p.MoEIndices[moe] != step.Index {
+				return fmt.Errorf("LFM2 index list disagrees with step %d", step.Index)
+			}
 			moe++
 		default:
 			return fmt.Errorf("invalid LFM2 execution FFN kind at %d: %q", step.Index, step.FFN)

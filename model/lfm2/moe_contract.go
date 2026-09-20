@@ -27,11 +27,14 @@ func NewMoEExecutionContract(cfg Config, plan RuntimeRequestPlan) (MoEExecutionC
 	if err != nil {
 		return MoEExecutionContract{}, err
 	}
-	contract := MoEExecutionContract{Plan: plan, RouterLayout: runtimePlan.RouterLayout, FFNLayout: runtimePlan.FFNLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: plan.MaxSequence * runtimePlan.HiddenSize, RouterScratch: plan.RouterScratch, TopKPerToken: runtimePlan.RouterLayout.TopKPerToken}
+	contract := MoEExecutionContract{Plan: plan, RouterLayout: runtimePlan.RouterLayout, FFNLayout: runtimePlan.FFNLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: sizeProduct(plan.MaxSequence, runtimePlan.HiddenSize), RouterScratch: plan.RouterScratch, TopKPerToken: runtimePlan.RouterLayout.TopKPerToken}
 	return contract, contract.Validate()
 }
 
 func (c MoEExecutionContract) Validate() error {
+	if !nonnegativeSizes(c.HiddenFloats, c.RouterScratch) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if err := c.Plan.Validate(); err != nil {
 		return err
 	}
@@ -44,8 +47,8 @@ func (c MoEExecutionContract) Validate() error {
 	if c.SequenceTokens <= 0 || c.SequenceTokens != c.Plan.MaxSequence || c.HiddenSize <= 0 || c.HiddenSize != c.RouterLayout.HiddenSize || c.HiddenSize != c.FFNLayout.HiddenSize {
 		return fmt.Errorf("invalid LFM2 MoE contract dims: %+v", c)
 	}
-	if c.HiddenFloats != c.SequenceTokens*c.HiddenSize {
-		return fmt.Errorf("invalid LFM2 MoE hidden floats=%d want=%d", c.HiddenFloats, c.SequenceTokens*c.HiddenSize)
+	if c.HiddenFloats != sizeProduct(c.SequenceTokens, c.HiddenSize) {
+		return fmt.Errorf("invalid LFM2 MoE hidden floats=%d want=%d", c.HiddenFloats, sizeProduct(c.SequenceTokens, c.HiddenSize))
 	}
 	wantScratch, err := c.RouterLayout.ScratchFloats(c.SequenceTokens)
 	if err != nil {

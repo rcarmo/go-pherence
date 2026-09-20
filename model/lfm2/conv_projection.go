@@ -36,21 +36,24 @@ func NewConvProjectionLayout(cfg Config, schedule LayerSchedule) (ConvProjection
 		ConvLCache:   cfg.ConvLCache,
 		ConvLayers:   len(schedule.ConvIndices),
 		HasBias:      cfg.ConvBias,
-		KernelFloats: cfg.HiddenSize * cfg.ConvLCache,
+		KernelFloats: sizeProduct(cfg.HiddenSize, cfg.ConvLCache),
 	}
 	if cfg.ConvBias {
 		layout.BiasFloats = cfg.HiddenSize
 	}
-	layout.FloatsPerLayer = layout.KernelFloats + layout.BiasFloats
-	layout.TotalConvFloats = layout.FloatsPerLayer * layout.ConvLayers
+	layout.FloatsPerLayer = sizeSum(layout.KernelFloats, layout.BiasFloats)
+	layout.TotalConvFloats = sizeProduct(layout.FloatsPerLayer, layout.ConvLayers)
 	return layout, layout.Validate()
 }
 
 func (l ConvProjectionLayout) Validate() error {
+	if !nonnegativeSizes(l.KernelFloats, l.BiasFloats, l.FloatsPerLayer, l.TotalConvFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.HiddenSize <= 0 || l.ConvLCache <= 0 || l.ConvLayers < 0 {
 		return fmt.Errorf("invalid LFM2 conv projection dims: %+v", l)
 	}
-	wantKernel := l.HiddenSize * l.ConvLCache
+	wantKernel := sizeProduct(l.HiddenSize, l.ConvLCache)
 	if l.KernelFloats != wantKernel {
 		return fmt.Errorf("invalid LFM2 conv kernel floats=%d want=%d", l.KernelFloats, wantKernel)
 	}
@@ -61,12 +64,12 @@ func (l ConvProjectionLayout) Validate() error {
 	if l.BiasFloats != wantBias {
 		return fmt.Errorf("invalid LFM2 conv bias floats=%d want=%d", l.BiasFloats, wantBias)
 	}
-	wantLayer := l.KernelFloats + l.BiasFloats
+	wantLayer := sizeSum(l.KernelFloats, l.BiasFloats)
 	if l.FloatsPerLayer != wantLayer {
 		return fmt.Errorf("invalid LFM2 conv floats/layer=%d want=%d", l.FloatsPerLayer, wantLayer)
 	}
-	if l.TotalConvFloats != l.FloatsPerLayer*l.ConvLayers {
-		return fmt.Errorf("invalid LFM2 conv total floats=%d want=%d", l.TotalConvFloats, l.FloatsPerLayer*l.ConvLayers)
+	if l.TotalConvFloats != sizeProduct(l.FloatsPerLayer, l.ConvLayers) {
+		return fmt.Errorf("invalid LFM2 conv total floats=%d want=%d", l.TotalConvFloats, sizeProduct(l.FloatsPerLayer, l.ConvLayers))
 	}
 	return nil
 }

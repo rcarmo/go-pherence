@@ -24,17 +24,23 @@ func NewAttentionKVLayout(cfg Config, schedule LayerSchedule) (AttentionKVLayout
 			return AttentionKVLayout{}, err
 		}
 	}
+	if err := schedule.Validate(cfg.NumHiddenLayers); err != nil {
+		return AttentionKVLayout{}, err
+	}
 	layout := AttentionKVLayout{
 		Layers:       len(schedule.FullAttentionIndices),
 		KVHeads:      cfg.NumKeyValueHeads,
 		HeadDim:      cfg.HeadDim,
 		LayerIndices: append([]int(nil), schedule.FullAttentionIndices...),
 	}
-	layout.FloatsPerToken = 2 * layout.Layers * layout.KVHeads * layout.HeadDim
+	layout.FloatsPerToken = sizeProduct(2, layout.Layers, layout.KVHeads, layout.HeadDim)
 	return layout, layout.Validate()
 }
 
 func (l AttentionKVLayout) Validate() error {
+	if !nonnegativeSizes(l.FloatsPerToken) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.KVHeads <= 0 || l.HeadDim <= 0 || l.Layers < 0 {
 		return fmt.Errorf("invalid LFM2 attention KV layout dims: %+v", l)
 	}
@@ -47,7 +53,7 @@ func (l AttentionKVLayout) Validate() error {
 	if len(l.LayerIndices) != l.Layers {
 		return fmt.Errorf("invalid LFM2 attention layer index count=%d want=%d", len(l.LayerIndices), l.Layers)
 	}
-	wantFloats := 2 * l.Layers * l.KVHeads * l.HeadDim
+	wantFloats := sizeProduct(2, l.Layers, l.KVHeads, l.HeadDim)
 	if l.FloatsPerToken != wantFloats {
 		return fmt.Errorf("invalid LFM2 attention KV floats/token=%d want=%d", l.FloatsPerToken, wantFloats)
 	}
@@ -68,5 +74,5 @@ func (l AttentionKVLayout) Bytes(maxSeq int, bytesPerFloat int) (int64, error) {
 	if maxSeq < 0 || bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid attention KV sizing arguments: max_seq=%d bytes_per_float=%d", maxSeq, bytesPerFloat)
 	}
-	return int64(maxSeq) * int64(l.FloatsPerToken) * int64(bytesPerFloat), nil
+	return sizeBytes(maxSeq, l.FloatsPerToken, bytesPerFloat)
 }

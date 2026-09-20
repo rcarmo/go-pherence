@@ -123,16 +123,19 @@ func NewRuntimePlan(cfg Config) (RuntimePlan, error) {
 }
 
 func (p RuntimePlan) Validate() error {
+	if !nonnegativeSizes(p.ConvLayers, p.FullAttentionLayers, p.ConvStateFloats, p.KVFloatsPerToken) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if p.HiddenSize <= 0 || p.HeadDim <= 0 || p.Layers <= 0 || p.KVHeads <= 0 {
 		return fmt.Errorf("invalid LFM2 runtime plan dims: %+v", p)
 	}
-	if p.ConvLayers+p.FullAttentionLayers != p.Layers {
+	if sizeSum(p.ConvLayers, p.FullAttentionLayers) != p.Layers {
 		return fmt.Errorf("invalid LFM2 layer counts: conv=%d attention=%d layers=%d", p.ConvLayers, p.FullAttentionLayers, p.Layers)
 	}
-	if p.ConvStateFloats != p.ConvLayers*p.ConvLCache*p.HiddenSize {
+	if p.ConvStateFloats != sizeProduct(p.ConvLayers, p.ConvLCache, p.HiddenSize) {
 		return fmt.Errorf("invalid LFM2 conv state floats=%d", p.ConvStateFloats)
 	}
-	wantKV := 2 * p.FullAttentionLayers * p.KVHeads * p.HeadDim
+	wantKV := sizeProduct(2, p.FullAttentionLayers, p.KVHeads, p.HeadDim)
 	if p.KVFloatsPerToken != wantKV {
 		return fmt.Errorf("invalid LFM2 KV floats/token=%d want=%d", p.KVFloatsPerToken, wantKV)
 	}
@@ -238,7 +241,7 @@ func (p RuntimePlan) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
 	if maxSeq < 0 || bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid KV sizing arguments: max_seq=%d bytes_per_float=%d", maxSeq, bytesPerFloat)
 	}
-	return int64(maxSeq) * int64(p.KVFloatsPerToken) * int64(bytesPerFloat), nil
+	return sizeBytes(maxSeq, p.KVFloatsPerToken, bytesPerFloat)
 }
 
 func (p RuntimePlan) ConvStateBytes(bytesPerFloat int) (int64, error) {
@@ -248,5 +251,5 @@ func (p RuntimePlan) ConvStateBytes(bytesPerFloat int) (int64, error) {
 	if bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid conv state bytes/float=%d", bytesPerFloat)
 	}
-	return int64(p.ConvStateFloats) * int64(bytesPerFloat), nil
+	return sizeBytes(p.ConvStateFloats, bytesPerFloat)
 }

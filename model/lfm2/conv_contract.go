@@ -26,11 +26,14 @@ func NewConvExecutionContract(cfg Config, plan RuntimeRequestPlan) (ConvExecutio
 	if err != nil {
 		return ConvExecutionContract{}, err
 	}
-	contract := ConvExecutionContract{Plan: plan, StateLayout: runtimePlan.ConvStateLayout, ProjectionLayout: runtimePlan.ConvProjLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: plan.MaxSequence * runtimePlan.HiddenSize, StateFloats: runtimePlan.ConvStateFloats}
+	contract := ConvExecutionContract{Plan: plan, StateLayout: runtimePlan.ConvStateLayout, ProjectionLayout: runtimePlan.ConvProjLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: sizeProduct(plan.MaxSequence, runtimePlan.HiddenSize), StateFloats: runtimePlan.ConvStateFloats}
 	return contract, contract.Validate()
 }
 
 func (c ConvExecutionContract) Validate() error {
+	if !nonnegativeSizes(c.HiddenFloats, c.StateFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if err := c.Plan.Validate(); err != nil {
 		return err
 	}
@@ -43,8 +46,8 @@ func (c ConvExecutionContract) Validate() error {
 	if c.SequenceTokens <= 0 || c.SequenceTokens != c.Plan.MaxSequence || c.HiddenSize <= 0 || c.HiddenSize != c.StateLayout.HiddenSize || c.HiddenSize != c.ProjectionLayout.HiddenSize {
 		return fmt.Errorf("invalid LFM2 conv contract dims: %+v", c)
 	}
-	if c.HiddenFloats != c.SequenceTokens*c.HiddenSize {
-		return fmt.Errorf("invalid LFM2 conv hidden floats=%d want=%d", c.HiddenFloats, c.SequenceTokens*c.HiddenSize)
+	if c.HiddenFloats != sizeProduct(c.SequenceTokens, c.HiddenSize) {
+		return fmt.Errorf("invalid LFM2 conv hidden floats=%d want=%d", c.HiddenFloats, sizeProduct(c.SequenceTokens, c.HiddenSize))
 	}
 	if c.StateFloats != c.StateLayout.TotalFloats {
 		return fmt.Errorf("invalid LFM2 conv state floats=%d want=%d", c.StateFloats, c.StateLayout.TotalFloats)
