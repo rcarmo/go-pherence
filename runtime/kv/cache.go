@@ -4,7 +4,9 @@ import "github.com/rcarmo/go-pherence/internal/checked"
 
 // CompressedKVCache wraps a per-layer KV cache with TurboQuant compression.
 // Recent tokens (within the residual window) stay at full precision.
-// Older tokens are compressed on demand.
+// Older tokens are compressed on demand. Access and lifecycle require external
+// serialisation; returned full/scratch slices are borrowed. Exported storage
+// slices must retain the cache's token counts and paired K/V layout.
 type CompressedKVCache struct {
 	// Full-precision storage for recent tokens
 	FullK []float32 // [seqLen * kvDim] — full precision, appended per token
@@ -73,7 +75,8 @@ func NewCompressedKVCache(kvDim, numKVHeads, headDim int, tq *TurboQuantState, i
 	if headDim < 0 {
 		headDim = 0
 	}
-	if numKVHeads == 0 || headDim == 0 || numKVHeads*headDim != kvDim {
+	headWidth, validHeads := checked.MulInt(numKVHeads, headDim)
+	if numKVHeads == 0 || headDim == 0 || !validHeads || headWidth != kvDim {
 		numKVHeads = 0
 		headDim = 0
 	}
@@ -105,9 +108,16 @@ func (c *CompressedKVCache) Append(k, v []float32) {
 	if c == nil || c.kvDim <= 0 || len(k) != c.kvDim || len(v) != c.kvDim {
 		return
 	}
+	if !c.storageConsistent() {
+		return
+	}
+	next, ok := checked.AddInt(c.seqLen, 1)
+	if !ok {
+		return
+	}
 	c.FullK = append(c.FullK, k...)
 	c.FullV = append(c.FullV, v...)
-	c.seqLen++
+	c.seqLen = next
 
 	// Compress old entries if we exceed the residual window
 	if c.tq != nil && !c.isProtected && c.seqLen > c.residualWindow {
@@ -117,7 +127,7 @@ func (c *CompressedKVCache) Append(k, v []float32) {
 
 // compressOldest moves the oldest full-precision entry to compressed storage.
 func (c *CompressedKVCache) compressOldest() {
-	if c == nil || c.kvDim <= 0 || c.numKVHeads <= 0 || c.headDim <= 0 || c.numKVHeads*c.headDim != c.kvDim || c.tq == nil {
+	if c == nil || !c.storageConsistent() || !c.headGeometryValid() || c.tq == nil {
 		return
 	}
 	// How many full-precision entries we have
@@ -137,8 +147,13 @@ func (c *CompressedKVCache) compressOldest() {
 		return
 	}
 	var ek, ev compressedEntry
-	ek.Packed = make([]byte, c.numKVHeads*bytesPerKeyHead)
-	ev.Packed = make([]byte, c.numKVHeads*bytesPerValueHead)
+	kBytes, okK := checked.MulInt(c.numKVHeads, bytesPerKeyHead)
+	vBytes, okV := checked.MulInt(c.numKVHeads, bytesPerValueHead)
+	if !okK || !okV {
+		return
+	}
+	ek.Packed = make([]byte, kBytes)
+	ev.Packed = make([]byte, vBytes)
 	ek.HeadVMin = make([]float32, c.numKVHeads)
 	ek.HeadScale = make([]float32, c.numKVHeads)
 	ev.HeadVMin = make([]float32, c.numKVHeads)
@@ -190,7 +205,7 @@ func (c *CompressedKVCache) GetK() []float32 {
 		}
 		return c.FullK
 	}
-	if c.tq == nil || c.numKVHeads <= 0 || c.headDim <= 0 || c.numKVHeads*c.headDim != c.kvDim {
+	if c.tq == nil || !c.storageConsistent() || !c.headGeometryValid() {
 		return c.FullK
 	}
 	// Decompress + concatenate into reusable scratch storage.
@@ -246,7 +261,7 @@ func (c *CompressedKVCache) GetV() []float32 {
 		}
 		return c.FullV
 	}
-	if c.tq == nil || c.numKVHeads <= 0 || c.headDim <= 0 || c.numKVHeads*c.headDim != c.kvDim {
+	if c.tq == nil || !c.storageConsistent() || !c.headGeometryValid() {
 		return c.FullV
 	}
 	need, ok := checked.MulInt(c.seqLen, c.kvDim)
@@ -318,6 +333,8 @@ func (c *CompressedKVCache) Reset() {
 	}
 	c.FullK = c.FullK[:0]
 	c.FullV = c.FullV[:0]
+	clear(c.CompressedK)
+	clear(c.CompressedV)
 	c.CompressedK = c.CompressedK[:0]
 	c.CompressedV = c.CompressedV[:0]
 	c.scratchK = c.scratchK[:0]
@@ -325,7 +342,22 @@ func (c *CompressedKVCache) Reset() {
 	c.seqLen = 0
 }
 
-// MemoryBytes returns approximate stored cache usage (compressed + full, excluding slice headers and reusable scratch buffers).
+// Validate counts without scanning payloads or allocating on the append path.
+func (c *CompressedKVCache) storageConsistent() bool {
+	if c == nil || c.kvDim <= 0 || c.seqLen < 0 || len(c.FullK) != len(c.FullV) || len(c.CompressedK) != len(c.CompressedV) || len(c.FullK)%c.kvDim != 0 {
+		return false
+	}
+	total, ok := checked.AddInt(len(c.CompressedK), len(c.FullK)/c.kvDim)
+	return ok && total == c.seqLen
+}
+func (c *CompressedKVCache) headGeometryValid() bool {
+	if c == nil || c.numKVHeads <= 0 || c.headDim <= 0 {
+		return false
+	}
+	width, ok := checked.MulInt(c.numKVHeads, c.headDim)
+	return ok && width == c.kvDim
+}
+
 func compressedBytesPerHead(headDim, bits int) (int, bool) {
 	if headDim <= 0 || bits <= 0 {
 		return 0, false
@@ -401,6 +433,7 @@ func AggregateCompressedKVCacheStats(caches []*CompressedKVCache) CompressedKVCa
 	return out
 }
 
+// MemoryBytes reports logical stored payload, not retained capacities or RSS.
 func (c *CompressedKVCache) MemoryBytes() int64 {
 	if c == nil {
 		return 0
