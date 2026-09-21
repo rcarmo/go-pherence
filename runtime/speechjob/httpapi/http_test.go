@@ -125,6 +125,42 @@ func TestLifecycleAndDownloadAllowlist(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+func TestPublicFailureCodeAllowlist(t *testing.T) {
+	base := speechjob.Manifest{Status: speechjob.Failed}
+	for _, tc := range []struct {
+		error, code string
+	}{
+		{"unsupported media input: expected RIFF/WAVE content", "media_type_mismatch"},
+		{"unsupported media input: expected ISO BMFF content", "media_type_mismatch"},
+		{"secret-file-path /models/private-recording token=not-public", "job_failed"},
+	} {
+		m := base
+		m.Error = tc.error
+		if got := publicFailureCode(m); got != tc.code {
+			t.Fatal(tc.error, got)
+		}
+	}
+	base.Status = speechjob.Complete
+	if got := publicFailureCode(base); got != "" {
+		t.Fatal(got)
+	}
+}
+
+func TestFailedMediaTypeGetsSafeActionableCode(t *testing.T) {
+	private := "unsupported media input: expected RIFF/WAVE content"
+	st := testStage("decode", func(context.Context, *speechjob.Input, io.Writer) error { return errors.New(private) })
+	h, _, _ := fixture(t, []speechjob.Stage{st}, 2)
+	j := upload(t, h)
+	w := request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), `"failure_code":"media_type_mismatch"`) || strings.Contains(w.Body.String(), "RIFF/WAVE") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	w = request(h, "GET", "/v1/jobs/"+j.ID, nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"failure_code":"media_type_mismatch"`) || strings.Contains(w.Body.String(), "RIFF/WAVE") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
 func TestFailedRunKeepsDownloadsAndRedactsErrors(t *testing.T) {
 	fail := true
 	private := "secret-file-path /models/private-recording token=not-public"
@@ -141,8 +177,8 @@ func TestFailedRunKeepsDownloadsAndRedactsErrors(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	w = request(h, "GET", "/v1/jobs/"+j.ID, nil)
-	if strings.Contains(w.Body.String(), private) {
-		t.Fatal("error leak")
+	if strings.Contains(w.Body.String(), private) || !strings.Contains(w.Body.String(), `"failure_code":"job_failed"`) {
+		t.Fatal("error leak or missing safe failure code", w.Body.String())
 	}
 	if w = request(h, "GET", "/v1/jobs/"+j.ID+"/artifacts/transcript", nil); w.Code != 200 || w.Body.String() != "text" {
 		t.Fatal(w)
@@ -358,6 +394,57 @@ func TestProfileDriftReadDeleteAndIdentityCopy(t *testing.T) {
 		t.Fatal(j)
 	}
 }
+func TestRecordingPresentationFallbacks(t *testing.T) {
+	for _, tc := range []struct{ name, title string }{{"jfk.wav", "JFK"}, {"minds-pt-row2.wav", "MINDS PT Row 2"}, {"customer_interview.m4a", "Customer Interview"}} {
+		if got := recordingTitle(speechjob.Manifest{Name: tc.name}); got != tc.title {
+			t.Fatal(tc.name, got)
+		}
+	}
+	m := speechjob.Manifest{Configuration: `{"Config":"{\"Profile\":{\"language\":\"pt\",\"community\":{\"enable\":true}}}"}`}
+	if language, speakers := recordingOptions(m, ""); language != "pt" || !speakers {
+		t.Fatal(language, speakers)
+	}
+	if language, speakers := recordingOptions(m, "asr-en-wav"); language != "en" || speakers {
+		t.Fatal(language, speakers)
+	}
+}
+
+func TestRecordingTitleAndHumanExportFilename(t *testing.T) {
+	h, _, _ := fixture(t, []speechjob.Stage{textStage("vtt", "WEBVTT\n\n")}, 2)
+	j := upload(t, h)
+	if j.Title != "Recording" || j.Name != "recording.wav" {
+		t.Fatal(j)
+	}
+	// request() fixes mutation bodies as octet-stream; use an explicit JSON request.
+	r := httptest.NewRequest("PUT", "https://speech.test/v1/jobs/"+j.ID+"/title", strings.NewReader(`{"title":"Customer Interview"}`))
+	r.Header.Set("Authorization", "Bearer "+testToken)
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	j = decodeJob(t, w, 200)
+	if j.Title != "Customer Interview" || j.Name != "recording.wav" {
+		t.Fatal(j)
+	}
+	j = decodeJob(t, request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil), 200)
+	if len(j.Artifacts) != 1 || j.Artifacts[0].Filename != "customer-interview.transcript.vtt" {
+		t.Fatal(j.Artifacts)
+	}
+	w = request(h, "GET", "/v1/jobs/"+j.ID+"/artifacts/vtt", nil)
+	if got := w.Header().Get("Content-Disposition"); got != `attachment; filename="customer-interview.transcript.vtt"` || strings.Contains(got, j.ID) {
+		t.Fatal(got)
+	}
+	for _, payload := range []string{`{"title":""}`, `{"title":" padded "}`, `{"title":"x","extra":1}`} {
+		r = httptest.NewRequest("PUT", "https://speech.test/v1/jobs/"+j.ID+"/title", strings.NewReader(payload))
+		r.Header.Set("Authorization", "Bearer "+testToken)
+		r.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 400 {
+			t.Fatal(payload, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestArtifactIntegrityHeadersAndMethods(t *testing.T) {
 	h, s, root := fixture(t, []speechjob.Stage{textStage("vtt", "WEBVTT\n\n")}, 2)
 	j := upload(t, h)

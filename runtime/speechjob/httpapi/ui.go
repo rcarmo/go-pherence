@@ -76,6 +76,9 @@ func (h *Handler) serveUI(w http.ResponseWriter, r *http.Request) bool {
 	}
 	return true
 }
+
+// uiProfiles is authenticated profile metadata used by both the embedded UI
+// and trusted wrappers. It exposes only profile IDs and the upload byte cap.
 func (h *Handler) uiProfiles(w http.ResponseWriter) {
 	ids := make([]string, 0, len(h.profiles))
 	for id := range h.profiles {

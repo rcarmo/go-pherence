@@ -92,7 +92,7 @@
         "fb": 0.8,
         "min_duration_off": 0,
         "constrained": true,
-        "tie_policy": "reject"
+        "tie_policy": "lowest-index"
       },
       "modes": {"sincnet": "simd", "lstm": "simd", "head": "simd", "embedding": "simd", "overlap_branches": true},
       "max_result_bytes": 16777216

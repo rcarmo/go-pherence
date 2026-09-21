@@ -269,6 +269,36 @@ func TestStoreCancelExclusionPanicAndRecovery(t *testing.T) {
 	}
 	wg.Wait()
 }
+func TestRenamePersistsTitleAndPreservesOriginalIdentity(t *testing.T) {
+	s, dir := openTest(t)
+	job := createTest(t, s)
+	originalName, originalInput, originalConfig := job.Name, job.Input, job.ConfigurationSHA256
+	renamed, err := s.Rename(context.Background(), job.ID, "Customer Interview")
+	if err != nil || renamed.Title != "Customer Interview" || renamed.Name != originalName || renamed.Input != originalInput || renamed.ConfigurationSHA256 != originalConfig || !renamed.Updated.After(job.Updated) {
+		t.Fatal(renamed, err)
+	}
+	if again, err := s.Rename(context.Background(), job.ID, "Customer Interview"); err != nil || again.Title != renamed.Title || !again.Updated.Equal(renamed.Updated) {
+		t.Fatal("idempotent rename", again, err)
+	}
+	for _, title := range []string{"", " padded ", "bad\nname", strings.Repeat("x", 161)} {
+		if _, err := s.Rename(context.Background(), job.ID, title); err == nil {
+			t.Fatal("accepted title", title)
+		}
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir, limits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	loaded, err := s.Get(job.ID)
+	if err != nil || loaded.Title != "Customer Interview" || loaded.Name != originalName || loaded.Input != originalInput {
+		t.Fatal(loaded, err)
+	}
+}
+
 func TestStoreAtomicFailureAndOrphanConflict(t *testing.T) {
 	for _, point := range []string{"payload-synced", "payload-published", "manifest-synced", "manifest-renamed"} {
 		t.Run(point, func(t *testing.T) {

@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
 // PCMTranscribeOptions configures the opt-in checked path. Language is an
-// explicit tokenizer language code (e.g. "pt"); this path transcribes rather
-// than translates. Automatic detection, temperature fallback and cross-window
-// text reconciliation are not implemented here. Word alignment is explicit.
+// explicit tokenizer language code (e.g. "pt") or "auto" for checked
+// per-window language detection. This path transcribes rather than translates.
+// Temperature fallback and cross-window text reconciliation are not implemented
+// here. Word alignment is explicit.
 type PCMTranscribeOptions struct {
 	Language                 string
 	OverlapSamples           int64
@@ -41,6 +43,9 @@ type PCMTranscribeOptions struct {
 type WindowTranscript struct {
 	Window   Window
 	Segments []Segment
+	// Language is populated only for automatic language detection. Fixed-language
+	// callers retain their existing serialized output bytes.
+	Language string `json:",omitempty"`
 	// Words is an independent checked alignment over all generated text tokens.
 	// Segment timestamp boundaries are not used to clip or invent word timing.
 	Words []WordTiming `json:",omitempty"`
@@ -106,13 +111,24 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 			return err
 		}
 	}
-	v, err := checkedTimestampVocabulary(w.Config, tokenizer, opts.Language)
+	auto := opts.Language == "auto"
+	validationLanguage := opts.Language
+	if auto {
+		validationLanguage = "en"
+	}
+	v, err := checkedTimestampVocabulary(w.Config, tokenizer, validationLanguage)
 	if err != nil {
 		return err
 	}
-	opts, suppress, beginSuppress, err := resolvePCMGeneration(w.Config, v, opts, w.Decoder.SuppressTokens, w.Decoder.BeginSuppressTokens)
-	if err != nil {
-		return err
+	baseOpts := opts
+	var suppress, beginSuppress []int
+	if !auto {
+		opts, suppress, beginSuppress, err = resolvePCMGeneration(w.Config, v, opts, w.Decoder.SuppressTokens, w.Decoder.BeginSuppressTokens)
+		if err != nil {
+			return err
+		}
+	} else if opts.Generation == nil {
+		return fmt.Errorf("checked automatic language detection requires generation metadata")
 	}
 	if opts.MaxNewTokens < 0 || opts.MaxNewTokens > w.Config.MaxDecoderLength-3 || opts.MaxInitialTimestampIndex < 0 || opts.MaxInitialTimestampIndex > 1500 {
 		return fmt.Errorf("invalid checked generation bounds")
@@ -131,7 +147,15 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	if plan.Count() > 10000 {
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
-	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emit, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
+	detectedLanguage := "auto"
+	emitWindow := emit
+	if auto {
+		emitWindow = func(window WindowTranscript) error {
+			window.Language = detectedLanguage
+			return emit(window)
+		}
+	}
+	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emitWindow, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
 		if opts.SkipDigitalSilence {
 			zero, err := pcmDigitalSilence(ctx, samples)
 			if err != nil {
@@ -173,17 +197,37 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, fmt.Errorf("non-finite encoder output")
 			}
 		}
+		windowOpts := opts
+		windowV := v
+		windowSuppress, windowBeginSuppress := suppress, beginSuppress
+		if auto {
+			detected, err := detectLanguageChecked(ctx, w.Config, w.Decoder, output, (frames+1)/2, baseOpts.Generation)
+			if err != nil {
+				return nil, nil, err
+			}
+			detectedLanguage = detected
+			windowOpts = baseOpts
+			windowOpts.Language = detected
+			windowV, err = checkedTimestampVocabulary(w.Config, tokenizer, detected)
+			if err != nil {
+				return nil, nil, err
+			}
+			windowOpts, windowSuppress, windowBeginSuppress, err = resolvePCMGeneration(w.Config, windowV, windowOpts, w.Decoder.SuppressTokens, w.Decoder.BeginSuppressTokens)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
 		state, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
 		if err != nil {
 			return nil, nil, err
 		}
-		segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
+		segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, windowV, windowOpts, windowSuppress, windowBeginSuppress, func(token int) ([]float32, error) {
 			if state.Pos >= w.Config.MaxDecoderLength {
 				return nil, ErrGenerationLimit
 			}
 			return w.Decoder.ForwardToken(token, state), nil
 		})
-		if err != nil || !opts.WordTimestamps {
+		if err != nil || !windowOpts.WordTimestamps {
 			return segments, nil, err
 		}
 		allTokens := make([]int, 0)
@@ -196,7 +240,7 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, err
 			}
 			audioFrames := (validSamples + 159) / 160
-			words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, opts.Generation, opts.Language, allTokens, audioFrames)
+			words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, windowOpts.Generation, windowOpts.Language, allTokens, audioFrames)
 			if err != nil {
 				return nil, nil, fmt.Errorf("align window: %w", err)
 			}
@@ -204,6 +248,46 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 		}
 		return segments, nil, nil
 	})
+}
+
+func detectLanguageChecked(ctx context.Context, cfg Config, dec *Decoder, output []float32, frames int, generation *CheckedGenerationConfig) (string, error) {
+	if ctx == nil || dec == nil || generation == nil || generation.cfg != cfg || frames < 1 || len(output) != frames*cfg.EncoderDModel {
+		return "", fmt.Errorf("invalid checked language detection input")
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	state, err := NewDecoderStateContext(ctx, cfg, output, frames, dec)
+	if err != nil {
+		return "", err
+	}
+	logits := dec.ForwardToken(generation.vocabulary.sot, state)
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	languages := make([]string, 0, len(generation.languages))
+	for language := range generation.languages {
+		languages = append(languages, language)
+	}
+	sort.Strings(languages)
+	best, bestScore := "", float32(math.Inf(-1))
+	for _, language := range languages {
+		id := generation.languages[language]
+		if id < 0 || id >= len(logits) {
+			return "", fmt.Errorf("invalid checked language token")
+		}
+		score := logits[id]
+		if math.IsNaN(float64(score)) || math.IsInf(float64(score), 1) {
+			return "", fmt.Errorf("non-finite language score")
+		}
+		if best == "" || score > bestScore {
+			best, bestScore = language, score
+		}
+	}
+	if best == "" {
+		return "", fmt.Errorf("no checked language candidates")
+	}
+	return best, nil
 }
 
 // pcmDigitalSilence is deliberately narrower than a no-speech classifier. A

@@ -45,6 +45,43 @@ func asrRecords(t *testing.T, total int64, key string, cfg TranscriptStageConfig
 	}
 	return b.Bytes()
 }
+func TestReconcileAutomaticLanguageMetadata(t *testing.T) {
+	cfg := reconcileConfig()
+	cfg.Language = "auto"
+	key := hash([]byte("auto language key"))
+	plan, err := whisper.NewWindowPlan(480, cfg.WindowSamples, cfg.OverlapSamples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeRaw := func(languages ...string) []byte {
+		var b bytes.Buffer
+		for i := int64(0); i < plan.Count(); i++ {
+			window, _ := plan.At(i)
+			language := languages[min(int(i), len(languages)-1)]
+			record := windowRecord{Schema: 1, Key: key, Result: whisper.WindowTranscript{Window: window, Segments: []whisper.Segment{}, Language: language}}
+			row, _ := json.Marshal(record)
+			b.Write(row)
+			b.WriteByte('\n')
+		}
+		return b.Bytes()
+	}
+	got, err := reconcileASR(context.Background(), bytes.NewReader(makeRaw("pt")), 480, key, cfg)
+	if err != nil || got.Language != "pt" {
+		t.Fatalf("consistent language=%q err=%v", got.Language, err)
+	}
+	got, err = reconcileASR(context.Background(), bytes.NewReader(makeRaw("pt", "fr")), 480, key, cfg)
+	if err != nil || got.Language != "auto" {
+		t.Fatalf("mixed language=%q err=%v", got.Language, err)
+	}
+	if _, err = reconcileASR(context.Background(), bytes.NewReader(makeRaw("")), 480, key, cfg); !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("missing auto language: %v", err)
+	}
+	fixed := reconcileConfig()
+	if _, err = reconcileASR(context.Background(), bytes.NewReader(makeRaw("pt")), 480, key, fixed); !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("unexpected fixed language accepted: %v", err)
+	}
+}
+
 func TestReconcileCheckedWordTimings(t *testing.T) {
 	ctx := context.Background()
 	cfg := reconcileConfig()
