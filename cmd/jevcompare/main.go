@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -353,6 +354,7 @@ func run() error {
 	model := flag.String("model", "", "local released model directory")
 	dest := flag.String("output", "", "new JSONL output")
 	resume := flag.Bool("resume", false, "validate and append to an existing strict output prefix")
+	cpuProfile := flag.String("cpuprofile", "", "new Go CPU profile covering scoring only")
 	maxInput := flag.Int("max-input", 4096, "model input token limit")
 	flag.Parse()
 	if *arm == "" || *study == "" || *model == "" || *dest == "" || (*cohort != "screening" && *cohort != "finalist") {
@@ -392,6 +394,21 @@ func run() error {
 		return e
 	}
 	defer s.Close()
+	var profile *os.File
+	if *cpuProfile != "" {
+		profile, e = os.OpenFile(*cpuProfile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if e != nil {
+			return e
+		}
+		if e = pprof.StartCPUProfile(profile); e != nil {
+			profile.Close()
+			return e
+		}
+		defer func() {
+			pprof.StopCPUProfile()
+			_ = profile.Close()
+		}()
+	}
 	count := 0
 	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 	if *resume {
