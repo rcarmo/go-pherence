@@ -1,7 +1,5 @@
 # go-pherence
 
-Current engineering status: the [repository safety audit](docs/validation/repository-safety-audit-20260919.md) records the shared driver/loader fixes, passing host race sweep and explicit source/hardware gaps. The [allocation/SIMD profile](docs/performance/allocation-simd-audit-20260919.md) measures CPU work only. The [frozen Qwen evaluation](docs/experiments/jevlike-qwen3/final-report-20260921.md) completed all 1,440 records: Instruction reached 81.25%, while the three experimental heads averaged 22.20% against a 23.52% random expectation.
-
 ![go-pherence](docs/icon-256.png)
 
 go-pherence is a Go inference toolkit for running transformer, speech and experimental vision models on local hardware. The default paths are pure Go: CPU execution uses checked AVX2, NEON and RVV kernels with scalar fallbacks, while NVIDIA support loads PTX through the driver API without CGo or a CUDA toolkit.
