@@ -62,8 +62,14 @@ func (s LayerSchedule) Validate(numLayers int) error {
 		seen[step.Index] = true
 		switch step.Kind {
 		case LayerConv:
+			if conv >= len(s.ConvIndices) || s.ConvIndices[conv] != step.Index {
+				return fmt.Errorf("LFM2 index list disagrees with step %d", step.Index)
+			}
 			conv++
 		case LayerFullAttention:
+			if attn >= len(s.FullAttentionIndices) || s.FullAttentionIndices[attn] != step.Index {
+				return fmt.Errorf("LFM2 index list disagrees with step %d", step.Index)
+			}
 			attn++
 		default:
 			return fmt.Errorf("invalid LFM2 schedule kind at %d: %q", step.Index, step.Kind)

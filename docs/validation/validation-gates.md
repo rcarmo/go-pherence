@@ -1,0 +1,265 @@
+# Validation gates
+
+Latest status: the [repository safety audit](repository-safety-audit-20260919.md) records 90 passing host race packages and 71 without tests, plus vet/build/docs checks. The RTX 3060 was subsequently lost during evaluation; GPU examples below are reproduction recipes for separately authorised recovery, not tests executed on the current candidate. Preserve the pinned evaluation binary/records. No reset/reboot or held-out replay is authorised by these commands.
+
+This repository uses phase-level validation for backend coverage work. Do not run the full test/vet matrix after every small mechanical change; run it when a complete plan phase is ready to validate.
+
+## Standard phase gate
+
+Use the actual host's build constraints. Do not force foreign architecture tags or filter out entire backend directories to make a check green:
+
+```bash
+mkdir -p .gotmp
+GOTMPDIR=$PWD/.gotmp make host-build
+GOTMPDIR=$PWD/.gotmp make host-vet
+GOTMPDIR=$PWD/.gotmp make host-test
+```
+
+`host-build` and `host-vet` scan `./...`. `host-test` scans the same tree with NVIDIA disabled and Vulkan software devices left opt-in. `host-check` first runs `model-layout-check`, then all three host gates in order, stopping on failure. The Go-only source/path guard also runs in ordinary `go test ./...`; `docs-check` includes the full layout/default checks. The older `test` and `test-cpu` targets use selected package lists; neither is an all-repository check. GPU hardware tests still require their own environment and serialisation rules.
+
+## Platform and hardware checks
+
+Linux/RISC-V AICPU execution, its A100 worker pool and native diagnostics are build-constrained to their platform. TCM has an unavailable host stub instead of opening `/dev/tcm` elsewhere. Portable IME packing, scalar GEMM, inference helpers and RVV fallbacks remain host-testable.
+
+```bash
+make spacemit-host-check
+make spacemit-cross-compile
+```
+
+The cross target builds Linux/RISC-V packages with CGo disabled and uses `go test -c` for test binaries. It never executes them. Native IME/AICPU tests additionally require `GO_PHERENCE_TEST_K3=1` and `/proc/set_ai_thread`; plain RISC-V architecture support does not imply IME hardware. On the K3 board, `make spacemit-hardware-test` checks those prerequisites and opts into execution. A skipped hardware suite is not a parity pass. ARM64/RISC-V compilation is not runtime validation.
+
+The earlier 2026-09-19 issue-fix run passed `make host-check` (whole-tree NVIDIA-disabled tests, build and vet) and a serial-package GPU-enabled `go test -p=1 ./...` on the RTX 3060. The earlier GGUF/MTP/Qwen fixture failures and NVIDIA/DiffusionGemma vet defects are resolved, not excluded. Speech-job race checks also pass; ARM64/RISC-V whole-tree builds pass with explicitly unavailable speech-job execution on unsupported platforms. See the [issue-fix validation record](issues-3-11-20260919.md) for commands, scope and GPU service restoration. Asset-dependent tests can still skip when their external checkpoints are absent.
+
+## TurboFieldfare adoption gates
+
+The retained adoption paths have focused, asset-independent gates:
+
+```bash
+go test -race ./runtime/expertstream ./runtime/sampling ./runtime/kv ./backends/nvidia/runtime ./model \
+  -run 'Test(Quant|ValidateComponent|MLXWeightFromStream|Reader|Load_|Open_|Sample|Config|Greedy|Bounded|Top|Distribution|ExpertPool|SplitKV|LayeredF32)'
+flock /tmp/go-pherence-gpu.lock env GO_PHERENCE_TEST_SPLIT_KV=1 go test \
+  ./backends/nvidia/runtime ./model -run 'Test.*(SplitKV|SelectedExpert|MoE.*GPU|MLX)'
+```
+
+Use `go test -c` (not `go test`) for arm64/riscv64 cross-build checks. Real Qwen3-30B cold/warm, out-of-core and sampled full-token gates require the checkpoint and must be reported unavailable when it is absent. Older reports of SpacemiT host compile failures predate the platform gating above. Keep unrelated numerical, fixture and vet failures separate from the work being measured. The former Gemma4 K=V verifier fixture failures were corrected for K-only RoPE.
+
+## Gemma4 request-scoped inference gate
+
+The frozen real-model fixture uses prepared tokens `[2, 10979]` and greedy output `[106, 236789]`. It checks legacy/session parity and repeated checkpoint replay on the official E4B GGUF:
+
+```bash
+GO_PHERENCE_GEMMA4_SESSION_REAL_LONG=1 GOTMPDIR=$PWD/.gotmp \
+  go test ./model -run TestGemma4DecodeSessionUpdatedRealGGUFTwoSteps -count=1 -v
+go test -race ./model ./runtime/inferencesched ./runtime/promptcache
+for arch in arm64 riscv64; do GOOS=linux GOARCH=$arch go test -c ./model -o /tmp/model-$arch.test; done
+```
+
+The tailored session is SIMD-only. Scalar and NVIDIA session gates are unsupported and must not be reported as skips that imply parity; NVIDIA remains blocked by one mutable `GPUModel` KV/cache owner. CPU hardware counters are unavailable on the measured host while `perf_event_paranoid=4`.
+
+## Gemma4 exact CPU performance fixture
+
+The retained Q4_0 checkpoint has an asset-independent exact-kernel gate and an opt-in real-model trajectory gate:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
+  -run 'TestDotQ4_0Q8_0Tokens8SoARandomExact|TestQuantizeQ8_0BatchParallelExact' \
+  -count=1 -v
+
+MODEL="$PWD/checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+taskset -c 0-5 env \
+  GOMAXPROCS=6 GOTMPDIR="$PWD/.gotmp" \
+  GO_PHERENCE_GEMMA4_GAP_REAL=1 \
+  GO_PHERENCE_GEMMA4_MAIN="$MODEL" \
+  go test ./model -run '^TestGemma4RealCPUGap124x48$' \
+  -count=3 -v -timeout=10m
+```
+
+The real fixture checks the frozen BOS-plus-123-token prompt, untimed boundary output, 47 timed generation evaluations and all 48 output IDs. Current retained medians are 48.875 prompt tok/s and 9.161 generation eval tok/s, versus 91.230 and 10.526 for the corrected CUDA-disabled llama.cpp b607 oracle. These are 53.6% and 87.0% efficiencies, so neither corrected 98% gate passes. Treat 38.808 prompt tok/s only as the historical parallel-activation milestone. The canonical oracle build, phase contract and raw evidence are in the [Gemma4 CPU performance-gap programme](../../benchmarks/gemma4-gap/README.md); do not substitute a CUDA-enabled `-ngl 0` result.
+
+## Optional phase-specific gates
+
+Run these only when the corresponding phase is being accepted:
+
+```bash
+# SIMD/CPU backend phases
+GOTMPDIR=$PWD/.gotmp go test ./backends/simd/... ./backends/mlx ./model
+
+# NVIDIA runtime phase on CPU-only hosts
+GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime ./backends/nvidia/ioctl
+
+# Vulkan wrapper phase without a Vulkan device
+GOTMPDIR=$PWD/.gotmp go test ./backends/vulkan
+
+# Whisper large-v3-turbo execution graph (CPU/SIMD transcript parity, audio commands, mel, SIMD, prompt/timestamp/speculative scaffolds).
+# Treat the native CPU/SIMD path as the oracle for NEON, RISC-V/IME, A100,
+# NVIDIA, and CUDA/PTX refinements; hardware paths must preserve these results.
+# The transcript parity target fails loudly if local turbo weights/tokenizer/JFK audio are missing.
+# The SIMD parity target is a required scalar-oracle gate for locally runnable
+# Whisper vectorized paths (mel/filterbank, conv1d, attention/GEMV, dot kernels).
+# The CUDA parity target is a numeric CPU-oracle gate for the opt-in CUDA graph
+# surfaces; it may skip on CPU-only hosts, but on CUDA hosts it must initialize
+# the NVIDIA runtime, load the Whisper PTX entries, and run real numeric assertions
+# instead of silently falling back. Historical shared-host evidence (before bus loss): RTX 3060 loaded
+# all 83 mega-module kernels and TestGPUEncoderForward passes on large-v3-turbo
+# with max_diff≈1.9e-4.
+# The GPU graph parity target runs the same JFK transcript contract with the
+# umbrella GPU graph flag enabled, exercising real CUDA dispatch on CUDA hosts
+# while preserving CPU/SIMD fallback behavior on CPU-only hosts.
+make whisper-turbo-parity
+make whisper-simd-parity
+make whisper-cuda-parity
+make whisper-gpu-graph-parity
+make whisper-turbo-check
+
+# Optional, non-gating GPU timing smoke. This uses the current turbo assets and
+# is intentionally opt-in because host load can dominate RTF measurements.
+WHISPER_RUN_GPU_RTF=1 GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
+  -run TestGPURTFEstimate -count=1 -v
+
+# Equivalent explicit form:
+GOTMPDIR=$PWD/.gotmp go test ./model/whisper ./loader/audio ./backends/simd/fft ./backends/simd/runtime \
+  -run 'TestWhisperConv1DFastMatchesScalarOracle|TestWhisperLayerNormUsesSIMDOracleMatchesScalar|TestWhisperFullAttentionMatchesScalarOracle|TestLinearRowBlockUsesSIMDOracleMatchesScalar|TestMelSpectrogramMatchesReferencePath|TestMelSpectrogramFusedUsesLog10|TestDotI8F32|TestDotI8F32x4|TestSdotx4|TestQ4RowDot' \
+  -count=1 -v
+GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
+  -run 'TestGPUEncoderForwardNotReadyFallbackMatchesCPU|TestWhisperCUDA|TestWhisperGPUGraphUmbrella|TestWhisperGPUFeatureFlags|TestNewDecoderStateGPU' \
+  -count=1 -v
+GOTMPDIR=$PWD/.gotmp go test ./backends/nvidia/runtime \
+  -run TestWhisperAttentivePoolParity -count=1 -v
+WHISPER_REQUIRE_TURBO_PARITY=1 GO_PHERENCE_WHISPER_GPU_GRAPH=1 \
+  GOTMPDIR=$PWD/.gotmp go test ./model/whisper \
+  -run TestLargeV3TurboJFKCPUTranscriptParity -count=1 -v
+GOTMPDIR=$PWD/.gotmp go test \
+  ./model/whisper \
+  ./cmd/audio/... \
+  ./loader/audio \
+  ./backends/simd/fft \
+  ./backends/simd/runtime \
+  ./backends/nvidia/ptx
+python3 scripts/whisper_turbo_smoke.py --audio testdata/jfk.wav
+# whisper_turbo_smoke covers standalone translate/transcribe, standalone chunked
+# no-timestamp, standalone timestamp VTT for translate/transcribe, standalone timestamp+diarize VTT,
+# diarize-vtt translate/transcribe, and diarize-vtt+speaker for both translate
+# and transcribe.
+python3 scripts/speakercheck_suite.py testdata/speakercheck_suite.json
+
+# Optional backend parity checks against the native SIMD oracle. A100 comparisons
+# cover plain stdout decode for translate/transcribe, standalone timestamp/VTT
+# for translate/transcribe, diarize-vtt output, and diarize-vtt with speaker
+# labels for translate/transcribe. K3/RISC-V int8 checks compare stdout,
+# standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT
+# for translate/transcribe;
+# on non-riscv hosts, stubs keep this a command/prompt smoke.
+make whisper-backend-compare
+make whisper-backend-podcast-compare
+# podcast target compares stdout, standalone timestamp/VTT, diarize-vtt VTT, and speaker-tagged diarize-vtt VTT on a 12s long-form window for A100 and int8 backends.
+# Pass repeated --audio flags and optional --start/--duration to
+# scripts/whisper_a100_compare.py for broader/long-form clip sets.
+
+# DiffusionGemma runnable llama.cpp GGUF golden/probe gate. The first part is
+# fixture-only and does not require local 48 GiB shards or CUDA; it locks prompt
+# IDs, reference response IDs, current Go-vs-llama mismatch metadata, first-step
+# top-logit probe values, phase-aligned row28 structural trace parity
+# (ffn_post_norm/l_out across all text layers), row28 input-norm and layer-op
+# parity gates, plus Q4_K/Q8_0/Q5_0/Q6_K direct quant oracles. The second part
+# runs the local Q4_K_M GGUF tiny forward golden when that GGUF is present,
+# isolated in its own go test process because it owns mmap-backed GGUF buffers.
+make diffusiongemma-golden-gate
+
+# MiniCPM-V/O scaffold gate. This is metadata/readiness coverage only: config,
+# processor/tokenizer/generation sidecars, image preprocessing/inspection,
+# prompt placeholders, special-token resolution, safetensor inventory/shape
+# checks (including MiniCPM-O audio metadata/tensors), runtime/text/vision/
+# resampler/audio planning, and minicpmvinspect readiness flags. It intentionally
+# does not claim full tensor execution yet.
+make minicpmv-check
+
+# Diagnostic package import/build boundary, when local diagnostic assets permit it
+GOTMPDIR=$PWD/.gotmp go test -tags diagnostic ./model/gemma4
+
+# Gemma4 31B packed MTP smoke, when local ignored model assets are present
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke \
+  -prompt "Hello"
+
+# After authorised recovery only: Gemma4 E4B QAT GGUF + BF16 MTP smoke
+# If the verifier/drafter snapshots are missing, fetch/provision the local GGUF pair first.
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+  -gpu -gpu-layers 0 \
+  -model checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -mtp-drafter checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+  -mtp-smoke -mtp-real-prompt \
+  -prompt "Hi"
+
+# Gemma4 QAT+MTP llama.cpp parity gate.
+# Required default gate: committed MTP token/acceptance fixture + standalone
+# runner + GGUF quant primitive oracles in one target.
+make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp
+
+# Expanded default commands, if the Makefile target is not available:
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
+  -fixture model/testdata/gemma4-mtp-llamacpp-fixture.json
+GOTMPDIR=$PWD/.gotmp go test ./loader/gguf \
+  -run 'TestDequantRowQ4KToZeroBlock|TestDequantRowQ4KToMatchesGGMLNibbleGroups|TestExpertMatricesQ4KGemvMatchesDequantScalar|TestDequantRowQ8_0ToMatchesScaleTimesInt8|TestQuantizeQ8_0UsesRoundAwayFromZeroWithUnroundedScale|TestDotQ4_0Q8_0MatchesAVX2Reference|TestDotQ4_0Q8_0MatchesScalarReference|TestQuantizeQ8KComputesScaleQuantsAndBlockSums|TestDequantRowQ6KToMatchesScalarReference|TestDotQ6KQ8KMatchesAVX2Reference|TestDotQ6KQ8KMatchesScalarReference' \
+  -count=1 -v
+
+# Required tagged Gemma4 GPU↔CPU compute parity gate. This uses the shared
+# GPU lock, real RTX/CUDA execution, diagnostic fixtures, and bounded KV memory.
+make gemma4-gpu-cpu-parity GOTMPDIR=$PWD/.gotmp
+
+# Strict selected-logit gate. First export a llama.cpp/LiteRT reference JSON using
+# the schema documented in docs/models/mtp-speculative.md. This target intentionally
+# fails loudly if GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE is unset, and it is
+# currently expected to fail until real-asset selected verifier logits match
+# llama.cpp --flash-attn on 1:1:
+GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MAIN=checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp
+
+# Expanded strict commands, if the Makefile target is not available:
+GOTMPDIR=$PWD/.gotmp go run ./cmd/models/gemma4mtpparity \
+  -fixture tmp/gemma4-mtp-llamacpp-fixture.json \
+  -model checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+  -drafter checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf
+GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=tmp/gemma4-mtp-llamacpp-fixture.json \
+GO_PHERENCE_GEMMA4_MAIN=checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf \
+GO_PHERENCE_GEMMA4_MTP_DRAFTER=checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf \
+GOTMPDIR=$PWD/.gotmp go test ./model -run TestGemma4MTPLlamaCPPParityFixture -count=1
+
+
+Strict Gemma4 QAT+MTP status notes:
+
+- `make gemma4-mtp-parity GOTMPDIR=$PWD/.gotmp` is the required green default token/acceptance gate.
+- `make gemma4-mtp-native-parity GO_PHERENCE_GEMMA4_MTP_LLAMA_CPP_FIXTURE=...` is the native-Go numerical contract: identical acceptance/output tokens and selected logits within an explicit absolute bound of `0.2` (current maximum about `0.18821`).
+- `make gemma4-mtp-strict-parity GOTMPDIR=$PWD/.gotmp` remains the unchanged `0.001` diagnostic gate for the local `llama.cpp --flash-attn on` fixture; it is not silently weakened by the native contract.
+- The strict fixture currently matches prompt/draft/verifier tokens and acceptance/bonus-token semantics, but still reports five selected verifier-logit mismatches after the Gemma4 verifier `layer_output_scale` ordering fix.
+- `RealAssetAcceptanceParity=true` and full-layer verifier batching is default-on after the native real-asset gate passed. Public/default generation remains not-ready only because public wiring is still explicit/experimental; `GO_PHERENCE_MTP_VERIFIER_BATCH_LAYERS=off` provides a diagnostic row-loop fallback.
+
+# 31B stress smoke, when VRAM headroom permits
+GOTMPDIR=$PWD/.gotmp go run ./cmd/llm/llmgen \
+  -gpu -gpu-layers 17 -gpu-kv-max-seq 256 \
+  -model checkpoints/gemma4-31b-it-4bit \
+  -mtp-drafter checkpoints/gemma4-31b-it-mtp-assistant-4bit \
+  -mtp-smoke -mtp-real-prompt \
+  -prompt "Hi"
+```
+
+## Benchmark snapshots
+
+Benchmark snapshots are documentation data, not a per-change requirement. Refresh them at phase validation time with:
+
+```bash
+GOTMPDIR=$PWD/.gotmp go test ./model -run '^$' -bench 'BenchmarkCPUHot' -benchmem
+```
+
+Update `docs/performance/performance.md` and `docs/history/cpu-simd-coverage.md` after capturing new snapshots.
+
+## Hardware smoke tests
+
+NVIDIA and Vulkan parity tests should be availability-gated. They should skip cleanly when required hardware, drivers, or opt-in environment variables are absent.
+
+- NVIDIA smoke: validate on a CUDA-capable host with the normal backend enabled.
+- Vulkan smoke: validate only after SPIR-V pipeline cache wiring lands; CPU/software Vulkan remains opt-in via `GO_PHERENCE_VULKAN_ALLOW_CPU=1`.

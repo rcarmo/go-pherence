@@ -9,7 +9,7 @@
 | [`speechjob`](speechjob/README.md) | Authenticated HTTP job client: upload/status/run/cancel/delete, explicit queue commands and verified no-clobber transcript downloads; no inference server/model loading |
 | [`speechjobserve`](speechjobserve/README.md) | Opt-in Linux/amd64 server with one local hash-pinned checked CPU Whisper/FFmpeg ASR profile, metadata check mode, opt-in durable queue/worker and owned HTTP shutdown; not deployed or trained-qualified |
 
-See [`docs/moss-transcribe-diarize.md`](../../docs/moss-transcribe-diarize.md) for the MOSS support contract, real-checkpoint parity gates, usage, and limitations.
+See [`docs/speech/moss-transcribe-diarize.md`](../../docs/speech/moss-transcribe-diarize.md) for the MOSS support contract, real-checkpoint parity gates, usage, and limitations.
 
 ## Whisper GPU graph flags
 

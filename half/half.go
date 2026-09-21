@@ -13,13 +13,17 @@ package half
 import "math"
 
 // F32ToF16 converts a float32 value to IEEE-754 half-precision bits (no unsafe).
-// Values outside the representable range saturate to ±Inf; subnormals are
-// rounded to the nearest half value.
+// Finite values outside the representable range saturate to ±Inf; finite ties
+// round away from zero (the legacy policy). NaNs retain their sign and upper
+// payload bits where representable, with the quiet bit set.
 func F32ToF16(f float32) uint16 {
 	bits := math.Float32bits(f)
 	sign := uint16((bits >> 16) & 0x8000)
 	exp := int((bits>>23)&0xff) - 127 + 15
 	mant := bits & 0x7fffff
+	if bits&0x7f800000 == 0x7f800000 && mant != 0 {
+		return sign | 0x7c00 | uint16(mant>>13) | 0x0200
+	}
 	if exp <= 0 {
 		if exp < -10 {
 			return sign
@@ -41,6 +45,30 @@ func F32ToF16(f float32) uint16 {
 		}
 	}
 	return sign | uint16(exp<<10) | uint16(rounded>>13)
+}
+
+// F32ToF16Even converts with IEEE round-to-nearest-even without changing the
+// legacy finite tie policy of F32ToF16. Used by model formats requiring RNE.
+func F32ToF16Even(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16(bits>>16) & 0x8000
+	magnitude := math.Float32frombits(bits & 0x7fffffff)
+	h := F32ToF16(magnitude)
+	if bits&0x7fffffff >= 0x7f800000 || h == 0x7c00 {
+		return sign | h
+	}
+	best, distance := h, math.Abs(float64(magnitude-F16ToF32(h)))
+	for _, delta := range []int{-1, 1} {
+		candidate := int(h) + delta
+		if candidate < 0 || candidate >= 0x7c00 {
+			continue
+		}
+		d := math.Abs(float64(magnitude - F16ToF32(uint16(candidate))))
+		if d < distance || (d == distance && candidate&1 == 0) {
+			best, distance = uint16(candidate), d
+		}
+	}
+	return sign | best
 }
 
 // F16ToF32 converts an IEEE-754 half-precision value to float32 (no unsafe).
@@ -65,6 +93,17 @@ func F16ToF32(u uint16) float32 {
 		mant &= 0x3FF
 	}
 	return math.Float32frombits(sign<<31 | (exp+112)<<23 | mant<<13)
+}
+
+// F32ToBF16 narrows with round-to-nearest-even. NaNs remain NaNs (quieted),
+// including payloads entirely below the BF16 mantissa; rounding those as finite
+// values would produce infinity or wrap the exponent/sign bits.
+func F32ToBF16(f float32) uint16 {
+	bits := math.Float32bits(f)
+	if bits&0x7fffffff > 0x7f800000 {
+		return uint16(bits>>16) | 0x0040
+	}
+	return uint16((bits + 0x7fff + ((bits >> 16) & 1)) >> 16)
 }
 
 // BF16ToF32 converts a bfloat16 value (the high 16 bits of a float32) to float32.

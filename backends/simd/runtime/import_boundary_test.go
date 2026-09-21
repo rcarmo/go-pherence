@@ -9,7 +9,7 @@ import (
 
 func TestSIMDKernelImportBoundary(t *testing.T) {
 	repo := findSIMDRepoRoot(t)
-	for _, root := range []string{"model", "models", "tensor", "runtime", filepath.Join("backends", "nvidia"), filepath.Join("backends", "vulkan"), filepath.Join("backends", "mlx")} {
+	for _, root := range []string{"model", "checkpoints", "tensor", "runtime", filepath.Join("backends", "nvidia"), filepath.Join("backends", "vulkan"), filepath.Join("backends", "mlx")} {
 		rootPath := filepath.Join(repo, root)
 		if _, err := os.Stat(rootPath); err != nil {
 			continue
@@ -40,7 +40,7 @@ func TestSIMDKernelImportBoundary(t *testing.T) {
 
 func TestUnsafeSGEMMCallBoundary(t *testing.T) {
 	repo := findSIMDRepoRoot(t)
-	for _, root := range []string{"model", "models", "tensor", "runtime", filepath.Join("backends", "nvidia"), filepath.Join("backends", "vulkan"), filepath.Join("backends", "mlx")} {
+	for _, root := range []string{"model", "checkpoints", "tensor", "runtime", filepath.Join("backends", "nvidia"), filepath.Join("backends", "vulkan"), filepath.Join("backends", "mlx")} {
 		rootPath := filepath.Join(repo, root)
 		if _, err := os.Stat(rootPath); err != nil {
 			continue

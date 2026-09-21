@@ -9,7 +9,7 @@ import (
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/loader/weights"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 const modelPrefix = "model."
@@ -90,8 +90,14 @@ func (m *AudioBackbone) Close() error {
 		return nil
 	}
 	err := m.source.Close()
+	if err != nil {
+		return err
+	}
 	m.source = nil
-	return err
+	// Drop mapped adaptor aliases before a later EnableGPU/EncodeAudio attempt.
+	m.Adaptor = AdaptorWeights{}
+	m.Encoder = nil
+	return nil
 }
 
 func loadAdaptorWeights(source weights.Source) (AdaptorWeights, error) {

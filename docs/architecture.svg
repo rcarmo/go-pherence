@@ -170,7 +170,7 @@
     </text>
     <rect x="612" y="58" width="270" height="36" rx="10" class="card card-success"/>
     <text x="747" y="73" text-anchor="middle" class="box-label">
-      <tspan x="747" dy="0">models/</tspan><tspan x="747" dy="13" class="box-sub">audio, speaker, and native checkpoint integrations</tspan>
+      <tspan x="747" dy="0">model/&lt;family&gt;/</tspan><tspan x="747" dy="13" class="box-sub">encoders, speech, images, and native scoring pipelines</tspan>
     </text>
   </g>
   <g transform="translate(28,446)">

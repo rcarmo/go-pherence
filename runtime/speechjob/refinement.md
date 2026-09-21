@@ -1,6 +1,6 @@
 # Speech-job foundation scope
 
-This implements the persistence slice of the existing speech plan, not a new service or inference backend. Requirements are taken from `docs/speech-integration.md` and the approved source plan; no model/service defaults change.
+This implements the persistence slice of the existing speech plan, not a new service or inference backend. Requirements are taken from `docs/speech/speech-integration.md` and the approved source plan; no model/service defaults change.
 
 1. Problem: uploads and completed stages must survive later stage failure and process death.
 2. User: recording jobs submitted through a future Go CLI/HTTP workflow.

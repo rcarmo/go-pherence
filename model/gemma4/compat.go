@@ -44,13 +44,13 @@ func gemma4Path() string {
 			}
 		}
 	}
-	for _, rel := range []string{"models/gemma4-e2b-mlx4", "models/gemma4-e2b-it", "models/gemma4-e4b-it-4bit", "models/gemma4-31b-it-4bit"} {
+	for _, rel := range []string{"checkpoints/gemma4-e2b-mlx4", "checkpoints/gemma4-e2b-it", "checkpoints/gemma4-e4b-it-4bit", "checkpoints/gemma4-31b-it-4bit"} {
 		p := filepath.Join(root, rel)
 		if _, err := os.Stat(filepath.Join(p, "config.json")); err == nil {
 			return p
 		}
 	}
-	return filepath.Join(root, "models/gemma4-31b-it-4bit")
+	return filepath.Join(root, "checkpoints/gemma4-31b-it-4bit")
 }
 
 func wrapGemma4PromptForTest(m *LlamaModel, prompt string) []int {

@@ -33,6 +33,8 @@ type QwenNativeMTPMetadata struct {
 	FullAttentionInterval     int      `json:"full_attention_interval,omitempty"`
 	AttnOutputGate            bool     `json:"attn_output_gate,omitempty"`
 	OutputGateType            string   `json:"output_gate_type,omitempty"`
+	ZeroCenteredRMSNorm       bool     `json:"zero_centered_rms_norm,omitempty"`
+	BF16Trajectory            bool     `json:"bf16_trajectory,omitempty"`
 	QuantBits                 int      `json:"quant_bits,omitempty"`
 	QuantGroup                int      `json:"quant_group,omitempty"`
 	HasNativeMTP              bool     `json:"has_native_mtp"`
@@ -51,8 +53,10 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 			Bits      int `json:"bits"`
 			GroupSize int `json:"group_size"`
 		} `json:"quantization_config"`
+		DType      string `json:"dtype"`
 		TextConfig *struct {
 			ModelType                 string   `json:"model_type"`
+			DType                     string   `json:"dtype"`
 			HiddenSize                int      `json:"hidden_size"`
 			VocabSize                 int      `json:"vocab_size"`
 			IntermediateSize          int      `json:"intermediate_size"`
@@ -80,6 +84,7 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 			FullAttentionInterval int    `json:"full_attention_interval"`
 			AttnOutputGate        bool   `json:"attn_output_gate"`
 			OutputGateType        string `json:"output_gate_type"`
+			RMSNormType           string `json:"rms_norm_type"`
 		} `json:"text_config"`
 		HiddenSize                int      `json:"hidden_size"`
 		VocabSize                 int      `json:"vocab_size"`
@@ -108,6 +113,7 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		FullAttentionInterval int    `json:"full_attention_interval"`
 		AttnOutputGate        bool   `json:"attn_output_gate"`
 		OutputGateType        string `json:"output_gate_type"`
+		RMSNormType           string `json:"rms_norm_type"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return QwenNativeMTPMetadata{}, err
@@ -149,6 +155,8 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		meta.FullAttentionInterval = raw.TextConfig.FullAttentionInterval
 		meta.AttnOutputGate = raw.TextConfig.AttnOutputGate
 		meta.OutputGateType = raw.TextConfig.OutputGateType
+		meta.ZeroCenteredRMSNorm = raw.TextConfig.RMSNormType == "zero_centered"
+		meta.BF16Trajectory = raw.TextConfig.DType == "bfloat16" || raw.DType == "bfloat16"
 	} else {
 		meta.HiddenSize = raw.HiddenSize
 		meta.VocabSize = raw.VocabSize
@@ -179,6 +187,8 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 		meta.FullAttentionInterval = raw.FullAttentionInterval
 		meta.AttnOutputGate = raw.AttnOutputGate
 		meta.OutputGateType = raw.OutputGateType
+		meta.ZeroCenteredRMSNorm = raw.RMSNormType == "zero_centered"
+		meta.BF16Trajectory = raw.DType == "bfloat16"
 	}
 	if raw.Quantization.Bits > 0 {
 		meta.QuantBits = raw.Quantization.Bits
@@ -187,6 +197,9 @@ func ParseQwenNativeMTPMetadata(data []byte) (QwenNativeMTPMetadata, error) {
 	if raw.QuantizationConfig.Bits > 0 {
 		meta.QuantBits = raw.QuantizationConfig.Bits
 		meta.QuantGroup = raw.QuantizationConfig.GroupSize
+	}
+	if meta.ModelType == "qwen3_5_text" {
+		meta.ZeroCenteredRMSNorm = true
 	}
 	meta.HasNativeMTP = meta.MTPNumHiddenLayers > 0
 	for _, lt := range meta.LayerTypes {
@@ -256,6 +269,13 @@ func MissingQwenNativeMTPTensors(names []string, numLayers int) []string {
 func (m QwenNativeMTPMetadata) MainLayerCount() int {
 	if m.NumHiddenLayers <= 0 {
 		return 0
+	}
+	// Current Hugging Face Qwen3.5 text configs count decoder layers only;
+	// optional mtp.* layers are separate even though mtp_num_hidden_layers is
+	// present. Converted Qwen3.6 artifacts historically counted the MTP tail in
+	// num_hidden_layers and expose fewer layer_types entries.
+	if len(m.LayerTypes) >= m.NumHiddenLayers {
+		return m.NumHiddenLayers
 	}
 	if m.MTPNumHiddenLayers <= 0 {
 		return m.NumHiddenLayers

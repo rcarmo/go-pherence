@@ -299,17 +299,17 @@ func runtimeBlockerFixture(key string) string {
 func runtimeBlockerValidation(key string) string {
 	switch key {
 	case "cpu_talker_runtime":
-		return "cmd/qwen3ttsinspect -require-numeric-parity"
+		return "cmd/qwen/qwen3ttsinspect -require-numeric-parity"
 	case "cpu_code_predictor_runtime":
-		return "cmd/qwen3ttsinspect -require-numeric-parity"
+		return "cmd/qwen/qwen3ttsinspect -require-numeric-parity"
 	case "decoder12hz_runtime":
-		return "cmd/qwen3ttsinspect -require-ready"
+		return "cmd/qwen/qwen3ttsinspect -require-ready"
 	case "cpu_generation_runtime":
-		return "cmd/lfm2inspect -require-ready"
+		return "cmd/models/lfm2inspect -require-ready"
 	case "nvidia_runtime":
-		return "cmd/qwen3ttsinspect -require-runtime / cmd/lfm2inspect -require-runtime"
+		return "cmd/qwen/qwen3ttsinspect -require-runtime / cmd/models/lfm2inspect -require-runtime"
 	case "streaming_runtime":
-		return "cmd/qwen3ttsinspect -require-ready"
+		return "cmd/qwen/qwen3ttsinspect -require-ready"
 	default:
 		return ""
 	}
@@ -411,6 +411,11 @@ func loadManifest(path string) (manifest, error) {
 	if m.Version <= 0 || len(m.Families) == 0 {
 		return manifest{}, fmt.Errorf("invalid model coverage manifest: version=%d families=%d", m.Version, len(m.Families))
 	}
+	for name, f := range m.Families {
+		if strings.TrimSpace(name) == "" || len(f.Coverage) == 0 {
+			return manifest{}, fmt.Errorf("family %q has no coverage entries", name)
+		}
+	}
 	return m, nil
 }
 
@@ -438,6 +443,9 @@ func summarize(m manifest, family string, filter coverageFilter) ([]familySummar
 	out := make([]familySummary, 0, len(names))
 	for _, name := range names {
 		fam := m.Families[name]
+		if len(fam.Coverage) == 0 {
+			return nil, fmt.Errorf("family %q has no coverage entries", name)
+		}
 		s := familySummary{Name: name, Status: fam.Status, RuntimeGeneration: fam.RuntimeGeneration, ValidationTarget: fam.ValidationTarget}
 		keys := make([]string, 0, len(fam.Coverage))
 		for key := range fam.Coverage {

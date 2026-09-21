@@ -1,0 +1,160 @@
+{
+  "model_pin": "4395b29714015162db6112de91c35688e6e42717",
+  "model_sha256": "cf6d62a341c0c804f9a926eec71aefc9859adb28978736e757b49bce35d9b8f8",
+  "template": "Premise: {premise}\nHypothesis: {hypothesis}",
+  "labels": [
+    "contradiction",
+    "entailment",
+    "neutral"
+  ],
+  "pairs": [
+    {
+      "premise": "A man is playing a guitar.",
+      "hypothesis": "Someone is making music.",
+      "text": "Premise: A man is playing a guitar.\nHypothesis: Someone is making music.",
+      "ids": [
+        40089,
+        1029,
+        25,
+        357,
+        855,
+        369,
+        5442,
+        264,
+        16488,
+        13,
+        198,
+        39,
+        57296,
+        12807,
+        25,
+        33042,
+        369,
+        3154,
+        4477,
+        13
+      ],
+      "logits": [
+        -3.921875,
+        4.28125,
+        0.5078125
+      ],
+      "probabilities": [
+        0.00026757633895613253,
+        0.977281391620636,
+        0.022451044991612434
+      ]
+    },
+    {
+      "premise": "The sky is blue.",
+      "hypothesis": "The sky is green.",
+      "text": "Premise: The sky is blue.\nHypothesis: The sky is green.",
+      "ids": [
+        40089,
+        1029,
+        25,
+        561,
+        12515,
+        369,
+        6105,
+        13,
+        198,
+        39,
+        57296,
+        12807,
+        25,
+        561,
+        12515,
+        369,
+        5983,
+        13
+      ],
+      "logits": [
+        4.46875,
+        -3.96875,
+        0.52734375
+      ],
+      "probabilities": [
+        0.9807407259941101,
+        0.0002124195743817836,
+        0.019046852365136147
+      ]
+    },
+    {
+      "premise": "A person reads a book.",
+      "hypothesis": "Someone is outdoors.",
+      "text": "Premise: A person reads a book.\nHypothesis: Someone is outdoors.",
+      "ids": [
+        40089,
+        1029,
+        25,
+        357,
+        1637,
+        15339,
+        264,
+        2236,
+        13,
+        198,
+        39,
+        57296,
+        12807,
+        25,
+        33042,
+        369,
+        32420,
+        13
+      ],
+      "logits": [
+        1.9296875,
+        -2.0,
+        0.97265625
+      ],
+      "probabilities": [
+        0.7124124765396118,
+        0.013998770155012608,
+        0.2735886871814728
+      ]
+    },
+    {
+      "premise": "Which gas do plants absorb during photosynthesis?",
+      "hypothesis": "The correct answer is: carbon dioxide",
+      "text": "Premise: Which gas do plants absorb during photosynthesis?\nHypothesis: The correct answer is: carbon dioxide",
+      "ids": [
+        40089,
+        1029,
+        25,
+        15451,
+        6605,
+        635,
+        10462,
+        33170,
+        2261,
+        7022,
+        71163,
+        30,
+        198,
+        39,
+        57296,
+        12807,
+        25,
+        561,
+        4252,
+        4087,
+        369,
+        25,
+        12141,
+        38182
+      ],
+      "logits": [
+        -2.890625,
+        3.640625,
+        -0.875
+      ],
+      "probabilities": [
+        0.0014393440214917064,
+        0.9877578020095825,
+        0.010802878066897392
+      ]
+    }
+  ]
+}

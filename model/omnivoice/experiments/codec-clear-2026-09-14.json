@@ -1,0 +1,52 @@
+{
+  "baseline_commit": "19c920a8",
+  "logs": {
+    "baseline": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1568684673 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1570170880 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1620267594 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "candidate": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1567737317 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1576878654 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1557917389 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "candidate-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1571792985 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1564257277 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1555859719 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "baseline-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1596737263 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1587127377 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1566589460 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n"
+  },
+  "synthesis": {
+    "audio_seconds": 3,
+    "command_seconds": 47.636764147,
+    "decode_and_save_seconds": 2.037343721,
+    "direct_q8": false,
+    "gain": 1,
+    "gemm_columns": true,
+    "gemm_workers": 2,
+    "generation_seconds": 45.599439368,
+    "guidance": 2,
+    "mode": "generate",
+    "native_inference": true,
+    "output_postprocessing": false,
+    "prepacked_bytes": 0,
+    "prepared_prompt_required": true,
+    "reference_encoding_native": false,
+    "reference_gain": 0.65800995,
+    "resident_cache_bytes": 1761865728,
+    "resident_setup_seconds": 1.454948536,
+    "rng": "Go PCG, not PyTorch RNG parity",
+    "sample_rate": 24000,
+    "seed": 42,
+    "shared_traversal": false,
+    "silence_preprocessing": false,
+    "steps": 8,
+    "synthetic": true,
+    "total_seconds": 47.636783349
+  },
+  "build_log": "# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim\ncc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch\ncc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d arrowlake arrowlake-s lunarlake pantherlake bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge clearwaterforest knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui yongfeng k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 znver5 btver1 btver2 native\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool\nbackends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect\ncmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve\ncmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher\ncmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)\n",
+  "codec_float32_sha256": "f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a",
+  "wave_sha256": "e2c01684385c2b561d4b086f1ba23fdfb7c9cf64dc227f32df91edb7f665d579",
+  "order": [
+    "baseline",
+    "candidate",
+    "candidate-repeat",
+    "baseline-repeat"
+  ],
+  "notes": [
+    "No change to arithmetic or memory capacity; prepared wrapper already zeroes active output, unprepared path now clears inside codec gemm helper.",
+    "Same existing 8x75 synthetic decode-only benchmark with untimed warmup; zero allocations.",
+    "Independent review found no overwrite/tail/caller blocker.",
+    "Workspace disk94MiB after validation; binaries and temporary build files placed in /tmp."
+  ]
+}

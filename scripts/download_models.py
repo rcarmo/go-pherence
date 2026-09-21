@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download go-pherence model assets from Hugging Face.
 
-The script intentionally keeps downloaded files under models/ (ignored by git)
+The script intentionally keeps downloaded files under checkpoints/ (ignored by git)
 and records the source repo in .huggingface_model for later auditing.
 """
 
@@ -104,7 +104,7 @@ def selected_specs(args: argparse.Namespace) -> list[ModelSpec]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--models-dir", default="models", help="destination models directory")
+    parser.add_argument("--checkpoints-dir", "--models-dir", dest="models_dir", default="checkpoints", help="destination checkpoint directory (--models-dir is a compatibility alias)")
     parser.add_argument("--group", action="append", choices=sorted({s.group for s in MODELS}), help="download only a group; repeatable")
     parser.add_argument("--only", action="append", help="download only this local model name; repeatable")
     parser.add_argument("--repo", action="append", default=[], help="override repo as local_name=org/repo; repeatable")

@@ -7,10 +7,21 @@ import (
 )
 
 var sgemmFn CUfunction
+var sgemmCompensatedFn CUfunction
 
 // SgemmReady returns true if GPU SGEMM is available.
 
 func Sgemm(M, N, K int, alpha float32, A, B, C *Buffer) error {
+	return sgemmWithPolicy(M, N, K, alpha, A, B, C, false)
+}
+
+// SgemmCompensated is an opt-in accuracy-first F32 projection. It reduces
+// cancellation/reduction drift without changing ordinary Sgemm numerics.
+func SgemmCompensated(M, N, K int, alpha float32, A, B, C *Buffer) error {
+	return sgemmWithPolicy(M, N, K, alpha, A, B, C, true)
+}
+
+func sgemmWithPolicy(M, N, K int, alpha float32, A, B, C *Buffer, compensated bool) error {
 	if M <= 0 || N <= 0 || K <= 0 || A == nil || B == nil || C == nil || A.Ptr == 0 || B.Ptr == 0 || C.Ptr == 0 {
 		return fmt.Errorf("invalid SGEMM inputs M=%d N=%d K=%d", M, N, K)
 	}
@@ -46,6 +57,12 @@ func Sgemm(M, N, K int, alpha float32, A, B, C *Buffer) error {
 
 	_ = args // variant launcher constructs the same checked argument vector.
 	fn, variant := sgemmVariant(M, N, K)
+	if compensated {
+		fn, variant = sgemmCompensatedFn, "oracle"
+		if fn == 0 {
+			return fmt.Errorf("compensated SGEMM unavailable")
+		}
+	}
 	return launchSgemmVariant(fn, variant, M, N, K, alpha, A, B, C)
 }
 

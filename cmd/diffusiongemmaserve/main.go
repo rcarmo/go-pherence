@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rcarmo/go-pherence/cmd/internal/dgflags"
+	"github.com/rcarmo/go-pherence/internal/httpinput"
 	"log"
 	"net/http"
 	"os"
@@ -178,7 +179,6 @@ func main() {
 	gpuDisp := diffusiongemma.GPUDispatcher{
 		ResidentLayerPrefix:   residentLayers,
 		LMHeadTopK:            *lmHeadTopK,
-		CPUExperts:            *cpuExperts || *ggufModel != "",
 		FinalLogitSoftcapping: float32(m.Shape.FinalLogitSoftcapping),
 	}
 
@@ -192,15 +192,6 @@ func main() {
 		gpuDisp.SkipEviction = true // GGUF TextWeights are fully pre-cached and cannot reload evicted tensors.
 		log.Printf("GGUF expert index ready: %d layers, %d experts, intermediate=%d",
 			ggufIdx.NumLayers, ggufIdx.NumExperts, ggufIdx.Intermediate)
-		if dgflags.GGUFGPULMHeadEnabled() {
-			gpuDisp.F32LMHeadChunkSize = dgflags.GGUFGPULMHeadChunkSize()
-			gpuDisp.F32LMHeadUseCache = dgflags.GGUFGPULMHeadUseF32Cache()
-			source := "Q-row"
-			if gpuDisp.F32LMHeadUseCache {
-				source = "F32-cache"
-			}
-			log.Printf("GGUF F32 LM head chunked GPU mode enabled chunk=%d source=%s", gpuDisp.F32LMHeadChunkSize, source)
-		}
 	} else if *fp8Model != "" {
 		log.Printf("loading FP8 weights from %s", *fp8Model)
 		fp8Weights, err := diffusiongemma.OpenFP8TextWeights(*fp8Model, m.Shape)
@@ -326,7 +317,7 @@ func main() {
 	})
 
 	log.Printf("DiffusionGemma server on %s (canvas=%d, steps=%d, topk=%d)", *listen, serverCanvas, serverDenoiseSteps, *lmHeadTopK)
-	log.Fatal(http.ListenAndServe(*listen, nil))
+	log.Fatal((&http.Server{Addr: *listen, Handler: http.DefaultServeMux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 10 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}).ListenAndServe())
 }
 
 func (s *server) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -347,11 +338,24 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req chatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":{"message":"bad json: %s"}}`, err), 400)
+	if err := httpinput.DecodeJSON(w, r, &req, 1<<20, false); err != nil {
+		http.Error(w, `{"error":{"message":"invalid or oversized JSON"}}`, httpinput.ErrorStatus(err))
 		return
 	}
 
+	if req.MaxTokens < 0 || req.MaxTokens > 4096 || len(req.Messages) == 0 || len(req.Messages) > 256 {
+		http.Error(w, `{"error":{"message":"request limits exceeded"}}`, 400)
+		return
+	}
+	// Reject concurrent model requests instead of retaining an unbounded queue.
+	if !s.mu.TryLock() {
+		http.Error(w, `{"error":{"message":"busy"}}`, 429)
+		return
+	}
+	defer s.mu.Unlock()
+	if r.Context().Err() != nil {
+		return
+	}
 	// Convert messages
 	textMsgs := make([]diffusiongemma.TextChatMessage, len(req.Messages))
 	for i, m := range req.Messages {
@@ -372,7 +376,11 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxNew := 0 // 0 lets Engine use generation_config max_new_tokens or canvas length
+	if len(promptIDs) > 8192 {
+		http.Error(w, `{"error":{"message":"prepared prompt exceeds8192 tokens"}}`, 400)
+		return
+	}
+	maxNew := 4096 // bounded server default, even if model config requests more
 	if req.MaxTokens > 0 {
 		maxNew = req.MaxTokens
 	}
@@ -383,15 +391,15 @@ func (s *server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	denoising := s.meta.Denoising
 	denoising.MaxDenoisingSteps = s.opts.denoiseSteps
-	denoising.SparseTopK = s.opts.lmHeadTopK
 
-	s.mu.Lock()
 	s.reqCount++
 	reqNum := s.reqCount
-	s.mu.Unlock()
 
 	log.Printf("req #%d: %d msgs, %d prompt tokens, stream=%v", reqNum, len(req.Messages), len(promptIDs), req.Stream)
 
+	if r.Context().Err() != nil {
+		return
+	}
 	if req.Stream {
 		s.handleStreamingChat(w, reqNum, promptIDs, maxNew, seed, denoising)
 	} else {
@@ -406,9 +414,7 @@ func (s *server) handleNonStreamingChat(w http.ResponseWriter, reqNum int, promp
 	}
 
 	t0 := time.Now()
-	s.mu.Lock()
 	res, err := s.eng.GenerateTokenIDs(promptIDs, opts)
-	s.mu.Unlock()
 	elapsed := time.Since(t0)
 
 	if err != nil {
@@ -421,10 +427,8 @@ func (s *server) handleNonStreamingChat(w http.ResponseWriter, reqNum int, promp
 	tokPerSec := float64(len(res.Generated)) / elapsed.Seconds()
 	log.Printf("req #%d: %d tok in %.1fs (%.1f t/s) → %q", reqNum, len(res.Generated), elapsed.Seconds(), tokPerSec, text)
 	if s.expertCache != nil {
-		s.mu.Lock()
 		cacheStats := s.expertCache.Stats()
 		s.expertCache.ResetCounters()
-		s.mu.Unlock()
 		log.Printf("req #%d: cache %s", reqNum, cacheStats)
 	}
 
@@ -490,14 +494,12 @@ func (s *server) handleStreamingChat(w http.ResponseWriter, reqNum int, promptID
 		},
 	}
 
-	s.mu.Lock()
 	res, err := s.eng.GenerateTokenIDs(promptIDs, opts)
-	s.mu.Unlock()
 	elapsed := time.Since(t0)
 
 	if err != nil {
 		log.Printf("req #%d: stream error: %s", reqNum, err)
-		errMsg := fmt.Sprintf(`{"error":{"message":"%s"}}`, err)
+		errMsg, _ := json.Marshal(map[string]any{"error": map[string]string{"message": err.Error()}})
 		fmt.Fprintf(w, "data: %s\n\n", errMsg)
 		flusher.Flush()
 		return
@@ -520,10 +522,8 @@ func (s *server) handleStreamingChat(w http.ResponseWriter, reqNum int, promptID
 
 	tokPerSec := float64(len(res.Generated)) / elapsed.Seconds()
 	if s.expertCache != nil {
-		s.mu.Lock()
 		cacheStats := s.expertCache.Stats()
 		s.expertCache.ResetCounters()
-		s.mu.Unlock()
 		log.Printf("req #%d: cache %s", reqNum, cacheStats)
 	}
 	log.Printf("req #%d: %d tok in %.1fs (%.1f t/s) streamed → %q", reqNum, len(res.Generated), elapsed.Seconds(), tokPerSec, fullText)

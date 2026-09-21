@@ -72,7 +72,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--audio", action="append", default=[], help="Audio file to compare; repeatable (default: testdata/jfk.wav)")
     ap.add_argument("--backend", choices=sorted(BACKEND_ENVS), default="a100", help="Backend env preset to compare against baseline")
-    ap.add_argument("--model", default="models/whisper-large-v3-turbo-hf/model.safetensors")
+    ap.add_argument("--model", default="checkpoints/whisper-large-v3-turbo-hf/model.safetensors")
     ap.add_argument("--size", default="turbo")
     ap.add_argument("--task", default="translate", choices=("translate", "transcribe"))
     ap.add_argument("--language", default="en")

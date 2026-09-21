@@ -6,46 +6,47 @@
 // backends without changing the model-build code:
 //
 //   - GGML/CPU   — lower MatMul/RMSNorm/SiLU/Add/Mul to ggml_graph ops;
-//                  wrap remaining decode ops in Go shims
+//     wrap remaining decode ops in Go shims
 //   - Vulkan     — lower compute-heavy subgraphs to SPIR-V kernels
 //   - SpacemiT   — lower supported op islands to ORT/TCM execution providers
 //   - MLX        — lower to mlx_array + mlx_stream C API (Apple Silicon only);
-//                  StreamHint on each Node guides CPU vs Metal stream assignment;
-//                  Q4G dtype maps to mlx_quantize(bits=4,group_size=64);
-//                  Transpose/Concat/Slice map directly to mlx_transpose/mlx_concatenate/mlx_slice;
-//                  Contiguous forces mlx_contiguous() before non-contiguous-aware ops;
-//                  Scale maps to mlx_multiply(scalar) with a scalar Const input;
-//                  ReduceSum/ReduceMean map to mlx_sum/mlx_mean with axis Attrs;
-//                  GELU maps to mlx_gelu or mlx_gelu_approx per the Attrs["approx"] flag
+//     StreamHint on each Node guides CPU vs Metal stream assignment;
+//     Q4G dtype maps to mlx_quantize(bits=4,group_size=64);
+//     Transpose/Concat/Slice map directly to mlx_transpose/mlx_concatenate/mlx_slice;
+//     Contiguous forces mlx_contiguous() before non-contiguous-aware ops;
+//     Scale maps to mlx_multiply(scalar) with a scalar Const input;
+//     ReduceSum/ReduceMean map to mlx_sum/mlx_mean with axis Attrs;
+//     GELU maps to mlx_gelu or mlx_gelu_approx per the Attrs["approx"] flag
 //
 // Op lowering coverage by backend:
 //
-//   Op            | GGML | Vulkan | SpacemiT | MLX
-//   --------------|------|--------|----------|----
-//   Embedding     |  ✓   |   -    |    -     |  ✓
-//   RMSNorm       |  ✓   |   -    |    ✓     |  ✓
-//   MatMul        |  ✓   |   ✓    |    ✓     |  ✓
-//   RoPE          |  ✓   |   -    |    -     |  ✓
-//   Attention     |  ✓   |   -    |    -     |  ✓
-//   Softmax       |  ✓   |   -    |    ✓     |  ✓
-//   SiLU          |  ✓   |   -    |    ✓     |  ✓
-//   GELU          |  -   |   -    |    ✓     |  ✓
-//   Mul           |  ✓   |   ✓    |    ✓     |  ✓
-//   Add           |  ✓   |   ✓    |    ✓     |  ✓
-//   Scale         |  ✓   |   -    |    -     |  ✓
-//   Transpose     |  ✓   |   -    |    -     |  ✓
-//   Concat        |  ✓   |   -    |    -     |  ✓
-//   Slice         |  ✓   |   -    |    -     |  ✓
-//   ReduceSum     |  ✓   |   -    |    -     |  ✓
-//   ReduceMean    |  ✓   |   -    |    -     |  ✓
-//   Contiguous    |  -   |   -    |    -     |  ✓
-//   View/Reshape  |  ✓   |   -    |    -     |  ✓
-//   KVRead/Write  |  -   |   -    |    -     |  -  (Go shim in all backends)
-//   Sample        |  -   |   -    |    -     |  -  (Go shim in all backends)
+//	Op            | GGML | Vulkan | SpacemiT | MLX
+//	--------------|------|--------|----------|----
+//	Embedding     |  ✓   |   -    |    -     |  ✓
+//	RMSNorm       |  ✓   |   -    |    ✓     |  ✓
+//	MatMul        |  ✓   |   ✓    |    ✓     |  ✓
+//	RoPE          |  ✓   |   -    |    -     |  ✓
+//	Attention     |  ✓   |   -    |    -     |  ✓
+//	Softmax       |  ✓   |   -    |    ✓     |  ✓
+//	SiLU          |  ✓   |   -    |    ✓     |  ✓
+//	GELU          |  -   |   -    |    ✓     |  ✓
+//	Mul           |  ✓   |   ✓    |    ✓     |  ✓
+//	Add           |  ✓   |   ✓    |    ✓     |  ✓
+//	Scale         |  ✓   |   -    |    -     |  ✓
+//	Transpose     |  ✓   |   -    |    -     |  ✓
+//	Concat        |  ✓   |   -    |    -     |  ✓
+//	Slice         |  ✓   |   -    |    -     |  ✓
+//	ReduceSum     |  ✓   |   -    |    -     |  ✓
+//	ReduceMean    |  ✓   |   -    |    -     |  ✓
+//	Contiguous    |  -   |   -    |    -     |  ✓
+//	View/Reshape  |  ✓   |   -    |    -     |  ✓
+//	KVRead/Write  |  -   |   -    |    -     |  -  (Go shim in all backends)
+//	Sample        |  -   |   -    |    -     |  -  (Go shim in all backends)
 package graph
 
 import (
 	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"strings"
 )
 
@@ -54,8 +55,8 @@ type DType string
 
 const (
 	// Floating point
-	F32 DType = "f32"
-	F16 DType = "f16"
+	F32  DType = "f32"
+	F16  DType = "f16"
 	BF16 DType = "bf16"
 	// Integer
 	I32 DType = "i32"
@@ -77,10 +78,11 @@ type Shape []int
 func (s Shape) Numel() int {
 	n := 1
 	for _, d := range s {
-		if d == 0 {
-			return 0
+		var ok bool
+		n, ok = checked.MulInt(n, d)
+		if !ok {
+			return -1
 		}
-		n *= d
 	}
 	return n
 }
@@ -98,10 +100,10 @@ type ValueID int
 
 // Value is a tensor descriptor (shape + dtype + lifetime).
 type Value struct {
-	ID         ValueID
-	Name       string
-	Shape      Shape
-	DType      DType
+	ID    ValueID
+	Name  string
+	Shape Shape
+	DType DType
 	// Persistent marks weights, KV cache, and other buffers that live across
 	// multiple graph executions and must not be reclaimed by the planner.
 	Persistent bool
@@ -112,44 +114,44 @@ type OpKind string
 
 const (
 	// Data sources
-	OpInput     OpKind = "input"      // runtime input tensor (token ids, embeddings)
-	OpConst     OpKind = "const"      // compile-time constant scalar or tensor
+	OpInput OpKind = "input" // runtime input tensor (token ids, embeddings)
+	OpConst OpKind = "const" // compile-time constant scalar or tensor
 
 	// Memory ops
-	OpEmbedding OpKind = "embedding"  // table lookup; Attrs: none
-	OpView      OpKind = "view"       // zero-copy view; Attrs: "shape" []int
-	OpReshape   OpKind = "reshape"    // reshape; Attrs: "shape" []int
-	OpCopy      OpKind = "copy"       // explicit copy (e.g. device transfer)
+	OpEmbedding  OpKind = "embedding"  // table lookup; Attrs: none
+	OpView       OpKind = "view"       // zero-copy view; Attrs: "shape" []int
+	OpReshape    OpKind = "reshape"    // reshape; Attrs: "shape" []int
+	OpCopy       OpKind = "copy"       // explicit copy (e.g. device transfer)
 	OpContiguous OpKind = "contiguous" // force contiguous layout (MLX lazy-eval materialization)
-	OpTranspose OpKind = "transpose"  // permute dims; Attrs: "axes" []int (nil = last two dims)
-	OpConcat    OpKind = "concat"     // concatenate along axis; Attrs: "axis" int
-	OpSlice     OpKind = "slice"      // slice tensor; Attrs: "starts" []int, "stops" []int, "strides" []int
+	OpTranspose  OpKind = "transpose"  // permute dims; Attrs: "axes" []int (nil = last two dims)
+	OpConcat     OpKind = "concat"     // concatenate along axis; Attrs: "axis" int
+	OpSlice      OpKind = "slice"      // slice tensor; Attrs: "starts" []int, "stops" []int, "strides" []int
 
 	// Elementwise / pointwise
-	OpMul       OpKind = "mul"        // elementwise multiply
-	OpAdd       OpKind = "add"        // elementwise add
-	OpScale     OpKind = "scale"      // scalar multiply; second input is scalar Const (or Attrs["scale"] float32)
-	OpSiLU      OpKind = "silu"       // SiLU activation
-	OpGELU      OpKind = "gelu"       // GELU activation; Attrs: "approx" bool (tanh approx)
-	OpSoftmax   OpKind = "softmax"    // softmax; Attrs: "axis" int (default -1)
+	OpMul     OpKind = "mul"     // elementwise multiply
+	OpAdd     OpKind = "add"     // elementwise add
+	OpScale   OpKind = "scale"   // scalar multiply; second input is scalar Const (or Attrs["scale"] float32)
+	OpSiLU    OpKind = "silu"    // SiLU activation
+	OpGELU    OpKind = "gelu"    // GELU activation; Attrs: "approx" bool (tanh approx)
+	OpSoftmax OpKind = "softmax" // softmax; Attrs: "axis" int (default -1)
 
 	// Reduction
 	OpReduceSum  OpKind = "reduce_sum"  // sum reduction; Attrs: "axes" []int, "keepdims" bool
 	OpReduceMean OpKind = "reduce_mean" // mean reduction; Attrs: "axes" []int, "keepdims" bool
 
 	// Linear algebra
-	OpMatMul    OpKind = "matmul"     // matrix multiply; Attrs: "transA" bool, "transB" bool, "group_size" int (Q4G)
-	OpRMSNorm   OpKind = "rms_norm"   // RMS normalisation; Attrs: "eps" float32
-	OpRoPE      OpKind = "rope"       // rotary positional embedding; Attrs: "base" float32, "dims" int
-	OpAttention OpKind = "attention"  // scaled dot-product attention; Attrs: "scale" float32, "causal" bool
-	OpGather    OpKind = "gather"     // gather rows; generalisation of embedding; Attrs: "axis" int
+	OpMatMul    OpKind = "matmul"    // matrix multiply; Attrs: "transA" bool, "transB" bool, "group_size" int (Q4G)
+	OpRMSNorm   OpKind = "rms_norm"  // RMS normalisation; Attrs: "eps" float32
+	OpRoPE      OpKind = "rope"      // rotary positional embedding; Attrs: "base" float32, "dims" int
+	OpAttention OpKind = "attention" // scaled dot-product attention; Attrs: "scale" float32, "causal" bool
+	OpGather    OpKind = "gather"    // gather rows; generalisation of embedding; Attrs: "axis" int
 
 	// KV cache (executor-managed; not lowered to hardware ops)
-	OpKVRead    OpKind = "kv_read"    // read from persistent KV cache; Attrs: "layer" int, "kind" "k"|"v"
-	OpKVWrite   OpKind = "kv_write"   // write to persistent KV cache; Attrs: "layer" int, "kind" "k"|"v", "pos" int
+	OpKVRead  OpKind = "kv_read"  // read from persistent KV cache; Attrs: "layer" int, "kind" "k"|"v"
+	OpKVWrite OpKind = "kv_write" // write to persistent KV cache; Attrs: "layer" int, "kind" "k"|"v", "pos" int
 
 	// Output
-	OpSample    OpKind = "sample"     // sample next token; Attrs: "temperature" float32, "top_k" int
+	OpSample OpKind = "sample" // sample next token; Attrs: "temperature" float32, "top_k" int
 )
 
 // StreamKind hints which execution stream/device an executor should use for a node.
@@ -194,7 +196,7 @@ func (g *Graph) AddValue(name string, shape Shape, dtype DType, persistent bool)
 	g.Values = append(g.Values, Value{
 		ID:         id,
 		Name:       name,
-		Shape:      shape,
+		Shape:      append(Shape(nil), shape...),
 		DType:      dtype,
 		Persistent: persistent,
 	})
@@ -223,19 +225,34 @@ func (g *Graph) Value(id ValueID) *Value {
 // Validate checks structural invariants: non-empty names, in-range IDs, and
 // that every input value is defined (by a prior node or as persistent) before use.
 func (g *Graph) Validate() error {
+	if g == nil {
+		return fmt.Errorf("nil graph")
+	}
 	nv := len(g.Values)
 	defined := make([]bool, nv)
 	for i, v := range g.Values {
+		if int(v.ID) != i {
+			return fmt.Errorf("value %d has inconsistent id %d", i, v.ID)
+		}
+		if v.Shape.Numel() < 0 {
+			return fmt.Errorf("value %q invalid/overflowing shape", v.Name)
+		}
+		if _, ok := checked.MulInt(v.Shape.Numel(), DTypeSize(v.DType)); !ok {
+			return fmt.Errorf("value %q byte size overflows", v.Name)
+		}
 		if v.Persistent {
 			defined[i] = true
 		}
 	}
-	for _, n := range g.Nodes {
+	for idx, n := range g.Nodes {
+		if n.ID != idx {
+			return fmt.Errorf("node %d has inconsistent id %d", idx, n.ID)
+		}
 		if n.Name == "" {
 			return fmt.Errorf("node %d has empty name", n.ID)
 		}
 		for _, inp := range n.Inputs {
-			if int(inp) >= nv {
+			if inp < 0 || int(inp) >= nv {
 				return fmt.Errorf("node %q: input %d out of range", n.Name, inp)
 			}
 			if !defined[inp] {
@@ -243,8 +260,11 @@ func (g *Graph) Validate() error {
 			}
 		}
 		for _, out := range n.Outputs {
-			if int(out) >= nv {
+			if out < 0 || int(out) >= nv {
 				return fmt.Errorf("node %q: output %d out of range", n.Name, out)
+			}
+			if defined[out] && !g.Values[out].Persistent {
+				return fmt.Errorf("node %q redefines transient %q", n.Name, g.Values[out].Name)
 			}
 			defined[out] = true
 		}

@@ -66,8 +66,8 @@ For local checkpoint inspection:
 
 ```bash
 make minicpmv-inspect-model \
-  MINICPMV_MODEL=models/minicpm-v-2.6 \
-  MINICPMV_SAFETENSORS=models/minicpm-v-2.6/model.safetensors \
+  MINICPMV_MODEL=checkpoints/minicpm-v-2.6 \
+  MINICPMV_SAFETENSORS=checkpoints/minicpm-v-2.6/model.safetensors \
   MINICPMV_FLAGS='-require-shapes-ready'
 ```
 

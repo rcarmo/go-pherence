@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "scope": "final-once-normal-v1",
+  "created_utc": "2026-09-19T14:29:11.183Z",
+  "dataset": "checkpoints/jevlike-qwen3/pilot-v4",
+  "dataset_sha256": "459d5c1f6df494844e1aa21c485df574d6ee315420f00d8da70adf0f8efdefa1",
+  "partition_sha256": "fe235bc69077cca346bed6344fe9b8bfff7a3e0da8730fed9dce8550b4b5d27a",
+  "expected_examples": 1440,
+  "model_id": "Qwen/Qwen3-4B@1cfa9a7208912126459214e8b04321603b3df60c#sha256=503cf44de56884c7fdb34b86afae91e6ce122800a06883b058dbfff8fc03e746",
+  "verified_assets": "checkpoints/jevlike-qwen3/instruction-model-verified.json",
+  "feature_contract": "checkpoints/jevlike-qwen3/features-f32-v1/contract.json",
+  "direct_calibration": "checkpoints/jevlike-qwen3/direct-calibration-v1/instruction-report.json",
+  "heads": [
+    {
+      "seed": 7,
+      "checkpoint": "checkpoints/jevlike-qwen3/head-runs-v1/seed-7.json",
+      "calibration": "checkpoints/jevlike-qwen3/head-runs-v1/seed-7-calibration-report.json"
+    },
+    {
+      "seed": 17,
+      "checkpoint": "checkpoints/jevlike-qwen3/head-runs-v1/seed-17.json",
+      "calibration": "checkpoints/jevlike-qwen3/head-runs-v1/seed-17-calibration-report.json"
+    },
+    {
+      "seed": 27,
+      "checkpoint": "checkpoints/jevlike-qwen3/head-runs-v1/seed-27.json",
+      "calibration": "checkpoints/jevlike-qwen3/head-runs-v1/seed-27-calibration-report.json"
+    }
+  ],
+  "files": {
+    "checkpoints/jevlike-qwen3/instruction-model-verified.json": "4a0c8f07c54b72499cedfd0ba48de1f11d116f7df7f02100c457a70d6e052110",
+    "checkpoints/jevlike-qwen3/features-f32-v1/contract.json": "1d278a3d9a66f3dd0c38a2ce6d62c066893bad4d22b36515aeb98c33f2ecd520",
+    "checkpoints/jevlike-qwen3/pilot-v4/manifest.json": "459d5c1f6df494844e1aa21c485df574d6ee315420f00d8da70adf0f8efdefa1",
+    "checkpoints/jevlike-qwen3/direct-calibration-v1/instruction-report.json": "8507c587f55158c94755594a814a535b819285e281b84c27842f2881e206b934",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-7.json": "ccfda4b08e809e667184e11e8c44df2fc098a01a3b42734f470a0a1d2e84cf74",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-7-calibration-report.json": "6c826999765f0471f8249620c03c27407afd6879328cda322beebc310f4dea7c",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-17.json": "fe9b1328312ae42f5dd43d94e0ce70cd0bcdd1655de1c7f477076e7d3b6a7678",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-17-calibration-report.json": "90443ba893eb0b3b5f8cec22c089ab332c99f735d5e4cb2ac3826325659dd44e",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-27.json": "dcec7691d4683431d4bb04033ec06cab6d5ce8c1817ad60f76f05cf387f172fa",
+    "checkpoints/jevlike-qwen3/head-runs-v1/seed-27-calibration-report.json": "d3f8e98a21da9ca8e582f6cb97a713185eca498c52834fb69a25b8359f77d488",
+    "model/jevlike/direct.go": "2b64e18ac35887da1661726a29a40a2511c83f88c85a26a5baae6e17436285c0",
+    "cmd/jevlike/cached.go": "b2dafa1e77639e91a2c2e138a652949249c2ed95ba336bb1d0064c74ca49316c",
+    "loader/tokenizer/tokenizer.go": "47f7497d4b86182430001bddaf2464590ff8cfdecf1be70baf51f11f2e6e7932",
+    "loader/tokenizer/sidecar.go": "8a7738ef27502fcaf103489d74dd148690b46e16cf2e455e1f220be1fc1f8b54",
+    "scripts/jevlike-direct-pilot.ts": "b38c5cc28731df578542f8ee7ef84ea9ceb123a96dd34e4b06d056be9e686f6a",
+    "docs/experiments/jevlike-qwen3/final-evaluation-policy.md": "57900fd2bb6a2064ed649295e01fad60b41a166fe942611be41114c53a1a7497"
+  },
+  "limits": {
+    "direct_tokens": 512,
+    "context_tokens": 512,
+    "option_tokens": 128,
+    "cache_bytes": 12884901888,
+    "free_disk_bytes": 32212254720
+  },
+  "policy": "All original final-test rows; normal variant; original candidates; no retuning; fixed calibration; all seeds; reject overlength, no truncation; deferred human-reviewed/broader matrix; close as experiment not promotion"
+}

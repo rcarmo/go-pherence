@@ -7,7 +7,10 @@ import (
 )
 
 func TestValidateTensorShapes(t *testing.T) {
-	cfg := ParsedConfig{TalkerHiddenSize: 1024, TalkerIntermediateSize: 3072, TalkerNumKeyValueHeads: 8, TalkerHeadDim: 64, TalkerTextHiddenSize: 2048, TalkerVocabSize: 3072, CPHiddenSize: 1024, CPIntermediateSize: 3072, CPNumKeyValueHeads: 8, CPHeadDim: 64}
+	cfg, err := ParseConfig([]byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	valid := ValidateTensorShapes(cfg, map[string]safetensors.TensorInfo{
 		"talker.model.layers.0.self_attn.q_proj.weight":   {Shape: []int{1024, 1024}},
 		"talker.model.layers.0.self_attn.k_proj.weight":   {Shape: []int{512, 1024}},

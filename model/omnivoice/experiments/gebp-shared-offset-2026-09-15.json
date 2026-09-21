@@ -1,0 +1,88 @@
+{
+  "baseline_commit": "c25616b1",
+  "decision": "reject shared A-row byte offset: mixed projection results across four rounds",
+  "environment": "N100, 2 vCPUs, GOMAXPROCS=2",
+  "benchmark": "BenchmarkPackedModelProjections; count=3; benchtime=400ms rounds1/2, 1s rounds3/4",
+  "order": [
+    "base1",
+    "candidate1",
+    "candidate2",
+    "base2",
+    "base3",
+    "candidate3",
+    "candidate4",
+    "base4"
+  ],
+  "means_ms": {
+    "base-round1": {
+      "126x1024x1024-2": 5.845340666666666,
+      "126x3072x1024-2": 18.531741333333333,
+      "128x1024x3072-2": 18.67959466666667
+    },
+    "base-round2": {
+      "126x1024x1024-2": 5.958783666666666,
+      "126x3072x1024-2": 18.106960333333333,
+      "128x1024x3072-2": 18.775037666666666
+    },
+    "base-round3": {
+      "126x1024x1024-2": 5.945987666666667,
+      "126x3072x1024-2": 18.220474,
+      "128x1024x3072-2": 18.471943
+    },
+    "base-round4": {
+      "126x1024x1024-2": 6.2689043333333325,
+      "126x3072x1024-2": 19.293092666666666,
+      "128x1024x3072-2": 19.864086
+    },
+    "candidate-round1": {
+      "126x1024x1024-2": 5.835609666666667,
+      "126x3072x1024-2": 18.317103,
+      "128x1024x3072-2": 18.298451333333333
+    },
+    "candidate-round2": {
+      "126x1024x1024-2": 5.859373000000001,
+      "126x3072x1024-2": 18.360961333333332,
+      "128x1024x3072-2": 18.351652
+    },
+    "candidate-round3": {
+      "126x1024x1024-2": 5.907968666666666,
+      "126x3072x1024-2": 18.25949,
+      "128x1024x3072-2": 18.390081666666664
+    },
+    "candidate-round4": {
+      "126x1024x1024-2": 5.911490666666666,
+      "126x3072x1024-2": 18.367152333333333,
+      "128x1024x3072-2": 19.92677266666667
+    }
+  },
+  "logs": {
+    "base-fingerprint": "=== RUN   TestGEBPOrderFingerprint\nGEBP fingerprint: 68d4d7ecd3ed77cd63e3f685cae518c8139c75ca5630e9e4178931322602bba3\n--- PASS: TestGEBPOrderFingerprint (0.03s)\nPASS\n",
+    "base-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      72\t   5877049 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      81\t   5837044 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      82\t   5821929 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18154617 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  19278288 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18162319 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  18658003 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18455801 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18924980 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "base-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      75\t   5886921 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      79\t   6147344 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   5842086 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18104073 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18115696 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18101112 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  18405378 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18494699 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  19425036 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "base-round3": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     199\t   5910393 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     205\t   5886777 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     199\t   6040793 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      63\t  18121033 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      64\t  18327676 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      62\t  18212713 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      57\t  18340640 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      62\t  18382797 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      63\t  18692392 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "base-round4": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     189\t   6485369 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     189\t   6273665 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     196\t   6047679 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      58\t  18883050 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      51\t  19954240 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      58\t  19041988 ns/op\t      91 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      61\t  19414234 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      58\t  20264930 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      54\t  19913094 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "candidate-fingerprint": "=== RUN   TestGEBPOrderFingerprint\nGEBP fingerprint: 68d4d7ecd3ed77cd63e3f685cae518c8139c75ca5630e9e4178931322602bba3\n--- PASS: TestGEBPOrderFingerprint (0.03s)\nPASS\n",
+    "candidate-round1": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      76\t   5838893 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      82\t   5844390 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   5823546 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18532963 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18289148 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      24\t  18129198 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18336332 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18330778 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18228244 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "candidate-round2": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      78\t   5929194 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      81\t   5807475 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t      80\t   5841450 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18506408 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18405691 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      25\t  18170785 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      24\t  18338647 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18277383 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      25\t  18438926 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "candidate-round3": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     202\t   5863134 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     205\t   5834653 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     195\t   6026119 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      61\t  18263054 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      64\t  18347800 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      62\t  18167616 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      63\t  18313540 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      63\t  18460710 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      62\t  18395995 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n",
+    "candidate-round4": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/backends/simd/runtime\ncpu: Intel(R) N100\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     205\t   5825829 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     205\t   6049322 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x1024x1024-2         \t     204\t   5859321 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      62\t  18089388 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      64\t  18450726 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/126x3072x1024-2         \t      62\t  18561343 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      58\t  19491161 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      57\t  20041276 ns/op\t       0 B/op\t       0 allocs/op\nBenchmarkPackedModelProjections/128x1024x3072-2         \t      57\t  20247881 ns/op\t       0 B/op\t       0 allocs/op\nPASS\n"
+  },
+  "notes": [
+    "Fixed six A-row base registers; broadcasts indexed by BX, one increment instead of six. Arithmetic order unchanged.",
+    "All recorded fingerprints match; zero bytes/allocations per operation across all72 projection samples.",
+    "No outlier filtering. Round4 slower timings retained.",
+    "Production assembly restored exactly; candidate patch retained unapplied. No full-synthesis run.",
+    "N100-specific results; some shapes favour candidate but no consistent cross-shape gain."
+  ],
+  "validation": {
+    "production_assembly": "identical to HEAD; rejected patch applies cleanly",
+    "checks": [
+      "make test-omnivoice vet-omnivoice: pass",
+      "go test ./backends/simd/runtime: pass",
+      "go vet ./backends/simd/runtime: pass",
+      "git diff --check: pass"
+    ],
+    "independent_review": "means, arithmetic addressing and limited rejection scope approved",
+    "full_build_log": "# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim\ncc1: error: bad value 'rv64gcv_xsmtvdotii' for '-march=' switch\ncc1: note: valid arguments to '-march=' switch are: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client rocketlake icelake-server cascadelake tigerlake cooperlake sapphirerapids emeraldrapids alderlake raptorlake meteorlake graniterapids graniterapids-d arrowlake arrowlake-s lunarlake pantherlake bonnell atom silvermont slm goldmont goldmont-plus tremont gracemont sierraforest grandridge clearwaterforest knl knm x86-64 x86-64-v2 x86-64-v3 x86-64-v4 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 lujiazui yongfeng k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 znver2 znver3 znver4 znver5 btver1 btver2 native\n# github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool\nbackends/spacemit/aicpu/aipool/ai_pool.go:45:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:52:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:63:8: undefined: ime2.VmadotKLoop1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:125:9: undefined: ime2.VmadotI8GroupsAdd1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:127:9: undefined: ime2.VmadotI8Groups1024\nbackends/spacemit/aicpu/aipool/ai_pool.go:180:8: undefined: ime2.VmadotKLoopAI\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:27:17: undefined: ime2.FindMaxAbsRVV\nbackends/spacemit/aicpu/aipool/parallel_helpers.go:40:7: undefined: ime2.QuantizeF32ToI8RVV\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect\ncmd/diffusiongemmainspect/main.go:68:12: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:68:46: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:74:135: caps.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:74:166: caps.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.TextFullStackSparseReady undefined (type diffusiongemma.RuntimeCapabilities has no field or method TextFullStackSparseReady)\ncmd/diffusiongemmainspect/main.go:200: r.Capabilities.SparseTopKLMHead undefined (type diffusiongemma.RuntimeCapabilities has no field or method SparseTopKLMHead)\n# github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve\ncmd/diffusiongemmaserve/main.go:181:3: unknown field CPUExperts in struct literal of type diffusiongemma.GPUDispatcher\ncmd/diffusiongemmaserve/main.go:196:12: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:197:12: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:199:15: gpuDisp.F32LMHeadUseCache undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadUseCache)\ncmd/diffusiongemmaserve/main.go:202:87: gpuDisp.F32LMHeadChunkSize undefined (type diffusiongemma.GPUDispatcher has no field or method F32LMHeadChunkSize)\ncmd/diffusiongemmaserve/main.go:386:12: denoising.SparseTopK undefined (type diffusiongemma.DenoisingConfig has no field or method SparseTopK)\n"
+  }
+}

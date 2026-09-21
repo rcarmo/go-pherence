@@ -18,7 +18,8 @@ type FP8Linear struct {
 
 // NewFP8Linear binds raw E4M3 weight bytes and a scale tensor to a LinearSpec,
 // validating that the byte/scale shapes match the spec's expected dimensions.
-// bias may be nil.
+// bias may be nil. Weight, scale and bias slices are borrowed, not copied;
+// their owner must outlive the linear and must not mutate them during inference.
 func NewFP8Linear(spec LinearSpec, weightBytes []byte, scale []float32, bias []float32) (*FP8Linear, error) {
 	if spec.OutDim <= 0 || spec.InDim <= 0 {
 		return nil, fmt.Errorf("ideogram4 fp8 linear %q invalid dims out=%d in=%d", spec.Prefix, spec.OutDim, spec.InDim)

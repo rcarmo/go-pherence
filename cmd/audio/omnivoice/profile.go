@@ -5,7 +5,7 @@ import (
 	"fmt"
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 	"math"
 	"os"
 	"runtime"

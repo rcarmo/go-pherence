@@ -15,7 +15,7 @@ import (
 	"time"
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 )
 
 func TestVulkanCommunityQuarantineChild(t *testing.T) {

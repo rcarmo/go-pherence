@@ -19,7 +19,7 @@ func TestLocalActiveQ4KGateUpMatrixCacheReusesBuffer(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestLocalActiveQ4KGateUpPointerTableReusesResidentExperts(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestLocalActiveQ4KGateUpPointerTableHonorsBudget(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestLocalActiveQ4KGateUpMatrixHonorsBudget(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}

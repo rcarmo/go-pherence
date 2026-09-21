@@ -86,17 +86,17 @@ func initVkKernels() error {
 
 // VkVecAddF32 dispatches c[i] = a[i] + b[i] on Vulkan.
 func VkVecAddF32(dst, a, b *VkBuf, n int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	if n <= 0 || !vkBufHasFloat32s(dst, n) || !vkBufHasFloat32s(a, n) || !vkBufHasFloat32s(b, n) {
 		return fmt.Errorf("invalid vulkan vec_add_f32 buffers n=%d", n)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkVecAddF32 == nil {
 		return fmt.Errorf("vulkan vec_add_f32 not available (SPIR-V needs glslangValidator)")
 	}
 	nn := uint32(n)
-	groups := (nn + 255) / 256
+	groups := (nn-1)/256 + 1
 	return vkVecAddF32.Dispatch(groups, 1, 1, []*VkBuf{a, b, dst}, unsafe.Pointer(&nn))
 }
 
@@ -106,22 +106,22 @@ func vkBufHasBytes(b *VkBuf, n int) bool {
 
 // VkVecAddBF16 dispatches c[i] = BF16(F32(a[i]) + F32(b[i])) on Vulkan.
 func VkVecAddBF16(dst, a, b *VkBuf, n int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
-	if n <= 0 || n%2 != 0 {
+	if n <= 0 || uint64(n) > uint64(^uint32(0)) || n/2 > int(^uint(0)>>1)/4 || n%2 != 0 {
 		return fmt.Errorf("invalid vulkan vec_add_bf16 element count n=%d", n)
 	}
 	packedBytes := (n / 2) * 4
 	if !vkBufHasBytes(dst, packedBytes) || !vkBufHasBytes(a, packedBytes) || !vkBufHasBytes(b, packedBytes) {
 		return fmt.Errorf("invalid vulkan vec_add_bf16 buffers n=%d", n)
 	}
+	if err := initVkKernels(); err != nil {
+		return err
+	}
 	if vkVecAddBF16 == nil {
 		return fmt.Errorf("vulkan vec_add_bf16 not available")
 	}
 	// BF16 packed: 2 elements per uint32, so dispatch n/2 threads
 	nn := uint32(n / 2)
-	groups := (nn + 255) / 256
+	groups := (nn-1)/256 + 1
 	return vkVecAddBF16.Dispatch(groups, 1, 1, []*VkBuf{a, b, dst}, unsafe.Pointer(&nn))
 }
 
@@ -224,7 +224,8 @@ func vkCheckedMulInt(a, b int) (int, bool) {
 }
 
 func vkBufHasFloat32s(b *VkBuf, n int) bool {
-	if b == nil || n < 0 {
+	// Shader indexing and push constants are uint32, even on 64-bit hosts.
+	if b == nil || n < 0 || uint64(n) > uint64(^uint32(0)) {
 		return false
 	}
 	maxInt := int(^uint(0) >> 1)
@@ -240,11 +241,11 @@ func vkUnavailable(name string) error {
 
 // VkRMSNormF32 dispatches x[i] = w[i] * x[i] / rms(x) on Vulkan.
 func VkRMSNormF32(x, w *VkBuf, n int, eps float32) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	if n <= 0 || !vkBufHasFloat32s(x, n) || !vkBufHasFloat32s(w, n) {
 		return fmt.Errorf("invalid vulkan rms_norm_f32 buffers n=%d", n)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkRMSNormF32 == nil {
 		return vkUnavailable("rms_norm_f32")
@@ -258,11 +259,11 @@ func VkRMSNormF32(x, w *VkBuf, n int, eps float32) error {
 
 // VkRMSNormNoScaleF32 dispatches x[i] = x[i] / rms(x) on Vulkan.
 func VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	if n <= 0 || uint64(n) > uint64(^uint32(0)) || !vkBufHasFloat32s(x, n) {
 		return fmt.Errorf("invalid vulkan rms_norm_no_scale_f32 buffer n=%d", n)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkRMSNormNoScaleF32 == nil {
 		return vkUnavailable("rms_norm_no_scale_f32")
@@ -276,12 +277,12 @@ func VkRMSNormNoScaleF32(x *VkBuf, n int, eps float32) error {
 
 // VkGemvF32 dispatches out[outDim] = W[outDim,inDim] · x[inDim] on Vulkan.
 func VkGemvF32(out, x, w *VkBuf, inDim, outDim int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	weightLen, ok := vkCheckedMulInt(inDim, outDim)
 	if inDim <= 0 || outDim <= 0 || !ok || !vkBufHasFloat32s(out, outDim) || !vkBufHasFloat32s(x, inDim) || !vkBufHasFloat32s(w, weightLen) {
 		return fmt.Errorf("invalid vulkan gemv_f32 dims in=%d out=%d", inDim, outDim)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkGemvF32 == nil {
 		return vkUnavailable("gemv_f32")
@@ -292,33 +293,33 @@ func VkGemvF32(out, x, w *VkBuf, inDim, outDim int) error {
 
 // VkSiLUMulF32 dispatches dst[i] = silu(gate[i]) * up[i] on Vulkan.
 func VkSiLUMulF32(dst, gate, up *VkBuf, n int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	if n <= 0 || !vkBufHasFloat32s(dst, n) || !vkBufHasFloat32s(gate, n) || !vkBufHasFloat32s(up, n) {
 		return fmt.Errorf("invalid vulkan silu_mul_f32 buffers n=%d", n)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkSiLUMulF32 == nil {
 		return vkUnavailable("silu_mul_f32")
 	}
 	nn := uint32(n)
-	groups := (nn + 255) / 256
+	groups := (nn-1)/256 + 1
 	return vkSiLUMulF32.Dispatch(groups, 1, 1, []*VkBuf{gate, up, dst}, unsafe.Pointer(&nn))
 }
 
 // VkGELUTanhMulF32 dispatches gate[i] = gelu_tanh(gate[i]) * up[i] on Vulkan.
 func VkGELUTanhMulF32(gate, up *VkBuf, n int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	if n <= 0 || !vkBufHasFloat32s(gate, n) || !vkBufHasFloat32s(up, n) {
 		return fmt.Errorf("invalid vulkan gelu_tanh_mul_f32 buffers n=%d", n)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkGELUTanhMulF32 == nil {
 		return vkUnavailable("gelu_tanh_mul_f32")
 	}
 	nn := uint32(n)
-	groups := (nn + 255) / 256
+	groups := (nn-1)/256 + 1
 	return vkGELUTanhMulF32.Dispatch(groups, 1, 1, []*VkBuf{gate, up}, unsafe.Pointer(&nn))
 }
 
@@ -327,15 +328,15 @@ func VkGELUTanhMulF32(gate, up *VkBuf, n int) error {
 // separate allocation from x. Shader uses32-bit indexing; preflight bounds all
 // products before narrowing. One invocation owns both outputs of each pair.
 func VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	push, groups, total, freqNeed, err := vkRoPEGeometry(pos, nHeads, headDim, rotHalf)
 	if err != nil {
 		return err
 	}
 	if x == freqs || !vkBufHasFloat32s(x, total) || !vkBufHasFloat32s(freqs, freqNeed) {
 		return fmt.Errorf("invalid or aliased Vulkan RoPE buffers")
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkRoPEPartialF32 == nil {
 		return vkUnavailable("rope_partial_f32")
@@ -345,9 +346,6 @@ func VkRoPEPartialF32(x, freqs *VkBuf, pos, nHeads, headDim, rotHalf int) error 
 
 // VkAttentionScoresF32 dispatches GQA attention scores on Vulkan.
 func VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headDim int, scale float32) error {
-	if err := initVkKernels(); err != nil {
-		return err
-	}
 	qLen, okQ := vkCheckedMulInt(nHeads, headDim)
 	kvDim, okKV := vkCheckedMulInt(nKVHeads, headDim)
 	cacheLen, okCache := vkCheckedMulInt(seqLen, kvDim)
@@ -355,6 +353,9 @@ func VkAttentionScoresF32(out, q, kCache *VkBuf, seqLen, nHeads, nKVHeads, headD
 	const maxUint32 = int64(^uint32(0))
 	if seqLen <= 0 || nHeads <= 0 || nKVHeads <= 0 || nKVHeads > nHeads || nHeads%nKVHeads != 0 || headDim <= 0 || int64(seqLen) > maxUint32 || int64(nHeads) > maxUint32 || int64(nKVHeads) > maxUint32 || int64(headDim) > maxUint32 || math.IsNaN(float64(scale)) || math.IsInf(float64(scale), 0) || !okQ || !okKV || !okCache || !okScore || !vkBufHasFloat32s(out, scoreLen) || !vkBufHasFloat32s(q, qLen) || !vkBufHasFloat32s(kCache, cacheLen) {
 		return fmt.Errorf("invalid vulkan attention_score dims seq=%d heads=%d kvHeads=%d headDim=%d", seqLen, nHeads, nKVHeads, headDim)
+	}
+	if err := initVkKernels(); err != nil {
+		return err
 	}
 	if vkAttentionScoresF32 == nil {
 		return vkUnavailable("attention_score_f32")

@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/checked"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
 	"github.com/rcarmo/go-pherence/model"
@@ -119,7 +120,8 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Prompt: '%s' (%d tokens)\n", *prompt, len(ids))
+	prepared := m.PreparedGenerateTokens(ids)
+	fmt.Printf("Prompt: '%s' (%d prepared tokens)\n", *prompt, len(prepared))
 	fmt.Printf("Generating %d tokens...\n\n", *tokens)
 
 	start := time.Now()
@@ -146,19 +148,16 @@ func main() {
 		mtpFinalStateOutputLen = result.FinalStateOutputLen
 		mtpStepSummaries = result.StepSummaries
 	} else if gpuMod != nil {
-		output = append(ids, gpuMod.Generate(ids, *tokens)...)
+		output = append(append([]int(nil), prepared...), gpuMod.Generate(ids, *tokens)...)
 	} else if *speculative {
-		output = append(ids, generatedSuffixFromFullOutput(len(ids), *tokens, m.GenerateSpeculative(ids, *tokens, model.SpeculativeConfigFromEnv()))...)
+		output = m.GenerateSpeculative(ids, *tokens, model.SpeculativeConfigFromEnv())
 	} else {
-		output = append(ids, generatedSuffixFromFullOutput(len(ids), *tokens, m.Generate(ids, *tokens))...)
+		output = m.Generate(ids, *tokens)
 	}
 	elapsed := time.Since(start)
 
-	promptTokenCount := mtpEffectivePromptTokenCount(len(ids), len(output), *mtpGenerate, mtpGraphOutput, mtpGreedyTail)
-	generated := output
-	if len(output) >= promptTokenCount {
-		generated = output[promptTokenCount:]
-	}
+	promptTokenCount := mtpEffectivePromptTokenCount(len(prepared), len(output), *mtpGenerate, mtpGraphOutput, mtpGreedyTail)
+	generated := generatedSuffixFromFullOutput(promptTokenCount, *tokens, output)
 	text := tok.Decode(output)
 	genText := tok.Decode(generated)
 
@@ -168,16 +167,17 @@ func main() {
 	fmt.Printf("Total time:       %.2fs\n", elapsed.Seconds())
 
 	if len(generated) > 0 && len(output) > 0 {
-		promptTime := elapsed.Seconds() * float64(len(ids)) / float64(len(output))
-		genTime := elapsed.Seconds() - promptTime
+		// No per-phase timer exists here: report end-to-end throughput, not a
+		// fabricated prefill/decode split proportional to token counts.
+		genTime := elapsed.Seconds()
 		tokPerSec := 0.0
 		msPerTok := 0.0
 		if genTime > 0 {
 			tokPerSec = float64(len(generated)) / genTime
 			msPerTok = genTime / float64(len(generated)) * 1000
 		}
-		fmt.Printf("Generation time:  %.2fs\n", genTime)
-		fmt.Printf("Tokens/sec:       %.1f\n", tokPerSec)
+		fmt.Printf("End-to-end time:  %.2fs\n", genTime)
+		fmt.Printf("Output tokens/sec (including prefill): %.1f\n", tokPerSec)
 		fmt.Printf("ms/token:         %.1f\n", msPerTok)
 	}
 	if *mtpGenerate {
@@ -200,20 +200,28 @@ func main() {
 	_ = genText
 }
 
+// Check arithmetic before allocation; trusted-local callers still choose workload size.
+func mtpKVElements(seqLen, kvDim int) (int, error) {
+	n, ok := checked.MulInt(seqLen, kvDim)
+	if seqLen <= 0 || kvDim <= 0 || !ok {
+		return 0, fmt.Errorf("invalid/overflowing MTP KV shape")
+	}
+	if _, ok := checked.MulInt(n, 4); !ok {
+		return 0, fmt.Errorf("MTP KV byte size overflow")
+	}
+	return n, nil
+}
+
 func generatedSuffixFromFullOutput(inputIDs, maxTokens int, output []int) []int {
 	if maxTokens <= 0 || len(output) == 0 {
 		return nil
 	}
-	if len(output) >= inputIDs {
-		generated := len(output) - inputIDs
-		if generated >= 0 && generated <= maxTokens {
-			return append([]int(nil), output[inputIDs:]...)
-		}
+	// CPU APIs return the full prepared prefix. Do not guess using maxTokens:
+	// BOS/chat wrappers can be shorter than the budget and resemble output.
+	if inputIDs < 0 || len(output) < inputIDs || len(output)-inputIDs > maxTokens {
+		return nil
 	}
-	if len(output) <= maxTokens {
-		return append([]int(nil), output...)
-	}
-	return append([]int(nil), output[len(output)-maxTokens:]...)
+	return append([]int(nil), output[inputIDs:]...)
 }
 
 func mtpEffectivePromptTokenCount(inputIDs, outputLen int, mtpGenerate bool, graphOutput, greedyTail int) int {
@@ -372,8 +380,12 @@ func runGemma4MTPSmoke(m *model.LlamaModel, gpuMod *model.GPUModel, drafterDir s
 			if err != nil {
 				return fmt.Errorf("drafter layer %d KV dim: %w", i, err)
 			}
-			k[i] = make([]float32, seqLen*kvDim)
-			v[i] = make([]float32, seqLen*kvDim)
+			elements, err := mtpKVElements(seqLen, kvDim)
+			if err != nil {
+				return err
+			}
+			k[i] = make([]float32, elements)
+			v[i] = make([]float32, elements)
 		}
 		var err error
 		externalKV, err = model.NewMTPDrafterExternalKV(d, k, v, seqLen)

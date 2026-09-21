@@ -24,7 +24,7 @@ func TestLocalGGUFFusedGPUExpertsQ5DownMatchCPUSelected(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestLocalGGUFPartialGroupedGPUCPUExpertsMatchCPUSelected(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestLocalGGUFPartialGroupedGPUCPUExpertsPromptScale(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestLocalGGUFPartialGroupedGPUCPUExpertsPromptScaleLayer5(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,7 +565,7 @@ func TestLocalGGUFPartialLayer5ExactEncoderInputDelta(t *testing.T) {
 	if _, err := os.Stat(ggufPath); err != nil {
 		t.Skip("local DiffusionGemma GGUF Q4_K_M reference not present")
 	}
-	meta, err := LoadMetadata(filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8"))
+	meta, err := LoadMetadata(filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8"))
 	if err != nil {
 		t.Fatal(err)
 	}

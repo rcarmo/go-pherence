@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
 // SparseTensor is the first native TRELLIS.2 execution surface in go-pherence.
@@ -29,13 +30,18 @@ func (s SparseTensor) Validate() error {
 	if s.Rows < 0 || s.Dim <= 0 {
 		return fmt.Errorf("trellis2 sparse tensor: invalid shape rows=%d dim=%d", s.Rows, s.Dim)
 	}
-	if len(s.Coords) < s.Rows*4 {
-		return fmt.Errorf("trellis2 sparse tensor: short coords len=%d want=%d", len(s.Coords), s.Rows*4)
+	coords, okC := checked.MulInt(s.Rows, 4)
+	feats, okF := checked.MulInt(s.Rows, s.Dim)
+	if !okC || !okF {
+		return fmt.Errorf("trellis2 sparse tensor: shape overflow")
 	}
-	if len(s.Feats) < s.Rows*s.Dim {
-		return fmt.Errorf("trellis2 sparse tensor: short feats len=%d want=%d", len(s.Feats), s.Rows*s.Dim)
+	if len(s.Coords) < coords {
+		return fmt.Errorf("trellis2 sparse tensor: short coords len=%d want=%d", len(s.Coords), coords)
 	}
-	for i := 0; i < s.Rows*4; i++ {
+	if len(s.Feats) < feats {
+		return fmt.Errorf("trellis2 sparse tensor: short feats len=%d want=%d", len(s.Feats), feats)
+	}
+	for i := 0; i < coords; i++ {
 		if s.Coords[i] < 0 {
 			return fmt.Errorf("trellis2 sparse tensor: negative coord at %d", i)
 		}
@@ -47,6 +53,9 @@ func (s SparseTensor) Coord(row int) ([4]int32, error) {
 	if row < 0 || row >= s.Rows {
 		return [4]int32{}, fmt.Errorf("trellis2 sparse tensor: row %d out of range [0,%d)", row, s.Rows)
 	}
+	if row >= len(s.Coords)/4 {
+		return [4]int32{}, fmt.Errorf("trellis2 sparse tensor: short coordinate row")
+	}
 	base := row * 4
 	return [4]int32{s.Coords[base], s.Coords[base+1], s.Coords[base+2], s.Coords[base+3]}, nil
 }
@@ -54,6 +63,9 @@ func (s SparseTensor) Coord(row int) ([4]int32, error) {
 func (s SparseTensor) FeatureRow(row int) ([]float32, error) {
 	if row < 0 || row >= s.Rows {
 		return nil, fmt.Errorf("trellis2 sparse tensor: row %d out of range [0,%d)", row, s.Rows)
+	}
+	if s.Dim <= 0 || row >= len(s.Feats)/s.Dim {
+		return nil, fmt.Errorf("trellis2 sparse tensor: short feature row")
 	}
 	base := row * s.Dim
 	return s.Feats[base : base+s.Dim], nil
@@ -69,15 +81,20 @@ func SparseLinearFloat32(src SparseTensor, weight, bias []float32, outDim int) (
 	if outDim <= 0 {
 		return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: invalid outDim %d", outDim)
 	}
-	if len(weight) < outDim*src.Dim {
-		return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: short weight len=%d want=%d", len(weight), outDim*src.Dim)
+	weightSize, okW := checked.MulInt(outDim, src.Dim)
+	outputSize, okO := checked.MulInt(src.Rows, outDim)
+	if !okW || !okO {
+		return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: shape overflow")
+	}
+	if len(weight) < weightSize {
+		return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: short weight len=%d want=%d", len(weight), weightSize)
 	}
 	if bias != nil && len(bias) < outDim {
 		return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: short bias len=%d want=%d", len(bias), outDim)
 	}
-	outFeats := make([]float32, src.Rows*outDim)
+	outFeats := make([]float32, outputSize)
 	if src.Rows > 0 {
-		if !simd.DenseNTTo(outFeats, src.Feats[:src.Rows*src.Dim], weight[:outDim*src.Dim], src.Rows, outDim, src.Dim, 1, src.Dim, src.Dim, outDim) {
+		if !simd.DenseNTTo(outFeats, src.Feats[:src.Rows*src.Dim], weight[:weightSize], src.Rows, outDim, src.Dim, 1, src.Dim, src.Dim, outDim) {
 			return SparseTensor{}, fmt.Errorf("trellis2 sparse linear: SIMD SGEMM rejected validated tensors")
 		}
 		if bias != nil {

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func fixturePCMStage(samples int) Stage {
@@ -419,6 +419,10 @@ func TestWhisperJournalIgnoredCallbackErrorFailsClosed(t *testing.T) {
 }
 
 func TestWhisperConstructorRejectsWordTimingWithoutGeneration(t *testing.T) {
+	// Validate generation metadata, not the earlier CPU-backend policy.
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_GRAPH", "0")
+	t.Setenv("GO_PHERENCE_WHISPER_GPU_SELF_ATTN", "0")
 	model, tok := jobToyWhisper()
 	cfg := WhisperStageConfig{ModelSHA256: hash([]byte("toy")), RuntimeSHA256: hash([]byte("host")), Language: "pt", WordTimestamps: true, MaxWindowBytes: 4096, MaxResultBytes: 128 << 10}
 	if _, err := NewWhisperWindowStage(model, tok, cfg); !errors.Is(err, ErrConfiguration) {

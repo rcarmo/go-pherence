@@ -1,0 +1,182 @@
+[
+  {
+    "parent": "entities",
+    "marker": "[E]",
+    "labels": [
+      "person",
+      "location"
+    ],
+    "prompt": "Choose [E] carefully",
+    "descriptions": [
+      {
+        "label": "location",
+        "text": "A place [L] marker"
+      },
+      {
+        "label": "person",
+        "text": "A human"
+      }
+    ],
+    "examples": [
+      {
+        "input": "Ada is [E] here",
+        "label": "person"
+      },
+      {
+        "input": "London",
+        "label": "location"
+      }
+    ],
+    "text": "Ada Lovelace lived in London.",
+    "ids": [
+      287,
+      128003,
+      6967,
+      294,
+      4989,
+      128005,
+      3153,
+      128010,
+      1250,
+      294,
+      336,
+      470,
+      128007,
+      10315,
+      128010,
+      604,
+      294,
+      336,
+      857,
+      128008,
+      20813,
+      269,
+      128005,
+      422,
+      128009,
+      604,
+      128008,
+      1336,
+      128009,
+      1250,
+      287,
+      128005,
+      604,
+      128005,
+      1250,
+      1263,
+      1263,
+      128002,
+      266,
+      3896,
+      472,
+      36258,
+      2464,
+      267,
+      27947,
+      323
+    ],
+    "queries": [
+      31,
+      33
+    ],
+    "positions": [
+      38,
+      40,
+      42,
+      43,
+      44,
+      45
+    ]
+  },
+  {
+    "parent": "sentiment",
+    "marker": "[L]",
+    "labels": [
+      "person",
+      "location"
+    ],
+    "prompt": "Choose [E] carefully",
+    "descriptions": [
+      {
+        "label": "location",
+        "text": "A place [L] marker"
+      },
+      {
+        "label": "person",
+        "text": "A human"
+      }
+    ],
+    "examples": [
+      {
+        "input": "Ada is [E] here",
+        "label": "person"
+      },
+      {
+        "input": "London",
+        "label": "location"
+      }
+    ],
+    "text": "Ada Lovelace lived in London.",
+    "ids": [
+      287,
+      128003,
+      9481,
+      294,
+      4989,
+      128005,
+      3153,
+      128010,
+      1250,
+      294,
+      336,
+      470,
+      128007,
+      10315,
+      128010,
+      604,
+      294,
+      336,
+      857,
+      128008,
+      20813,
+      269,
+      128005,
+      422,
+      128009,
+      604,
+      128008,
+      1336,
+      128009,
+      1250,
+      287,
+      128007,
+      604,
+      128007,
+      1250,
+      1263,
+      1263,
+      128002,
+      266,
+      3896,
+      472,
+      36258,
+      2464,
+      267,
+      27947,
+      323
+    ],
+    "queries": [
+      31,
+      33
+    ],
+    "positions": [
+      38,
+      40,
+      42,
+      43,
+      44,
+      45
+    ]
+  }
+]

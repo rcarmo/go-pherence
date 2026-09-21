@@ -1,5 +1,5 @@
-// Exact 16-row transpose packing. Full tiles read four floats per row;
-// the scalar tail reads only the remaining elements. No floating arithmetic.
+// Exact 16-row transpose packing. Full tiles read eight floats per row;
+// four-element and scalar tails read only the remainder. No floating arithmetic.
 #include "textflag.h"
 
 #define PACK4(a, b, c, d, off) \
@@ -24,6 +24,36 @@
     VMOVUPS X2, off+128(DI); \
     VMOVUPS X3, off+192(DI)
 
+#define PACK8(a, b, c, d, off) \
+    MOVQ a, AX; \
+    MOVQ b, BX; \
+    MOVQ c, DX; \
+    MOVQ d, SI; \
+    VMOVUPS (AX)(R8*1), Y0; \
+    VMOVUPS (BX)(R8*1), Y1; \
+    VMOVUPS (DX)(R8*1), Y2; \
+    VMOVUPS (SI)(R8*1), Y3; \
+    VUNPCKLPS Y1, Y0, Y4; \
+    VUNPCKHPS Y1, Y0, Y5; \
+    VUNPCKLPS Y3, Y2, Y6; \
+    VUNPCKHPS Y3, Y2, Y7; \
+    VSHUFPS $0x44, Y6, Y4, Y0; \
+    VSHUFPS $0xEE, Y6, Y4, Y1; \
+    VSHUFPS $0x44, Y7, Y5, Y2; \
+    VSHUFPS $0xEE, Y7, Y5, Y3; \
+    VMOVUPS X0, off(DI); \
+    VMOVUPS X1, off+64(DI); \
+    VMOVUPS X2, off+128(DI); \
+    VMOVUPS X3, off+192(DI); \
+    VEXTRACTF128 $1, Y0, X4; \
+    VEXTRACTF128 $1, Y1, X5; \
+    VEXTRACTF128 $1, Y2, X6; \
+    VEXTRACTF128 $1, Y3, X7; \
+    VMOVUPS X4, off+256(DI); \
+    VMOVUPS X5, off+320(DI); \
+    VMOVUPS X6, off+384(DI); \
+    VMOVUPS X7, off+448(DI)
+
 #define PACK1(a, off) \
     MOVQ a, AX; \
     MOVL (AX)(R8*1), BX; \
@@ -33,6 +63,19 @@ TEXT ·packBNTAsm(SB), NOSPLIT, $0-144
     MOVQ k+128(FP), CX
     MOVQ bp+136(FP), DI
     XORQ R8, R8
+    CMPQ CX, $8
+    JL check4
+loop8:
+    PACK8(b0+0(FP), b1+8(FP), b2+16(FP), b3+24(FP), 0)
+    PACK8(b4+32(FP), b5+40(FP), b6+48(FP), b7+56(FP), 16)
+    PACK8(b8+64(FP), b9+72(FP), b10+80(FP), b11+88(FP), 32)
+    PACK8(b12+96(FP), b13+104(FP), b14+112(FP), b15+120(FP), 48)
+    ADDQ $32, R8
+    ADDQ $512, DI
+    SUBQ $8, CX
+    CMPQ CX, $8
+    JGE loop8
+check4:
     CMPQ CX, $4
     JL tail
 loop4:

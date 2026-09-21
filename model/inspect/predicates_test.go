@@ -38,3 +38,17 @@ func TestAnyTensorMarker(t *testing.T) {
 		t.Error("absent marker should not match")
 	}
 }
+
+func TestPredicatesRejectEmptyMarkersAndInvalidDimensions(t *testing.T) {
+	if AnyTensorMarker([]string{"weight"}, []string{""}) {
+		t.Fatal("empty marker asserts coverage")
+	}
+	if !AnyTensorMarker([]string{"MODEL.EMBED_TOKENS"}, []string{"EmBeD"}) {
+		t.Fatal("marker is not case insensitive")
+	}
+	for _, shape := range [][]int{{0, 2}, {-1, 2}} {
+		if MatrixMatches(shape, shape[0], shape[1]) {
+			t.Fatal("invalid matrix reports match", shape)
+		}
+	}
+}

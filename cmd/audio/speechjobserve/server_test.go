@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package main
 
 import (
@@ -16,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
 )

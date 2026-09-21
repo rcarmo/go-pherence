@@ -18,7 +18,7 @@ var (
 	ErrGEMMPoolInternal    = errors.New("simd: GEMM pool worker rejected validated job")
 )
 
-// GEMMPool owns a fixed set of persistent workers for row-parallel NT GEMM.
+// GEMMPool owns a fixed set of persistent workers for parallel NT GEMM.
 //
 // Run is serialized by the pool: at most one caller may execute matrix work at
 // a time. Close is safe to call concurrently with Run; it prevents new runs,
@@ -57,6 +57,13 @@ type gemmPoolJob struct {
 	lda, ldb, ldc   int
 	prepacked       bool
 }
+
+type gemmPoolPartition int
+
+const (
+	gemmPoolPartitionRows gemmPoolPartition = iota
+	gemmPoolPartitionColumns
+)
 
 // NewGEMMPool creates a persistent row-parallel NT GEMM pool.
 func NewGEMMPool(workers, maxK int) (*GEMMPool, error) {
@@ -124,11 +131,23 @@ func (p *GEMMPool) Close() error {
 	return nil
 }
 
-// Run computes C += alpha*A*W^T. When packed is nil, workers use caller-owned
-// streamed packing scratch that was preallocated at pool construction. When
-// packed is non-nil, it must contain at least floor(n/16)*k*16 float32 values
-// laid out as PackSgemmNTWeights/Into produce.
+// Run computes C += alpha*A*W^T using row-partitioned worker jobs. When packed
+// is nil, workers use caller-owned streamed packing scratch that was
+// preallocated at pool construction. When packed is non-nil, it must contain
+// at least floor(n/16)*k*16 float32 values laid out as
+// PackSgemmNTWeights/Into produce.
 func (p *GEMMPool) Run(ctx context.Context, c, a, w, packed []float32, m, n, k int, alpha float32, lda, ldb, ldc int) error {
+	return p.run(ctx, c, a, w, packed, m, n, k, alpha, lda, ldb, ldc, gemmPoolPartitionRows)
+}
+
+// RunColumns computes C += alpha*A*W^T using column-partitioned worker jobs.
+// Only complete 16-column panels are split across workers; any final n%16 tail
+// reuses the existing checked fallback path.
+func (p *GEMMPool) RunColumns(ctx context.Context, c, a, w, packed []float32, m, n, k int, alpha float32, lda, ldb, ldc int) error {
+	return p.run(ctx, c, a, w, packed, m, n, k, alpha, lda, ldb, ldc, gemmPoolPartitionColumns)
+}
+
+func (p *GEMMPool) run(ctx context.Context, c, a, w, packed []float32, m, n, k int, alpha float32, lda, ldb, ldc int, partition gemmPoolPartition) error {
 	if p == nil {
 		return ErrGEMMPoolClosed
 	}
@@ -150,7 +169,13 @@ func (p *GEMMPool) Run(ctx context.Context, c, a, w, packed []float32, m, n, k i
 	if err != nil {
 		return err
 	}
+	if partition == gemmPoolPartitionColumns {
+		return p.runColumnsChecked(ctx, c, a, w, packed, m, n, k, alpha, lda, ldb, ldc, prepacked)
+	}
+	return p.runRowsChecked(ctx, c, a, w, packed, m, n, k, alpha, lda, ldb, ldc, prepacked)
+}
 
+func (p *GEMMPool) runRowsChecked(ctx context.Context, c, a, w, packed []float32, m, n, k int, alpha float32, lda, ldb, ldc int, prepacked bool) error {
 	fullRows := m / gebpMR * gebpMR
 	fullTiles := fullRows / gebpMR
 	useWorkers := p.workers
@@ -209,6 +234,86 @@ func (p *GEMMPool) Run(ctx context.Context, c, a, w, packed []float32, m, n, k i
 			return err
 		}
 		if err := p.runOne(c[fullRows*ldc:], a[fullRows*lda:], w, packed, m-fullRows, n, k, alpha, lda, ldb, ldc, prepacked, p.streamedScratch()); err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *GEMMPool) runColumnsChecked(ctx context.Context, c, a, w, packed []float32, m, n, k int, alpha float32, lda, ldb, ldc int, prepacked bool) error {
+	fullPanels := n / gebpNR
+	useWorkers := p.workers
+	if useWorkers > fullPanels {
+		useWorkers = fullPanels
+	}
+	if useWorkers <= 1 {
+		return p.runDirect(ctx, c, a, w, packed, m, n, k, alpha, lda, ldb, ldc, prepacked)
+	}
+
+	panelChunk := (fullPanels + useWorkers - 1) / useWorkers
+	panelStride := k * gebpNR
+	submitted := 0
+	firstErr := error(nil)
+	for worker := 0; worker < useWorkers; worker++ {
+		if err := ctx.Err(); err != nil {
+			firstErr = err
+			break
+		}
+		panel0 := worker * panelChunk
+		if panel0 >= fullPanels {
+			break
+		}
+		panel1 := panel0 + panelChunk
+		if panel1 > fullPanels {
+			panel1 = fullPanels
+		}
+		col0 := panel0 * gebpNR
+		cols := (panel1 - panel0) * gebpNR
+		jobPacked := packed
+		if prepacked {
+			// Each full panel contributes k*16 entries, so col0*k == panel0*panelStride.
+			jobPacked = packed[panel0*panelStride:]
+		}
+		p.states[worker].jobCh <- gemmPoolJob{
+			c:         c[col0:],
+			a:         a,
+			w:         w[col0*ldb:],
+			packed:    jobPacked,
+			m:         m,
+			n:         cols,
+			k:         k,
+			alpha:     alpha,
+			lda:       lda,
+			ldb:       ldb,
+			ldc:       ldc,
+			prepacked: prepacked,
+		}
+		submitted++
+	}
+	for worker := 0; worker < submitted; worker++ {
+		if ok := <-p.states[worker].doneCh; !ok && firstErr == nil {
+			firstErr = ErrGEMMPoolInternal
+		}
+		if err := ctx.Err(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	fullCols := fullPanels * gebpNR
+	if fullCols < n {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		tailPacked := packed
+		if prepacked {
+			tailPacked = packed[fullPanels*panelStride:]
+		}
+		if err := p.runOne(c[fullCols:], a, w[fullCols*ldb:], tailPacked, m, n-fullCols, k, alpha, lda, ldb, ldc, prepacked, p.streamedScratch()); err != nil {
 			return err
 		}
 		if err := ctx.Err(); err != nil {

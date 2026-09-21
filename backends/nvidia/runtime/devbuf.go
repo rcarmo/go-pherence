@@ -7,6 +7,7 @@ package nvidia
 import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/internal/checked"
+	"runtime"
 	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -500,8 +501,7 @@ func DevCopyN(dst, src *DevBuf, n int) {
 	if src.gpu != nil && dst.gpu != nil && n >= 2048 {
 		bytes, err := checkedByteSize(n, -1)
 		if err == nil && src.ToGPU() == nil && dst.ToGPU() == nil {
-			if r := cuMemcpyDtoDAsync(dst.gpu.Ptr, src.gpu.Ptr, bytes, 0); r == CUDA_SUCCESS { // stream 0 = default
-				recordDeviceToDeviceCopyBytes(bytes)
+			if err := copyDtoDAsync(dst.gpu.Ptr, src.gpu.Ptr, bytes); err == nil {
 				dst.dev = GPU_DEVICE
 				return
 			}
@@ -560,14 +560,45 @@ func DevGemvNN(out, x *DevBuf, W *DevBuf, K, N int) {
 	simd.GemvCols(out.cpu[:N], x.cpu[:K], W.cpu[:weightLen], K, N)
 }
 
+func copyDtoDAsync(dst, src CUdeviceptr, bytes uint64) error {
+	release := lockDriver()
+	defer release()
+	if cuMemcpyDtoDAsync == nil {
+		return fmt.Errorf("async device copy unavailable")
+	}
+	if r := cuMemcpyDtoDAsync(dst, src, bytes, uintptr(captureLaunchStream)); r != CUDA_SUCCESS {
+		return fmt.Errorf("cuMemcpyDtoDAsync: error %d", r)
+	}
+	recordDeviceToDeviceCopyBytes(bytes)
+	return nil
+}
+
 // CopyDtoD wraps cuMemcpyDtoD for direct GPU→GPU copy.
 func CopyDtoD(dst, src CUdeviceptr, bytes uint64) error {
 	if dst == 0 || src == 0 || bytes == 0 {
 		return nil
 	}
-	EnsureContext()
-	if r := cuMemcpyDtoD(dst, src, bytes); r != CUDA_SUCCESS {
-		return fmt.Errorf("cuMemcpyDtoD: error %d", r)
+	// Context selection and the driver call must remain on the same OS thread.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
+	// KV appends must be recorded for graph replay too, not just large DevCopyN.
+	if captureLaunchStream != 0 {
+		if cuMemcpyDtoDAsync == nil {
+			return fmt.Errorf("CUDA capture copy unavailable")
+		}
+		if r := cuMemcpyDtoDAsync(dst, src, bytes, uintptr(captureLaunchStream)); r != CUDA_SUCCESS {
+			return fmt.Errorf("cuMemcpyDtoDAsync: error %d", r)
+		}
+	} else {
+		if cuMemcpyDtoD == nil {
+			return fmt.Errorf("CUDA copy unavailable")
+		}
+		if r := cuMemcpyDtoD(dst, src, bytes); r != CUDA_SUCCESS {
+			return fmt.Errorf("cuMemcpyDtoD: error %d", r)
+		}
 	}
 	recordDeviceToDeviceCopyBytes(bytes)
 	return nil
@@ -578,11 +609,15 @@ func ZeroFloat32Buffer(buf *Buffer, n int) error {
 	if n <= 0 {
 		return nil
 	}
-	if buf == nil || buf.Ptr == 0 || buf.Size < n*4 {
+	if buf == nil || buf.Ptr == 0 || buf.Size < 0 || n > buf.Size/4 {
 		return fmt.Errorf("invalid zero buffer n=%d", n)
 	}
-	EnsureContext()
 	if cuMemsetD32 != nil {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		cudaMu.Lock()
+		defer cudaMu.Unlock()
+		ensureContextLocked()
 		if r := cuMemsetD32(buf.Ptr, 0, uint64(n)); r != CUDA_SUCCESS {
 			return fmt.Errorf("cuMemsetD32: error %d", r)
 		}

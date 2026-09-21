@@ -7,7 +7,7 @@ func GemvNT(out, x []float32, w []float32, inDim, outDim int) {
 	for i := range out {
 		out[i] = 0
 	}
-	if len(out) < outDim {
+	if inDim <= 0 || outDim <= 0 || len(out) < outDim {
 		return
 	}
 	simd.GemvRows(out[:outDim], x, w, outDim, inDim)

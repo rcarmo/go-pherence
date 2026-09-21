@@ -1,16 +1,16 @@
 package board
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/commandcapture"
 )
 
 // SpacemiTBackend uses SpacemiT's llama.cpp fork for GGUF inference and
@@ -65,6 +65,9 @@ type GGUFBenchResult struct {
 // ppTokens = prompt tokens to benchmark; tgTokens = generation tokens.
 // Timeout limits the whole run (default 120s if zero).
 func RunGGUF(modelPath string, threads, ppTokens, tgTokens int, timeout time.Duration) (*GGUFBenchResult, error) {
+	if modelPath == "" || threads <= 0 || ppTokens < 0 || tgTokens < 0 || ppTokens == 0 && tgTokens == 0 || timeout < 0 {
+		return nil, fmt.Errorf("invalid llama-bench arguments")
+	}
 	if timeout == 0 {
 		timeout = 120 * time.Second
 	}
@@ -78,39 +81,97 @@ func RunGGUF(modelPath string, threads, ppTokens, tgTokens int, timeout time.Dur
 		"-n", strconv.Itoa(tgTokens),
 		"--output", "json",
 	}
-	cmd := exec.CommandContext(ctx, "llama-bench", args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("llama-bench: %w\noutput: %s", err, out.String())
+	out, stderr, err := commandcapture.Run(ctx, "llama-bench", args, nil, 4<<20)
+	if err != nil {
+		return nil, fmt.Errorf("llama-bench: %w\nstderr: %s", err, stderr)
 	}
 
 	res := &GGUFBenchResult{
 		Model:   modelPath,
 		Backend: TierSpacemiT.String(),
 	}
-	res.RawLines = strings.Split(strings.TrimSpace(out.String()), "\n")
+	res.RawLines = strings.Split(strings.TrimSpace(string(out)), "\n")
+	pp, tg, err := parseBenchOutput(out, ppTokens > 0, tgTokens > 0)
+	if err != nil {
+		return nil, err
+	}
+	res.PP, res.TG = pp, tg
+	return res, nil
+}
 
-	// llama-bench --output json emits one JSON object per test line.
-	for _, line := range res.RawLines {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "{") {
-			continue
+// Accept JSON arrays (upstream) and newline-delimited vendor rows. Unknown
+// schemas/missing requested metrics are errors, never successful zero rates.
+func parseBenchOutput(out []byte, wantPP, wantTG bool) (pp, tg float64, err error) {
+	var rows []map[string]json.RawMessage
+	if strings.HasPrefix(strings.TrimSpace(string(out)), "[") {
+		if err = json.Unmarshal(out, &rows); err != nil {
+			return 0, 0, err
 		}
-		var row map[string]any
-		if err := json.Unmarshal([]byte(line), &row); err != nil {
-			continue
-		}
-		if v, ok := row["pp"].(float64); ok && v > 0 {
-			res.PP = v
-		}
-		if v, ok := row["tg"].(float64); ok && v > 0 {
-			res.TG = v
+	} else {
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "{") {
+				continue
+			}
+			var row map[string]json.RawMessage
+			if err = json.Unmarshal([]byte(line), &row); err != nil {
+				return 0, 0, err
+			}
+			rows = append(rows, row)
 		}
 	}
-	return res, nil
+	for _, row := range rows {
+		number := func(key string) (float64, error) {
+			raw, ok := row[key]
+			if !ok {
+				return 0, nil
+			}
+			var v float64
+			if e := json.Unmarshal(raw, &v); e != nil {
+				return 0, e
+			}
+			if v < 0 || math.IsNaN(v) || math.IsInf(v, 0) {
+				return 0, fmt.Errorf("invalid benchmark %s", key)
+			}
+			return v, nil
+		}
+		p, e := number("pp")
+		if e != nil {
+			return 0, 0, e
+		}
+		g, e := number("tg")
+		if e != nil {
+			return 0, 0, e
+		}
+		rate, e := number("avg_ts")
+		if e != nil {
+			return 0, 0, e
+		}
+		np, e := number("n_prompt")
+		if e != nil {
+			return 0, 0, e
+		}
+		ng, e := number("n_gen")
+		if e != nil {
+			return 0, 0, e
+		}
+		if np > 0 && ng == 0 {
+			p = rate
+		}
+		if ng > 0 && np == 0 {
+			g = rate
+		}
+		if p > 0 {
+			pp = p
+		}
+		if g > 0 {
+			tg = g
+		}
+	}
+	if wantPP && pp <= 0 || wantTG && tg <= 0 {
+		return 0, 0, fmt.Errorf("llama-bench output missing requested rates")
+	}
+	return pp, tg, nil
 }
 
 // RVVCaps returns a compact string describing the RVV / A100 runtime info
@@ -119,7 +180,7 @@ func RVVCaps() string {
 	caps := simd.RuntimeCapabilities()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "spacemit-tcm-smi").Output()
+	out, _, err := commandcapture.Run(ctx, "spacemit-tcm-smi", nil, nil, 64<<10)
 	simdLine := fmt.Sprintf("simd: dot=%v sgem=%v", caps.HasDot, caps.HasSGEMM)
 	if err != nil {
 		return fmt.Sprintf("%s\nspacemit-tcm-smi: %v", simdLine, err)

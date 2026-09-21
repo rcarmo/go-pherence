@@ -1,0 +1,2484 @@
+# Development log (historical)
+
+> This is a chronological engineering record and contains superseded status. Start with the [documentation index](../README.md) for current behavior.
+
+Step-by-step record of building go-pherence from scratch.
+
+## Session 1: Core framework + GTE-small inference
+
+### Step 1 — Analyze tinygrad architecture
+
+Studied tinygrad's Python source to identify the core abstractions:
+- **UOp**: single IR node type (replaces older LazyBuffer)
+- **Ops enum**: ~60 operations covering movement, ALU, reduce, memory
+- **DType**: data type system with float16/32/64, int types
+- Lazy DAG evaluation with `realize()` triggering execution
+- Backend-agnostic: CPU, NVIDIA, Metal all use the same graph
+
+Key insight for Go port: implement UOp interning + eager interpreter first,
+add fusion and scheduling later.
+
+### Step 2 — Core types (tensor/, 7 files)
+
+Built the foundation:
+- `dtype.go`: Float32, Int32, Bool, etc.
+- `ops.go`: 30+ operations with category methods (IsUnary, IsBinary, IsReduce)
+- `uop.go`: hash-consed DAG node with `sync.Map` interning
+- `shape.go`: dimensions + strides, reshape, permute, expand
+- `tensor.go`: user API — constructors, lazy binary/unary/reduce ops, Realize()
+- `realize.go`: recursive eager interpreter for UOp graphs
+- `unsafe.go`: zero-copy byte↔float32 conversions
+
+**Bug found**: UOp interning caused buffer sharing — two tensors with same
+shape got the same UOp node, overwriting each other's data. Fix: don't
+intern Buffer UOps (they're unique by identity).
+
+**Bug found**: reduce indexing used wrong strides (output shape strides vs
+input shape strides). Fix: use `NewShape(outDims).Strides` for output index.
+
+11 tests passing.
+
+### Step 3 — SIMD kernels + MatMul
+
+Copied the full SIMD assembly suite from gte-go:
+- `Sdot`, `Saxpy`: AVX2+FMA / NEON vector ops
+- `SgemmNN`, `SgemmNT`: matrix multiply with tiled assembly
+- `GEBP`: General Block Panel micro-kernels
+- `VGATHERDPS`: AVX2 gather for NT without packing
+
+Rewrote `MatMul` to use `SgemmNN` instead of per-column `Sdot`.
+Result: **14.7ms → 0.5ms (29× faster)** for 64×384 @ 384×384.
+
+Added `MatMulTransposed` for the `Y = X @ W^T` pattern used by Linear layers.
+
+### Step 4 — Broadcasting
+
+Implemented shape broadcasting for binary ops:
+- Automatic shape expansion ([2,3] + [3] → [2,3])
+- `BroadcastArg` struct stores input shapes for realize indexing
+- Stride-based broadcast index computation in `binaryBroadcastEval`
+
+**Bug found**: `[3][]int` array type assertion failed silently in Go.
+Fix: use named struct `BroadcastArg` instead of anonymous array type.
+
+### Step 5 — NN operations
+
+Added high-level ops:
+- `Softmax`: numerically stable (max subtraction)
+- `LayerNorm`: with gamma/beta affine transform
+- `GELU`: tanh approximation matching the standard formula
+- `Permute`: correct transpose via per-element index mapping
+
+**Bug found**: Permute source index mapping was wrong (forward instead of
+inverse permutation). Fix: `srcIdx[order[d]] = outIdx[d]`.
+
+### Step 6 — Elementwise fusion
+
+Built fusion engine (`fuse.go`):
+- Walks UOp DAG, identifies chains of fusible elementwise ops
+- Compiles to flat `fusedOp` list with buffer references
+- Executes all ops per-element in one pass (no intermediate buffers)
+- Skips broadcast ops (different buffer sizes)
+
+Performance: **Add+Mul 888ns → 441ns (2× faster)**, 5-op chain 2.4× faster.
+
+### Step 7 — Numpy reference tests
+
+Generated ground-truth values from numpy (seed=42) for all ops.
+20 reference tests verify bit-level reproducibility:
+- Binary: add, sub, mul, div (atol=1e-6)
+- Unary: neg, sqrt, exp2, log2, recip
+- Reduce: sum/max over both axes
+- MatMul: forward and transposed
+- NN: softmax, layernorm, gelu, linear
+- Movement: permute, broadcast
+
+### Step 8 — Safetensors loader
+
+Implemented HuggingFace safetensors format reader:
+- JSON header parsing for tensor metadata
+- F16 → F32 conversion (IEEE 754 half-precision with subnormals)
+- BF16, I32, I64 support
+- Tested against GTE-small: 200 tensors loaded successfully
+
+### Step 9 — BERT encoder + GTE-small inference
+
+Built complete BERT model (now owned by `models/bert/` after the Phase 6.5 refactor):
+- `LoadGTESmall`: load all weights from safetensors
+- `Forward`: word + position + type embeddings → 12 transformer layers
+- `multiHeadAttention`: per-head Q·K^T with softmax
+- `Embed`: mean pooling + L2 normalization
+
+**Result**: embeddings match gte-go reference within F16 tolerance.
+Forward pass: ~30ms for 5-token input.
+
+### Step 10 — Performance comparison
+
+| | go-pherence | gte-go |
+|---|---|---|
+| Latency | 30ms | 10ms |
+| Allocs/embed | 1,672 | 1 |
+| Memory/embed | 3.5 MB | 7 B |
+| Correctness | ✅ | ✅ |
+| Lines of code | 4,240 | ~8,000 |
+| Model format | Safetensors | Custom .gtemodel |
+
+3× gap from: per-op buffer allocation, scalar attention, no fused
+residual+layernorm, tensor object overhead.
+
+## Test inventory
+
+| Package | Tests | Coverage |
+|---|---|---|
+| `tensor/` — unit tests | growing | all ops, lazy eval, fusion, shape/realization/rewrite/NN validation |
+| `tensor/` — numpy reference | 20 | bit-level reproducibility |
+| `loader/safetensors/` | 3 | load, list, F16 conversion |
+| `models/bert/` | 2 | load weights, end-to-end embed |
+| **Total** | evolving | focused package gates preferred during Phase 6.5 | |
+
+
+## Session 2: Gemma4 MTP speculative decoding scaffolding
+
+Implemented the first native safetensors-based Gemma4 MTP building blocks:
+
+- Documented LiteRT-LM's Gemma4 MTP flow and the local `gemma4-e2b-mtp-drafter` asset.
+- Added `LoadGemma4MTPDrafter` for `gemma4_assistant` q-only drafter assets.
+- Hardened drafter loading with exact tensor shape validation, malformed-config checks, and explicit `KVSourceLayer=-1` external-KV markers.
+- Added assistant helper methods for token embedding row copy, masked ordering lookup, `PreProjectInto`, and `PostProjectInto`.
+- Extracted main-model helper primitives for raw/scaled token embeddings, Gemma4 per-layer inputs, LM-head logits, and greedy argmax; `Generate` now uses the shared helpers.
+- Added KV staging checkpoints for uncompressed and TurboQuant-backed caches, including accepted-prefix plus verifier bonus-token commit.
+- Added LiteRT-style MTP acceptance accounting from verifier token IDs or verifier logits.
+
+Current status: MTP is not yet exposed as a generation mode. The remaining work is the batched main-model verifier forward path and the q-only drafter forward loop that consumes external/main-model KV state and projected activations.
+
+## Session 3: Phase 6.5 source-tree refactor start
+
+Started the blocking source-tree refactor before adding more MTP/backend functionality:
+
+- Added `docs/history/refactor-plan.md` with package ownership rules, target folder layout, migration sequence, and validation gate.
+- Moved tokenizer code from `model` to `loader/tokenizer`; callers import the new owner directly.
+- Moved root `safetensors` package to `loader/safetensors`.
+- Added `loader/config` for config JSON helpers and `loader/weights` for shared sharded/single-file safetensors opening.
+- Moved root `simd` package to `backends/simd/runtime` while keeping package name `simd`.
+- Moved the GTE/BERT encoder path from `model` to `models/bert`.
+
+Compatibility wrappers are intentionally avoided; package/API breaks are part of this internal refactor while CLI behavior remains stable.
+
+## Session 4: Runtime KV/quant extraction and hardening
+
+Continued the Phase 6.5 mechanical refactor by moving shared runtime concerns out of the decoder package:
+
+- Moved generic TurboQuant state, compressed KV cache, and float/compressed KV staging helpers from `model` to `runtime/kv`.
+- Kept model-specific KV width derivation in `model` so Gemma4 variable/shared KV layout remains architecture-owned.
+- Moved MLX/GPTQ CPU quantization helpers from `model` to `runtime/quant` compatibility wrappers, including MLX affine weights, GPTQ dequantization, and scalar Q4 GEMV helpers.
+- Updated model loader/forward, MoE, GPU fallback, benchmarks, and diagnostics to import `runtime/kv` and `runtime/quant` compatibility wrappers directly.
+- Hardened `runtime/quant.LoadMLXWeight` with packed-weight config validation, shape inference, and scale/bias length checks.
+- Converted LLaMA and GTE load-time panics into returned errors, and stopped ignoring GPTQ scale/qzero load failures.
+
+Validation covered the new runtime packages, focused model tests, backend/loader/tensor/cmd packages, `go test ./... -run '^$'`, `go vet ./...`, and `git diff --check`.
+
+## Session 5: Placement policy extraction
+
+Continued Phase 6.5 by separating backend-neutral placement policy from GPU device-resource ownership:
+
+- Moved `backends/nvidia/runtime/budget.go` and `backends/nvidia/runtime/placement.go` to `backends/placement`.
+- Made placement planning accept caller-supplied available device memory instead of calling NVIDIA `MemInfo()` directly.
+- Kept `backends/nvidia/runtime/expert_pool.go` in `backends/nvidia/runtime` because `ExpertEntry` owns `GPUMLXWeight` resources that must be freed through the GPU backend.
+- Updated expert-pool accounting to depend on `backends/placement.BudgetManager`.
+- Updated Makefile and docs so the fast validation set includes `backends/placement`.
+
+## Session 6: Runtime memory extraction
+
+Moved mmap residency policy to a runtime owner:
+
+- Moved `loader/safetensors/mmap_advisor.go` to `runtime/memory` because it only needs an mmap'd byte slice and is not safetensors-specific.
+- Updated `loader/safetensors.File` to hold `*memory.MmapAdvisor` and create it via `memory.NewMmapAdvisor`.
+- Split tests so generic advisor range/merge behavior lives in `runtime/memory`, while safetensors keeps file/eager-load integration tests.
+- Updated docs to describe `runtime/memory` as the owner for mmap advice and future streaming policy.
+
+## Session 7: Vulkan backend extraction
+
+Started the backend split by moving Vulkan-only scaffolding out of the `backends/nvidia/runtime` package:
+
+- Moved `backends/nvidia/runtime/vulkan*.go` and `backends/nvidia/runtime/shaders/` to `backends/vulkan`.
+- Changed the package name to `vulkan`, keeping NVIDIA/PTX files and GPU expert resources in `backends/nvidia/runtime`.
+- Updated README, architecture, GPU options, refactor plan, and Makefile validation targets to include `backends/vulkan`.
+
+## Session 8: Documentation/status audit after backend/runtime moves
+
+Reviewed the public and internal Markdown after the placement, runtime memory, and Vulkan extractions:
+
+- Corrected README/backend docs to avoid over-claiming Vulkan full-forward support; Vulkan is now documented as `backends/vulkan` scaffolding/assets with Phase 3.6 dispatch wiring still pending.
+- Updated kernel inventory wording to avoid stale exact F32/BF16 tables and reflect the current NVIDIA/Vulkan/SIMD ownership split.
+- Clarified CPU SIMD coverage as runtime-gated core hot paths with remaining GEMV/RoPE/GELU gaps, rather than claiming complete coverage.
+- Clarified native BF16 as scaffolding/helpers where the F32-compatible path is still used as needed.
+
+## Session 9: Runtime/backend hardening audit
+
+Audited the newly split runtime/backend packages for concrete edge cases and stale assumptions:
+
+- Hardened `runtime/memory.MmapAdvisor` so repeated prefetch/evict calls do not skew hot-byte accounting, invalid ranges are ignored safely, cold ranges are not merged into hot ranges, and `madvise` errors propagate to safetensors eager loading.
+- Hardened `backends/placement.BudgetManager` and `PlanLayerPlacement` against negative budgets, huge device-memory values, negative model dimensions, and overflow-prone arithmetic.
+- Hardened `gpu.ExpertPool` for disabled zero-slot pools, nil entries, replacement behavior, and replacement budget accounting.
+- Hardened `runtime/quant` compatibility wrappers validation: MLX scale/bias tensors must be F32/F16/BF16, GPTQ qweight/g_idx/scales/qzeros are validated before use, and public Q4 GEMV calls validate their slices/dimensions instead of panicking.
+- Updated focused regression tests for each fix and kept the fast validation gate green.
+
+## Session 10: Diagnostic test quarantine
+
+Reduced accidental test/compile load from the `model` package:
+
+- Added the `diagnostic` build tag to the Gemma4 trace/sensitivity/generation diagnostic test files under `model/`.
+- Kept their existing `GEMMA4_TRACE_TEST=1` runtime guard, so heavy local fixture/GPU diagnostics now require both `-tags diagnostic` and the explicit environment opt-in.
+- Updated Makefile/refactor-plan documentation examples to include `-tags diagnostic` for Gemma4 GPU diagnostics.
+
+## Session 11: BF16 scaffolding cleanup
+
+Removed dead model-local BF16 forward-path experiment scaffolding:
+
+- Deleted the unused `model/BF16Hidden` wrapper and `UseBF16` helper, which had no non-self references and was not part of the active CPU/GPU BF16 paths.
+- Kept the active BF16 conversion/math helpers in `model/bf16.go` and backend SIMD/NVIDIA BF16 kernels intact.
+- Re-ran the focused model gate, fast package gate, no-test compile sweep, vet, and whitespace checks.
+
+## Session 12: NVIDIA PTX asset extraction start
+
+Started the NVIDIA backend split with a low-risk asset-only move:
+
+- Moved pure PTX source definitions from `backends/nvidia/ptx/attn.go` and `backends/nvidia/ptx/kernels.go` into `backends/nvidia/ptx`.
+- Updated the NVIDIA mega-module loader to import those backend-owned PTX assets while keeping runtime dispatch, `DevBuf`, GPU quantized weights, and expert resources in the `backends/nvidia/runtime` package.
+- Left mixed dispatch/source files such as MLX and BF16 PTX in `backends/nvidia/runtime` for now because they still define NVIDIA function handles and runtime helpers.
+
+## Session 13: LM head PTX asset extraction
+
+Continued the NVIDIA PTX asset split:
+
+- Moved the `LMHeadPTX` source string from the GPU dispatch file to `backends/nvidia/ptx`.
+- Left `gpu.DevLMHead` and its NVIDIA function handle in `backends/nvidia/runtime`, preserving runtime behavior while shrinking mixed source/dispatch files.
+
+## Session 14: Q4 PTX asset extraction
+
+Continued separating NVIDIA source assets from runtime dispatch:
+
+- Moved the optimized Q4 GEMV PTX source to `backends/nvidia/ptx`.
+- Moved the batched Q4 GEMM PTX source to `backends/nvidia/ptx`.
+- Kept `gpu.GemmQ4`, `gpu.BatchGEMMReady`, and NVIDIA function handles in `backends/nvidia/runtime` because they still own runtime launch semantics.
+
+## Session 15: SGEMM PTX asset extraction
+
+Continued the asset-only NVIDIA backend split:
+
+- Moved the standalone `SgemmPTX` source string into `backends/nvidia/ptx`.
+- Kept SGEMM launch/runtime state in `backends/nvidia/runtime`, matching the current `DevBuf` and mega-module ownership boundaries.
+
+## Session 16: Prefetch PTX asset extraction
+
+Continued NVIDIA source-asset extraction:
+
+- Moved `PrefetchPTX` into `backends/nvidia/ptx`.
+- Kept NVIDIA stream/event/graph helpers and the prefetch function handle in `backends/nvidia/runtime`, since they are runtime orchestration rather than source assets.
+
+## Session 17: BF16 PTX asset extraction
+
+Continued NVIDIA source-asset extraction:
+
+- Moved emulated BF16 PTX source strings into `backends/nvidia/ptx`.
+- Moved native SM86 BF16 PTX source strings into `backends/nvidia/ptx`.
+- Kept BF16 launch helpers, function handles, and native module loading in `backends/nvidia/runtime` because those still belong to NVIDIA runtime orchestration.
+
+## Session 18: MLX PTX asset extraction
+
+Finished the current NVIDIA PTX source-asset sweep:
+
+- Moved MLX GEMV, batched MLX GEMM, and MLX correction PTX source strings into `backends/nvidia/ptx`.
+- Kept `GPUMLXWeight`, upload/transposition logic, launch helpers, and function handles in `backends/nvidia/runtime`, because they still own NVIDIA resource lifetimes and runtime dispatch.
+
+## Session 19: NVIDIA helper filename cleanup
+
+Cleaned up stale file naming after the PTX asset extraction:
+
+- Renamed remaining `backends/nvidia/runtime/*_ptx.go` files to runtime-oriented names because they now contain launch helpers/function handles, not embedded PTX source strings.
+- Updated stale comments and refactor-plan references so `backends/nvidia/runtime` is described as runtime dispatch/resource ownership and `backends/nvidia/ptx` as PTX source ownership.
+
+## Session 20: GPU vector-op upload guard audit
+
+Fixed a GPU fast-path guard bug found during the post-PTX-split audit:
+
+- `gpu.DevAdd` and `gpu.DevMul` now include both input buffers in the `tryGPU` preflight.
+- Previously the fast path only checked `a` and `out`, then uploaded `b` while ignoring the error; if `b` failed to upload, the kernel argument setup could dereference a nil GPU pointer instead of falling back to CPU.
+
+## Session 21: DevBuf bounds and fallback audit
+
+Hardened GPU runtime helpers against malformed dimensions and failed uploads:
+
+- Added nil-safe GPU preflight and common-length bounding for vector helpers.
+- `DevRMSNorm` and `DevRMSNormNoScale` now require successful upload of all kernel operands before launching, instead of ignoring `ToGPU` errors.
+- Bounded `DevToBF16`, `DevSoftmax`, `DevGELUTanhMul`, `DevCopy`, and `DevBuf.Slice` to avoid out-of-range slices or overlong GPU launches on malformed inputs.
+- Added regression coverage for mismatched buffer lengths and overlong operation lengths.
+
+## Session 22: Q4/MLX NVIDIA runtime dispatch guard audit
+
+Hardened NVIDIA quantized dispatch paths found during the GPU runtime audit:
+
+- `UploadQuantWeight` now validates dimensions, packed-weight length, scale layout, and group-index ranges before allocating GPU buffers.
+- Q4 GEMV/GEMM launch helpers now reject nil/malformed weights, undersized input/output buffers, and failed buffer uploads before touching NVIDIA kernel arguments.
+- `UploadMLXWeight` now validates dimensions, packed MLX weight length, and scale/bias lengths before transposition/upload.
+- MLX GEMV/GEMM launch helpers now preflight native/GPTQ weight availability and input/output dimensions before dispatch.
+- Low-level NVIDIA `Buffer.Upload`/`Download` and integer reinterpret helpers now handle empty slices without indexing `data[0]`.
+
+## Session 23: GEMV/LM-head dispatch guard audit
+
+Hardened remaining dense NVIDIA runtime dispatch helpers:
+
+- `DevGemv`, `DevGemvNN`, and `DevLMHead` now validate nil inputs, dimensions, and backing-buffer lengths before GPU launch or CPU fallback.
+- Dense GEMV and LM-head GPU paths now use the same `tryGPU` preflight as vector and norm helpers, avoiding ignored upload/allocation errors.
+- Added malformed-call regression coverage for GEMV, pre-transposed GEMV, and LM-head dispatch.
+
+## Session 24: NVIDIA stream/memcpy guard audit
+
+Hardened stream and device-copy wrappers:
+
+- `PrefetchWeights` now validates quantized weights before touching prefetch kernel arguments and stops if NVIDIA event setup fails.
+- `LaunchKernelOnStream` now rejects nil functions and zero launch dimensions before calling NVIDIA, and handles zero-argument launches without indexing an empty slice.
+- `CopyDtoD` now returns an error, treats zero pointers/zero bytes as no-op, and reports NVIDIA copy failures instead of silently ignoring them.
+- Updated GPU forward call sites to explicitly ignore `CopyDtoD` errors where the existing generation path cannot yet surface them.
+
+## Session 25: GPU pointer call-site audit
+
+Reduced hidden upload/retry hazards around `DevBuf.GPUPtr()` call sites:
+
+- Cached GPU pointers in batched prefill RoPE/KV-copy paths instead of repeatedly calling `GPUPtr()` inside one operation.
+- Cached Gemma4 PLI and KV cache GPU pointers in the main GPU forward path before dispatch/copy decisions.
+- KV copy paths now require source and destination GPU pointers to be non-nil before calling `CopyDtoD`, avoiding nil-pointer dereferences when lazy upload fails.
+
+## Session 26: Runtime KV staging bounds audit
+
+Hardened staged float KV rollback:
+
+- `FloatKVCheckpoint.KeepAppended` now rejects negative per-layer KV dimensions instead of allowing negative slice targets.
+- Added regression coverage for malformed negative `kvDims` input.
+
+## Session 27: TurboQuant cache input audit
+
+Hardened TurboQuant and compressed KV cache helpers:
+
+- Sanitized negative cache dimensions and residual-window settings in constructors.
+- `CompressedKVCache` methods now handle nil/zero-dimension caches without division-by-zero or negative-capacity panics.
+- TurboQuant bit widths are clamped to the supported 1–8 bit range, and malformed/short packed inputs dequantize to bounded zero-filled vectors instead of indexing past the input.
+- Added regression coverage for malformed compressed-cache and TurboQuant inputs.
+
+## Session 28: Runtime MLX quant helper validation
+
+Hardened in-memory MLX quant helper use:
+
+- Added `ValidateMLXQuantWeight` for already-loaded MLX affine weights.
+- `DequantMLX` now returns nil for malformed weights instead of panicking.
+- `GemvMLQ` now no-ops on malformed weights or undersized input/output slices.
+- Added regression coverage for malformed and valid in-memory MLX weights.
+
+## Session 29: MmapAdvisor overflow audit
+
+Hardened mmap residency range bounding:
+
+- `MmapAdvisor.boundedRange` now clamps oversized byte counts before page alignment so huge caller ranges cannot overflow alignment arithmetic.
+- Added regression coverage for huge range prefetch clamping to the mapped file size.
+
+## Session 30: Safetensors malformed-file audit
+
+Hardened safetensors loader edge cases:
+
+- Header length is checked before converting to `int`, avoiding overflow on malformed files.
+- Tensor data offsets are validated at open time and again before raw slicing.
+- F32/F16/BF16/I32/I64 conversion paths now reject byte lengths that are not element-aligned instead of silently truncating.
+- Sharded raw/I32 lookups now return errors for missing shard objects instead of nil-pointer panics.
+- Added small synthetic safetensors regression tests for invalid offsets, misaligned raw lengths, and missing shards.
+
+## Session 31: Tokenizer malformed-input audit
+
+Hardened tokenizer edge cases:
+
+- Loading a tokenizer with missing `model.vocab` no longer panics when added tokens are present.
+- Missing/null merge lists are accepted as empty merges.
+- `Encode`/`Decode` are nil-safe.
+- `Decode` now preserves unknown non-byte-level Unicode runes as UTF-8 instead of truncating them to a single byte.
+- Added focused tokenizer regression tests.
+
+## Session 32: Attention/RoPE helper bounds audit
+
+Hardened CPU attention/RoPE helpers:
+
+- `applyRoPEPartial` now validates/caps position, head counts, head dimensions, and rotation width before indexing.
+- `gqaAttention`/`gqaAttentionScale` now handle invalid dimensions and zero sequence length without divide-by-zero or negative-length allocation hazards.
+- `gqaAttentionScaleInto` validates output/scratch/cache lengths and GQA divisibility before slicing.
+- Added malformed-input regression coverage for attention and RoPE helpers.
+
+## Session 33: CPU GEMV helper bounds audit
+
+Hardened low-level CPU GEMV helpers:
+
+- `gemv`, `gemvNT`, and `gemvNTParallel` now validate dimensions and slice lengths before indexing or taking unsafe pointers.
+- Malformed calls zero the destination and return instead of panicking or reading short buffers.
+- Added regression coverage for malformed and valid GEMV helper calls.
+
+## Session 34: MTP drafter shape validation audit
+
+Hardened Gemma4 MTP drafter loader helpers:
+
+- `validateShape` now rejects negative dimensions and detects shape-product overflow via `shapeProduct`.
+- `loadIntTensor` validates caller-provided expected lengths directly instead of trusting the raw shape product as the data length.
+- Added regression coverage for negative and overflowing shape dimensions.
+
+## Session 35: MTP drafter helper backing-data audit
+
+Hardened MTP drafter helper methods:
+
+- `AssistantTokenEmbeddingInto` now verifies the embedding tensor backing data is large enough for the requested row before slicing.
+- `PreProjectInto` and `PostProjectInto` now reject invalid dimensions and short projection buffers before indexing.
+- Added regression coverage for short embedding/projection backing data.
+
+## Session 36: Tensor shape validation audit
+
+Hardened tensor shape helpers:
+
+- `shapeSize` now rejects negative dimensions and integer overflow with a negative sentinel.
+- Tensor constructors reject malformed shapes before allocation.
+- `NewShape`, `Permute`, and `Expand` now validate malformed dimensions/orders before indexing.
+- Added regression coverage for negative, overflowing, duplicate, short, and out-of-range shape operations.
+
+## Session 37: Tensor reduce-axis validation audit
+
+Hardened tensor reduction helpers:
+
+- `reduceOp` now validates nil receivers, out-of-range axes, negative axes, and duplicate axes before indexing shape dimensions.
+- Added regression coverage for malformed reduction axes.
+
+## Session 38: Tensor nil-operation audit
+
+Hardened tensor operation entrypoints:
+
+- `Realize`, unary ops, and binary ops now report nil tensor receivers/operands explicitly instead of dereferencing nil fields.
+- `Data` is nil-safe and returns nil for a nil tensor.
+- Broadcast now rejects malformed shapes before attempting expansion.
+- Added regression coverage for nil tensor operations.
+
+## Session 39: Tensor unsafe slice helper audit
+
+Hardened tensor byte/float reinterpret helpers:
+
+- `byteSliceToFloat32` and `float32ToByteSlice` now return nil for empty inputs instead of indexing element zero.
+- `Buffer.Float32Data` is nil-safe for nil buffers.
+- Added regression coverage for empty/zero-size tensor data paths.
+
+## Session 40: Tensor realization validation audit
+
+Hardened tensor realization internals:
+
+- `realize` now rejects nil UOps, nil sources, and invalid shapes before dispatch.
+- `allocBuffer`, unary/binary eval, broadcast eval, reduce eval, and input-shape guessing now validate malformed internal inputs before indexing.
+- Added regression coverage for malformed UOp/eval helpers.
+
+## Session 41: Tensor buffer pool allocation audit
+
+Hardened tensor buffer allocation:
+
+- `pooledAlloc` now rejects negative lengths, zero-byte dtypes, and integer-overflowing allocation sizes before creating pool keys or byte slices.
+- Added regression coverage for malformed pooled allocation inputs.
+
+## Session 42: Tensor rewrite/fusion nil-safety audit
+
+Hardened tensor graph rewrite and fusion paths:
+
+- Patterns, pattern matchers, graph rewrite traversal, and rules now handle nil patterns/UOps/rules without nil-deref panics.
+- Fusion setup rejects nil roots and invalid shapes; fused kernel execution validates kernel structure and leaf buffer sizes.
+- Added regression coverage for nil rewrite inputs and malformed fused kernels.
+
+## Session 43: Tensor embedding/matmul validation audit
+
+Hardened tensor neural-network helpers:
+
+- `Embedding` now validates nil/2D weights and token ID bounds while preserving empty ID handling.
+- `MatMul`/`MatMulTransposed` reject nil tensors and avoid taking `&slice[0]` on zero-sized matrices before SIMD calls.
+- `Linear` and `LinearPreT` validate bias shape before in-place bias addition.
+
+## Session 44: Tensor NN helper validation audit
+
+Hardened tensor neural-network utility ops:
+
+- `Softmax`, `LayerNorm`, and `GELU` now reject nil receivers explicitly.
+- `Softmax` and `LayerNorm` avoid division/indexing on zero-width last axes.
+- `LayerNorm` validates gamma/beta shape compatibility and requires them to be supplied together.
+
+## Session 45: Tensor module constructor audit
+
+Hardened tensor module wrappers:
+
+- `NewLinear`, `NewLayerNorm`, and `NewEmbedding` now reject invalid dimensions before initialization.
+- Module `Forward` methods now reject nil module receivers explicitly.
+- Tensor property accessors are nil-safe, returning zero values for nil tensors.
+
+
+## Session 46: Documentation sweep after tensor hardening
+
+Reviewed and refreshed documentation after the tensor/runtime/backend malformed-input audit passes:
+
+- README now calls out the shared validation/hardening baseline and the focused fast validation gate.
+- Architecture docs now treat tensor/runtime guard behavior as an explicit package-boundary policy for later refactor moves.
+- Refactor plan now records tensor hardening as part of the Phase 6.5 baseline and fixes the stale `loader/safetensors` mmap-advisor ownership note.
+- CPU SIMD coverage notes now mention zero-length tensor matmul guard behavior before assembly dispatch.
+
+## Session 47: SIMD BF16 helper bounds audit
+
+Hardened scalar BF16 helper paths in `backends/simd/runtime`:
+
+- `BF16Dot` now bounds mismatched input lengths like `BF16DotF32`.
+- `BF16RMSNorm` no-ops on empty inputs or short weights instead of dividing by zero or indexing past weights.
+- `BF16VecAdd` bounds all three slices and leaves the untouched destination tail unchanged.
+- `BF16GemvNT` validates dimensions and backing slice lengths before row slicing.
+
+## Session 48: SIMD vector fallback bounds audit
+
+Hardened scalar vector fallback helpers in `backends/simd/runtime`:
+
+- F32 vector add/mul/scale/scale-add and activation fallback loops now bound all input/output slices instead of trusting `a` length.
+- F32 RMSNorm fallback no-ops on empty inputs or short weights; no-scale RMSNorm no-ops on empty input.
+- BF16 widen/narrow fallbacks bound source and destination lengths, leaving destination tails untouched.
+
+## Session 49: SIMD GEBP argument validation audit
+
+Hardened GEBP/packed-B helper paths in `backends/simd/runtime`:
+
+- `ensureGebpBuf` now returns nil for non-positive requests instead of slicing with invalid bounds.
+- `packBNT`/`packBNTScalar` validate strides, block sizes, `k`, packed-buffer size, and B backing length before slicing or taking row pointers.
+- `SgemmNTGebp` validates dimensions, pointers, strides, and multiplication overflow before building unsafe slices.
+
+## Session 50: SIMD blocked SGEMM validation audit
+
+Reused the GEBP argument preflight for `SgemmNTBlockedFMA` so the blocked FMA path rejects invalid dimensions, nil pointers, short strides, and overflow-prone shape products before pointer arithmetic or tile dispatch.
+
+## Session 51: Compressed KV cache layout audit
+
+Hardened `runtime/kv.CompressedKVCache` layout handling:
+
+- Constructor now disables compression when `numKVHeads*headDim` does not match `kvDim`.
+- Compression preflight rejects inconsistent head layouts before per-head slicing.
+- `GetK`/`GetV` clamp overlong full caches to `seqLen*kvDim` when no compressed entries exist, and fall back to full-precision storage if compressed entry metadata is malformed.
+
+## Session 52: KV staging overflow audit
+
+Hardened `runtime/kv` staging helpers:
+
+- Float KV `KeepAppended` now checks `base + keepTokens*kvDim` for integer overflow before truncating slices.
+- Compressed KV `KeepAppended` validates checkpoint/keep arithmetic, negative compressed-entry checkpoint lengths, and positive `kvDim` when retaining staged tokens.
+- Added regression coverage for overflow and malformed checkpoint cases.
+
+## Session 53: TurboQuant size-overflow audit
+
+Hardened TurboQuant sizing math:
+
+- `NewTurboQuantState` and `randomOrthogonal` now reject overflowing `headDim*headDim` sizes before allocation.
+- `QuantizeVector` and `DequantizeVector` validate rotation-size arithmetic before indexing rotation matrices.
+- `packIndices` now validates packed byte-length arithmetic before allocation.
+
+## Session 54: MmapAdvisor nil-safety audit
+
+Hardened `runtime/memory.MmapAdvisor` method receivers:
+
+- Public methods now treat a nil advisor as an inert no-op and return zero stats, matching the existing invalid-range behavior.
+- Internal alignment/range helpers and total recomputation now guard nil receivers before touching advisor fields.
+- Added regression coverage for nil advisor method calls.
+
+## Session 55: Safetensors metadata validation audit
+
+Hardened safetensors metadata and sharded-file helpers:
+
+- Tensor metadata validation now checks shape product overflow and known dtype byte-size agreement with tensor data offsets at open time.
+- Sharded safetensors methods are nil-safe and report nil sharded files as errors for tensor lookups.
+- `OpenSharded` now uses `filepath.Dir`/`filepath.Join` instead of manual slash parsing for index-relative shard paths.
+
+## Session 56: Tokenizer helper nil/race audit
+
+Hardened tokenizer helper paths:
+
+- `Tokenizer.VocabSize` is now nil-safe.
+- Byte-level BPE encoder/decoder maps now use `sync.Once` for lazy initialization, avoiding concurrent map initialization races.
+- Added regression coverage for nil vocab size and byte-map roundtrips.
+
+
+## Session 57: Documentation sweep after SIMD/runtime/loader hardening
+
+Reviewed and refreshed documentation after the latest audit batch:
+
+- README now records SIMD fallback/SGEMM preflights, KV/TurboQuant layout and overflow guards, mmap nil-safety, safetensors dtype-byte validation, and tokenizer `sync.Once` byte maps.
+- Architecture docs now treat loader/SIMD/runtime guard policy as part of the shared package-boundary baseline.
+- Refactor plan now includes the newer backend/runtime/loader guard status in the current package map and validation gate.
+- CPU SIMD coverage now documents scalar fallback slice bounding and SGEMM/GEBP unsafe-pointer preflights.
+
+## Session 58: MTP/inference helper bounds audit
+
+Hardened `model` helper paths:
+
+- MTP acceptance now rejects negative drafted/verifier token IDs and invalid KV keep counts before committing staged KV.
+- Token embedding and LM-head helpers validate positive model dimensions and backing data lengths before slicing.
+- Gemma4 per-layer input helpers validate positive/overflow-safe dimensions before projection and embedding indexing.
+
+## Session 59: Chunked GPU LM-head guard audit
+
+Hardened the chunked GPU LM-head helper:
+
+- Rejects nil/malformed model inputs, non-positive dimensions, short logits/hidden slices, short LM-head backing data, and overflow-prone `vocabSize*hidden` products before GPU allocation.
+- Checks all chunk/input/output GPU upload errors before dispatching chunked LM-head kernels.
+
+## Session 60: Model KV dimension overflow audit
+
+Hardened model-specific KV staging helpers:
+
+- `LayerKVDim` now checks `num_key_value_heads * head_dim` for integer overflow before returning per-token KV widths used by staged verifier commits.
+- Added regression coverage for overflowing model-level and layer-local KV dimensions.
+
+## Session 61: GPU prefill guard audit
+
+Hardened the batched GPU prefill fallback entrypoint:
+
+- Rejects nil GPU/CPU model state, invalid head/KV/intermediate dimensions, non-divisible head dims, overflow-prone batch products, malformed embedding tables, and invalid token IDs before GPU allocation/embedding slicing.
+- Checks the initial batch-hidden upload before continuing into the batched prefill path.
+
+## Session 62: Model dot helper bounds audit
+
+Hardened the model-local `simdDot` helper:
+
+- Scalar short-vector fallback now bounds mismatched input slices instead of trusting the first slice length.
+- Added regression coverage for short, nil, and long mismatched dot inputs.
+
+## Session 63: Low-level model helper overflow audit
+
+Hardened model-local low-level math helpers:
+
+- `gemv`, `gemvNT`, and `gemvNTParallel` now check `inDim*outDim` for integer overflow before backing-slice length checks.
+- `gqaAttentionScaleInto` now checks `heads*headDim`, `kvHeads*headDim`, and `seqLen*kvDim` products before cache-length validation.
+- Added regression coverage for overflow-prone GEMV and attention helper inputs.
+
+
+## Session 64: Documentation sweep after model helper hardening
+
+Reviewed and refreshed documentation after the latest `model` audit batch:
+
+- README now records MTP, KV, prefill, chunked LM-head, embedding/LM-head, GEMV, and GQA helper guard coverage.
+- Architecture docs now call out model-helper guard behavior as part of the Phase 6.5 shared hardening baseline.
+- Refactor plan now marks the `model` package helper guards as hardened and clarifies that focused model helper tests remain part of the validation gate.
+
+## Session 65: GPU DevBuf receiver/upload audit
+
+Hardened GPU `DevBuf` and NVIDIA allocation helpers:
+
+- `DevBuf` receiver methods now handle nil receivers consistently, returning nil/zero values or errors instead of dereferencing nil.
+- `ToGPU` now propagates upload failures, frees newly allocated GPU memory on upload failure, and no longer marks GPU authoritative after a failed re-upload.
+- `GPUPtr` returns nil if lazy upload fails.
+- `Malloc` rejects `n*4` size overflow before entering NVIDIA driver code.
+
+## Session 66: NVIDIA stream/graph helper audit
+
+Hardened NVIDIA stream/graph helpers:
+
+- `CapturedGraph.Launch` now rejects nil or empty graph executables before entering NVIDIA driver calls.
+- `CapturedGraph.Destroy` is nil-safe.
+- `LaunchKernelOnStream` now rejects nil kernel argument pointers before constructing the NVIDIA argument array.
+
+## Session 67: GPU Q4 quantized weight validation audit
+
+Hardened GPU Q4 quantized weight helpers:
+
+- `UploadQuantWeight` now checks packed qweight and scale layout products for integer overflow before length validation/allocation.
+- `validGPUQuantWeight` now validates dimensions, divisibility, buffer presence, backing buffer byte sizes, and size-product overflow.
+- CPU fallback now returns if Q4/scales/gIdx downloads fail instead of continuing with zero-filled placeholders.
+
+
+## Session 68: Documentation sweep after GPU runtime guard audit
+
+Reviewed and refreshed documentation after the latest GPU audit batch:
+
+- README and architecture docs now record hardened `DevBuf`, NVIDIA stream/graph, allocation-size, and Q4 weight-layout validation.
+- Refactor plan now marks `backends/nvidia/runtime` runtime guards as part of the Phase 6.5 baseline before the NVIDIA runtime split.
+- GPU options docs now include a DevBuf/dispatch guard-status section so the eventual `backends/nvidia` move preserves these checks.
+
+## Session 69: GPU MLX weight validation audit
+
+Hardened GPU MLX quantized weight helpers:
+
+- `UploadMLXWeight` now checks packed weight, scale, and correction size products for integer overflow before allocation/transposition.
+- `validGPUMLXWeight` now validates group consistency, divisibility, backing buffer byte sizes, GPTQ fallback validity, and size-product overflow.
+- Batched `GemmMLX` validates `B*inDim` and `B*outDim` arithmetic before dispatch.
+
+## Session 70: GPU expert pool safety audit
+
+Hardened GPU expert-pool helpers:
+
+- Expert-pool public methods are now nil-safe.
+- Negative expert IDs are rejected and returned to callers for resource release instead of being cached or looked up.
+- Added regression coverage for nil pool and invalid expert ID behavior.
+
+## Session 71: Experimental NV memory helper audit
+
+Hardened experimental direct-NVIDIA memory helpers:
+
+- `AllocHostMem` validates nil devices and invalid/overflowing sizes, stores the mmap slice, and unmaps host memory on registration failure.
+- `mapToCPU` validates inputs and stores the mmap slice in `cpuMem` so upload/download paths can use it.
+- `NVBuffer` upload/download/free methods are nil-safe, handle empty slices as no-ops, and validate byte-size arithmetic/bounds before unsafe slice conversion.
+
+## Session 72: Experimental NV ioctl helper audit
+
+Hardened experimental direct-NVIDIA ioctl helpers:
+
+- NV device helper methods are nil-safe where practical and return explicit errors for nil receivers.
+- VA allocation now rejects zero/overflowing sizes and bump-pointer overflow.
+- ioctl/RM helper wrappers validate file descriptors and nil parameter pointers before raw syscalls.
+
+## Session 73: Experimental NV query/GPFIFO audit
+
+Hardened remaining experimental direct-NVIDIA helpers:
+
+- GPFIFO/channel setup now validates nil devices, channel groups, context handles, and class info before allocating resources.
+- GPFIFO setup frees already allocated ring/notifier buffers on later setup failures.
+- NV query helpers validate nil/uninitialized devices and cap class-list sizes before allocation.
+
+## Session 74: GPU SGEMM/LM-head validation audit
+
+Hardened remaining dense NVIDIA runtime dispatch helpers:
+
+- `Sgemm` now validates dimensions, non-nil/non-zero buffers, size-product overflow, and backing buffer byte sizes before kernel launch.
+- `SgemmHost` validates host dimensions, slice lengths, and size-products before allocation/upload.
+- `DevLMHead` now checks `vocab*hidden` overflow before backing-buffer validation.
+
+## Session 75: GPU JIT compiler validation audit
+
+Hardened the experimental NVIDIA JIT compiler helpers:
+
+- `Compile` validates nil/empty kernel specs, nil nodes, out-of-range buffer indices, and nil node inputs before cache lookup or PTX generation.
+- `CompiledKernel.Launch` now rejects nil kernels, invalid launch metadata, missing buffers, zero GPU pointers, and undersized buffers before NVIDIA calls.
+- Added malformed-spec and no-op launch regression coverage.
+
+## Session 76: GPU BF16 dispatch validation audit
+
+Hardened BF16 NVIDIA runtime dispatch helpers:
+
+- Emulated/native BF16 norm, add, SiLU, and GELU launch wrappers now validate nil pointers, positive lengths, byte-size bounds, and length overflow before NVIDIA calls or fallback dispatch.
+- Added regression coverage for BF16 buffer validation and malformed dispatch calls.
+
+
+## Session 77: Documentation sweep after GPU backend guard batch
+
+Reviewed and refreshed documentation after the latest GPU/backend audit batch:
+
+- README and architecture docs now record hardened MLX, expert pool, experimental NV helpers, dense SGEMM/LM-head, JIT, and BF16 dispatch validation.
+- GPU options docs now list the expanded DevBuf/dispatch guard baseline that must move with the future `backends/nvidia` split.
+- Refactor plan now reflects the broader GPU guard coverage in Phase 6.5.
+
+## Session 78: Batched Q4 dispatch audit
+
+Hardened batched Q4 dispatch:
+
+- `GemmQ4` now validates the quantized weight before reading dimensions, computes batched input/output size products with overflow checks, and rejects malformed buffers before NVIDIA runtime dispatch.
+- `GemvQ4OrGemm` no longer prints a misleading sequential fallback message for a fallback path that cannot safely slice batched buffers yet; it delegates to the guarded batched dispatch for `B>1`.
+
+
+## Session 79: RoPE/attention dispatch guard audit and docs
+
+Hardened and documented remaining GPU RoPE/attention dispatch wrappers:
+
+- RoPE and partial RoPE validate positions, dimensions, tensor lengths, and size-product overflow before launch.
+- Attention score, softmax-row, and fused GQA attention wrappers validate sequence bounds, head dimensions, cache lengths, and output sizes before launch.
+- Documentation refreshed so the future NVIDIA backend split preserves these guard expectations.
+
+## Session 80: NVIDIA launch wrapper validation audit
+
+Hardened the raw NVIDIA launch wrapper:
+
+- `LaunchKernel` now returns explicit errors when the NVIDIA launch symbol is unavailable, the function handle is nil, or grid/block dimensions are zero.
+- Added regression coverage so malformed launches fail safely before purego calls.
+
+## Session 81: Model/GPU boundary ignored-error audit
+
+Hardened model-side GPU boundary error handling:
+
+- Batched prefill now propagates GPU-to-GPU KV copy failures instead of ignoring `CopyDtoD` errors during cache append.
+- MoE GPU fallback setup now checks all scratch-buffer `ToGPU` uploads and cleanly falls back to CPU experts if scratch allocation/upload fails.
+
+## Session 82: GPU model loader upload-error audit
+
+Hardened `LoadGPUModel` upload error handling:
+
+- Work-buffer upload failures now abort model loading with cleanup instead of silently returning a partially CPU/GPU-backed `GPUModel`.
+- Per-layer weight upload failures are captured and reported after allocation cleanup.
+- KV cache GPU buffer uploads now propagate layer-specific errors instead of ignoring `ToGPU` failures.
+
+## Session 83: Batched prefill scratch lifetime audit
+
+Hardened batched GPU prefill scratch lifetime management:
+
+- Temporary batch `DevBuf` scratch buffers are now freed on all return paths to avoid leaking GPU-side allocations during prefill fallback/error exits.
+
+## Session 84: CLI/server token-output bounds audit
+
+Hardened token-output boundary handling in front-ends:
+
+- `llmchat` now stops cleanly if generation returns an out-of-vocabulary token ID instead of indexing `InvVocab` blindly.
+- `llmserver` applies the same generated-token bounds check in OpenAI-compatible responses.
+- SSE chunk writing now handles JSON marshal errors instead of ignoring them.
+
+## Session 85: Server response write-error audit
+
+Hardened OpenAI-compatible server response writes:
+
+- `/v1/models` and non-streaming chat responses now log JSON encode/write failures.
+- Streaming final `[DONE]` and chunk writes now handle write errors instead of silently ignoring them.
+
+## Session 86: Refactor validation gate smoke pass
+
+Started Phase 6.5.6 validation gate after the GPU/model/cmd audit batch:
+
+- Focused model tests passed: `TestPrefillGPURejectsMalformedInputs|TestMTP|TestInference|TestKV|TestMoE|TestLoad`.
+- Fast no-run package gate passed for GPU, loader, backend, runtime, BERT, tensor, and command packages.
+- `go vet ./...` and `git diff --check` passed.
+- Loader/generation smoke runs passed for `models/smollm2-135m` and `models/gemma4-e2b-mlx4` via `cmd/llm/llmgen`.
+
+## Session 87: Refactor validation gate no-run sweep
+
+Continued Phase 6.5.6 validation:
+
+- Re-ran the fast shared package gate with full tests for `tensor`, `backends/simd/runtime`, `runtime/...`, and `loader/...`.
+- Re-ran `models/bert` full package tests.
+- Confirmed repository-wide no-run compile gate with `go test ./... -run '^$'`.
+
+## Session 88: Full refactor validation gate
+
+Completed the broad Phase 6.5.6 validation gate after the cleanup/hardening batch:
+
+- Full repository test suite passed with `go test ./... -count=1`.
+- This complements the earlier focused model tests, fast shared-package gates, no-run compile sweep, vet/diff-check, and SmolLM2/Gemma4 `llmgen` smoke runs.
+
+## Session 89: GPU DevBuf RoPE/attention split
+
+Continued Phase 6.5 cleanup by splitting an oversized GPU file:
+
+- Moved RoPE, partial RoPE, softmax-row, and GQA attention dispatch helpers out of `backends/nvidia/runtime/devbuf.go` into `backends/nvidia/runtime/rope_attention.go` without semantic changes.
+- Kept the recently added launch-shape guards with the moved dispatch helpers so they remain visible for the future NVIDIA backend split.
+
+
+## Session 90: SIMD folder reorg assessment
+
+Started Phase 6.6 SIMD folder reorg work with a layout assessment:
+
+- Documented the current `backends/simd/runtime` file split by build tags and CPU family.
+- Captured the Go package constraint: a literal `amd64/arm64/scalar` folder split is not mechanical because it creates separate packages and requires facade bridge APIs for unexported assembly entrypoints.
+- Added `docs/history/simd-folder-reorg.md` and linked it from the SIMD coverage notes as the safe migration path.
+
+## Session 91: SIMD scalar fallback split
+
+Continued Phase 6.6 with a facade-preserving mechanical cleanup:
+
+- Moved scalar `Sdot`/`Saxpy` fallback helpers from `backends/simd/simd.go` to `backends/simd/scalar.go`.
+- Kept the public `backends/simd/runtime` package and architecture-specific dispatch files unchanged.
+
+## Session 92: SIMD empty facade cleanup
+
+Continued recent cleanup after the scalar fallback split:
+
+- Removed the now-empty `backends/simd/simd.go` placeholder after moving scalar fallback helpers to `scalar.go`.
+- Kept the `backends/simd/runtime` package facade intact through the remaining implementation files.
+
+## Session 93: SIMD sqrt fallback audit
+
+Hardened SIMD scalar norm math:
+
+- Replaced the unsafe inverse-square-root approximation used by `float32Sqrt` with `math.Sqrt` to avoid precision-sensitive RMSNorm drift in scalar fallbacks.
+- Added regression coverage for representative `float32Sqrt` inputs.
+
+## Session 94: SIMD BF16 GEMV dimension audit
+
+Hardened BF16 scalar GEMV fallback:
+
+- `BF16GemvNT` now checks `inDim*outDim` overflow before validating the backing F32 weight slice.
+- Added a shared `checkedMulInt` helper for SIMD package dimension products and regression coverage for overflowing BF16 GEMV dimensions.
+
+
+## Session 95: SIMD reorg documentation sweep
+
+Reviewed and refreshed docs after the Phase 6.6 SIMD cleanup/audit batch:
+
+- README and architecture docs now describe the facade-first SIMD reorg, scalar fallback split, precise scalar sqrt behavior, and BF16 GEMV overflow guard.
+- SIMD coverage and folder-reorg notes now record the safe current state and constraints for a future CPU-family subpackage split.
+
+## Session 96: SIMD blocked SGEMM unsupported-arch audit
+
+Hardened blocked SGEMM dispatch:
+
+- `SgemmNTBlockedFMA` now checks `HasSgemmAsm` before reaching architecture-specific tile kernels, so unsupported architectures no-op safely instead of hitting the fallback panic path.
+
+## Session 97: SIMD cross-architecture build audit
+
+Hardened SIMD package cross-architecture builds during the audit:
+
+- `sgemm.go` now only declares assembly SGEMM entrypoints on `amd64`/`arm64`; portable fallback declarations remain in `simd_other.go`.
+- Moved the shared Go `vecSiLUMulGo` fallback out of duplicated amd64/arm64 files into `vec.go`, fixing portable fallback builds where `vec_other.go` referenced it.
+
+## Session 98: SIMD GEBP pack bounds audit
+
+Hardened GEBP packing and fallback dispatch:
+
+- `packBNT` and `packBNTScalar` now share overflow-safe argument validation instead of computing `k*gebpNR` and row offsets inline.
+- `SgemmNTGebp` now checks `HasSgemmAsm` before reaching architecture-specific microkernels, matching the blocked SGEMM guard.
+- Added regression coverage for overflowing pack arguments.
+
+## Session 99: SIMD gather SGEMM bounds audit
+
+Hardened the unused/experimental gather SGEMM helper:
+
+- `SgemmNTGather` now uses the shared SGEMM/GEBP argument validation and checks `HasSgemmAsm` before reaching architecture-specific gather kernels.
+- Added an int32 gather-index bound check for large `ldb` values before building AVX2 gather offsets.
+- Added malformed/overflowing gather-dispatch regression coverage.
+
+
+## Session 100: SIMD SGEMM guard documentation refresh
+
+Refreshed documentation after the latest Phase 6.6 SGEMM/GEBP/gather guard audit:
+
+- README and architecture docs now mention SGEMM/GEBP/gather capability gates and overflow preflights.
+- SIMD folder reorg notes now call out keeping `HasSgemmAsm` and shared arithmetic guards at the public facade boundary until subpackage bridge APIs exist.
+
+## Session 101: TurboQuant protected-layer nil audit
+
+Hardened a small TurboQuant helper edge case:
+
+- `TurboQuantState.IsProtectedLayer` is now nil-safe and rejects negative query indices before applying negative configured aliases for last layers.
+- Added regression coverage for nil state and negative layer queries.
+
+## Session 102: Safetensors nil/partial-open audit
+
+Hardened safetensors helper edge cases:
+
+- `File.Names` is now nil-safe, matching `ShardedFile.Names` behavior.
+- `OpenSharded` now closes any shards already opened when a later shard fails, preventing partial-open mmap/file descriptor leaks.
+
+
+## Session 103: Runtime/loader audit documentation sweep
+
+Reviewed and refreshed docs after the latest runtime/loader hardening batch:
+
+- README and architecture docs now mention TurboQuant protected-layer input guards and safetensors partial-open cleanup.
+- TurboQuant docs now describe the defensive protected-layer helper behavior.
+- Refactor plan now records the expanded runtime KV and safetensors cleanup guard coverage.
+
+## Session 104: Tensor unsafe slice audit
+
+Hardened tensor unsafe-slice helpers:
+
+- `byteSliceToFloat32` now rejects byte slices whose length is not a multiple of four instead of silently truncating.
+- `Buffer.Float32Data` now validates non-negative element counts and exact byte/element length agreement before exposing an unsafe view.
+
+## Session 105: Tensor shape contiguity audit
+
+Hardened tensor shape helpers:
+
+- `Shape.IsContiguous` now rejects malformed shapes with mismatched stride metadata, invalid dimensions, or overflowing dimension products instead of relying on incidental indexing/arithmetic behavior.
+
+## Session 106: Tensor broadcast overflow audit
+
+Hardened tensor broadcasting:
+
+- `broadcast` now validates padded dimensions and detects overflowing output shape products before constructing expanded shapes.
+- Added regression coverage for an overflowing broadcast output shape.
+
+## Session 107: Tensor malformed Numel/reshape audit
+
+Hardened tensor shape sizing:
+
+- `Shape.Numel` now reports `0` for malformed shapes instead of exposing negative sentinel sizes to callers.
+- `Shape.Reshape` now checks source and destination shape products directly so malformed source shapes cannot be treated as size-compatible with zero-element targets.
+
+## Session 108: Tensor convenience op input audit
+
+Hardened tensor convenience helpers:
+
+- `Transpose2D`, `Clip`, `ReLU`, `Sigmoid`, and `Where` now validate nil tensors and malformed shapes before dereferencing internals.
+- `Where` now validates broadcast compatibility across condition/x/y shapes instead of assuming `x` owns the output shape.
+
+## Session 109: Tensor NN backing-data audit
+
+Hardened eager NN helpers:
+
+- `Softmax` and `LayerNorm` now validate realized backing-data length against the tensor shape before row slicing.
+- Output allocation now uses validated shape size instead of raw backing slice length.
+
+## Session 110: Tensor matmul backing-data audit
+
+Hardened tensor matmul helpers:
+
+- `MatMul` and `MatMulTransposed` now validate dimensions, output shape products, and realized backing-data lengths before SIMD dispatch or scalar indexing.
+- Added a shared tensor integer product helper and regression coverage for malformed matmul backing buffers.
+
+## Session 111: Tensor linear bias audit
+
+Hardened tensor linear helpers:
+
+- Deduplicated `Linear`/`LinearPreT` bias addition through a shared helper.
+- Bias addition now validates result shape, bias backing data, result backing data, and output product overflow before indexing.
+
+
+## Session 112: Tensor audit documentation sweep
+
+Reviewed and refreshed documentation after the latest tensor hardening batch:
+
+- README and architecture docs now mention unsafe float32 view validation, malformed shape sizing/contiguity/broadcast guards, NN/convenience helper backing-data checks, and matmul/linear backing-data validation.
+- Refactor plan now records the expanded tensor guard coverage that future package moves should preserve.
+
+## Session 113: GPU prefill debug logging audit
+
+Cleaned up library logging noise in batched GPU prefill:
+
+- Batched prefill progress prints are now gated behind `GO_PHERENCE_PREFILL_DEBUG` instead of writing to stdout unconditionally from model code.
+
+## Session 114: Model loader debug logging audit
+
+Cleaned up model loader stdout noise:
+
+- Quantization/eager-load/MoE loader progress messages are now gated behind `GO_PHERENCE_LOAD_DEBUG` instead of printing unconditionally from `LoadLlama`.
+
+## Session 115: GPU loader/progress logging audit
+
+Finished gating the remaining normal-path model/GPU progress prints:
+
+- Per-layer embedding, Gemma4 RoPE, TurboQuant, GPU weight placement, LM-head placement, expert-pool, VRAM-budget, and first MLX upload error diagnostics now use `GO_PHERENCE_LOAD_DEBUG` instead of writing to stdout unconditionally.
+
+## Session 116: GPU runtime debug logging audit
+
+Gated GPU backend progress and experimental NV ioctl diagnostics:
+
+- NVIDIA init/module/stream/native-BF16 progress messages and non-fatal module lookup diagnostics now use `GO_PHERENCE_GPU_DEBUG`.
+- Experimental direct-NVIDIA ioctl/VA/GPFIFO diagnostics are now opt-in under the same GPU debug gate.
+
+## Session 117: Vulkan backend debug logging audit
+
+Gated Vulkan backend discovery/progress messages:
+
+- Vulkan init failures, CPU-device rejection notices, compute readiness, and pending-SPIR-V diagnostics now use `GO_PHERENCE_VULKAN_DEBUG` instead of writing to stdout unconditionally.
+- Kept `backends/placement.Plan.PrintPlan` as an explicit caller-requested reporting API.
+
+## Session 118: Placement estimator overflow audit
+
+Hardened backend-neutral placement estimators:
+
+- Layer weight estimates now use saturating arithmetic for dimension products and byte accumulation.
+- Quantized MLX group estimates now use ceiling group counts for non-multiple-of-group-size dimensions instead of underestimating partial groups.
+- Added regression coverage for odd quantized dimensions and huge malformed size inputs.
+
+## Session 119: Placement resident estimator overflow audit
+
+Extended placement estimator hardening to resident tensors:
+
+- Resident embedding/LM-head/RoPE/work-buffer/PLI estimates now use the same saturating arithmetic as per-layer estimates.
+- Packed INT4 resident estimates now round up odd element counts instead of truncating partial bytes.
+- Added regression coverage for huge resident inputs and odd packed resident dimensions.
+
+## Session 120: Budget manager accounting audit
+
+Hardened backend-neutral budget accounting:
+
+- Budget manager methods now tolerate nil receivers and reject unknown budget categories instead of aliasing them to resident accounting.
+- Allocation now rejects usage overflow before mutating counters; free clamps without subtract-underflow.
+- Added regression coverage for nil managers, invalid categories, and overflow rejection.
+
+
+## Session 121: Logging and placement audit documentation sweep
+
+Refreshed documentation after the logging and placement/budget audit batches:
+
+- README, architecture notes, GPU options, weight-budget notes, and refactor plan now document quiet-by-default library diagnostics and the `GO_PHERENCE_*_DEBUG` gates.
+- Placement docs now record guarded budget accounting, invalid-category rejection, nil-safe budget manager methods, saturating estimator math, and odd INT4 packed-size rounding.
+- Refactor notes call out that these guard/logging semantics should be preserved during the later NVIDIA/model package splits.
+
+## Session 122: Tokenizer merge validation audit
+
+Hardened tokenizer loading:
+
+- BPE merge strings and array pairs now reject malformed empty/incomplete pairs instead of leaving zero-value merge rules in the rank table.
+- Added malformed merge regression coverage for both tokenizer JSON merge encodings.
+
+## Session 123: Compressed KV cache arithmetic audit
+
+Hardened compressed KV cache arithmetic:
+
+- Constructor capacity hints, full-cache slice bounds, scratch-buffer sizes, and compressed-entry packed-length checks now validate integer products before allocation or slicing.
+- Added regression coverage for overflowing KV dimensions/sequence lengths and packed-entry validation.
+
+## Session 124: Compressed KV cache accessor audit
+
+Finished another compressed KV cache edge-case pass:
+
+- `SeqLen`, `CompressedCount`, `FullCount`, and `MemoryBytes` are now nil-safe.
+- Memory accounting now uses checked/saturating arithmetic instead of direct slice-length products/sums.
+- Added regression coverage for nil accessors and saturating helper behavior.
+
+## Session 125: Mmap advisor range accounting audit
+
+Hardened mmap advisor range bookkeeping against corrupted or malformed tracked ranges:
+
+- Merge and total recomputation now sanitize negative tracked offsets/byte counts.
+- Range end, hot-byte, and merged hit/evict counters now use saturating arithmetic.
+- Added regression coverage for malformed tracked ranges and saturated accounting.
+
+## Session 126: GPTQ validation overflow audit
+
+Hardened GPTQ/Q4 validation:
+
+- GPTQ qweight/scales/qzeros expected-size calculations now use checked integer multiplication before slice-length comparisons.
+- `ValidateGemvQ4Sym` now validates GPTQ dimensions/layout before checking caller slice lengths, so invalid/overflowing dims are reported without requiring impossible-sized output/input slices.
+- Added overflow and negative-dimension regression coverage.
+
+## Session 127: MLX quant validation overflow audit
+
+Hardened MLX quantized weight validation/loading:
+
+- MLX dequantization, weight-size, scale/bias-size, shape-derived inDim, and float tensor shape product calculations now use checked multiplication.
+- Loader now reports explicit overflow errors for malformed tensor shapes instead of relying on incidental integer wraparound.
+- Added overflow regression coverage for packed weight shapes, scale shapes, in-memory MLX weights, and dequantization.
+
+## Session 128: GPTQ dequant output-size audit
+
+Hardened GPTQ dequantization output sizing:
+
+- GPTQ validation now rejects overflowing dequantized output dimensions before qweight/scale length checks.
+- GPTQ dequantization paths check output allocation products before allocating.
+- Added regression coverage for output-size overflow in both generic and symmetric dequant paths.
+
+## Session 129: Safetensors name/order and eager accounting audit
+
+Cleaned up safetensors helper behavior:
+
+- `File.Names` and `ShardedFile.Names` now honor their sorted-order contract directly instead of relying on callers to sort map iteration output.
+- Sharded eager-load byte accounting now checks aggregate overflow while summing shard sizes.
+- Added regression coverage for sorted names and checked eager-load byte addition.
+
+
+## Session 130: Loader/runtime audit documentation sweep
+
+Refreshed documentation after the latest loader/runtime audit batch:
+
+- README, architecture, refactor, TurboQuant, and weight-budget docs now cover tokenizer merge validation, deterministic safetensors names, checked sharded eager-load totals, compressed KV cache accessor/memory-accounting guards, mmap advisor range sanitization, and MLX/GPTQ checked sizing.
+- Refactor notes now call out these loader/runtime guard semantics as part of the baseline to preserve during later model/backend package splits.
+
+## Session 131: Chunked LM-head GPU buffer audit
+
+Hardened chunked GPU LM-head setup:
+
+- Clamp reported free VRAM before converting to `int` for chunk sizing.
+- Check chunk buffer element products before allocating GPU buffers.
+- Free temporary GPU buffers on all return paths from chunked LM-head execution.
+
+## Session 132: Phase 6.5 completion checklist
+
+Made the Phase 6.5 exit criteria explicit:
+
+- Replaced the broad definition-of-done section in `docs/history/refactor-plan.md` with a concrete checklist covering ownership docs, mechanical moves, audit baselines, debug/logging hygiene, documentation alignment, validation gates, and final closeout.
+- Marked completed loader/runtime/backend/tensor/GPU audit work separately from still-pending `model`, NVIDIA-runtime split, model-package split, command-boundary audit, smoke tests, and final validation.
+- This checklist is now the source of truth for deciding whether Phase 6.5 is done or whether remaining work is deliberately deferred.
+
+## Session 133: MTP drafter projection arithmetic audit
+
+Hardened Gemma4 MTP drafter helper arithmetic:
+
+- Pre/post projection helpers now check projection-size products before backing-slice validation or indexing.
+- Drafter loader checks pre-projection width overflow before constructing expected tensor shapes.
+- Integer tensor loading checks expected raw byte sizes before dtype-specific decoding.
+- Added regression coverage for overflowing drafter projection dimensions.
+
+## Session 134: MoE helper edge-case audit
+
+Hardened MoE helpers:
+
+- Switch-MLX expert loader now validates nil sources, dimensions, divisibility, stride products, and raw tensor byte lengths before slicing per-expert data.
+- CPU MoE forward now rejects nil/empty/malformed configs, clamps active expert count, guards softmax normalization, and verifies all selected expert weight slices before dispatch.
+- Added malformed MoE forward regression coverage.
+
+## Session 135: Inference helper product arithmetic audit
+
+Hardened model inference helpers:
+
+- Token embedding, Gemma4 per-layer input, and LM-head helpers now use checked product arithmetic for offsets, projection sizes, embedding tables, and LM-head backing data sizes.
+- Added overflow regression coverage for token embedding offsets, per-layer Gemma4 input dimensions, and LM-head output dimensions.
+
+## Session 136: CPU forward-layer entrypoint audit
+
+Hardened the CPU `ForwardLayer` helper:
+
+- Rejects nil models, invalid layer indices, negative positions, malformed dimensions, short hidden states, missing norm weights, product-overflowing Q/KV dimensions, and missing KV cache slots before indexing.
+- Added malformed forward-layer regression coverage.
+
+## Session 137: Streaming server write-boundary audit
+
+Hardened the OpenAI-compatible streaming response path:
+
+- `writeSSE` now returns success/failure, logs marshal errors, and lets callers stop generation immediately on broken client writes.
+- Streaming response setup, token chunks, and final chunks now abort cleanly when SSE writes fail instead of continuing to generate after a disconnected client.
+
+## Session 138: CLI/server token-boundary audit
+
+Hardened command front-end token-count boundaries:
+
+- `llmgen` and `llmchat` now reject negative generation counts before model loading.
+- `llmgen` no longer slices output by prompt length unless the output is long enough, preserving GPU/CPU normalization safety.
+- `llmchat` avoids divide-by-zero throughput reporting on sub-tick generations.
+- `llmserver` now rejects negative `max_tokens` with HTTP 400 while keeping zero as the default behavior.
+
+## Session 139: CLI/server input-boundary audit
+
+Hardened remaining command I/O boundaries:
+
+- `llmchat` now reports scanner/input errors instead of silently exiting on non-EOF scanner failures.
+- `llmserver` now closes request bodies, limits JSON request decoding to 1 MiB, rejects unknown JSON fields, and rejects empty chat message lists before generation.
+
+## Session 140: llmgen throughput reporting audit
+
+Hardened `llmgen` reporting math:
+
+- Generation throughput and ms/token reporting now avoid division by zero when generation completes within a sub-tick or produces an empty normalized output.
+
+
+## Session 141: Model and command audit documentation sweep
+
+Refreshed documentation after the latest `model` and `cmd` audit batch:
+
+- README and architecture docs now describe MTP drafter projection guards, MoE helper validation, inference-helper sizing, CPU forward-layer entrypoint checks, and command/request boundary hardening.
+- Refactor plan checklist now distinguishes completed `model` helper and `cmd` boundary audits from the remaining large loader/generation scan or explicit deferral decision.
+- Validation notes now record that focused model/cmd helper tests have passed for the recent audit batches.
+
+## Session 142: Final non-test logging scan
+
+Completed the Phase 6.5 non-test stdout/stderr/logging scan:
+
+- Non-test library/backend packages are quiet by default, with only `GO_PHERENCE_*_DEBUG` helper output remaining.
+- `backends/placement.PrintPlan` remains as an explicit caller-requested reporting API.
+- `cmd/*` output remains user-facing CLI/server reporting and error handling.
+
+
+## Session 143: Phase 6.5 mechanical split deferrals
+
+Recorded explicit Phase 6.5 split/defer decisions:
+
+- NVIDIA runtime split has since completed into backends/nvidia/runtime with a preservation plan for `DevBuf`, upload state, GPU quantized weights, expert resources, and recently added guard/debug behavior.
+- Qwen/Gemma4/LLaMA mechanical package moves have since completed where safe with a plan to move helper tests and preserve MTP/MoE/inference/forward guard semantics.
+- Generation/runtime extraction remains future work until model/backend interfaces stabilize.
+- Import-boundary scripting is deferred until follow-up split names stabilize; import rules remain documented and review-enforced for Phase 6.5 closeout.
+
+
+## Session 144: Phase 6.5 documentation closeout sweep
+
+Completed the final Phase 6.5 documentation sweep after recording mechanical split deferrals:
+
+- README and architecture docs now state that NVIDIA runtime, model package, and generation runtime splits are deferred follow-up phases rather than Phase 6.5 blockers.
+- GPU and MTP docs now point at the current backend/model split plan and keep MTP/speculative decoding paused until validation closeout is recorded.
+- The remaining closeout work is validation/smoke testing and the final Phase 6.5 closeout note.
+
+## Session 145: Phase 6.5 final validation gate
+
+Completed the Phase 6.5 final validation gate:
+
+- SmolLM2 CPU loader/generation smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2`.
+- Gemma4 E2B MLX4 CPU loader/generation smoke passed: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2`.
+- Full test gate passed: `go test ./... -count=1`.
+- `go vet ./...` and `git diff --check` passed.
+
+## Session 146: Phase 6.5 closeout
+
+Closed Phase 6.5 as a source-tree ownership/audit phase:
+
+- All Phase 6.5 closeout commits are pushed and the plan sidebar is aligned with completed/deferred items.
+- Final note in `docs/history/refactor-plan.md` states that MTP/verifier/drafter work may resume under the documented constraints.
+- Deferred package splits remain assigned to follow-up phases: completed NVIDIA/Qwen/Gemma4/LLaMA moves and future generation runtime extraction.
+
+## Session 147: SIMD bridge API design
+
+Designed the Phase 6.6 SIMD bridge API before any literal subpackage split:
+
+- `backends/simd/runtime` remains the only public facade/import path and owns validation, capability gates, fallback policy, and compatibility globals.
+- Future `scalar`, `amd64`, and `arm64` packages should expose provider-style kernel groups rather than direct public functions consumed by model code.
+- Assembly symbols remain provider-local after the split; the facade calls prevalidated kernels and preserves public malformed-input/no-op behavior.
+- Migration order is facade-internal provider structs first, then scalar split, then amd64/arm64 splits one family at a time.
+
+## Session 148: SIMD code-smell audit fixes
+
+Audited `backends/simd/runtime` for facade and subpackage-split hazards:
+
+- Replaced the shared package-level GEBP scratch buffer with per-call scratch allocation so concurrent `SgemmNTGebp` calls cannot race or alias packed-B tiles.
+- Added a regression check that GEBP scratch allocations are independent.
+- Changed unsupported-architecture `SgemmNT`/`SgemmNN` fallbacks from panics to safe no-ops, preserving the `backends/simd/runtime` facade policy that public entrypoints remain defensive even when callers should check `HasSgemmAsm`.
+- Verified native SIMD tests and a non-amd64 compile-only check (`GOARCH=riscv64 go test -c ./backends/simd/runtime`).
+
+## Session 149: SIMD empty-slice dispatch audit
+
+Continued the `backends/simd/runtime` dispatch audit:
+
+- Guarded assembly dispatch wrappers so zero-length vector/BF16 operations route through scalar fallbacks instead of passing empty slices to assembly stubs.
+- Added regression coverage for empty public vector and BF16 entrypoints.
+- Native SIMD tests, no-run package gate, vet, and diff checks passed.
+
+## Session 150: SIMD SGEMM offset audit
+
+Continued the SIMD SGEMM/GEBP/gather audit:
+
+- Added a checked float32 byte-offset helper for unsafe pointer arithmetic.
+- Hardened blocked SGEMM and gather SGEMM pointer offsets so `jj*ldb`, row offsets, and float32 byte scaling are checked before `unsafe.Add`.
+- Added regression coverage for byte-offset overflow rejection.
+- Re-ran native SIMD tests, non-amd64 compile-only check, no-run package gate, vet, and diff checks.
+
+## Session 151: Resume MTP verifier scaffold
+
+Resumed MTP/speculative work after Phase 6.5 closeout with a small verifier-scaffold hardening step:
+
+- Added `NewMTPVerifierResultForModel`, a model-aware verifier result constructor that validates verifier token IDs against vocab size, logits row width against vocab size, and final activation width against hidden size.
+- Kept the existing low-level `NewMTPVerifierResult` for tests/helpers that do not have a model instance.
+- Added regression coverage for nil/invalid model dims, token bounds, logits width, final activation width, and a valid model-aware acceptance path.
+
+## Session 152: MTP acceptance consistency audit
+
+Audited MTP acceptance and KV commit semantics:
+
+- Added `MTPAcceptance.Validate` so manually assembled accept/reject results are checked before committing staged verifier KV.
+- Float and compressed KV commit helpers now reject inconsistent accepted/verified counts, accepted-token/output-token mismatches, invalid bonus tokens, and inconsistent all-accepted/rejected state before mutating caches.
+- Updated KV commit tests to use constructor-produced acceptance values and added malformed-state regression cases.
+
+## Session 153: Documentation refresh after SIMD and MTP audits
+
+Reviewed and refreshed project documentation after the latest audit fixes:
+
+- README and architecture docs now mention the Phase 6.6 SIMD guard baseline: empty vector/BF16 calls route to scalar fallbacks, GEBP scratch is per-call, and SGEMM/GEBP/gather byte offsets are checked before unsafe pointer arithmetic.
+- MTP docs now state that work resumed after Phase 6.5 closeout and document model-aware verifier validation plus acceptance consistency checks before KV commit.
+- Refactor and SIMD reorg notes now preserve the updated follow-up constraints for completed model package moves and future SIMD provider/subpackage splits.
+
+## Session 154: Runtime validation plan reset and MTP verifier plan
+
+Reset the sidebar plan around aggressive runtime validation and added the next small MTP verifier-path building block:
+
+- `MTPVerifierPlan` prepares `[input_token]+drafted` verifier tokens plus absolute verifier positions for the future batched main-model verifier pass.
+- The plan validates nil model, vocab size, negative/out-of-vocab tokens, negative start positions, and position overflow.
+- Added tests for token/position construction, copy semantics, and malformed plan inputs.
+
+## Session 155: Full runtime unit gate
+
+Started the aggressive runtime validation plan:
+
+- Initial `go test ./... -count=1` exposed one stale MTP KV staging test that still used a manually assembled `MTPAcceptance` rejected by the new consistency validator.
+- Updated the test to use constructor-produced acceptance state via `AcceptMTPDraft`.
+- Full `go test ./... -count=1`, `go vet ./...`, and `git diff --check` now pass.
+
+## Session 156: Race-focused runtime gates
+
+Continued the aggressive runtime validation plan:
+
+- Passed shared race gate: `go test -race ./runtime/... ./loader/... ./tensor ./backends/simd -count=1`.
+- Broad model race regex `go test -race ./model -run 'MTP|KV|ForwardLayer|InferenceHelpers|Moe' -count=1` was killed after ~255s, likely because the regex still selected resource-heavy model diagnostics.
+- Passed focused safe substitute: `go test -race ./model -run 'TestMTP|TestNewMTP|TestAcceptMTP|TestCommitAccepted|TestLayerKVDim|TestLayerKVDims|TestTokenEmbeddingHelpers|TestGemma4PerLayerInputs|TestLMHeadLogitsInto|TestArgmaxLogits|TestInferenceHelpers|TestForwardLayerRejectsMalformedInputs|TestMoeForwardRejectsMalformedInputs' -count=1`.
+
+## Session 157: Cross-arch compile gates
+
+Continued the aggressive runtime validation plan with cross-architecture gates:
+
+- `GOARCH=arm64 go test -c ./backends/simd/runtime` passed.
+- `GOARCH=riscv64 go test -c ./backends/simd/runtime` passed.
+- Plain `GOARCH=arm64 go test ./... -run '^$'` compiled test binaries but failed to execute them on the amd64 host with `exec format error`.
+- Compile-focused substitute passed with `GOARCH=arm64 go test -exec /bin/true ./... -run '^$'`.
+
+## Session 158: CPU runtime smoke matrix
+
+Completed the CPU generation smoke matrix with short budgets:
+
+- SmolLM2 CPU: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 3` passed.
+- Gemma4 E2B MLX4 CPU: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -prompt 'Hello' -tokens 2` passed.
+- Qwen3 0.6B MLX4 CPU: `go run ./cmd/llm/llmgen -model models/qwen3-0.6b-mlx4 -prompt 'Hello' -tokens 2` passed.
+- Eager-load small model smoke: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -eager-load` passed.
+- TurboQuant CPU smoke: `go run ./cmd/llm/llmgen -model models/smollm2-135m -prompt 'Hello' -tokens 2 -turbo-quant` passed.
+- Qwen3 MoE loader/short-generation smoke: `go run ./cmd/llm/llmgen -model models/qwen3-30b-a3b-mlx4 -prompt 'Hi' -tokens 0` passed within the current resource budget.
+
+## Session 159: GPU and hybrid runtime smoke matrix
+
+Completed the GPU/hybrid runtime smoke matrix on the current host:
+
+- NVIDIA availability probe passed (`nvidia-smi` reports a NVIDIA-capable NVIDIA driver/device).
+- SmolLM2 GPU smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -gpu -prompt 'Hello' -tokens 2`.
+- SmolLM2 hybrid smoke passed: `go run ./cmd/llm/llmgen -model models/smollm2-135m -gpu -gpu-layers 4 -prompt 'Hello' -tokens 2`.
+- Gemma4 E2B MLX4 GPU decode smoke passed with a one-token budget: `go run ./cmd/llm/llmgen -model models/gemma4-e2b-mlx4 -gpu -prompt 'Hello' -tokens 1`.
+- Normal-path GPU diagnostics remained quiet without `GO_PHERENCE_GPU_DEBUG` during a SmolLM2 GPU smoke.
+
+## Session 160: MTP verifier result runtime chain tests
+
+Continued MTP/speculative runtime validation:
+
+- Added focused tests chaining `NewMTPVerifierResultForModel` → acceptance validation → float KV commit.
+- Added the same model-aware verifier/acceptance chain for compressed/TurboQuant-backed KV commit.
+- Verified the chain keeps the accepted prefix plus verifier bonus token and discards rejected candidate KV suffixes.
+
+## Session 161: MTP verifier-forward scaffold tests
+
+Added the verifier-forward scaffold before wiring generation:
+
+- `RunMTPVerifierForward` now defines the future main-model verifier entrypoint and validates plan/model/KV-cache shape before returning an explicit not-implemented error.
+- Added tests that the scaffold accepts a well-formed plan up to the not-implemented boundary and rejects nil models, empty/mismatched plans, non-contiguous positions, and malformed KV cache layer counts.
+- Public speculative generation remains disabled until the verifier forward and drafter loop have runtime smoke coverage.
+
+## Session 162: SIMD GEBP concurrent scratch stress
+
+Continued SIMD/runtime stress validation:
+
+- Added `TestSgemmNTGebpConcurrentScratch`, which runs concurrent `SgemmNTGebp` calls with independent outputs and compares against a scalar NT reference.
+- Ran the new test under the race detector to prove the per-call packed-B scratch path has no shared-buffer races on this runtime.
+- Validation passed: `go test -race ./backends/simd -run 'TestSgemmNTGebpConcurrentScratch|TestGEBP' -count=1`, `go test ./backends/simd -count=1`, no-run all-package gate, vet, and diff checks.
+
+## Session 163: SIMD BF16 malformed facade parity
+
+Continued SIMD/runtime stress validation:
+
+- Added BF16 facade tests covering empty inputs, mismatched lengths, short weights, bounded widen/narrow conversion, and fallback parity through the `*Asm` public wrappers.
+- Re-ran native SIMD focused tests plus arm64/riscv64 SIMD compile gates to keep architecture-dispatch parity checked.
+- No-run all-package gate, vet, and diff checks passed.
+
+## Session 164: SIMD benchmark and speculative CLI gate
+
+Completed the remaining aggressive runtime validation checks:
+
+- Confirmed there is no public speculative/MTP CLI flag in `cmd`; speculative generation remains disabled while verifier forward and drafter loop are scaffold-only.
+- Ran selective SIMD benchmarks after correctness/race/smoke gates: `go test ./backends/simd -run '^$' -bench 'Benchmark(VecAdd|BF16DotAsm|RMSNorm|ToBF16)' -benchtime=100ms -count=1`.
+- Results on this host (i7-12700, amd64): BF16DotAsm ~404 ns/op, RMSNorm ~689 ns/op, VecAdd ~241 ns/op, ToBF16 ~216 ns/op.
+
+## Session 165: Aggressive runtime validation closeout
+
+Closed the current aggressive runtime validation batch:
+
+- Full unit suite passed after aligning stale MTP KV staging tests with the stricter acceptance validator.
+- Race gates passed for shared runtime/loader/tensor/SIMD and a focused model MTP/KV/inference/forward/MoE subset; the broad model race regex was documented as resource-killed and replaced by the focused safe subset.
+- Cross-arch compile gates passed for SIMD arm64/riscv64 and an all-package arm64 compile substitute; native execution of arm64 tests on this amd64 host was documented as an `exec format error` limitation.
+- CPU smoke matrix passed for SmolLM2, Gemma4 E2B MLX4, Qwen3 0.6B, Qwen3 MoE loader/short-generation, eager-load, and TurboQuant.
+- GPU/hybrid smoke matrix passed with NVIDIA available: SmolLM2 GPU, SmolLM2 hybrid, Gemma4 GPU decode, and quiet default GPU diagnostics.
+- MTP scaffold validation now covers verifier plans, model-aware verifier results, acceptance consistency, float/compressed KV commit chains, and verifier-forward contract validation while keeping speculative CLI disabled.
+- SIMD stress validation covers concurrent GEBP scratch under `-race`, malformed BF16 facade parity, cross-arch SIMD compile gates, and a bounded benchmark pass.
+
+## Session 166: MTP verifier scaffold audit
+
+Audited the new MTP verifier plan/forward scaffold for malformed manual-plan edges:
+
+- Factored verifier position construction through an overflow-checked helper shared by plan construction and scaffold validation.
+- `RunMTPVerifierForward` now revalidates manual plans against model vocab, verifies drafted tokens match the verifier-token suffix, and rejects overflowing/non-contiguous positions before checking KV caches.
+- Updated scaffold tests to clone plans before mutation and cover out-of-vocab verifier tokens, drafted/verifier suffix mismatches, and position overflow.
+
+## Session 167: MTP acceptance and drafter alias audit
+
+Continued the MTP scaffold audit:
+
+- Hardened `MTPAcceptance.Validate` to use `KVKeepTokens` before comparing output-token length, avoiding unchecked `accepted_prefix_len + 1` arithmetic on manually assembled structs.
+- Added regression coverage for max-int accepted-prefix acceptance state.
+- Made drafter `PreProjectInto` and `PostProjectInto` alias-safe by computing into temporary output buffers before copying into caller-provided destinations.
+- Added projection alias-safety tests for overlapping destination/input slices.
+
+## Session 168: Forward-layer malformed norm audit
+
+Continued the model-path audit beyond MTP scaffolding:
+
+- Found a malformed-state panic in `ForwardLayer`: layers with `QNorm` and K/V output assumed `KNorm` was also present before dereferencing it.
+- Hardened the forward-layer entrypoint to reject missing `KNorm` instead of panicking.
+- Extended malformed forward-layer regression coverage for the QNorm-without-KNorm case.
+
+## Session 169: Generate malformed KNorm audit
+
+Continued the model forward-path audit:
+
+- Found the same malformed QNorm-without-KNorm assumption in the main CPU `Generate` loop.
+- Hardened `Generate` to stop and return the current output instead of dereferencing a nil `KNorm` when K/V is produced.
+- Added a synthetic malformed-model regression test that verifies `Generate` does not panic and returns the original prompt when `KNorm` is missing.
+
+## Session 170: Generate allocation guard audit
+
+Continued the CPU generation-path audit:
+
+- Hardened `Generate` against malformed public inputs/config before KV-cache allocation: negative `maxTokens`, overflowing output capacity, negative/short layer counts, invalid core dimensions, and overflowing per-layer KV/cache capacity now return the current prompt instead of risking panic or huge allocation.
+- Added synthetic malformed-config regression tests covering negative token budgets, short layer slices, invalid dimensions, and KV dimension overflow.
+
+## Session 171: CPU decode finish helper extraction
+
+Started the MTP verifier-forward implementation plan with a small behavior-preserving CPU decode extraction:
+
+- Added `finishCPUDecodeStep`, which applies final decode norm, computes LM-head logits, returns greedy argmax, and copies the final activation for verifier/MTP callers.
+- Rewired `Generate` to use the helper only at the existing generation/logits point, preserving public generation behavior.
+- Added focused tests for helper output, final-activation copy semantics, malformed inputs, and a SmolLM generation regression slice.
+
+## Session 172: CPU decode finish helper audit
+
+Audited the newly extracted `finishCPUDecodeStep` helper:
+
+- Added explicit final-norm backing length validation before mutating the hidden state.
+- Added regression coverage that a short final norm is rejected and does not modify caller-owned hidden scratch.
+
+
+## Session 173: Documentation refresh after decode/MTP audits
+
+Reviewed and refreshed docs after the latest MTP and CPU generation audits:
+
+- README and architecture docs now mention MTP verifier plan/forward scaffolding, alias-safe drafter projections, CPU decode finish/final-norm validation, and CPU generation allocation guards.
+- MTP speculative docs now describe `RunMTPVerifierForward` as a contract-validating not-implemented scaffold and note that the CPU decode finish helper returns copied final activations for verifier use.
+- Development log remains the detailed record of aggressive runtime validation, scaffold hardening, and follow-up implementation constraints.
+
+## Session 174: CPU decode finish helper Generate parity
+
+Continued the MTP verifier-forward plan:
+
+- Added a synthetic regression test comparing `finishCPUDecodeStep` against the token appended by `Generate` on a zero-layer model.
+- The test exercises the shared embedding → final norm → LM-head → argmax path without requiring a large local fixture.
+- Focused model tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 175: Initial MTP verifier forward loop
+
+Continued the MTP verifier-forward implementation plan:
+
+- Replaced the explicit not-implemented scaffold with an initial CPU verifier loop over `MTPVerifierPlan.VerifierTokens`.
+- The loop embeds each verifier token, runs configured CPU layers through `ForwardLayer` against staged float KV caches, finishes decode via `finishCPUDecodeStep`, and returns per-position logits plus final activation via `NewMTPVerifierResultForModel`.
+- Kept the verifier contract validation factored in `validateMTPVerifierForwardInputs`.
+- Added zero-layer verifier-forward tests for zero-draft ordinary verification, one accepted draft plus bonus token, and first-token rejection.
+
+## Session 176: MTP verifier float KV keep-prefix test
+
+Continued the MTP verifier-forward implementation plan:
+
+- Added a single-layer verifier-forward test that stages float KV entries through `RunMTPVerifierForward` and then commits the result.
+- The test verifies staged KV length for all verifier positions and post-commit K/V lengths of `accepted_prefix_len + 1`, covering rollback/keep-prefix behavior independent of whether the synthetic draft is accepted or rejected.
+- Focused verifier tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 177: MTP verifier compressed KV keep-prefix test
+
+Completed the remaining verifier-forward KV keep-prefix test coverage:
+
+- Added a resource-safe compressed/TurboQuant-backed KV commit test using the verifier result from `RunMTPVerifierForward`.
+- The test stages compressed KV entries for all verifier positions, commits via `MTPVerifierResult.CommitCompressedKV`, and verifies the final sequence/K lengths match `accepted_prefix_len + 1`.
+- Focused verifier tests, no-run all-package gate, vet, and diff checks passed. Public speculative CLI exposure remains disabled until the drafter loop and end-to-end smokes are implemented.
+
+## Session 178: MTP drafter state and forward contract
+
+Started the drafter-loop section after verifier-forward coverage:
+
+- Added `MTPDrafterState` for previous token plus copied main-model activation carry.
+- Added `RunMTPDrafterStep` as the future q-only assistant forward entrypoint; it validates drafter dimensions, previous-token bounds, activation/embedding widths, projection weights, norm, and layer count before returning an explicit not-implemented error.
+- Added focused validation/copy-semantics tests for drafter state and drafter-step contract checks.
+
+## Session 179: Projection-only MTP drafter step
+
+Continued the drafter-loop implementation plan:
+
+- Changed `RunMTPDrafterStep` into a main-model method so it can use backbone token embeddings and the main LM head.
+- Implemented the projection/LM-head shell for zero-layer synthetic drafter fixtures: token embedding + previous verifier activation → `PreProjectInto` → `PostProjectInto` → main-model LM-head logits/argmax → next drafter state.
+- Real q-only drafter layers still return an explicit not-implemented error until external/main-model KV attention is wired.
+- Added tests for projection-only output, next-state copy semantics, dimension mismatches, missing projections, and q-only not-implemented behavior.
+
+## Session 180: MTP acceptance-rate stats scaffold
+
+Completed the current drafter-loop scaffold items:
+
+- Added `MTPSpeculationStats` to accumulate LiteRT-style accounting without any public CLI exposure.
+- `Record` validates `MTPAcceptance`, counts drafted tokens, accepted/verified draft-prefix tokens, verifier bonus tokens, output tokens, and rejects counter overflow.
+- `AcceptanceRate` reports accepted draft tokens divided by drafted tokens, deliberately excluding bonus tokens.
+- Focused stats/acceptance tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 181: Post drafter/verifier full validation
+
+Ran the validation policy gate after the recent verifier/drafter behavior changes:
+
+- Full suite passed: `go test ./... -count=1`.
+- CPU generation smokes passed for SmolLM2 and Gemma4 E2B MLX4 with short token budgets.
+- GPU smoke passed for SmolLM2 with a one-token budget.
+
+## Session 182: MTP verifier Generate-semantics audit
+
+Audited `RunMTPVerifierForward` against the full CPU `Generate` semantics for real layers:
+
+- Made the current verifier contract explicit: float KV only; `kvCacheK/V` must already contain exactly `plan.StartPos` prompt/history tokens for every layer that appends K/V.
+- Added prompt/history KV length validation before the verifier appends staged candidate K/V.
+- Added an explicit rejection for Gemma4 per-layer input gating/PLI until the verifier loop can share the full `Generate` PLI semantics.
+- Added tests for non-zero start-position history KV requirements and PLI rejection.
+
+## Session 183: Deterministic one-layer verifier acceptance
+
+Continued the next MTP integration slice:
+
+- Added an explicit one-layer `RunMTPVerifierForward` test that exercises `ForwardLayer`, produces deterministic all-accepted draft behavior, verifies output tokens, stages KV, and checks final activation width.
+- Focused verifier tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 184: MTP verifier helper-boundary decision
+
+Closed the verifier helper-boundary decision for the current slice:
+
+- Keep `RunMTPVerifierForward` on the existing `ForwardLayer` + `finishCPUDecodeStep` split for now.
+- Do not extract a fuller shared CPU decode-step helper yet; that boundary should wait until Gemma4 PLI and batched verifier semantics can be represented without diverging from `Generate`.
+- Refreshed `docs/models/mtp-speculative.md` to describe the current implemented CPU verifier loop instead of the older not-implemented scaffold.
+
+## Session 185: MTP drafter external-KV contract
+
+Started extending the drafter step beyond projection-only:
+
+- Added `MTPDrafterExternalKV`, an explicit read-only main-model KV view for q-only drafter layers.
+- Added `RunMTPDrafterStepWithExternalKV` so q-only execution has a clear external-KV contract while the projection-only wrapper remains unchanged.
+- Validated q-only layer count, source mapping, source KV lengths, attention/MLP weight dimensions, and required norms before returning the existing q-only not-implemented error.
+- Added malformed external-KV and q-only dimension tests.
+
+## Session 186: Synthetic q-only MTP drafter layer
+
+Implemented the first q-only drafter execution slice:
+
+- `RunMTPDrafterStepWithExternalKV` now runs validated q-only drafter layers instead of stopping after projection validation.
+- The synthetic path performs input norm, q projection, q norm, external GQA attention over the read-only main-model KV view, output projection, residual/post norm, MLP, post projection, and main LM-head logits.
+- Updated drafter-loop tests so the one-layer synthetic fixture executes successfully while malformed external-KV cases still fail validation.
+
+## Session 187: Internal MTP speculative step
+
+Added the first end-to-end internal speculative iteration without any public CLI exposure:
+
+- `RunMTPSpeculativeStep` runs one drafter step, builds the verifier plan, runs verifier forward, and records speculation stats.
+- The result returns the draft result, verifier plan/result, and updated stats; callers still own staged KV commit/restore decisions.
+- Added projection-only integration tests covering drafter -> verifier -> stats and validation failures.
+
+## Session 188: MTP code-smell audit — drafter final norm
+
+Audited the recent MTP drafter/speculative-step code for logic errors:
+
+- Found that the q-only drafter execution path validated per-layer norms but skipped the drafter final norm before `PostProjectInto`.
+- Fixed `RunMTPDrafterStepWithExternalKV` to apply `d.Norm` after q-only layers and before post-projection.
+- Required loaded/sufficient final norm for q-only drafter execution while preserving projection-only zero-layer fixtures.
+- Added regression coverage proving the final norm changes the next activation and malformed q-only drafter state rejects missing final norm.
+
+## Session 189: MTP audit — speculative stats preflight
+
+Continued the MTP code-smell/logic audit:
+
+- Found that `RunMTPSpeculativeStep` detected saturated stats only after verifier forward had already staged candidate KV.
+- Added `MTPSpeculationStats.ValidateOneStepCapacity` and preflight it before drafter/verifier execution.
+- Added tests for stats preflight and for ensuring saturated stats do not mutate staged verifier KV.
+
+## Session 190: MTP audit — shared-KV verifier validation
+
+Continued the MTP code-smell/logic audit:
+
+- Found that `RunMTPVerifierForward` did not explicitly validate shared-KV layer source mappings before entering `ForwardLayer`.
+- Added validation that q/shared layers point at a real KV-appending source layer and do not carry their own staged K/V entries.
+- Added malformed shared-KV verifier tests for invalid source, shared-to-shared source, and stray per-layer cache entries.
+
+## Session 191: MTP audit — drafter q-only FFN norms
+
+Continued the MTP code-smell/logic audit:
+
+- Found that the q-only drafter layer path skipped `PreFFNNorm`/`PostFFNNorm` even though real Gemma assistant layers load those tensors.
+- Aligned the synthetic q-only path with `ForwardLayer` semantics for post-attention residual, pre-FFN norm, post-FFN norm, and layer scalar handling.
+- Tightened q-only validation to require the loaded FFN norm tensors.
+
+## Session 192: MTP audit — restore KV on post-verifier errors
+
+Continued speculative-step error-path auditing:
+
+- Found that some stats failures are only knowable after verifier acceptance (for example, accepted-token counter overflow), after verifier forward has already staged candidate KV.
+- `RunMTPSpeculativeStep` now checkpoints float KV immediately before verifier forward and restores it if post-verifier stats accounting fails.
+- Relaxed stats preflight so saturated `VerifiedTokens` is not rejected before acceptance is known, and added coverage for restoring staged KV on post-verifier stats failure.
+
+## Session 193: MTP audit — drafter Gemma norm precision
+
+Continued the MTP audit over q-only drafter math:
+
+- Found that q-only drafter execution always used the generic FP32 RMSNorm helper, diverging from Gemma3/Gemma4 CPU layer semantics.
+- Added a drafter norm helper that selects the BF16 RMSNorm path for Gemma-style drafter configs and uses it for input, q, post-attention, pre/post-FFN, and final drafter norms.
+- Added focused coverage that verifies Gemma4 drafter norm selection follows the BF16 path.
+
+## Session 194: Documentation refresh after MTP audit batch
+
+Reviewed and refreshed public project docs after the verifier/drafter/speculative-step implementation and audit batches:
+
+- Updated `README.md` to describe MTP as internal speculative-decoding infrastructure rather than only scaffolding, while keeping public speculative generation explicitly disabled.
+- Updated `docs/architecture/architecture.md` with the current verifier-forward loop, q-only drafter/external-KV seam, stats, and remaining production gaps.
+- Updated `docs/models/mtp-speculative.md` to document current CPU verifier constraints, explicit PLI rejection, q-only drafter execution details, internal `RunMTPSpeculativeStep`, stats rollback behavior, and revised implementation-plan status.
+- Updated `docs/backends/turboquant.md` to clarify that TurboQuant commit/rollback helpers exist but the internal verifier-forward loop is still float-KV CPU-only.
+- Updated `docs/history/refactor-plan.md` status and model package preservation notes to reflect internal MTP verifier/drafter/speculative-step code rather than the older scaffold-only state.
+
+## Session 195: Post-MTP audit validation closeout
+
+Ran the next validation-policy gate after the recent MTP verifier/drafter/speculative-step audit and documentation batches:
+
+- Full suite passed: `go test ./... -count=1`.
+- CPU generation smokes passed for SmolLM2 and Gemma4 E2B MLX4 with short token budgets.
+- GPU smoke passed for SmolLM2 with a one-token budget.
+- Public speculative CLI remains disabled; the current speculative path is still internal-only.
+
+## Session 196: Real-asset MTP drafter contract
+
+Started the next MTP integration slice against local Gemma4 assets:
+
+- Added `NewMTPDrafterExternalKV`, a default one-to-one external-KV source mapping helper for q-only drafter layers.
+- Added a real-asset contract test that loads `models/gemma4-e2b-mtp-drafter` and `models/gemma4-e2b-mlx4` when present, otherwise skips with a clear resource message.
+- The test builds a minimal zero external-KV view from the loaded drafter layer/head dimensions, runs one `RunMTPDrafterStepWithExternalKV` step with deterministic synthetic state, and asserts token/logit/activation/state shapes without running the main verifier path.
+- Focused drafter tests passed with local assets, followed by the no-run all-package gate, vet, and diff checks.
+
+## Session 197: MTP real-asset slice closeout
+
+Closed the current real-asset MTP drafter slice:
+
+- Rechecked command front-ends and confirmed no public MTP/speculative CLI flag or command wiring exists.
+- Refreshed the README MTP documentation link label from scaffold wording to current internal implementation status.
+- No resource skip occurred in the focused real-asset test on this workspace because the local Gemma4 main and MTP drafter assets were present; the test still has clear skip messages for workspaces without those assets.
+
+## Session 198: Real-asset MTP full-suite validation
+
+Ran the conservative full-suite gate after closing the real-asset MTP drafter contract slice:
+
+- Full suite passed: `go test ./... -count=1`.
+- No generation behavior changed in this slice, so CPU/GPU generation smokes were not rerun here.
+
+## Session 199: Internal multi-step MTP drafter loop
+
+Started the next internal-only MTP integration slice:
+
+- Added `RunMTPDrafterSteps`, a bounded drafter-only loop that repeatedly calls `RunMTPDrafterStepWithExternalKV` and carries `NextState` between draft steps.
+- Added `MTPDrafterRunResult` with drafted tokens, copied logits, copied next activations, and final state.
+- Added tests for projection-only deterministic multi-step behavior, synthetic q-only shape/state coverage, zero-count validation, malformed state validation, and negative draft count rejection.
+- Public speculative CLI remains untouched.
+
+## Session 200: Multi-step MTP drafter validation closeout
+
+Closed the internal multi-step drafter slice:
+
+- Rechecked command front-ends and confirmed no public MTP/speculative CLI flag or command wiring exists.
+- Full suite passed: `go test ./... -count=1`.
+- CPU/GPU generation smokes were not rerun because this slice added internal drafter-only helpers and did not change generation behavior.
+
+## Session 201: Internal multi-draft speculative step
+
+Started the internal multi-draft speculative verification slice:
+
+- Added `RunMTPMultiDraftSpeculativeStep`, a sibling helper that runs `RunMTPDrafterSteps`, builds one verifier plan from all drafted tokens, runs `RunMTPVerifierForward` once over `[input]+drafted`, and records stats for the full draft count.
+- Kept `RunMTPSpeculativeStep` compatible by delegating to the multi-draft helper with `draftCount=1`.
+- Preserved staged float-KV rollback on post-verifier stats failures.
+- Added tests for a deterministic two-draft projection-only first-rejection case and malformed draft-count validation.
+- Public speculative CLI remains untouched.
+
+## Session 202: Multi-draft all-accepted speculative coverage
+
+Completed the remaining multi-draft speculative behavior coverage:
+
+- Added a zero-layer projection-only fixture where two drafted tokens are both accepted and the verifier emits the bonus token.
+- Covered all-accepted output tokens and LiteRT-style stats (`drafted=2`, `verified=2`, `bonus=1`, `output=3`).
+- Focused speculative tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 203: MTP audit — multi-draft stats preflight
+
+Audited the new multi-draft speculative helper for error-path smells:
+
+- Found that stats preflight was still one-draft oriented, so predictable `DraftedTokens`/`OutputTokens` overflow for multi-draft steps would only be reported after verifier KV mutation.
+- Added draft-count-aware `MTPSpeculationStats.ValidateStepCapacity` and switched the multi-draft speculative helper to use it.
+- Kept `VerifiedTokens` out of preflight because accepted-prefix length is only known after verifier forward; post-verifier stats failures still restore staged KV.
+- Added tests proving multi-draft stats overflow is rejected before verifier KV mutation.
+
+## Session 204: MTP audit — bound multi-draft counts
+
+Continued the multi-draft MTP audit:
+
+- Found that the internal “bounded” multi-step drafter loop accepted arbitrary positive counts and could allocate very large result slices.
+- Added `maxMTPDraftCount` and applied it consistently to `RunMTPDrafterSteps`, `RunMTPMultiDraftSpeculativeStep`, and stats preflight.
+- Avoided unchecked `draftCount+1` accounting by validating the draft count before deriving the maximum output count.
+- Added oversized-count coverage for drafter, speculative, and stats validation paths.
+
+## Session 205: MTP audit — zero-count drafter state aliasing
+
+Continued the bounded drafter-loop audit:
+
+- Found that `RunMTPDrafterSteps(..., count=0)` returned the caller-supplied `MTPDrafterState` directly, so the result activation could alias external state.
+- Fixed the zero-count path to rebuild the final state through `NewMTPDrafterState`, preserving validation and copy semantics.
+- Added regression coverage proving the zero-count final state no longer aliases the caller state.
+
+## Session 206: MTP audit — restore KV on verifier-forward errors
+
+Continued speculative error-path auditing:
+
+- Found that `RunMTPMultiDraftSpeculativeStep` checkpointed float KV before verifier forward but only restored it on post-verifier stats failures.
+- Fixed verifier-forward error handling to restore staged KV as well, covering failures that occur after partial verifier KV appends (for example decode-finish validation after a layer has staged K/V).
+- Added regression coverage using a missing final norm to force a verifier-forward error after staging and asserting K/V is restored.
+
+## Session 207: MTP audit — zero-count q-only drafter validation
+
+Continued edge-case auditing for the bounded drafter loop:
+
+- Found that `RunMTPDrafterSteps(..., count=0)` still required q-only external KV for q-only drafter models even though no q-only layer executes.
+- Split drafter validation into a shell/state path and a full one-step execution path so zero-count validation does not over-require external KV, while actual q-only one-step execution still requires it.
+- Added coverage for zero-count q-only drafter runs without external KV.
+
+## Session 208: MTP audit — drafter validation split cleanup
+
+Continued code-smell auditing after the zero-count validation split:
+
+- Removed the stale `externalKV` parameter from the base drafter validation helper after zero-count q-only handling split shell validation from full execution validation.
+- Kept full q-only execution validation as the only path that receives and validates external KV.
+- Focused drafter tests, no-run all-package gate, vet, and diff checks passed.
+
+## Session 209: MTP audit — explicit multi-draft count errors
+
+Continued multi-draft speculative API auditing:
+
+- Found that oversized `draftCount` values in `RunMTPMultiDraftSpeculativeStep` were rejected by stats preflight, causing a misleading `MTP stats` error for an API-boundary validation issue.
+- Moved the upper-bound check into the speculative helper's draft-count validation before stats preflight.
+- Added regression coverage that oversized draft counts are not reported as stats errors.
+
+## Session 210: MTP audit — stale q-only wording cleanup
+
+Continued MTP code-smell auditing:
+
+- Found stale comments still describing q-only drafter execution as not implemented after the synthetic/contract q-only path had landed.
+- Updated `RunMTPDrafterStep` comments to describe it as the projection-only convenience wrapper and direct q-only users to `RunMTPDrafterStepWithExternalKV`.
+- Refreshed the MTP docs implementation-plan wording from verifier-forward scaffold to verifier-forward contract.
+
+## Session 211: MTP audit — Gemma drafter attention scale
+
+Continued q-only drafter math auditing:
+
+- Found that the drafter q-only attention path always used the default GQA score scale (`1/sqrt(headDim)`), while Gemma4 CPU layers use unscaled attention scores (`scale=1.0`).
+- Added `drafterGQAAttention` to select Gemma4's unscaled attention path for Gemma-style drafter configs and preserve default scaling for other configs.
+- Added regression coverage that the Gemma4 drafter attention path uses the Gemma scale and differs from the default scaled helper on a discriminating fixture.
+
+## Session 212: Documentation refresh after multi-draft MTP audits
+
+Reviewed and refreshed documentation after the multi-step/multi-draft MTP implementation and follow-up audit fixes:
+
+- Updated `README.md` to include the bounded multi-step drafter loop, multi-draft drafter→verifier seam, real-asset q-only contract tests, and bounded/rollback hardening.
+- Updated `docs/architecture/architecture.md` to describe the current multi-step/multi-draft internal seams and refined remaining architecture work.
+- Updated `docs/models/mtp-speculative.md` with current q-only drafter behavior, Gemma attention scaling, real-asset contract coverage, bounded multi-step drafting, multi-draft speculative verification, and verifier/stat rollback behavior.
+- Updated `docs/history/refactor-plan.md` preservation notes so future model-package moves keep bounded count checks, zero-count state copy semantics, and rollback behavior.
+
+## Session 213: NVFP4 roadmap and checkpoint survey
+
+Added NVFP4/FP4 to the Gemma/Qwen efficiency roadmap:
+
+- Searched for public Gemma/Qwen NVFP4 checkpoints and found relevant Hugging Face artifacts including `nvidia/Qwen3-8B-NVFP4`, `NVFP4/Qwen3-32B-FP4`, `nvidia/Qwen3-30B-A3B-NVFP4`, `nvidia/Qwen3-235B-A22B-Instruct-2507-NVFP4`, `nvidia/Gemma-4-31B-IT-NVFP4`, and community Gemma4 26B-A4B NVFP4 checkpoints.
+- Added `docs/backends/nvfp4.md` with current repo status, model-weight findings, loader/CPU/NVIDIA/memory-budget fit gaps, and a staged implementation plan.
+- Updated performance, GPU options, weight-budget, README, and refactor docs to include NVFP4 as a NVIDIA-focused roadmap format distinct from MLX/GPTQ.
+
+## Session 214: FP4/NVFP4 metadata inspection and early loader guard
+
+Started preparing the FP4/NVFP4 compute approach:
+
+- Inspected Hugging Face metadata for representative NVFP4 checkpoints without downloading full weights. NVIDIA ModelOpt Qwen checkpoints expose `quantization_config.quant_algo=NVFP4`, 4-bit float weights/activations with group size 16, FP8 KV cache metadata, and ModelOpt producer metadata. Some Gemma checkpoints expose `format=nvfp4-pack-quantized` and community metadata variants.
+- Confirmed current go-pherence MLX4 is not directly compatible with these NVFP4 layouts; NVFP4 should be a distinct quantization family.
+- Added early `LoadLlama` detection for FP4/NVFP4/ModelOpt configs so unsupported checkpoints fail clearly before opening/missing weight files.
+- Added a regression test for early unsupported NVFP4 detection.
+
+## Session 7: NVFP4/FP4 support track
+
+Added the first end-to-end internal scaffolding for NVIDIA/ModelOpt NVFP4 checkpoints while keeping public generation disabled for the format:
+
+- Added reusable quantization metadata parsing in `loader/config`, including ModelOpt/compressed-tensors FP4/NVFP4 detection and early unsupported-format errors before safetensors weight loading.
+- Metadata-inspected public Qwen3 dense, Qwen3 MoE, and Gemma4 NVFP4 checkpoints without downloading full weight shards; documented tensor prefixes, companion tensors, BF16 router/embedding/LM-head exceptions, and Gemma4 nested `model.language_model` text layout.
+- Added `runtime/quant.NVFP4Weight`, FP4 E2M1 and F8_E4M3FN decode helpers, dequant-to-F32, direct GEMV fallback, and synthetic golden tests including tiny logits vs explicit F32 reference.
+- Added `gpu.GPUNVFP4Weight`, raw byte upload helpers, NVIDIA dequant-to-F32 fallback PTX, compute-capability gating for future native NVFP4 tensor-core kernels, and a correctness-first dense GEMV integration point that currently materializes F32 weights.
+- Audited and fixed raw-byte slice aliasing, F8_E4M3FN finite-only decode semantics, PTX packed-byte offset arithmetic, metadata role matching, and GEMV fallback validation.
+
+Remaining work: keep public NVFP4 generation disabled until real CPU-vs-NVIDIA smokes agree, then add packed/native GEMV/GEMM, LM-head support if needed by a checkpoint, MoE expert-cache integration, and placement/budget accounting for NVFP4 scale overhead.
+
+## Session 215: NVFP4 documentation and audit follow-up
+
+Completed the current NVFP4/FP4 follow-up roadmap and refreshed status after repeated code audits:
+
+- Hardened public NVFP4 rejection coverage across ModelOpt and compressed-tensors variants, including mixed `config_groups`, group `format`, `weights.format`, and 4-bit float `weights.type` metadata. Mixed-group diagnostics now prefer the unsupported FP4 group's bit/group metadata regardless of Go map iteration order.
+- Added metadata-only Qwen3-30B-A3B-NVFP4 placement sizing without downloading shards: about 1188 MB resident, 324 MB for one layer's full expert set, 2.53 MB per expert slot, and roughly 202 expert slots in a 512 MiB cache.
+- Added a packed NVFP4 GEMV/GEMM `NVFP4KernelSpec` contract with row-major packed weights, F8 scales, F32 inputs/outputs, batch semantics, group-size checks, u32 NVIDIA-interface limits, and overflow guards before native dispatch exists.
+- Validated synthetic CPU-vs-NVIDIA NVFP4 dequant parity on the local RTX 3060 and fixed PTX pointer arithmetic so the NVIDIA mega-module loads successfully.
+- Hardened NVFP4 runtime/NVIDIA runtime helpers against overflow-prone packed-count, padded-byte-capacity, byte-packing, and u32 launch-dimension edge cases.
+
+Public NVFP4 loading/generation remains disabled: synthetic dequant parity is in place, but real checkpoint logits/tokens must agree before enabling user-facing generation.
+
+## Session 213: MLX4 GPU decode and Qwen3 MoE performance pass
+
+Continued the MLX4 larger-weight performance investigation after NVFP4 detection/fallback work:
+
+- Applied `--gpu-layers` before upload/allocation so partial residency no longer allocates all layers first, and fixed GPU load diagnostics to report actual resident layer count.
+- Added opt-in decode profiling with `GO_PHERENCE_PROFILE_DECODE=1`, including layer/logit timing and per-run expert-cache deltas split into prompt vs generated-token phases.
+- Skipped prompt-only LM-head/logit projection and tuned the standalone F32 LM-head kernel thread count.
+- Preserved quantized MLX `lm_head` metadata and uploaded large MLX LM heads directly to GPU. This removed the dense `qwen2.5-7b-mlx4` logit bottleneck and moved it from single-digit tok/s to roughly 110–125 tok/s in short local runs.
+- Added a size/VRAM policy for LM-head representation: moderate heads use the faster F32 path when they fit, while very large heads or low-headroom cases use compact MLX. Covered the policy with unit tests.
+- Diagnosed `qwen3-30b-a3b-mlx4` as MoE-bound, not LM-head-bound. Batched dense prefill is explicitly skipped for MoE with `GO_PHERENCE_PREFILL_DEBUG=1` explaining the fallback.
+- Specialized CPU MLX4 GEMV for 4-bit group layouts, reused input-group sums, and added Qwen MoE gate/down microbenchmarks.
+- Added native-only MLX expert upload for MoE. Cached experts use `GemvMLXDirect`, so uploading the transposed GPTQ-compatible buffers was wasted work.
+- Added direct `uint32` NVIDIA uploads for packed MLX weights to avoid host-side repacking on expert upload.
+- Changed MoE cache misses to upload selected experts immediately and run them on GPU in the same pass; CPU remains the fallback if upload fails.
+- Removed redundant per-expert sync before downloading outputs, then accumulated GPU expert outputs on device to reduce per-expert downloads.
+- Added GPU-only `DevBuf` scratch allocation and used it for MoE scratch buffers to avoid unnecessary zero uploads.
+
+Representative local short-run results after this pass:
+
+| Model | Tokens | Result |
+|---|---:|---:|
+| `qwen2.5-7b-mlx4` | 16 | ~120 tok/s no-profile, up to ~158 tok/s in a profiled short run |
+| `gemma3-1b-mlx4` | 16 | ~72–74 tok/s after F32 LM-head policy |
+| `gemma4-e2b-mlx4` | 16 | ~21–22 tok/s |
+| `qwen3-30b-a3b-mlx4` cold | 16 | ~5.2 tok/s, ~4.0s total with selected expert uploads |
+| `qwen3-30b-a3b-mlx4` warmed | 16 | ~2.9s total after expert cache warm |
+
+Remaining Qwen3 MoE bottlenecks are mostly NVIDIA driver/kernel overhead and sequential expert execution once the route set is warm. The next meaningful improvements are likely route-aware/batched MoE prefill, fused selected-expert kernels, or reducing KV/attention launch counts.
+
+### MLX4 MoE follow-up — GPU-resident router/activations and diagnostics
+
+Followed up the Session 213 performance pass with additional Qwen3 MoE audits:
+
+- Added decode-profile GPU operation counters (`kernels`, `h2d`, `d2h`, `d2d`, `syncs`) to make NVIDIA launch/copy pressure visible alongside layer/logit timing.
+- Moved the MoE router to GPU when resident by uploading router weights as native MLX and using `GemvMLXDirect` with CPU fallback.
+- Kept MoE activations resident on GPU across router and expert execution, avoiding the previous download/re-upload of `g.normed` and the final `g.down` copyback in the all-GPU path.
+- Hardened `moeForwardGPU` guards for nil/short inputs, invalid expert/intermediate counts, and `NumExpertsPerTok > NumExperts`; fixed a lazy CPU-fallback input capture race.
+
+Latest local Qwen3-30B-A3B MLX4 16-token repeat profile:
+
+| Run | State | Time | Notes |
+|---:|---|---:|---|
+| 1 | cold route set | ~4.1s | ~2653 expert misses uploaded/used on GPU |
+| 2 | warm route set | ~2.9s | zero expert misses |
+| 3 | warm route set | ~2.9s | stable repeat |
+
+Warm-run GPU counters after removing the pre-sync before direct device copies, counting only model syncs, and fusing MoE add-scaled accumulation are roughly `kernels=123680 h2d=44 d2h=1388 d2d=6720 syncs=32`, so the next major gains require reducing kernel launch and copy count (for example selected-expert fusion, route-aware batched MoE prefill, or attention/KV copy fusion), not more CPU GEMV tuning.
+
+### NVIDIA/DevBuf hardening follow-up
+
+A follow-up audit tightened the `backends/nvidia/runtime`/`model` boundary before deeper MoE fusion work:
+
+- Scoped GPU operation counters to `GO_PHERENCE_PROFILE_DECODE=1`; `StatsSnapshot` is now side-effect-free and generation restores the previous counter state after profiling.
+- Hardened `DevBuf` transfer semantics: failed device copies fall back safely, failed GPU-to-CPU downloads keep GPU contents authoritative, slice views use overflow-safe bounds/byte math, and non-empty copies to zero-sized NVIDIA buffers are rejected before driver calls.
+- Centralized NVIDIA byte-size validation across allocation, upload/download, D2D copies, SGEMM/JIT dispatch, and Q4/MLX buffer-capacity checks to avoid unchecked `n*4` arithmetic.
+- Preserved complete MoE output if adding CPU fallback work back into a GPU accumulator fails; the CPU return path now includes already-computed GPU expert contributions.
+- Hardened GPU model byte-size arithmetic and KV-cache copy failure handling so allocation/copy failures fall back instead of silently marking stale state authoritative.
+
+### Step 128 — Stock-weight speculative scaffold and Orthrus analysis
+
+Reviewed `chiennv2000/orthrus` as an algorithmic reference and decided not to depend on its custom-trained `*_diff` checkpoint weights. Added `docs/history/orthrus.md` to capture the distinction between Orthrus' dual-view diffusion proposer and a stock-weight verifier scaffold suitable for go-pherence.
+
+Implemented an opt-in CPU speculative generation path for normal model weights:
+
+- `SpeculativeConfig` with CLI/env knobs for block size, n-gram size, minimum proposal length, proposer selection, backend selection, and debug output.
+- `SpeculativeProposer` with `prompt`, `repeat-last`, and `none` implementations.
+- `GenerateSpeculative` / `GenerateSpeculativeWithStats` for exact greedy output with structured stats.
+- `CPUDecodeState` with output/KV checkpoint, restore, greedy fallback, verifier-block, and commit contracts.
+- `backend=replay` as the current exact verifier scaffold. The `kv` selector is accepted but safely falls back to `replay` until a stateful KV-reusing verifier lands.
+- `llmgen`, `llmchat`, and `llmserver` expose `--speculative` on CPU; GPU speculative verification remains disabled.
+- `cmd/llm/specbench` emits CSV normal-vs-speculative benchmarks with parity, speedup, backend/proposer identity, proposal/acceptance/fallback counters, emitted tokens, tokens/step, average proposal length, repeat averaging, prompt-file workloads, and aggregate rows.
+
+Audit fixes during this work:
+
+- Corrected speculative stats accounting so accepted/bonus counters are only updated after successful commit; failed commits are counted as fallback.
+- Normalized speculative selector strings (trim/lowercase) for CLI/env robustness.
+- Fixed `specbench` token accounting to use `PreparedGenerateTokens`, because CPU generation may add BOS/chat-template tokens before decoding.
+
+Current result: the path is exact and observable but intentionally slower with `backend=replay`. Real speedups require replacing replay verification with a KV-reusing verifier block and then measuring proposer quality with `specbench`.
+
+### Step 129 — Pivot active goal to Qwen3.6 27B native MTP
+
+Set Qwen3.6 27B native MTP as the active project goal. The immediate target is no longer generic Orthrus-style speculation, but the Qwen3.5/Qwen3.6 text architecture plus its embedded `mtp.*` native MTP head.
+
+Key checkpoint finding remains `sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP`, which exposes `text_config.model_type=qwen3_5_text`, 64 mixed linear/full-attention layers, and one native MTP layer (`mtp_num_hidden_layers=1`). The safetensors header shows the native MTP layout (`mtp.fc`, pre-FC norms, one MTP decoder layer, and `mtp.norm`). The public artifact is NVFP4, so implementation needs either a non-NVFP4 artifact or enough real-checkpoint NVFP4 loading to reach parity.
+
+Updated `docs/models/qwen36-mtp.md` from notes into the active roadmap. First milestone is clear loader/config diagnostics and base Qwen3.6 text-model support before native MTP generation is enabled.
+
+### Step 130 — Map llama.cpp mtp-clean reference
+
+Inspected `am17an/llama.cpp` branch `mtp-clean` at commit `2dff7ff`. The key reference files are `conversion/qwen.py`, `src/models/qwen35.cpp`, and `common/speculative.cpp`.
+
+Important findings for go-pherence:
+
+- `_Qwen35MtpMixin` remaps HF `mtp.*` tensors to logical `blk.{n}.nextn.*` tensors and treats MTP layers as extra blocks appended after the main stack.
+- Qwen3.6 full-attention Q projection emits both query and attention gate (`2 * n_heads * head_dim`), then applies `sigmoid(gate)` to the attention output before `o_proj`.
+- Qwen3.6 linear-attention layers are gated delta-net recurrent layers; this remains the largest base-model blocker.
+- The native MTP graph takes `(next token id, pre-norm hidden row)`, normalizes token embedding and hidden separately, concatenates them, projects via `mtp.fc`, runs one full-attention decoder block, returns logits, and saves pre-output-norm hidden for the next draft step.
+- The runtime MTP loop keeps `pending_h` per sequence, mirrors target pre-norm hidden rows, drafts multiple tokens by feeding back MTP pre-norm hidden, and updates `pending_h` on accept.
+
+Added the detailed mapping to `docs/models/qwen36-mtp.md`.
+
+### Step 131 — Native Qwen3.6 MTP scaffolding
+
+Continued the Qwen3.6 27B native-MTP goal using the llama.cpp `mtp-clean` reference as the implementation map.
+
+Implemented metadata/config scaffolding:
+
+- reusable Qwen native-MTP parser in `loader/config`;
+- native `mtp.*` tensor-name detection and required tensor set validation;
+- Qwen3.5/Qwen3.6 full-attention and linear-attention shape helpers;
+- layer classification helpers for main linear/full-attention layers vs appended MTP tail;
+- `cmd/qwen/qwenmtpmeta` for local metadata/tensor triage.
+
+Implemented native-MTP head scaffolding:
+
+- `QwenNativeMTPHead` / `QwenNativeMTPLayer` structs;
+- tensor-source loader contract plus safetensors-backed source for BF16/F32 fixtures;
+- synthetic full-head safetensors loading test;
+- CPU preprojection, full-attention/MLP block skeleton, RoPE application, history-aware MTP KV attention, final MTP norm + main LM-head logits/argmax;
+- `QwenNativeMTPDraftState`, bounded `DraftSteps`, plan contract, verifier-token/logit adapters, accepted-prefix draft-state commit, and stats/aggregation helpers;
+- `cmd/qwen/qwenmtpsynth` for command-line synthetic correctness.
+
+Remaining blockers:
+
+- real Qwen3.5/Qwen3.6 base forward support, especially gated delta-net linear attention;
+- real native-MTP integration into `LoadLlama` once base support exists;
+- real-checkpoint NVFP4 loading or a non-NVFP4 Qwen3.6 native-MTP artifact;
+- `speccheck -qwen-native-mtp` real-model wiring and golden baseline generation.
+
+## Session 36: Backend coverage closeout documentation
+
+Completed the documentation and acceptance-tracking pass for the backend coverage/refactor plan without running per-change tests:
+
+- Added Vulkan validating wrapper tests and documented the remaining pipeline-cache and CPU-vs-Vulkan parity gap.
+- Refreshed `runtime/quant` as compatibility-only wrappers for the newer backend-owned caller-owned decode/dequant helpers.
+- Documented the Gemma4 diagnostic package boundary and kept diagnostic compile validation deferred to the phase gate.
+- Added backend parity, malformed-input coverage, validation-gate, benchmark snapshot queue, and final acceptance tracker documents.
+- Added a docs index and cross-linked architecture, backend layout, README, kernel coverage, Vulkan, NVIDIA, BF16, NVFP4, benchmark, and validation references.
+- Kept full validation deferred until the planned phase-level gate: `GOTMPDIR=$PWD/.gotmp go test ./...`, `GOTMPDIR=$PWD/.gotmp go vet ./...`, and `make test-cpu`.
+- On 2026-05-20, ran that full phase-level validation gate and all three commands passed.
+
+## 2026-05-21 — Gemma4 31B packed MTP smoke
+
+- Added MLX row dequantization for single embedding rows so the 31B MTP assistant can keep its vocabulary embedding table packed and only materialize the requested token row.
+- Extended `LoadGemma4MTPDrafter` to load the 31B assistant checkpoint (`models/gemma4-31b-it-mtp-assistant-4bit`) with packed MLX 4-bit weights for embeddings, pre/post projections, attention projections, and MLP projections.
+- Routed q-only drafter GEMVs through `backends/mlx` when packed weights are present, preserving the BF16/F32 path for the E2B assistant.
+- Added `cmd/models/gemma4mtpsmoke` plus `llmgen -mtp-drafter ... -mtp-smoke` as runtime-facing smoke paths. They load the main 31B model on the on-the-fly 4-bit path, load the packed assistant, build minimal external KV, run one q-only drafter step, and emit timing/shape JSON.
+- Local 31B smoke after `go test ./...` and `go vet ./...`: main load `16.25s`, assistant load `0.26s`, drafter step `0.47s`, packed embedding/projection/layer weights all true.
+- Full speculative generation remains pending: capture real verifier activations/KV, run adaptive multi-draft assistant steps, batch verifier candidates, and commit accepted KV prefixes plus the bonus token.
+
+## 2026-05-21 — Real-prompt Gemma4 MTP handoff
+
+- Added `BuildMTPPromptContext`, which runs prompt tokens through the Generate-equivalent CPU path including Gemma4 per-layer inputs, captures final activation, and returns float KV caches for MTP seeding.
+- Added `llmgen -mtp-real-prompt` to feed real prompt activation/KV into the packed 31B MTP assistant instead of using zero external KV.
+- Fixed Gemma4 assistant full-attention KV validation to use `num_global_key_value_heads` for full-attention layers and mapped drafter layers to compatible main-model KV source widths (`[sliding, sliding, sliding, full]` → matching main KV cache widths).
+- Local short-prompt smoke (`prompt="Hi"`) succeeded: 10 prepared prompt tokens, prompt prefill `299.06s`, packed drafter step `0.39s`, wall `317.19s`. This proves the handoff and confirms that CPU/on-the-fly 31B prompt prefill is the next performance bottleneck before complex-prompt MTP benchmarking is useful.
+
+## 2026-05-21 — GPU KV horizon tuning for 31B MTP prefill
+
+- Made GPU KV allocation resident-layer-only and configurable via `GO_PHERENCE_GPU_KV_MAX_SEQ` / `llmgen -gpu-kv-max-seq`.
+- `llmgen -mtp-smoke -mtp-real-prompt -gpu` now defaults the GPU KV horizon to 256 positions when no explicit horizon is set, allowing more transformer layers to fit for prompt smokes.
+- Local RTX 3060 split results for the 10-token prepared `Hi` prompt:
+  - CPU/on-the-fly: `299.06s` prompt prefill.
+  - `-gpu-layers 14`: `220.75s` prompt prefill, compact MLX LM head resident.
+  - `-gpu-layers 17 -gpu-kv-max-seq 256`: `213.76s` prompt prefill, ~653MB free.
+  - `-gpu-layers 18 -gpu-kv-max-seq 64`: `200.32s` prompt prefill, ~79MB free; useful only as an aggressive short-prompt probe.
+
+## 2026-05-21 — Prompt-context LM-head bypass
+
+- Added `FinishCPUActivation` so MTP prompt seeding can capture final normalized activation without running the full vocabulary LM-head projection.
+- `BuildMTPPromptContext` and `GPUModel.BuildMTPPromptContext` now use activation-only prompt finalization. The GPU helper still requests one internal Generate step because `Generate(..., 0)` intentionally stops before the last prompt position, but it intercepts the final prompt activation before logits and does not append a token.
+- This removes unnecessary verifier-side prompt logits work from MTP seeding; short-prompt timings remain dominated by the 31B transformer layers and vary around `200–205s` for the aggressive local GPU split.
+
+## 2026-05-21 — Gemma4 E4B MTP target
+
+- Downloaded the Gemma4 E4B MLX pair into ignored local model directories:
+  - `models/gemma4-e4b-it-4bit` from `mlx-community/gemma-4-E4B-it-4bit` (~4.9GiB local)
+  - `models/gemma4-e4b-mtp-drafter` from `mlx-community/gemma-4-E4B-it-assistant-bf16` (~183MiB local)
+- Minimal MTP smoke passes: main load `6.98s`, assistant load `0.24s`, drafter step `0.12s`.
+- Full-GPU real-prompt smoke passes on RTX 3060: all `42/42` layers resident, compact MLX LM head resident, VRAM `6872/11910 MB` used, 10-token prepared prompt prefill `0.56s`, drafter step `0.10s`.
+- Complex-prompt E4B real-prompt smoke: 76 prepared prompt tokens, prefill `3.41s`, drafter step `0.10s`, wall `16.28s` including load/upload.
+- E4B is now the recommended local development target for verifier/prefill/MTP algorithm work; 31B remains the stress path.
+
+## 2026-05-21 — Documentation consistency pass after README split
+
+- Reviewed documentation after the README was shortened and detailed content moved to focused docs.
+- Updated Qwen3.6 MTP notes to reflect the newly found MLX 4-bit native-MTP candidates, especially `samwang0041/Qwen3.6-27B-MLX-4bit-MTP`, and clarified that Gemma4 E4B is the fast local MTP development target while Qwen3.6 remains the native-MTP stress target.
+- Updated command, supported-model, validation-gate, and final-acceptance docs so they point to the E4B MTP smoke path first and keep 31B/Qwen as stress paths.
+
+## 2026-05-21 — Qwen3.6 27B MLX MTP local asset
+
+- Downloaded `samwang0041/Qwen3.6-27B-MLX-4bit-MTP` into ignored local directory `models/qwen3.6-27b-mlx4-mtp` (~15GB).
+- Taught Qwen native-MTP metadata recognition to accept nested `language_model.mtp.*` tensor names; `cmd/qwen/qwenmtpmeta -strict` now reports `mtp_tensor_complete=true` for the MLX checkpoint.
+- First `cmd/qwen/qwen36run` probe reached base linear-attention weight loading and exposed the next blocker: Qwen3.5/Qwen3.6 base path did not load MLX affine U32 packed linear-attention weights (`language_model.model.layers.0.linear_attn.in_proj_qkv.weight`), and its NVFP4 fallback expected U8.
+- Added MLX affine packed-weight loading/CPU GEMV to the Qwen3.5/Qwen3.6 base path and native-MTP head, plus MLX packed embedding/LM-head handling in `cmd/qwen/qwen36run`.
+- `cmd/qwen/qwen36run -model models/qwen3.6-27b-mlx4-mtp -prompt "Hello" -steps 1 -mtp -mtp-steps 1` now passes on CPU: base greedy `next_id=119`, MTP draft `mtp_next_id=220`, `passed=true`, `duration_ms=30860`. The next performance step is NVIDIA MLX packed-weight caching/GEMV for the Qwen3.5/Qwen3.6 path.
+- Added an initial NVIDIA MLX GEMV scaffold for Qwen3.5/Qwen3.6 packed weights. `qwen36run -gpu -gpu-prewarm=false -gpu-lm-head=false -gpu-timing` now passes, with `linear_stats.gpu_calls=8` and CPU fallback for the rest; this validates CUDA dispatch.
+- Added an MLX-specific GPU weight cache under the existing Qwen GPU cache budget. Initial LRU admission thrashed because the full 27B MLX working set exceeds local VRAM; switching MLX admission to no-evict preserves a resident prefix and lets overflow weights fall back to CPU.
+- Current `-gpu-cache-mb 11000` Qwen MLX MTP smoke: 144 resident MLX entries, `gpu_calls=144`, `cpu_calls=345`, `duration_ms=25695`, `passed=true`. A two-step decode shows reuse (`gpu_cache.hits=144`) and improves over the thrashing path.
+- Added persistent Qwen MLX GPU scratch buffers, MLX prewarm, and native-only MLX uploads via `UploadMLXWeightNative`. With `-gpu-prewarm=true -gpu-cache-mb 11000`, one-step Qwen MTP smoke improved to roughly `9–11s`, with 393 resident MLX entries, 393 GPU calls, 96 CPU fallbacks, and `passed=true`; two-step decode reaches 786 GPU calls and about `19.8s`.
+- Added MLX LM-head GPU support in `qwen36run` and documented the Qwen MLX placement policy: keep a stable decode-hot layer prefix resident and leave VRAM headroom for transient native MLX uploads. `-gpu-cache-mb 10600` is the current RTX 3060 sweet spot: one-step Qwen MTP smoke passes in about `4.1s`, with all 489 linear calls on NVIDIA, no CPU GEMV fallback, and GPU LM-head logits around `9ms`.
+- Added a first in-process KVBoost-style MTP prompt-context cache to `llmgen` via `-mtp-kv-reuse`; `-mtp-kv-repeat 2` validates that the second real prompt context build reuses cached activation/KV and still feeds the Gemma4 MTP drafter correctly.
+
+## 2026-05-22 — KVBoost application plan
+
+- Reviewed KVBoost's public project page and mapped its chunk-hashed KV reuse, prompt prefix reuse, page/offload, and AWQ streaming ideas onto go-pherence.
+- Added `docs/history/kvboost-application-plan.md` with a phased implementation plan: CPU/GPU-neutral KV snapshots, token chunk hash/LRU cache, Gemma4 prompt-context reuse, Qwen recurrent-state snapshots, and later page/offload tiers.
+- The first recommended slice is Gemma4 E4B `llmgen -mtp-real-prompt` reuse: run a long prompt once to fill chunk snapshots, run it again to skip cached prefix prefill, then port the mechanism to 31B and Qwen3.6.
+
+## 2026-05-22 — Chunked KV primitives and Qwen overflow control
+
+- Added backend-neutral KVBoost primitives in `runtime/kv/reuse.go`: prefix-chain token hashing, KV snapshots, clone/size helpers, and a byte-bounded LRU chunk cache.
+- Added tests for chunk hash prefix isolation, snapshot cloning, and eviction.
+- Added `qwen36run -gpu-mlx-overflow` to explicitly control transient native-MLX uploads for Qwen weights that do not fit the resident cache. The current RTX 3060 sweet spot remains `-gpu-cache-mb 10600 -gpu-mlx-overflow=true`, which keeps Qwen3.6 one-step MTP smoke at about `4.0s` with all 489 linear calls on NVIDIA.
+
+## 2026-05-22 — Qwen prompt-state reuse smoke
+
+- Added `qwen36run -kv-reuse -kv-repeat N` to validate exact in-process Qwen prompt-state reuse.
+- The cached sidecar stores `Qwen35BaseForwardState` plus final hidden/pre-norm hidden/logit state, so it covers both full-attention K/V and linear-attention recurrent state.
+- Validation command with `-kv-repeat 2` reports `kv_cache_hit=true`, `linear_stats.gpu_calls=489`, `cpu_calls=0`, and `passed=true`; this is the Qwen recurrent-state snapshot seam needed for a KVBoost-style chunked prefix cache.
+- Extended Qwen reuse from exact prompt to longest cached prefix: `qwen36run` now stores prompt state at chunk boundaries and restores the longest matching prefix before prefilling only the suffix. Unit tests cover longest-prefix selection and cloned `Qwen35BaseForwardState` restore; a `-kv-chunk-size 2` smoke reports `kv_reused_tokens=3` and `kv_stored_chunks=2` for a repeated three-token prompt.
+- Added Qwen layer-streamed prompt prefill: `Qwen35BaseModel.ForwardChunkLayerStreamed` processes a prompt chunk layer-by-layer, updating full-attention K/V and linear recurrent state in token order. `qwen36run -layer-streamed-prefill -prefill-chunk-size 4` matches the sequential path for `Hello world again` on `next_id`, `mtp_next_id`, `hidden_abs_sum`, and `mtp_abs_sum`.
+- Combined Qwen MTP verifier state with accepted-prefix commit: after drafting, `qwen36run` verifies drafts from a cloned restored/streamed state, commits accepted draft tokens plus the verifier bonus token, and writes the resulting `Qwen35BaseForwardState` back to the main runner. The smoke reports `mtp_committed_tokens` and `mtp_commit_state_pos`.
+- Added `qwen36run -mtp-generate`, a repeated native-MTP draft/verify/commit generation loop. A 3-token smoke with layer-streamed prefill and KV reuse passes with all 2976 linear calls on NVIDIA; current acceptance on the test prompt is zero, so the loop emits verifier bonus tokens.
+- Audited native-MTP sequencing: the generation loop now commits the prompt's first verifier token as the initial bonus before seeding MTP with that committed token and pre-norm hidden row. Position `pos+1` and greedy-seed checks did not improve acceptance, pointing to deeper MTP numerical/semantic parity work.
+- Seeded native-MTP draft self-attention with prompt-prefix MTP K/V before the current seed token. This fixes an empty-context draft-cache bug, but local acceptance remains zero; a semantic smoke (`The capital of France is`) shows the Qwen3.6 verifier path itself is still poor, so base Qwen3.6 parity is the next blocker before MTP acceptance can be meaningful.
+- Fixed major Qwen3Next parity issues: linear attention now keeps raw `[q,k,v]` conv input, repeats q/k to value heads after conv, uses per-value-head recurrent state and gated-delta residual update/readout, and applies gated RMSNorm per value head before `silu(z)`. Full attention now splits `q_proj` per head as `[q_head, gate_head]`. Semantic Qwen3.6 output improved (`The capital of France is` -> ` known for its rich history` in a 5-token smoke), and native-MTP acceptance became non-zero (`Hello world again` accepted one draft token with `-mtp-generate -mtp-steps 2`).
+- Kept Qwen native-MTP K/V current across generation commits: the loop now seeds MTP with full prompt K/V, commits the seed-token MTP K/V on every draft round, and commits additional MTP K/V rows for accepted drafts. A 10-token smoke generated `! I'm back again with another post about my` with three accepted draft tokens.
+- Added Qwen native-MTP generation accounting (`drafted`, `rounds`, `bonus_tokens`, acceptance rate). A 12-token smoke generated `! I'm back again with another post about my journey into` with 5 accepted drafts out of 14 drafted candidates across 7 rounds.
+- Cleaned Qwen native-MTP generation metrics by skipping the one-shot diagnostic pass during `-mtp-generate`. Same-prompt comparison now shows sequential decode still faster (~0.81 tok/s) than MTP (~0.68 tok/s at `-mtp-steps 2`, ~0.72 tok/s at `-mtp-steps 1`) because draft LM-head argmax and serial verifier commits dominate.
+- Added an experimental NVIDIA `ArgmaxF32`/MLX LM-head argmax path behind `GO_PHERENCE_NVIDIA_ARGMAX=1`, with malformed-input coverage. The implementation was upgraded from single-block scanning to per-block GPU partial reduction plus host reduction, but it is still slower than the existing GPU-GEMV plus logits download path on RTX 3060, so the optimized download path remains default.
+- Added `qwen36run -mtp-adaptive`, which falls back to plain verifier decode after warmup when accepted/drafted ratio is below a threshold. A 12-token smoke with `-mtp-steps 1 -mtp-adaptive -mtp-min-acceptance 0.75` fell back after 4 rounds with 2/4 accepted drafts and preserved the same output while bounding extra MTP work. Added focused fallback-policy coverage for disabled mode, warmup gating, threshold behavior, and no-draft cases.
+- Added focused Qwen3Next verifier-parity tests for the corrected full-attention q/gate split, linear-attention q/k/v split and repeat, recurrent-state shape, and gated RMSNorm behavior.
+- Added experimental `qwen36run -mtp-verify-chunk`, which precomputes verifier IDs/states for each native-MTP draft chunk from a cloned state and commits only the accepted prefix. It preserves output/acceptance but remains slower than serial verification because it still runs per-token verifier steps internally; kept as scaffolding for true layer-batched verification.
+- Added experimental `qwen36run -mtp-verify-layer-chunk`, which now uses `ForwardChunkLayerStreamedDetailed` to compare draft chunks and return exact per-prefix `Qwen35BaseForwardState` snapshots from the same layer-major pass. Whole accepted chunks and partial prefixes now commit directly from those snapshots without rerunning accepted tokens. It preserves output/acceptance but remains slower than the default serial verifier path because it is still an additional comparison mode rather than replacing the default work.
+- Added `qwen36run -compare-sequential`, which runs a sequential verifier baseline from the same post-prefill state after MTP generation and reports decoded-text parity plus speed ratio. Metrics are separated so the normal `linear_stats`/`lm_head_stats` describe MTP generation only, while `sequential_linear_stats`/`sequential_lm_head_stats` describe the comparison baseline. An 8-token smoke preserved output and measured current native MTP at ~0.61× sequential speed.
+- Trimmed Qwen native-MTP tail work: draft steps are capped by remaining output capacity, and when only one slot remains the loop emits the verifier bonus directly instead of drafting. Added unit coverage for the cap helper.
+- Added configurable Qwen prompt-state cache budget (`-kv-cache-mb`) and cache reporting (`kv_cache_max_bytes`, `kv_cache_used_bytes`, `kv_cache_entries`) for KVBoost-style reuse diagnostics. Cache accounting now includes the full stored Qwen forward-state sidecar instead of only the hidden vector: a 512MiB-cache smoke restored a three-token prompt from two chunks using ~318MiB, while a 1MiB cache correctly evicted oversized states. Added cache membership checks and sidecar pruning so evicted prompt-state snapshots do not linger outside the byte-budget LRU; `kv_stored_chunks` now counts only retained stores. Reports now expose `kv_prefill_tokens`, `kv_suffix_tokens`, `kv_skipped_prefill_tokens`, and `kv_reuse_efficiency` for work-avoidance accounting. Added `-kv-prime-prompt` for cross-prompt longest-prefix diagnostics; priming `Hello world` and running `Hello world again` restored the 2-token prefix and prefed only the suffix. Added unit coverage for primed-prefix hits and unrelated-prompt misses. Added `-kv-compare-cold`, which reports cached-vs-cold main prompt prefill timings and next-token parity; the prefix smoke measured ~2.58× speedup. Added lookup/store counters for attempts, hits, misses, retained chunks, and evicted stores. Added a compact `summary` block for headline KV/MTP dashboard metrics. Added the first NVIDIA GPU hot-tier state primitive (`Qwen35GPUForwardState`) with upload/download/free helpers and availability-gated parity coverage. Extracted Qwen prompt caching into reusable `model/qwen` `PromptCache` types, added cache storage policy flags (`-kv-store-every`, `-kv-store-final-only`, `-kv-min-store-tokens`), prompt-file support for long-prompt diagnostics, and a byte-budgeted `GPUPromptCache` prototype for NVIDIA hot-tier state caching. Wired `qwen36run -kv-gpu-cache-mb` to promote retained CPU prompt snapshots into the GPU hot tier and report GPU prompt-cache store/cache stats; this is still a storage diagnostic, not an inference restore path. GPU prompt-cache stats now split upload failures, byte-budget rejections, and VRAM-headroom rejections, showing the local Qwen3.6 smoke currently fails promotion at the VRAM headroom preflight rather than due the configured cache budget. Added `-kv-gpu-headroom-mb` plus estimated-state/free-VRAM reporting; even with zero reserved headroom the local F32 smoke estimated ~159MiB per state with ~146MiB free. Added `-kv-gpu-compressed` BF16-packed GPU prompt-state storage; the same smoke retained one ~79.6MiB compressed GPU entry and rejected the next on headroom. Added `-kv-gpu-verify` to download promoted entries and check metadata/shape/position plus sampled value parity against the CPU snapshot, using BF16-aware tolerance for compressed entries; the compressed smoke reports one verify match for the retained GPU entry. Prompt-cache lookup now returns the matched key, enabling `qwen36run` GPU hot-tier hit/miss reporting for CPU prefix hits; the compressed prime/extended smoke reports a GPU hit for the retained prefix entry. Added `-kv-gpu-promote-on-hit` so CPU cache hits can be promoted into the GPU hot tier when absent, with promotion success/failure counters. Added experimental `-kv-gpu-restore-on-hit`, which downloads a matching GPU hot-tier entry and uses it as the restored CPU state for diagnostics; compressed-cache prefix smoke preserves the run and reports `kv_gpu_used_for_restore=true`. Combined with `-kv-compare-cold`, the report now exposes `kv_gpu_restore_matches_cold`; the compressed restore smoke matched cold prefill and measured ~3.25× cached-vs-cold speedup on the tiny prefix case.
+
+Added a GPU-resident MLX4 MLP path for Qwen3.6 cached layers and made `-gpu-mlp` default true. The path only runs when gate/up/down MLX weights are already resident, avoiding extra overflow probes; it keeps intermediate MLP vectors on GPU and downloads only the final output. A 16-token sky-smoke reduced linear calls from 10,269 to 7,560 with a small decode gain (~0.706 → ~0.714 tok/s), confirming launch/upload pressure remains the main 10× target.
+
+Added a lightweight Qwen layer schedule planner (`model/qwen/schedule.go`) and `qwen36run` report wiring. The planner consumes current GPU cache residency and transient-layer stats, scores 2/4/8-layer suffix windows from the first incomplete layer, and reports missing bytes, transient coverage, estimated bytes/uploads per token, and fit against window budget/free VRAM. On the default 10.6GB Qwen3.6 RTX 3060 smoke it identifies layer 43 as the first overflow layer and recommends an 8-layer window for coverage while flagging the ~1.81GB missing bytes as not currently fitting free/window memory. The planner now also reports `best_feasible`; with a 512MB reserve, that is a 2-layer window starting at layer 43 (~406MB missing bytes), while the 8-layer recommendation remains the higher-coverage target. Added `qwen36run -gpu-window-auto-plan`, which snapshots GPU residency after prewarm and automatically applies the planner/prewarm overflow boundary as the window start layer when `-gpu-window-start-layer` is unset. On the 512MB-reserve smoke it selected layer 41 from the post-reserve resident-prefix boundary and produced window hits during decode.
+
+Improved Qwen GPU transient diagnostics by registering MLX weight names during prewarm and reporting top transient MLX overflow weights. Fixed transient accounting so cache-full probes are not double-counted as uploads. The 8-token sky-smoke now reports 1,833 actual transient uploads / ~60.7GB, dominated by later-layer MLP gate/up/down weights beginning around layer 43; this confirms the next speed work should target MLP overflow placement or fused/layer-window execution rather than cache-size increases.
+
+Added `-gpu-placement` with `prefix`, diagnostic `mlp-suffix`, and diagnostic `mlp-first` policies. The suffix/MLP-first policies prioritize MLP weights during prewarm, but the 8-token sky-smoke showed no gain: they reduced cache hits (about 4,537 → 2,873), increased transient uploads (about 1,833 → 3,497), and were slightly slower than prefix. Keep `prefix` as default; the result points toward layer-window execution rather than static MLP-first/suffix placement.
+
+Added MLX per-layer residency diagnostics to `gpu_cache`: `mlx_complete_prefix_layers` and `mlx_layers` report resident/total named MLX weights per layer. Added transient category/layer breakdowns plus normalized `gpu_transient_bytes_per_token` and `gpu_transient_uploads_per_token` in `qwen36run`. With the default 10.6GB budget the Qwen3.6 cache fully covers layers 0–42; layer 43 is partial. A 4-token sky-smoke measured ~10.5GB and ~317 transient uploads per generated token, split across MLP (~30GB total for gate/up/down), linear attention (~9.6GB), and attention (~2.3GB). Added `transient_unique_weights`/`transient_unique_bytes` and `gpu_window_estimates`; the same smoke estimates that a 4-token layer window could reduce overflow pressure to ~1.17GB/token and ~35 uploads/token (~9× reduction). Added per-layer resident/total byte accounting and `mlx_window_summaries`; with the default 10.6GB budget, a suffix window starting at first incomplete layer 43 needs about 387MB for 2 layers, 865MB for 4 layers, or 1.81GB for 8 layers of additional MLX weight memory. Added `-gpu-window-reserve-mb` to deliberately leave suffix-window headroom by reducing the resident cache budget, then wired it to a bounded overflow-window MLX cache that stores cache-full weights outside the prefix budget. A 512MB reserve on a 4-token sky-smoke filled ~526MB / 37 window entries and reduced upload pressure from ~10.5GB/token and ~317 uploads/token to ~8.27GB/token and ~149 uploads/token, but wall time regressed because the shorter prefix and window fill cost were not yet amortized. Added `-gpu-window-start-layer` to restrict overflow-window admission by layer; on an 8-token 512MB-window smoke, targeting layer 43/45 improved wall time slightly versus generic admission (~0.549/0.555 tok/s vs ~0.530 tok/s), suggesting low-layer churn should stay transient while the window targets the later suffix. Routed fused MLX MLP overflow weights through the window cache instead of bypassing it, and added `window_hits`, `window_misses`, `window_uploads`, `window_upload_bytes`, and `window_evictions` to `gpu_cache`. Added sticky overflow-window admission (`-gpu-window-sticky`, default true): once full, the window keeps admitted weights instead of LRU-evicting them for new overflow weights. On a 16-token sky-smoke, sticky mode dropped window uploads from 2,940 to 35, produced 700 window hits, and improved decode from ~0.672 tok/s (LRU) to ~0.727 tok/s; the best sampled setting (`-gpu-window-reserve-mb 512 -gpu-window-start-layer 41`) reached ~0.751 tok/s, slightly ahead of the recent no-window ~0.741 tok/s. Added `-gpu-window-category` (`all`, `mlp`, `attention`, `linear_attention`) to profile category-targeted sticky sets. After fixing the local NVIDIA driver/userspace mismatch, rechecked category filters and cache budgets: `all` remained best among sampled categories, and `-gpu-cache-mb 10600` remained the safest default (10.7GB reduced fallback volume but was not faster; 10.8GB+ caused VRAM-pressure regressions). Added `total_resident_bytes`, `free_bytes`, and `total_bytes` to `gpu_cache` so memory-pressure cases are explicit; a 128MB window smoke ended with ~11.09GB resident weights and ~209MB free. Made the SpacemiT ORT cgo session wrapper opt-in behind `-tags spacemit/ort` with a portable stub so local Qwen/CUDA builds do not require vendor ONNX Runtime headers. Gated the llama.cpp bridge behind `-tags llamacpp`, gated GGML cgo backends and the llamagraph bridge behind `-tags ggml` with portable stubs, and removed stale K3 cgo-fused quant benchmark paths so normal builds stay portable. A 64-token sky-smoke showed sticky 512MB/start-41 and no-window are effectively tied (~0.911 vs ~0.913 tok/s), with sticky lowering fallback uploads/token but not wall time. Added `qwen36run -cpuprofile` as a decode-only CPU profiling aid (starts after model load/prewarm), then removed a redundant per-token full-state clone in Qwen `ForwardSequence` by using an internal mutating single-step helper after the initial API-preserving clone. On a 32-token sky-smoke, decode improved from ~0.829 to ~0.867 tok/s; the remaining profile was dominated by cgo upload/free/download paths and `applyQwen35LinearDeltaUpdate`. Added internal mutating conv/SSM update helpers for the Qwen linear-attention hot path while preserving public clone semantics, improving the same 32-token smoke further to ~0.907 tok/s. Tightened the linear delta-update inner loop by slicing per-head Q/K/state rows, reducing repeated index arithmetic, and moving the scale multiply out of the inner key loop; the 32-token smoke improved again to ~0.923 tok/s. Added Qwen full-attention KV capacity preservation/preallocation for qwen36run decode so cloned states can reuse backing arrays across token appends; this reduced `runtime.memmove` slightly in profiles but was neutral in the short 32-token wall-clock smoke. Split the linear delta-update row math into a small unrolled helper; it is neutral/noisy in wall-clock (~0.922 tok/s on the 32-token smoke) but keeps the remaining pure-Go recurrent hotspot isolated for future SIMD/GPU work. This gives the layer-window implementation concrete boundaries, memory budgets, and objective upload-pressure metrics.
+
+Extended the Qwen MLX4 GPU MLP fusion to overflow layers: missing gate/up/down MLX weights are transient-uploaded once for the fused MLP, intermediates stay on GPU through SiLU×mul and down projection, and transient weights are freed afterward. On the 8-token sky-smoke, `-gpu-mlp=true` reduced linear calls from 6,357 to 3,900 and improved decode slightly (~0.566 → ~0.575 tok/s), while transient bytes stayed ~60.7GB; upload volume remains the dominant next target.
+
+## Session 121: Native GGUF REAP/TurboQuant validation bundle
+
+Added a repeatable pure Go/SIMD validation bundle for the local Qwen3.6 REAP GGUF checkpoint:
+
+- `cmd/models/ggufinspect` now reports and can assert architecture/name, tensor counts, quant inventory, REAP ratio/source, hidden/head/vocab/tokenizer/BOS/EOS/context/KV shape, MoE expert counts, and TurboQuant cache/protected-layer counts.
+- `cmd/models/ggufsmoke` can assert generated token IDs and decoded text, so the local one-token greedy smoke is pinned as `prompt_ids=0 -> generated=[489]`, decoded as `"ype"`.
+- `runtime/kv.EstimateTurboQuantKV` is the shared byte estimator for GGUF inspection, model-side plans, smoke output, and `llmserver /health`.
+- Make targets `gguf-smoke-qwen36-reap`, `gguf-validate-qwen36-reap`, and `gguf-bench-qwen36-reap` exercise the native path without llama.cpp runtime dependencies.
+- Current checkpoint inventory: architecture `qwen35moe`, `733` tensors (`F32=301`, `Q4_K=371`, `Q6_K=61`), `40` layers, hidden `2048`, `16` heads, vocab/tokenizer `248320`, context `262144`, MoE `205` experts with `8` active, KV dim `512`, `10` cache layers, and `1` protected cache layer.
+
+## Session 122: Qwen3.6 REAP GGUF CI assertions
+
+Extended the native GGUF REAP/TurboQuant validation bundle into a focused CI target:
+
+- `gguf-ci-qwen36-reap` now runs the relevant build-only package smoke and then the full inspect/smoke/cache-smoke/bench path.
+- `ggufinspect` assertions cover architecture/name, REAP ratio/source, tensor inventory, model/tokenizer shape, MoE shape, and TurboQuant cache/protected-layer plans.
+- `ggufsmoke` assertions cover greedy token IDs, decoded text, runtime KV byte plan, benchmark KV byte counters, and synthetic compressed-cache append accounting.
+- Current synthetic compressed-cache expectation for the local checkpoint is layer `3`, compressed/full counts `3`/`2`, and `9440` bytes after five synthetic appends with residual window `2`.
+
+## Session 123: GGUF REAP/TurboQuant server health diagnostics
+
+Extended the server/validation surface for native llama-compatible REAP/TurboQuant support:
+
+- `cmd/llm/llmserver /health` now reports TurboQuant byte estimates, KV layer count, protected-layer count, and REAP summary/source together when both features are active.
+- Added health tests for TurboQuant-only, REAP-only, and combined REAP+TurboQuant responses.
+- `ggufsmoke` expectation checks now validate generated IDs, decoded text, runtime KV byte plans, benchmark KV counters, and synthetic compressed-cache smoke accounting.
+- The Qwen3.6 REAP GGUF Makefile bundle now has inspect, smoke, validate, bench, aggregate check, and focused CI targets.
+
+## Session 124: GGUF TurboQuant byte-plan assertions
+
+Tightened the native Qwen3.6 REAP GGUF validation bundle with byte-level TurboQuant assertions:
+
+- `ggufinspect` can now assert full/estimated/saved full-context TurboQuant KV byte estimates.
+- `ggufsmoke` can assert planned runtime KV bytes, benchmark KV bytes, and synthetic compressed-cache layer/count/byte accounting.
+- `gguf-ci-qwen36-reap` passed end-to-end with the local checkpoint, validating the current full-context estimate (`10737418240` full bytes, `2055275200` estimated bytes, `8682143040` saved bytes) and one-token runtime/bench split (`245760` F32 bytes, `81920` compressed bytes).
+## Session 125: TurboQuant cache scratch accounting assertions
+
+Pinned Qwen3.6 REAP GGUF TurboQuant cache-smoke scratch accounting in the local validation preset. `make gguf-validate-qwen36-reap` now asserts stored, scratch, and total cache bytes for the synthetic compressed-KV smoke:
+
+```text
+stored_bytes=9440
+scratch_bytes=1280
+total_bytes=10720
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with native SIMD readiness reported for TurboQuant rotation on amd64/AVX2.
+## Session 126: TurboQuant runtime scratch-plan assertions
+
+Pinned Qwen3.6 REAP GGUF generation runtime-plan scratch accounting in the local validation preset. `make gguf-validate-qwen36-reap` now asserts float, compressed, scratch, and total runtime bytes:
+
+```text
+float_alloc_bytes=245760
+compressed_estimated_bytes=81920
+estimated_scratch_bytes=96768
+estimated_total_bytes=424448
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with the native SIMD TurboQuant runtime-plan fields present in `ggufsmoke`.
+## Session 127: TurboQuant benchmark scratch-byte assertions
+
+Pinned Qwen3.6 REAP GGUF benchmark KV footprint assertions. The local one-token benchmark now asserts stored float/compressed bytes plus post-generation scratch/total bytes:
+
+```text
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed. The one-token benchmark does not materialize compressed-cache read scratch, so benchmark scratch is zero while runtime-plan scratch remains pinned separately.
+## Session 128: Qwen3.6 REAP GGUF full CI with SIMD scratch assertions
+
+Ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding native TurboQuant SIMD/scratch accounting across inspect, smoke, cache-smoke, and benchmark paths:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The bundle now validates:
+
+- focused GGUF/llmserver/model/runtime package build smoke;
+- GGUF architecture/name/tensor/quant/shape/tokenizer/MoE expectations;
+- REAP ratio/source expectations;
+- TurboQuant full/estimated/saved byte plan;
+- native SIMD readiness fields;
+- generation runtime float/compressed/scratch/total byte plan;
+- synthetic compressed-cache stored/scratch/total byte accounting;
+- one-token greedy generation and decoded text;
+- benchmark float/compressed/scratch/total KV footprint.
+## Session 129: TurboQuant benchmark aggregate KV counters
+
+Extended `ggufsmoke -bench` to print kv-owned aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats` alongside benchmark byte totals. Local Qwen3.6 REAP one-token benchmark observation:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed.
+## Session 130: TurboQuant benchmark aggregate-count assertions
+
+Added benchmark assertion flags for aggregate compressed-cache counters from `runtime/kv.AggregateCompressedKVCacheStats` and pinned the local Qwen3.6 REAP one-token benchmark values:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-bench-qwen36-reap
+```
+
+Passed with aggregate count and byte assertions.
+## Session 131: Qwen3.6 REAP GGUF CI with aggregate benchmark assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding benchmark aggregate compressed-cache count assertions:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The bundle now includes aggregate benchmark assertions for:
+
+```text
+kv_compressed_layers=10
+kv_seq=2
+kv_compressed_count=0
+kv_full_count=20
+kv_float_bytes=245760
+kv_compressed_bytes=81920
+kv_scratch_bytes=0
+kv_total_bytes=327680
+```
+
+This confirms the current pure Go/SIMD GGUF REAP/TurboQuant path is green across inspect, smoke, cache-smoke, benchmark, native SIMD readiness, runtime scratch-plan, and aggregate cache accounting.
+## Session 132: Qwen3.6 REAP GGUF CI requires SIMD rotation
+
+Pinned native SIMD rotation readiness as a required assertion in the local Qwen3.6 REAP Make presets by setting `GGUF_EXPECT_SIMD_ROTATION=1` for inspect, smoke, validate, and bench targets. Re-ran:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed, including `expected_simd_rotation_ok=true arch=amd64` in the runtime smoke paths.
+## Session 133: TurboQuant inspect scratch-plan assertions
+
+Extended `ggufinspect` TurboQuant plans with inspect-time scratch and total KV+scratch estimates plus assertion flags. The Qwen3.6 REAP inspect preset now pins:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-inspect-qwen36-reap
+```
+
+Passed, and the focused GGUF package build sweep remained green.
+## Session 134: Qwen3.6 REAP GGUF CI with inspect scratch estimates
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding inspect-time TurboQuant scratch/total estimate assertions:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The CI bundle now validates full-context inspect estimates:
+
+```text
+estimated_kv_bytes=2055275200
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+alongside runtime-plan, cache-smoke, benchmark, REAP, and native SIMD readiness assertions.
+## Session 135: Qwen3.6 REAP GGUF CI after kv-owned total estimates
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after moving `estimated_total_bytes` ownership into `runtime/kv.TurboQuantKVEstimate`:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. This keeps inspect, server health, model runtime plans, cache-smoke, and benchmark assertions green after centralizing total byte estimation in the kv runtime package.
+## Session 136: Qwen3.6 REAP GGUF CI after static plan scratch output
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding static `GGUFTurboQuantPlan` scratch/total estimates to model and `ggufsmoke` output:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Static/full-context TurboQuant plan output now includes `estimated_scratch_bytes` and `estimated_total_bytes` while all inspect, runtime-plan, cache-smoke, benchmark, REAP, and SIMD readiness assertions remain green.
+## Session 137: Static TurboQuant plan assertions in ggufsmoke
+
+Added `ggufsmoke` assertions for static/full-context TurboQuant scratch and total estimates and wired the existing Qwen3.6 REAP preset values through smoke/cache-smoke/bench targets:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with `expected_estimated_scratch_bytes_ok` and `expected_estimated_total_bytes_ok` emitted from smoke paths.
+## Session 138: Qwen3.6 REAP GGUF CI with static plan smoke assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after enforcing static/full-context TurboQuant scratch and total estimate assertions across smoke/cache-smoke/bench paths:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Static plan values are now asserted consistently by inspect and all smoke paths:
+
+```text
+estimated_scratch_bytes=9663699456
+estimated_total_bytes=11718974656
+```
+## Session 139: Complete static TurboQuant plan assertions in ggufsmoke
+
+Extended `ggufsmoke` static plan assertions to cover full, estimated, saved, scratch, and total TurboQuant byte estimates. The Qwen3.6 REAP preset now passes these existing Make variables through all smoke paths:
+
+```text
+GGUF_EXPECT_FULL_KV_BYTES=10737418240
+GGUF_EXPECT_ESTIMATED_KV_BYTES=2055275200
+GGUF_EXPECT_SAVED_KV_BYTES=8682143040
+GGUF_EXPECT_ESTIMATED_SCRATCH_BYTES=9663699456
+GGUF_EXPECT_ESTIMATED_TOTAL_BYTES=11718974656
+```
+
+Validation run:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-validate-qwen36-reap
+```
+
+Passed with static-plan assertion output from smoke/cache-smoke paths.
+## Session 140: Qwen3.6 REAP GGUF CI with complete static plan smoke assertions
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after extending `ggufsmoke` static plan assertions to full, estimated, saved, scratch, and total TurboQuant byte estimates:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The CI bundle now asserts the complete static/full-context TurboQuant plan consistently in inspect, smoke, cache-smoke, and benchmark paths, in addition to runtime-plan, cache-smoke, benchmark aggregate, REAP, and native SIMD readiness checks.
+## Session 141: Qwen3.6 REAP GGUF CI after health estimator hardening
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after pinning `llmserver /health` TurboQuant estimates directly to `runtime/kv.EstimateTurboQuantKV` in tests:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. This confirms the server readiness surface remains aligned with inspect, smoke, cache-smoke, benchmark, model runtime plans, and kv-owned TurboQuant estimate/accounting surfaces.
+## Session 142: Qwen3.6 REAP GGUF CI after supported-models coverage update
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after updating `docs/models/supported-models.md` to describe the current native SIMD/TurboQuant scratch/aggregate validation coverage:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The supported-models status now matches a green CI bundle that requires native SIMD rotation readiness and pins static, runtime, cache-smoke, and benchmark TurboQuant KV/scratch/aggregate assertions.
+## Session 143: Qwen3.6 REAP GGUF CI after README coverage update
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after updating the top-level README to summarize native GGUF REAP/TurboQuant CI coverage:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The README, supported-models docs, backend/validation docs, and development log now all describe a green native go-pherence GGUF REAP/TurboQuant path with required SIMD rotation readiness and full KV/scratch/aggregate assertions.
+## Session 144: Qwen3.6 REAP GGUF CI after ggufsmoke stats unit coverage
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding direct unit coverage for `ggufsmoke` cache-smoke stats assertions and benchmark aggregate stats:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The lightweight unit tests now pin the `runtime/kv` stats-to-smoke assertion mapping without requiring the full local GGUF model, while the full CI target remains green.
+## Session 145: Qwen3.6 REAP GGUF CI after combined health hardening
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after strengthening combined `llmserver /health` coverage for REAP+TurboQuant details:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. Server health tests now assert TurboQuant SIMD readiness, KV/protected layer counts, estimated KV+scratch totals, and REAP enabled/source fields together, while the full native GGUF CI remains green.
+## Session 146: Qwen3.6 REAP GGUF CI after health policy-error coverage
+
+Re-ran the full local Qwen3.6 REAP GGUF CI/check bundle after adding server-health coverage for malformed TurboQuant cache policy diagnostics:
+
+```bash
+GOTMPDIR=$PWD/.gotmp make gguf-ci-qwen36-reap
+```
+
+Passed. The server readiness test suite now covers valid REAP+TurboQuant health details and invalid TurboQuant policy error reporting while the full native GGUF validation bundle remains green.
+

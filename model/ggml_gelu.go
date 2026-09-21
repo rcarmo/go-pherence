@@ -14,7 +14,5 @@ func ggmlGELUMulInPlace(gate, up []float32) {
 	if len(up) < n {
 		n = len(up)
 	}
-	for i := 0; i < n; i++ {
-		gate[i] = ggmlGELUF32(gate[i]) * up[i]
-	}
+	_ = ggmlfp16.GELUFP16LookupMulTo(gate[:n], gate[:n], up[:n])
 }

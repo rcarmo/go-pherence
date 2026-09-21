@@ -28,9 +28,12 @@ func NewFFNLayout(cfg Config, exec ExecutionPlan) (FFNLayout, error) {
 			return FFNLayout{}, err
 		}
 	}
+	if err := exec.Validate(cfg.NumHiddenLayers); err != nil {
+		return FFNLayout{}, err
+	}
 	denseIntermediate := cfg.IntermediateSize
 	if denseIntermediate == 0 {
-		denseIntermediate = cfg.HiddenSize * 4
+		denseIntermediate = sizeProduct(cfg.HiddenSize, 4)
 	}
 	layout := FFNLayout{
 		HiddenSize:        cfg.HiddenSize,
@@ -42,22 +45,25 @@ func NewFFNLayout(cfg Config, exec ExecutionPlan) (FFNLayout, error) {
 		ExpertsPerToken:   cfg.NumExpertsPerTok,
 	}
 	// Gate/up/down projections: hidden->intermediate twice plus intermediate->hidden once.
-	layout.DenseParamsPerLayer = 3 * layout.HiddenSize * layout.DenseIntermediate
-	layout.ExpertParamsPerExpert = 3 * layout.HiddenSize * layout.MoEIntermediate
+	layout.DenseParamsPerLayer = sizeProduct(3, layout.HiddenSize, layout.DenseIntermediate)
+	layout.ExpertParamsPerExpert = sizeProduct(3, layout.HiddenSize, layout.MoEIntermediate)
 	return layout, layout.Validate()
 }
 
 func (l FFNLayout) Validate() error {
+	if !nonnegativeSizes(l.DenseParamsPerLayer, l.ExpertParamsPerExpert) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.HiddenSize <= 0 || l.DenseIntermediate <= 0 || l.MoEIntermediate <= 0 {
 		return fmt.Errorf("invalid LFM2 FFN layout dims: %+v", l)
 	}
 	if l.DenseLayers < 0 || l.MoELayers <= 0 || l.Experts <= 0 || l.ExpertsPerToken <= 0 || l.ExpertsPerToken > l.Experts {
 		return fmt.Errorf("invalid LFM2 FFN layout counts: %+v", l)
 	}
-	if l.DenseParamsPerLayer != 3*l.HiddenSize*l.DenseIntermediate {
+	if l.DenseParamsPerLayer != sizeProduct(3, l.HiddenSize, l.DenseIntermediate) {
 		return fmt.Errorf("invalid LFM2 dense params/layer=%d", l.DenseParamsPerLayer)
 	}
-	if l.ExpertParamsPerExpert != 3*l.HiddenSize*l.MoEIntermediate {
+	if l.ExpertParamsPerExpert != sizeProduct(3, l.HiddenSize, l.MoEIntermediate) {
 		return fmt.Errorf("invalid LFM2 expert params/expert=%d", l.ExpertParamsPerExpert)
 	}
 	return nil

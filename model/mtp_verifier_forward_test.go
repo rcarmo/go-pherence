@@ -27,9 +27,11 @@ func TestForwardMTPPromptLayerRejectsQuantProjectionFailure(t *testing.T) {
 	}
 }
 
-func TestForwardMTPPromptLayerGemma4LayerScalarPrecedesBF16Rounding(t *testing.T) {
+// Gemma4's current CPU path keeps the residual/scalar in F32 (unlike Gemma3).
+// The old fixture expected a removed BF16 boundary and silently passed NaNs.
+func TestForwardMTPPromptLayerGemma4LayerScalarKeepsF32(t *testing.T) {
 	m := &LlamaModel{
-		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 0, HiddenAct: "gelu_pytorch_tanh"},
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6, HiddenAct: "gelu_pytorch_tanh"},
 		Layers: []LlamaLayer{{
 			InputNorm:   tensor.Ones([]int{2}),
 			PostNorm:    tensor.Ones([]int{2}),
@@ -52,24 +54,29 @@ func TestForwardMTPPromptLayerGemma4LayerScalarPrecedesBF16Rounding(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []float32{1.001 * 0.3, 0.25 * 0.3}
-	simd.ToBF16(want)
+	want := []float32{1.001, 0.25}
+	for i := range want {
+		want[i] *= 0.3
+	}
 	oldOrder := []float32{1.001, 0.25}
 	simd.ToBF16(oldOrder)
 	for i := range oldOrder {
 		oldOrder[i] *= 0.3
 	}
 	if sameFloat32s(want, oldOrder) {
-		t.Fatalf("test values do not distinguish scalar/BF16 ordering: %v", want)
+		t.Fatalf("test values do not distinguish F32 scalar from BF16-first: %v", want)
 	}
 	if !sameFloat32s(got, want) {
-		t.Fatalf("Gemma4 MTP layer output=%v want scalar-before-BF16 %v; old BF16-before-scalar would be %v", got, want, oldOrder)
+		t.Fatalf("Gemma4 MTP layer output=%v want F32 scalar %v; BF16-before-scalar would be %v", got, want, oldOrder)
 	}
 }
 
 func TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale(t *testing.T) {
+	// This fixture compares the F32 GQA path. F16-KV flash has separate parity
+	// tests and intentionally different rounding; do not mix those oracles.
+	t.Setenv("GO_PHERENCE_MTP_PURE_FLASH", "0")
 	m := &LlamaModel{
-		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 0, HiddenAct: "gelu_pytorch_tanh"},
+		Config: LlamaConfig{ModelType: "gemma4_text", VocabSize: 4, HiddenSize: 2, NumLayers: 1, NumHeads: 1, NumKVHeads: 1, HeadDim: 2, Intermediate: 2, RMSNormEps: 1e-6, HiddenAct: "gelu_pytorch_tanh"},
 		Layers: []LlamaLayer{{
 			InputNorm:   tensor.Ones([]int{2}),
 			PostNorm:    tensor.Ones([]int{2}),
@@ -88,6 +95,11 @@ func TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale(t *testing.T) {
 			LayerScalar: 1,
 		}},
 	}
+	// Isolate attention scaling from the on-demand RoPE cache (which now rotates
+	// pos=1 even with an initially empty cache). This fixture supplies identity RoPE.
+	m.RopeHalfSWA, m.RopeHalfFull = 1, 1
+	m.RopeFreqsSWA = []float32{1, 0, 1, 0}
+	m.RopeFreqsFull = []float32{1, 0, 1, 0}
 	prev := float32(math.Sqrt2)
 	kvK := [][]float32{{0, prev}}
 	kvV := [][]float32{{0, prev}}
@@ -96,17 +108,21 @@ func TestForwardMTPPromptLayerGemma4AttentionUsesUnitScale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q := []float32{prev, 0}
-	k := []float32{0, prev, prev, 0}
-	v := []float32{0, prev, prev, 0}
+	// Independent scalar normalization for input projection followed by Q/K/V
+	// normalization. Positive epsilon keeps the zero FFN branch finite too.
+	eps := float32(m.Config.RMSNormEps)
+	projected := float32(1 / math.Sqrt(float64(float32(0.5)+eps)))
+	normalized := projected * float32(1/math.Sqrt(float64(projected*projected/2+eps)))
+	q := []float32{normalized, 0}
+	k := []float32{0, prev, normalized, 0}
+	v := []float32{0, prev, normalized, 0}
 	attnUnit := gqaAttentionScale(q, k, v, 2, 1, 1, 2, 1.0)
 	attnDefault := gqaAttention(q, k, v, 2, 1, 1, 2)
 	if sameFloat32s(attnUnit, attnDefault) {
 		t.Fatalf("unit and default attention unexpectedly equal: %v", attnUnit)
 	}
-	rmsNormInPlace(attnUnit, []float32{1, 1}, 0)
+	rmsNormInPlace(attnUnit, []float32{1, 1}, float32(m.Config.RMSNormEps))
 	want := []float32{1 + attnUnit[0], attnUnit[1]}
-	simd.ToBF16(want)
 	if !sameFloat32s(got, want) {
 		t.Fatalf("Gemma4 verifier attention hidden=%v want unit-scale path %v; default attention would be %v", got, want, attnDefault)
 	}
@@ -414,6 +430,10 @@ func newZeroLayerVerifierModel() *LlamaModel {
 
 func newSingleLayerVerifierModel() *LlamaModel {
 	m := newZeroLayerVerifierModel()
+	// The layered fixtures can produce zero projection vectors. A positive
+	// epsilon is required: eps=0 makes RMSNorm(0) NaN, formerly hidden by
+	// sameFloat32s accepting NaN comparisons. These are finite parity fixtures.
+	m.Config.RMSNormEps = 1e-6
 	m.Config.NumLayers = 1
 	m.Config.Intermediate = 2
 	identity := []float32{1, 0, 0, 1}

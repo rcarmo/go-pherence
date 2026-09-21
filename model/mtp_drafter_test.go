@@ -11,7 +11,7 @@ import (
 )
 
 func TestLoadGemma4MTPDrafterLocalAsset(t *testing.T) {
-	dir := filepath.Join("..", "models", "gemma4-e2b-mtp-drafter")
+	dir := filepath.Join("..", "checkpoints", "gemma4-e2b-mtp-drafter")
 	if _, errSingle := os.Stat(filepath.Join(dir, "model.safetensors")); errSingle != nil {
 		if _, errSharded := os.Stat(filepath.Join(dir, "model.safetensors.index.json")); errSharded != nil {
 			t.Skipf("local Gemma4 MTP drafter asset not available: single=%v sharded=%v", errSingle, errSharded)
@@ -81,7 +81,7 @@ func TestLoadGemma4MTPDrafterLocalAsset(t *testing.T) {
 }
 
 func TestLoadGemma4MTPDrafterGGUFPopulatesBF16Matrices(t *testing.T) {
-	path := filepath.Join("..", "models", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
+	path := filepath.Join("..", "checkpoints", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("local Gemma4 MTP GGUF drafter not available: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestAssistantLogitsIntoDoesNotApplyVerifierSoftcapOrSuppressBias(t *testing
 }
 
 func TestGemma4MTPDrafterGGUFCanRunFromBF16BuffersWithoutF32Shadows(t *testing.T) {
-	path := filepath.Join("..", "models", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
+	path := filepath.Join("..", "checkpoints", "gemma4-e4b-it-google-qat-gguf", "MTP", "gemma-4-E4B-it-BF16-MTP.gguf")
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("local Gemma4 MTP GGUF drafter not available: %v", err)
 	}

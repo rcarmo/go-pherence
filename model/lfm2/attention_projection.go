@@ -34,29 +34,32 @@ func NewAttentionProjectionLayout(cfg Config, schedule LayerSchedule) (Attention
 	if err := schedule.Validate(cfg.NumHiddenLayers); err != nil {
 		return AttentionProjectionLayout{}, err
 	}
-	kvWidth := cfg.NumKeyValueHeads * cfg.HeadDim
+	kvWidth := sizeProduct(cfg.NumKeyValueHeads, cfg.HeadDim)
 	layout := AttentionProjectionLayout{
 		HiddenSize:          cfg.HiddenSize,
 		Heads:               cfg.NumAttentionHeads,
 		KVHeads:             cfg.NumKeyValueHeads,
 		HeadDim:             cfg.HeadDim,
 		QueriesPerKV:        cfg.NumAttentionHeads / cfg.NumKeyValueHeads,
-		QLayerFloats:        cfg.HiddenSize * cfg.HiddenSize,
-		KLayerFloats:        cfg.HiddenSize * kvWidth,
-		VLayerFloats:        cfg.HiddenSize * kvWidth,
-		OLayerFloats:        cfg.HiddenSize * cfg.HiddenSize,
+		QLayerFloats:        sizeProduct(cfg.HiddenSize, cfg.HiddenSize),
+		KLayerFloats:        sizeProduct(cfg.HiddenSize, kvWidth),
+		VLayerFloats:        sizeProduct(cfg.HiddenSize, kvWidth),
+		OLayerFloats:        sizeProduct(cfg.HiddenSize, cfg.HiddenSize),
 		FullAttentionLayers: len(schedule.FullAttentionIndices),
 	}
-	layout.TotalFloatsPerLayer = layout.QLayerFloats + layout.KLayerFloats + layout.VLayerFloats + layout.OLayerFloats
-	layout.TotalAttentionFloats = layout.TotalFloatsPerLayer * layout.FullAttentionLayers
+	layout.TotalFloatsPerLayer = sizeSum(layout.QLayerFloats, layout.KLayerFloats, layout.VLayerFloats, layout.OLayerFloats)
+	layout.TotalAttentionFloats = sizeProduct(layout.TotalFloatsPerLayer, layout.FullAttentionLayers)
 	return layout, layout.Validate()
 }
 
 func (l AttentionProjectionLayout) Validate() error {
+	if !nonnegativeSizes(l.QLayerFloats, l.KLayerFloats, l.VLayerFloats, l.OLayerFloats, l.TotalFloatsPerLayer, l.TotalAttentionFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.HiddenSize <= 0 || l.Heads <= 0 || l.KVHeads <= 0 || l.HeadDim <= 0 || l.FullAttentionLayers < 0 {
 		return fmt.Errorf("invalid LFM2 attention projection dims: %+v", l)
 	}
-	if l.HiddenSize != l.Heads*l.HeadDim {
+	if l.HiddenSize != sizeProduct(l.Heads, l.HeadDim) {
 		return fmt.Errorf("invalid LFM2 attention projection head dims: hidden=%d heads=%d head_dim=%d", l.HiddenSize, l.Heads, l.HeadDim)
 	}
 	if l.Heads%l.KVHeads != 0 {
@@ -65,18 +68,18 @@ func (l AttentionProjectionLayout) Validate() error {
 	if l.QueriesPerKV != l.Heads/l.KVHeads {
 		return fmt.Errorf("invalid LFM2 attention queries/kv=%d want=%d", l.QueriesPerKV, l.Heads/l.KVHeads)
 	}
-	kvWidth := l.KVHeads * l.HeadDim
-	wantQO := l.HiddenSize * l.HiddenSize
-	wantKV := l.HiddenSize * kvWidth
+	kvWidth := sizeProduct(l.KVHeads, l.HeadDim)
+	wantQO := sizeProduct(l.HiddenSize, l.HiddenSize)
+	wantKV := sizeProduct(l.HiddenSize, kvWidth)
 	if l.QLayerFloats != wantQO || l.OLayerFloats != wantQO || l.KLayerFloats != wantKV || l.VLayerFloats != wantKV {
 		return fmt.Errorf("invalid LFM2 attention projection floats: %+v", l)
 	}
-	wantLayer := l.QLayerFloats + l.KLayerFloats + l.VLayerFloats + l.OLayerFloats
+	wantLayer := sizeSum(l.QLayerFloats, l.KLayerFloats, l.VLayerFloats, l.OLayerFloats)
 	if l.TotalFloatsPerLayer != wantLayer {
 		return fmt.Errorf("invalid LFM2 attention projection floats/layer=%d want=%d", l.TotalFloatsPerLayer, wantLayer)
 	}
-	if l.TotalAttentionFloats != l.TotalFloatsPerLayer*l.FullAttentionLayers {
-		return fmt.Errorf("invalid LFM2 attention projection total=%d want=%d", l.TotalAttentionFloats, l.TotalFloatsPerLayer*l.FullAttentionLayers)
+	if l.TotalAttentionFloats != sizeProduct(l.TotalFloatsPerLayer, l.FullAttentionLayers) {
+		return fmt.Errorf("invalid LFM2 attention projection total=%d want=%d", l.TotalAttentionFloats, sizeProduct(l.TotalFloatsPerLayer, l.FullAttentionLayers))
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package servingbench
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -77,5 +78,38 @@ func TestParseChatCompletionStreamHandlesUsageLongLinesAndDone(t *testing.T) {
 	}
 	if !chunks[2].Done {
 		t.Fatalf("done chunk = %#v", chunks[2])
+	}
+}
+
+func TestSSEBoundsAndCompletionFailClosed(t *testing.T) {
+	for _, body := range []string{"data: " + strings.Repeat("x", MaxSSEEventBytes+1), strings.Repeat(":keepalive\n", MaxSSEEventBytes/10+2)} {
+		if err := ParseSSE(strings.NewReader(body), func(SSEEvent) error { return nil }); !errors.Is(err, ErrSSETooLarge) {
+			t.Fatalf("unbounded frame accepted: %v", err)
+		}
+	}
+	for _, body := range []string{"", `data: {"choices":[]}` + "\n\n", `data: {"error":{"message":"failed"}}` + "\n\n"} {
+		if err := ParseChatCompletionStream(strings.NewReader(body), func(ChatCompletionChunk) error { return nil }); err == nil {
+			t.Fatal("incomplete/error stream accepted")
+		}
+	}
+	count := 0
+	if err := ParseChatCompletionStream(strings.NewReader("data: [DONE]\n\ndata: broken after complete\n\n"), func(c ChatCompletionChunk) error {
+		if c.Done {
+			count++
+		}
+		return nil
+	}); err != nil || count != 1 {
+		t.Fatal(err, count)
+	}
+}
+
+func TestStreamUsageRejectsNegativeInconsistentOrOverflowingCounts(t *testing.T) {
+	max := int(^uint(0) >> 1)
+	for _, u := range []Usage{{-1, 1, 0}, {1, 2, 2}, {max, 1, max}, {0, -1, 0}} {
+		body, _ := json.Marshal(map[string]any{"usage": u})
+		stream := "data: " + string(body) + "\n\ndata: [DONE]\n\n"
+		if err := ParseChatCompletionStream(strings.NewReader(stream), func(ChatCompletionChunk) error { return nil }); err == nil {
+			t.Fatal("bad usage admitted", u)
+		}
 	}
 }

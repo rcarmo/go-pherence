@@ -11,4 +11,4 @@ bun scripts/matmul-baseline.ts --suite dense,quant-cpu,gguf \
   --procs 1,2,all --out benchmarks/matmul/<name>
 ```
 
-See `docs/matmul-benchmark-protocol.md` for acceptance rules.
+See `docs/performance/matmul-benchmark-protocol.md` for acceptance rules.

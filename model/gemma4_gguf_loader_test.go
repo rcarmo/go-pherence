@@ -13,7 +13,7 @@ func openLocalGemma4GGUFForTest(t *testing.T) *gguf.GGUF {
 	t.Helper()
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		path = "checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 	}
 	if _, err := os.Stat(path); err != nil {
 		if _, parentErr := os.Stat("../" + path); parentErr == nil {
@@ -95,7 +95,7 @@ func TestGemma4GGUFSharedKVSourceMapping(t *testing.T) {
 	defer g.Close()
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		path = "checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 		if _, err := os.Stat(path); err != nil {
 			if _, parentErr := os.Stat("../" + path); parentErr == nil {
 				path = "../" + path

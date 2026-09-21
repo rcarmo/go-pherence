@@ -27,7 +27,7 @@ func maxMeanDiff(a, b []float32) (max, mean float64, idx int) {
 }
 
 func TestLocalFP8ExpertCPUvsGPUParity(t *testing.T) {
-	modelDir := filepath.Join("..", "..", "models", "diffusiongemma-26B-A4B-it-FP8")
+	modelDir := filepath.Join("..", "..", "checkpoints", "diffusiongemma-26B-A4B-it-FP8")
 	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors.index.json")); err != nil {
 		t.Skip("local FP8 DiffusionGemma model not present")
 	}

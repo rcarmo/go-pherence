@@ -12,7 +12,7 @@ func TestGemma4DecodeSessionUpdatedRealGGUFOneStep(t *testing.T) {
 	}
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = "../models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		path = "../checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("Gemma4 GGUF unavailable: %v", err)
@@ -30,7 +30,7 @@ func TestGemma4DecodeSessionUpdatedRealGGUFTwoSteps(t *testing.T) {
 	}
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = "../models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
+		path = "../checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf"
 	}
 	m, err := LoadGemma4GGUFAsLlama(path)
 	if err != nil {

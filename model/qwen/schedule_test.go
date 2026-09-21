@@ -37,3 +37,18 @@ func TestBuildLayerSchedulePlan(t *testing.T) {
 		t.Fatalf("bad feasible recommendation: %+v", plan.BestFeasible)
 	}
 }
+
+func TestLayerScheduleHugeWindowBoundedByInventory(t *testing.T) {
+	stats := Qwen35GPUCacheStats{MLXCompletePrefixLayers: 1, FreeBytes: ^uint64(0), MLXLayers: []Qwen35GPULayerStat{{Layer: 1, TotalBytes: 10}, {Layer: 2, TotalBytes: 20}}}
+	p := BuildLayerSchedulePlan(stats, []int{int(^uint(0) >> 1)})
+	if len(p.Candidates) != 1 || p.Candidates[0].MissingBytes != 30 || !p.Candidates[0].FitsWindowBudget {
+		t.Fatal(p)
+	}
+	stats.MLXLayers[0].TotalBytes = 1<<63 - 1
+	stats.MLXLayers[1].TotalBytes = 1<<63 - 1
+	stats.FreeBytes = 100
+	p = BuildLayerSchedulePlan(stats, []int{2})
+	if p.MissingBytes != 1<<63-1 || p.Candidates[0].MissingBytes != 1<<63-1 || p.Candidates[0].FitsFreeMemory {
+		t.Fatal("wrapped budget", p)
+	}
+}

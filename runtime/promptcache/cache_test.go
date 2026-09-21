@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 type testSnapshot struct {
@@ -72,7 +73,7 @@ func mustFind(t *testing.T, c *Cache, id Identity, blockSize int, tokens []int) 
 }
 
 func TestIdentityIsolationAndSalt(t *testing.T) {
-	c := New(64)
+	c := New(4096)
 	idA := validIdentity("salt-a")
 	idB := validIdentity("salt-b")
 	mustPut(t, c, idA, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 8, data: []int{11}})
@@ -94,7 +95,7 @@ func TestIdentityIsolationAndSalt(t *testing.T) {
 
 func TestCollisionVerification(t *testing.T) {
 	constantHash := func([]byte) [32]byte { return [32]byte{1} }
-	c := New(128, WithHashFunc(constantHash))
+	c := New(4096, WithHashFunc(constantHash))
 	id := validIdentity("salt")
 	mustPut(t, c, id, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 8, data: []int{10}})
 	mustPut(t, c, id, 2, []int{3, 4}, &testSnapshot{pos: 2, bytes: 8, data: []int{20}})
@@ -113,7 +114,7 @@ func TestCollisionVerification(t *testing.T) {
 }
 
 func TestFindLongestAndIncompleteQueryTail(t *testing.T) {
-	c := New(128)
+	c := New(4096)
 	id := validIdentity("salt")
 	mustPut(t, c, id, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 8, data: []int{2}})
 	mustPut(t, c, id, 2, []int{1, 2, 3, 4}, &testSnapshot{pos: 4, bytes: 12, data: []int{4}})
@@ -129,7 +130,7 @@ func TestFindLongestAndIncompleteQueryTail(t *testing.T) {
 }
 
 func TestOwnershipAndCloning(t *testing.T) {
-	c := New(128)
+	c := New(4096)
 	id := validIdentity("salt")
 	tokens := []int{1, 2}
 	orig := &testSnapshot{pos: 2, bytes: 8, data: []int{7, 8}}
@@ -149,17 +150,19 @@ func TestOwnershipAndCloning(t *testing.T) {
 }
 
 func TestBudgetReplacementAndEviction(t *testing.T) {
-	c := New(10)
 	id := validIdentity("salt")
+	canonical, _ := id.CanonicalBytes()
+	overhead, _ := entryBytes(0, len(canonical), 2)
+	c := New(2*overhead + 10)
 	mustPut(t, c, id, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 4, data: []int{1}})
 	mustPut(t, c, id, 2, []int{3, 4}, &testSnapshot{pos: 2, bytes: 4, data: []int{2}})
 	mustPut(t, c, id, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 6, data: []int{3}})
 
-	if st := c.Stats(); st.UsedBytes != 10 || st.Replacements != 1 || st.Entries != 2 {
+	if st := c.Stats(); st.UsedBytes != 2*overhead+10 || st.Replacements != 1 || st.Entries != 2 {
 		t.Fatalf("after replacement stats=%+v", st)
 	}
 	mustFind(t, c, id, 2, []int{1, 2})
-	mustPut(t, c, id, 2, []int{5, 6}, &testSnapshot{pos: 2, bytes: 7, data: []int{5}})
+	mustPut(t, c, id, 2, []int{5, 6}, &testSnapshot{pos: 2, bytes: overhead + 7, data: []int{5}})
 
 	if _, ok, err := c.FindLongest(id, 2, []int{3, 4}); err != nil || ok {
 		t.Fatalf("expected [3 4] eviction, ok=%v err=%v", ok, err)
@@ -171,17 +174,17 @@ func TestBudgetReplacementAndEviction(t *testing.T) {
 	if got.data[0] != 5 {
 		t.Fatalf("missing retained entry: %+v", got)
 	}
-	if err := c.Put(id, 2, []int{7, 8}, &testSnapshot{pos: 2, bytes: 11}); !errors.Is(err, ErrOverBudget) {
+	if err := c.Put(id, 2, []int{7, 8}, &testSnapshot{pos: 2, bytes: overhead + 11}); !errors.Is(err, ErrOverBudget) {
 		t.Fatalf("oversized put err=%v", err)
 	}
 	st := c.Stats()
-	if st.BudgetRejections == 0 || st.Evictions != 2 || st.UsedBytes != 7 || st.Entries != 1 {
+	if st.BudgetRejections == 0 || st.Evictions != 2 || st.UsedBytes != 2*overhead+7 || st.Entries != 1 {
 		t.Fatalf("final stats=%+v", st)
 	}
 }
 
 func TestRejectMalformedInputs(t *testing.T) {
-	c := New(32)
+	c := New(4096)
 	id := validIdentity("salt")
 	if err := c.Put(Identity{}, 2, []int{1, 2}, &testSnapshot{pos: 2, bytes: 8}); !errors.Is(err, ErrInvalidIdentity) {
 		t.Fatalf("invalid identity err=%v", err)
@@ -250,5 +253,75 @@ func TestCacheConcurrentAccess(t *testing.T) {
 	st := c.Stats()
 	if st.Hits == 0 || st.Puts == 0 || st.Lookups == 0 {
 		t.Fatalf("unexpected stats: %+v", st)
+	}
+}
+
+// Clone is user code; Stats must not deadlock while a lookup clones.
+type statsSnapshot struct {
+	cache  *Cache
+	bytes  int64
+	clones *int
+}
+
+func (s *statsSnapshot) Position() int             { return 1 }
+func (s *statsSnapshot) SizeBytes() (int64, error) { return s.bytes, nil }
+func (s *statsSnapshot) Clone() Snapshot {
+	if s.clones != nil {
+		*s.clones++
+	}
+	_ = s.cache.Stats()
+	return &statsSnapshot{cache: s.cache, bytes: s.bytes, clones: s.clones}
+}
+func TestMetadataBudgetAndRejectBeforeClone(t *testing.T) {
+	id := validIdentity("salt")
+	canonical, _ := id.CanonicalBytes()
+	overhead, _ := entryBytes(0, len(canonical), 1)
+	c := New(overhead * 2)
+	for i := 0; i < 12; i++ {
+		mustPut(t, c, id, 1, []int{i}, &testSnapshot{pos: 1, bytes: 0})
+	}
+	if st := c.Stats(); st.Entries != 2 || st.UsedBytes != overhead*2 {
+		t.Fatal(st)
+	}
+	clones := 0
+	s := &statsSnapshot{cache: c, bytes: overhead * 3, clones: &clones}
+	if err := c.Put(id, 1, []int{99}, s); !errors.Is(err, ErrOverBudget) || clones != 0 {
+		t.Fatalf("err=%v clones=%d", err, clones)
+	}
+}
+func TestCloneCanInspectCache(t *testing.T) {
+	c := New(4096)
+	id := validIdentity("salt")
+	clones := 0
+	mustPut(t, c, id, 1, []int{1}, &statsSnapshot{cache: c, bytes: 4, clones: &clones})
+	done := make(chan struct{})
+	go func() { defer close(done); _, _, _ = c.FindLongest(id, 1, []int{1}) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Clone ran under cache mutex")
+	}
+	if clones != 2 {
+		t.Fatal(clones)
+	}
+}
+func TestCollisionEvictionDropsTailReference(t *testing.T) {
+	c := New(4096, WithHashFunc(func([]byte) [32]byte { return [32]byte{} }))
+	id := validIdentity("salt")
+	for i := 0; i < 3; i++ {
+		mustPut(t, c, id, 1, []int{i}, &testSnapshot{pos: 1, bytes: 4})
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.evictOne(nil) {
+		t.Fatal("no eviction")
+	}
+	for _, bucket := range c.buckets {
+		full := bucket[:cap(bucket)]
+		for _, el := range full[len(bucket):] {
+			if el != nil {
+				t.Fatal("evicted element retained beyond bucket length")
+			}
+		}
 	}
 }

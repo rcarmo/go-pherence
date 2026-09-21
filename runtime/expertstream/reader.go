@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -26,12 +27,16 @@ type Reader struct {
 // Open validates a manifest package, verifies file checksums, opens the
 // referenced files, and allocates a fixed number of aligned host slots.
 func Open(manifestPath string, opts Options) (*Reader, error) {
-	if opts.Slots <= 0 {
-		return nil, fmt.Errorf("expertstream: slots must be positive")
+	if opts.Slots <= 0 || opts.Slots > 65536 || opts.MaxSlotBytes < 0 {
+		return nil, fmt.Errorf("expertstream: slots must be in 1..65536 and byte budget nonnegative")
 	}
 	manifest, files, experts, maxSpan, err := openManifest(manifestPath)
 	if err != nil {
 		return nil, err
+	}
+	if opts.Slots > len(experts) {
+		closeFiles(files)
+		return nil, fmt.Errorf("expertstream: slots exceed expert inventory")
 	}
 	workers := opts.Workers
 	if workers <= 0 {
@@ -41,6 +46,26 @@ func Open(manifestPath string, opts Options) (*Reader, error) {
 	if err != nil {
 		closeFiles(files)
 		return nil, err
+	}
+	budget := opts.MaxSlotBytes
+	if budget == 0 {
+		budget = DefaultMaxSlotBytes
+	}
+	mappingBytes, err := checkedAdd(slotSize, manifest.Alignment)
+	if err != nil {
+		closeFiles(files)
+		return nil, err
+	}
+	// The OS maps whole pages even when the requested slice is shorter.
+	mappingBytes, err = alignUp(mappingBytes, int64(os.Getpagesize()))
+	if err != nil {
+		closeFiles(files)
+		return nil, err
+	}
+	totalBytes, err := checkedProduct(mappingBytes, int64(opts.Slots))
+	if err != nil || totalBytes > budget {
+		closeFiles(files)
+		return nil, fmt.Errorf("%w: slots=%d bytes/slot=%d budget=%d", ErrMemoryBudget, opts.Slots, mappingBytes, budget)
 	}
 	slots := make([]*slot, opts.Slots)
 	for i := range slots {
@@ -68,6 +93,9 @@ func Open(manifestPath string, opts Options) (*Reader, error) {
 
 // Manifest returns a defensive copy of the validated manifest.
 func (r *Reader) Manifest() Manifest {
+	if r == nil {
+		return Manifest{}
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return cloneManifest(r.manifest)
@@ -109,17 +137,43 @@ func (r *Reader) Close() error {
 	return errors.Join(errs...)
 }
 
-// Load resolves the requested keys in caller order. Each result references a
-// reusable aligned slot owned by the Reader; returned bytes must be treated as
-// read-only and remain valid only until the slot is reused by a later Load.
+// Load returns read-only borrowed slots, valid only until reuse or Close. The
+// caller must serialize their use against other loads/Close; use WithExperts
+// for a callback-scoped lifetime when ownership cannot be guaranteed externally.
 func (r *Reader) Load(keys []uint64) ([]LoadedExpert, error) {
-	if len(keys) == 0 {
-		return nil, nil
+	if r == nil {
+		return nil, ErrClosed
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.loadLocked(keys)
+}
+
+// WithExperts pins slot ownership through fn, excluding other Load/Close calls.
+// The callback must not retain views, spawn unfinished consumers, or re-enter
+// the Reader. GPU/native transfers must finish consuming host bytes before return.
+func (r *Reader) WithExperts(keys []uint64, fn func([]LoadedExpert) error) error {
+	if r == nil {
+		return ErrClosed
+	}
+	if fn == nil {
+		return fmt.Errorf("expertstream: nil callback")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	loaded, err := r.loadLocked(keys)
+	if err != nil {
+		return err
+	}
+	return fn(loaded)
+}
+
+func (r *Reader) loadLocked(keys []uint64) ([]LoadedExpert, error) {
 	if r.closed {
 		return nil, ErrClosed
+	}
+	if len(keys) == 0 {
+		return nil, nil
 	}
 
 	unique := make(map[uint64]struct{}, len(keys))

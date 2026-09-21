@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	llmmodel "github.com/rcarmo/go-pherence/model"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 type encoderParityFixture struct {

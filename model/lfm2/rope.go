@@ -1,6 +1,9 @@
 package lfm2
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // RoPELayout captures the positional encoding contract for LFM2 full-attention
 // layers. Convolution layers do not allocate attention KV, but the same context
@@ -24,6 +27,9 @@ func NewRoPELayout(cfg Config, schedule LayerSchedule) (RoPELayout, error) {
 			return RoPELayout{}, err
 		}
 	}
+	if err := schedule.Validate(cfg.NumHiddenLayers); err != nil {
+		return RoPELayout{}, err
+	}
 	maxPos := cfg.MaxPositionEmbeddings
 	if maxPos == 0 {
 		maxPos = 128000
@@ -33,7 +39,7 @@ func NewRoPELayout(cfg Config, schedule LayerSchedule) (RoPELayout, error) {
 }
 
 func (l RoPELayout) Validate() error {
-	if l.Theta < 0 || l.HeadDim <= 0 || l.MaxPositionEmbeddings <= 0 || l.FullAttentionLayers < 0 {
+	if l.Theta < 0 || math.IsNaN(l.Theta) || math.IsInf(l.Theta, 0) || l.HeadDim <= 0 || l.MaxPositionEmbeddings <= 0 || l.FullAttentionLayers < 0 {
 		return fmt.Errorf("invalid LFM2 RoPE layout: %+v", l)
 	}
 	return nil

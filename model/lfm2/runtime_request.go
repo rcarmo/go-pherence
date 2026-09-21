@@ -1,6 +1,9 @@
 package lfm2
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rcarmo/go-pherence/internal/checked"
+)
 
 // RuntimeRequest captures validation-only inputs and limits for a future LFM2
 // generation runtime. It deliberately avoids token generation; it ties prompt
@@ -34,7 +37,10 @@ func NewRuntimeRequestPlan(cfg Config, req RuntimeRequest) (RuntimeRequestPlan, 
 	if err := runtimePlan.ContextLayout.ValidateSequence(req.Tokens); err != nil {
 		return RuntimeRequestPlan{}, err
 	}
-	maxSeq := len(req.Tokens) + req.MaxNewTokens
+	maxSeq, ok := checked.AddInt(len(req.Tokens), req.MaxNewTokens)
+	if !ok {
+		return RuntimeRequestPlan{}, fmt.Errorf("LFM2 request sequence overflows")
+	}
 	if maxSeq > runtimePlan.ContextLayout.MaxPositionEmbeddings {
 		return RuntimeRequestPlan{}, fmt.Errorf("LFM2 request max sequence=%d exceeds context=%d", maxSeq, runtimePlan.ContextLayout.MaxPositionEmbeddings)
 	}
@@ -62,7 +68,8 @@ func (p RuntimeRequestPlan) Validate() error {
 	if err := p.Context.Validate(); err != nil {
 		return err
 	}
-	if p.PromptTokens <= 0 || p.MaxNewTokens <= 0 || p.MaxSequence != p.PromptTokens+p.MaxNewTokens || p.BytesPerFloat <= 0 {
+	total, ok := checked.AddInt(p.PromptTokens, p.MaxNewTokens)
+	if !ok || p.PromptTokens <= 0 || p.MaxNewTokens <= 0 || p.MaxSequence != total || p.BytesPerFloat <= 0 {
 		return fmt.Errorf("invalid LFM2 runtime request plan limits: %+v", p)
 	}
 	if p.MaxSequence > p.Context.MaxPositionEmbeddings {

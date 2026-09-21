@@ -22,12 +22,12 @@ import (
 
 	"github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags"
 	"github.com/rcarmo/go-pherence/loader/audio"
-	"github.com/rcarmo/go-pherence/models/speaker"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/speaker"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 const (
-	defaultWhisperModelPath = "models/whisper-large-v3-turbo-hf/model.safetensors"
+	defaultWhisperModelPath = "checkpoints/whisper-large-v3-turbo-hf/model.safetensors"
 	defaultWhisperSize      = "turbo"
 	defaultWhisperLanguage  = "en"
 )

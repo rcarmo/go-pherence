@@ -28,7 +28,7 @@ func (c GenerationExecutionContract) Validate() error {
 	if err := c.Context.Validate(); err != nil {
 		return err
 	}
-	if c.PromptTokens <= 0 || c.MaxNewTokens <= 0 || c.MaxSequence != c.PromptTokens+c.MaxNewTokens || c.MaxSequence != c.Plan.MaxSequence {
+	if c.PromptTokens <= 0 || c.MaxNewTokens <= 0 || c.MaxSequence != sizeSum(c.PromptTokens, c.MaxNewTokens) || c.MaxSequence != c.Plan.MaxSequence {
 		return fmt.Errorf("invalid LFM2 generation contract limits: %+v", c)
 	}
 	return nil

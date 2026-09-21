@@ -1,6 +1,14 @@
 package bf16
 
-import "github.com/rcarmo/go-pherence/internal/checked"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
+
+// Zero preserves the existing no-regularisation contract for nonzero inputs.
+func validEpsilon(eps float32) bool {
+	return eps >= 0 && !math.IsNaN(float64(eps)) && !math.IsInf(float64(eps), 0)
+}
 
 // BF16DotF32Checked computes dot(BF16,F32) and reports malformed inputs.
 func BF16DotF32Checked(x []uint16, y []float32) (float32, bool) {
@@ -20,7 +28,7 @@ func BF16DotChecked(x, y []uint16) (float32, bool) {
 
 // BF16RMSNormChecked computes RMSNorm in-place and reports malformed inputs.
 func BF16RMSNormChecked(x, w []uint16, eps float32) bool {
-	if len(x) == 0 || len(w) < len(x) {
+	if len(x) == 0 || len(w) < len(x) || !validEpsilon(eps) {
 		return false
 	}
 	BF16RMSNorm(x, w, eps)

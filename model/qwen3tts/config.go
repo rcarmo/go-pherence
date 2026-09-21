@@ -1,10 +1,13 @@
 package qwen3tts
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type ModelType string
@@ -63,7 +66,18 @@ func ParseConfigFile(path string) (ParsedConfig, error) {
 
 func ParseConfig(data []byte) (ParsedConfig, error) {
 	var v map[string]any
-	if err := json.Unmarshal(data, &v); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return ParsedConfig{}, err
+	}
+	if v == nil {
+		return ParsedConfig{}, fmt.Errorf("Qwen3-TTS config must be an object")
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return ParsedConfig{}, fmt.Errorf("Qwen3-TTS config must contain one JSON object")
+	}
+	if err := validateNumericMetadata(v); err != nil {
 		return ParsedConfig{}, err
 	}
 	t := obj(v, "talker_config")
@@ -117,10 +131,28 @@ func ParseConfig(data []byte) (ParsedConfig, error) {
 }
 
 func (c ParsedConfig) Validate() error {
+	if c.ModelType != Base && c.ModelType != CustomVoice && c.ModelType != VoiceDesign {
+		return fmt.Errorf("unknown Qwen3-TTS model type %q", c.ModelType)
+	}
+	if c.TalkerIntermediateSize <= 0 || c.CPIntermediateSize <= 0 || c.TalkerVocabSize <= 0 || c.TalkerTextVocabSize <= 0 || c.TalkerTextHiddenSize <= 0 || c.CPVocabSize <= 0 || c.TalkerMaxPositionEmbedding < 0 {
+		return fmt.Errorf("invalid Qwen3-TTS vocabulary/FFN/position dimensions")
+	}
+	if c.CPNumCodeGroups > maxCodeGroups {
+		return fmt.Errorf("Qwen3-TTS code groups exceed planning limit %d", maxCodeGroups)
+	}
+	if c.SpeakerEncoder != nil && (c.SpeakerEncoder.EncDim <= 0 || c.SpeakerEncoder.SampleRate <= 0) {
+		return fmt.Errorf("invalid Qwen3-TTS speaker encoder dimensions")
+	}
+	if c.HasMRoPESection && !nonnegativeSizes(c.MRoPESection[:]...) {
+		return fmt.Errorf("invalid Qwen3-TTS mrope sections")
+	}
+	if !finitePositive(c.TalkerRMSNormEps) || !finitePositive(c.TalkerRoPETheta) || !finitePositive(c.CPRMSNormEps) || !finitePositive(c.CPRoPETheta) {
+		return fmt.Errorf("invalid Qwen3-TTS norm/rope controls")
+	}
 	if c.TalkerHiddenSize <= 0 || c.TalkerNumAttentionHeads <= 0 || c.TalkerNumKeyValueHeads <= 0 || c.TalkerHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS talker attention dims: %+v", c)
 	}
-	if c.TalkerHiddenSize != c.TalkerNumAttentionHeads*c.TalkerHeadDim {
+	if c.TalkerHiddenSize != sizeProduct(c.TalkerNumAttentionHeads, c.TalkerHeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS talker head dims: hidden=%d heads=%d head_dim=%d", c.TalkerHiddenSize, c.TalkerNumAttentionHeads, c.TalkerHeadDim)
 	}
 	if c.TalkerNumKeyValueHeads > c.TalkerNumAttentionHeads || c.TalkerNumAttentionHeads%c.TalkerNumKeyValueHeads != 0 {
@@ -129,7 +161,7 @@ func (c ParsedConfig) Validate() error {
 	if c.CPHiddenSize <= 0 || c.CPNumAttentionHeads <= 0 || c.CPNumKeyValueHeads <= 0 || c.CPHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor attention dims: %+v", c)
 	}
-	if c.CPHiddenSize != c.CPNumAttentionHeads*c.CPHeadDim {
+	if c.CPHiddenSize != sizeProduct(c.CPNumAttentionHeads, c.CPHeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor head dims: hidden=%d heads=%d head_dim=%d", c.CPHiddenSize, c.CPNumAttentionHeads, c.CPHeadDim)
 	}
 	if c.CPNumKeyValueHeads > c.CPNumAttentionHeads || c.CPNumAttentionHeads%c.CPNumKeyValueHeads != 0 {
@@ -176,15 +208,22 @@ func i(m map[string]any, key string, def int) int {
 	return def
 }
 func f(m map[string]any, key string, def float64) float64 {
-	if x, ok := m[key].(float64); ok {
-		return x
+	if x, ok := m[key].(json.Number); ok {
+		v, err := x.Float64()
+		if err == nil {
+			return v
+		}
 	}
 	return def
 }
 func anyInt(x any, def int) int {
 	switch v := x.(type) {
-	case float64:
-		return int(v)
+	case json.Number:
+		n, err := strconv.ParseInt(string(v), 10, strconv.IntSize)
+		if err == nil {
+			return int(n)
+		}
+		return -1
 	case int:
 		return v
 	default:

@@ -63,3 +63,38 @@ func TestReportCanLoadSharedHeadJSON(t *testing.T) {
 		t.Fatalf("decoded=%+v", decoded)
 	}
 }
+
+func TestSafetensorNamesFailsClosedOnPresentBrokenIndex(t *testing.T) {
+	for _, index := range []string{"invalid", `{"weight_map":{"mtp.fc.weight":"missing.safetensors"}}`} {
+		dir := t.TempDir()
+		header := `{"mtp.fc.weight":{"dtype":"F32","shape":[1],"data_offsets":[0,4]}}`
+		var size [8]byte
+		binary.LittleEndian.PutUint64(size[:], uint64(len(header)))
+		data := append(append(size[:], []byte(header)...), 0, 0, 0, 0)
+		if err := os.WriteFile(filepath.Join(dir, "model.safetensors"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "model.safetensors.index.json"), []byte(index), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := safetensorNames(dir); err == nil {
+			t.Fatal("broken index silently replaced with monolithic file")
+		}
+	}
+	if names, err := safetensorNames(t.TempDir()); err != nil || len(names) != 0 {
+		t.Fatal("metadata-only directory rejected", names, err)
+	}
+}
+func TestMetadataEnumerationLimits(t *testing.T) {
+	for _, n := range []int{-1, 4097, int(^uint(0) >> 1)} {
+		if validateMetadata(loaderconfig.QwenNativeMTPMetadata{NumHiddenLayers: n}) == nil {
+			t.Fatal(n)
+		}
+		if validateMetadata(loaderconfig.QwenNativeMTPMetadata{MTPNumHiddenLayers: n}) == nil {
+			t.Fatal(n)
+		}
+	}
+	if err := validateMetadata(loaderconfig.QwenNativeMTPMetadata{NumHiddenLayers: 32, MTPNumHiddenLayers: 1}); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model/jevlike
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkTinyScoring       	     368	   3304955 ns/op	 1143992 B/op	    4287 allocs/op
+BenchmarkTinyTrainingEpoch 	       5	 218801941 ns/op	31509952 B/op	  112978 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model/jevlike	3.792s
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/model/jevlike
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkTinyScoring       	     368	   3655846 ns/op	 1143992 B/op	    4287 allocs/op
+BenchmarkTinyTrainingEpoch 	       5	 231893361 ns/op	31509952 B/op	  112978 allocs/op
+PASS
+ok  	github.com/rcarmo/go-pherence/model/jevlike	4.026s

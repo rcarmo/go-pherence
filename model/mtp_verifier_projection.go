@@ -21,7 +21,9 @@ type MTPVerifierLayerQKVBatch struct {
 
 // ProjectMTPVerifierLayerQKVBatch computes the verifier layer's input norm and
 // Q/K/V projections for all verifier rows in one batch contract. Dense/MLX
-// weights use batched projection helpers; quantized QAT weights currently keep
+// weights use batched projection helpers. Dense batch GEMM and singleton GEMV
+// may differ by floating-point reduction/FMA rounding; they are not a bitwise
+// identity contract. Quantized QAT weights currently keep
 // the exact per-row m.mvQ path as the SIMD oracle until a true quantized batch
 // kernel is introduced.
 func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInputs, layerIdx int, hiddenFlat []float32) (MTPVerifierLayerQKVBatch, error) {

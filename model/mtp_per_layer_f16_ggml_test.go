@@ -36,7 +36,7 @@ func TestGemma4GGMLRoPEExtOracle(t *testing.T) {
 func TestGemma4FullRoPEExtRealGGUFOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -293,7 +293,7 @@ func assertFlashAttentionF16Oracle(t *testing.T, name string, headDim, seqLen, n
 func TestGemma4RealGGMLRMSNormOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -334,7 +334,7 @@ func TestGemma4RealGGMLRMSNormOracle(t *testing.T) {
 func TestGemma4RealGGMLRMSNormNoScaleOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -384,7 +384,7 @@ func TestGemma4GGMLGEGLUSplitOracle(t *testing.T) {
 func TestGemma4Layer0ActualQKVProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -436,7 +436,7 @@ func TestGemma4Layer0ActualQKVProjectionRealGGMLQ4Oracle(t *testing.T) {
 func TestGemma4Layer0ActualFFNRealGGMLOracles(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -562,7 +562,7 @@ func TestGemma4Layer0ActualFFNRealGGMLOracles(t *testing.T) {
 func TestGemma4Layer0BatchedOProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -617,7 +617,7 @@ func TestGemma4Layer0BatchedOProjectionActualAttentionRealGGMLQ4Oracle(t *testin
 func TestGemma4Layer0OProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -667,7 +667,7 @@ func TestGemma4Layer0OProjectionActualAttentionRealGGMLQ4Oracle(t *testing.T) {
 func TestGemma4RepresentativeLayerProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -748,7 +748,7 @@ func TestGemma4RepresentativeLayerProjectionRealGGMLQ4Oracle(t *testing.T) {
 func TestGemma4Layer0ProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -810,7 +810,7 @@ func TestGemma4Layer0ProjectionRealGGMLQ4Oracle(t *testing.T) {
 func TestGemma4PLIGateProjectionRealGGMLQ4Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -866,7 +866,7 @@ func TestGemma4PLIGateProjectionRealGGMLQ4Oracle(t *testing.T) {
 func TestGemma4PerLayerTokenEmbeddingRealGGMLGetRowsOracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -915,7 +915,7 @@ func TestGemma4PerLayerTokenEmbeddingRealGGMLGetRowsOracle(t *testing.T) {
 func TestGemma4PerLayerModelProjRealGGMLF16Oracle(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}
@@ -1034,7 +1034,7 @@ func gemma4LayerQKVAndKVForFlashOracle(t *testing.T, targetLayer int) (*LlamaMod
 	t.Helper()
 	path := os.Getenv("GO_PHERENCE_GEMMA4_MAIN")
 	if path == "" {
-		path = filepath.Join("models", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
+		path = filepath.Join("checkpoints", "gemma4-e4b-it-google-qat-gguf", "gemma-4-E4B_q4_0-it.gguf")
 		if root := findMTPParityRepoRoot(); root != "" {
 			path = filepath.Join(root, path)
 		}

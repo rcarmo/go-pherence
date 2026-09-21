@@ -133,7 +133,7 @@ nt_k_reduce:
 nt_k_scalar:
     FMOVS   (R14), F4
     FMOVS   (R15), F5
-    FMADDS  F4, F0, F5, F0
+    FMADDS  F4, F20, F5, F20
     ADD     $4, R14
     ADD     $4, R15
     SUB     $1, R16, R16
@@ -141,9 +141,11 @@ nt_k_scalar:
 
 nt_k_store:
     // C[i,j] += alpha * dot
-    FMULS   F31, F0, F0
+    // Reduction and scalar tail both accumulate in F20; F0 aliases only
+    // vector lane 0 and must not be used as the completed dot product.
+    FMULS   F31, F20, F20
     FMOVS   (R13), F4
-    FADDS   F0, F4, F4
+    FADDS   F20, F4, F4
     FMOVS   F4, (R13)
 
     ADD     $4, R13              // next C column

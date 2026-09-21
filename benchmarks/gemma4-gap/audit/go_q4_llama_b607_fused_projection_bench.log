@@ -1,0 +1,21 @@
+goos: linux
+goarch: amd64
+pkg: github.com/rcarmo/go-pherence/loader/gguf
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    1791	    572697 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    2151	    651949 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    1911	    568590 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    2119	    549947 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/prepacked-6         	    2173	    559359 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    1300	    845809 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    1362	    953261 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    1441	    879899 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    1448	    847095 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/activation-pack-included-6         	    1464	    851810 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1144	   1106502 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1032	   1023541 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1096	   1056598 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1178	   1079574 ns/op
+BenchmarkDotQ4_0Q8_0LlamaProjection/all-pack-included-6                	    1176	   1034206 ns/op
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/gguf	22.313s

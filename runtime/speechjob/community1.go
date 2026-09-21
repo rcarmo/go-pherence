@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/rcarmo/go-pherence/loader/audio/media"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 )
 
 // Community1StageConfig is an explicit experimental host-CPU contract. Hashes
@@ -43,7 +43,7 @@ type Community1StageConfig struct {
 // previously completed ASR/transcript checkpoints on failure; diarization itself
 // restarts from the beginning until the complete result is durably published.
 // Clustering depends on all windows; it is never restarted on an isolated suffix.
-// Callers own immutable models/PCM and exclude competing model/backend use. This
+// Callers own immutable checkpoints/PCM and exclude competing model/backend use. This
 // does not load weights, launch a neural subprocess, relax a gate or start service.
 // The existing experimental 128-window limit is enforced before inference.
 func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageConfig) (Stage, error) {

@@ -151,3 +151,39 @@ func TestCompilerValidationRejectsMalformedSpecs(t *testing.T) {
 		t.Fatal("oversized block size launch reported success")
 	}
 }
+
+func TestJITKeysIncludeConstantsEdgesAndABI(t *testing.T) {
+	makeSpec := func(value float32, reverse bool) *KernelSpec {
+		a := &KNode{Op: KOpLoad, BufIdx: 0}
+		b := &KNode{Op: KOpConst, ConstVal: value}
+		inputs := []*KNode{a, b}
+		if reverse {
+			inputs = []*KNode{b, a}
+		}
+		sub := &KNode{Op: KOpSub, Inputs: inputs}
+		store := &KNode{Op: KOpStore, BufIdx: 1, Inputs: []*KNode{sub}}
+		return &KernelSpec{Name: "key", NumBufs: 2, Nodes: []*KNode{a, b, sub, store}}
+	}
+	a, b, c := makeSpec(1, false), makeSpec(2, false), makeSpec(1, true)
+	if specKey(a) == specKey(b) || specKey(a) == specKey(c) {
+		t.Fatal("cache key ignores constants or edges")
+	}
+	clone := cloneKernelSpec(a)
+	genPTX(clone)
+	if a.Nodes[0].RegName != "" {
+		t.Fatal("codegen mutated caller graph")
+	}
+	clone.NumBufs = 3
+	if specKey(a) == specKey(clone) {
+		t.Fatal("cache key ignores ABI")
+	}
+	for _, spec := range []*KernelSpec{{Name: "bad", NumBufs: 1, Nodes: []*KNode{{Op: KOpAdd}}}, {Name: "bad", NumBufs: 1, HasReduce: true, Nodes: []*KNode{{Op: KOpLoad}}}, {Name: "bad", NumBufs: 9, Nodes: []*KNode{{Op: KOpLoad}}}} {
+		if err := validateKernelSpec(spec); err == nil {
+			t.Fatal("malformed ABI/codegen accepted")
+		}
+	}
+	k := &CompiledKernel{Fn: 1, NumBufs: 1, GridDiv: 256, BlockSz: 256}
+	if k.Launch(1, &Buffer{Ptr: 1, Size: 4}, &Buffer{Ptr: 2, Size: 4}) {
+		t.Fatal("extra buffer shifts N kernel argument")
+	}
+}

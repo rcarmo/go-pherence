@@ -15,7 +15,7 @@ import (
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
 )

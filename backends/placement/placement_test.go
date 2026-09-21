@@ -253,3 +253,16 @@ func TestPlanLayerPlacementManualLayerCountClampsToModel(t *testing.T) {
 		t.Fatalf("manual gpu layer count should clamp by model layers: %+v", plan)
 	}
 }
+
+func TestINT4LayerCountsPackedWordsAsBytes(t *testing.T) {
+	for _, h := range []int{3, 64, 128} {
+		info := ModelSizeInfo{NumLayers: 1, HiddenSize: h, Intermediate: h, NumHeads: 1, NumKVHeads: 1, HeadDim: h, QuantBits: 4}
+		// Seven square projections: uint32 packed rows + F32 scales and biases.
+		packed := int64((h + 7) / 8 * h * 4)
+		scaleBias := int64(h * ((h + 63) / 64) * 8)
+		want := 7*(packed+scaleBias) + int64(6*h*4) + int64(2*1024*h*4)
+		if got := EstimateLayerWeightBytes(info, 0); got != want {
+			t.Fatalf("h=%d got=%d want=%d", h, got, want)
+		}
+	}
+}

@@ -3,6 +3,7 @@
 package dgflags
 
 import (
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -18,10 +19,22 @@ func envBool(name string) bool {
 func ExpertCacheBudgetBytes(defaultMB int64) int64 {
 	if v := strings.TrimSpace(os.Getenv("GO_PHERENCE_DIFFUSIONGEMMA_EXPERT_CACHE_MB")); v != "" {
 		if mb, err := strconv.ParseInt(v, 10, 64); err == nil && mb >= 0 {
-			return mb * 1024 * 1024
+			return mibBytes(mb)
 		}
 	}
-	return defaultMB * 1024 * 1024
+	return mibBytes(defaultMB)
+}
+
+// Preserve nonnegative budget semantics rather than wrap to a small/negative
+// value. Saturation is accounting only, not permission to allocate that amount.
+func mibBytes(mb int64) int64 {
+	if mb <= 0 {
+		return 0
+	}
+	if mb > math.MaxInt64/(1<<20) {
+		return math.MaxInt64
+	}
+	return mb * (1 << 20)
 }
 
 // GPUSelfCondEnabled reports GO_PHERENCE_DIFFUSIONGEMMA_GPU_SELFCOND.

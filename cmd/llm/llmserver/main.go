@@ -15,11 +15,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rcarmo/go-pherence/internal/httpinput"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/model"
 	"github.com/rcarmo/go-pherence/runtime/kv"
+	"github.com/rcarmo/go-pherence/webui"
 )
 
 // OpenAI API types
@@ -109,6 +111,7 @@ type generationResult struct {
 type gemmaSessionFactory func(*model.LlamaModel, model.SessionOptions) (model.InferenceSession, error)
 
 var errGenerationStopped = errors.New("generation stopped")
+var errInferenceBusy = errors.New("inference busy; retry later")
 
 // Server
 
@@ -118,6 +121,7 @@ type Server struct {
 	tok             *tokenizer.Tokenizer
 	mu              sync.Mutex
 	inferMu         sync.Mutex
+	admissionMu     sync.Mutex
 	newGemmaSession gemmaSessionFactory
 	modelID         string
 	modelPath       string
@@ -163,12 +167,21 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bound concurrent bodies/tokenisation as well as inference. Model switches
+	// use inferMu below; this gate stays held through response completion.
+	if !s.admissionMu.TryLock() {
+		http.Error(w, errInferenceBusy.Error(), http.StatusTooManyRequests)
+		return
+	}
+	defer s.admissionMu.Unlock()
+	if err := r.Context().Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusRequestTimeout)
+		return
+	}
 	defer r.Body.Close()
-	dec := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	dec.DisallowUnknownFields()
 	var req ChatCompletionRequest
-	if err := dec.Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("bad request: %v", err), http.StatusBadRequest)
+	if err := httpinput.DecodeJSON(w, r, &req, 1<<20, true); err != nil {
+		http.Error(w, fmt.Sprintf("bad request: %v", err), httpinput.ErrorStatus(err))
 		return
 	}
 
@@ -178,8 +191,8 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	maxTokens := req.MaxTokens
-	if maxTokens < 0 {
-		http.Error(w, "max_tokens must be non-negative", http.StatusBadRequest)
+	if maxTokens < 0 || maxTokens > 4096 {
+		http.Error(w, "max_tokens must be within 0..4096", http.StatusBadRequest)
 		return
 	}
 	if maxTokens == 0 {
@@ -201,12 +214,24 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	rt, unlock, err := s.snapshotRuntime(req.Model)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		status := http.StatusBadRequest
+		if errors.Is(err, errInferenceBusy) {
+			status = http.StatusTooManyRequests
+		}
+		http.Error(w, err.Error(), status)
 		return
 	}
 	defer unlock()
 
+	if err := r.Context().Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusRequestTimeout)
+		return
+	}
 	ids := rt.tok.Encode(prompt)
+	if len(ids) > 8192 || rt.preparedPromptTokens(ids) > 8192 {
+		http.Error(w, "prompt exceeds 8192 prepared tokens", http.StatusBadRequest)
+		return
+	}
 	if req.Stream {
 		s.streamResponse(w, r, rt, ids, maxTokens)
 	} else {
@@ -215,7 +240,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) snapshotRuntime(reqModel string) (serverRuntime, func(), error) {
-	s.inferMu.Lock()
+	if !s.inferMu.TryLock() {
+		return serverRuntime{}, nil, errInferenceBusy
+	}
 	unlock := func() { s.inferMu.Unlock() }
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -285,15 +312,33 @@ func (s *Server) generate(ctx context.Context, rt serverRuntime, ids []int, maxT
 	if rt.cpuModel != nil && rt.gpuModel == nil && !rt.speculative && rt.cpuModel.Config.ModelType == "gemma4_text" {
 		return s.generateGemma4CPU(ctx, rt, ids, maxTokens, emit)
 	}
-	return s.generateMonolithic(rt, ids, maxTokens, emit)
+	if err := ctx.Err(); err != nil {
+		return generationResult{}, err
+	}
+	result, err := s.generateMonolithic(rt, ids, maxTokens, func(token int, text string) bool {
+		if ctx.Err() != nil {
+			return false
+		}
+		return emit == nil || emit(token, text)
+	})
+	if ctx.Err() != nil {
+		return result, ctx.Err()
+	}
+	return result, err
 }
 
 func (s *Server) generateGemma4CPU(ctx context.Context, rt serverRuntime, ids []int, maxTokens int, emit func(token int, text string) bool) (generationResult, error) {
+	if err := ctx.Err(); err != nil {
+		return generationResult{}, err
+	}
 	session, err := s.gemmaSessionFactory()(rt.cpuModel, model.SessionOptions{Backend: model.InferenceBackendSIMD, MaxTokens: maxTokens, StopTokenIDs: eosLikeStopTokenIDs(rt.tok)})
 	if err != nil {
 		return generationResult{}, err
 	}
 	defer session.Close()
+	if err := ctx.Err(); err != nil {
+		return generationResult{}, err
+	}
 	prefill, err := session.PrefillChunk(ids)
 	if err != nil {
 		return generationResult{}, err
@@ -620,10 +665,30 @@ func loadRuntimeModelWithKV(path string, useGPU bool, gpuLayers int, cacheTypeK,
 	return m, tok, gpu, nil
 }
 
+func (s *Server) routes(enableWebUI bool) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/v1/models", s.handleModels)
+	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	if enableWebUI {
+		webui.Register(mux, webui.Config{
+			ModelID: s.modelID, ContextSize: s.maxCtx, MaxTokens: 4096,
+			CurrentModel: func() (string, int) {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				return s.modelID, s.maxCtx
+			},
+			ChatHandler: http.HandlerFunc(s.handleChatCompletions),
+		})
+	}
+	return mux
+}
+
 func main() {
 	dir := flag.String("model", "", "model directory")
 	modelPresets := flag.String("model-presets", "", "llama.cpp-compatible models.ini preset file")
 	listen := flag.String("listen", ":8080", "address to listen on")
+	enableWebUI := flag.Bool("webui", false, "serve the embedded llama.cpp UI at /")
 	useGPU := flag.Bool("gpu", false, "use GPU")
 	gpuLayers := flag.Int("gpu-layers", 0, "number of layers on GPU (0=all)")
 	threads := flag.Int("threads", 4, "decode CPU threads hint for llama.cpp-compatible deployments")
@@ -710,16 +775,14 @@ func main() {
 		log.Printf("GPU model ready")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", srv.handleHealth)
-	mux.HandleFunc("/v1/models", srv.handleModels)
-	mux.HandleFunc("/v1/chat/completions", srv.handleChatCompletions)
+	mux := srv.routes(*enableWebUI)
 
 	log.Printf("Listening on %s", *listen)
 	log.Printf("  GET  /health")
 	log.Printf("  POST /v1/chat/completions")
 	log.Printf("  GET  /v1/models")
-	if err := http.ListenAndServe(*listen, mux); err != nil {
+	httpServer := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	if err := httpServer.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

@@ -1,10 +1,9 @@
 package sampling
 
 import (
-	"container/heap"
 	"math"
 	"math/rand"
-	"sort"
+	"slices"
 )
 
 // candidate pairs a token ID with its raw logit value.
@@ -134,22 +133,30 @@ func candidateBetter(a, b candidate) bool {
 // candidateHeap is a min-heap over the canonical ordering's complement: its
 // root (index 0) is always the current *worst* element, so bounded top-K
 // selection can evict it in O(log k) when a better candidate arrives.
-type candidateHeap []candidate
-
-func (h candidateHeap) Len() int { return len(h) }
-func (h candidateHeap) Less(i, j int) bool {
-	// h[i] belongs above h[j] in the min-heap (i.e. h[i] is "worse") when
-	// candidateBetter(h[j], h[i]) holds.
-	return candidateBetter(h[j], h[i])
+// Typed sift operations avoid boxing each candidate through container/heap.
+func candidateHeapUp(h []candidate, i int) {
+	for i > 0 {
+		parent := (i - 1) / 2
+		if !candidateBetter(h[parent], h[i]) {
+			break
+		}
+		h[parent], h[i] = h[i], h[parent]
+		i = parent
+	}
 }
-func (h candidateHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
-func (h *candidateHeap) Push(x any)   { *h = append(*h, x.(candidate)) }
-func (h *candidateHeap) Pop() any {
-	old := *h
-	n := len(old)
-	item := old[n-1]
-	*h = old[:n-1]
-	return item
+
+func candidateHeapDown(h []candidate) {
+	for i := 0; i < len(h)/2; {
+		child := 2*i + 1
+		if child+1 < len(h) && candidateBetter(h[child], h[child+1]) {
+			child++
+		}
+		if !candidateBetter(h[i], h[child]) {
+			break
+		}
+		h[i], h[child] = h[child], h[i]
+		i = child
+	}
 }
 
 // boundedTopK selects the K highest-logit valid tokens from logits without
@@ -157,7 +164,8 @@ func (h *candidateHeap) Pop() any {
 // canonical ordering) in a single O(n log k) pass, then sorts only the K
 // survivors into canonical (descending logit, ascending token ID) order.
 func boundedTopK(logits []float32, k int) ([]candidate, error) {
-	h := make(candidateHeap, 0, k)
+	k = min(k, len(logits))
+	h := make([]candidate, 0, k)
 	valid := 0
 	for i, v := range logits {
 		if isExcluded(v) {
@@ -166,12 +174,13 @@ func boundedTopK(logits []float32, k int) ([]candidate, error) {
 		valid++
 		c := candidate{idx: int32(i), logit: v}
 		if len(h) < k {
-			heap.Push(&h, c)
+			h = append(h, c)
+			candidateHeapUp(h, len(h)-1)
 			continue
 		}
 		if candidateBetter(c, h[0]) {
 			h[0] = c
-			heap.Fix(&h, 0)
+			candidateHeapDown(h)
 		}
 	}
 	if valid == 0 {
@@ -185,24 +194,52 @@ func boundedTopK(logits []float32, k int) ([]candidate, error) {
 // sortCandidatesDesc sorts cands in place into canonical order: descending
 // logit, then ascending token ID.
 func sortCandidatesDesc(cands []candidate) {
-	sort.Slice(cands, func(i, j int) bool { return candidateBetter(cands[i], cands[j]) })
+	slices.SortFunc(cands, func(a, b candidate) int {
+		if candidateBetter(a, b) {
+			return -1
+		}
+		if candidateBetter(b, a) {
+			return 1
+		}
+		return 0
+	})
 }
 
 // sortCandidatesWithWeights sorts cands into canonical order while keeping
 // weights aligned to the same permutation.
 func sortCandidatesWithWeights(cands []candidate, weights []float64) ([]candidate, []float64) {
+	// Keep token-order FP summation and move the already computed weights with
+	// their candidates. Sorting indices is faster here than interface-based swaps
+	// of two slices; apply permutation cycles in place instead of two output arrays.
 	order := make([]int, len(cands))
 	for i := range order {
 		order[i] = i
 	}
-	sort.Slice(order, func(i, j int) bool { return candidateBetter(cands[order[i]], cands[order[j]]) })
-	outCands := make([]candidate, len(cands))
-	outWeights := make([]float64, len(weights))
-	for dst, src := range order {
-		outCands[dst] = cands[src]
-		outWeights[dst] = weights[src]
+	slices.SortFunc(order, func(a, b int) int {
+		if candidateBetter(cands[a], cands[b]) {
+			return -1
+		}
+		if candidateBetter(cands[b], cands[a]) {
+			return 1
+		}
+		return 0
+	})
+	for i := range order {
+		if order[i] == i {
+			continue
+		}
+		c, w := cands[i], weights[i]
+		j := i
+		for order[j] != i {
+			src := order[j]
+			cands[j], weights[j] = cands[src], weights[src]
+			order[j] = j
+			j = src
+		}
+		cands[j], weights[j] = c, w
+		order[j] = j
 	}
-	return outCands, outWeights
+	return cands, weights
 }
 
 // softmaxWeights computes unnormalized softmax weights for cands scaled by
@@ -224,7 +261,8 @@ func softmaxWeights(cands []candidate, temperature float64) ([]float64, float64)
 			maxScaled = s
 		}
 	}
-	weights := make([]float64, len(cands))
+	// The scaled logits are no longer needed after finding the maximum.
+	weights := scaled
 	var total float64
 	maxIsInf := math.IsInf(maxScaled, 1)
 	for i, s := range scaled {

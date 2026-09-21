@@ -31,11 +31,13 @@ type AdvisedRange struct {
 
 // MmapAdvisor manages madvise hints on an mmap'd byte region.
 // It tracks per-range residency and provides hit/evict counters
-// for budget tuning (inspired by ds4 streaming PR).
+// for budget tuning (inspired by ds4 streaming PR). The owner must call Detach
+// before unmapping. Stats are conservative advice bookkeeping, not measured RSS.
 type MmapAdvisor struct {
 	mu       sync.Mutex
 	base     []byte // the mmap'd region
 	pageSize int64
+	advise   func([]byte, int) error // nil uses syscall.Madvise; injected by host tests
 
 	// Per-range tracking (keyed by page-aligned offset)
 	ranges map[int64]*AdvisedRange
@@ -58,6 +60,26 @@ func NewMmapAdvisor(mmapData []byte) *MmapAdvisor {
 		pageSize: ps,
 		ranges:   make(map[int64]*AdvisedRange),
 	}
+}
+
+// Detach waits for in-flight advice and disables future mapping access. It does
+// not unmap memory or protect independent raw readers. Retained advisor handles
+// become inert; the mapping owner must detach every advisor it created.
+func (a *MmapAdvisor) Detach() {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.base = nil
+	a.ranges = nil
+	a.TotalBytes.Store(0)
+}
+func (a *MmapAdvisor) madviseLocked(off, sz int64, advice int) error {
+	if a.advise != nil {
+		return a.advise(a.base[off:off+sz], advice)
+	}
+	return syscall.Madvise(a.base[off:off+sz], advice)
 }
 
 // align returns (page-aligned offset, page-aligned size).
@@ -96,27 +118,30 @@ func (a *MmapAdvisor) boundedRange(offset, bytes int64) (int64, int64, bool) {
 
 // Prefetch issues madvise(MADV_WILLNEED) for a range, pre-faulting pages.
 func (a *MmapAdvisor) Prefetch(offset, bytes int64) error {
+	if a == nil {
+		return nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	off, sz, ok := a.boundedRange(offset, bytes)
 	if !ok {
 		return nil
 	}
 
-	if err := syscall.Madvise(a.base[off:off+sz], syscall.MADV_WILLNEED); err != nil {
+	if err := a.madviseLocked(off, sz, syscall.MADV_WILLNEED); err != nil {
 		return fmt.Errorf("madvise WILLNEED [%d:%d]: %w", off, off+sz, err)
 	}
 
-	a.mu.Lock()
 	r, ok := a.ranges[off]
 	if !ok {
 		r = &AdvisedRange{Offset: off}
 		a.ranges[off] = r
 	}
-	r.Bytes = sz
+	r.Bytes = max(r.Bytes, sz)
 	r.State = RangePrefetching
 	r.Hits++
 	r.LastUsed = time.Now().UnixNano()
 	a.recomputeTotalsLocked()
-	a.mu.Unlock()
 
 	a.TotalPrefetches.Add(1)
 	return nil
@@ -124,68 +149,91 @@ func (a *MmapAdvisor) Prefetch(offset, bytes int64) error {
 
 // Touch marks a range as actively used (hot).
 func (a *MmapAdvisor) Touch(offset, bytes int64) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	off, sz, ok := a.boundedRange(offset, bytes)
 	if !ok {
 		return
 	}
 
-	a.mu.Lock()
 	r, ok := a.ranges[off]
 	if !ok {
 		r = &AdvisedRange{Offset: off}
 		a.ranges[off] = r
 	}
-	r.Bytes = sz
+	r.Bytes = max(r.Bytes, sz)
 	r.State = RangeHot
 	r.Hits++
 	r.LastUsed = time.Now().UnixNano()
 	a.recomputeTotalsLocked()
-	a.mu.Unlock()
 }
 
 // Evict issues madvise(MADV_DONTNEED) for a range, releasing pages.
 func (a *MmapAdvisor) Evict(offset, bytes int64) error {
+	if a == nil {
+		return nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	off, sz, ok := a.boundedRange(offset, bytes)
 	if !ok {
 		return nil
 	}
-
-	if err := syscall.Madvise(a.base[off:off+sz], syscall.MADV_DONTNEED); err != nil {
+	return a.evictLocked(off, sz)
+}
+func (a *MmapAdvisor) evictLocked(off, sz int64) error {
+	if err := a.madviseLocked(off, sz, syscall.MADV_DONTNEED); err != nil {
 		return fmt.Errorf("madvise DONTNEED [%d:%d]: %w", off, off+sz, err)
 	}
-
-	a.mu.Lock()
-	if r, ok := a.ranges[off]; ok {
-		r.State = RangeCold
-		r.Evicts++
+	// A partial eviction does not make a whole tracked range cold. Keep that
+	// range conservatively hot until its complete extent has been evicted.
+	for _, r := range a.ranges {
+		if r != nil && r.Offset >= off && checked.SaturatingAddInt64(r.Offset, r.Bytes) <= off+sz {
+			r.State = RangeCold
+			r.Evicts = saturatingAddUint64(r.Evicts, 1)
+		}
 	}
 	a.recomputeTotalsLocked()
-	a.mu.Unlock()
-
 	a.TotalEvictions.Add(1)
 	return nil
 }
 
-// EvictCold evicts all ranges that haven't been touched since cutoff (unix nanos).
+// EvictCold serialises eligibility, advice and bookkeeping with Touch/Detach.
+// A recent overlapping range protects old aliases of the same pages.
 func (a *MmapAdvisor) EvictCold(cutoffNanos int64) (int, error) {
 	if a == nil {
 		return 0, nil
 	}
 	a.mu.Lock()
-	var toEvict []AdvisedRange
+	defer a.mu.Unlock()
+	count := 0
 	for _, r := range a.ranges {
-		if r.State != RangeCold && r.LastUsed < cutoffNanos {
-			toEvict = append(toEvict, *r)
+		if r == nil || r.State == RangeCold || r.LastUsed >= cutoffNanos {
+			continue
 		}
-	}
-	a.mu.Unlock()
-
-	for i, r := range toEvict {
-		if err := a.Evict(r.Offset, r.Bytes); err != nil {
-			return i, err
+		off, sz, ok := a.boundedRange(r.Offset, r.Bytes)
+		if !ok {
+			continue
 		}
+		recent := false
+		for _, other := range a.ranges {
+			if other != nil && other.State != RangeCold && other.LastUsed >= cutoffNanos && other.Offset < off+sz && checked.SaturatingAddInt64(other.Offset, other.Bytes) > off {
+				recent = true
+				break
+			}
+		}
+		if recent {
+			continue
+		}
+		if err := a.evictLocked(off, sz); err != nil {
+			return count, err
+		}
+		count++
 	}
-	return len(toEvict), nil
+	return count, nil
 }
 
 // MergeRanges coalesces overlapping/adjacent tracked ranges.
@@ -276,15 +324,31 @@ func (a *MmapAdvisor) recomputeTotalsLocked() {
 	if a == nil {
 		return
 	}
-	var total int64
+	// Count the union of tracked non-cold extents, not their overlapping sum.
+	ranges := make([]AdvisedRange, 0, len(a.ranges))
 	for _, r := range a.ranges {
-		if r == nil {
-			continue
+		if r != nil {
+			*r = sanitizeRange(*r)
+			if r.State != RangeCold && r.Bytes > 0 {
+				ranges = append(ranges, *r)
+			}
 		}
-		*r = sanitizeRange(*r)
-		if r.State != RangeCold {
-			total = checked.SaturatingAddInt64(total, r.Bytes)
+	}
+	sort.Slice(ranges, func(i, j int) bool { return ranges[i].Offset < ranges[j].Offset })
+	var total, end int64
+	for _, r := range ranges {
+		// Corrupted internal extents cannot have a representable union; keep the
+		// legacy conservative saturation instead of undercounting a clipped endpoint.
+		if r.Offset > checked.MaxInt64()-r.Bytes {
+			total = checked.MaxInt64()
+			break
 		}
+		next := checked.SaturatingAddInt64(r.Offset, r.Bytes)
+		start := max(end, r.Offset)
+		if next > start {
+			total = checked.SaturatingAddInt64(total, next-start)
+		}
+		end = max(end, next)
 	}
 	a.TotalBytes.Store(total)
 	if total > a.PeakBytes {

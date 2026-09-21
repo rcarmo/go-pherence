@@ -178,20 +178,11 @@ func buildQwen35PrefillStreamedTestModel(t *testing.T) (*Qwen35BaseModel, loader
 	src["model.layers.0.self_attn.k_proj.weight"] = qwen35PatternTensorLike(src["model.layers.0.self_attn.k_proj.weight"], 2, 0.02)
 	src["model.layers.0.self_attn.v_proj.weight"] = qwen35PatternTensorLike(src["model.layers.0.self_attn.v_proj.weight"], 3, 0.02)
 	src["model.layers.0.self_attn.o_proj.weight"] = qwen35PatternTensorLike(src["model.layers.0.self_attn.o_proj.weight"], 4, 0.02)
-	src["model.layers.1.linear_attn.in_proj_qkvz.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_qkvz.weight"], 5, 0.015)
-	src["model.layers.1.linear_attn.in_proj_qkv.weight"] = src["model.layers.1.linear_attn.in_proj_qkvz.weight"]
-	src["model.layers.1.linear_attn.in_proj_gate.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_gate.weight"], 6, 0.015)
-	src["model.layers.1.linear_attn.in_proj_z.weight"] = src["model.layers.1.linear_attn.in_proj_gate.weight"]
-	// The loader normalizes checkpoint conv layout [conv,1,kernel] to [conv,kernel,1].
-	conv := src["model.layers.1.linear_attn.conv1d.weight"]
-	convShape := conv.Shape()
-	convData := make([]float32, conv.Numel())
-	for i := range convData {
-		convData[i] = float32(((7+i*3)%11)-5) * 0.01
-	}
-	src["model.layers.1.linear_attn.conv1d.weight"] = tensor.FromFloat32(convData, []int{convShape[0], convShape[2], convShape[1]})
-	src["model.layers.1.linear_attn.in_proj_ba.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_ba.weight"], 8, 0.01)
-	src["model.layers.1.linear_attn.in_proj_b.weight"] = src["model.layers.1.linear_attn.in_proj_ba.weight"]
+	src["model.layers.1.linear_attn.in_proj_qkv.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_qkv.weight"], 5, 0.015)
+	src["model.layers.1.linear_attn.in_proj_z.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_z.weight"], 6, 0.015)
+	// The loader normalizes checkpoint conv layout [conv,kernel,1] to internal [conv,1,kernel].
+	src["model.layers.1.linear_attn.conv1d.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.conv1d.weight"], 7, 0.01)
+	src["model.layers.1.linear_attn.in_proj_b.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_b.weight"], 8, 0.01)
 	src["model.layers.1.linear_attn.in_proj_a.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.in_proj_a.weight"], 9, 0.01)
 	src["model.layers.1.linear_attn.A"] = qwen35NegativePatternTensorLike(src["model.layers.1.linear_attn.A"], 10, 0.02)
 	src["model.layers.1.linear_attn.out_proj.weight"] = qwen35PatternTensorLike(src["model.layers.1.linear_attn.out_proj.weight"], 11, 0.015)

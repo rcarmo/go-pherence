@@ -1,6 +1,6 @@
 {
-  "main_model": "models/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf",
-  "drafter": "models/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf",
+  "main_model": "checkpoints/gemma4-e4b-it-google-qat-gguf/gemma-4-E4B_q4_0-it.gguf",
+  "drafter": "checkpoints/gemma4-e4b-it-google-qat-gguf/MTP/gemma-4-E4B-it-BF16-MTP.gguf",
   "prompt_tokens": [
     10979,
     236764

@@ -20,6 +20,7 @@ type Tokenizer struct {
 	InvVocab     map[int]string // ID → token string
 	Merges       [][2]string    // BPE merge pairs in priority order
 	AddedSpecial map[string]int // Hugging Face added tokens with special=true
+	AddedTokens  map[string]int // exact non-special added tokens from sidecars
 
 	mergeRankOnce sync.Once
 	mergeRank     map[[2]string]int
@@ -273,7 +274,7 @@ func (t *Tokenizer) Encode(text string) []int {
 	if t == nil || t.Vocab == nil {
 		return nil
 	}
-	if len(t.AddedSpecial) == 0 {
+	if len(t.AddedSpecial) == 0 && len(t.AddedTokens) == 0 {
 		return t.encodeOrdinary(text)
 	}
 	var ids []int
@@ -281,9 +282,14 @@ func (t *Tokenizer) Encode(text string) []int {
 		next := len(text)
 		nextToken := ""
 		nextID := 0
-		for token, id := range t.AddedSpecial {
-			if at := strings.Index(text, token); at >= 0 && (at < next || at == next && len(token) > len(nextToken)) {
-				next, nextToken, nextID = at, token, id
+		for _, tokens := range []map[string]int{t.AddedSpecial, t.AddedTokens} {
+			for token, id := range tokens {
+				if token == "" {
+					continue
+				}
+				if at := strings.Index(text, token); at >= 0 && (at < next || at == next && len(token) > len(nextToken)) {
+					next, nextToken, nextID = at, token, id
+				}
 			}
 		}
 		if nextToken == "" {

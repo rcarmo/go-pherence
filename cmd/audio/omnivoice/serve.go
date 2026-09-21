@@ -19,10 +19,11 @@ import (
 
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 )
 
 type serveOptions struct {
+	columns                                                          bool
 	guidance                                                         *float32 // nil preserves the default for library/test callers
 	shared                                                           bool
 	modelPath, weightsPath, reference, outputDir, language, instruct string
@@ -334,7 +335,7 @@ func runServe(o serveOptions) error {
 	capacity := loader.PreparedPrompt{TargetFrames: o.frames}
 	capacity.Conditional.Tokens = 512
 	capacity.Unconditional.Tokens = o.frames
-	runner, err := newChunkRunnerWithResident(ctx, weights, decoder, []loader.PreparedPrompt{capacity}, o.steps, o.residentBytes, o.prepacked, o.workers, o.shared, guidance)
+	runner, err := newChunkRunnerWithResident(ctx, weights, decoder, []loader.PreparedPrompt{capacity}, o.steps, o.residentBytes, o.prepacked, o.workers, o.shared, guidance, o.columns)
 	if err != nil {
 		return err
 	}
@@ -356,7 +357,7 @@ func runServe(o serveOptions) error {
 	}, generate: func(ctx context.Context, p loader.PreparedPrompt, t *chunkTimings) ([]float32, error) {
 		return runner.generateTimed(ctx, p, o.postprocess, t)
 	}, cache: phraseCache{budget: o.cacheBytes}, outputDir: dir}
-	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "ready", "protocol": 1, "transport": "ndjson-stdio", "synthetic": true, "output_dir": dir, "startup_seconds": time.Since(started).Seconds(), "reference_tokenizer_seconds": referenceSeconds, "weights_seconds": weightsSeconds, "codec_load_seconds": codecSeconds, "runner_setup_seconds": runnerSeconds, "resident_cache_bytes": runner.cond.ResidentBytes(), "prepacked_bytes": runner.cond.PrepackedBytes(), "cache_budget_bytes": o.cacheBytes, "first_frames": o.firstFrames, "max_frames": o.frames, "steps": o.steps, "gemm_workers": o.workers, "shared_traversal": o.shared, "guidance": guidance, "boundary_fade_ms": 5, "boundary_gap_ms": 100}); err != nil {
+	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"event": "ready", "protocol": 1, "transport": "ndjson-stdio", "synthetic": true, "output_dir": dir, "startup_seconds": time.Since(started).Seconds(), "reference_tokenizer_seconds": referenceSeconds, "weights_seconds": weightsSeconds, "codec_load_seconds": codecSeconds, "runner_setup_seconds": runnerSeconds, "resident_cache_bytes": runner.cond.ResidentBytes(), "prepacked_bytes": runner.cond.PrepackedBytes(), "cache_budget_bytes": o.cacheBytes, "first_frames": o.firstFrames, "max_frames": o.frames, "steps": o.steps, "gemm_workers": o.workers, "gemm_columns": o.columns, "shared_traversal": o.shared, "guidance": guidance, "boundary_fade_ms": 5, "boundary_gap_ms": 100}); err != nil {
 		return err
 	}
 	return engine.loop(ctx, os.Stdin, os.Stdout)

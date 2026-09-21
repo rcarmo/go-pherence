@@ -1,6 +1,10 @@
 package qwen
 
-import "sort"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+	"sort"
+)
 
 // LayerSchedulePlan is a lightweight, backend-neutral planning view over the
 // current Qwen GPU residency state. It does not execute layers; it describes
@@ -41,7 +45,12 @@ func BuildLayerSchedulePlan(stats Qwen35GPUCacheStats, candidateSizes []int) Lay
 	if len(candidateSizes) == 0 {
 		candidateSizes = []int{2, 4, 8}
 	}
-	layers := append([]Qwen35GPULayerStat(nil), stats.MLXLayers...)
+	layers := make([]Qwen35GPULayerStat, 0, len(stats.MLXLayers))
+	for _, l := range stats.MLXLayers {
+		if l.Layer >= 0 && l.ResidentBytes >= 0 && l.TotalBytes >= l.ResidentBytes {
+			layers = append(layers, l)
+		}
+	}
 	sort.Slice(layers, func(i, j int) bool { return layers[i].Layer < layers[j].Layer })
 	firstOverflow := stats.MLXCompletePrefixLayers
 	if firstOverflow < 0 {
@@ -49,9 +58,9 @@ func BuildLayerSchedulePlan(stats Qwen35GPUCacheStats, candidateSizes []int) Lay
 	}
 	plan := LayerSchedulePlan{CompletePrefixLayers: stats.MLXCompletePrefixLayers, FirstOverflowLayer: firstOverflow, TotalLayers: len(layers), TransientBytes: stats.TransientBytes, TransientUploads: stats.Transient}
 	for _, l := range layers {
-		plan.ResidentBytes += l.ResidentBytes
+		plan.ResidentBytes = checked.SaturatingAddInt64(plan.ResidentBytes, l.ResidentBytes)
 		if l.TotalBytes > l.ResidentBytes {
-			plan.MissingBytes += l.TotalBytes - l.ResidentBytes
+			plan.MissingBytes = checked.SaturatingAddInt64(plan.MissingBytes, l.TotalBytes-l.ResidentBytes)
 		}
 	}
 	byLayer := map[int]Qwen35GPULayerStat{}
@@ -60,26 +69,28 @@ func BuildLayerSchedulePlan(stats Qwen35GPUCacheStats, candidateSizes []int) Lay
 	}
 	transientByLayer := map[int]Qwen35GPULayerStat{}
 	for _, l := range stats.TransientLayers {
-		transientByLayer[l.Layer] = l
+		if l.Layer >= 0 && l.Bytes >= 0 && l.Count >= 0 {
+			transientByLayer[l.Layer] = l
+		}
 	}
 	for _, n := range candidateSizes {
 		if n <= 0 {
 			continue
 		}
 		cand := LayerWindowCandidate{StartLayer: firstOverflow, Layers: n}
-		for layer := firstOverflow; layer < firstOverflow+n; layer++ {
-			l, ok := byLayer[layer]
-			if !ok {
+		// Work is bounded by supplied inventory, never by an arbitrary window.
+		for _, l := range byLayer {
+			if l.Layer < firstOverflow || l.Layer-firstOverflow >= n {
 				continue
 			}
-			cand.ResidentBytes += l.ResidentBytes
-			cand.TotalBytes += l.TotalBytes
+			cand.ResidentBytes = checked.SaturatingAddInt64(cand.ResidentBytes, l.ResidentBytes)
+			cand.TotalBytes = checked.SaturatingAddInt64(cand.TotalBytes, l.TotalBytes)
 			if l.TotalBytes > l.ResidentBytes {
-				cand.MissingBytes += l.TotalBytes - l.ResidentBytes
+				cand.MissingBytes = checked.SaturatingAddInt64(cand.MissingBytes, l.TotalBytes-l.ResidentBytes)
 			}
-			if t, ok := transientByLayer[layer]; ok {
-				cand.TransientBytes += t.Bytes
-				cand.TransientUploads += t.Count
+			if t, ok := transientByLayer[l.Layer]; ok {
+				cand.TransientBytes = checked.SaturatingAddInt64(cand.TransientBytes, t.Bytes)
+				cand.TransientUploads = checked.SaturatingAddInt64(cand.TransientUploads, t.Count)
 			}
 		}
 		if cand.TotalBytes == 0 {
@@ -87,7 +98,11 @@ func BuildLayerSchedulePlan(stats Qwen35GPUCacheStats, candidateSizes []int) Lay
 		}
 		budget := stats.WindowBudgetBytes
 		if budget <= 0 {
-			budget = int64(stats.FreeBytes)
+			if stats.FreeBytes > math.MaxInt64 {
+				budget = math.MaxInt64
+			} else {
+				budget = int64(stats.FreeBytes)
+			}
 		}
 		cand.FitsWindowBudget = budget > 0 && cand.MissingBytes <= budget
 		cand.FitsFreeMemory = stats.FreeBytes > 0 && uint64(cand.MissingBytes) <= stats.FreeBytes

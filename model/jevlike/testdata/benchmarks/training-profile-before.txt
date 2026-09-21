@@ -1,0 +1,29 @@
+File: jevlike.test
+Build ID: fa6f70cb8fd3d6716ae53f00034b5a067d665abd
+Type: cpu
+Time: 2026-09-18 22:03:34 WEST
+Duration: 4.29s, Total samples = 3.81s (88.89%)
+Showing nodes accounting for 3.68s, 96.59% of 3.81s total
+Dropped 42 nodes (cum <= 0.02s)
+Showing top 20 nodes out of 36
+      flat  flat%   sum%        cum   cum%
+     3.29s 86.35% 86.35%      3.31s 86.88%  github.com/rcarmo/go-pherence/model/jevlike.accumulateLinearNoBiasBackward (inline)
+     0.12s  3.15% 89.50%      3.54s 92.91%  github.com/rcarmo/go-pherence/model/jevlike.(*AttentionHead).Backward
+     0.06s  1.57% 91.08%      0.06s  1.57%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8Asm
+     0.06s  1.57% 92.65%      0.15s  3.94%  github.com/rcarmo/go-pherence/model/jevlike.(*AttentionHead).Forward
+     0.03s  0.79% 93.44%      3.58s 93.96%  github.com/rcarmo/go-pherence/model/jevlike.(*TinyScorer).Backward
+     0.02s  0.52% 93.96%      0.03s  0.79%  github.com/rcarmo/go-pherence/model/jevlike.layerNormVector
+     0.02s  0.52% 94.49%      0.02s  0.52%  runtime.(*mspan).moveInlineMarks
+     0.02s  0.52% 95.01%      0.02s  0.52%  runtime.asyncPreempt
+     0.01s  0.26% 95.28%      0.18s  4.72%  github.com/rcarmo/go-pherence/model/jevlike.(*TinyScorer).Forward
+     0.01s  0.26% 95.54%      0.04s  1.05%  github.com/rcarmo/go-pherence/model/jevlike.layerNormBackward
+     0.01s  0.26% 95.80%      0.04s  1.05%  runtime.gcAssistAlloc1
+     0.01s  0.26% 96.06%      0.15s  3.94%  runtime.mallocgc
+     0.01s  0.26% 96.33%      0.09s  2.36%  runtime.mallocgcSmallNoscan
+     0.01s  0.26% 96.59%      0.02s  0.52%  runtime.markroot
+         0     0% 96.59%      0.06s  1.57%  github.com/rcarmo/go-pherence/backends/simd/runtime.GemvRows
+         0     0% 96.59%      0.06s  1.57%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8
+         0     0% 96.59%      0.06s  1.57%  github.com/rcarmo/go-pherence/backends/simd/runtime.gemvRowsDense
+         0     0% 96.59%      3.80s 99.74%  github.com/rcarmo/go-pherence/model/jevlike.BenchmarkTinyTrainingEpoch
+         0     0% 96.59%      3.79s 99.48%  github.com/rcarmo/go-pherence/model/jevlike.TrainTinyScorer
+         0     0% 96.59%      0.09s  2.36%  github.com/rcarmo/go-pherence/model/jevlike.linearNoBias

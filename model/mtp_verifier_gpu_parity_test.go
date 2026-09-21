@@ -2,6 +2,7 @@ package model
 
 import (
 	"math"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -10,6 +11,11 @@ import (
 )
 
 func TestGemma4MTPVerifierPostAttentionRMSNormGPUParity(t *testing.T) {
+	// Mirror Init's nonempty-value policy before discovery or lazy CUDA init.
+	// A visible device is not a request to execute GPU tests in host-test.
+	if os.Getenv("GO_PHERENCE_DISABLE_NVIDIA") != "" {
+		t.Skip("NVIDIA explicitly disabled by GO_PHERENCE_DISABLE_NVIDIA")
+	}
 	gpuHost := exec.Command("nvidia-smi", "-L").Run() == nil
 	if !nvidia.Available() {
 		if gpuHost {

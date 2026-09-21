@@ -8,11 +8,14 @@ import (
 )
 
 var geluTableOnce sync.Once
-var geluTable [1 << 16]uint16
+
+// One sentinel half keeps the final AVX2 gather (which reads a dword at a
+// two-byte-scaled index) within the allocation for index 0xffff.
+var geluTable [(1 << 16) + 1]uint16
 
 func initGELUTable() {
 	const sqrt2OverPi = float32(0.79788456080286535587989211986876)
-	for i := range geluTable {
+	for i := 0; i < 1<<16; i++ {
 		x := half.F16ToF32(uint16(i))
 		inner := sqrt2OverPi * x * (1 + 0.044715*x*x)
 		g := 0.5 * x * (1 + float32(math.Tanh(float64(inner))))
@@ -35,7 +38,9 @@ func GELUFP16LookupMulTo(dst, gate, up []float32) bool {
 	if len(dst) != len(gate) || len(dst) != len(up) {
 		return false
 	}
-	for i := range dst {
+	geluTableOnce.Do(initGELUTable)
+	i := geluFP16MulSIMD(dst, gate, up)
+	for ; i < len(dst); i++ {
 		dst[i] = GELUFP16Lookup(gate[i]) * up[i]
 	}
 	return true

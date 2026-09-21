@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
@@ -6,9 +8,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 )
 
 // TestK3I8I4M1Simple verifies the kernel with constant/simple inputs

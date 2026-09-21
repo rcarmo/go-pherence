@@ -148,7 +148,7 @@ These packages contain kernel work done for Ideogram4 but usable by any model:
 ### Shared with Whisper
 
 The A100 row-scale Q8 infrastructure was originally developed for Whisper
-(`models/whisper`) and reused for Ideogram4:
+(`model/whisper`) and reused for Ideogram4:
 - `aipool.GemmQ80x32AIPooled*` helper family
 - `ime2.Q80x32` type and packing functions
 - `ime2.K3I8I8` / `K3I8I8M4` / `K3I8I8M1` native A100 kernels

@@ -113,11 +113,13 @@ type GGUF struct {
 
 // Open reads the GGUF header, metadata, and tensor index.
 // The file handle is kept open until Close().
-func Open(path string) (*GGUF, error) {
+func Open(path string) (result *GGUF, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	// Use the returned error, including semantic validation errors constructed
+	// below. A local err can remain nil when rejecting a successfully read header.
 	defer func() {
 		if err != nil {
 			f.Close()

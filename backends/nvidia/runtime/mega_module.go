@@ -6,6 +6,7 @@ package nvidia
 import (
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"unsafe"
@@ -45,10 +46,7 @@ func loadMegaModule() {
 		}
 
 		// Pre-warm allocator
-		var warmPtr CUdeviceptr
-		if r := cuMemAlloc(&warmPtr, 64*1024*1024); r == CUDA_SUCCESS {
-			cuMemFree(warmPtr)
-		}
+		prewarmAllocator()
 
 		// Combine all PTX entries into one module
 		var combined strings.Builder
@@ -71,19 +69,24 @@ func loadMegaModule() {
 		}
 		ptxBytes := append([]byte(ptxStr), 0)
 
-		EnsureContext()
+		release := lockDriver()
 		if r := loadModuleDataWithLog(&megaModule, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
+			runtime.KeepAlive(ptxBytes)
+			release()
 			debuglog.Printf("[gpu] mega module load failed: error %d\n", r)
 			return
 		}
 
+		runtime.KeepAlive(ptxBytes)
 		// Extract all function handles
 		allOK := true
 		functions := moduleFunctions{}
 		extractFn := func(name string) CUfunction {
 			nameBytes := append([]byte(name), 0)
 			var fn CUfunction
-			if r := cuModuleGetFunction(&fn, megaModule, unsafe.Pointer(&nameBytes[0])); r != CUDA_SUCCESS {
+			r := cuModuleGetFunction(&fn, megaModule, unsafe.Pointer(&nameBytes[0]))
+			runtime.KeepAlive(nameBytes)
+			if r != CUDA_SUCCESS {
 				debuglog.Printf("[gpu] get %s: error %d\n", name, r)
 				allOK = false
 				return 0
@@ -95,6 +98,7 @@ func loadMegaModule() {
 			functions[e.name] = extractFn(e.name)
 		}
 		bindMegaModuleFunctions(functions)
+		release()
 
 		if allOK {
 			markMegaModuleReady(len(entries))
@@ -129,9 +133,6 @@ func shutdownMegaModule() {
 	freeNVFP4Scratch()
 	FreeBF16LMHeadScratch()
 	shutdownAttentionSplitKVCandidate()
-	if megaModule != 0 && cuModuleUnload != nil {
-		EnsureContext()
-		cuModuleUnload(megaModule)
-	}
+	unloadModule(megaModule)
 	resetMegaModuleState()
 }

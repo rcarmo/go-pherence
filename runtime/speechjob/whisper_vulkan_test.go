@@ -12,7 +12,7 @@ import (
 	"time"
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/runtime/resourcebudget"
 )
 
@@ -275,17 +275,13 @@ func TestVulkanJobFatalDrainErrorQuarantines(t *testing.T) {
 			}, func() error { return nil })
 			done := make(chan struct{})
 			go func() { defer close(done); s.settle(nil) }()
+			t.Cleanup(func() { close(s.quarantineHold); <-done })
 			<-entered
-			deadline := time.Now().Add(time.Second)
-			for {
-				if s.status.Quarantined && s.status.ErrorCode == "drain_failed" {
-					break
-				}
-				if time.Now().After(deadline) {
-					t.Fatal(s.status)
-				}
-				time.Sleep(time.Millisecond)
-			}
+			// settle updates status asynchronously under mu; observe the same
+			// locked snapshot API used by callers instead of racing raw fields.
+			waitOwner(t, &VulkanWhisperStage{s: s}, func(status VulkanWhisperStatus) bool {
+				return status.Quarantined && status.Draining && status.ErrorCode == "drain_failed"
+			})
 			select {
 			case <-done:
 				t.Fatal("fatal drain returned")

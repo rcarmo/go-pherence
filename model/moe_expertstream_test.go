@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	"github.com/rcarmo/go-pherence/runtime/expertstream"
 )
 
@@ -46,5 +47,22 @@ func TestMLXWeightFromStreamComponentRejectsMalformed(t *testing.T) {
 	q.Bits = 4
 	if _, err := mlxWeightFromStreamComponent(expertstream.Component{DType: expertstream.DTypeMLXQuant, Bytes: make([]byte, 79), Quant: q}); err == nil {
 		t.Fatal("expected size error")
+	}
+}
+
+type scopedStreamProbe struct{ used bool }
+
+func (p *scopedStreamProbe) Load([]uint64) ([]expertstream.LoadedExpert, error) {
+	panic("unscoped Load used")
+}
+func (p *scopedStreamProbe) WithExperts(_ []uint64, fn func([]expertstream.LoadedExpert) error) error {
+	p.used = true
+	return fn(nil)
+}
+func TestExpertUploadUsesScopedOwnership(t *testing.T) {
+	p := &scopedStreamProbe{}
+	pool := nvidia.NewExpertPool(1, nil)
+	if err := uploadStreamExpertsToPool(pool, p, []int{1}); err != nil || !p.used {
+		t.Fatal(err, p.used)
 	}
 }

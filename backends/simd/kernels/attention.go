@@ -13,10 +13,13 @@ func GQAAttention(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, hea
 }
 
 func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32, dot func([]float32, []float32) float32, saxpy func(float32, []float32, []float32)) []float32 {
-	if numHeads <= 0 || headDim <= 0 {
+	h, okH := checked.MulInt(numHeads, headDim)
+	kvDim, okKV := checked.MulInt(numKVHeads, headDim)
+	kvTotal, okTotal := checked.MulInt(seqLen, kvDim)
+	if seqLen < 0 || numHeads <= 0 || headDim <= 0 || numKVHeads <= 0 || numHeads%numKVHeads != 0 || !okH || !okKV || !okTotal || len(q) < h || len(kCache) < kvTotal || len(vCache) < kvTotal || dot == nil || saxpy == nil || math.IsNaN(float64(scale)) || math.IsInf(float64(scale), 0) {
 		return nil
 	}
-	out := make([]float32, numHeads*headDim)
+	out := make([]float32, h)
 	if seqLen <= 0 {
 		return out
 	}
@@ -26,7 +29,7 @@ func GQAAttentionScale(q, kCache, vCache []float32, seqLen, numHeads, numKVHeads
 }
 
 func GQAAttentionScaleInto(out, scores, q, kCache, vCache []float32, seqLen, numHeads, numKVHeads, headDim int, scale float32, dot func([]float32, []float32) float32, saxpy func(float32, []float32, []float32)) {
-	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 || dot == nil || saxpy == nil {
+	if seqLen <= 0 || numHeads <= 0 || numKVHeads <= 0 || headDim <= 0 || numHeads%numKVHeads != 0 || dot == nil || saxpy == nil || math.IsNaN(float64(scale)) || math.IsInf(float64(scale), 0) {
 		return
 	}
 	h, okH := checked.MulInt(numHeads, headDim)

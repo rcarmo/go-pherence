@@ -1,3 +1,5 @@
+//go:build cgo && q4kcshim && linux && riscv64
+
 package q4kcshim
 
 /*

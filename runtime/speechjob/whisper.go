@@ -15,7 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rcarmo/go-pherence/loader/audio/media"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 // WhisperStageConfig binds a caller-owned, immutable Go model to raw window

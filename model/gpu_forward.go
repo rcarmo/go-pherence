@@ -245,6 +245,7 @@ func LoadGPUModel(m *LlamaModel) (*GPUModel, error) {
 // before upload avoids allocating all layers only to override GPULayers later.
 func LoadGPUModelWithLayers(m *LlamaModel, gpuLayers int) (*GPUModel, error) {
 	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	start := time.Now()
 
 	cfg := m.Config

@@ -19,7 +19,7 @@ import (
 
 	"unicode/utf8"
 
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 )
 
@@ -470,7 +470,7 @@ func (c ServerConfig) validate() error {
 			return e
 		}
 		if e := speechjob.ValidateCommunity1Config(cc); e != nil {
-			return fmt.Errorf("invalid Community-1 execution policy")
+			return fmt.Errorf("invalid Community-1 execution policy: %w", e)
 		}
 	}
 	for _, f := range profiles {

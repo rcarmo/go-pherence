@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 	"math"
 	"os"
 	"path/filepath"

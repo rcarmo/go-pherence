@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -202,8 +203,16 @@ func loadGolden(path string) (*GoldenReport, error) {
 		return nil, err
 	}
 	defer f.Close()
+	// Local golden files still need an aggregate bound and exactly one document.
+	data, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 16<<20 {
+		return nil, fmt.Errorf("golden exceeds16MiB")
+	}
 	var g GoldenReport
-	if err := json.NewDecoder(f).Decode(&g); err != nil {
+	if err := json.Unmarshal(data, &g); err != nil {
 		return nil, err
 	}
 	return &g, nil

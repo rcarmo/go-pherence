@@ -9,7 +9,7 @@ import "strings"
 // MatrixMatches reports whether shape is a 2-D matrix matching rows×cols in
 // either orientation.
 func MatrixMatches(shape []int, rows, cols int) bool {
-	return len(shape) == 2 && ((shape[0] == rows && shape[1] == cols) || (shape[0] == cols && shape[1] == rows))
+	return rows > 0 && cols > 0 && len(shape) == 2 && ((shape[0] == rows && shape[1] == cols) || (shape[0] == cols && shape[1] == rows))
 }
 
 // IsPlaceholder reports whether a fixture value is an unresolved "pending-" marker.
@@ -23,7 +23,7 @@ func AnyTensorMarker(names, markers []string) bool {
 	for _, name := range names {
 		s := strings.ToLower(name)
 		for _, marker := range markers {
-			if strings.Contains(s, marker) {
+			if marker != "" && strings.Contains(s, strings.ToLower(marker)) {
 				return true
 			}
 		}

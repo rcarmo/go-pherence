@@ -5,6 +5,7 @@ import (
 
 	basetokenizer "github.com/rcarmo/go-pherence/loader/tokenizer"
 	llmmodel "github.com/rcarmo/go-pherence/model"
+	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
@@ -39,5 +40,26 @@ func TestNativePromptEmbeddingsInsertion(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("embeddings=%v want %v", got, want)
 		}
+	}
+}
+
+func TestClosedAudioModelDropsBorrowedAdaptor(t *testing.T) {
+	src := &fakeMOSSSource{}
+	a := &AudioBackbone{Encoder: &whisper.Encoder{}, Adaptor: AdaptorWeights{Linear1Weight: []uint16{1}}, source: src}
+	m := &NativeModel{Audio: a, Decoder: &llmmodel.LlamaModel{}, Processor: &Processor{}}
+	if err := m.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Adaptor.Linear1Weight) != 0 || a.Encoder != nil || m.Audio != nil || m.Decoder != nil || m.Processor != nil {
+		t.Fatal("closed model retained mapped state")
+	}
+	if m.EnableGPU() {
+		t.Fatal("closed model enabled GPU")
+	}
+	if _, _, err := m.EncodeAudio([]float32{1}); err == nil {
+		t.Fatal("closed model encoded audio")
+	}
+	if err := m.Close(); err != nil {
+		t.Fatal(err)
 	}
 }

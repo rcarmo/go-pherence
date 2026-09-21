@@ -26,11 +26,14 @@ func NewAttentionExecutionContract(cfg Config, plan RuntimeRequestPlan) (Attenti
 	if err != nil {
 		return AttentionExecutionContract{}, err
 	}
-	contract := AttentionExecutionContract{Plan: plan, KVLayout: runtimePlan.AttentionKVLayout, ProjectionLayout: runtimePlan.AttentionProjLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: plan.MaxSequence * runtimePlan.HiddenSize, KVFloats: plan.MaxSequence * runtimePlan.AttentionKVLayout.FloatsPerToken}
+	contract := AttentionExecutionContract{Plan: plan, KVLayout: runtimePlan.AttentionKVLayout, ProjectionLayout: runtimePlan.AttentionProjLayout, SequenceTokens: plan.MaxSequence, HiddenSize: runtimePlan.HiddenSize, HiddenFloats: sizeProduct(plan.MaxSequence, runtimePlan.HiddenSize), KVFloats: sizeProduct(plan.MaxSequence, runtimePlan.AttentionKVLayout.FloatsPerToken)}
 	return contract, contract.Validate()
 }
 
 func (c AttentionExecutionContract) Validate() error {
+	if !nonnegativeSizes(c.HiddenFloats, c.KVFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if err := c.Plan.Validate(); err != nil {
 		return err
 	}
@@ -43,10 +46,10 @@ func (c AttentionExecutionContract) Validate() error {
 	if c.SequenceTokens <= 0 || c.SequenceTokens != c.Plan.MaxSequence || c.HiddenSize <= 0 || c.HiddenSize != c.ProjectionLayout.HiddenSize {
 		return fmt.Errorf("invalid LFM2 attention contract dims: %+v", c)
 	}
-	if c.HiddenFloats != c.SequenceTokens*c.HiddenSize {
-		return fmt.Errorf("invalid LFM2 attention hidden floats=%d want=%d", c.HiddenFloats, c.SequenceTokens*c.HiddenSize)
+	if c.HiddenFloats != sizeProduct(c.SequenceTokens, c.HiddenSize) {
+		return fmt.Errorf("invalid LFM2 attention hidden floats=%d want=%d", c.HiddenFloats, sizeProduct(c.SequenceTokens, c.HiddenSize))
 	}
-	wantKV := c.SequenceTokens * c.KVLayout.FloatsPerToken
+	wantKV := sizeProduct(c.SequenceTokens, c.KVLayout.FloatsPerToken)
 	if c.KVFloats != wantKV {
 		return fmt.Errorf("invalid LFM2 attention KV floats=%d want=%d", c.KVFloats, wantKV)
 	}

@@ -78,7 +78,7 @@ def main() -> int:
         },
         {
             "name": "standalone_timestamp_diarize_vtt",
-            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-diarize", "-speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "-task", "translate", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_diarize_smoke.vtt")],
+            "cmd": ["go", "run", "./cmd/audio/whisper", "-audio", audio, "-timestamps", "-diarize", "-speaker-model", "checkpoints/speaker-ecapa-voxceleb.safetensors", "-task", "translate", "-language", "en", "-max-tokens", "8", "-output", str(out_dir / "whisper_turbo_diarize_smoke.vtt")],
             "expect_file": str(out_dir / "whisper_turbo_diarize_smoke.vtt"),
             "expect_file_contains": "<v Speaker 1>",
         },
@@ -108,13 +108,13 @@ def main() -> int:
         },
         {
             "name": "diarize_vtt_turbo_with_speaker",
-            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_speaker_smoke.vtt"), "-speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
+            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_speaker_smoke.vtt"), "-speaker-model", "checkpoints/speaker-ecapa-voxceleb.safetensors", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
             "expect_file": str(out_dir / "diarize_turbo_speaker_smoke.vtt"),
             "expect_file_contains": "<v Speaker 1>",
         },
         {
             "name": "diarize_vtt_transcribe_with_speaker",
-            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_transcribe_speaker_smoke.vtt"), "-task", "transcribe", "-language", "en", "-speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
+            "cmd": ["go", "run", "./cmd/audio/diarize-vtt", "-input", audio, "-output", str(out_dir / "diarize_turbo_transcribe_speaker_smoke.vtt"), "-task", "transcribe", "-language", "en", "-speaker-model", "checkpoints/speaker-ecapa-voxceleb.safetensors", "-gpu=false", "-workers", "1", "-max-tokens", "8", "-progressive=false", "-resume=false"],
             "expect_file": str(out_dir / "diarize_turbo_transcribe_speaker_smoke.vtt"),
             "expect_file_contains": "<v Speaker 1>",
         },

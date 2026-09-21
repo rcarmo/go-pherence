@@ -58,7 +58,9 @@ func qwen35ArgmaxMLXGPU(logits []float32, w *mlx.QuantWeight, x []float32) bool 
 		return false
 	}
 	nvidia.GemvMLXDirect(ob, xb, gw)
-	nvidia.Sync()
+	if err := nvidia.SyncErr(); err != nil {
+		return false
+	}
 	copy(logits[:w.OutDim], ob.Data()[:w.OutDim])
 	qwen36LMHeadStats.GPUMillis += time.Since(start).Milliseconds()
 	return true

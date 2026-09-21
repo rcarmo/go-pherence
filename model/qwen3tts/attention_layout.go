@@ -60,7 +60,7 @@ func (l AttentionLayout) Validate() error {
 	if l.Name == "" || l.HiddenSize <= 0 || l.Layers <= 0 || l.Heads <= 0 || l.KVHeads <= 0 || l.HeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS attention layout dims: %+v", l)
 	}
-	if l.HiddenSize != l.Heads*l.HeadDim {
+	if l.HiddenSize != sizeProduct(l.Heads, l.HeadDim) {
 		return fmt.Errorf("invalid Qwen3-TTS %s attention hidden/head dims: hidden=%d heads=%d head_dim=%d", l.Name, l.HiddenSize, l.Heads, l.HeadDim)
 	}
 	if l.Heads%l.KVHeads != 0 {
@@ -69,7 +69,7 @@ func (l AttentionLayout) Validate() error {
 	if l.QueriesPerKV != l.Heads/l.KVHeads {
 		return fmt.Errorf("invalid Qwen3-TTS %s queries/kv=%d want=%d", l.Name, l.QueriesPerKV, l.Heads/l.KVHeads)
 	}
-	if l.RoPETheta <= 0 || l.RMSNormEps <= 0 {
+	if !finitePositive(l.RoPETheta) || !finitePositive(l.RMSNormEps) {
 		return fmt.Errorf("invalid Qwen3-TTS %s rope/norm settings: theta=%g eps=%g", l.Name, l.RoPETheta, l.RMSNormEps)
 	}
 	if l.MaxPositionEmbeddings < 0 {
@@ -82,7 +82,7 @@ func (l AttentionLayout) KVFloatsPerToken() (int, error) {
 	if err := l.Validate(); err != nil {
 		return 0, err
 	}
-	return 2 * l.Layers * l.KVHeads * l.HeadDim, nil
+	return sizeCount(2, l.Layers, l.KVHeads, l.HeadDim)
 }
 
 func (l AttentionLayout) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
@@ -93,7 +93,7 @@ func (l AttentionLayout) KVBytes(maxSeq int, bytesPerFloat int) (int64, error) {
 	if maxSeq < 0 || bytesPerFloat <= 0 {
 		return 0, fmt.Errorf("invalid Qwen3-TTS %s KV sizing arguments: max_seq=%d bytes_per_float=%d", l.Name, maxSeq, bytesPerFloat)
 	}
-	return int64(maxSeq) * int64(floats) * int64(bytesPerFloat), nil
+	return sizeBytes(maxSeq, floats, bytesPerFloat)
 }
 
 func (l AttentionLayout) ValidatePosition(pos int) error {

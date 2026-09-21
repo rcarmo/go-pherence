@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 const (

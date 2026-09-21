@@ -3,10 +3,12 @@ package nvidia
 import (
 	"fmt"
 	"math"
+	"sync"
 	"unsafe"
 )
 
 var fnArgmaxF32 CUfunction
+var argmaxMu sync.Mutex
 
 const argmaxF32PTX = `.version 7.0
 .target sm_70
@@ -129,10 +131,12 @@ func ensureArgmaxF32() error {
 // ArgmaxF32 returns the max value/index for a GPU-resident float32 buffer.
 // The GPU computes per-block winners, then the host reduces the small partials.
 func ArgmaxF32(buf *Buffer, n int) (int, float32, error) {
+	argmaxMu.Lock()
+	defer argmaxMu.Unlock()
 	if buf == nil {
 		return 0, 0, fmt.Errorf("nil GPU buffer")
 	}
-	if n <= 0 {
+	if n <= 0 || !fitsUint32(n) {
 		return 0, 0, fmt.Errorf("invalid argmax length %d", n)
 	}
 	if n > buf.Size/4 {
@@ -168,9 +172,8 @@ func ArgmaxF32(buf *Buffer, n int) (int, float32, error) {
 		return 0, 0, err
 	}
 	idxBits := make([]uint32, blocks)
-	EnsureContext()
-	if r := cuMemcpyDtoH(unsafe.Pointer(&idxBits[0]), outIdx.Ptr, uint64(blocks*4)); r != CUDA_SUCCESS {
-		return 0, 0, fmt.Errorf("cuMemcpyDtoH argmax idx: error %d", r)
+	if err := outIdx.DownloadBytes(unsafe.Slice((*byte)(unsafe.Pointer(&idxBits[0])), blocks*4)); err != nil {
+		return 0, 0, fmt.Errorf("download argmax indices: %w", err)
 	}
 	best := 0
 	bestv := float32(math.Inf(-1))

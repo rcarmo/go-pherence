@@ -6,6 +6,7 @@ func (f moduleFunctions) get(name string) CUfunction { return f[name] }
 
 func bindMegaModuleFunctions(f moduleFunctions) {
 	sgemmFn = f.get("sgemm_nn")
+	sgemmCompensatedFn = f.get("sgemm_nn_compensated")
 	sgemmOracleFn = sgemmFn
 	sgemmReg2Fn = f.get("sgemm_nn_reg2")
 	sgemmSkinnyFn = f.get("sgemm_nn_skinny")
@@ -14,6 +15,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	fnVecScale = f.get("vec_scale")
 	fnVecAddScaled = f.get("vec_add_scaled")
 	fnToBF16F32 = f.get("to_bf16_f32")
+	fnWidenBF16Transpose = f.get("widen_bf16_transpose")
 	fnVecSilu = f.get("vec_silu")
 	fnGELUErf = f.get("gelu_erf")
 	fnRmsNorm = f.get("rms_norm")

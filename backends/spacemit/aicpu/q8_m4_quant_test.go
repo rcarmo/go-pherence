@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
@@ -5,8 +7,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 

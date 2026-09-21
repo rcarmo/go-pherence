@@ -21,6 +21,9 @@ var (
 	ErrOverBudget       = errors.New("promptcache: over budget")
 )
 
+// Snapshot implementations must report their retained bytes honestly, return
+// independent immutable snapshots from Clone, and allow concurrent cloning.
+// The cache does not own native resources or impose an OS memory limit.
 type Snapshot interface {
 	Position() int
 	SizeBytes() (int64, error)
@@ -40,6 +43,8 @@ func WithHashFunc(fn HashFunc) Option {
 }
 
 type Stats struct {
+	// Bytes include snapshot payload, copied tokens/identity and a conservative
+	// fixed entry allowance. This is logical retained accounting, not measured RSS.
 	MaxBytes          int64  `json:"max_bytes"`
 	UsedBytes         int64  `json:"used_bytes"`
 	Entries           int    `json:"entries"`
@@ -78,6 +83,29 @@ type entry struct {
 	tokens            []int
 	snapshot          Snapshot
 	sizeBytes         int64
+}
+
+// entryOverhead accounts for the list node, entry, bucket slot and map allowance.
+// Charging even zero-byte snapshots bounds the number of retained entries.
+const entryOverhead int64 = 256
+
+func entryBytes(snapshotBytes int64, identityBytes, tokens int) (int64, error) {
+	if snapshotBytes < 0 || identityBytes < 0 || tokens < 0 {
+		return 0, ErrSizeOverflow
+	}
+	const max = int64(^uint64(0) >> 1)
+	if int64(tokens) > (max-entryOverhead)/8 {
+		return 0, ErrSizeOverflow
+	}
+	metadata := entryOverhead + int64(tokens)*8
+	if int64(identityBytes) > max-metadata {
+		return 0, ErrSizeOverflow
+	}
+	metadata += int64(identityBytes)
+	if snapshotBytes > max-metadata {
+		return 0, ErrSizeOverflow
+	}
+	return metadata + snapshotBytes, nil
 }
 
 func New(maxBytes int64, opts ...Option) *Cache {
@@ -146,8 +174,7 @@ func (c *Cache) Put(identity Identity, blockSize int, tokens []int, snap Snapsho
 		if baseUsed < 0 {
 			baseUsed = 0
 		}
-		ent.identityCanonical = append(ent.identityCanonical[:0], identityCanonical...)
-		ent.tokens = append(ent.tokens[:0], tokens...)
+		// Equality already established; retain the same owned identity/token bytes.
 		ent.snapshot = validatedSnap
 		ent.sizeBytes = sizeBytes
 		ent.blockSize = blockSize
@@ -204,7 +231,6 @@ func (c *Cache) FindLongest(identity Identity, blockSize int, tokens []int) (Sna
 	keys := prefixKeys(identityCanonical, blockSize, tokens, c.hash)
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.stats.Lookups++
 
 	for i := len(keys) - 1; i >= 0; i-- {
@@ -216,16 +242,37 @@ func (c *Cache) FindLongest(identity Identity, blockSize int, tokens []int) (Sna
 				c.stats.Collisions++
 				continue
 			}
-			clone, ok := cloneSnapshotForRead(ent.snapshot, ent.endPos)
-			if !ok {
-				continue
-			}
+			// Take an immutable snapshot reference, then invoke user code without the
+			// cache mutex. Concurrent eviction is safe: the local interface owns it.
+			snap, pos, size := ent.snapshot, ent.endPos, ent.sizeBytes
+			identitySize, tokenCount := len(ent.identityCanonical), len(ent.tokens)
 			c.ll.MoveToFront(el)
-			c.stats.Hits++
+			c.mu.Unlock()
+			clone, ok := cloneSnapshotForRead(snap, pos)
+			if ok {
+				bytes, err := clone.SizeBytes()
+				if err != nil {
+					ok = false
+				} else {
+					charged, err := entryBytes(bytes, identitySize, tokenCount)
+					ok = err == nil && charged <= size
+				}
+			}
+			c.mu.Lock()
+			if ok {
+				c.stats.Hits++
+			} else {
+				c.stats.Misses++
+			}
+			c.mu.Unlock()
+			if !ok {
+				return nil, false, nil
+			}
 			return clone, true, nil
 		}
 	}
 	c.stats.Misses++
+	c.mu.Unlock()
 	return nil, false, nil
 }
 
@@ -256,7 +303,30 @@ func (c *Cache) prepare(identity Identity, blockSize int, tokens []int, snap Sna
 	if err != nil {
 		return nil, nil, 0, blockKey{}, err
 	}
+	// Reject over-budget source metadata/payload before calling Clone. A
+	// malicious implementation can still lie; this is a cooperative interface.
+	if isNilSnapshot(snap) {
+		return nil, nil, 0, blockKey{}, ErrNilSnapshot
+	}
+	if snap.Position() != len(tokens) {
+		return nil, nil, 0, blockKey{}, ErrPositionMismatch
+	}
+	sourceBytes, err := snap.SizeBytes()
+	if err != nil {
+		return nil, nil, 0, blockKey{}, err
+	}
+	charged, err := entryBytes(sourceBytes, len(identityCanonical), len(tokens))
+	if err != nil {
+		return nil, nil, 0, blockKey{}, err
+	}
+	if charged > c.maxBytes {
+		return nil, nil, 0, blockKey{}, ErrOverBudget
+	}
 	validatedSnap, sizeBytes, err := cloneSnapshotForStore(snap, len(tokens))
+	if err != nil {
+		return nil, nil, 0, blockKey{}, err
+	}
+	sizeBytes, err = entryBytes(sizeBytes, len(identityCanonical), len(tokens))
 	if err != nil {
 		return nil, nil, 0, blockKey{}, err
 	}
@@ -297,7 +367,9 @@ func (c *Cache) removeBucketElement(key blockKey, target *list.Element) {
 		if el != target {
 			continue
 		}
-		bucket = append(bucket[:i], bucket[i+1:]...)
+		copy(bucket[i:], bucket[i+1:])
+		bucket[len(bucket)-1] = nil // don't retain evicted snapshots behind slice capacity
+		bucket = bucket[:len(bucket)-1]
 		if len(bucket) == 0 {
 			delete(c.buckets, key)
 		} else {

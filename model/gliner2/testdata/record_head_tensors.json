@@ -1,0 +1,191 @@
+{
+  "record_decoder.cand_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      746263628,
+      746264140
+    ]
+  },
+  "record_decoder.cand_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      768
+    ],
+    "data_offsets": [
+      746264140,
+      746657356
+    ]
+  },
+  "record_decoder.field_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      746657356,
+      746657868
+    ]
+  },
+  "record_decoder.field_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      768
+    ],
+    "data_offsets": [
+      746657868,
+      747051084
+    ]
+  },
+  "record_decoder.inst_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      747051084,
+      747051596
+    ]
+  },
+  "record_decoder.inst_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      768
+    ],
+    "data_offsets": [
+      747051596,
+      747444812
+    ]
+  },
+  "record_decoder.instance_embed": {
+    "dtype": "F32",
+    "shape": [
+      32,
+      768
+    ],
+    "data_offsets": [
+      747444812,
+      747543116
+    ]
+  },
+  "record_decoder.k_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      747543116,
+      747543628
+    ]
+  },
+  "record_decoder.k_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      768
+    ],
+    "data_offsets": [
+      747543628,
+      747936844
+    ]
+  },
+  "record_decoder.latent_seed_head.bias": {
+    "dtype": "F32",
+    "shape": [
+      1
+    ],
+    "data_offsets": [
+      747936844,
+      747936848
+    ]
+  },
+  "record_decoder.latent_seed_head.weight": {
+    "dtype": "F32",
+    "shape": [
+      1,
+      768
+    ],
+    "data_offsets": [
+      747936848,
+      747939920
+    ]
+  },
+  "record_decoder.null_embed": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      747939920,
+      747940432
+    ]
+  },
+  "record_decoder.object_head.bias": {
+    "dtype": "F32",
+    "shape": [
+      1
+    ],
+    "data_offsets": [
+      747940432,
+      747940436
+    ]
+  },
+  "record_decoder.object_head.weight": {
+    "dtype": "F32",
+    "shape": [
+      1,
+      768
+    ],
+    "data_offsets": [
+      747940436,
+      747943508
+    ]
+  },
+  "record_decoder.q_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      128
+    ],
+    "data_offsets": [
+      747943508,
+      747944020
+    ]
+  },
+  "record_decoder.q_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      128,
+      768
+    ],
+    "data_offsets": [
+      747944020,
+      748337236
+    ]
+  },
+  "record_decoder.v_proj.bias": {
+    "dtype": "F32",
+    "shape": [
+      768
+    ],
+    "data_offsets": [
+      748337236,
+      748340308
+    ]
+  },
+  "record_decoder.v_proj.weight": {
+    "dtype": "F32",
+    "shape": [
+      768,
+      768
+    ],
+    "data_offsets": [
+      748340308,
+      750699604
+    ]
+  }
+}

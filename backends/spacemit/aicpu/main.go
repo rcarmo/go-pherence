@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 // cmd/ime2run/main.go — Pure Go inference using IME2 vmadot.
 // Loads a GGUF model and runs greedy decode without any CGo.
 package aicpu
@@ -12,10 +14,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
-	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
+	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
 	"github.com/rcarmo/go-pherence/loader/gguf"
 	// tokenizer loaded via gguf
 )

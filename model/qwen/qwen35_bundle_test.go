@@ -56,6 +56,32 @@ func TestQwen35NativeMTPBundleValidateBaseReady(t *testing.T) {
 	}
 }
 
+func TestLoadQwen35BundleAllowsDeclaredButAbsentMTP(t *testing.T) {
+	meta := testQwen35BaseMeta()
+	meta.NumHiddenLayers = 2
+	meta.MTPNumHiddenLayers = 1
+	meta.LayerTypes = []string{"full_attention"}
+	dir := t.TempDir()
+	config := `{"model_type":"qwen3_5_text","hidden_size":4,"intermediate_size":6,"num_hidden_layers":2,"num_attention_heads":2,"num_key_value_heads":1,"head_dim":2,"linear_conv_kernel_dim":3,"linear_key_head_dim":2,"linear_num_key_heads":1,"linear_num_value_heads":2,"linear_value_head_dim":2,"mtp_num_hidden_layers":1,"layer_types":["full_attention"]}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTinySafetensors(filepath.Join(dir, "model.safetensors"), mapFromQwen35Source(fullQwen35LayerSource(meta, "model.layers.0"))); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := LoadQwen35NativeMTPBundleFromDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bundle.Close()
+	if bundle.Base == nil || bundle.MTP != nil {
+		t.Fatalf("bundle=%+v", bundle)
+	}
+	if bundle.Readiness().MTPReady {
+		t.Fatal("missing MTP reported ready")
+	}
+}
+
 func TestLoadQwen35NativeMTPBundleFromDir(t *testing.T) {
 	meta := testQwen35BaseMeta()
 	meta.NumHiddenLayers = 1

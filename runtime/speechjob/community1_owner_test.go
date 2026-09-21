@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 	"github.com/rcarmo/go-pherence/runtime/resourcebudget"
 )
 

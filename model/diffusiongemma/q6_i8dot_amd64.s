@@ -26,6 +26,8 @@ q6blk_loop:
     VPADDD X1, X0, X0         // pair sums
     VPSHUFD $0xb1, X0, X1
     VPADDD X1, X0, X0         // final in lane 0
-    VMOVD X0, ret+32(FP)
+    // Extract to a register, then write only the Go int32 return slot.
+    VMOVD X0, AX
+    MOVL AX, ret+32(FP)
     VZEROUPPER
     RET

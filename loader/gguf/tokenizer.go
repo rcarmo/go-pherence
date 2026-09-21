@@ -2,10 +2,9 @@
 package gguf
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
+	"github.com/rcarmo/go-pherence/internal/commandcapture"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +22,9 @@ type Tokenizer struct {
 // NewTokenizer builds a Tokenizer from an open GGUF.
 // g must still be open (vocab is read from g.Meta).
 func NewTokenizer(g *GGUF) (*Tokenizer, error) {
+	if g == nil {
+		return nil, fmt.Errorf("gguf tokenizer: nil GGUF")
+	}
 	raw, ok := g.Meta["tokenizer.ggml.tokens"]
 	if !ok {
 		return nil, fmt.Errorf("gguf tokenizer: no tokenizer.ggml.tokens in metadata")
@@ -66,20 +68,20 @@ func (t *Tokenizer) VocabSize() int { return len(t.vocab) }
 // Encode tokenizes text by calling llama-tokenize. Requires modelPath to be set.
 // It prepends the BOS token automatically (matching llama.cpp behaviour for LLaMA SPM).
 func (t *Tokenizer) Encode(text string) ([]int, error) {
-	if t.modelPath == "" {
+	if t == nil || t.modelPath == "" {
 		return nil, fmt.Errorf("gguf tokenizer: modelPath not set; call SetModelPath first")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "llama-tokenize", "--model", t.modelPath, "-p", text)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &bytes.Buffer{} // suppress startup noise
-	if err := cmd.Run(); err != nil {
+	out, _, err := commandcapture.Run(ctx, "llama-tokenize", []string{"--model", t.modelPath, "-p", text}, nil, 4<<20)
+	if err != nil {
 		return nil, fmt.Errorf("llama-tokenize: %w", err)
 	}
+	return t.parseEncodedOutput(string(out))
+}
+func (t *Tokenizer) parseEncodedOutput(out string) ([]int, error) {
 	var ids []int
-	for _, line := range strings.Split(out.String(), "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -93,10 +95,13 @@ func (t *Tokenizer) Encode(text string) ([]int, error) {
 		if err != nil {
 			continue
 		}
+		if id < 0 || id >= len(t.vocab) {
+			return nil, fmt.Errorf("llama-tokenize: token id %d outside vocabulary", id)
+		}
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("llama-tokenize: no tokens parsed from output: %s", out.String())
+		return nil, fmt.Errorf("llama-tokenize: no tokens parsed from output: %s", out)
 	}
 	return ids, nil
 }

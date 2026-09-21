@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 )
@@ -13,6 +14,16 @@ type Qwen35NativeMTPBundle struct {
 	Base   *Qwen35BaseModel
 	MTP    *QwenNativeMTPHead
 	closer qwenNativeMTPClosableTensorSource
+}
+
+func (b *Qwen35NativeMTPBundle) TensorSource() interface {
+	Qwen35TensorSource
+	Qwen35RawTensorSource
+} {
+	if b == nil {
+		return nil
+	}
+	return b.closer
 }
 
 func (b *Qwen35NativeMTPBundle) EagerLoad() (int64, error) {
@@ -120,11 +131,12 @@ func LoadQwen35NativeMTPBundleFromDir(dir string) (*Qwen35NativeMTPBundle, error
 	bundle := &Qwen35NativeMTPBundle{Meta: meta, Base: base, closer: src}
 	if meta.HasNativeMTP {
 		mtp, err := LoadQwenNativeMTPHead(src, meta)
-		if err != nil {
+		if err == nil {
+			bundle.MTP = mtp
+		} else if !strings.Contains(err.Error(), "not in weight map") && !strings.Contains(err.Error(), "not found") {
 			_ = src.Close()
 			return nil, fmt.Errorf("load Qwen native MTP head: %w", err)
 		}
-		bundle.MTP = mtp
 	}
 	return bundle, nil
 }

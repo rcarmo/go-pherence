@@ -11,9 +11,9 @@ import (
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
-// TextDenoiser is the future native tensor-backed DiffusionGemma denoiser. It
-// currently validates and owns the metadata/weight binding needed by a forward
-// pass, but does not yet implement layer math.
+// TextDenoiser owns the native tensor-backed DiffusionGemma text forward path.
+// Dispatcher implementations provide CPU/SIMD, GPU or device-specific layer
+// math; the denoiser validates plans and manages prompt KV lifecycle.
 type TextDenoiser struct {
 	Shape            Shape
 	Weights          *TextWeights
@@ -115,7 +115,7 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 		d.EncoderKV = nil
 		d.EncoderPromptIDs = nil
 		d.EncoderPromptLen = 0
-	} else if d.EncoderKV == nil || d.EncoderPromptLen != len(in.PromptIDs) || !slices.Equal(d.EncoderPromptIDs, in.PromptIDs) {
+	} else if d.EncoderKV == nil || !slices.Equal(d.EncoderPromptIDs, in.PromptIDs) {
 		t0 := time.Now()
 		var kv []EncoderKVLayer
 		var err error
@@ -124,22 +124,34 @@ func (d *TextDenoiser) Denoise(in ForwardInput) (ForwardOutput, error) {
 			kv, err = disp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
 		case GPUDispatcher:
 			kv, err = disp.EncodePrompt(in.PromptIDs, d.Weights, d.Ops, d.Buffers)
-		default:
+		case NotImplementedDispatcher:
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma prompt prefill requires a GPU backend implementation")
+		default:
+			// Custom dispatchers may not need host-visible prompt KV. Invalidate stale
+			// cache state and let the dispatcher handle the prompt IDs directly.
+			d.EncoderKV = nil
+			d.EncoderPromptIDs = nil
+			d.EncoderPromptLen = 0
 		}
 		if err != nil {
 			return ForwardOutput{}, fmt.Errorf("DiffusionGemma encoder: %w", err)
 		}
-		d.EncoderKV = kv
-		d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
-		d.EncoderPromptLen = len(in.PromptIDs)
-		log.Printf("encoder: %d tokens → prompt KV in %.1fs", len(in.PromptIDs), time.Since(t0).Seconds())
+		if kv != nil {
+			d.EncoderKV = kv
+			d.EncoderPromptIDs = append(d.EncoderPromptIDs[:0], in.PromptIDs...)
+			d.EncoderPromptLen = len(in.PromptIDs)
+			log.Printf("encoder: %d tokens → prompt KV in %.1fs", len(in.PromptIDs), time.Since(t0).Seconds())
+		}
 	}
 	encoderSeqLen := 0
 	if len(d.EncoderKV) > 0 {
 		encoderSeqLen = d.EncoderKV[0].SeqLen
 	}
-	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, SelfConditioning: in.SelfConditioning, SelfConditioningLogits: in.SelfConditioningLogits, DeviceSelfConditioning: in.DeviceSelfConditioning, SCTempInv: in.SCTempInv, SampleDraws: in.SampleDraws, EncoderKV: d.EncoderKV, EncoderSeqLen: encoderSeqLen}, d.Weights, d.Ops, d.Buffers)
+	graph := in.Graph
+	if graph.Phase == "" {
+		graph = BuildExecutionGraph(ExecutionGraphDecode, len(in.PromptIDs), len(in.Canvas))
+	}
+	return d.Dispatcher.RunTextForward(ForwardContext{PromptIDs: in.PromptIDs, Canvas: in.Canvas, Step: in.Step, Temperature: in.Temperature, SelfConditioning: in.SelfConditioning, SelfConditioningLogits: in.SelfConditioningLogits, SelfConditioningTemperature: in.SelfConditioningTemperature, Graph: graph, DeviceSelfConditioning: in.DeviceSelfConditioning, SCTempInv: in.SCTempInv, SampleDraws: in.SampleDraws, EncoderKV: d.EncoderKV, EncoderSeqLen: encoderSeqLen}, d.Weights, d.Ops, d.Buffers)
 }
 
 // ForwardBufferPlan describes the major scratch buffers required by a future

@@ -17,6 +17,10 @@ func main() {
 	iters := flag.Int("iters", 20, "iterations")
 	threads := flag.Int("threads", 2, "SpaceMIT intra threads")
 	flag.Parse()
+	if *iters < 1 || *threads < 1 {
+		fmt.Fprintln(os.Stderr, "iters and threads must be positive")
+		os.Exit(2)
+	}
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
 		panic(err)
 	}
@@ -63,20 +67,23 @@ func main() {
 
 func generateProbes(dir string) error {
 	script := filepath.Join(dir, "gen.py")
-	code := `import os, numpy as np, onnx
+	code := `import os, sys, numpy as np, onnx
 from onnx import helper, TensorProto, numpy_helper
 shapes=[("q_2048x2048",1,2048,2048),("kv_2048x256",1,2048,256),("ffn_up_2048x5632",1,2048,5632),("ffn_down_5632x2048",1,5632,2048),("batch8_q_2048x2048",8,2048,2048),("batch32_q_2048x2048",32,2048,2048),("batch8_4096x4096",8,4096,4096)]
 for name,m,k,n in shapes:
  X=helper.make_tensor_value_info("X", TensorProto.FLOAT, [m,k]); Y=helper.make_tensor_value_info("Y", TensorProto.FLOAT, [m,n])
  W=numpy_helper.from_array((np.random.randn(k,n).astype(np.float32)*0.01), "W")
  model=helper.make_model(helper.make_graph([helper.make_node("MatMul",["X","W"],["Y"],name="MatMul")],name,[X],[Y],[W]),opset_imports=[helper.make_opsetid("",17)],ir_version=10)
- onnx.save(model, os.path.join("` + dir + `", name+".onnx"))
+ onnx.save(model, os.path.join(sys.argv[1], name+".onnx"))
 `
 	if err := os.WriteFile(script, []byte(code), 0o644); err != nil {
 		return err
 	}
-	cmd := exec.Command("python3", script)
+	cmd := probeCommand(script, dir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// Paths are argv data, never interpolated executable source.
+func probeCommand(script, dir string) *exec.Cmd { return exec.Command("python3", script, dir) }

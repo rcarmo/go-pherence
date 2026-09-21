@@ -1,6 +1,9 @@
 package lfm2
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // RoutingPlan captures the MoE router contract without executing it. Runtime
 // code should use this as the source of truth for top-k selection semantics and
@@ -27,6 +30,9 @@ func NewRoutingPlan(cfg Config, exec ExecutionPlan) (RoutingPlan, error) {
 			return RoutingPlan{}, err
 		}
 	}
+	if err := exec.Validate(cfg.NumHiddenLayers); err != nil {
+		return RoutingPlan{}, err
+	}
 	plan := RoutingPlan{
 		Experts:             cfg.NumExperts,
 		ExpertsPerToken:     cfg.NumExpertsPerTok,
@@ -47,7 +53,7 @@ func (p RoutingPlan) Validate() error {
 	if p.MoELayers <= 0 || p.DenseLayers < 0 || p.MoEIntermediate <= 0 {
 		return fmt.Errorf("invalid LFM2 routing layer/intermediate plan: %+v", p)
 	}
-	if p.RoutedScalingFactor < 0 {
+	if p.RoutedScalingFactor < 0 || math.IsNaN(p.RoutedScalingFactor) || math.IsInf(p.RoutedScalingFactor, 0) {
 		return fmt.Errorf("invalid LFM2 routed scaling factor=%g", p.RoutedScalingFactor)
 	}
 	return nil

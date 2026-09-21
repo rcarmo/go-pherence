@@ -25,12 +25,12 @@ import (
 
 	"github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags"
 	"github.com/rcarmo/go-pherence/loader/audio"
-	"github.com/rcarmo/go-pherence/models/speaker"
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/speaker"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 const (
-	defaultWhisperModelPath = "models/whisper-large-v3-turbo-hf/model.safetensors"
+	defaultWhisperModelPath = "checkpoints/whisper-large-v3-turbo-hf/model.safetensors"
 	defaultWhisperSize      = "turbo"
 	defaultWhisperLanguage  = "en"
 )
@@ -45,7 +45,7 @@ func main() {
 	useGPU := flag.Bool("gpu", false, "Use GPU-assisted encoder/cross-KV path when CUDA SGEMM is available")
 	useGPUGraph := flag.Bool("gpu-graph", false, "Enable the full opt-in Whisper GPU graph flag set when CUDA is available; implies -gpu")
 	diarize := flag.Bool("diarize", false, "Enable speaker diarization")
-	speakerModel := flag.String("speaker-model", "models/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
+	speakerModel := flag.String("speaker-model", "checkpoints/speaker-ecapa-voxceleb.safetensors", "Converted SpeechBrain ECAPA safetensors for diarization")
 	speakerThreshold := flag.Float64("speaker-threshold", 0.3, "Cosine threshold for speaker clustering")
 	chunkSec := flag.Float64("chunk", 30, "Window length in seconds for long-form chunking")
 	chunkWorkers := flag.Int("chunk-workers", 1, "Parallel transcription windows (set with a small WHISPER_THREADS so workers*threads ~= cores)")

@@ -39,23 +39,26 @@ func NewRouterLayout(cfg Config, exec ExecutionPlan) (RouterLayout, error) {
 		ExpertsPerToken:    cfg.NumExpertsPerTok,
 		MoELayers:          len(exec.MoEIndices),
 		UseExpertBias:      cfg.UseExpertBias,
-		RouterWeightFloats: cfg.NumExperts * cfg.HiddenSize,
+		RouterWeightFloats: sizeProduct(cfg.NumExperts, cfg.HiddenSize),
 		LogitsPerToken:     cfg.NumExperts,
 		TopKPerToken:       cfg.NumExpertsPerTok,
 	}
 	if cfg.UseExpertBias {
 		layout.RouterBiasFloats = cfg.NumExperts
 	}
-	layout.FloatsPerLayer = layout.RouterWeightFloats + layout.RouterBiasFloats
-	layout.TotalRouterFloats = layout.FloatsPerLayer * layout.MoELayers
+	layout.FloatsPerLayer = sizeSum(layout.RouterWeightFloats, layout.RouterBiasFloats)
+	layout.TotalRouterFloats = sizeProduct(layout.FloatsPerLayer, layout.MoELayers)
 	return layout, layout.Validate()
 }
 
 func (l RouterLayout) Validate() error {
+	if !nonnegativeSizes(l.RouterWeightFloats, l.RouterBiasFloats, l.FloatsPerLayer, l.TotalRouterFloats) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
 	if l.HiddenSize <= 0 || l.Experts <= 0 || l.ExpertsPerToken <= 0 || l.ExpertsPerToken > l.Experts || l.MoELayers < 0 {
 		return fmt.Errorf("invalid LFM2 router layout dims: %+v", l)
 	}
-	wantWeight := l.Experts * l.HiddenSize
+	wantWeight := sizeProduct(l.Experts, l.HiddenSize)
 	if l.RouterWeightFloats != wantWeight {
 		return fmt.Errorf("invalid LFM2 router weight floats=%d want=%d", l.RouterWeightFloats, wantWeight)
 	}
@@ -66,12 +69,12 @@ func (l RouterLayout) Validate() error {
 	if l.RouterBiasFloats != wantBias {
 		return fmt.Errorf("invalid LFM2 router bias floats=%d want=%d", l.RouterBiasFloats, wantBias)
 	}
-	wantLayer := l.RouterWeightFloats + l.RouterBiasFloats
+	wantLayer := sizeSum(l.RouterWeightFloats, l.RouterBiasFloats)
 	if l.FloatsPerLayer != wantLayer {
 		return fmt.Errorf("invalid LFM2 router floats/layer=%d want=%d", l.FloatsPerLayer, wantLayer)
 	}
-	if l.TotalRouterFloats != l.FloatsPerLayer*l.MoELayers {
-		return fmt.Errorf("invalid LFM2 router total floats=%d want=%d", l.TotalRouterFloats, l.FloatsPerLayer*l.MoELayers)
+	if l.TotalRouterFloats != sizeProduct(l.FloatsPerLayer, l.MoELayers) {
+		return fmt.Errorf("invalid LFM2 router total floats=%d want=%d", l.TotalRouterFloats, sizeProduct(l.FloatsPerLayer, l.MoELayers))
 	}
 	if l.LogitsPerToken != l.Experts || l.TopKPerToken != l.ExpertsPerToken {
 		return fmt.Errorf("invalid LFM2 router token outputs: %+v", l)
@@ -86,5 +89,9 @@ func (l RouterLayout) ScratchFloats(tokens int) (int, error) {
 	if tokens < 0 {
 		return 0, fmt.Errorf("invalid LFM2 router token count=%d", tokens)
 	}
-	return tokens * (l.LogitsPerToken + 2*l.TopKPerToken), nil
+	n := sizeProduct(tokens, sizeSum(l.LogitsPerToken, sizeProduct(2, l.TopKPerToken)))
+	if n < 0 {
+		return 0, fmt.Errorf("LFM2 router scratch overflows")
+	}
+	return n, nil
 }

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
+	"github.com/rcarmo/go-pherence/internal/checked"
 	loaderconfig "github.com/rcarmo/go-pherence/loader/config"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
@@ -24,6 +26,8 @@ type Report struct {
 	OptionalSharedHeadCount   int                                       `json:"optional_shared_head_count"`
 	MissingMTPTensorCount     int                                       `json:"missing_mtp_tensor_count"`
 	MTPTensorComplete         bool                                      `json:"mtp_tensor_complete"`
+	// Legacy loadability/completeness fields above describe metadata only.
+	ValidationScope string `json:"validation_scope"`
 }
 
 func main() {
@@ -44,14 +48,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, "parse config: %v\n", err)
 		os.Exit(2)
 	}
-	report := Report{Config: meta, LayerSummary: meta.LayerSummary(), CanLoadSharedHead: meta.VocabSize > 0 && meta.HiddenSize > 0}
+	if err := validateMetadata(meta); err != nil {
+		fmt.Fprintf(os.Stderr, "metadata: %v\n", err)
+		os.Exit(2)
+	}
+	report := Report{Config: meta, LayerSummary: meta.LayerSummary(), CanLoadSharedHead: meta.VocabSize > 0 && meta.HiddenSize > 0, ValidationScope: "metadata/tensor names only; shapes, load and execution unverified"}
 	if shapes, err := loaderconfig.Qwen35FullAttentionShapesFor(meta.HiddenSize, meta.NumAttentionHeads, meta.NumKeyValueHeads, meta.HeadDim); err == nil {
 		report.FullAttentionShapes = &shapes
 	}
-	if shapes, err := loaderconfig.Qwen35LinearAttentionShapesFor(meta.HiddenSize, meta.LinearValueHeadDim*meta.LinearNumValueHeads, meta.LinearKeyHeadDim, meta.LinearConvKernelDim, meta.LinearNumValueHeads, meta.LinearNumKeyHeads); err == nil {
-		report.LinearAttentionShapes = &shapes
+	if width, ok := checked.MulInt(meta.LinearValueHeadDim, meta.LinearNumValueHeads); ok {
+		if shapes, err := loaderconfig.Qwen35LinearAttentionShapesFor(meta.HiddenSize, width, meta.LinearKeyHeadDim, meta.LinearConvKernelDim, meta.LinearNumValueHeads, meta.LinearNumKeyHeads); err == nil {
+			report.LinearAttentionShapes = &shapes
+		}
 	}
-	if names, err := safetensorNames(*dir); err == nil {
+	names, err := safetensorNames(*dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "weights metadata: %v\n", err)
+		os.Exit(2)
+	}
+	{
 		for _, name := range names {
 			if loaderconfig.IsQwenNativeMTPTensorName(name) {
 				report.MTPTensors = append(report.MTPTensors, name)
@@ -78,19 +93,29 @@ func main() {
 	}
 }
 
+// Bound metadata enumeration, not model execution or aggregate checkpoint RSS.
+func validateMetadata(meta loaderconfig.QwenNativeMTPMetadata) error {
+	if meta.NumHiddenLayers < 0 || meta.NumHiddenLayers > 4096 || meta.MTPNumHiddenLayers < 0 || meta.MTPNumHiddenLayers > 4096 {
+		return fmt.Errorf("layer counts must be within 0..4096")
+	}
+	return nil
+}
+
 func shouldFailStrict(strict bool, meta loaderconfig.QwenNativeMTPMetadata, report Report) bool {
 	return strict && meta.HasNativeMTP && !report.MTPTensorComplete
 }
 
 func safetensorNames(dir string) ([]string, error) {
-	if sf, err := safetensors.OpenSharded(filepath.Join(dir, "model.safetensors.index.json")); err == nil {
-		defer sf.Close()
-		return sf.Names(), nil
-	}
-	f, err := safetensors.Open(filepath.Join(dir, "model.safetensors"))
+	// Metadata-only mode permits absent default weights, not corrupt indexes,
+	// dangling links or missing shards alongside a stale monolithic checkpoint.
+	infos, _, err := safetensors.OptionalTensorInfosFrom(dir, "")
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	return f.Names(), nil
+	names := make([]string, 0, len(infos))
+	for name := range infos {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
 }

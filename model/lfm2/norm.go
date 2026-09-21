@@ -1,6 +1,9 @@
 package lfm2
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // NormLayout captures LFM2 normalization dimensions and epsilon. Runtime code
 // should use this contract for token embedding norm, attention norm, and FFN
@@ -23,16 +26,19 @@ func NewNormLayout(cfg Config) (NormLayout, error) {
 		eps = 1e-5
 	}
 	layout := NormLayout{HiddenSize: cfg.HiddenSize, Layers: cfg.NumHiddenLayers, Epsilon: eps, NormsPerLayer: 2, FloatsPerVector: cfg.HiddenSize}
-	layout.TotalNormVectors = layout.Layers * layout.NormsPerLayer
+	layout.TotalNormVectors = sizeProduct(layout.Layers, layout.NormsPerLayer)
 	return layout, layout.Validate()
 }
 
 func (l NormLayout) Validate() error {
-	if l.HiddenSize <= 0 || l.Layers <= 0 || l.Epsilon <= 0 || l.NormsPerLayer <= 0 || l.FloatsPerVector != l.HiddenSize {
+	if !nonnegativeSizes(l.TotalNormVectors) {
+		return fmt.Errorf("invalid/overflowing LFM2 layout counts")
+	}
+	if l.HiddenSize <= 0 || l.Layers <= 0 || l.Epsilon <= 0 || math.IsNaN(l.Epsilon) || math.IsInf(l.Epsilon, 0) || l.NormsPerLayer <= 0 || l.FloatsPerVector != l.HiddenSize {
 		return fmt.Errorf("invalid LFM2 norm layout: %+v", l)
 	}
-	if l.TotalNormVectors != l.Layers*l.NormsPerLayer {
-		return fmt.Errorf("invalid LFM2 norm vector count=%d want=%d", l.TotalNormVectors, l.Layers*l.NormsPerLayer)
+	if l.TotalNormVectors != sizeProduct(l.Layers, l.NormsPerLayer) {
+		return fmt.Errorf("invalid LFM2 norm vector count=%d want=%d", l.TotalNormVectors, sizeProduct(l.Layers, l.NormsPerLayer))
 	}
 	return nil
 }
@@ -44,5 +50,9 @@ func (l NormLayout) ScratchFloats(tokens int) (int, error) {
 	if tokens < 0 {
 		return 0, fmt.Errorf("invalid LFM2 norm token count=%d", tokens)
 	}
-	return tokens * l.HiddenSize, nil
+	n := sizeProduct(tokens, l.HiddenSize)
+	if n < 0 {
+		return 0, fmt.Errorf("LFM2 norm scratch overflows")
+	}
+	return n, nil
 }

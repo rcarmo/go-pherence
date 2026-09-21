@@ -89,9 +89,9 @@
         "streaming_runtime": false
       },
       "commands": [
-        "make qwen3tts-inspect QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice QWEN3TTS_TEXT='Hello world'",
-        "make qwen3tts-fixture-coverage QWEN3TTS_MODEL=models/qwen3-tts-0.6b-customvoice",
-        "GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen3ttsinspect -model models/qwen3-tts-0.6b-customvoice -text 'Hello world' -strict -json"
+        "make qwen3tts-inspect QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice QWEN3TTS_TEXT='Hello world'",
+        "make qwen3tts-fixture-coverage QWEN3TTS_MODEL=checkpoints/qwen3-tts-0.6b-customvoice",
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/qwen/qwen3ttsinspect -model checkpoints/qwen3-tts-0.6b-customvoice -text 'Hello world' -strict -json"
       ]
     },
     "lfm2_moe": {
@@ -178,9 +178,9 @@
         "nvidia_runtime": false
       },
       "commands": [
-        "make lfm2-inspect LFM2_MODEL=models/lfm2.5-8b-a1b",
-        "make lfm2-fixture-coverage LFM2_MODEL=models/lfm2.5-8b-a1b",
-        "GOTMPDIR=$PWD/.gotmp go run ./cmd/lfm2inspect -model models/lfm2.5-8b-a1b -strict -json"
+        "make lfm2-inspect LFM2_MODEL=checkpoints/lfm2.5-8b-a1b",
+        "make lfm2-fixture-coverage LFM2_MODEL=checkpoints/lfm2.5-8b-a1b",
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/models/lfm2inspect -model checkpoints/lfm2.5-8b-a1b -strict -json"
       ]
     },
     "minicpmv": {
@@ -270,8 +270,8 @@
         "make minicpmv-fixture-ready",
         "make minicpmv-fixture-summary",
         "make minicpmv-fixture-check",
-        "make minicpmv-inspect-model MINICPMV_MODEL=models/minicpm-v-2.6 MINICPMV_FLAGS=-json",
-        "GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect -model models/minicpm-v-2.6 -safetensors models/minicpm-v-2.6/model.safetensors -require-shapes-ready"
+        "make minicpmv-inspect-model MINICPMV_MODEL=checkpoints/minicpm-v-2.6 MINICPMV_FLAGS=-json",
+        "GOTMPDIR=$PWD/.gotmp go run ./cmd/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/minicpm-v-2.6/model.safetensors -require-shapes-ready"
       ]
     }
   }

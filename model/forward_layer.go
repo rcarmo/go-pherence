@@ -106,6 +106,27 @@ func (m *LlamaModel) ForwardLayer(hidden []float32, layerIdx, step, pos int, kvC
 		}
 	}
 
+	// Qwen2 attention projections carry biases. Match the batched prefill
+	// path before QK normalisation/RoPE, including one-token encoder calls.
+	if layer.QB != nil {
+		if len(layer.QB.Data()) != len(q) {
+			return nil
+		}
+		simd.VecAdd(q, q, layer.QB.Data())
+	}
+	if k != nil && layer.KB != nil {
+		if len(layer.KB.Data()) != len(k) {
+			return nil
+		}
+		simd.VecAdd(k, k, layer.KB.Data())
+	}
+	if v != nil && layer.VB != nil {
+		if len(layer.VB.Data()) != len(v) {
+			return nil
+		}
+		simd.VecAdd(v, v, layer.VB.Data())
+	}
+
 	// BF16 truncation for Gemma3. llama.cpp Gemma4 keeps Q/K/V F32 here.
 	if cfg.ModelType == "gemma3_text" {
 		bf16Slice(q)

@@ -173,7 +173,7 @@ func TestPrintNextRuntime(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime"}}}}}
 	printNextRuntime(&buf, summaries, runtimeRoadmapFilter{})
 	out := buf.String()
-	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "package: model/qwen3tts", "fixture: model/qwen3tts/testdata/customvoice_reference_placeholder.json", "validate: cmd/qwen3ttsinspect -require-numeric-parity"} {
+	for _, want := range []string{"x.cpu_talker_runtime", "implement the Qwen3-TTS CPU/reference Talker", "package: model/qwen3tts", "fixture: model/qwen3tts/testdata/customvoice_reference_placeholder.json", "validate: cmd/qwen/qwen3ttsinspect -require-numeric-parity"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
@@ -221,13 +221,28 @@ func TestPrintRuntimeRoadmap(t *testing.T) {
 	summaries := []familySummary{{Name: "x", Categories: map[string]categoryCounts{"runtime": {PendingKeys: []string{"nvidia_runtime", "cpu_talker_runtime", "decoder12hz_runtime"}}}}}
 	printRuntimeRoadmap(&buf, summaries, runtimeRoadmapFilter{})
 	out := buf.String()
-	for _, want := range []string{"## x runtime blockers", "- [ ] P10/cpu `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "_(package: `model/qwen3tts`)_", "_(fixture: `model/qwen3tts/testdata/customvoice_reference_placeholder.json`)_", "_(validate: `cmd/qwen3ttsinspect -require-numeric-parity`)_", "- [ ] P30/cpu `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] P90/nvidia `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_"} {
+	for _, want := range []string{"## x runtime blockers", "- [ ] P10/cpu `cpu_talker_runtime` — implement the Qwen3-TTS CPU/reference Talker semantic-token path", "_(package: `model/qwen3tts`)_", "_(fixture: `model/qwen3tts/testdata/customvoice_reference_placeholder.json`)_", "_(validate: `cmd/qwen/qwen3ttsinspect -require-numeric-parity`)_", "- [ ] P30/cpu `decoder12hz_runtime`", "_(after: cpu_code_predictor_runtime)_", "- [ ] P90/nvidia `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
 	}
 	if strings.Index(out, "cpu_talker_runtime") > strings.Index(out, "decoder12hz_runtime") || strings.Index(out, "decoder12hz_runtime") > strings.Index(out, "nvidia_runtime") {
 		t.Fatalf("runtime blockers not in dependency order:\n%s", out)
+	}
+}
+
+func TestRuntimeBlockerValidationPaths(t *testing.T) {
+	for key, want := range map[string]string{
+		"cpu_talker_runtime":         "cmd/qwen/qwen3ttsinspect -require-numeric-parity",
+		"cpu_code_predictor_runtime": "cmd/qwen/qwen3ttsinspect -require-numeric-parity",
+		"decoder12hz_runtime":        "cmd/qwen/qwen3ttsinspect -require-ready",
+		"cpu_generation_runtime":     "cmd/models/lfm2inspect -require-ready",
+		"nvidia_runtime":             "cmd/qwen/qwen3ttsinspect -require-runtime / cmd/models/lfm2inspect -require-runtime",
+		"streaming_runtime":          "cmd/qwen/qwen3ttsinspect -require-ready",
+	} {
+		if got := runtimeBlockerValidation(key); got != want {
+			t.Fatalf("runtimeBlockerValidation(%q)=%q want %q", key, got, want)
+		}
 	}
 }
 
@@ -315,5 +330,12 @@ func TestLoadManifest(t *testing.T) {
 	}
 	if _, err := loadManifest(filepath.Join(dir, "missing.json")); err == nil {
 		t.Fatal("expected missing manifest error")
+	}
+}
+
+func TestEmptyCoverageCannotReportComplete(t *testing.T) {
+	m := manifest{Version: 1, Families: map[string]manifestFamily{"empty": {}}}
+	if _, err := summarize(m, "", coverageFilter{}); err == nil {
+		t.Fatal("empty family accepted")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog"
 	"github.com/rcarmo/go-pherence/internal/checked"
+	"os"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -71,11 +72,12 @@ type nvos33WithFD struct {
 
 // NVBuffer represents GPU-accessible memory.
 type NVBuffer struct {
-	dev     *NVDevice
-	size    uint64
-	cpuAddr uintptr
-	cpuMem  []byte // keep mmap alive // mmap'd CPU address (if mapped)
-	hMemory uint32 // RM memory handle
+	dev         *NVDevice
+	size        uint64
+	cpuAddr     uintptr
+	cpuMem      []byte   // keep mmap alive // mmap'd CPU address (if mapped)
+	hMemory     uint32   // RM memory handle
+	mappingFile *os.File // dedicated CPU mapping fd; lifetime follows buffer
 }
 
 // AllocGPUMem allocates GPU memory and optionally maps it to CPU.
@@ -98,6 +100,10 @@ func (d *NVDevice) AllocHostMem(size uint64) (*NVBuffer, error) {
 
 	// Register with GPU via NV_ESC_RM_ALLOC_MEMORY (NV01_MEMORY_SYSTEM_OS_DESCRIPTOR)
 	handle := d.nextHandle()
+	if handle == 0 {
+		_ = unix.Munmap(mem)
+		return nil, fmt.Errorf("RM handle space exhausted")
+	}
 	params := nvos02WithFD{
 		HRoot:         d.root,
 		HObjectParent: d.device,
@@ -132,7 +138,7 @@ func (d *NVDevice) AllocHostMem(size uint64) (*NVBuffer, error) {
 
 // mapToCPU maps GPU memory to CPU virtual address space.
 func (d *NVDevice) mapToCPU(buf *NVBuffer) error {
-	if d == nil || buf == nil || buf.size == 0 {
+	if d == nil || buf == nil || buf.size == 0 || buf.size > uint64(int(^uint(0)>>1)) || buf.cpuMem != nil || buf.mappingFile != nil {
 		return fmt.Errorf("invalid NV map target")
 	}
 	// Open a new GPU fd for the mapping
@@ -176,6 +182,7 @@ func (d *NVDevice) mapToCPU(buf *NVBuffer) error {
 
 	buf.cpuAddr = uintptr(unsafe.Pointer(&addr[0]))
 	buf.cpuMem = addr
+	buf.mappingFile = os.NewFile(uintptr(fd), devPath)
 	return nil
 }
 
@@ -238,6 +245,10 @@ func (buf *NVBuffer) Free() {
 		_ = unix.Munmap(buf.cpuMem)
 		buf.cpuMem = nil
 		buf.cpuAddr = 0
+	}
+	if buf.mappingFile != nil {
+		_ = buf.mappingFile.Close()
+		buf.mappingFile = nil
 	}
 }
 

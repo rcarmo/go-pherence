@@ -1,0 +1,7 @@
+[
+  {"evidence":"Ada lives in Lisbon. Bruno lives in Paris.","question":"Where does Ada live?","candidates":[{"id":"lisbon","text":"Lisbon"},{"id":"paris","text":"Paris"},{"id":"unknown","text":"Insufficient evidence"}],"temperature":1},
+  {"evidence":"The red box is empty. The blue box contains the only key.","question":"Which box contains a key?","candidates":[{"id":"red","text":"The red box"},{"id":"blue","text":"The blue box"}],"temperature":1},
+  {"evidence":"A reunião não é em Lisboa; será no Porto. 東京 is mentioned only as a past venue.","question":"Where will the meeting take place?","candidates":[{"id":"tokyo","text":"Tokyo"},{"id":"lisbon","text":"Lisbon"},{"id":"porto","text":"Porto"}],"temperature":1},
+  {"evidence":"The parcel was dispatched yesterday. No delivery date is stated.","question":"Will the parcel arrive tomorrow?","candidates":[{"id":"yes","text":"Yes, certainly"},{"id":"no","text":"No, certainly not"},{"id":"unknown","text":"Insufficient evidence"}],"temperature":1},
+  {"evidence":"Two unlabelled boxes are present; nothing is known about either box's contents.","question":"Which box is more likely to contain the coin?","candidates":[{"id":"left","text":"The left box"},{"id":"right","text":"The right box"}],"temperature":1}
+]

@@ -33,11 +33,21 @@ func SummarizeFixtureFloat32Tensor(name string, shape []int, values []float32) (
 	if len(values) == 0 {
 		return FixtureTensorSummary{}, fmt.Errorf("fixture tensor summary %q: empty tensor", name)
 	}
-	raw := make([]byte, len(values)*4)
+	digest := sha256.New()
+	var raw [4 * 256]byte
+	used := 0
 	minV, maxV := float32(math.Inf(1)), float32(math.Inf(-1))
 	var sum float64
-	for i, v := range values {
-		binary.LittleEndian.PutUint32(raw[i*4:], math.Float32bits(v))
+	for _, v := range values {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return FixtureTensorSummary{}, fmt.Errorf("fixture tensor summary %q: nonfinite value", name)
+		}
+		binary.LittleEndian.PutUint32(raw[used:], math.Float32bits(v))
+		used += 4
+		if used == len(raw) {
+			_, _ = digest.Write(raw[:])
+			used = 0
+		}
 		if v < minV {
 			minV = v
 		}
@@ -46,6 +56,7 @@ func SummarizeFixtureFloat32Tensor(name string, shape []int, values []float32) (
 		}
 		sum += float64(v)
 	}
+	_, _ = digest.Write(raw[:used])
 	first := len(values)
 	if first > 16 {
 		first = 16
@@ -54,7 +65,7 @@ func SummarizeFixtureFloat32Tensor(name string, shape []int, values []float32) (
 		Name:        name,
 		DType:       "float32",
 		Shape:       append([]int(nil), shape...),
-		SHA256LEF32: fmt.Sprintf("%x", sha256.Sum256(raw)),
+		SHA256LEF32: fmt.Sprintf("%x", digest.Sum(nil)),
 		Min:         minV,
 		Max:         maxV,
 		Mean:        float32(sum / float64(len(values))),

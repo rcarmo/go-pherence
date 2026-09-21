@@ -14,7 +14,7 @@ type AcousticFrameLayout struct {
 }
 
 func NewAcousticFrameLayout(cfg ParsedConfig) (AcousticFrameLayout, error) {
-	if cfg.CPNumCodeGroups < 2 || cfg.CPVocabSize <= 0 {
+	if cfg.CPNumCodeGroups < 2 || cfg.CPNumCodeGroups > maxCodeGroups || cfg.CPVocabSize <= 0 {
 		return AcousticFrameLayout{}, fmt.Errorf("invalid Qwen3-TTS acoustic frame config: code_groups=%d vocab=%d", cfg.CPNumCodeGroups, cfg.CPVocabSize)
 	}
 	groups := make([]int, 0, cfg.CPNumCodeGroups-1)
@@ -26,7 +26,7 @@ func NewAcousticFrameLayout(cfg ParsedConfig) (AcousticFrameLayout, error) {
 }
 
 func (l AcousticFrameLayout) Validate() error {
-	if l.TotalCodeGroups < 2 || l.SemanticGroup != 0 || l.CodecVocab <= 0 {
+	if l.TotalCodeGroups < 2 || l.TotalCodeGroups > maxCodeGroups || l.SemanticGroup != 0 || l.CodecVocab <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS acoustic frame layout: %+v", l)
 	}
 	if len(l.AcousticGroups) != l.TotalCodeGroups-1 || l.AcousticCodesPerFrame != len(l.AcousticGroups) {

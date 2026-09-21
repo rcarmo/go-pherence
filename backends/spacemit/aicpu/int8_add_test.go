@@ -1,12 +1,14 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
 	"math"
 	"testing"
 
+	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/inference"
-	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
 )
 
 func TestVmadotI8GroupsAddMatchesSeparateAdd(t *testing.T) {

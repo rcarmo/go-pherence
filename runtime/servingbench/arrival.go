@@ -73,7 +73,12 @@ func GenerateArrivalOffsets(count int, cfg ArrivalConfig, seed int64) ([]time.Du
 	var elapsed float64
 	for i := 1; i < count; i++ {
 		elapsed += nextInterArrivalSeconds(rng, cfg, meanSeconds)
-		offsets[i] = time.Duration(elapsed * float64(time.Second))
+		ns := elapsed * float64(time.Second)
+		// float64(MaxInt64) rounds up to2^63: reject that endpoint before narrowing.
+		if math.IsNaN(ns) || math.IsInf(ns, 0) || ns < 0 || ns >= float64(math.MaxInt64) {
+			return nil, fmt.Errorf("arrival duration overflows at request %d", i)
+		}
+		offsets[i] = time.Duration(ns)
 	}
 	return offsets, nil
 }

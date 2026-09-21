@@ -1,3 +1,5 @@
+//go:build linux && riscv64
+
 // Command testi8i4 exercises the canonical IME2 i8×i4 M1/N32 kernel
 // (ime2.K3I8I4M1) in isolation: it registers an AI worker thread, pins to
 // core 8, and prints which output lanes light up for each weight offset.

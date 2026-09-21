@@ -4,6 +4,9 @@ import "errors"
 
 const ManifestVersion = 1
 
+// DefaultMaxSlotBytes bounds anonymous slot mappings, including alignment slack.
+const DefaultMaxSlotBytes int64 = 1 << 30
+
 var (
 	ErrInvalidManifest  = errors.New("expertstream: invalid manifest")
 	ErrChecksumMismatch = errors.New("expertstream: checksum mismatch")
@@ -11,6 +14,7 @@ var (
 	ErrUnknownExpert    = errors.New("expertstream: unknown expert")
 	ErrSlotCapacity     = errors.New("expertstream: slot capacity exceeded")
 	ErrClosed           = errors.New("expertstream: reader closed")
+	ErrMemoryBudget     = errors.New("expertstream: slot memory budget exceeded")
 )
 
 // Manifest describes a backend-neutral expert package.
@@ -69,6 +73,9 @@ type QuantSpec struct {
 type Options struct {
 	Slots   int
 	Workers int
+	// MaxSlotBytes caps aggregate mapped slots (including alignment padding).
+	// Zero selects DefaultMaxSlotBytes; negative values are invalid.
+	MaxSlotBytes int64
 }
 
 // Component exposes one loaded component view.

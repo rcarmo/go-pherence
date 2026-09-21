@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/rcarmo/go-pherence/models/whisper"
+	"github.com/rcarmo/go-pherence/model/whisper"
 )
 
 func TestShouldChunkSimple(t *testing.T) {
@@ -42,7 +42,7 @@ func TestFilterTimestampSegmentsDropsPunctuationOnly(t *testing.T) {
 }
 
 func TestDefaultWhisperTurboPromptContract(t *testing.T) {
-	if defaultWhisperModelPath != "models/whisper-large-v3-turbo-hf/model.safetensors" {
+	if defaultWhisperModelPath != "checkpoints/whisper-large-v3-turbo-hf/model.safetensors" {
 		t.Fatalf("default model=%q", defaultWhisperModelPath)
 	}
 	if defaultWhisperSize != "turbo" {

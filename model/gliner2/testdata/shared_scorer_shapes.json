@@ -1,0 +1,84 @@
+{
+  "boundary_head.shared_pool_scorer.candidate_norm.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.candidate_norm.weight": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.content_pooler.layer_norm.bias": [
+    64
+  ],
+  "boundary_head.shared_pool_scorer.content_pooler.layer_norm.weight": [
+    64
+  ],
+  "boundary_head.shared_pool_scorer.content_pooler.value_projection.bias": [
+    64
+  ],
+  "boundary_head.shared_pool_scorer.content_pooler.value_projection.weight": [
+    64,
+    768
+  ],
+  "boundary_head.shared_pool_scorer.content_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.content_projection.weight": [
+    128,
+    64
+  ],
+  "boundary_head.shared_pool_scorer.end_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.end_projection.weight": [
+    128,
+    128
+  ],
+  "boundary_head.shared_pool_scorer.film.bias": [
+    256
+  ],
+  "boundary_head.shared_pool_scorer.film.weight": [
+    256,
+    128
+  ],
+  "boundary_head.shared_pool_scorer.film_output.0.bias": [
+    64
+  ],
+  "boundary_head.shared_pool_scorer.film_output.0.weight": [
+    64,
+    128
+  ],
+  "boundary_head.shared_pool_scorer.film_output.3.bias": [
+    1
+  ],
+  "boundary_head.shared_pool_scorer.film_output.3.weight": [
+    1,
+    64
+  ],
+  "boundary_head.shared_pool_scorer.length_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.length_projection.weight": [
+    128,
+    3
+  ],
+  "boundary_head.shared_pool_scorer.prior_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.prior_projection.weight": [
+    128,
+    1
+  ],
+  "boundary_head.shared_pool_scorer.query_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.query_projection.weight": [
+    128,
+    768
+  ],
+  "boundary_head.shared_pool_scorer.start_projection.bias": [
+    128
+  ],
+  "boundary_head.shared_pool_scorer.start_projection.weight": [
+    128,
+    128
+  ]
+}

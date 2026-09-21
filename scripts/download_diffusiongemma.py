@@ -46,7 +46,7 @@ def fetch(url: str, dst: pathlib.Path, token: str | None, force: bool, quiet: bo
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=DEFAULT_REPO)
-    ap.add_argument("--out", default="models/diffusiongemma-26B-A4B-it")
+    ap.add_argument("--out", default="checkpoints/diffusiongemma-26B-A4B-it")
     ap.add_argument("--metadata-only", action="store_true", help="download configs/index only, not safetensor shards")
     ap.add_argument("--plan-only", action="store_true", help="download/read metadata, print shard plan, and exit before shard downloads")
     ap.add_argument("--json-plan", action="store_true", help="emit shard/download plan as JSON")

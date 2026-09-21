@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 )
 
 // Community1Status is a detached owner-lifetime snapshot, not model progress.

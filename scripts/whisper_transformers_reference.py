@@ -9,7 +9,7 @@ runs when the Python reference stack is installed, e.g.:
 Example:
 
     python3 scripts/whisper_transformers_reference.py \
-      --model models/whisper-large-v3-turbo-hf \
+      --model checkpoints/whisper-large-v3-turbo-hf \
       --audio /path/to/clip.wav \
       --language es \
       --task translate \

@@ -81,7 +81,13 @@ func (m *NativeModel) Close() error {
 	if m.Audio == nil {
 		return nil
 	}
-	return m.Audio.Close()
+	if err := m.Audio.Close(); err != nil {
+		return err
+	}
+	m.Audio = nil
+	m.Decoder = nil
+	m.Processor = nil
+	return nil
 }
 
 // EncodeAudio executes all independently padded chunks, retains only real-audio

@@ -99,3 +99,9 @@ func TestServeGuidanceDefaultAndExplicitZero(t *testing.T) {
 		t.Fatalf("zero without shared: %v", err)
 	}
 }
+
+func TestColumnWorkersRequirePool(t *testing.T) {
+	if err := run([]string{"-mode", "synthesize", "-gemm-columns"}); err == nil || !strings.Contains(err.Error(), "gemm-columns requires") {
+		t.Fatalf("%v", err)
+	}
+}

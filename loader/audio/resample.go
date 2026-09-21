@@ -1,15 +1,42 @@
 package audio
 
-import "math"
+import (
+	"github.com/rcarmo/go-pherence/internal/checked"
+	"math"
+)
+
+// These whole-buffer helpers cap decoded output at1GiB. Streaming/untrusted
+// callers need tighter admission in loader/audio/media. Invalid rates, overflow
+// and over-budget conversions return nil rather than allocating from metadata.
+const maxResampleSamples = 1 << 28
+
+func resampleLength(n, src, dst int) (int, bool) {
+	if n < 0 || src <= 0 || dst <= 0 {
+		return 0, false
+	}
+	whole, ok := checked.MulInt(n/src, dst)
+	if !ok {
+		return 0, false
+	}
+	tail, ok := checked.MulInt(n%src, dst)
+	if !ok {
+		return 0, false
+	}
+	total, ok := checked.AddInt(whole, tail/src)
+	return total, ok && total <= maxResampleSamples
+}
 
 // Resample converts audio from srcRate to dstRate using linear interpolation.
 // For production quality, a polyphase sinc filter should replace this.
 func Resample(samples []float32, srcRate, dstRate int) []float32 {
+	outLen, ok := resampleLength(len(samples), srcRate, dstRate)
+	if !ok {
+		return nil
+	}
 	if srcRate == dstRate || len(samples) == 0 {
 		return samples
 	}
 	ratio := float64(srcRate) / float64(dstRate)
-	outLen := int(float64(len(samples)) / ratio)
 	if outLen <= 0 {
 		return nil
 	}
@@ -30,13 +57,16 @@ func Resample(samples []float32, srcRate, dstRate int) []float32 {
 // ResampleSinc resamples using a windowed-sinc interpolation (quality=16 taps).
 // This provides better frequency response than linear for speech.
 func ResampleSinc(samples []float32, srcRate, dstRate int) []float32 {
+	outLen, ok := resampleLength(len(samples), srcRate, dstRate)
+	if !ok {
+		return nil
+	}
 	if srcRate == dstRate || len(samples) == 0 {
 		return samples
 	}
 
 	const taps = 16
 	ratio := float64(srcRate) / float64(dstRate)
-	outLen := int(float64(len(samples)) / ratio)
 	if outLen <= 0 {
 		return nil
 	}

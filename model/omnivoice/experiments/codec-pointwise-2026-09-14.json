@@ -1,0 +1,44 @@
+{
+  "baseline_commit": "076723e0",
+  "decision": "rejected: no demonstrated decode-only gain",
+  "order": [
+    "baseline",
+    "candidate",
+    "candidate-repeat",
+    "baseline-repeat"
+  ],
+  "measurements": {
+    "baseline": [
+      1.641231671,
+      1.786459617,
+      1.742385194
+    ],
+    "candidate": [
+      1.812175565,
+      1.778846244,
+      1.746009844
+    ],
+    "candidate-repeat": [
+      1.660173795,
+      1.62004676,
+      1.61581388
+    ],
+    "baseline-repeat": [
+      1.629434231,
+      1.611248929,
+      1.632237074
+    ]
+  },
+  "logs": {
+    "baseline": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1641231671 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1786459617 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1742385194 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "candidate": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1812175565 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1778846244 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1746009844 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "candidate-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1660173795 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1620046760 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1615813880 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n",
+    "baseline-repeat": "goos: linux\ngoarch: amd64\npkg: github.com/rcarmo/go-pherence/models/omnivoice\ncpu: Intel(R) N100\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1629434231 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1611248929 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nBenchmarkRealCodecDecode75Frames-2   \t       1\t1632237074 ns/op\t       0 B/op\t       0 allocs/op\n--- BENCH: BenchmarkRealCodecDecode75Frames-2\n    codec_bench_test.go:61: waveform_float32_sha256=f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a\nPASS\n"
+  },
+  "codec_float32_sha256": "f4895c215a7bbb797c84e85555b73b933dc0a7f7ea3f81ef11ccb7436212729a",
+  "notes": [
+    "One untimed warm-up before each timed call; same deterministic 8x75 codes as existing codec benchmark.",
+    "Both candidate and baseline compiled before measurements; binaries placed on /tmp tmpfs because workspace disk is nearly full.",
+    "Production codec.go restored exactly to 076723e0; candidate patch retained unapplied."
+  ]
+}

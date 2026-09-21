@@ -190,6 +190,13 @@ func TestParseQwenNativeMTPMetadata(t *testing.T) {
 	}
 }
 
+func TestQwen35HFConfigCountsMTPSeparately(t *testing.T) {
+	m := QwenNativeMTPMetadata{NumHiddenLayers: 32, MTPNumHiddenLayers: 1, LayerTypes: make([]string, 32)}
+	if got := m.MainLayerCount(); got != 32 {
+		t.Fatalf("MainLayerCount=%d want 32", got)
+	}
+}
+
 func TestQwenNativeMTPLayerClassification(t *testing.T) {
 	meta := QwenNativeMTPMetadata{
 		NumHiddenLayers:       65,

@@ -20,7 +20,7 @@ import (
 
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 )
 
 func communityConfig() Community1StageConfig {
@@ -332,7 +332,7 @@ func (s *communityFixtureSource) GetFloat32(name string) ([]float32, []int, erro
 }
 func readCommunityFixture(t *testing.T, name string, out any) {
 	t.Helper()
-	f, e := os.Open("../../models/speaker/community1/testdata/" + name)
+	f, e := os.Open("../../model/speaker/community1/testdata/" + name)
 	if e != nil {
 		t.Fatal(e)
 	}

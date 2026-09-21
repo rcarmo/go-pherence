@@ -145,7 +145,8 @@ func Init() bool {
 			debuglog.Println("[gpu] NVIDIA backend disabled by GO_PHERENCE_DISABLE_NVIDIA")
 			return
 		}
-		runtime.LockOSThread() // CUDA context is thread-local
+		runtime.LockOSThread()         // CUDA context is thread-local
+		defer runtime.UnlockOSThread() // do not strand/terminate caller OS threads
 		lib, err := purego.Dlopen("libcuda.so.1", purego.RTLD_LAZY)
 		if err != nil {
 			// Try versioned names
@@ -258,7 +259,10 @@ func ensureContextLocked() {
 	}
 }
 
-// EnsureContext sets the CUDA context on the calling thread.
+// EnsureContext sets the CUDA context on the calling thread. It does not pin
+// a subsequent driver call. Internal driver wrappers must instead hold an
+// OS-thread pin and cudaMu across ensureContextLocked and the driver operation,
+// as the checked buffer/launch methods do.
 func EnsureContext() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -533,6 +537,17 @@ func SyncErr() error {
 
 var extraModules []CUmodule
 
+// Two pointer-sized CUDA option slots. Only buffer is a Go pointer; size is
+// an integer passed by value, not a pointer to an integer or a Go pointer.
+type jitErrorLogOptionValues struct {
+	buffer unsafe.Pointer
+	size   uintptr
+}
+
+func jitErrorLogOptions(buf []byte) jitErrorLogOptionValues {
+	return jitErrorLogOptionValues{buffer: unsafe.Pointer(unsafe.SliceData(buf)), size: uintptr(len(buf))}
+}
+
 func loadModuleDataWithLog(mod *CUmodule, image unsafe.Pointer) CUresult {
 	if cuModuleLoadDataEx == nil {
 		return cuModuleLoadData(mod, image)
@@ -543,8 +558,13 @@ func loadModuleDataWithLog(mod *CUmodule, image unsafe.Pointer) CUresult {
 	)
 	errLog := make([]byte, 8192)
 	opts := []uint32{cuJITErrorLogBuffer, cuJITErrorLogBufferSizeBytes}
-	vals := []unsafe.Pointer{unsafe.Pointer(&errLog[0]), unsafe.Pointer(uintptr(len(errLog)))}
-	r := cuModuleLoadDataEx(mod, image, uint32(len(opts)), unsafe.Pointer(&opts[0]), unsafe.Pointer(&vals[0]))
+	// CUDA's void** optionValues mixes pointer-valued entries and integers
+	// encoded directly in pointer-sized slots. Keep the latter as uintptr,
+	// not fabricated Go pointers (invalid under vet/checkptr).
+	vals := jitErrorLogOptions(errLog)
+	r := cuModuleLoadDataEx(mod, image, uint32(len(opts)), unsafe.Pointer(&opts[0]), unsafe.Pointer(&vals))
+	// Retain the actual buffer owner until the synchronous call has returned.
+	runtime.KeepAlive(errLog)
 	if r != CUDA_SUCCESS {
 		if msg := strings.TrimRight(string(errLog), "\x00"); msg != "" {
 			fmt.Printf("[gpu] PTX JIT error: %s\n", msg)
@@ -560,12 +580,21 @@ func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) 
 	if kernelName == "" {
 		return 0, 0, fmt.Errorf("empty CUDA kernel name")
 	}
+	release := lockDriver()
+	defer release()
+	return loadPTXModuleLocked(ptx, kernelName)
+}
+
+// loadPTXModuleLocked requires lockDriver and validated nonempty strings.
+func loadPTXModuleLocked(ptx, kernelName string) (CUmodule, CUfunction, error) {
 	ptxBytes := append([]byte(ptx), 0) // null-terminate
+	defer runtime.KeepAlive(ptxBytes)
 	var mod CUmodule
 	if r := loadModuleDataWithLog(&mod, unsafe.Pointer(&ptxBytes[0])); r != CUDA_SUCCESS {
 		return 0, 0, fmt.Errorf("cuModuleLoadData: error %d", r)
 	}
 	nameBytes := append([]byte(kernelName), 0)
+	defer runtime.KeepAlive(nameBytes)
 	var fn CUfunction
 	if r := cuModuleGetFunction(&fn, mod, unsafe.Pointer(&nameBytes[0])); r != CUDA_SUCCESS {
 		if cuModuleUnload != nil {
@@ -579,7 +608,12 @@ func loadPTXModule(ptx string, kernelName string) (CUmodule, CUfunction, error) 
 // LoadPTX loads a PTX module and returns a kernel function by name.
 // The backing module is retained until Shutdown() so the function pointer stays valid.
 func LoadPTX(ptx string, kernelName string) (CUfunction, error) {
-	mod, fn, err := loadPTXModule(ptx, kernelName)
+	if ptx == "" || kernelName == "" {
+		return 0, fmt.Errorf("PTX and kernel name required")
+	}
+	release := lockDriver()
+	defer release()
+	mod, fn, err := loadPTXModuleLocked(ptx, kernelName)
 	if err != nil {
 		return 0, err
 	}
@@ -614,6 +648,14 @@ func LaunchKernel(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ uin
 	if gpuStatsEnabled.Load() {
 		gpuStatsKernelLaunches.Add(1)
 	}
+	// Diagnostic only: CUDA launch errors can otherwise surface on a later
+	// operation, obscuring the first failing kernel. Never use this timing mode
+	// for performance reports, or during graph capture.
+	if stream == 0 && os.Getenv("GO_PHERENCE_CUDA_LAUNCH_CHECK") == "1" {
+		if r := cuCtxSynchronize(); r != CUDA_SUCCESS {
+			return fmt.Errorf("CUDA post-launch sync fn=%#x grid=(%d,%d,%d) block=(%d,%d,%d): error %d", fn, gridX, gridY, gridZ, blockX, blockY, blockZ, r)
+		}
+	}
 	return nil
 }
 
@@ -625,17 +667,25 @@ func init() {
 
 // MemInfo returns (free, total) GPU memory in bytes.
 func MemInfo() (uint64, uint64) {
-	EnsureContext()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	ensureContextLocked()
 	var free, total uint64
 	if cuMemGetInfo == nil {
 		return 0, 0
 	}
-	cuMemGetInfo(&free, &total)
+	if cuMemGetInfo(&free, &total) != CUDA_SUCCESS {
+		return 0, 0
+	}
 	return free, total
 }
 
 // Shutdown releases global CUDA-side resources so a fresh context can be created.
-// Intended primarily for tests and one-shot diagnostic processes.
+// Intended for a quiescent process owner only: stop/join all inference and
+// release every encoder first. Per-driver locks cannot make global handle/cache
+// teardown safe against arbitrary concurrent model execution.
 func Shutdown() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -647,6 +697,9 @@ func Shutdown() {
 	shutdownNativeBF16()
 	shutdownMegaModule()
 	shutdownStreams()
+	resetLazyKernelHandles()
+	release := lockDriver()
+	defer release()
 	for _, mod := range extraModules {
 		if mod != 0 && cuModuleUnload != nil {
 			cuModuleUnload(mod)
@@ -661,5 +714,6 @@ func Shutdown() {
 	gpuOK = false
 	gpuName = ""
 	gpuSMs = 0
+	gpuCCMajor, gpuCCMinor = 0, 0
 	gpuOnce = sync.Once{}
 }

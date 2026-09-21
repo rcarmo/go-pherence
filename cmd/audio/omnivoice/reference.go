@@ -7,7 +7,7 @@ import (
 	audio "github.com/rcarmo/go-264/audio"
 	loader "github.com/rcarmo/go-pherence/loader/omnivoice"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
-	model "github.com/rcarmo/go-pherence/models/omnivoice"
+	model "github.com/rcarmo/go-pherence/model/omnivoice"
 	"io"
 	"math"
 	"os"

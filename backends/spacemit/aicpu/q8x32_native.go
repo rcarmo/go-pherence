@@ -1,11 +1,13 @@
+//go:build linux && riscv64
+
 package aicpu
 
 import (
 	"math"
 	"unsafe"
 
-	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool"
+	"github.com/rcarmo/go-pherence/backends/spacemit/ime2"
 	"github.com/rcarmo/go-pherence/backends/spacemit/rvv"
 )
 

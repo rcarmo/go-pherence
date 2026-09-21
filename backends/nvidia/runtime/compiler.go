@@ -16,6 +16,7 @@ package nvidia
 import (
 	"crypto/sha256"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"unsafe"
@@ -61,6 +62,7 @@ type KernelSpec struct {
 
 // CompiledKernel is a cached compiled PTX kernel
 type CompiledKernel struct {
+	mu        sync.Mutex
 	Fn        CUfunction
 	Mod       CUmodule
 	Name      string
@@ -83,19 +85,24 @@ func Compile(spec *KernelSpec) (*CompiledKernel, error) {
 	// Cache key from op sequence
 	key := specKey(spec)
 	kernelCacheMu.Lock()
+	defer kernelCacheMu.Unlock()
 	if k, ok := kernelCache[key]; ok {
-		kernelCacheMu.Unlock()
-		return k, nil
+		k.mu.Lock()
+		valid := k.Mod != 0 && k.Fn != 0
+		k.mu.Unlock()
+		if valid {
+			return k, nil
+		}
+		delete(kernelCache, key)
 	}
-	kernelCacheMu.Unlock()
+	if !Init() {
+		return nil, fmt.Errorf("CUDA unavailable")
+	}
 
 	// Generate PTX
 	// Pre-warm allocator before PTX compile
-	var warmPtr CUdeviceptr
-	if r := cuMemAlloc(&warmPtr, 64*1024*1024); r == CUDA_SUCCESS {
-		cuMemFree(warmPtr)
-	}
-	ptx, blockSz, sharedMem := genPTX(spec)
+	prewarmAllocator()
+	ptx, blockSz, sharedMem := genPTX(cloneKernelSpec(spec))
 
 	// Compile via CUDA driver
 	mod, fn, err := loadPTXModule(ptx, spec.Name)
@@ -113,9 +120,7 @@ func Compile(spec *KernelSpec) (*CompiledKernel, error) {
 		SharedMem: sharedMem,
 	}
 
-	kernelCacheMu.Lock()
 	kernelCache[key] = k
-	kernelCacheMu.Unlock()
 
 	return k, nil
 }
@@ -123,7 +128,12 @@ func Compile(spec *KernelSpec) (*CompiledKernel, error) {
 // Launch executes a compiled kernel with the given buffers and element count.
 // It returns true only when the CUDA launch was accepted by the driver.
 func (k *CompiledKernel) Launch(n int, bufs ...*Buffer) bool {
-	if k == nil || k.Fn == 0 || n <= 0 || k.GridDiv <= 0 || k.BlockSz <= 0 || len(bufs) < k.NumBufs {
+	if k == nil {
+		return false
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.Fn == 0 || n <= 0 || k.GridDiv <= 0 || k.BlockSz <= 0 || len(bufs) != k.NumBufs {
 		return false
 	}
 	bytes, err := checkedByteSize(n, -1)
@@ -154,11 +164,10 @@ func (k *CompiledKernel) Destroy() {
 	if k == nil {
 		return
 	}
-	if k.Mod != 0 && cuModuleUnload != nil {
-		EnsureContext()
-		cuModuleUnload(k.Mod)
-		k.Mod = 0
-	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	unloadModule(k.Mod)
+	k.Mod = 0
 	k.Fn = 0
 }
 
@@ -299,6 +308,25 @@ func genPTX(spec *KernelSpec) (string, int, int) {
 	return b.String(), blockSz, sharedMem
 }
 
+func cloneKernelSpec(spec *KernelSpec) *KernelSpec {
+	out := *spec
+	out.Nodes = make([]*KNode, len(spec.Nodes))
+	nodes := map[*KNode]*KNode{}
+	for i, n := range spec.Nodes {
+		c := *n
+		c.Inputs = nil
+		c.RegName = ""
+		out.Nodes[i] = &c
+		nodes[n] = &c
+	}
+	for i, n := range spec.Nodes {
+		for _, in := range n.Inputs {
+			out.Nodes[i].Inputs = append(out.Nodes[i].Inputs, nodes[in])
+		}
+	}
+	return &out
+}
+
 func validateKernelSpec(spec *KernelSpec) error {
 	if spec == nil {
 		return fmt.Errorf("nil kernel spec")
@@ -306,6 +334,11 @@ func validateKernelSpec(spec *KernelSpec) error {
 	if spec.Name == "" || spec.NumBufs <= 0 || len(spec.Nodes) == 0 {
 		return fmt.Errorf("invalid kernel spec %q", spec.Name)
 	}
+	if spec.NumBufs > 8 || spec.HasReduce {
+		return fmt.Errorf("unsupported JIT buffer count or reduction")
+	}
+	seen := map[*KNode]bool{}
+	registers := 10
 	for i, n := range spec.Nodes {
 		if n == nil {
 			return fmt.Errorf("kernel spec %q has nil node %d", spec.Name, i)
@@ -313,10 +346,33 @@ func validateKernelSpec(spec *KernelSpec) error {
 		if (n.Op == KOpLoad || n.Op == KOpStore) && (n.BufIdx < 0 || n.BufIdx >= spec.NumBufs) {
 			return fmt.Errorf("kernel spec %q node %d buffer index %d out of range", spec.Name, i, n.BufIdx)
 		}
+		arity := 0
+		switch n.Op {
+		case KOpLoad, KOpConst:
+		case KOpStore, KOpNeg, KOpSiLU, KOpExp:
+			arity = 1
+		case KOpRsqrt:
+			arity = 1
+			registers++
+		case KOpAdd, KOpMul, KOpSub, KOpDiv:
+			arity = 2
+		case KOpFMA:
+			arity = 3
+		default:
+			return fmt.Errorf("kernel spec %q unsupported op %d", spec.Name, n.Op)
+		}
+		if len(n.Inputs) != arity || seen[n] {
+			return fmt.Errorf("kernel spec %q node %d invalid arity/duplicate", spec.Name, i)
+		}
 		for j, in := range n.Inputs {
-			if in == nil {
-				return fmt.Errorf("kernel spec %q node %d input %d is nil", spec.Name, i, j)
+			if in == nil || !seen[in] {
+				return fmt.Errorf("kernel spec %q node %d input %d not topologically earlier", spec.Name, i, j)
 			}
+		}
+		seen[n] = true
+		registers++
+		if registers > 32 {
+			return fmt.Errorf("kernel spec exceeds PTX register budget")
 		}
 	}
 	return nil
@@ -326,12 +382,21 @@ func specKey(spec *KernelSpec) string {
 	if spec == nil {
 		return ""
 	}
-	var parts []string
-	for _, n := range spec.Nodes {
-		parts = append(parts, fmt.Sprintf("%d:%d", n.Op, n.BufIdx))
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s/%d/%t;", spec.Name, spec.NumBufs, spec.HasReduce)
+	indices := map[*KNode]int{}
+	for i, n := range spec.Nodes {
+		indices[n] = i
 	}
-	h := sha256.Sum256([]byte(strings.Join(parts, ",")))
-	return fmt.Sprintf("%x", h[:8])
+	for _, n := range spec.Nodes {
+		fmt.Fprintf(&b, "%d:%d:%08x[", n.Op, n.BufIdx, math.Float32bits(n.ConstVal))
+		for _, in := range n.Inputs {
+			fmt.Fprintf(&b, "%d,", indices[in])
+		}
+		b.WriteString("];")
+	}
+	h := sha256.Sum256([]byte(b.String()))
+	return fmt.Sprintf("%x", h[:])
 }
 
 // --- Pre-built fused kernel specs ---

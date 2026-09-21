@@ -45,6 +45,7 @@ func validateModuleEntries(entries []moduleEntry) error {
 func megaModuleEntries() []moduleEntry {
 	return []moduleEntry{
 		{"sgemm_nn", ptx.SgemmPTX},
+		{"sgemm_nn_compensated", ptx.SgemmCompensatedPTX},
 		{"sgemm_nn_reg2", ptx.SgemmReg2PTX},
 		{"sgemm_nn_skinny", ptx.SgemmSkinnyPTX},
 		{"vec_add", ptx.VecAddPTX},
@@ -52,6 +53,7 @@ func megaModuleEntries() []moduleEntry {
 		{"vec_scale", ptx.VecScalePTX},
 		{"vec_add_scaled", ptx.VecAddScaledPTX},
 		{"to_bf16_f32", ptx.ToBF16F32PTX},
+		{"widen_bf16_transpose", ptx.WidenBF16TransposePTX},
 		{"vec_silu", ptx.VecSiLUPTX},
 		{"gelu_erf", ptx.GELUErfPTX},
 		{"rms_norm", ptx.RmsNormPTX},
