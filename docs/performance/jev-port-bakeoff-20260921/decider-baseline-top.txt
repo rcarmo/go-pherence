@@ -1,0 +1,49 @@
+File: jevcompare-profile
+Build ID: a33df586f88ab42c62f25de84c2369adf6b17c0a
+Type: cpu
+Time: 2026-09-21 17:53:45 WEST
+Duration: 509.63s, Total samples = 513.96s (100.85%)
+Showing nodes accounting for 502.74s, 97.82% of 513.96s total
+Dropped 204 nodes (cum <= 2.57s)
+Showing top 40 nodes out of 46
+      flat  flat%   sum%        cum   cum%
+   334.45s 65.07% 65.07%    334.45s 65.07%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8Asm
+    72.48s 14.10% 79.18%     72.48s 14.10%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4Asm
+    46.59s  9.06% 88.24%     46.61s  9.07%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearDeltaRowInPlace (inline)
+    11.88s  2.31% 90.55%     11.88s  2.31%  runtime.memmove
+    11.59s  2.26% 92.81%     11.88s  2.31%  github.com/rcarmo/go-pherence/model/qwen.qwenMTPGroupedAttention
+     6.95s  1.35% 94.16%      6.95s  1.35%  runtime.memclrNoHeapPointers
+     3.43s  0.67% 94.83%      3.43s  0.67%  math.archExp
+     2.73s  0.53% 95.36%      5.13s     1%  github.com/rcarmo/go-pherence/model/qwen.siluInPlace
+     2.58s   0.5% 95.86%      3.75s  0.73%  github.com/rcarmo/go-pherence/backends/simd/kernels.SiLU
+     2.36s  0.46% 96.32%      2.68s  0.52%  github.com/rcarmo/go-pherence/model/qwen.roundBF16InPlace (inline)
+     1.75s  0.34% 96.66%      2.91s  0.57%  runtime.tryDeferToSpanScan
+     1.41s  0.27% 96.93%      3.70s  0.72%  github.com/rcarmo/go-pherence/model/qwen.sigmoid (inline)
+     1.14s  0.22% 97.16%      4.45s  0.87%  runtime.scanObject
+     0.77s  0.15% 97.31%     47.49s  9.24%  github.com/rcarmo/go-pherence/model/qwen.applyQwen35LinearDeltaUpdateInPlace
+     0.57s  0.11% 97.42%    407.61s 79.31%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8
+     0.48s 0.093% 97.51%    408.09s 79.40%  github.com/rcarmo/go-pherence/backends/simd/runtime.gemvRowsDense
+     0.35s 0.068% 97.58%    102.24s 19.89%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV
+     0.31s  0.06% 97.64%    393.99s 76.66%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating
+     0.19s 0.037% 97.67%      3.24s  0.63%  runtime.mallocgcSmallNoscan
+     0.15s 0.029% 97.70%      3.58s   0.7%  math.Exp (inline)
+     0.12s 0.023% 97.73%    507.86s 98.81%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed
+     0.11s 0.021% 97.75%     72.59s 14.12%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4
+     0.10s 0.019% 97.77%    408.67s 79.51%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearInto
+     0.07s 0.014% 97.78%     10.25s  1.99%  runtime.mallocgc
+     0.05s 0.0097% 97.79%      6.37s  1.24%  runtime.systemstack
+     0.03s 0.0058% 97.80%      8.86s  1.72%  runtime.makeslice
+     0.02s 0.0039% 97.80%    408.11s 79.41%  github.com/rcarmo/go-pherence/backends/simd/runtime.GemvRows
+     0.02s 0.0039% 97.81%    408.21s 79.42%  github.com/rcarmo/go-pherence/model/internal/ops.GemvNT
+     0.02s 0.0039% 97.81%    405.34s 78.87%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState
+     0.02s 0.0039% 97.81%      6.77s  1.32%  github.com/rcarmo/go-pherence/model/qwen.NewQwen35LinearAttentionState
+     0.01s 0.0019% 97.82%      3.79s  0.74%  github.com/rcarmo/go-pherence/backends/simd/runtime.VecSiLUMul
+     0.01s 0.0019% 97.82%      6.26s  1.22%  runtime.memclrNoHeapPointersChunked
+         0     0% 97.82%    507.94s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).ScoreTokenIDs
+         0     0% 97.82%    507.96s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).SystemOne
+         0     0% 97.82%    507.95s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).scoreRow
+         0     0% 97.82%     11.33s  2.20%  github.com/rcarmo/go-pherence/model/qwen.cloneQwen35LinearAttentionState (inline)
+         0     0% 97.82%      2.63s  0.51%  github.com/rcarmo/go-pherence/model/qwen.roundQwen35InPlace (inline)
+         0     0% 97.82%    507.96s 98.83%  main.(*deciderScorer).Score
+         0     0% 97.82%    507.96s 98.83%  main.main
+         0     0% 97.82%    507.96s 98.83%  main.run

@@ -24,6 +24,26 @@ func TestDecisionMetricsUniformAndPerfect(t *testing.T) {
 		t.Fatal(perfect)
 	}
 }
+
+func TestDecisionMetricsFromProbabilitiesNormalizesRows(t *testing.T) {
+	got, err := DecisionMetricsFromProbabilities([][]float32{{2, 1}, {0.1, 0.9}}, []int{0, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := decisionMetricsFromNormalizedProbabilities([][]float64{{2.0 / 3, 1.0 / 3}, {0.1, 0.9}}, []int{0, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(got.Accuracy-want.Accuracy) > 1e-12 || math.Abs(got.NLL-want.NLL) > 1e-7 || math.Abs(got.Brier-want.Brier) > 1e-7 || math.Abs(got.ECE-want.ECE) > 1e-7 {
+		t.Fatalf("got=%+v want=%+v", got, want)
+	}
+	for _, malformed := range [][][]float32{{{0, 0}}, {{-1, 2}}, {{float32(math.NaN()), 1}}, {{float32(math.Inf(1)), 1}}} {
+		if _, err := DecisionMetricsFromProbabilities(malformed, []int{0}); err == nil {
+			t.Fatalf("accepted malformed probabilities %v", malformed)
+		}
+	}
+}
+
 func TestTemperatureFitOnOverconfidentErrors(t *testing.T) {
 	logits := [][]float32{{8, 0}, {8, 0}, {8, 0}, {8, 0}}
 	labels := []int{0, 0, 0, 1}

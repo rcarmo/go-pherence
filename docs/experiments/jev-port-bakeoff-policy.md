@@ -36,7 +36,7 @@ Score the finalists once on the untouched finalist cohort. Select the winner by:
 3. for MultiNLI and CLINC, larger normal-versus-shuffled/no-evidence degradation while retaining normal accuracy;
 4. lower measured decision time and peak RSS.
 
-Report every candidate, admission rejection and failure. A resource failure is a result, not permission to substitute another checkpoint or alter the cohort. Do not calibrate or train on these cohorts.
+Report every candidate, admission rejection and failure. A resource failure is a result, not permission to substitute another checkpoint or alter the cohort. Do not calibrate or train on these cohorts. After model selection, report NLL, summed multiclass Brier score, ten-bin ECE and reliability data from each arm's stored candidate scores normalized within the offered set; these are descriptive held-out metrics, not an additional selection gate or permission to fit a temperature.
 
 ## Publication boundary
 

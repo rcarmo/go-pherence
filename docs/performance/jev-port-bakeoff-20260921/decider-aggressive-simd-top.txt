@@ -1,0 +1,49 @@
+File: jevcompare-simd
+Build ID: 1dec0d5d90126cf3fae9755d81d8677175c87bc7
+Type: cpu
+Time: 2026-09-21 18:22:07 WEST
+Duration: 504.96s, Total samples = 508.10s (100.62%)
+Showing nodes accounting for 493.39s, 97.10% of 508.10s total
+Dropped 233 nodes (cum <= 2.54s)
+Showing top 40 nodes out of 48
+      flat  flat%   sum%        cum   cum%
+   361.07s 71.06% 71.06%    361.07s 71.06%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8Asm
+    76.33s 15.02% 86.09%     76.33s 15.02%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4Asm
+    12.51s  2.46% 88.55%     12.51s  2.46%  runtime.memmove
+    11.36s  2.24% 90.78%     11.60s  2.28%  github.com/rcarmo/go-pherence/model/qwen.qwenMTPGroupedAttention
+     7.45s  1.47% 92.25%      7.45s  1.47%  runtime.memclrNoHeapPointers
+     3.92s  0.77% 93.02%      3.92s  0.77%  github.com/rcarmo/go-pherence/backends/simd/runtime.sdotAsm
+     3.45s  0.68% 93.70%      3.45s  0.68%  math.archExp
+     2.78s  0.55% 94.25%      2.78s  0.55%  github.com/rcarmo/go-pherence/backends/simd/runtime.vecScaleAsm
+     2.66s  0.52% 94.77%      3.79s  0.75%  github.com/rcarmo/go-pherence/backends/simd/kernels.SiLU
+     2.37s  0.47% 95.24%      4.82s  0.95%  github.com/rcarmo/go-pherence/model/qwen.siluInPlace
+     1.95s  0.38% 95.62%      2.99s  0.59%  runtime.tryDeferToSpanScan
+     1.47s  0.29% 95.91%      3.77s  0.74%  github.com/rcarmo/go-pherence/model/qwen.sigmoid (inline)
+     1.02s   0.2% 96.11%      4.40s  0.87%  runtime.scanObject
+     0.87s  0.17% 96.28%     10.53s  2.07%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearDeltaRowInPlace
+     0.76s  0.15% 96.43%      4.68s  0.92%  github.com/rcarmo/go-pherence/backends/simd/runtime.Sdot
+     0.65s  0.13% 96.56%    438.15s 86.23%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8
+     0.54s  0.11% 96.67%     11.16s  2.20%  github.com/rcarmo/go-pherence/model/qwen.applyQwen35LinearDeltaUpdateInPlace
+     0.50s 0.098% 96.76%    438.65s 86.33%  github.com/rcarmo/go-pherence/backends/simd/runtime.gemvRowsDense
+     0.38s 0.075% 96.84%    108.88s 21.43%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV
+     0.29s 0.057% 96.90%    381.32s 75.05%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating
+     0.22s 0.043% 96.94%         3s  0.59%  github.com/rcarmo/go-pherence/backends/simd/runtime.VecScale
+     0.14s 0.028% 96.97%      3.59s  0.71%  math.Exp (inline)
+     0.12s 0.024% 96.99%    502.12s 98.82%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed
+     0.09s 0.018% 97.01%     76.43s 15.04%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4
+     0.08s 0.016% 97.02%    439.26s 86.45%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearInto
+     0.07s 0.014% 97.04%      9.28s  1.83%  runtime.makeslice
+     0.07s 0.014% 97.05%      2.84s  0.56%  runtime.mallocgcSmallNoscan
+     0.06s 0.012% 97.06%    438.85s 86.37%  github.com/rcarmo/go-pherence/model/internal/ops.GemvNT
+     0.06s 0.012% 97.08%      6.76s  1.33%  runtime.memclrNoHeapPointersChunked
+     0.05s 0.0098% 97.09%    392.95s 77.34%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState
+     0.02s 0.0039% 97.09%      3.82s  0.75%  github.com/rcarmo/go-pherence/backends/simd/runtime.VecSiLUMul
+     0.02s 0.0039% 97.09%      4.46s  0.88%  runtime.gcDrain
+     0.02s 0.0039% 97.10%     10.30s  2.03%  runtime.mallocgc
+     0.02s 0.0039% 97.10%      6.23s  1.23%  runtime.systemstack
+     0.01s 0.002% 97.10%     11.58s  2.28%  github.com/rcarmo/go-pherence/model/qwen.cloneQwen35LinearAttentionState (inline)
+     0.01s 0.002% 97.10%      7.38s  1.45%  runtime.mallocgcLarge
+         0     0% 97.10%    438.65s 86.33%  github.com/rcarmo/go-pherence/backends/simd/runtime.GemvRows
+         0     0% 97.10%    502.17s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).ScoreTokenIDs
+         0     0% 97.10%    502.18s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).SystemOne
+         0     0% 97.10%    502.18s 98.83%  github.com/rcarmo/go-pherence/model/decider.(*Runtime).scoreRow

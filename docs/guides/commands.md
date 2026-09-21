@@ -9,7 +9,7 @@ Run commands from the repository root. Each command's `-h` output is the source 
 | Inspect GGUF and validate cache accounting | `cmd/models/ggufinspect`, `cmd/models/ggufsmoke` | [GGUF validation](gguf-validation.md) |
 | Inspect incomplete model families without claiming inference support | `cmd/minicpmvinspect`, `cmd/qwen/qwen3ttsinspect`, `cmd/models/lfm2inspect` | [Model inspection](model-inspection.md) |
 | Transcribe, translate or add speaker labels | `cmd/audio/whisper`, `cmd/audio/diarize-vtt`, `cmd/audio/moss-transcribe` | [Speech commands](speech-commands.md) |
-| Score variable choices and train a small scorer | `cmd/jevlike` | [Jevlike](../../model/jevlike/README.md) |
+| Score variable choices and compare native decision models | `cmd/jevlike`, `cmd/jevcompare` | [Jevlike](../../model/jevlike/README.md), [native-port bake-off](../experiments/jev-port-bakeoff-report-20260921.md) |
 | Run/train Needle 3/2; Needle 3 archive text/head inference | `cmd/needle` | [Needle limits and validation](../../model/needle/README.md); [head training and width slicing](needle-head-training.md); [bounded tool calls](needle-tool-calls.md) |
 | Extract entities, classes, relations or records | `cmd/gliner2` | [GLiNER 2.5](../../model/gliner2/README.md) |
 | Run block-diffusion text generation | `cmd/diffusiongemmarun`, `cmd/diffusiongemmaserver` | [DiffusionGemma](../models/diffusiongemma/README.md) |
@@ -57,6 +57,8 @@ without refitting. The frozen run completed 1,440/1,440 rows; its [final
 report](../experiments/jevlike-qwen3/final-report-20260921.md) includes exact
 commands and results. Do not replay or replace completed records, change the
 frozen recipe, or use the final-test outputs for tuning.
+
+`cmd/jevcompare` runs the separate [native JEV-equivalent bake-off](../experiments/jev-port-bakeoff-report-20260921.md). It maps a frozen choice request to OpenJEV, Decider, Laya or Nimble, writes strict resumable JSONL, and can capture a scoring CPU profile. Supplying `-report-results` and `-report-output` skips model loading and verifies the frozen cohort/results before writing accuracy, random baseline, NLL, Brier, ECE, reliability and risk/coverage metrics. The report normalizes stored candidate scores within each offered set and never fits a temperature.
 
 ## Checks and hardware
 

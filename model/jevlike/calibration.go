@@ -126,6 +126,113 @@ func DecisionMetricsAtTemperature(logits [][]float32, labels []int, temp float64
 	}
 	return out, nil
 }
+
+// DecisionMetricsFromProbabilities evaluates genuine, unpadded candidate
+// probabilities. Rows are normalized so callers may provide independently
+// scored positive masses, such as entailment probabilities from a reranker.
+// It does not fit or apply a calibration parameter.
+func DecisionMetricsFromProbabilities(probabilities [][]float32, labels []int) (DecisionMetrics, error) {
+	if len(probabilities) == 0 || len(labels) != len(probabilities) {
+		return DecisionMetrics{}, fmt.Errorf("invalid metric shape")
+	}
+	normalized := make([][]float64, len(probabilities))
+	for i, row := range probabilities {
+		if len(row) < 2 || labels[i] < 0 || labels[i] >= len(row) {
+			return DecisionMetrics{}, fmt.Errorf("invalid label/candidates at %d", i)
+		}
+		normalized[i] = make([]float64, len(row))
+		var sum float64
+		for j, value := range row {
+			if value < 0 || math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+				return DecisionMetrics{}, fmt.Errorf("invalid probability at %d", i)
+			}
+			normalized[i][j] = float64(value)
+			sum += float64(value)
+		}
+		if sum <= 0 {
+			return DecisionMetrics{}, fmt.Errorf("zero probability mass at %d", i)
+		}
+		for j := range normalized[i] {
+			normalized[i][j] /= sum
+		}
+	}
+	return decisionMetricsFromNormalizedProbabilities(normalized, labels)
+}
+
+func decisionMetricsFromNormalizedProbabilities(probabilities [][]float64, labels []int) (DecisionMetrics, error) {
+	out := DecisionMetrics{Examples: len(probabilities), Reliability: make([]ReliabilityBin, 10)}
+	type observation struct {
+		confidence float64
+		wrong      bool
+	}
+	obs := make([]observation, len(probabilities))
+	for i, probability := range probabilities {
+		best := 0
+		for j, value := range probability {
+			if value < 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+				return DecisionMetrics{}, fmt.Errorf("invalid normalized probability at %d", i)
+			}
+			if value > probability[best] {
+				best = j
+			}
+			target := float64(0)
+			if j == labels[i] {
+				target = 1
+			}
+			delta := value - target
+			out.Brier += delta * delta
+		}
+		gold := probability[labels[i]]
+		if gold <= 0 {
+			return DecisionMetrics{}, fmt.Errorf("zero gold probability at %d", i)
+		}
+		out.NLL -= math.Log(gold)
+		correct := best == labels[i]
+		if correct {
+			out.Accuracy++
+		}
+		if labels[i] == 0 {
+			out.FirstOptionAccuracy++
+		}
+		out.RandomAccuracy += 1 / float64(len(probability))
+		confidence := probability[best]
+		bin := min(9, int(confidence*10))
+		out.Reliability[bin].Count++
+		out.Reliability[bin].Confidence += confidence
+		if correct {
+			out.Reliability[bin].Accuracy++
+		}
+		obs[i] = observation{confidence, !correct}
+	}
+	n := float64(len(probabilities))
+	out.Accuracy /= n
+	out.NLL /= n
+	out.Brier /= n
+	out.RandomAccuracy /= n
+	out.FirstOptionAccuracy /= n
+	for i := range out.Reliability {
+		bin := &out.Reliability[i]
+		if bin.Count > 0 {
+			bin.Accuracy /= float64(bin.Count)
+			bin.Confidence /= float64(bin.Count)
+			out.ECE += float64(bin.Count) / n * math.Abs(bin.Accuracy-bin.Confidence)
+		}
+	}
+	sort.SliceStable(obs, func(i, j int) bool { return obs[i].confidence > obs[j].confidence })
+	wrong := 0
+	for i, o := range obs {
+		if o.wrong {
+			wrong++
+		}
+		count := i + 1
+		if count < len(obs) && obs[count].confidence == o.confidence {
+			continue
+		}
+		lo, hi := wilson(float64(wrong), float64(count))
+		out.Coverage = append(out.Coverage, CoveragePoint{count, float64(count) / n, float64(wrong) / float64(count), lo, hi, o.confidence})
+	}
+	return out, nil
+}
 func wilson(successes, n float64) (float64, float64) {
 	const z = 1.959963984540054
 	p := successes / n
