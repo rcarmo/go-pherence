@@ -67,6 +67,20 @@ go-pherence/
   - Mechanical refactors like extracting interfaces or inlining helpers.
 - **`go build ./...` / `make host-build`** — verify the host tree compiles after cross-cutting changes. Use `make spacemit-cross-compile` or explicit `GOOS`/`GOARCH` builds for other targets; use `go test -c`, never `go test`, for foreign test binaries. Cross-compilation is not runtime validation.
 
+### Reproducible tests
+
+Tests must be repeatable from a clean checkout. A passing local run is evidence only when its inputs and execution mode are identifiable.
+
+- Keep the default test suite offline, deterministic and small. Use repository-owned synthetic fixtures for normal unit tests; never make ordinary `go test` download a model, invoke a network service or depend on a developer's cache.
+- Put small golden inputs and outputs under the owning package's `testdata/` directory. Record the fixture schema/version, generator revision, command and relevant options. Compare semantic output separately from volatile timing, process IDs and temporary paths.
+- Pin every external oracle by repository and full revision. Record model/tokenizer filenames, byte counts and SHA-256 digests. An opt-in released-model test must hash artifacts before loading them and fail on a mismatch; an absent artifact may skip with the exact environment variable or setup command required.
+- Generate expected results with an implementation independent of the code under test. Never use the implementation being tested to bless its own golden output. Retain enough source inputs or hashes to regenerate and audit each fixture.
+- Inject clocks, random sources and generated IDs where output includes time or randomness. Use fixed seeds, stable sorting and explicit tie-breaking. Do not assert wall-clock durations in correctness tests.
+- Run determinism-sensitive tests repeatedly (`-count=10` or more) and under `-race` where shared state is involved. Tests must not depend on map iteration, goroutine completion order, host locale, time zone, current working directory outside the package, or ambient environment variables.
+- Scope hardware tests behind explicit environment variables. Record the exact device, driver/runtime, backend, model hash and numerical threshold. A skipped hardware gate is not a pass.
+- For foreign architectures, use `go test -c` with an explicit output path or `go build`; plain `go test` tries to execute the foreign binary and is an invalid cross-build check.
+- Keep benchmark and correctness fixtures separate. Strip or normalise nondeterministic timings from golden files, but preserve raw timing samples in validation evidence when performance is under review.
+
 ### Remote K3 development
 
 When working on the Milk-V/K3 board via SSH:
@@ -173,13 +187,16 @@ Allocation budgets should normally be exact for small kernels and bounded ceilin
 
 ### SIMD and scalar acceptance gates
 
-* Keep a genuine scalar/reference implementation and differential tests. SIMD belongs in the backend, not duplicated in model code. Preserve build-tag counterparts and explicit unsupported stubs for genuinely unavailable device operations; do not hide packages or emulate an unsupported device to make tests green.
-* Prove dispatch: test the native optimized path and force the relevant feature gates off for its fallback. `GODEBUG=cpu.all=off` is a useful check, **not proof that all assembly is disabled**; verify which dispatch flags/routes the package actually uses. Exercise mixed feature combinations and minimum-ISA targets where applicable. No illegal instructions on supported lower-ISA hosts.
-* Test zero/one length, vector-width-minus/plus-one, all tail/remainder classes, awkward/odd dimensions, strides, transposes, unaligned slices and large bounded shapes. Verify bounds, checked size arithmetic and overlap rules; invalid inputs must leave destinations/state unchanged where promised. Use guard/sentinel storage around outputs.
-* Test signed zero, subnormals, NaNs/Infs, large finite values, zero/tiny norms, reduction cancellation, quantization ties, saturation and FP16/BF16 rounding according to the operation's documented contract. Compare forward, loss and gradients for training changes, plus full-prefix versus cached behavior for decoder changes. Do not widen established tolerances.
-* Run actual native correctness tests on Intel/amd64 and ARM64 for shared CPU kernels; run native RISC-V/device tests when those paths change and hardware is authorized/available. Cross-compile all affected targets with `go build` and `go test -c`; never describe foreign compilation as execution. If native hardware is unavailable, leave its gate explicitly open rather than claiming full cross-platform qualification.
-* Benchmark optimized and scalar/reference paths across representative sizes, including dispatch thresholds. Require a demonstrated advantage in the intended workload or document why a correctness/reference path is intentionally slower. Check allocation, bandwidth, packing/setup and tail costs as well as peak kernel throughput. Tiny-matrix speed does not establish released-model speed.
-* Assembly is not fully instrumented by the Go race detector. Pair race tests with native bounds/alias/ownership/concurrency tests. Verify deterministic behavior or explain the permitted numerical variation; reduced allocations must not introduce shared mutable scratch or request cross-talk.
+* Define one portable scalar implementation as the numerical oracle. SIMD entry points dispatch to AVX2/FMA on amd64, NEON on arm64 and RVV on riscv64 where implemented; unsupported targets call the same scalar function through a matching build-tagged stub.
+* Put reusable vector and matrix kernels in `backends/simd`; model packages supply shapes and orchestration. Keep assembly leaf functions small and expose them through validated Go wrappers. Check lengths, strides, dimensions, overflow and alias rules before entering assembly.
+* Preserve build-tag symmetry. Every architecture-specific symbol needs an implementation or explicit fallback on every supported target. Cross-compile the owning package for amd64, arm64 and riscv64 after changing a shared SIMD API.
+* Prove dispatch and fallback independently. Run the native optimized path, then disable the exact package dispatch flag and rerun the same vectors against the scalar oracle. `GODEBUG=cpu.all=off` is supplementary because package-level flags can still select assembly. Never mutate global dispatch flags from parallel tests.
+* Differential tests must use deterministic vectors and compare destination contents, source preservation and error behavior. Cover zero/one length, vector-width-minus/plus-one, every tail class, awkward dimensions, strides, transposes, unaligned slices and overlapping buffers where the API allows them. Surround outputs with sentinels when assembly could overrun.
+* Include signed zero, subnormals, NaNs/Infs, large finite values, zero/tiny norms, cancellation, quantization ties, saturation and FP16/BF16 rounding when relevant. Compare bitwise where the contract is exact. Otherwise derive and document a fixed absolute/relative tolerance from the independent scalar or upstream oracle; never widen an existing tolerance to make a change pass.
+* For quantized kernels, test decode/dequantization separately from dot/GEMV/GEMM, then test the composed operation. Cover each admitted tensor type, block boundary, row tail and batch tail. State whether arithmetic matches dequantised F32, packed scalar, or an upstream quantized reduction order.
+* Benchmark scalar and SIMD paths with identical preallocated inputs across representative tiny and released-model shapes. Include dispatch thresholds, packing/setup, tails and end-to-end workload impact. Require repeated samples (`-count=10` where practical) and compare with `benchstat`; one microbenchmark win cannot justify a slower model workload.
+* Run actual native correctness tests on Intel/amd64 and ARM64 for shared CPU kernels; run native RISC-V/device tests when those paths change and hardware is authorised/available. Cross-compilation is not execution. Leave unavailable native hardware gates open in the validation record.
+* Assembly is not fully instrumented by the Go race detector. Pair race tests with bounds, alias, ownership and concurrency tests. Reused scratch must be session- or worker-owned; reduced allocations must not introduce request cross-talk.
 
 ### Optimization checklist
 

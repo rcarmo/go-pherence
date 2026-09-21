@@ -130,6 +130,7 @@ func Q4Ready() bool {
 }
 
 func shutdownMegaModule() {
+	freeQ8ProjectionScratch()
 	freeNVFP4Scratch()
 	FreeBF16LMHeadScratch()
 	shutdownAttentionSplitKVCandidate()

@@ -6,6 +6,16 @@ import (
 	"github.com/rcarmo/go-pherence/model/common"
 )
 
+func TestLayerKVHeadsUsesPerLayerMetadata(t *testing.T) {
+	cfg := common.Config{NumKVHeads: 8, NumGlobalKVHeads: 1, KVHeadsPerLayer: []int{8, 1}, LayerTypes: []string{"sliding_attention", "full_attention"}}
+	if got := LayerKVHeads(cfg, 0); got != 8 {
+		t.Fatalf("sliding KV heads=%d want 8", got)
+	}
+	if got := LayerKVHeads(cfg, 1); got != 1 {
+		t.Fatalf("full KV heads=%d want 1", got)
+	}
+}
+
 func TestNormalizeTextConfigCarries31BFields(t *testing.T) {
 	data := []byte(`{
 		"model_type":"gemma4",

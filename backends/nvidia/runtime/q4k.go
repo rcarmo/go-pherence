@@ -12,6 +12,9 @@ import (
 var (
 	fnQ4KGemv                 CUfunction
 	fnQ4KGemvBatch            CUfunction
+	fnQ4KGemmBatch8           CUfunction
+	fnQuantizeQ8RowsSum       CUfunction
+	fnQ4KQ8Batch4             CUfunction
 	fnQ4KGateUpGELU           CUfunction
 	fnQ4KGateUpGELUByWork     CUfunction
 	fnQ4KGateUpGELUByWorkPtrs CUfunction
@@ -276,6 +279,12 @@ func GateUpGELUQ4KBatchToBuffer(outBuf *Buffer, xBuf *Buffer, batch, intermediat
 }
 
 func GemvQ4KBatchToBuffer(outBuf *Buffer, xBuf *Buffer, batch int, m *GPUQ4KMatrix) error {
+	if batch >= 4 && fnQuantizeQ8RowsSum != 0 && fnQ4KQ8Batch4 != 0 {
+		return GemmQ4KQ8ToBuffer(outBuf, xBuf, batch, m)
+	}
+	if batch >= 4 && fnQ4KGemmBatch8 != 0 {
+		return GemmQ4KBatch8ToBuffer(outBuf, xBuf, batch, m)
+	}
 	if batch <= 0 {
 		return nil
 	}
@@ -287,6 +296,34 @@ func GemvQ4KBatchToBuffer(outBuf *Buffer, xBuf *Buffer, batch int, m *GPUQ4KMatr
 	batchU := uint32(batch)
 	args := []unsafe.Pointer{unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&m.Scales.Ptr), unsafe.Pointer(&m.Mins.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&inDim), unsafe.Pointer(&outDim), unsafe.Pointer(&batchU)}
 	return LaunchKernel(fnQ4KGemvBatch, uint32(m.OutDim), uint32(batch), 1, 256, 1, 1, 0, args...)
+}
+
+func GemmQ4KQ8ToBuffer(outBuf, xBuf *Buffer, batch int, m *GPUQ4KMatrix) error {
+	if batch <= 0 || m == nil || m.Q == nil || m.Scales == nil || m.Mins == nil || xBuf == nil || outBuf == nil || xBuf.Ptr == 0 || outBuf.Ptr == 0 || xBuf.Size < batch*m.InDim*4 || outBuf.Size < batch*m.OutDim*4 {
+		return fmt.Errorf("invalid Q4_K Q8 GEMM buffers")
+	}
+	groups := (m.InDim + 31) / 32
+	q, d, s, unlock, err := q8ProjectionBuffers(batch*m.InDim, batch*groups, batch*groups*4)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	rr, cc := uint32(batch), uint32(m.InDim)
+	if err := LaunchKernel(fnQuantizeQ8RowsSum, uint32(groups), rr, 1, 32, 1, 1, 32*8, unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&s.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&cc)); err != nil {
+		return err
+	}
+	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
+	return LaunchKernel(fnQ4KQ8Batch4, uint32((m.OutDim+3)/4), uint32((batch+3)/4), 1, 128, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&s.Ptr), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&m.Scales.Ptr), unsafe.Pointer(&m.Mins.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
+}
+
+func GemmQ4KBatch8ToBuffer(outBuf, xBuf *Buffer, batch int, m *GPUQ4KMatrix) error {
+	if batch <= 0 || m == nil || m.Q == nil || m.Scales == nil || m.Mins == nil || xBuf == nil || outBuf == nil || xBuf.Ptr == 0 || outBuf.Ptr == 0 || xBuf.Size < batch*m.InDim*4 || outBuf.Size < batch*m.OutDim*4 || fnQ4KGemmBatch8 == 0 {
+		return fmt.Errorf("invalid Q4_K batch8 GEMM buffers")
+	}
+	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
+	tiles := uint32((batch + 7) / 8)
+	gridX := uint32((m.OutDim + 3) / 4)
+	return LaunchKernel(fnQ4KGemmBatch8, gridX, tiles, 1, 128, 1, 1, 0, unsafe.Pointer(&xBuf.Ptr), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&m.Scales.Ptr), unsafe.Pointer(&m.Mins.Ptr), unsafe.Pointer(&outBuf.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
 }
 
 func GemvQ4KBatch(out, x []float32, batch int, m *GPUQ4KMatrix) error {

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QEV Decision Playground</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0d10;--panel:#14181d;--line:#29313a;--text:#e7edf3;--muted:#94a3b1;--accent:#76d7c4;--bad:#ff8c8c;--good:#9be39b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% 0,#17242c 0,transparent 32rem),var(--bg);color:var(--text);font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}main{width:min(1180px,calc(100% - 32px));margin:32px auto 64px}header{display:flex;gap:24px;justify-content:space-between;align-items:end;margin-bottom:24px}h1{font:700 clamp(28px,5vw,52px)/1 system-ui,sans-serif;letter-spacing:-.04em;margin:0}h1 span{color:var(--accent)}.lede{color:var(--muted);max-width:700px;margin:.6rem 0 0}.status{white-space:nowrap;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:7px 12px}.status.ok{color:var(--good)}.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,.9fr);gap:18px}.panel{background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 18px 50px #0005}h2{font:600 18px system-ui,sans-serif;margin:0 0 14px}label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px}textarea,input,select{width:100%;border:1px solid var(--line);border-radius:9px;background:#0c1014;color:var(--text);padding:10px 11px;font:inherit;outline:none}textarea:focus,input:focus,select:focus{border-color:var(--accent)}textarea{min-height:112px;resize:vertical}.schema{min-height:250px}.row{display:grid;grid-template-columns:1fr 110px 110px;gap:10px}.actions{display:flex;gap:10px;align-items:center;margin-top:16px}button{border:0;border-radius:9px;background:var(--accent);color:#07110f;font:700 14px system-ui,sans-serif;padding:10px 17px;cursor:pointer}button.secondary{background:#252d35;color:var(--text)}button:disabled{opacity:.55;cursor:wait}.error{color:var(--bad);white-space:pre-wrap;margin-top:12px}.meta{color:var(--muted);font-size:12px;margin-left:auto}.result{display:grid;gap:12px}.card{background:#0d1115;border:1px solid var(--line);border-radius:12px;padding:14px}.card h3{font:600 14px system-ui,sans-serif;margin:0 0 10px;color:var(--muted)}.decision{font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere}.fields{display:grid;gap:7px}.field{display:grid;grid-template-columns:minmax(90px,1fr) minmax(90px,1fr) 80px;gap:10px;padding-top:7px;border-top:1px solid #222a32}.prob{text-align:right;color:var(--accent)}pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#bed0dd}.empty{color:var(--muted);padding:40px 0;text-align:center}.timings{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{border:1px solid var(--line);border-radius:99px;color:var(--muted);padding:4px 8px;font-size:12px}@media(max-width:820px){header{display:block}.status{display:inline-block;margin-top:14px}.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.row>div:first-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1><span>QEV</span> Decision Playground</h1><p class="lede">Score bounded boolean and enum decisions with Gemma 4. Each context is evaluated independently; the response includes constrained probabilities and exact scoring usage.</p></div><div id="status" class="status">checking server…</div></header>
+<div class="grid">
+<section class="panel">
+<h2>Decision request</h2>
+<label for="instructions">Instructions</label><textarea id="instructions" placeholder="Optional decision guidance">Classify each context conservatively.</textarea>
+<label for="contexts">Contexts · one per line</label><textarea id="contexts">The production deployment failed its health check and rolled back automatically.
+A routine dependency update completed without errors.</textarea>
+<label for="schema">Schema · compact fields or JSON Schema properties</label><textarea id="schema" class="schema">{
+  "urgent": {
+    "type": "boolean",
+    "description": "Requires immediate human attention"
+  },
+  "severity": {
+    "type": "enum",
+    "description": "Operational severity",
+    "choices": ["low", "medium", "high"]
+  }
+}</textarea>
+<div class="row"><div><label for="model">Model</label><input id="model" readonly></div><div><label for="mode">Mode</label><select id="mode"><option value="auto">auto</option><option value="tree">tree</option></select></div><div><label for="treeMax">Tree max</label><input id="treeMax" type="number" min="1" max="255" value="128"></div></div>
+<div class="actions"><button id="run" type="button">Run decision</button><button id="reset" class="secondary" type="button">Reset</button><span id="requestMeta" class="meta"></span></div><div id="error" class="error" role="alert"></div>
+</section>
+<section class="panel"><h2>Results</h2><div id="results" class="empty">Run a decision to inspect values and probabilities.</div><div id="timings" class="timings"></div></section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);const defaults={instructions:$('instructions').value,contexts:$('contexts').value,schema:$('schema').value};
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function status(){try{const r=await fetch('/qev/v1/status',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());const s=await r.json();$('model').value=s.model;$('status').textContent=(s.busy?'busy · ':'ready · ')+s.backend+(s.device?' · '+s.device:'');$('status').classList.toggle('ok',!s.busy)}catch(e){$('status').textContent='server unavailable';$('status').classList.remove('ok')}}
+function render(data){const cards=data.results.map((r,i)=>{const fields=Object.entries(r.fields).map(([name,f])=>`<div class="field"><strong>${esc(name)}</strong><span>${esc(JSON.stringify(f.value))}</span><span class="prob">${(f.probability*100).toFixed(2)}%</span></div>`).join('');return `<article class="card"><h3>Context ${i+1} · ${r.usage.context_tokens} tokens · ${r.usage.scored_rows} scored rows</h3><div class="decision">${esc(JSON.stringify(r.decision,null,2))}</div><div class="fields">${fields}</div></article>`}).join('');$('results').className='result';$('results').innerHTML=cards;$('timings').innerHTML=[['total',data.timings.total_ms],['prefill',data.timings.prefill_ms],['scoring',data.timings.scoring_ms],['per decision',data.timings.per_decision_ms]].map(([n,v])=>`<span class="pill">${n}: ${Number(v).toFixed(2)} ms</span>`).join('')+`<span class="pill">rounds: ${data.timings.rounds}</span>`}
+$('run').addEventListener('click',async()=>{const button=$('run');$('error').textContent='';$('timings').innerHTML='';let schema;try{schema=JSON.parse($('schema').value)}catch(e){$('error').textContent='Schema JSON: '+e.message;return}const contexts=$('contexts').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const body={model:$('model').value,instructions:$('instructions').value,schema,contexts,mode:$('mode').value,tree_max:Number($('treeMax').value),cache_prompt:true};button.disabled=true;button.textContent='Scoring…';$('requestMeta').textContent=contexts.length+' context'+(contexts.length===1?'':'s');try{const r=await fetch('/v1/decision',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error((await r.text()).trim()||`HTTP ${r.status}`);render(await r.json())}catch(e){$('error').textContent=e.message}finally{button.disabled=false;button.textContent='Run decision';status()}});
+$('reset').addEventListener('click',()=>{$('instructions').value=defaults.instructions;$('contexts').value=defaults.contexts;$('schema').value=defaults.schema;$('mode').value='auto';$('treeMax').value=128;$('error').textContent='';$('results').className='empty';$('results').textContent='Run a decision to inspect values and probabilities.';$('timings').innerHTML=''});status();setInterval(status,5000);
+</script>
+</body>
+</html>

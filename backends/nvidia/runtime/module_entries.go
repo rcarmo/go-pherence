@@ -13,6 +13,7 @@ import (
 	ptxnvfp4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4"
 	ptxq4 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4"
 	ptxq5 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5"
+	ptxq6 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q6"
 	ptxq8 "github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8"
 )
 
@@ -59,9 +60,12 @@ func megaModuleEntries() []moduleEntry {
 		{"rms_norm", ptx.RmsNormPTX},
 		{"rope_apply", ptx.RoPEPTX},
 		{"rope_partial", ptx.RoPEPartialPTX},
+		{"rope_partial_sequence", ptx.RoPEPartialSequencePTX},
 		{"gqa_attention_scores", ptx.AttentionScoresPTX},
 		{"row_softmax_debug", ptx.SoftmaxRowsPTX},
 		{"gqa_attention", ptx.AttentionPTX},
+		{"gqa_attention_independent", ptx.IndependentBranchAttentionPTX},
+		{"gqa_attention_causal_batch", ptx.CausalBatchAttentionPTX},
 		{"gqa_attention_splitkv_partial", ptx.AttentionSplitKVPartialPTX},
 		{"gqa_attention_splitkv_merge", ptx.AttentionSplitKVMergePTX},
 		{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
@@ -76,11 +80,26 @@ func megaModuleEntries() []moduleEntry {
 		{"gemv_q4sym", ptxq4.GemvQ4OptPTX},
 		{"gemv_q4_k", ptxq4.GemvQ4KPTX},
 		{"gemv_q4_k_batch", ptxq4.GemvQ4KBatchPTX},
+		{"gemm_q4_k_batch8", ptxq4.GemmQ4KBatch8PTX},
+		{"quantize_q8_rows_sum", ptxq4.Q8SumPTX},
+		{"gemm_q4_k_q8_batch4", ptxq4.GemmQ4Q8PTX},
 		{"gate_up_gelu_q4_k", ptxq4.GateUpGELUQ4KPTX},
 		{"gate_up_gelu_q4_k_by_work", ptxq4.GateUpGELUQ4KByWorkPTX},
 		{"gate_up_gelu_q4_k_by_work_ptrs", ptxq4.GateUpGELUQ4KByWorkPtrsPTX},
 		{"gate_up_q4_k_by_work_ptrs", ptxq4.GateUpQ4KByWorkPtrsPTX},
 		{"gemv_q5_0_batch", ptxq5.GemvQ5_0BatchPTX},
+		{"gemv_q5_k_batch", ptxq5.GemvQ5KBatchPTX},
+		{"gemm_q5_k_warp", ptxq5.GemmQ5KWarpPTX},
+		{"gemm_q5_packed_f32", ptxq5.GemmQ5PackedF32PTX},
+		{"gemm_q5_packed_q8_batch4", ptxq5.GemmQ5PackedQ8PTX},
+		{"gemv_q6_k_batch", ptxq6.GemvQ6KBatchPTX},
+		{"gemm_q6_k_warp", ptxq6.GemmQ6KWarpPTX},
+		{"gemm_q6_k_batch8", ptxq6.GemmQ6KBatch8PTX},
+		{"quantize_q8_rows", ptxq6.QuantizeQ8PTX},
+		{"gemm_q6_k_q8_batch4", ptxq6.GemmQ6Q8PTX},
+		{"quantize_q8_rows16", ptxq6.QuantizeQ8Rows16PTX},
+		{"gemm_q6_packed_q8_batch4", ptxq6.GemmQ6PackedQ8PTX},
+		{"gemm_q6_packed_f32", ptxq6.GemmQ6PackedF32PTX},
 		{"gemv_q5_0_scatter_by_work", ptxq5.GemvQ5_0ScatterByWorkPTX},
 		{"gemv_q5_0_scatter_by_work_ptrs", ptxq5.GemvQ5_0ScatterByWorkPtrsPTX},
 		{"gemv_q8_0", ptxq8.GemvQ8_0PTX},

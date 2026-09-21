@@ -25,6 +25,7 @@ func TestQuantMatrixProjectBatchF32ToMatchesDequantOracle(t *testing.T) {
 		{name: "q4_0_vnni_tail124", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 11, batch: 124},
 		{name: "q4_0_vnni_parallel_tail124", qtype: gguf.QuantQ4_0, inDim: 256, outDim: 513, batch: 124},
 		{name: "q4k_tiled_and_tail", qtype: gguf.QuantQ4_K, inDim: 256, outDim: 10, batch: 9},
+		{name: "q5k", qtype: gguf.QuantQ5_K, inDim: 256, outDim: 7, batch: 3},
 		{name: "q5_0", qtype: gguf.QuantQ5_0, inDim: 64, outDim: 7, batch: 3},
 		{name: "q8_0", qtype: gguf.QuantQ8_0, inDim: 64, outDim: 6, batch: 4},
 		{name: "q6_k", qtype: gguf.QuantQ6_K, inDim: 256, outDim: 5, batch: 3},
@@ -278,6 +279,21 @@ func syntheticQuantMatrix(t testing.TB, qtype gguf.QuantType, inDim, outDim int)
 				}
 				for i := 0; i < 128; i++ {
 					blk[16+i] = byte((i*7 + r*11 + b*13) & 0xff)
+				}
+			}
+		case gguf.QuantQ5_K:
+			for b := 0; b < inDim/256; b++ {
+				blk := row[b*176 : (b+1)*176]
+				binary.LittleEndian.PutUint16(blk[0:2], half.F32ToF16(0.025+float32(r+b)*0.002))
+				binary.LittleEndian.PutUint16(blk[2:4], half.F32ToF16(0.004+float32((r+b)%3)*0.001))
+				for i := 0; i < 12; i++ {
+					blk[4+i] = byte(1 + (i+r+b)%17)
+				}
+				for i := 0; i < 32; i++ {
+					blk[16+i] = byte((i*5 + r*7 + b*11 + 1) & 0xff)
+				}
+				for i := 0; i < 128; i++ {
+					blk[48+i] = byte((i*7 + r*11 + b*13) & 0xff)
 				}
 			}
 		case gguf.QuantQ5_0:

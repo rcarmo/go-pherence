@@ -1,23 +1,27 @@
 package nvidia
 
 import (
-	"github.com/rcarmo/go-pherence/internal/checked"
+	"fmt"
 	"unsafe"
+
+	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
 // --- GPU RoPE + Attention ---
 
 var (
-	ropeFn           CUfunction
-	ropePartialFn    CUfunction
-	attnScoreFn      CUfunction
-	softmaxRowsFn    CUfunction
-	attnFn           CUfunction
-	ropeReady        bool
-	ropePartialReady bool
-	attnScoreReady   bool
-	softmaxRowsReady bool
-	attnReady        bool
+	ropeFn                CUfunction
+	ropePartialFn         CUfunction
+	ropePartialSequenceFn CUfunction
+	attnCausalBatchFn     CUfunction
+	attnScoreFn           CUfunction
+	softmaxRowsFn         CUfunction
+	attnFn                CUfunction
+	ropeReady             bool
+	ropePartialReady      bool
+	attnScoreReady        bool
+	softmaxRowsReady      bool
+	attnReady             bool
 )
 
 func initRoPEAttn() { loadMegaModule() }
@@ -79,6 +83,62 @@ func DevRoPEPartial(x *DevBuf, cosSin *DevBuf, pos, nHeads, headDim, rotHalf int
 		}
 	}
 	return false
+}
+
+// RoPEPartialRowsBuffer applies the same absolute position to every row in a
+// packed F32 batch without downloading the projected Q/K values.
+func RoPEPartialSequenceBuffer(x, cosSin *Buffer, rows, pos0, nHeads, headDim, rotHalf int) error {
+	initRoPEAttn()
+	rowElems, okRow := checked.MulInt(nHeads, headDim)
+	pairs, okPairs := checked.MulInt(nHeads, rotHalf)
+	total, okTotal := checked.MulInt(rows, pairs)
+	posPairs, okPos := checked.MulInt(pos0+rows, rotHalf)
+	cosNeed, okCos := checked.MulInt(posPairs, 2)
+	if !ropePartialReady || ropePartialSequenceFn == 0 || rows <= 0 || pos0 < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 || !okRow || !okPairs || !okTotal || !okPos || !okCos || x == nil || cosSin == nil || x.Ptr == 0 || cosSin.Ptr == 0 || x.Size < rows*rowElems*4 || cosSin.Size < cosNeed*4 {
+		return fmt.Errorf("invalid sequence partial RoPE")
+	}
+	grid, ok := grid1DFor(total, 256)
+	if !ok {
+		return fmt.Errorf("sequence partial RoPE grid overflow")
+	}
+	rr, p0, nh, hd, rh := uint32(rows), uint32(pos0), uint32(nHeads), uint32(headDim), uint32(rotHalf)
+	return LaunchKernel(ropePartialSequenceFn, grid, 1, 1, 256, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&cosSin.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&p0), unsafe.Pointer(&nh), unsafe.Pointer(&hd), unsafe.Pointer(&rh))
+}
+
+func CausalBatchAttentionBuffer(out, q, k, v *Buffer, rows, pos0, kvLen, window, nHeads, nKVHeads, headDim int, scale float32) error {
+	qDim, okQ := checked.MulInt(nHeads, headDim)
+	kvDim, okKV := checked.MulInt(nKVHeads, headDim)
+	qN, okQN := checked.MulInt(rows, qDim)
+	kvN, okKN := checked.MulInt(kvLen, kvDim)
+	if attnCausalBatchFn == 0 || !okQ || !okKV || !okQN || !okKN || rows <= 0 || pos0 < 0 || kvLen <= 0 || kvLen > 2048 || window < 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 || nHeads%nKVHeads != 0 || out == nil || q == nil || k == nil || v == nil || out.Ptr == 0 || q.Ptr == 0 || k.Ptr == 0 || v.Ptr == 0 || out.Size < qN*4 || q.Size < qN*4 || k.Size < kvN*4 || v.Size < kvN*4 {
+		return fmt.Errorf("invalid causal batch attention")
+	}
+	rr, p0, kl, ww, hh, kk, dd := uint32(rows), uint32(pos0), uint32(kvLen), uint32(window), uint32(nHeads), uint32(nKVHeads), uint32(headDim)
+	return LaunchKernel(attnCausalBatchFn, hh, rr, 1, 256, 1, 1, 2048*4, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&p0), unsafe.Pointer(&kl), unsafe.Pointer(&ww), unsafe.Pointer(&hh), unsafe.Pointer(&kk), unsafe.Pointer(&dd), unsafe.Pointer(&scale))
+}
+
+func RoPEPartialRowsBuffer(x, cosSin *Buffer, rows, pos, nHeads, headDim, rotHalf int) error {
+	initRoPEAttn()
+	rowElems, okRow := checked.MulInt(nHeads, headDim)
+	totalPairs, okPairs := checked.MulInt(nHeads, rotHalf)
+	posPairs, okPos := checked.MulInt(pos+1, rotHalf)
+	cosNeed, okCos := checked.MulInt(posPairs, 2)
+	if !ropePartialReady || rows <= 0 || pos < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 || !okRow || !okPairs || !okPos || !okCos || x == nil || cosSin == nil || x.Ptr == 0 || cosSin.Ptr == 0 || x.Size < rows*rowElems*4 || cosSin.Size < cosNeed*4 {
+		return fmt.Errorf("invalid batched partial RoPE")
+	}
+	for row := 0; row < rows; row++ {
+		view := x.Ptr + CUdeviceptr(row*rowElems*4)
+		p, nh, hd, rh := uint32(pos), uint32(nHeads), uint32(headDim), uint32(rotHalf)
+		grid, ok := grid1DFor(totalPairs, 256)
+		if !ok {
+			return fmt.Errorf("batched partial RoPE grid overflow")
+		}
+		if err := LaunchKernel(ropePartialFn, grid, 1, 1, 256, 1, 1, 0,
+			unsafe.Pointer(&view), unsafe.Pointer(&cosSin.Ptr), unsafe.Pointer(&p), unsafe.Pointer(&nh), unsafe.Pointer(&hd), unsafe.Pointer(&rh)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DevAttentionScores runs the score phase of GQA attention on GPU.

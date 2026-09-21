@@ -47,6 +47,37 @@ func TestDequantRowQ4KToMatchesGGMLNibbleGroups(t *testing.T) {
 	}
 }
 
+func TestDequantRowQ5KToMatchesGGMLBitPlanes(t *testing.T) {
+	raw := make([]byte, 176)
+	binary.LittleEndian.PutUint16(raw[0:2], 0x3c00) // d=1
+	// dmin=0; all eight scales are 1.
+	for i := 0; i < 4; i++ {
+		raw[4+i] = 1
+		raw[12+i] = 1
+	}
+	qh := raw[16:48]
+	ql := raw[48:176]
+	for i := 0; i < 32; i++ {
+		ql[i] = byte(i&0x0f) | byte((i+1)&0x0f)<<4
+		if i%2 == 0 {
+			qh[i] = 1 | 2
+		}
+	}
+	dst := make([]float32, 256)
+	if err := dequantRowQ5KTo(dst, raw, 256); err != nil {
+		t.Fatal(err)
+	}
+	checks := map[int]float32{0: 16, 1: 1, 31: 15, 32: 17, 33: 2, 63: 0}
+	for i, want := range checks {
+		if dst[i] != want {
+			t.Fatalf("dst[%d]=%v want %v", i, dst[i], want)
+		}
+	}
+	if err := dequantRowQ5KTo(dst, raw[:175], 256); err == nil {
+		t.Fatal("accepted short Q5_K row")
+	}
+}
+
 func TestDotExpertRow(t *testing.T) {
 	if got := dotExpertRow([]float32{1, 2, 3}, []float32{4, 5, 6}); got != 32 {
 		t.Fatalf("dot=%v", got)

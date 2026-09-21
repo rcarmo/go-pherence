@@ -27,19 +27,31 @@ type MTPVerifierLayerQKVBatch struct {
 // the exact per-row m.mvQ path as the SIMD oracle until a true quantized batch
 // kernel is introduced.
 func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInputs, layerIdx int, hiddenFlat []float32) (MTPVerifierLayerQKVBatch, error) {
+	if err := validateMTPVerifierPlanForModel(m, batch.Plan); err != nil {
+		return MTPVerifierLayerQKVBatch{}, err
+	}
+	return m.projectMTPVerifierLayerQKVRows(batch.Plan.VerifierTokens, batch.Plan.Positions, layerIdx, hiddenFlat)
+}
+
+// projectMTPVerifierLayerQKVRows is shared by contiguous MTP verification and
+// independent sibling branches. Unlike MTPVerifierPlan, sibling positions may
+// repeat because every branch starts at the same immutable trunk boundary.
+func (m *LlamaModel) projectMTPVerifierLayerQKVRows(tokens, positions []int, layerIdx int, hiddenFlat []float32) (MTPVerifierLayerQKVBatch, error) {
 	if m == nil {
 		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("nil model")
 	}
 	if layerIdx < 0 || layerIdx >= m.Config.NumLayers || layerIdx >= len(m.Layers) {
 		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("layer index %d out of range", layerIdx)
 	}
-	if err := validateMTPVerifierPlanForModel(m, batch.Plan); err != nil {
-		return MTPVerifierLayerQKVBatch{}, err
-	}
-	B := len(batch.Plan.VerifierTokens)
+	B := len(tokens)
 	h := m.Config.HiddenSize
-	if B <= 0 || h <= 0 || len(hiddenFlat) < B*h {
-		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("invalid verifier QKV batch hidden len=%d B=%d hidden=%d", len(hiddenFlat), B, h)
+	if B <= 0 || len(positions) != B || h <= 0 || len(hiddenFlat) < B*h {
+		return MTPVerifierLayerQKVBatch{}, fmt.Errorf("invalid verifier QKV rows tokens=%d positions=%d hidden len=%d hidden=%d", B, len(positions), len(hiddenFlat), h)
+	}
+	for i, tok := range tokens {
+		if tok < 0 || tok >= m.Config.VocabSize || positions[i] < 0 {
+			return MTPVerifierLayerQKVBatch{}, fmt.Errorf("invalid verifier QKV row %d token=%d position=%d", i, tok, positions[i])
+		}
 	}
 	layer := &m.Layers[layerIdx]
 	if layer.InputNorm == nil {
@@ -139,7 +151,7 @@ func (m *LlamaModel) ProjectMTPVerifierLayerQKVBatch(batch MTPVerifierBatchInput
 			kRow = k[b*kvDim : (b+1)*kvDim]
 			vRow = v[b*kvDim : (b+1)*kvDim]
 		}
-		if err := postProcessMTPVerifierQKV(m, layer, layerIdx, qRow, kRow, vRow, batch.Plan.Positions[b], headDim, kvHeads); err != nil {
+		if err := postProcessMTPVerifierQKV(m, layer, layerIdx, qRow, kRow, vRow, positions[b], headDim, kvHeads); err != nil {
 			return MTPVerifierLayerQKVBatch{}, err
 		}
 	}

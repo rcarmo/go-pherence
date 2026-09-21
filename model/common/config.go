@@ -11,6 +11,7 @@ type Config struct {
 	NumHeads                  int      `json:"num_attention_heads"`
 	NumKVHeads                int      `json:"num_key_value_heads"`
 	NumGlobalKVHeads          int      `json:"num_global_key_value_heads"`
+	KVHeadsPerLayer           []int    `json:"-"`
 	MaxSeqLen                 int      `json:"max_position_embeddings"`
 	RopeTheta                 float64  `json:"rope_theta"`
 	RMSNormEps                float64  `json:"rms_norm_eps"`

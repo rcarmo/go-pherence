@@ -25,6 +25,18 @@ func TestBrowserServer(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": []any{map[string]any{"id": "fixture-model", "object": "model", "created": 1, "owned_by": "go-pherence"}}})
 	})
+	RegisterQEV(mux, QEVConfig{ModelID: "fixture-model", Backend: "fixture", Device: "synthetic", MaxContexts: 256, MaxFields: 32, MaxCandidates: 255})
+	mux.HandleFunc("/v1/decision", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Contexts []string `json:"contexts"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Contexts) == 0 {
+			http.Error(w, "bad fixture input", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"object": "decision", "model": "fixture-model", "results": []any{map[string]any{"decision": map[string]any{"urgent": true}, "fields": map[string]any{"urgent": map[string]any{"value": true, "probability": .875, "scored_nodes": 1, "tree": true}}, "usage": map[string]int{"context_tokens": 4, "scored_rows": 2}}}, "timings": map[string]any{"total_ms": 3.5, "prefill_ms": 1.0, "scoring_ms": 2.5, "per_decision_ms": 3.5, "rounds": 1}})
+	})
 	Register(mux, Config{ModelID: "fixture-model", ContextSize: 4096, MaxTokens: 256, ChatHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req compatOutgoingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

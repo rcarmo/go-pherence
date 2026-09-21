@@ -5,5 +5,6 @@
 | `llmgen` | One-shot text generation |
 | `llmchat` | Interactive chat REPL |
 | `llmserver` | HTTP inference server |
+| `qevserver` | Bounded Gemma 4 boolean/enum decision server and playground |
 | `specbench` | Speculative-decoding benchmark |
 | `speccheck` | Speculative-decoding correctness check |

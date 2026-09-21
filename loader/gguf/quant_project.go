@@ -31,6 +31,8 @@ func (m *QuantMatrix) ProjectBatchF32To(dst, x []float32, batch int) error {
 		return m.projectBatchQ3KTo(dst, x, batch)
 	case QuantQ4_K:
 		return m.projectBatchQ4KTo(dst, x, batch)
+	case QuantQ5_K:
+		return m.projectBatchDequantTo(dst, x, batch)
 	case QuantQ5_0:
 		return m.projectBatchQ5_0To(dst, x, batch)
 	case QuantQ8_0:
@@ -481,6 +483,40 @@ func storeExperimentalQ4KTilePair(dst []float32, outDim, tileIdx, groupIdx int, 
 			dst[base+row0+weightRow] = block[actRow*experimentalQ4K8x8Rows+weightRow]
 		}
 	}
+}
+
+func (m *QuantMatrix) projectBatchDequantTo(dst, x []float32, batch int) error {
+	rowBytes, err := m.RowBytes()
+	if err != nil {
+		return err
+	}
+	need := rowBytes * m.OutDim
+	if need < 0 || len(m.Raw) < need {
+		return fmt.Errorf("quant matrix %s: raw len=%d want at least %d", m.Name, len(m.Raw), need)
+	}
+	returnErr := make(chan error, 1)
+	if !gemvRowsParallel(m.OutDim, rowBytes*batch, func(row int) bool {
+		dequantized := make([]float32, m.InDim)
+		if err := m.DequantRowTo(dequantized, row); err != nil {
+			select {
+			case returnErr <- err:
+			default:
+			}
+			return false
+		}
+		for pos := 0; pos < batch; pos++ {
+			dst[pos*m.OutDim+row] = dotF32(dequantized, x[pos*m.InDim:(pos+1)*m.InDim])
+		}
+		return true
+	}) {
+		select {
+		case err := <-returnErr:
+			return err
+		default:
+			return fmt.Errorf("quant matrix %s: projection failed", m.Name)
+		}
+	}
+	return nil
 }
 
 func dotF32(a, b []float32) float32 {

@@ -427,63 +427,43 @@ func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []in
 	return ids
 }
 
-// encodeSentencePiece is the legacy whitespace-prefix path used for
-// SentencePiece-family vocabularies (Gemma).
+// encodeSentencePiece implements the Gemma tokenizer.json contract: replace
+// literal spaces with the SentencePiece marker, then run BPE over the intact
+// rune stream. Splitting with strings.Fields is incorrect because it discards
+// leading/repeated spaces, newlines and tabs before tokenization.
 func (t *Tokenizer) encodeSentencePiece(text string) []int {
-	spacePrefix := "\u2581"
-	words := strings.Fields(text)
-	var pieces []string
-	for i, w := range words {
-		if i > 0 {
-			w = spacePrefix + w
-		}
-		pieces = append(pieces, w)
+	text = strings.ReplaceAll(text, " ", "\u2581")
+	if text == "" {
+		return nil
 	}
-
-	// For each piece, try direct vocab lookup first, then BPE
+	if id, ok := t.Vocab[text]; ok {
+		return []int{id}
+	}
 	t.initMergeRank()
-	mergeRank := t.mergeRank
-
-	var ids []int
-	for _, piece := range pieces {
-		// Direct lookup
-		if id, ok := t.Vocab[piece]; ok {
+	chars := make([]string, 0, len(text))
+	for _, r := range text {
+		chars = append(chars, string(r))
+	}
+	for len(chars) >= 2 {
+		bestRank := len(t.Merges)
+		bestIdx := -1
+		for i := 0; i < len(chars)-1; i++ {
+			if rank, ok := t.mergeRank[[2]string{chars[i], chars[i+1]}]; ok && rank < bestRank {
+				bestRank = rank
+				bestIdx = i
+			}
+		}
+		if bestIdx < 0 {
+			break
+		}
+		chars[bestIdx] += chars[bestIdx+1]
+		copy(chars[bestIdx+1:], chars[bestIdx+2:])
+		chars = chars[:len(chars)-1]
+	}
+	ids := make([]int, 0, len(chars))
+	for _, symbol := range chars {
+		if id, ok := t.Vocab[symbol]; ok {
 			ids = append(ids, id)
-			continue
-		}
-
-		// BPE: split into characters
-		chars := make([]string, 0, len(piece))
-		for _, r := range piece {
-			chars = append(chars, string(r))
-		}
-
-		// Apply BPE merges
-		for len(chars) >= 2 {
-			bestRank := len(t.Merges)
-			bestIdx := -1
-			for i := 0; i < len(chars)-1; i++ {
-				pair := [2]string{chars[i], chars[i+1]}
-				if rank, ok := mergeRank[pair]; ok && rank < bestRank {
-					bestRank = rank
-					bestIdx = i
-				}
-			}
-			if bestIdx < 0 {
-				break
-			}
-			merged := chars[bestIdx] + chars[bestIdx+1]
-			newChars := make([]string, 0, len(chars)-1)
-			newChars = append(newChars, chars[:bestIdx]...)
-			newChars = append(newChars, merged)
-			newChars = append(newChars, chars[bestIdx+2:]...)
-			chars = newChars
-		}
-
-		for _, ch := range chars {
-			if id, ok := t.Vocab[ch]; ok {
-				ids = append(ids, id)
-			}
 		}
 	}
 	return ids
