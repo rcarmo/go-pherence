@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,96 @@ func choiceIndex(in input, id string) int {
 		}
 	}
 	return -1
+}
+func readInputs(payload []byte) ([]input, error) {
+	var rows []input
+	scan := bufio.NewScanner(bytes.NewReader(payload))
+	scan.Buffer(make([]byte, 64<<10), 2<<20)
+	seen := map[string]bool{}
+	for scan.Scan() {
+		var in input
+		d := json.NewDecoder(bytes.NewReader(scan.Bytes()))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&in); err != nil {
+			return nil, err
+		}
+		if d.Decode(new(any)) != io.EOF {
+			return nil, errors.New("trailing request data")
+		}
+		if err := validate(in); err != nil {
+			return nil, fmt.Errorf("row %d: %w", len(rows)+1, err)
+		}
+		key := in.Task + "\x00" + in.ID + "\x00" + in.Variant
+		if seen[key] {
+			return nil, errors.New("duplicate request")
+		}
+		seen[key] = true
+		rows = append(rows, in)
+	}
+	return rows, scan.Err()
+}
+func validateOutput(o output, in input, arm, modelID string) error {
+	if o.Version != 1 || o.Arm != arm || o.ID != in.ID || o.Task != in.Task || o.Variant != in.Variant || o.GoldID != in.GoldID || o.ModelID != modelID || o.DecisionSeconds < 0 || math.IsNaN(o.DecisionSeconds) || math.IsInf(o.DecisionSeconds, 0) {
+		return errors.New("output identity or timing mismatch")
+	}
+	if (o.Error == "") == (o.SelectedID == "") {
+		return errors.New("output must contain exactly one result or error")
+	}
+	if o.Error != "" {
+		if len(o.Options) != 0 {
+			return errors.New("rejected output contains option results")
+		}
+		return nil
+	}
+	if choiceIndex(in, o.SelectedID) < 0 || len(o.Options) != len(in.Request.Candidates) {
+		return errors.New("output candidate shape mismatch")
+	}
+	for i, candidate := range in.Request.Candidates {
+		got := o.Options[i]
+		if got.ID != candidate.ID || got.Text != candidate.Text || math.IsNaN(float64(got.Score)) || math.IsInf(float64(got.Score), 0) {
+			return errors.New("output candidate mismatch")
+		}
+		for _, values := range [][]float32{got.Logits, got.Probabilities} {
+			for _, value := range values {
+				if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+					return errors.New("non-finite output")
+				}
+			}
+		}
+	}
+	return nil
+}
+func readResume(path string, inputs []input, arm, modelID string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	defer f.Close()
+	scan := bufio.NewScanner(f)
+	scan.Buffer(make([]byte, 64<<10), 2<<20)
+	count := 0
+	for scan.Scan() {
+		if count >= len(inputs) {
+			return 0, errors.New("resume output has excess rows")
+		}
+		var out output
+		d := json.NewDecoder(bytes.NewReader(scan.Bytes()))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&out); err != nil {
+			return 0, fmt.Errorf("resume row %d: %w", count+1, err)
+		}
+		if d.Decode(new(any)) != io.EOF {
+			return 0, fmt.Errorf("resume row %d has trailing data", count+1)
+		}
+		if err := validateOutput(out, inputs[count], arm, modelID); err != nil {
+			return 0, fmt.Errorf("resume row %d: %w", count+1, err)
+		}
+		count++
+	}
+	return count, scan.Err()
 }
 
 func (s *openJEVScorer) ModelID() string { return openjev.ModelID + "@" + openjev.ModelPin }
@@ -261,6 +352,7 @@ func run() error {
 	cohort := flag.String("cohort", "screening", "screening or finalist")
 	model := flag.String("model", "", "local released model directory")
 	dest := flag.String("output", "", "new JSONL output")
+	resume := flag.Bool("resume", false, "validate and append to an existing strict output prefix")
 	maxInput := flag.Int("max-input", 4096, "model input token limit")
 	flag.Parse()
 	if *arm == "" || *study == "" || *model == "" || *dest == "" || (*cohort != "screening" && *cohort != "finalist") {
@@ -288,39 +380,36 @@ func run() error {
 	if digest(payload) != c.SHA256 {
 		return errors.New("cohort hash mismatch")
 	}
+	inputs, e := readInputs(payload)
+	if e != nil {
+		return e
+	}
+	if len(inputs) != c.Rows {
+		return fmt.Errorf("cohort row count %d != %d", len(inputs), c.Rows)
+	}
 	s, e := loadScorer(*arm, *model, *maxInput)
 	if e != nil {
 		return e
 	}
 	defer s.Close()
-	f, e := os.OpenFile(*dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	count := 0
+	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	if *resume {
+		count, e = readResume(*dest, inputs, *arm, s.ModelID())
+		if e != nil {
+			return e
+		}
+		flags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
+	}
+	f, e := os.OpenFile(*dest, flags, 0o644)
 	if e != nil {
 		return e
 	}
 	defer f.Close()
 	enc := json.NewEncoder(f)
-	scan := bufio.NewScanner(bytes.NewReader(payload))
-	scan.Buffer(make([]byte, 64<<10), 2<<20)
-	count := 0
-	seen := map[string]bool{}
-	for scan.Scan() {
-		var in input
-		d := json.NewDecoder(bytes.NewReader(scan.Bytes()))
-		d.DisallowUnknownFields()
-		if e = d.Decode(&in); e != nil {
-			return e
-		}
-		if d.Decode(new(any)) != io.EOF {
-			return errors.New("trailing request data")
-		}
-		if e = validate(in); e != nil {
-			return fmt.Errorf("row %d: %w", count+1, e)
-		}
-		key := in.Task + "\x00" + in.ID + "\x00" + in.Variant
-		if seen[key] {
-			return errors.New("duplicate request")
-		}
-		seen[key] = true
+	resumed := count
+	for ; count < len(inputs); count++ {
+		in := inputs[count]
 		o := output{Version: 1, Arm: *arm, ID: in.ID, Task: in.Task, Variant: in.Variant, GoldID: in.GoldID, ModelID: s.ModelID()}
 		start := time.Now()
 		o.SelectedID, o.Options, o.InputTokens, e = s.Score(in)
@@ -331,20 +420,16 @@ func run() error {
 			o.Error = "selected candidate absent"
 			o.SelectedID = ""
 		}
+		if e = validateOutput(o, in, *arm, s.ModelID()); e != nil {
+			return fmt.Errorf("row %d: %w", count+1, e)
+		}
 		if e = enc.Encode(o); e != nil {
 			return e
 		}
 		if e = f.Sync(); e != nil {
 			return e
 		}
-		count++
-		fmt.Fprintf(os.Stderr, "arm=%s row=%d/%d id=%s variant=%s seconds=%.3f rejected=%v\n", *arm, count, c.Rows, in.ID, in.Variant, o.DecisionSeconds, o.Error != "")
+		fmt.Fprintf(os.Stderr, "arm=%s row=%d/%d id=%s variant=%s seconds=%.3f rejected=%v\n", *arm, count+1, c.Rows, in.ID, in.Variant, o.DecisionSeconds, o.Error != "")
 	}
-	if e = scan.Err(); e != nil {
-		return e
-	}
-	if count != c.Rows {
-		return fmt.Errorf("row count %d != %d", count, c.Rows)
-	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"complete": true, "arm": *arm, "cohort": *cohort, "rows": count, "model_id": s.ModelID(), "output": *dest})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"complete": true, "arm": *arm, "cohort": *cohort, "rows": count, "resumed": resumed, "model_id": s.ModelID(), "output": *dest})
 }
