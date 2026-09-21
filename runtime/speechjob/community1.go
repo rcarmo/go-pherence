@@ -45,7 +45,8 @@ type Community1StageConfig struct {
 // Clustering depends on all windows; it is never restarted on an isolated suffix.
 // Callers own immutable checkpoints/PCM and exclude competing model/backend use. This
 // does not load weights, launch a neural subprocess, relax a gate or start service.
-// The existing experimental 128-window limit is enforced before inference.
+// The experimental 4096-window limit is enforced before inference; postprocessing
+// deterministically bounds its clustering-training subset to 512 rows.
 func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageConfig) (Stage, error) {
 	if model == nil {
 		return Stage{}, ErrConfiguration
@@ -142,6 +143,10 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 	identity, _ := json.Marshal(struct {
 		Schema string
 		Config Community1StageConfig
+		// Keep v3 for failed jobs with no diarization checkpoint: HTTP profile identity
+		// includes stage versions, so changing it would prevent safe reuse of their
+		// verified decode/ASR/transcript prefix. Completed diarization checkpoints are
+		// already terminal/reused and cannot be recomputed through the retry path.
 	}{"speechjob-community1-rawturns-source-timing-kmeans-v3", cfg})
 	version := hash(identity)
 	return Stage{Name: "diarization", Version: version, Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {

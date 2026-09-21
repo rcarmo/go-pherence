@@ -63,6 +63,30 @@ func (r *numpyMT19937) randomSample() float64 {
 	return float64(a*67108864+b) / 9007199254740992
 }
 
+// interval reproduces RandomState's masked-rejection interval sampler. NumPy's
+// in-place shuffle applies it from the last index down to one.
+func (r *numpyMT19937) interval(max uint32) uint32 {
+	mask := max
+	mask |= mask >> 1
+	mask |= mask >> 2
+	mask |= mask >> 4
+	mask |= mask >> 8
+	mask |= mask >> 16
+	for {
+		value := r.uint32() & mask
+		if value <= max {
+			return value
+		}
+	}
+}
+
+func (r *numpyMT19937) shuffle(values []int) {
+	for i := len(values) - 1; i > 0; i-- {
+		j := int(r.interval(uint32(i)))
+		values[i], values[j] = values[j], values[i]
+	}
+}
+
 // forcedKMeansLabels reproduces the bounded float32 path used by pinned
 // scikit-learn 1.9 KMeans(n_init=3,random_state=42,copy_x=False). Input is
 // row-major original-space float32 embeddings; cosine-normalised rows are

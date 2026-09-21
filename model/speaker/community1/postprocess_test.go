@@ -256,6 +256,60 @@ func TestCommunity1PostprocessValidation(t *testing.T) {
 		}
 	}
 }
+func TestClusteringTrainingSampleDeterminismOwnershipAndCancellation(t *testing.T) {
+	small := &ClusteringEmbeddings{Embeddings: []float32{1, 2, 3, 4}, ChunkIndices: []int{7, 8}, SpeakerIndices: []int{1, 2}}
+	if got, err := sampleClusteringEmbeddings(context.Background(), small, 512, 42); err != nil || got != small {
+		t.Fatal("small training set changed", got, err)
+	}
+
+	const rows, dimension = 513, 2
+	input := &ClusteringEmbeddings{Embeddings: make([]float32, rows*dimension), ChunkIndices: make([]int, rows), SpeakerIndices: make([]int, rows)}
+	for i := 0; i < rows; i++ {
+		input.Embeddings[i*dimension] = float32(i)
+		input.Embeddings[i*dimension+1] = float32(1000 + i)
+		input.ChunkIndices[i] = i / 3
+		input.SpeakerIndices[i] = i % 3
+	}
+	beforeE := append([]float32(nil), input.Embeddings...)
+	beforeC := append([]int(nil), input.ChunkIndices...)
+	beforeS := append([]int(nil), input.SpeakerIndices...)
+	got, err := sampleClusteringEmbeddings(context.Background(), input, 512, 42)
+	if err != nil || len(got.ChunkIndices) != 512 || len(got.SpeakerIndices) != 512 || len(got.Embeddings) != 512*dimension {
+		t.Fatal("sample shape", got, err)
+	}
+	// NumPy 2.5.3 RandomState(42).shuffle(arange(513)), truncate512, sort
+	// omits original row102. Verify exact row/index coupling and stable order.
+	for i, source := 0, 0; i < 512; i, source = i+1, source+1 {
+		if source == 102 {
+			source++
+		}
+		if got.ChunkIndices[i] != source/3 || got.SpeakerIndices[i] != source%3 || got.Embeddings[i*dimension] != float32(source) || got.Embeddings[i*dimension+1] != float32(1000+source) {
+			t.Fatal("sample row coupling", i, source)
+		}
+	}
+	again, err := sampleClusteringEmbeddings(context.Background(), input, 512, 42)
+	if err != nil || !reflect.DeepEqual(got, again) || !reflect.DeepEqual(input.Embeddings, beforeE) || !reflect.DeepEqual(input.ChunkIndices, beforeC) || !reflect.DeepEqual(input.SpeakerIndices, beforeS) {
+		t.Fatal("sample determinism/source ownership", err)
+	}
+	input.Embeddings[0], input.ChunkIndices[0], input.SpeakerIndices[0] = -1, -1, -1
+	if got.Embeddings[0] != 0 || got.ChunkIndices[0] != 0 || got.SpeakerIndices[0] != 0 {
+		t.Fatal("sample output aliases source")
+	}
+	counter := newPowersetContext(0)
+	if _, err = sampleClusteringEmbeddings(counter, &ClusteringEmbeddings{Embeddings: beforeE, ChunkIndices: beforeC, SpeakerIndices: beforeS}, 512, 42); err != nil {
+		t.Fatal(err)
+	}
+	counter.cancel()
+	for at := 1; at <= counter.calls; at++ {
+		ctx := newPowersetContext(at)
+		partial, err := sampleClusteringEmbeddings(ctx, &ClusteringEmbeddings{Embeddings: beforeE, ChunkIndices: beforeC, SpeakerIndices: beforeS}, 512, 42)
+		ctx.cancel()
+		if partial != nil || !errors.Is(err, context.Canceled) {
+			t.Fatal("sample cancellation", at, err)
+		}
+	}
+}
+
 func TestCommunity1PostprocessCapacityAndSparseCancellation(t *testing.T) {
 	base := postprocessOracleByName(t, "clustered_constrained").Config
 	base.Reconstruction.Chunks = 513
@@ -271,8 +325,18 @@ func TestCommunity1PostprocessCapacityAndSparseCancellation(t *testing.T) {
 	}
 	var stages []string
 	out, err := PostprocessCommunity1Observed(context.Background(), seg, emb, postprocessToyPLDA(t), base, func(stage string) error { stages = append(stages, stage); return nil })
-	if err == nil || out != nil || !reflect.DeepEqual(stages, []string{"count", "filter"}) {
-		t.Fatal("AHC row cap not enforced before clustering", stages, err)
+	wantStages := []string{"count", "filter", "ahc", "plda", "vbx", "centroids", "assignment", "reconstruction", "turns"}
+	if err != nil || out == nil || out.TrainingRows != 512 || len(out.TrainingChunks) != 512 || len(out.HardLabels) != 513 || !reflect.DeepEqual(stages, wantStages) {
+		t.Fatal("bounded long postprocess", stages, out, err)
+	}
+	for i, chunk := range out.TrainingChunks {
+		want := i
+		if want >= 102 {
+			want++
+		}
+		if chunk != want || out.TrainingSpeakers[i] != 0 {
+			t.Fatal("bounded long training indices", i, chunk)
+		}
 	}
 	base.Reconstruction.Chunks = 65
 	seg = seg[:65]

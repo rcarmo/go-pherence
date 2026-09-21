@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 )
 
 var (
@@ -72,14 +73,17 @@ func PostprocessCommunity1(ctx context.Context, segmentations, embeddings []floa
 // AssignCosineSpeakers. Undefined cosine is an error, not hidden imputation.
 // Silence accepts nil embeddings/model; non-silent calls require full shape.
 //
-// Caps: <=512 admitted AHC rows and <=64 initial slots, plus the existing
-// component memory/work/timing bounds. Full/exclusive turns use frame centres,
-// no source-PTS mapping/clipping/naming. Positive gap filling can overlap even
-// exclusive intervals. This component has no PCM entry point; the separate
-// ExperimentalDiarization wrapper composes PCM models and this postprocessor.
-// The model-private bounded KMeans branch is used only when VBx's automatic
-// cluster count falls outside the effective requested range. No services or GPU.
-// Inputs/model must remain immutable; no partial result escapes errors.
+// Caps: clustering uses at most 512 admitted rows and <=64 initial slots, plus
+// the existing component memory/work/timing bounds. Larger clean sets follow
+// historical pyannote's shuffle/truncate/sort shape with a fixed NumPy-compatible
+// seed; all original rows remain available for final centroid assignment.
+// Full/exclusive turns use frame centres, no source-PTS mapping/clipping/naming.
+// Positive gap filling can overlap even exclusive intervals. This component has
+// no PCM entry point; the separate ExperimentalDiarization wrapper composes PCM
+// models and this postprocessor. The model-private bounded KMeans branch is used
+// only when VBx's automatic cluster count falls outside the effective requested
+// range. No services or GPU. Inputs/model must remain immutable; no partial
+// result escapes errors.
 func PostprocessCommunity1Observed(ctx context.Context, segmentations, embeddings []float32, plda *PreparedPLDA, cfg PostprocessConfig, observe PostprocessObserver) (*PostprocessResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -167,6 +171,10 @@ func PostprocessCommunity1Observed(ctx context.Context, segmentations, embedding
 	if err != nil {
 		return nil, err
 	}
+	train, err = sampleClusteringEmbeddings(ctx, train, 512, communityKMeansSeed)
+	if err != nil {
+		return nil, err
+	}
 	result.TrainingRows = len(train.ChunkIndices)
 	result.TrainingChunks = train.ChunkIndices
 	result.TrainingSpeakers = train.SpeakerIndices
@@ -175,9 +183,6 @@ func PostprocessCommunity1Observed(ctx context.Context, segmentations, embedding
 	}
 	if result.TrainingRows == 0 {
 		return nil, ErrNoTrainingEmbeddings
-	}
-	if result.TrainingRows > 512 {
-		return nil, fmt.Errorf("postprocess AHC training row bound")
 	}
 	training, err := widenPostprocess(ctx, train.Embeddings)
 	if err != nil {
@@ -328,6 +333,64 @@ func PostprocessCommunity1Observed(ctx context.Context, segmentations, embedding
 		}
 	}
 	if err := notify("turns"); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// sampleClusteringEmbeddings follows historical pyannote's bounded training-set
+// shape: shuffle row indices, truncate, then sort to restore source order. The
+// fixed seed makes durable retries reproducible. Rows at or below the limit are
+// returned unchanged; larger outputs own all slices and keep row/index coupling.
+func sampleClusteringEmbeddings(ctx context.Context, input *ClusteringEmbeddings, limit int, seed uint32) (*ClusteringEmbeddings, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if input == nil || limit < 1 || len(input.ChunkIndices) != len(input.SpeakerIndices) {
+		return nil, fmt.Errorf("invalid clustering sample input")
+	}
+	rows := len(input.ChunkIndices)
+	if rows == 0 {
+		if len(input.Embeddings) != 0 {
+			return nil, fmt.Errorf("invalid clustering sample input")
+		}
+		return input, nil
+	}
+	if len(input.Embeddings)%rows != 0 {
+		return nil, fmt.Errorf("invalid clustering sample input")
+	}
+	if rows <= limit {
+		return input, nil
+	}
+	dimension := len(input.Embeddings) / rows
+	indices := make([]int, rows)
+	for i := range indices {
+		if i%256 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		indices[i] = i
+	}
+	newNumpyMT19937(seed).shuffle(indices)
+	indices = indices[:limit]
+	sort.Ints(indices)
+	result := &ClusteringEmbeddings{
+		Embeddings:     make([]float32, limit*dimension),
+		ChunkIndices:   make([]int, limit),
+		SpeakerIndices: make([]int, limit),
+	}
+	for i, index := range indices {
+		if i%256 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		result.ChunkIndices[i] = input.ChunkIndices[index]
+		result.SpeakerIndices[i] = input.SpeakerIndices[index]
+		copy(result.Embeddings[i*dimension:(i+1)*dimension], input.Embeddings[index*dimension:(index+1)*dimension])
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	return result, nil
