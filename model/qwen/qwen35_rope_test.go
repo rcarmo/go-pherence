@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestQwen35HFPartialRoPEUsesRotaryDimension(t *testing.T) {
+	meta := testQwen35BaseMeta()
+	meta.HeadDim = 256
+	meta.PartialRotaryFactor = .25
+	meta.RopeTheta = 10000000
+	meta.ZeroCenteredRMSNorm = true
+	got := NewQwen35RoPEFreqs(meta, 2)
+	pair := 31
+	angle := math.Pow(meta.RopeTheta, -float64(2*pair)/64)
+	if math.Abs(float64(got[(32+pair)*2])-math.Cos(angle)) > 1e-6 {
+		t.Fatalf("frequency[%d]=%g want cos(%g)", pair, got[(32+pair)*2], angle)
+	}
+}
+
 func TestQwen35RotaryHalf(t *testing.T) {
 	meta := testQwen35BaseMeta()
 	meta.HeadDim = 256

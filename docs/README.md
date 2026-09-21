@@ -10,6 +10,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Run DiffusionGemma text generation/server | [FP8 end-to-end CPU validation](validation/diffusiongemma-fp8-end-to-end-20260920.md); [model/runtime limits](../model/diffusiongemma/README.md) |
 | Review queued simple-jev support | [Pinned upstream/licensing review](validation/simple-jev-upstream-review-20260920.md) |
 | Use native Laya typed decisions | [Implementation](../model/laya/README.md); [released/native validation](validation/laya-native-20260920.md); [pinned upstream review](validation/laya-upstream-review-20260920.md) |
+| Use native Nimble typed scoring | [Implementation](../model/nimble/README.md); [released/native validation](validation/nimble-native-20260921.md) |
 | Use the native ModernBERT encoder | [Implementation and validation](../model/modernbert/README.md); [numerical/native record](validation/modernbert-native-20260920.md) |
 | Choose a model or checkpoint format | [Supported models](models/supported-models.md) |
 | Select a backend or adjust placement | [Backends](backends/README.md) and [runtime tuning](guides/tuning.md) |

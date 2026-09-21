@@ -602,9 +602,15 @@ func ValidateQwenNativeMTPHead(head *QwenNativeMTPHead, meta loaderconfig.QwenNa
 }
 
 func normHeads(x, weight []float32, nHeads, headDim int, eps float32) {
+	normHeadsQwen35(x, weight, nHeads, headDim, eps, false)
+}
+func normHeadsQwen35(x, weight []float32, nHeads, headDim int, eps float32, zeroCentered bool) {
 	for h := 0; h < nHeads; h++ {
 		start := h * headDim
-		rmsNormInPlace(x[start:start+headDim], weight, eps)
+		rmsNormQwen35InPlace(x[start:start+headDim], weight, eps, zeroCentered)
+		if zeroCentered {
+			roundBF16InPlace(x[start : start+headDim])
+		}
 	}
 }
 

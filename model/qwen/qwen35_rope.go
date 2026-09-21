@@ -30,5 +30,9 @@ func Qwen35UseMRoPE(meta loaderconfig.QwenNativeMTPMetadata) bool {
 
 func NewQwen35RoPEFreqs(meta loaderconfig.QwenNativeMTPMetadata, maxSeq int) []float32 {
 	rotHalf := Qwen35RotaryHalf(meta)
-	return simd.BuildRoPEFreqs(maxSeq, rotHalf, meta.HeadDim, meta.RopeTheta)
+	nDims := meta.HeadDim
+	if meta.ZeroCenteredRMSNorm {
+		nDims = rotHalf * 2
+	}
+	return simd.BuildRoPEFreqs(maxSeq, rotHalf, nDims, meta.RopeTheta)
 }

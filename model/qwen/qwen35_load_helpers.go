@@ -22,6 +22,25 @@ func loadQwen35DenseOrQuant(src Qwen35TensorSource, name string, dense **tensor.
 			*dense = t
 			return nil
 		}
+		// Converted MLX checkpoints expose logical linear shapes as [in,out],
+		// while standard Hugging Face safetensors store nn.Linear as [out,in].
+		// Runtime GEMV always consumes row-major [out,in], so preserve the bytes
+		// and normalize only Tensor's metadata to the established logical shape.
+		if len(want) == 2 && want[0] != want[1] {
+			actual := []int{want[1], want[0]}
+			var transposed *tensor.Tensor
+			if transposed, err = src.Get(candidate, actual); err == nil {
+				*dense = tensor.FromFloat32(transposed.Data(), want)
+				return nil
+			}
+		} else if len(want) == 3 && want[2] == 1 {
+			actual := []int{want[0], want[2], want[1]}
+			var hf *tensor.Tensor
+			if hf, err = src.Get(candidate, actual); err == nil {
+				*dense = tensor.FromFloat32(hf.Data(), want)
+				return nil
+			}
+		}
 	}
 	if m != nil && len(want) == 2 && groupSize > 0 && bits > 0 {
 		if raw, ok := unwrapQwen35RawTensorSource(src); ok {

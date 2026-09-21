@@ -279,6 +279,64 @@ func linearQwen35LayerSource(meta loaderconfig.QwenNativeMTPMetadata, prefix str
 	}
 }
 
+func TestQwen35ApplyLoRA(t *testing.T) {
+	meta := testQwen35BaseMeta()
+	meta.NumHiddenLayers = 1
+	meta.MTPNumHiddenLayers = 0
+	meta.LayerTypes = []string{"full_attention"}
+	src := CandidateQwen35TensorSource{Source: fullQwen35LayerSource(meta, "model.layers.0")}
+	m, e := LoadQwen35BaseModelLayers(src, meta)
+	if e != nil {
+		t.Fatal(e)
+	}
+	rank := 2
+	a := tensor.FromFloat32([]float32{1, 2, 3, 4, 5, 6, 7, 8}, []int{rank, 4})
+	b := tensor.FromFloat32([]float32{1, 0, 0, 1, 1, 1, 2, 1, 1, 2, 2, 2, 3, 2, 2, 3}, []int{8, rank})
+	if e = m.ApplyLoRA(Qwen35LoRASet{"model.layers.0.self_attn.q_proj": {A: a, B: b, Scale: .5}}); e != nil {
+		t.Fatal(e)
+	}
+	w := m.Layers[0].Full.QW.Data()
+	if w[0] != .5*(1*1+0*5) || w[4] != .5*(0*1+1*5) {
+		t.Fatalf("merged=%v", w[:8])
+	}
+	if e = m.ApplyLoRA(Qwen35LoRASet{"bad": {A: a, B: b, Scale: 1}}); e == nil {
+		t.Fatal("bad target accepted")
+	}
+	if e = m.ApplyLoRA(Qwen35LoRASet{"model.layers.0.self_attn.q_proj": {A: tensor.Zeros([]int{1, 3}), B: b, Scale: 1}}); e == nil {
+		t.Fatal("bad shape accepted")
+	}
+}
+
+func TestLoadQwen35LinearAttentionLayerHFLinearLayout(t *testing.T) {
+	meta := testQwen35BaseMeta()
+	prefix := "model.language_model.model.layers.1"
+	src := linearQwen35LayerSource(meta, prefix)
+	shapes, _ := qwen35LinearAttentionShapesFromMeta(meta)
+	for name, shape := range map[string][]int{".linear_attn.in_proj_qkv.weight": shapes.QKV, ".linear_attn.in_proj_z.weight": shapes.Gate, ".linear_attn.in_proj_b.weight": shapes.Beta, ".linear_attn.in_proj_a.weight": shapes.Alpha, ".linear_attn.out_proj.weight": shapes.Out} {
+		key := prefix + name
+		old := src[key]
+		data := append([]float32(nil), old.Data()...)
+		for i := range data {
+			data[i] = float32(i+1) / 100
+		}
+		src[key] = tensor.FromFloat32(data, []int{shape[1], shape[0]})
+	}
+	l, err := LoadQwen35LinearAttentionLayer(CandidateQwen35TensorSource{Source: src}, meta, "model.layers.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := l.QKVW.Shape(); got[0] != shapes.QKV[0] || got[1] != shapes.QKV[1] {
+		t.Fatalf("logical shape=%v want=%v", got, shapes.QKV)
+	}
+	out := make([]float32, shapes.QKV[1])
+	if err := qwen35LinearInto(out, []float32{1, 2, 3, 4}, l.QKVW, nil, nil, meta.HiddenSize, shapes.QKV[1], "test"); err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(float64(out[0]-.3)) > 1e-6 || math.Abs(float64(out[1]-.7)) > 1e-6 {
+		t.Fatalf("row-major projection=%v", out)
+	}
+}
+
 func TestLoadQwen35LinearAttentionLayer(t *testing.T) {
 	meta := testQwen35BaseMeta()
 	src := CandidateQwen35TensorSource{Source: linearQwen35LayerSource(meta, "model.language_model.model.layers.1")}
@@ -423,9 +481,10 @@ func TestApplyQwen35LinearDeltaUpdateUsesTiledKeyHeads(t *testing.T) {
 	if len(next) != len(state.SSM) || len(out) != shapes.ValueDim {
 		t.Fatalf("next/out=%d/%v", len(next), out)
 	}
+	want := float32(5.5 * math.Sqrt(2))
 	for i, got := range out {
-		if got != 5.5 {
-			t.Fatalf("out[%d]=%v want 5.5; out=%v", i, got, out)
+		if math.Abs(float64(got-want)) > 1e-6 {
+			t.Fatalf("out[%d]=%v want %v; out=%v", i, got, want, out)
 		}
 	}
 }

@@ -31,6 +31,8 @@ Use `make gguf-ci-qwen36-reap` for the pinned local Qwen3.6 REAP/TurboQuant gate
 
 [Laya](../../model/laya/README.md) composes that encoder with its typed choice/score/Noul decision transformer, marker scorer, calibration and action head. Exact sequences, raw released logits and public response assembly match the pinned upstream checkpoint, and warm session inference is zero-allocation. See the [native validation record](../validation/laya-native-20260920.md). Training/RL and quantized heads are not implemented.
 
+[Bespoke Nimble 9B](../../model/nimble/README.md) has native ordered enum/boolean prompt construction, strict answer-code admission, Qwen3.5 hybrid execution, independent per-field state and candidate-only LM-head scoring. The pinned merged BF16 checkpoint matches representative released enum/boolean decisions; the 233-token choice logits are within 0.1 of Transformers. See the [validation record](../validation/nimble-native-20260921.md). The path is currently CPU- and memory-heavy, and upstream quality/calibration claims are not re-run.
+
 | Architecture | Models | Formats | Status |
 |---|---|---|---|
 | **llama** | SmolLM2, LLaMA 3.x | BF16, F16, F32 | ✅ |

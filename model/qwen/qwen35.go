@@ -4,6 +4,8 @@ import (
 	"fmt"
 	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 	"math"
+	"strconv"
+	"strings"
 
 	"github.com/rcarmo/go-pherence/backends/mlx"
 	"github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -106,6 +108,107 @@ type Qwen35BaseLayer struct {
 
 type Qwen35BaseModel struct {
 	Layers []Qwen35BaseLayer
+}
+
+type Qwen35LoRA struct {
+	A, B  *tensor.Tensor
+	Scale float32
+}
+
+type Qwen35LoRASet map[string]Qwen35LoRA
+
+func (m *Qwen35BaseModel) ApplyLoRA(adapters Qwen35LoRASet) error {
+	if m == nil {
+		return fmt.Errorf("nil Qwen3.5 base model")
+	}
+	type merge struct {
+		dst           **tensor.Tensor
+		adapter       Qwen35LoRA
+		in, out, rank int
+	}
+	merges := make([]merge, 0, len(adapters))
+	for name, adapter := range adapters {
+		parts := strings.Split(name, ".")
+		if len(parts) < 4 || parts[0] != "model" || parts[1] != "layers" {
+			return fmt.Errorf("invalid Qwen3.5 LoRA target %q", name)
+		}
+		idx, err := strconv.Atoi(parts[2])
+		if err != nil || idx < 0 || idx >= len(m.Layers) {
+			return fmt.Errorf("invalid Qwen3.5 LoRA layer %q", name)
+		}
+		field := strings.Join(parts[3:], ".")
+		var dense **tensor.Tensor
+		layer := &m.Layers[idx]
+		if layer.Kind == Qwen35FullAttentionLayerKind {
+			switch field {
+			case "self_attn.q_proj":
+				dense = &layer.Full.QW
+			case "self_attn.k_proj":
+				dense = &layer.Full.KW
+			case "self_attn.v_proj":
+				dense = &layer.Full.VW
+			case "self_attn.o_proj":
+				dense = &layer.Full.OW
+			case "mlp.gate_proj":
+				dense = &layer.Full.GateW
+			case "mlp.up_proj":
+				dense = &layer.Full.UpW
+			case "mlp.down_proj":
+				dense = &layer.Full.DownW
+			}
+		} else if layer.Kind == Qwen35LinearAttentionLayerKind {
+			switch field {
+			case "linear_attn.in_proj_qkv":
+				dense = &layer.Linear.QKVW
+			case "linear_attn.in_proj_z":
+				dense = &layer.Linear.GateW
+			case "linear_attn.in_proj_a":
+				dense = &layer.Linear.AlphaW
+			case "linear_attn.in_proj_b":
+				dense = &layer.Linear.BetaW
+			case "linear_attn.out_proj":
+				dense = &layer.Linear.OutW
+			case "mlp.gate_proj":
+				dense = &layer.Linear.MLPGateW
+			case "mlp.up_proj":
+				dense = &layer.Linear.MLPUpW
+			case "mlp.down_proj":
+				dense = &layer.Linear.MLPDownW
+			}
+		}
+		if dense == nil || *dense == nil {
+			return fmt.Errorf("unsupported Qwen3.5 LoRA target %q", name)
+		}
+		base := *dense
+		shape := base.Shape()
+		if len(shape) != 2 {
+			return fmt.Errorf("Qwen3.5 LoRA target %q is not a matrix", name)
+		}
+		if adapter.A == nil || adapter.B == nil || len(adapter.A.Shape()) != 2 || len(adapter.B.Shape()) != 2 || adapter.A.Shape()[0] != adapter.B.Shape()[1] {
+			return fmt.Errorf("Qwen3.5 LoRA target %q shape mismatch", name)
+		}
+		in, out, rank := adapter.A.Shape()[1], adapter.B.Shape()[0], adapter.A.Shape()[0]
+		if len(base.Data()) != in*out {
+			return fmt.Errorf("Qwen3.5 LoRA target %q base size mismatch", name)
+		}
+		merges = append(merges, merge{dense, adapter, in, out, rank})
+	}
+	for _, item := range merges {
+		base := *item.dst
+		merged := append([]float32(nil), base.Data()...)
+		a, b := item.adapter.A.Data(), item.adapter.B.Data()
+		for o := 0; o < item.out; o++ {
+			for i := 0; i < item.in; i++ {
+				var sum float32
+				for r := 0; r < item.rank; r++ {
+					sum += b[o*item.rank+r] * a[r*item.in+i]
+				}
+				merged[o*item.in+i] += item.adapter.Scale * sum
+			}
+		}
+		*item.dst = tensor.FromFloat32(merged, base.Shape())
+	}
+	return nil
 }
 
 type Qwen35BaseForwardState struct {
@@ -326,8 +429,53 @@ func (m *Qwen35BaseModel) ForwardChunkLayerStreamedDetailed(inputs [][]float32, 
 }
 
 func (m *Qwen35BaseModel) ForwardChunkLayerStreamed(inputs [][]float32, state Qwen35BaseForwardState, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([][]float32, Qwen35BaseForwardState, error) {
-	hiddens, _, next, err := m.ForwardChunkLayerStreamedDetailed(inputs, state, ropeFreqs, eps, meta)
-	return hiddens, next, err
+	if m == nil {
+		return nil, state, fmt.Errorf("nil Qwen3.5 base model")
+	}
+	if len(inputs) == 0 {
+		return nil, CloneQwen35BaseForwardState(state), nil
+	}
+	if len(state.FullK) != len(m.Layers) || len(state.FullV) != len(m.Layers) || len(state.Linear) != len(m.Layers) {
+		return nil, state, fmt.Errorf("Qwen3.5 streamed state layer counts K/V/linear=%d/%d/%d want %d", len(state.FullK), len(state.FullV), len(state.Linear), len(m.Layers))
+	}
+	cur := CloneQwen35BaseForwardState(state)
+	hiddens := make([][]float32, len(inputs))
+	for i, input := range inputs {
+		if len(input) != meta.HiddenSize {
+			return nil, state, fmt.Errorf("Qwen3.5 streamed input %d len=%d want %d", i, len(input), meta.HiddenSize)
+		}
+		hiddens[i] = append([]float32(nil), input...)
+	}
+	start := cur.Pos
+	for layerIdx := range m.Layers {
+		layer := &m.Layers[layerIdx]
+		for tok := range hiddens {
+			pos := start + tok
+			switch layer.Kind {
+			case Qwen35FullAttentionLayerKind:
+				out, k, v, err := layer.Full.ForwardWithKV(hiddens[tok], pos, ropeFreqs, cur.FullK[layerIdx], cur.FullV[layerIdx], eps, meta)
+				if err != nil {
+					return nil, state, fmt.Errorf("Qwen3.5 streamed full layer %d token %d: %w", layerIdx, tok, err)
+				}
+				cur.FullK[layerIdx], cur.FullV[layerIdx], err = appendQwen35FullAttentionKV(cur.FullK[layerIdx], cur.FullV[layerIdx], k, v, meta)
+				if err != nil {
+					return nil, state, err
+				}
+				hiddens[tok] = out
+			case Qwen35LinearAttentionLayerKind:
+				out, next, err := layer.Linear.ForwardWithState(hiddens[tok], cur.Linear[layerIdx], eps, meta)
+				if err != nil {
+					return nil, state, fmt.Errorf("Qwen3.5 streamed linear layer %d token %d: %w", layerIdx, tok, err)
+				}
+				cur.Linear[layerIdx] = next
+				hiddens[tok] = out
+			default:
+				return nil, state, fmt.Errorf("Qwen3.5 streamed layer %d has unsupported kind %q", layerIdx, layer.Kind)
+			}
+		}
+	}
+	cur.Pos = start + len(inputs)
+	return hiddens, cur, nil
 }
 
 func (m *Qwen35BaseModel) ForwardOne(input []float32, state Qwen35BaseForwardState, pos int, ropeFreqs []float32, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, Qwen35BaseForwardState, error) {
@@ -569,11 +717,13 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 		return nil, nil, nil, err
 	}
 	cur := append([]float32(nil), input...)
-	rmsNormInPlace(cur, l.InputNorm.Data(), eps)
+	rmsNormQwen35InPlace(cur, l.InputNorm.Data(), eps, meta.ZeroCenteredRMSNorm)
+	roundQwen35InPlace(cur, meta)
 	qFull := make([]float32, shapes.QProj[0])
 	if err := qwen35LinearInto(qFull, cur, l.QW, l.QWQ, l.QWm, h, shapes.QProj[0], "q_proj"); err != nil {
 		return nil, nil, nil, err
 	}
+	roundQwen35InPlace(qFull, meta)
 	q, gate, err := splitQwen35FullQGate(qFull, meta.NumAttentionHeads, meta.HeadDim)
 	if err != nil {
 		return nil, nil, nil, err
@@ -583,11 +733,13 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 	if err := qwen35LinearInto(k, cur, l.KW, l.KWQ, l.KWm, h, len(k), "k_proj"); err != nil {
 		return nil, nil, nil, err
 	}
+	roundQwen35InPlace(k, meta)
 	if err := qwen35LinearInto(v, cur, l.VW, l.VWQ, l.VWm, h, len(v), "v_proj"); err != nil {
 		return nil, nil, nil, err
 	}
-	normHeads(q, l.QNorm.Data(), meta.NumAttentionHeads, meta.HeadDim, eps)
-	normHeads(k, l.KNorm.Data(), meta.NumKeyValueHeads, meta.HeadDim, eps)
+	roundQwen35InPlace(v, meta)
+	normHeadsQwen35(q, l.QNorm.Data(), meta.NumAttentionHeads, meta.HeadDim, eps, meta.ZeroCenteredRMSNorm)
+	normHeadsQwen35(k, l.KNorm.Data(), meta.NumKeyValueHeads, meta.HeadDim, eps, meta.ZeroCenteredRMSNorm)
 	if len(ropeFreqs) > 0 {
 		rotHalf := Qwen35RotaryHalf(meta)
 		// Qwen3.6 config marks MRoPE interleaving/sections; for text-only smoke,
@@ -611,10 +763,13 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 	if err := qwen35LinearInto(o, attn, l.OW, l.OWQ, l.OWm, len(attn), h, "o_proj"); err != nil {
 		return nil, nil, nil, err
 	}
+	roundQwen35InPlace(o, meta)
 	resid := make([]float32, h)
 	simd.VecAdd(resid, input, o)
+	roundQwen35InPlace(resid, meta)
 	mlpIn := append([]float32(nil), resid...)
-	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
+	rmsNormQwen35InPlace(mlpIn, l.PostNorm.Data(), eps, meta.ZeroCenteredRMSNorm)
+	roundQwen35InPlace(mlpIn, meta)
 	inter := meta.IntermediateSize
 	down := make([]float32, h)
 	if ok, err := qwen35MLXMLPIntoGPU(down, mlpIn, l.GateWm, l.UpWm, l.DownWm, h, inter); err != nil {
@@ -629,16 +784,21 @@ func (l *Qwen35FullAttentionLayer) ForwardWithKV(input []float32, pos int, ropeF
 		if err := qwen35LinearInto(gateMLP, mlpIn, l.GateW, l.GateWQ, l.GateWm, h, inter, "mlp.gate_proj"); err != nil {
 			return nil, nil, nil, err
 		}
+		roundQwen35InPlace(gateMLP, meta)
 		if err := qwen35LinearInto(up, mlpIn, l.UpW, l.UpWQ, l.UpWm, h, inter, "mlp.up_proj"); err != nil {
 			return nil, nil, nil, err
 		}
+		roundQwen35InPlace(up, meta)
 		simd.VecSiLUMul(gateMLP, gateMLP, up)
+		roundQwen35InPlace(gateMLP, meta)
 		if err := qwen35LinearInto(down, gateMLP, l.DownW, l.DownWQ, l.DownWm, inter, h, "mlp.down_proj"); err != nil {
 			return nil, nil, nil, err
 		}
+		roundQwen35InPlace(down, meta)
 	}
 	out = make([]float32, h)
 	simd.VecAdd(out, resid, down)
+	roundQwen35InPlace(out, meta)
 	return out, curK, curV, nil
 }
 
@@ -735,7 +895,7 @@ func l2NormalizeInPlace(x []float32, eps float32) {
 	for _, v := range x {
 		sum += v * v
 	}
-	scale := float32(1 / math.Sqrt(float64(sum+eps)))
+	scale := float32(1 / (math.Sqrt(float64(sum)) + float64(eps)))
 	for i := range x {
 		x[i] *= scale
 	}
@@ -829,7 +989,6 @@ func applyQwen35LinearDeltaUpdateInPlace(ssm, q, k, v, beta, dt, decay []float32
 	repeatGroup := 1
 	if len(q) == keyDim && keyDim != expandedKeyDim {
 		repeatGroup = meta.LinearNumValueHeads / meta.LinearNumKeyHeads
-		scale = 1 / float32(meta.LinearKeyHeadDim)
 	}
 	for vh := 0; vh < meta.LinearNumValueHeads; vh++ {
 		decayV := decay[vh]
@@ -854,27 +1013,22 @@ func applyQwen35LinearDeltaUpdateInPlace(ssm, q, k, v, beta, dt, decay []float32
 }
 
 func qwen35LinearDeltaRowInPlace(stateRow, qHead, kHead []float32, vVal, betaV, decayV, scale float32) float32 {
-	acc := float32(0)
-	kd := 0
-	limit := len(kHead) &^ 3
-	for ; kd < limit; kd += 4 {
-		k0, k1, k2, k3 := kHead[kd], kHead[kd+1], kHead[kd+2], kHead[kd+3]
-		old0, old1, old2, old3 := stateRow[kd], stateRow[kd+1], stateRow[kd+2], stateRow[kd+3]
-		u0 := old0*decayV + betaV*(vVal-old0*k0)*k0
-		u1 := old1*decayV + betaV*(vVal-old1*k1)*k1
-		u2 := old2*decayV + betaV*(vVal-old2*k2)*k2
-		u3 := old3*decayV + betaV*(vVal-old3*k3)*k3
-		stateRow[kd], stateRow[kd+1], stateRow[kd+2], stateRow[kd+3] = u0, u1, u2, u3
-		acc += u0*qHead[kd] + u1*qHead[kd+1] + u2*qHead[kd+2] + u3*qHead[kd+3]
+	// Reference gated-delta rule first decays the full KxV state, computes one
+	// prediction (state^T*k) per value dimension, then applies that shared
+	// residual as an outer product. Computing a residual per key element is not
+	// equivalent once the state is nonzero and drifts badly on long prompts.
+	var memory float32
+	for i, k := range kHead {
+		stateRow[i] *= decayV
+		memory += stateRow[i] * k
 	}
-	for ; kd < len(kHead); kd++ {
-		kVal := kHead[kd]
-		old := stateRow[kd]
-		updated := old*decayV + betaV*(vVal-old*kVal)*kVal
-		stateRow[kd] = updated
-		acc += updated * qHead[kd]
+	delta := (vVal - memory) * betaV
+	var out float32
+	for i, k := range kHead {
+		stateRow[i] += k * delta
+		out += stateRow[i] * qHead[i]
 	}
-	return acc * scale
+	return out * scale
 }
 
 func softplus(x float32) float32 {
@@ -964,11 +1118,13 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 		return nil, err
 	}
 	cur := append([]float32(nil), input...)
-	rmsNormInPlace(cur, l.InputNorm.Data(), eps)
+	rmsNormQwen35InPlace(cur, l.InputNorm.Data(), eps, meta.ZeroCenteredRMSNorm)
+	roundQwen35InPlace(cur, meta)
 	projected := make([]float32, shapes.QKV[1])
 	if err := qwen35LinearInto(projected, cur, l.QKVW, l.QKVWQ, l.QKVWm, meta.HiddenSize, shapes.QKV[1], "linear_attn.in_proj_qkv"); err != nil {
 		return nil, err
 	}
+	roundQwen35InPlace(projected, meta)
 	parts, err := splitQwen35LinearQKVRaw(projected, shapes)
 	if err != nil {
 		return nil, err
@@ -977,6 +1133,7 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 	if err := qwen35LinearInto(z, cur, l.GateW, l.GateWQ, l.GateWm, meta.HiddenSize, shapes.ValueDim, "linear_attn.in_proj_z"); err != nil {
 		return nil, err
 	}
+	roundQwen35InPlace(z, meta)
 	convInput := make([]float32, 0, shapes.ConvDim)
 	convInput = append(convInput, parts.Q...)
 	convInput = append(convInput, parts.K...)
@@ -1009,9 +1166,11 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 	if err := qwen35LinearInto(alpha, cur, l.AlphaW, l.AlphaWQ, l.AlphaWm, meta.HiddenSize, meta.LinearNumValueHeads, "linear_attn.in_proj_a"); err != nil {
 		return nil, err
 	}
+	roundQwen35InPlace(alpha, meta)
 	if err := qwen35LinearInto(beta, cur, l.BetaW, l.BetaWQ, l.BetaWm, meta.HiddenSize, meta.LinearNumValueHeads, "linear_attn.in_proj_b"); err != nil {
 		return nil, err
 	}
+	roundQwen35InPlace(beta, meta)
 	dt, decay, err := prepareQwen35LinearDeltaParams(alpha, beta, l.DTBias.Data(), l.A.Data(), meta.LinearNumValueHeads)
 	if err != nil {
 		return nil, err
@@ -1031,10 +1190,13 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 	if err := qwen35LinearInto(projectedOut, deltaOut, l.OutW, l.OutWQ, l.OutWm, shapes.ValueDim, meta.HiddenSize, "linear_attn.out_proj"); err != nil {
 		return nil, err
 	}
+	roundQwen35InPlace(projectedOut, meta)
 	resid := make([]float32, meta.HiddenSize)
 	simd.VecAdd(resid, input, projectedOut)
+	roundQwen35InPlace(resid, meta)
 	mlpIn := append([]float32(nil), resid...)
-	rmsNormInPlace(mlpIn, l.PostNorm.Data(), eps)
+	rmsNormQwen35InPlace(mlpIn, l.PostNorm.Data(), eps, meta.ZeroCenteredRMSNorm)
+	roundQwen35InPlace(mlpIn, meta)
 	down := make([]float32, meta.HiddenSize)
 	if ok, err := qwen35MLXMLPIntoGPU(down, mlpIn, l.MLPGateWm, l.MLPUpWm, l.MLPDownWm, meta.HiddenSize, meta.IntermediateSize); err != nil {
 		return nil, err
@@ -1048,16 +1210,21 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 		if err := qwen35LinearInto(gateMLP, mlpIn, l.MLPGateW, l.MLPGateWQ, l.MLPGateWm, meta.HiddenSize, meta.IntermediateSize, "mlp.gate_proj"); err != nil {
 			return nil, err
 		}
+		roundQwen35InPlace(gateMLP, meta)
 		if err := qwen35LinearInto(up, mlpIn, l.MLPUpW, l.MLPUpWQ, l.MLPUpWm, meta.HiddenSize, meta.IntermediateSize, "mlp.up_proj"); err != nil {
 			return nil, err
 		}
+		roundQwen35InPlace(up, meta)
 		simd.VecSiLUMul(gateMLP, gateMLP, up)
+		roundQwen35InPlace(gateMLP, meta)
 		if err := qwen35LinearInto(down, gateMLP, l.MLPDownW, l.MLPDownWQ, l.MLPDownWm, meta.IntermediateSize, meta.HiddenSize, "mlp.down_proj"); err != nil {
 			return nil, err
 		}
+		roundQwen35InPlace(down, meta)
 	}
 	out := make([]float32, meta.HiddenSize)
 	simd.VecAdd(out, resid, down)
+	roundQwen35InPlace(out, meta)
 	state.Conv = nextConv
 	state.SSM = nextSSM
 	state.Pos++
