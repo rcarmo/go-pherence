@@ -28,7 +28,7 @@ type DiarizationWindow struct {
 	Samples, Padding int
 }
 
-// PlanDiarizationWindows is bounded to128 windows and four hours of canonical
+// PlanDiarizationWindows is bounded to 4096 windows and four hours of canonical
 // input. Empty input is rejected explicitly. Window<=160000, step<=window.
 // This bounds retained results; it is not a production long-file scheduler.
 func PlanDiarizationWindows(samples int64, window, step int) ([]DiarizationWindow, error) {
@@ -44,8 +44,8 @@ func PlanDiarizationWindows(samples int64, window, step int) ([]DiarizationWindo
 	if orphan {
 		count++
 	}
-	if count > 128 {
-		return nil, fmt.Errorf("experimental diarization exceeds128 windows")
+	if count > 4096 {
+		return nil, fmt.Errorf("experimental diarization exceeds 4096 windows")
 	}
 	windows := make([]DiarizationWindow, 0, int(count))
 	for i := int64(0); i < count; i++ {

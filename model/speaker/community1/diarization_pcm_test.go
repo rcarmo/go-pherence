@@ -65,17 +65,17 @@ func TestDiarizationWindowPlan(t *testing.T) {
 			}
 		}
 	}
-	for _, c := range [][3]int64{{0, 160000, 16000}, {-1, 160000, 16000}, {14400*16000 + 1, 160000, 16000}, {1, 0, 1}, {1, 160001, 1}, {1, 100, 101}, {1000, 1, 1}, {1000, 100, 0}} {
+	for _, c := range [][3]int64{{0, 160000, 16000}, {-1, 160000, 16000}, {14400*16000 + 1, 160000, 16000}, {1, 0, 1}, {1, 160001, 1}, {1, 100, 101}, {4097, 1, 1}, {1000, 100, 0}} {
 		if w, e := PlanDiarizationWindows(c[0], int(c[1]), int(c[2])); w != nil || e == nil {
 			t.Fatal("accepted", c)
 		}
 	}
 	// Count bound is inclusive and rejected before allocation.
-	if w, e := PlanDiarizationWindows(160000+127*16000, 160000, 16000); e != nil || len(w) != 128 {
-		t.Fatal("128", e)
+	if w, e := PlanDiarizationWindows(160000+4095*16000, 160000, 16000); e != nil || len(w) != 4096 {
+		t.Fatal("4096", e)
 	}
-	if _, e := PlanDiarizationWindows(160001+127*16000, 160000, 16000); e == nil {
-		t.Fatal("129")
+	if _, e := PlanDiarizationWindows(160001+4095*16000, 160000, 16000); e == nil {
+		t.Fatal("4097")
 	}
 }
 func diarizationFixture(t *testing.T, speech bool) (*ExperimentalDiarization, DiarizationPCMConfig, SegmentationModes) {
