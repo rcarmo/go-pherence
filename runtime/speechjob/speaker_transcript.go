@@ -10,7 +10,7 @@ import (
 	"io"
 	"math"
 
-	c1 "github.com/rcarmo/go-pherence/models/speaker/community1"
+	c1 "github.com/rcarmo/go-pherence/model/speaker/community1"
 )
 
 // SpeakerTranscriptConfig pins both input stage versions. Experimental source
