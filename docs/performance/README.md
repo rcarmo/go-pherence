@@ -9,6 +9,7 @@ The [repository allocation/SIMD pass](allocation-simd-audit-20260919.md) combine
 * [Matmul optimisation audit](matmul-audit.md)
 * [Matmul benchmark protocol](matmul-benchmark-protocol.md)
 * [Matmul optimisation results](matmul-optimisation-results.md)
+* [Native JEV-equivalent bake-off CPU profile summaries](jev-port-bakeoff-20260921/)
 * [Performance](performance.md)
 * [SIMD inference matmul policy](simd-matmul.md)
 * [TurboFieldfare adoption results](turbo-fieldfare-adoption-results.md)

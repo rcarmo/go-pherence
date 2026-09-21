@@ -31,4 +31,6 @@ The current implementation is CPU-oriented and memory-heavy: the released merged
 
 Statement coverage is 90.5% without released assets. The tiny synthetic loader exercises the same model-directory, tokenizer, embedding, norm, LM-head and hybrid-layer admission path used by the released checkpoint. Zero-allocation execution remains future optimization.
 
+The [native JEV-equivalent bake-off](../../docs/experiments/jev-port-bakeoff-report-20260921.md) excluded Nimble before scoring because the published 59 GiB RSS and 234-second-per-field measurements exceeded its 48 GiB and 60-second/request host limits. This is a resource result, not a quality comparison.
+
 See the [validation record](../../docs/validation/nimble-native-20260921.md).

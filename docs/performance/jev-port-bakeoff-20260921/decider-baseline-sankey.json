@@ -1,0 +1,1071 @@
+{
+  "title": "Go pprof Sankey: jev-profile-decider.pprof",
+  "nodes": [
+    {
+      "name": "runtime.main",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "runtime.gcBgMarkWorker",
+      "value": 4550000000,
+      "samples": 455,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "runtime.gcDrainMarkWorkerIdle",
+      "value": 3190000000,
+      "samples": 319,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "runtime.gcDrainMarkWorkerFractional",
+      "value": 1350000000,
+      "samples": 135,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "runtime.bgsweep",
+      "value": 920000000,
+      "samples": 92,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "runtime.schedule",
+      "value": 340000000,
+      "samples": 34,
+      "avg": 10000000,
+      "depth": 0
+    },
+    {
+      "name": "main.main",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000,
+      "depth": 1
+    },
+    {
+      "name": "runtime.systemstack",
+      "value": 6330000000,
+      "samples": 633,
+      "avg": 10000000,
+      "depth": 1
+    },
+    {
+      "name": "runtime.gcDrain",
+      "value": 4540000000,
+      "samples": 454,
+      "avg": 10000000,
+      "depth": 1
+    },
+    {
+      "name": "runtime.sweepone",
+      "value": 900000000,
+      "samples": 90,
+      "avg": 10000000,
+      "depth": 1
+    },
+    {
+      "name": "runtime.findRunnable",
+      "value": 310000000,
+      "samples": 31,
+      "avg": 10000000,
+      "depth": 1
+    },
+    {
+      "name": "main.run",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000,
+      "depth": 2
+    },
+    {
+      "name": "runtime.scanObject",
+      "value": 4280000000,
+      "samples": 428,
+      "avg": 10000000,
+      "depth": 2
+    },
+    {
+      "name": "runtime.(*mheap).alloc.func1",
+      "value": 1510000000,
+      "samples": 151,
+      "avg": 10000000,
+      "depth": 2
+    },
+    {
+      "name": "main.(*deciderScorer).Score",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000,
+      "depth": 3
+    },
+    {
+      "name": "runtime.tryDeferToSpanScan",
+      "value": 1760000000,
+      "samples": 176,
+      "avg": 10000000,
+      "depth": 3
+    },
+    {
+      "name": "runtime.(*mheap).allocSpan",
+      "value": 1420000000,
+      "samples": 142,
+      "avg": 10000000,
+      "depth": 3
+    },
+    {
+      "name": "runtime.spanClass.sizeclass",
+      "value": 960000000,
+      "samples": 96,
+      "avg": 10000000,
+      "depth": 3
+    },
+    {
+      "name": "go-pherence/model/decider.(*Runtime).SystemOne",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000,
+      "depth": 4
+    },
+    {
+      "name": "runtime.(*mheap).initSpan",
+      "value": 650000000,
+      "samples": 65,
+      "avg": 10000000,
+      "depth": 4
+    },
+    {
+      "name": "runtime.(*mheap).allocMSpanLocked",
+      "value": 420000000,
+      "samples": 42,
+      "avg": 10000000,
+      "depth": 4
+    },
+    {
+      "name": "go-pherence/model/decider.(*Runtime).scoreRow",
+      "value": 507950000000,
+      "samples": 50795,
+      "avg": 10000000,
+      "depth": 5
+    },
+    {
+      "name": "runtime.(*mspan).init",
+      "value": 470000000,
+      "samples": 47,
+      "avg": 10000000,
+      "depth": 5
+    },
+    {
+      "name": "runtime.(*fixalloc).alloc",
+      "value": 410000000,
+      "samples": 41,
+      "avg": 10000000,
+      "depth": 5
+    },
+    {
+      "name": "go-pherence/model/decider.(*Runtime).ScoreTokenIDs",
+      "value": 507940000000,
+      "samples": 50794,
+      "avg": 10000000,
+      "depth": 6
+    },
+    {
+      "name": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "value": 507860000000,
+      "samples": 50786,
+      "avg": 10000000,
+      "depth": 7
+    },
+    {
+      "name": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState",
+      "value": 394010000000,
+      "samples": 39401,
+      "avg": 10000000,
+      "depth": 8
+    },
+    {
+      "name": "go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV",
+      "value": 101250000000,
+      "samples": 10125,
+      "avg": 10000000,
+      "depth": 8
+    },
+    {
+      "name": "go-pherence/model/qwen.cloneQwen35LinearAttentionState",
+      "value": 11330000000,
+      "samples": 1133,
+      "avg": 10000000,
+      "depth": 8
+    },
+    {
+      "name": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "value": 391930000000,
+      "samples": 39193,
+      "avg": 10000000,
+      "depth": 9
+    },
+    {
+      "name": "go-pherence/model/qwen.qwenMTPGroupedAttention",
+      "value": 11880000000,
+      "samples": 1188,
+      "avg": 10000000,
+      "depth": 9
+    },
+    {
+      "name": "go-pherence/model/qwen.roundBF16InPlace",
+      "value": 2360000000,
+      "samples": 236,
+      "avg": 10000000,
+      "depth": 9
+    },
+    {
+      "name": "go-pherence/model/qwen.qwen35LinearInto",
+      "value": 408670000000,
+      "samples": 40867,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.qwen35LinearDeltaRowInPlace",
+      "value": 46610000000,
+      "samples": 4661,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.NewQwen35LinearAttentionState",
+      "value": 6770000000,
+      "samples": 677,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "backends/simd/runtime.VecSiLUMul",
+      "value": 3790000000,
+      "samples": 379,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.siluInPlace",
+      "value": 2730000000,
+      "samples": 273,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.applyQwen35LinearDepthwiseConv",
+      "value": 1840000000,
+      "samples": 184,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.sigmoid",
+      "value": 1410000000,
+      "samples": 141,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.qwen35GatedRMSNormValueHeads",
+      "value": 1020000000,
+      "samples": 102,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.applyQwen35LinearDeltaUpdateInPlace",
+      "value": 880000000,
+      "samples": 88,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.splitQwen35LinearQKVRaw",
+      "value": 850000000,
+      "samples": 85,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.rmsNormQwen35InPlace",
+      "value": 550000000,
+      "samples": 55,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.l2NormalizeInPlace",
+      "value": 460000000,
+      "samples": 46,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "go-pherence/model/qwen.updateQwen35LinearConvStateInPlace",
+      "value": 390000000,
+      "samples": 39,
+      "avg": 10000000,
+      "depth": 10
+    },
+    {
+      "name": "model/internal/ops.GemvNT",
+      "value": 408210000000,
+      "samples": 40821,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "runtime.memmove",
+      "value": 11880000000,
+      "samples": 1188,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "runtime.makeslice",
+      "value": 8860000000,
+      "samples": 886,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "math.Exp",
+      "value": 3580000000,
+      "samples": 358,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "backends/simd/kernels.SiLU",
+      "value": 2580000000,
+      "samples": 258,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "runtime.growslice",
+      "value": 1390000000,
+      "samples": 139,
+      "avg": 10000000,
+      "depth": 11
+    },
+    {
+      "name": "backends/simd/runtime.GemvRows",
+      "value": 408110000000,
+      "samples": 40811,
+      "avg": 10000000,
+      "depth": 12
+    },
+    {
+      "name": "runtime.mallocgc",
+      "value": 10250000000,
+      "samples": 1025,
+      "avg": 10000000,
+      "depth": 12
+    },
+    {
+      "name": "math.archExp",
+      "value": 3430000000,
+      "samples": 343,
+      "avg": 10000000,
+      "depth": 12
+    },
+    {
+      "name": "backends/simd/runtime.gemvRowsDense",
+      "value": 408090000000,
+      "samples": 40809,
+      "avg": 10000000,
+      "depth": 13
+    },
+    {
+      "name": "runtime.mallocgcLarge",
+      "value": 6890000000,
+      "samples": 689,
+      "avg": 10000000,
+      "depth": 13
+    },
+    {
+      "name": "runtime.mallocgcSmallNoscan",
+      "value": 2740000000,
+      "samples": 274,
+      "avg": 10000000,
+      "depth": 13
+    },
+    {
+      "name": "runtime.nextFreeFast",
+      "value": 400000000,
+      "samples": 40,
+      "avg": 10000000,
+      "depth": 13
+    },
+    {
+      "name": "backends/simd/runtime.dotRowsx8",
+      "value": 407610000000,
+      "samples": 40761,
+      "avg": 10000000,
+      "depth": 14
+    },
+    {
+      "name": "runtime.memclrNoHeapPointers",
+      "value": 6950000000,
+      "samples": 695,
+      "avg": 10000000,
+      "depth": 14
+    },
+    {
+      "name": "runtime.memclrNoHeapPointersChunked",
+      "value": 6260000000,
+      "samples": 626,
+      "avg": 10000000,
+      "depth": 14
+    },
+    {
+      "name": "runtime.(*mcache).nextFree",
+      "value": 1890000000,
+      "samples": 189,
+      "avg": 10000000,
+      "depth": 14
+    },
+    {
+      "name": "runtime.(*mcache).allocLarge",
+      "value": 620000000,
+      "samples": 62,
+      "avg": 10000000,
+      "depth": 14
+    },
+    {
+      "name": "backends/simd/runtime.dotRowsx8Asm",
+      "value": 334450000000,
+      "samples": 33445,
+      "avg": 10000000,
+      "depth": 15
+    },
+    {
+      "name": "backends/simd/runtime.dotRowsx4",
+      "value": 72590000000,
+      "samples": 7259,
+      "avg": 10000000,
+      "depth": 15
+    },
+    {
+      "name": "runtime.(*mcache).refill",
+      "value": 1870000000,
+      "samples": 187,
+      "avg": 10000000,
+      "depth": 15
+    },
+    {
+      "name": "backends/simd/runtime.dotRowsx4Asm",
+      "value": 72480000000,
+      "samples": 7248,
+      "avg": 10000000,
+      "depth": 16
+    },
+    {
+      "name": "runtime.(*mcentral).cacheSpan",
+      "value": 1070000000,
+      "samples": 107,
+      "avg": 10000000,
+      "depth": 16
+    },
+    {
+      "name": "runtime.(*mcentral).uncacheSpan",
+      "value": 500000000,
+      "samples": 50,
+      "avg": 10000000,
+      "depth": 16
+    },
+    {
+      "name": "runtime.(*mcentral).grow",
+      "value": 1010000000,
+      "samples": 101,
+      "avg": 10000000,
+      "depth": 17
+    },
+    {
+      "name": "runtime.(*spanSet).push",
+      "value": 600000000,
+      "samples": 60,
+      "avg": 10000000,
+      "depth": 17
+    },
+    {
+      "name": "runtime.(*mheap).alloc",
+      "value": 1520000000,
+      "samples": 152,
+      "avg": 10000000,
+      "depth": 18
+    }
+  ],
+  "links": [
+    {
+      "source": "runtime.main",
+      "target": "main.main",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000
+    },
+    {
+      "source": "main.main",
+      "target": "main.run",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000
+    },
+    {
+      "source": "main.run",
+      "target": "main.(*deciderScorer).Score",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000
+    },
+    {
+      "source": "main.(*deciderScorer).Score",
+      "target": "go-pherence/model/decider.(*Runtime).SystemOne",
+      "value": 507960000000,
+      "samples": 50796,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/decider.(*Runtime).SystemOne",
+      "target": "go-pherence/model/decider.(*Runtime).scoreRow",
+      "value": 507950000000,
+      "samples": 50795,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/decider.(*Runtime).scoreRow",
+      "target": "go-pherence/model/decider.(*Runtime).ScoreTokenIDs",
+      "value": 507940000000,
+      "samples": 50794,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/decider.(*Runtime).ScoreTokenIDs",
+      "target": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "value": 507860000000,
+      "samples": 50786,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.qwen35LinearInto",
+      "target": "model/internal/ops.GemvNT",
+      "value": 408210000000,
+      "samples": 40821,
+      "avg": 10000000
+    },
+    {
+      "source": "model/internal/ops.GemvNT",
+      "target": "backends/simd/runtime.GemvRows",
+      "value": 408110000000,
+      "samples": 40811,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.GemvRows",
+      "target": "backends/simd/runtime.gemvRowsDense",
+      "value": 408090000000,
+      "samples": 40809,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.gemvRowsDense",
+      "target": "backends/simd/runtime.dotRowsx8",
+      "value": 407610000000,
+      "samples": 40761,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "target": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState",
+      "value": 394010000000,
+      "samples": 39401,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState",
+      "target": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "value": 391930000000,
+      "samples": 39193,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.dotRowsx8",
+      "target": "backends/simd/runtime.dotRowsx8Asm",
+      "value": 334450000000,
+      "samples": 33445,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.qwen35LinearInto",
+      "value": 321480000000,
+      "samples": 32148,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "target": "go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV",
+      "value": 101250000000,
+      "samples": 10125,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV",
+      "target": "go-pherence/model/qwen.qwen35LinearInto",
+      "value": 87190000000,
+      "samples": 8719,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.dotRowsx8",
+      "target": "backends/simd/runtime.dotRowsx4",
+      "value": 72590000000,
+      "samples": 7259,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.dotRowsx4",
+      "target": "backends/simd/runtime.dotRowsx4Asm",
+      "value": 72480000000,
+      "samples": 7248,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.qwen35LinearDeltaRowInPlace",
+      "value": 46610000000,
+      "samples": 4661,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV",
+      "target": "go-pherence/model/qwen.qwenMTPGroupedAttention",
+      "value": 11880000000,
+      "samples": 1188,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "target": "go-pherence/model/qwen.cloneQwen35LinearAttentionState",
+      "value": 11330000000,
+      "samples": 1133,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.cloneQwen35LinearAttentionState",
+      "target": "runtime.memmove",
+      "value": 11030000000,
+      "samples": 1103,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.makeslice",
+      "target": "runtime.mallocgc",
+      "value": 8830000000,
+      "samples": 883,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgc",
+      "target": "runtime.mallocgcLarge",
+      "value": 6890000000,
+      "samples": 689,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.NewQwen35LinearAttentionState",
+      "value": 6710000000,
+      "samples": 671,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.NewQwen35LinearAttentionState",
+      "target": "runtime.makeslice",
+      "value": 6630000000,
+      "samples": 663,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgcLarge",
+      "target": "runtime.memclrNoHeapPointersChunked",
+      "value": 6260000000,
+      "samples": 626,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.memclrNoHeapPointersChunked",
+      "target": "runtime.memclrNoHeapPointers",
+      "value": 6250000000,
+      "samples": 625,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.gcBgMarkWorker",
+      "target": "runtime.systemstack",
+      "value": 4540000000,
+      "samples": 454,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.gcDrain",
+      "target": "runtime.scanObject",
+      "value": 4240000000,
+      "samples": 424,
+      "avg": 10000000
+    },
+    {
+      "source": "math.Exp",
+      "target": "math.archExp",
+      "value": 3430000000,
+      "samples": 343,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.systemstack",
+      "target": "runtime.gcDrainMarkWorkerIdle",
+      "value": 3190000000,
+      "samples": 319,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.gcDrainMarkWorkerIdle",
+      "target": "runtime.gcDrain",
+      "value": 3190000000,
+      "samples": 319,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "backends/simd/runtime.VecSiLUMul",
+      "value": 2790000000,
+      "samples": 279,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgc",
+      "target": "runtime.mallocgcSmallNoscan",
+      "value": 2740000000,
+      "samples": 274,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.siluInPlace",
+      "value": 2730000000,
+      "samples": 273,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.VecSiLUMul",
+      "target": "backends/simd/kernels.SiLU",
+      "value": 2580000000,
+      "samples": 258,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "math.Exp",
+      "value": 2110000000,
+      "samples": 211,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgcSmallNoscan",
+      "target": "runtime.(*mcache).nextFree",
+      "value": 1890000000,
+      "samples": 189,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcache).nextFree",
+      "target": "runtime.(*mcache).refill",
+      "value": 1870000000,
+      "samples": 187,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.applyQwen35LinearDepthwiseConv",
+      "value": 1840000000,
+      "samples": 184,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState",
+      "target": "go-pherence/model/qwen.roundBF16InPlace",
+      "value": 1790000000,
+      "samples": 179,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.scanObject",
+      "target": "runtime.tryDeferToSpanScan",
+      "value": 1750000000,
+      "samples": 175,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).alloc",
+      "target": "runtime.systemstack",
+      "value": 1520000000,
+      "samples": 152,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.systemstack",
+      "target": "runtime.(*mheap).alloc.func1",
+      "value": 1510000000,
+      "samples": 151,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "runtime.makeslice",
+      "value": 1460000000,
+      "samples": 146,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).alloc.func1",
+      "target": "runtime.(*mheap).allocSpan",
+      "value": 1420000000,
+      "samples": 142,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.systemstack",
+      "target": "runtime.gcDrainMarkWorkerFractional",
+      "value": 1350000000,
+      "samples": 135,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.gcDrainMarkWorkerFractional",
+      "target": "runtime.gcDrain",
+      "value": 1350000000,
+      "samples": 135,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.growslice",
+      "target": "runtime.mallocgc",
+      "value": 1280000000,
+      "samples": 128,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.sigmoid",
+      "value": 1210000000,
+      "samples": 121,
+      "avg": 10000000
+    },
+    {
+      "source": "backends/simd/runtime.VecSiLUMul",
+      "target": "math.Exp",
+      "value": 1170000000,
+      "samples": 117,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcache).refill",
+      "target": "runtime.(*mcentral).cacheSpan",
+      "value": 1070000000,
+      "samples": 107,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.qwen35GatedRMSNormValueHeads",
+      "value": 1020000000,
+      "samples": 102,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcentral).cacheSpan",
+      "target": "runtime.(*mcentral).grow",
+      "value": 1010000000,
+      "samples": 101,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcentral).grow",
+      "target": "runtime.(*mheap).alloc",
+      "value": 1010000000,
+      "samples": 101,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV",
+      "target": "backends/simd/runtime.VecSiLUMul",
+      "value": 1000000000,
+      "samples": 100,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.scanObject",
+      "target": "runtime.spanClass.sizeclass",
+      "value": 960000000,
+      "samples": 96,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.bgsweep",
+      "target": "runtime.sweepone",
+      "value": 900000000,
+      "samples": 90,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.applyQwen35LinearDeltaUpdateInPlace",
+      "value": 880000000,
+      "samples": 88,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.splitQwen35LinearQKVRaw",
+      "value": 850000000,
+      "samples": 85,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.splitQwen35LinearQKVRaw",
+      "target": "runtime.growslice",
+      "value": 710000000,
+      "samples": 71,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).allocSpan",
+      "target": "runtime.(*mheap).initSpan",
+      "value": 650000000,
+      "samples": 65,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgcLarge",
+      "target": "runtime.(*mcache).allocLarge",
+      "value": 620000000,
+      "samples": 62,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgcSmallNoscan",
+      "target": "runtime.memclrNoHeapPointers",
+      "value": 600000000,
+      "samples": 60,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed",
+      "target": "go-pherence/model/qwen.roundBF16InPlace",
+      "value": 520000000,
+      "samples": 52,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcache).allocLarge",
+      "target": "runtime.(*mheap).alloc",
+      "value": 510000000,
+      "samples": 51,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcache).refill",
+      "target": "runtime.(*mcentral).uncacheSpan",
+      "value": 500000000,
+      "samples": 50,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mcentral).uncacheSpan",
+      "target": "runtime.(*spanSet).push",
+      "value": 490000000,
+      "samples": 49,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).initSpan",
+      "target": "runtime.(*mspan).init",
+      "value": 470000000,
+      "samples": 47,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.l2NormalizeInPlace",
+      "value": 460000000,
+      "samples": 46,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).allocSpan",
+      "target": "runtime.(*mheap).allocMSpanLocked",
+      "value": 420000000,
+      "samples": 42,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.(*mheap).allocMSpanLocked",
+      "target": "runtime.(*fixalloc).alloc",
+      "value": 410000000,
+      "samples": 41,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.mallocgc",
+      "target": "runtime.nextFreeFast",
+      "value": 400000000,
+      "samples": 40,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.updateQwen35LinearConvStateInPlace",
+      "value": 390000000,
+      "samples": 39,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.updateQwen35LinearConvStateInPlace",
+      "target": "runtime.memmove",
+      "value": 390000000,
+      "samples": 39,
+      "avg": 10000000
+    },
+    {
+      "source": "runtime.schedule",
+      "target": "runtime.findRunnable",
+      "value": 310000000,
+      "samples": 31,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating",
+      "target": "go-pherence/model/qwen.rmsNormQwen35InPlace",
+      "value": 300000000,
+      "samples": 30,
+      "avg": 10000000
+    },
+    {
+      "source": "go-pherence/model/qwen.cloneQwen35LinearAttentionState",
+      "target": "runtime.growslice",
+      "value": 290000000,
+      "samples": 29,
+      "avg": 10000000
+    }
+  ]
+}

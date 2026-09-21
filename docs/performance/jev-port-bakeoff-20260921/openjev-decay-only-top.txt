@@ -1,0 +1,49 @@
+File: jevcompare-decay-simd
+Build ID: f3bedd059b9074f5e08de8832fad366dd83f55a0
+Type: cpu
+Time: 2026-09-21 18:54:05 WEST
+Duration: 783.14s, Total samples = 790.11s (100.89%)
+Showing nodes accounting for 773.62s, 97.91% of 790.11s total
+Dropped 237 nodes (cum <= 3.95s)
+Showing top 40 nodes out of 47
+      flat  flat%   sum%        cum   cum%
+   526.34s 66.62% 66.62%    526.34s 66.62%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8Asm
+   111.98s 14.17% 80.79%    111.98s 14.17%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4Asm
+    65.28s  8.26% 89.05%     71.77s  9.08%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearDeltaRowInPlace
+    16.81s  2.13% 91.18%     16.81s  2.13%  runtime.memmove
+    11.35s  1.44% 92.61%     11.35s  1.44%  runtime.memclrNoHeapPointers
+     6.22s  0.79% 93.40%      6.22s  0.79%  github.com/rcarmo/go-pherence/backends/simd/runtime.vecScaleAsm
+     6.06s  0.77% 94.17%      6.06s  0.77%  math.archExp
+     5.05s  0.64% 94.81%      5.42s  0.69%  github.com/rcarmo/go-pherence/model/qwen.qwenMTPGroupedAttention
+     4.12s  0.52% 95.33%      8.30s  1.05%  github.com/rcarmo/go-pherence/model/qwen.siluInPlace
+     3.94s   0.5% 95.83%      4.31s  0.55%  github.com/rcarmo/go-pherence/model/qwen.roundBF16InPlace (inline)
+     3.66s  0.46% 96.29%      5.48s  0.69%  github.com/rcarmo/go-pherence/backends/simd/kernels.SiLU
+     2.82s  0.36% 96.65%      4.47s  0.57%  runtime.tryDeferToSpanScan
+     2.16s  0.27% 96.92%      6.40s  0.81%  github.com/rcarmo/go-pherence/model/qwen.sigmoid (inline)
+     1.64s  0.21% 97.13%      6.87s  0.87%  runtime.scanObject
+     1.57s   0.2% 97.33%     73.50s  9.30%  github.com/rcarmo/go-pherence/model/qwen.applyQwen35LinearDeltaUpdateInPlace
+     1.16s  0.15% 97.48%    639.62s 80.95%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx8
+     0.70s 0.089% 97.56%    640.32s 81.04%  github.com/rcarmo/go-pherence/backends/simd/runtime.gemvRowsDense
+     0.61s 0.077% 97.64%    148.83s 18.84%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35FullAttentionLayer).ForwardWithKV
+     0.47s 0.059% 97.70%    615.46s 77.90%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).forwardWithStateMutating
+     0.28s 0.035% 97.74%      4.71s   0.6%  runtime.mallocgcSmallNoscan
+     0.27s 0.034% 97.77%      6.49s  0.82%  github.com/rcarmo/go-pherence/backends/simd/runtime.VecScale
+     0.24s  0.03% 97.80%      6.30s   0.8%  math.Exp (inline)
+     0.22s 0.028% 97.83%    780.68s 98.81%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35BaseModel).ForwardChunkLayerStreamed
+     0.13s 0.016% 97.84%    112.11s 14.19%  github.com/rcarmo/go-pherence/backends/simd/runtime.dotRowsx4
+     0.10s 0.013% 97.86%     14.25s  1.80%  runtime.makeslice
+     0.09s 0.011% 97.87%    641.09s 81.14%  github.com/rcarmo/go-pherence/model/qwen.qwen35LinearInto
+     0.09s 0.011% 97.88%      9.89s  1.25%  runtime.systemstack
+     0.06s 0.0076% 97.89%    630.98s 79.86%  github.com/rcarmo/go-pherence/model/qwen.(*Qwen35LinearAttentionLayer).ForwardWithState
+     0.06s 0.0076% 97.90%     16.16s  2.05%  runtime.mallocgc
+     0.05s 0.0063% 97.90%     10.25s  1.30%  runtime.memclrNoHeapPointersChunked
+     0.04s 0.0051% 97.91%    640.38s 81.05%  github.com/rcarmo/go-pherence/backends/simd/runtime.GemvRows
+     0.02s 0.0025% 97.91%    640.61s 81.08%  github.com/rcarmo/go-pherence/model/internal/ops.GemvNT
+     0.02s 0.0025% 97.91%     11.27s  1.43%  runtime.mallocgcLarge
+     0.01s 0.0013% 97.91%     11.01s  1.39%  github.com/rcarmo/go-pherence/model/qwen.NewQwen35LinearAttentionState
+         0     0% 97.91%      5.53s   0.7%  github.com/rcarmo/go-pherence/backends/simd/runtime.VecSiLUMul
+         0     0% 97.91%    781.03s 98.85%  github.com/rcarmo/go-pherence/model/openjev.(*Runtime).Score
+         0     0% 97.91%    781.03s 98.85%  github.com/rcarmo/go-pherence/model/openjev.(*Runtime).ScoreTokenIDs
+         0     0% 97.91%     15.46s  1.96%  github.com/rcarmo/go-pherence/model/qwen.cloneQwen35LinearAttentionState (inline)
+         0     0% 97.91%      4.21s  0.53%  github.com/rcarmo/go-pherence/model/qwen.roundQwen35InPlace (inline)
+         0     0% 97.91%    781.03s 98.85%  main.(*openJEVScorer).Score

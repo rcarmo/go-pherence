@@ -162,6 +162,7 @@ func validateOutput(o output, in input, arm, modelID string) error {
 	if choiceIndex(in, o.SelectedID) < 0 || len(o.Options) != len(in.Request.Candidates) {
 		return errors.New("output candidate shape mismatch")
 	}
+	best := 0
 	for i, candidate := range in.Request.Candidates {
 		got := o.Options[i]
 		if got.ID != candidate.ID || got.Text != candidate.Text || math.IsNaN(float64(got.Score)) || math.IsInf(float64(got.Score), 0) {
@@ -174,6 +175,12 @@ func validateOutput(o output, in input, arm, modelID string) error {
 				}
 			}
 		}
+		if got.Score > o.Options[best].Score {
+			best = i
+		}
+	}
+	if o.Options[best].ID != o.SelectedID {
+		return errors.New("selected candidate does not match maximum score")
 	}
 	return nil
 }
@@ -355,8 +362,13 @@ func run() error {
 	dest := flag.String("output", "", "new JSONL output")
 	resume := flag.Bool("resume", false, "validate and append to an existing strict output prefix")
 	cpuProfile := flag.String("cpuprofile", "", "new Go CPU profile covering scoring only")
+	reportResults := flag.String("report-results", "", "strict result JSONL to summarize without model loading")
+	reportOutput := flag.String("report-output", "", "new JSON metrics report")
 	maxInput := flag.Int("max-input", 4096, "model input token limit")
 	flag.Parse()
+	if *reportResults != "" || *reportOutput != "" {
+		return runScoreReport(*study, *cohort, *reportResults, *reportOutput)
+	}
 	if *arm == "" || *study == "" || *model == "" || *dest == "" || (*cohort != "screening" && *cohort != "finalist") {
 		return errors.New("arm/study/cohort/model/output required")
 	}

@@ -26,5 +26,6 @@ response, err := model.SystemOne(tok, state, []laya.NamedQuestion{
 - Public response assembly is tested against upstream answers: choice `red`, score `1.5291`, Noul `0.7859`, rounded probabilities/confidence and action probability.
 - The released checkpoint SHA-256 is `891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c`.
 - Opt-in released tests bring package statement coverage to 94.0%.
+- The [native JEV-equivalent bake-off](../../docs/experiments/jev-port-bakeoff-report-20260921.md) screened Laya at 45.00% on 40 untouched prepared validation originals. Its 2.24 s p50 was the fastest admitted runtime, but lower quality and 3/5 reverse-order changes kept it out of the finalist cohort.
 
 See the [validation record](../../docs/validation/laya-native-20260920.md) for profiling, native architecture results and explicit limitations.
