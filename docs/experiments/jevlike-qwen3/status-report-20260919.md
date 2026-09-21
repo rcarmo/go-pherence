@@ -3,35 +3,41 @@
 Update after the frozen final run: the historical development measurements below
 are unchanged. The user approved narrower experimental closure and explicitly
 deferred broader human review. The pre-test [policy](final-evaluation-policy.md)
-and [freeze](final-freeze.json) were committed before held-out evaluation. Four
-arms (Instruction direct and heads 7/17/27) reached **676 of 1,440 originals**;
-original 677 failed at layer 9 with CUDA error 719 and repeated Xid79/Xid154.
-No partial accuracy has been consulted. Resume is missing-row-only after
-separately authorised GPU recovery and synthetic diagnostics; the pinned binary,
-freeze hashes and completed records remain unchanged.
+and [freeze](final-freeze.json) were committed before held-out evaluation. The
+[final report](final-report-20260921.md) now covers **1,440 of 1,440 originals**
+across Instruction direct and frozen heads 7/17/27, with every arm admitting
+every row.
 
-The [repository safety audit](../../validation/repository-safety-audit-20260919.md)
-now covers all packages at inventory/test level with explicit source-review gaps.
-Its candidate fixes pass host regressions, not GPU sanitizer or post-crash parity.
-Serving was restored only through CPU fallback. InvokeAI/ComfyUI remain stopped
-with restart disabled; this report does not authorise resetting or rebooting.
+The first two attempts stopped at original 677 with CUDA error 719 and repeated
+Xid79/Xid154. After explicit recovery authorisation, the evaluator retained all
+676 immutable records and wrote only the 764 missing rows. The monitored 42m28s
+resume reached 81 C, 137.09 W and 7,399 MiB VRAM, with no Xid, device-query
+failure or thermal slowdown. Model assets and the 16-file freeze matched after
+the run. InvokeAI and ComfyUI stayed stopped.
 
 The native Qwen3 path fits the RTX 3060, agrees with independent numerical
-references, and now supports isolated K/V-prefix reuse. The frozen-head
-experiment also runs end to end, including cached training, exact interruption
-and resume, and fresh-text inference. Those are useful engineering results.
-They did not produce a decision model that passes the quality requirements.
+references, and supports isolated K/V-prefix reuse. The frozen-head experiment
+also runs end to end, including cached training, exact interruption and resume,
+fresh-text inference and immutable final reporting. Those are bounded engineering
+results. The heads did not produce a useful decision model.
 
-On the small validation cohort, direct instruction-tuned Qwen3 is the stronger
-baseline at **80% accuracy**, but reversing the alternatives changes **8 of 60
-answers**. The trained heads average **17.78%**, below the **23.17%** uniform-random
-baseline, and fail the evidence-dependence requirement. Neither configuration is
-promoted. Issue [#2][issue] stays open; no further training or data expansion is
-justified by these results under the current policy.
+On the final-test cohort, direct Instruction reached **81.25% accuracy**. Heads
+7, 17 and 27 reached **21.11%**, **22.85%** and **22.64%**, for a **22.20%** mean
+against the pooled **23.52%** random expectation. Instruction's frozen calibration
+reduced pooled NLL from 2.410 to 0.550 and ECE from 0.171 to 0.046 without changing
+decisions. The heads' temperatures reached the ceiling near 20; their flatter
+probabilities did not repair their accuracy.
 
-This report consolidates the recorded experiments as of 2026-09-19. It does not
-add a new inference run or turn the completed development checks into a
-final-test result.
+The stronger Instruction result does not erase its development control failure:
+reversing alternatives changed 8 of 60 answers, above the predeclared 10% limit.
+The heads remain below random on average and failed the evidence-dependence and
+expansion gates. Neither configuration is promoted. Issue [#2][issue] can close
+as the approved negative research result after this report and its checks are
+published; future tuning needs a new selection protocol.
+
+This report consolidates the recorded experiment through 2026-09-21. Broader
+human-reviewed and transfer/stress coverage was deferred and is not counted as
+performed.
 
 ## What was actually evaluated
 
@@ -171,7 +177,7 @@ results and references. Model assets remain below 12 GiB and caches below 12 GiB
 | Frozen-head learning and context dependence | Failed the fixed pilot; expansion stopped |
 | Calibration and probability diagnostics | Measured on separate development samples; no deferral policy approved |
 | Independent human-reviewed fresh cases | Explicitly deferred by the user; 24 proposed cases stay unreviewed/unscored |
-| Frozen final evaluation | Started under the committed policy; 676/1,440 complete, GPU-blocked, no final metrics |
+| Frozen final evaluation | Completed 1,440/1,440; all arms admitted all rows; Instruction 81.25%, head mean 22.20%, pooled random 23.52% |
 
 The packet has six closely related templates with four entity substitutions;
 it does not satisfy the original 200--500-case target or broad transfer coverage.
@@ -183,30 +189,32 @@ The original ticket contains a wider comparison and stress-test matrix than this
 bounded study: withheld domains/templates, systematic paraphrase and
 distractor-count tests, larger/full-intent candidate sets, semantic-class
 precision/recall and confusion matrices, and a separate relevance reranker where
-appropriate. Those results have not been established by the current reports.
-The direct scorer is a joint-prompt baseline, not a completed separate relevance
-reranker comparison. Untested portions are not implied by the checked
-implementation work or by the Plan sidebar. The user explicitly accepted a narrower negative research closure; the ticket
-must still not be closed by silently marking the whole original matrix complete.
+appropriate. The current reports do not contain those results. The direct scorer
+is a joint-prompt baseline, not a completed separate relevance-reranker
+comparison. The user explicitly accepted the narrower negative research closure;
+ticket closure must retain those items as deferred work rather than completed
+coverage.
 
 The earlier verification had a clean worktree, matching local/remote revisions
 and passing model-layout CI. Its GPU-serving and disk-space statements were
 point-in-time observations, not current health guarantees. The later audit has
 90 passing host race packages, 71 without tests and compile-only ARM64/RISC-V
-checks; serving is CPU fallback after bus loss. The next gate is authorised
-hardware recovery, synthetic safety/parity checks, missing-row-only completion
-and the frozen report. Another training sweep is outside the approved scope.
+checks. The recovered device completed the missing-row run under a fail-closed
+watchdog; that successful run does not identify the earlier Xid79 cause. Another
+training sweep is outside the approved scope.
 
 ## Supporting reports
 
-The [direct comparison][direct], [frozen-head experiment][head], [candidate
-contract][candidate] and [prefix/label-mass study][prefix] carry the reproduction
-commands, per-task measurements and links to machine-readable results. The
+The [final report][final], [direct comparison][direct], [frozen-head
+experiment][head], [candidate contract][candidate] and [prefix/label-mass
+study][prefix] carry the reproduction commands, per-task measurements and links
+to machine-readable results. The
 [additional acceptance comment][acceptance] defines the native isolation and
 probability work. This report's source snapshot is [bd19e97d][source], with its
 [passing CI run][ci]; the report itself does not change runtime code.
 
 [issue]: https://github.com/rcarmo/go-pherence/issues/2
+[final]: final-report-20260921.md
 [direct]: direct-study.md
 [head]: frozen-head-study.md
 [candidate]: candidate-contract.md

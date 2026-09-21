@@ -3,9 +3,12 @@
 The measurements below are the historical 2026-09-18 port checks. Later Qwen3
 GPU/direct/head/prefix results and failed quality gates are in the
 [current experiment status](../../docs/experiments/jevlike-qwen3/status-report-20260919.md).
-The final evaluation remains blocked at 676/1,440 records; GPU safety candidates
-have host tests, not recovered-device validation. The later [CPU profile](../../docs/performance/allocation-simd-audit-20260919.md)
-measures tiny-scorer allocation hotspots without reopening the held-out study.
+The [frozen final evaluation](../../docs/experiments/jevlike-qwen3/final-report-20260921.md)
+completed 1,440/1,440 records on 2026-09-21. Its monitored recovery had no Xids,
+device-query failures or thermal slowdown; peak temperature was 81 C and peak
+VRAM was 7,399 MiB. That run completes the held-out experiment but does not prove
+the earlier Xid79 root cause. The later [CPU profile](../../docs/performance/allocation-simd-audit-20260919.md)
+measures tiny-scorer allocation hotspots without changing final-test outcomes.
 
 Host: Intel Core i7-12700, linux/amd64. Tests and measurements collected on 2026-09-18.
 

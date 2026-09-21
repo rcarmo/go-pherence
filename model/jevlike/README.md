@@ -18,11 +18,13 @@ The [frozen Qwen3 experiment](../../docs/experiments/jevlike-qwen3/README.md)
 adds pinned preparation, compact GPU extraction, selected-token scoring, cached
 head training and isolated K/V-prefix APIs. Those bounded runtime checks passed;
 direct scorers failed option-order gates and frozen heads failed learning gates.
-The final frozen evaluation stopped at 676/1,440 originals after GPU bus loss.
-It is not a validated decision model. [Current status](../../docs/experiments/jevlike-qwen3/status-report-20260919.md)
+The [final evaluation](../../docs/experiments/jevlike-qwen3/final-report-20260921.md)
+completed 1,440/1,440 originals: Instruction reached 81.25%, while the three heads
+averaged 22.20% against a 23.52% random expectation. Jevlike is not a validated
+decision model. [Current status](../../docs/experiments/jevlike-qwen3/status-report-20260919.md)
 and [command families](../../docs/guides/commands.md#jevlike-experiment-commands)
-separate available APIs from blocked execution. Conversion uses an isolated
-Python helper; Go owns task/split contracts.
+separate available APIs from the failed quality gates. Conversion uses an isolated
+Python helper; Go owns task and split contracts.
 
 ## Frozen models and checkpoints
 

@@ -49,13 +49,14 @@ These are distinct paths, not interchangeable benchmarks. Use the subcommand's
 | Actual transformer prefix reuse | `prefix-bench` (plus library prefix APIs) | [Prefix study](../experiments/jevlike-qwen3/prefix-study.md) |
 | Immutable held-out evaluation/reporting | `final-eval`, `final-report` | [Frozen policy](../experiments/jevlike-qwen3/final-evaluation-policy.md), [current status](../experiments/jevlike-qwen3/status-report-20260919.md) |
 
-`final-eval` requires the frozen manifests/hashes and retains existing outcomes;
-`final-report` verifies completeness and applies existing calibrations without
-refitting. The current run is blocked at 676/1,440. Do not rebuild/replace its
-pinned executable, replay completed rows, inspect partial accuracy or use CPU
-scoring to get around GPU failure. New runs, recovery and missing-row resumption
-need the existing approval and validation gates; the commands are not an
-invitation to retune the experiment.
+`final-eval` requires the frozen manifests and hashes, verifies every existing
+record, and evaluates only missing rows. `-plan` performs admission, identity,
+cache-bound and disk-space checks without loading the GPU encoder. `final-report`
+requires the complete unlocked record set and applies the existing calibrations
+without refitting. The frozen run completed 1,440/1,440 rows; its [final
+report](../experiments/jevlike-qwen3/final-report-20260921.md) includes exact
+commands and results. Do not replay or replace completed records, change the
+frozen recipe, or use the final-test outputs for tuning.
 
 ## Checks and hardware
 

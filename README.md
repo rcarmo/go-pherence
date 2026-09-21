@@ -1,6 +1,6 @@
 # go-pherence
 
-Current engineering status: the [repository safety audit](docs/validation/repository-safety-audit-20260919.md) records the shared driver/loader fixes, passing host race sweep and explicit source/hardware gaps. The [allocation/SIMD profile](docs/performance/allocation-simd-audit-20260919.md) measures CPU work only. The frozen Qwen evaluation is blocked at 676/1,440 records after GPU bus loss; neither its completion nor GPU recovery is claimed.
+Current engineering status: the [repository safety audit](docs/validation/repository-safety-audit-20260919.md) records the shared driver/loader fixes, passing host race sweep and explicit source/hardware gaps. The [allocation/SIMD profile](docs/performance/allocation-simd-audit-20260919.md) measures CPU work only. The [frozen Qwen evaluation](docs/experiments/jevlike-qwen3/final-report-20260921.md) completed all 1,440 records: Instruction reached 81.25%, while the three experimental heads averaged 22.20% against a 23.52% random expectation.
 
 ![go-pherence](docs/icon-256.png)
 

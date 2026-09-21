@@ -19,7 +19,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Select a backend or adjust placement | [Backends](backends/README.md) and [runtime tuning](guides/tuning.md) |
 | Understand package ownership | [Architecture](architecture/README.md) |
 | Transcribe, translate or label speakers | [Speech](speech/README.md) |
-| Score variable choices or train a scorer | [Jevlike](../model/jevlike/README.md) |
+| Score variable choices or train a scorer | [Jevlike](../model/jevlike/README.md); [frozen Qwen3 final results](experiments/jevlike-qwen3/final-report-20260921.md) |
 | Extract entities, relations, records or classes | [GLiNER 2.5](../model/gliner2/README.md) |
 | Run block-diffusion text generation | [DiffusionGemma](models/diffusiongemma/README.md) |
 | Test changes on this host or cross-build | [Validation gates](validation/validation-gates.md) |

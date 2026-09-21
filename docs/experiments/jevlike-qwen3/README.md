@@ -1,13 +1,13 @@
 # Frozen Qwen3 choice-scorer experiment
 
-Current final-evaluation status: **676/1,440 immutable four-arm records**, blocked
-at original 677 after repeated Xid79/Xid154 bus loss. The user explicitly accepted
-experimental closure with broader human-reviewed coverage deferred, then froze
-the policy and permitted held-out evaluation. No partial accuracy was inspected,
-no completed row replayed and no new training/calibration selected. The GPU is
-unavailable; resume requires separately authorised recovery and synthetic safety
-checks. See [current status](status-report-20260919.md) and the
-[repository audit](../../validation/repository-safety-audit-20260919.md).
+The frozen final evaluation completed **1,440/1,440 immutable four-arm records**
+on 2026-09-21. The authorised recovery resumed from original 677 after the earlier
+Xid79/Xid154 bus loss; it retained all 676 completed records and wrote only the
+764 missing rows. All arms admitted the common 1,440-row cohort. The Instruction
+direct scorer reached **81.25%** accuracy, while the three frozen heads averaged
+**22.20%** against a **23.52%** pooled random expectation. See the [final
+report](final-report-20260921.md), [machine-readable results](final-results.json)
+and [current status](status-report-20260919.md).
 
 Issue [#2](https://github.com/rcarmo/go-pherence/issues/2) is in progress. The local
 RTX 3060 host was explicitly approved on 2026-09-19. Pinned data preparation and
@@ -18,7 +18,7 @@ configuration. The [three-seed frozen-head learning check](frozen-head-study.md)
 also failed its expansion gate; its cache and resume mechanics passed.
 
 The [consolidated status report](status-report-20260919.md) separates completed
-runtime checks, failed quality requirements and outstanding evaluation coverage.
+runtime checks, failed quality requirements and explicitly deferred coverage.
 
 ## Data and model identity
 
@@ -113,7 +113,7 @@ bun test scripts/jevlike-fetch.test.ts
 python3 scripts/jevlike-export-parquet.test.py
 ```
 
-## Next gate
+## Final disposition
 
 The [bounded direct study](direct-study.md) is complete: Base reaches 60% and
 Instruction 80% on 60 original validation examples, but both fail the fixed
@@ -139,7 +139,11 @@ These checks do not remove the recorded quality failures.
 
 Independently human-reviewed new cases were explicitly deferred for this closure,
 not counted as completed coverage. The 24-case machine-authored packet remains
-unreviewed/unscored. The frozen final run has started but cannot be reported until
-all 1,440 normal originals have complete records. Only missing rows may resume;
-no new recipe, prompts, calibration, seeds or CPU scoring substitution are allowed.
-Issue #2 remains open as an unfinished experiment, not a production promotion.
+unreviewed and unscored.
+
+The [frozen final report](final-report-20260921.md) records all 1,440 normal
+originals with no admission rejection. Instruction reached 81.25%; heads 7, 17
+and 27 reached 21.11%, 22.85% and 22.64%. The final result confirms the earlier
+negative head decision and does not repair Instruction's option-order failure.
+Further model, prompt or training work needs a new experiment and selection
+protocol; the final-test outputs cannot become tuning data for this one.
