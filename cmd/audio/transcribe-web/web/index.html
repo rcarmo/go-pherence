@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transcribe</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<header><div><h1>Transcribe</h1><p>Turn local recordings into transcripts</p></div><button id="refresh" type="button" class="quiet">Refresh</button></header>
+<aside>Trusted LAN only. There is no login. Anyone who can reach this page can manage recordings and transcripts.</aside>
+<p id="notice" role="status" aria-live="polite">Connecting…</p>
+<section class="panel compose"><h2>New recording</h2><form id="upload"><label>Language<select id="language"><option value="auto">Detect automatically</option><option value="en">English</option><option value="pt">Portuguese</option><option value="fr">French</option></select></label><label>Audio file<input id="file" type="file" accept=".m4a,.wav,audio/mp4,audio/wav" required></label><label class="check"><input id="diarize" type="checkbox">Identify speakers</label><button id="submit">Transcribe</button></form><p id="limit"></p></section>
+<section id="active-section" class="panel" hidden><div class="heading"><div><h2>In progress</h2><p>Recordings waiting or being processed</p></div><span id="active-count" class="count"></span></div><div id="active"></div></section>
+<section class="panel"><div class="heading"><div><h2>Recordings</h2><p>Completed recordings and items that need attention</p></div><span id="library-count" class="count"></span></div><div id="library"></div><p id="empty" class="empty">No recordings yet.</p></section>
+<section id="detail" class="panel" hidden><div class="heading"><div><p class="eyebrow">Recording</p><h2 id="detail-title"></h2></div><button id="close-detail" type="button" class="quiet">Close</button></div><form id="rename" class="rename"><label>Title<input id="title" maxlength="160" required></label><button>Save title</button></form><p id="detail-status" class="status"></p><p id="detail-error" class="error" hidden></p><div id="primary"></div><details><summary>Export options</summary><div id="exports"></div></details><div id="actions"></div><details><summary>Technical details</summary><dl id="metadata"></dl></details></section>
+<footer>Processing continues if this page closes. Successful uploads are released after transcription; transcripts remain until you delete the recording. Speaker labels are anonymous and experimental.</footer>
+</main></body></html>

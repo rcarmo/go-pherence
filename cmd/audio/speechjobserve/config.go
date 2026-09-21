@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -193,7 +194,8 @@ type ServerConfig struct {
 	Generation     Asset             `json:"generation"`
 	FFmpeg         Asset             `json:"ffmpeg,omitempty"`
 	FFprobe        Asset             `json:"ffprobe,omitempty"`
-	Profile        ProfileSettings   `json:"profile"`
+	Profile        ProfileSettings   `json:"profile,omitempty"`
+	Profiles       []ProfileSettings `json:"profiles,omitempty"`
 }
 
 func validHash(s string) bool {
@@ -227,6 +229,11 @@ func parseConfig(data []byte) (ServerConfig, error) {
 	if e := cfg.validate(); e != nil {
 		return cfg, e
 	}
+	profiles, e := cfg.configuredProfiles()
+	if e != nil {
+		return cfg, e
+	}
+	cfg.Profile = profiles[0]
 	return cfg, nil
 }
 
@@ -303,10 +310,68 @@ func uniqueJSON(data []byte, maxDepth int, foldKeys, allowNull bool) error {
 	}
 	return nil
 }
+func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
+	hasProfile := c.Profile != (ProfileSettings{})
+	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 16 {
+		return nil, fmt.Errorf("configure exactly one profile or one profile set")
+	}
+	profiles := c.Profiles
+	if hasProfile && len(profiles) == 0 {
+		profiles = []ProfileSettings{c.Profile}
+	} else if hasProfile && c.Profile != profiles[0] {
+		return nil, fmt.Errorf("profile normalization mismatch")
+	}
+	if len(profiles) == 0 {
+		return nil, fmt.Errorf("profile required")
+	}
+	seen := map[string]bool{}
+	base := profiles[0]
+	base.ID, base.Language, base.Extension, base.Community = "", "", "", nil
+	var community *CommunitySettings
+	for _, profile := range profiles {
+		if seen[profile.ID] {
+			return nil, fmt.Errorf("duplicate profile ID")
+		}
+		seen[profile.ID] = true
+		shared := profile
+		shared.ID, shared.Language, shared.Extension, shared.Community = "", "", "", nil
+		if !reflect.DeepEqual(base, shared) {
+			return nil, fmt.Errorf("profile set may differ only by ID, language, extension and Community opt-in")
+		}
+		if profile.Community != nil {
+			if community == nil {
+				copy := *profile.Community
+				community = &copy
+			} else if !reflect.DeepEqual(*community, *profile.Community) {
+				return nil, fmt.Errorf("profile set must share one Community configuration")
+			}
+		}
+	}
+	return append([]ProfileSettings(nil), profiles...), nil
+}
+
+func configuredCommunity(profiles []ProfileSettings) *CommunitySettings {
+	for _, profile := range profiles {
+		if profile.Community != nil {
+			copy := *profile.Community
+			return &copy
+		}
+	}
+	return nil
+}
+
 func (c ServerConfig) validate() error {
 	if c.Schema != 2 || !filepath.IsAbs(c.Store) || !validHash(c.RuntimeSHA256) || c.Threads < 1 || c.Threads > 16 {
 		return fmt.Errorf("invalid server identity/store/threads")
 	}
+	profiles, profileErr := c.configuredProfiles()
+	if profileErr != nil {
+		return profileErr
+	}
+	if len(profiles) < 1 {
+		return fmt.Errorf("profile required")
+	}
+	c.Profile = profiles[0]
 	l := c.Limits
 	if l.Jobs < 1 || l.Jobs > 1000 || l.UploadBytes < 1 || l.UploadBytes > 512<<20 || l.ArtifactBytes < 1 || l.ArtifactBytes > 1<<30 || l.StoreBytes < 128<<10 || l.StoreBytes > 64<<30 || l.UploadBytes > l.StoreBytes || l.ArtifactBytes > l.StoreBytes || l.WeightBytes < 8 || l.WeightBytes > 8<<30 || l.OwnedWeightBytes < 1 || l.OwnedWeightBytes > 16<<30 {
 		return fmt.Errorf("invalid configured resource caps")
@@ -383,7 +448,7 @@ func (c ServerConfig) validate() error {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}
 	}
-	if x := f.Community; x != nil {
+	if x := configuredCommunity(profiles); x != nil {
 		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee" || c.Resources == nil || x.MaxResultBytes < 1 || x.MaxResultBytes > 16<<20 || x.EmbeddingPrefix != "resnet" {
 			return fmt.Errorf("invalid experimental Community-1 profile")
 		}
@@ -408,18 +473,23 @@ func (c ServerConfig) validate() error {
 			return fmt.Errorf("invalid Community-1 execution policy: %w", e)
 		}
 	}
-	if !slug(f.ID) || len(f.Language) < 2 || len(f.Language) > 3 || f.MaxDurationSeconds < 1 || f.MaxDurationSeconds > 14400 || f.DecodeBytes < 46 || f.DecodeBytes > l.ArtifactBytes || f.OverlapSamples < 0 || f.OverlapSamples > 240000 || f.MaxNewTokens < 0 || f.MaxNewTokens > 445 || f.MaxInitialTimestampIndex < 0 || f.MaxInitialTimestampIndex > 1500 || f.WindowBytes < 1 || f.WindowBytes > 1<<20 || f.ResultBytes < f.WindowBytes || f.ResultBytes > 64<<20 || f.ResultBytes > l.ArtifactBytes {
-		return fmt.Errorf("invalid ASR profile limits")
-	}
-	for _, r := range f.Language {
-		if r < 'a' || r > 'z' {
-			return fmt.Errorf("invalid language code")
+	for _, f := range profiles {
+		if !slug(f.ID) || len(f.Language) < 2 || len(f.Language) > 4 || f.MaxDurationSeconds < 1 || f.MaxDurationSeconds > 14400 || f.DecodeBytes < 46 || f.DecodeBytes > l.ArtifactBytes || f.OverlapSamples < 0 || f.OverlapSamples > 240000 || f.MaxNewTokens < 0 || f.MaxNewTokens > 445 || f.MaxInitialTimestampIndex < 0 || f.MaxInitialTimestampIndex > 1500 || f.WindowBytes < 1 || f.WindowBytes > 1<<20 || f.ResultBytes < f.WindowBytes || f.ResultBytes > 64<<20 || f.ResultBytes > l.ArtifactBytes {
+			return fmt.Errorf("invalid ASR profile limits")
 		}
-	}
-	switch f.Extension {
-	case ".wav", ".m4a", ".mp4", ".mov":
-	default:
-		return fmt.Errorf("invalid input extension")
+		for _, r := range f.Language {
+			if r < 'a' || r > 'z' {
+				return fmt.Errorf("invalid language code")
+			}
+		}
+		if f.Language == "auto" && f.MaxInitialTimestampIndex != 0 {
+			return fmt.Errorf("automatic language uses generation timestamp policy")
+		}
+		switch f.Extension {
+		case ".wav", ".m4a", ".mp4", ".mov":
+		default:
+			return fmt.Errorf("invalid input extension")
+		}
 	}
 	return nil
 }

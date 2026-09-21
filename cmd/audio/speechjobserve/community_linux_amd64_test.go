@@ -260,7 +260,23 @@ func TestCombinedProfileStagesAndReverseOwners(t *testing.T) {
 	rset := ResourceSettings{CPUSlots: 2, MemoryBytes: 1 << 30, MaxWaiting: 4, LoadBytes: 512 << 20, ResidentBytes: 256 << 20, WorkBytes: 256 << 20}
 	c.Resources = &rset
 	x := communityConfig(t)
-	c.Profile.Community = &x
+	x.PCM.TiePolicy = "lowest-index"
+	base := c.Profile
+	c.Profile = ProfileSettings{}
+	for _, kind := range []string{"asr", "diar"} {
+		for _, language := range []string{"auto", "en", "pt", "fr"} {
+			for _, extension := range []string{".m4a", ".wav"} {
+				profile := base
+				profile.ID = kind + "-" + language + "-" + strings.TrimPrefix(extension, ".")
+				profile.Language = language
+				profile.Extension = extension
+				if kind == "diar" {
+					profile.Community = &x
+				}
+				c.Profiles = append(c.Profiles, profile)
+			}
+		}
+	}
 	communityOwner := &fakeCommunityOwner{stage: speechjob.Stage{Name: "diarization", Version: hashBytes([]byte("diar")), Run: func(context.Context, *speechjob.Input, io.Writer) error { return nil }}}
 	cr := communityRuntime{loadSeg: func(context.Context, c1.SegmentationTensorSource, c1.SegmentationLoadConfig) (*c1.SegmentationCheckpoint, error) {
 		return &c1.SegmentationCheckpoint{}, nil
@@ -281,13 +297,23 @@ func TestCombinedProfileStagesAndReverseOwners(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(built.Profiles) != 1 || len(built.Profiles[0].Stages) != 7 || len(built.owners) != 1 {
-		t.Fatal(built)
+	if len(built.Profiles) != 16 || len(built.owners) != 1 {
+		t.Fatal(len(built.Profiles), len(built.owners))
 	}
-	want := []string{"decode", "asr-windows", "transcript", "vtt", "diarization", "speaker-transcript", "speaker-vtt"}
-	for i, s := range built.Profiles[0].Stages {
-		if s.Name != want[i] {
-			t.Fatal(i, s.Name)
+	plain := []string{"decode", "asr-windows", "transcript", "vtt"}
+	combined := append(append([]string{}, plain...), "diarization", "speaker-transcript", "speaker-vtt")
+	for _, profile := range built.Profiles {
+		want := plain
+		if strings.HasPrefix(profile.ID, "diar-") {
+			want = combined
+		}
+		if len(profile.Stages) != len(want) {
+			t.Fatal(profile.ID, len(profile.Stages), want)
+		}
+		for i, s := range profile.Stages {
+			if s.Name != want[i] {
+				t.Fatal(profile.ID, i, s.Name)
+			}
 		}
 	}
 	if e = built.Close(context.Background()); e != nil || communityOwner.close != 1 {

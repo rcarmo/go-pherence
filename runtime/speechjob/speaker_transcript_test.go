@@ -128,15 +128,24 @@ func TestSpeakerPolicyAndDocumentValidation(t *testing.T) {
 	if e != nil || !reflect.DeepEqual(read, good) {
 		t.Fatal(read, e)
 	}
-	for _, kind := range []string{"gap-fill", "tie", "extent", "source", "already-labelled", "word-labelled", "constraint"} {
+	tie := d
+	tie.Policy.TiePolicy = c1.LowestIndexTies
+	tie.AmbiguousFrames = []int{1}
+	resolved, e := labelSpeakerTranscript(ctx, tr, tie, key)
+	if e != nil || !resolved.Experimental || resolved.DiarizationKey != tie.StageKey {
+		t.Fatal("deterministic tie publication", resolved, e)
+	}
+	strictTie := d
+	strictTie.AmbiguousFrames = []int{1}
+	if _, e = labelSpeakerTranscript(ctx, tr, strictTie, key); e == nil {
+		t.Fatal("strict ambiguous tie accepted")
+	}
+	for _, kind := range []string{"gap-fill", "extent", "source", "already-labelled", "word-labelled", "constraint"} {
 		c := d
 		tt := speakerCue()
 		switch kind {
 		case "gap-fill":
 			c.Policy.MinDurationOff = .1
-		case "tie":
-			c.Policy.TiePolicy = c1.LowestIndexTies
-			c.AmbiguousFrames = []int{1}
 		case "extent":
 			tt.TotalSamples++
 		case "source":

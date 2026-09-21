@@ -1,0 +1,29 @@
+[Unit]
+Description=Go transcription web app
+After=network.target
+
+[Service]
+Type=simple
+Environment=GO_PHERENCE_DISABLE_NVIDIA=1
+Environment=GOMAXPROCS=4
+Environment=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json
+ExecStart=%h/.local/lib/transcribe-web/transcribe-web --listen [::]:8093 --hosts sigma.local:8093,192.168.1.70:8093,127.0.0.1:8093,localhost:8093 --backend http://127.0.0.1:18093 --speechjobserve %h/.local/lib/transcribe-web/speechjobserve --config %h/.local/lib/transcribe-web/config.json
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=10min
+TimeoutStopSec=150s
+KillMode=control-group
+MemoryMax=18G
+MemorySwapMax=0
+TasksMax=256
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/lib/transcribe-web/data
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=default.target

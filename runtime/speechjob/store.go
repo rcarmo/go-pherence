@@ -260,7 +260,7 @@ func (s *Store) load(id string) (Manifest, error) {
 	if decoder.Decode(new(any)) != io.EOF {
 		return m, ErrCorrupt
 	}
-	if m.Schema != 1 || m.ID != id || m.Attempts < 0 || m.Created.IsZero() || m.Updated.Before(m.Created) || !validConfiguration([]byte(m.Configuration)) || hash([]byte(m.Configuration)) != m.ConfigurationSHA256 || len(m.Checkpoints) > 64 || len(m.Error) > 1024 || m.Input.File != "input" || m.Input.Bytes < 1 || m.Input.Bytes > s.limits.MaxUploadBytes || !validHash(m.Input.SHA256) {
+	if m.Schema != 1 || m.ID != id || m.Attempts < 0 || m.Created.IsZero() || m.Updated.Before(m.Created) || !validTitle(m.Title) || !validConfiguration([]byte(m.Configuration)) || hash([]byte(m.Configuration)) != m.ConfigurationSHA256 || len(m.Checkpoints) > 64 || len(m.Error) > 1024 || m.Input.File != "input" || m.Input.Bytes < 1 || m.Input.Bytes > s.limits.MaxUploadBytes || !validHash(m.Input.SHA256) {
 		return m, ErrCorrupt
 	}
 	switch m.Status {
@@ -281,8 +281,15 @@ func (s *Store) load(id string) (Manifest, error) {
 		}
 		seen[cp.Stage] = true
 	}
+	if m.MediaReleased && m.Status != Complete && m.Status != Cancelled {
+		return m, ErrCorrupt
+	}
 	return m, nil
 }
+func validTitle(title string) bool {
+	return len(title) <= 160 && utf8.ValidString(title) && !strings.ContainsAny(title, "\r\n\x00") && (title == "" || strings.TrimSpace(title) == title)
+}
+
 func validConfiguration(b []byte) bool {
 	return len(b) > 1 && len(b) <= maxConfig && utf8.Valid(b) && json.Valid(b) && strings.HasPrefix(strings.TrimSpace(string(b)), "{")
 }
@@ -396,6 +403,40 @@ func (s *Store) Create(ctx context.Context, displayName string, configuration []
 	}
 	return clone(m), nil
 }
+
+// Rename changes only user-facing title metadata. The original upload name,
+// input identity, configuration, status and checkpoints remain immutable.
+func (s *Store) Rename(ctx context.Context, id, title string) (Manifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var zero Manifest
+	if e := s.ready(); e != nil {
+		return zero, e
+	}
+	if s.busy {
+		return zero, ErrBusy
+	}
+	if e := ctx.Err(); e != nil {
+		return zero, e
+	}
+	if !validID(id) || !validTitle(title) || title == "" {
+		return zero, fmt.Errorf("invalid recording title")
+	}
+	m, e := s.load(id)
+	if e != nil {
+		return zero, e
+	}
+	if m.Title == title {
+		return clone(m), nil
+	}
+	m.Title = title
+	m.Updated = time.Now().UTC()
+	if e = s.save(m); e != nil {
+		return zero, errors.Join(ErrPersistence, e)
+	}
+	return clone(m), nil
+}
+
 func (s *Store) Get(id string) (Manifest, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

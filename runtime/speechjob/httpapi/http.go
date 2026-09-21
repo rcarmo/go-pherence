@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
@@ -363,7 +364,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondError(w, 400, "invalid_query", nil)
 		return
 	}
-	if !(len(path) == 2 && path[0] == "v1" && path[1] == "jobs" && r.Method == http.MethodPost) && !emptyBody(r) {
+	acceptsBody := len(path) == 2 && path[0] == "v1" && path[1] == "jobs" && r.Method == http.MethodPost || len(path) == 4 && path[0] == "v1" && path[1] == "jobs" && jobID(path[2]) && path[3] == "title" && r.Method == http.MethodPut
+	if !acceptsBody && !emptyBody(r) {
 		respondError(w, 400, "unexpected_body", nil)
 		return
 	}
@@ -405,7 +407,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}{entries})
 		return
 	}
-	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" && h.enableUI {
+	if len(path) == 2 && path[0] == "v1" && path[1] == "profiles" {
 		if r.Method != http.MethodGet {
 			method(w, "GET")
 			return
@@ -455,6 +457,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(path) == 4 {
 		switch path[3] {
+		case "title":
+			if r.Method != http.MethodPut {
+				method(w, "PUT")
+				return
+			}
+			h.rename(w, r, id)
+			return
 		case "enqueue", "retry-queued":
 			if r.Method != http.MethodPost {
 				method(w, "POST")
@@ -490,6 +499,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			h.cancelRun(w, r, id)
+			return
+		case "release-media":
+			if r.Method != http.MethodPost {
+				method(w, "POST")
+				return
+			}
+			select {
+			case h.mutation <- struct{}{}:
+			case <-r.Context().Done():
+				h.failure(w, r.Context().Err(), nil)
+				return
+			}
+			e := h.store.ReleaseMedia(r.Context(), id)
+			<-h.mutation
+			if e != nil {
+				h.failure(w, e, nil)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 	}
@@ -746,19 +774,25 @@ type RetainedJob struct {
 }
 
 type Artifact struct {
-	Name   string `json:"name"`
-	Bytes  int64  `json:"bytes"`
-	SHA256 string `json:"sha256"`
+	Name     string `json:"name"`
+	Filename string `json:"filename"`
+	Bytes    int64  `json:"bytes"`
+	SHA256   string `json:"sha256"`
 }
 type Job struct {
 	ID               string           `json:"id"`
 	Name             string           `json:"name"`
+	Title            string           `json:"title"`
+	Language         string           `json:"language"`
+	SpeakerLabels    bool             `json:"speaker_labels"`
 	Profile          string           `json:"profile"`
 	ProfileAvailable bool             `json:"profile_available"`
 	Status           speechjob.Status `json:"status"`
+	FailureCode      string           `json:"failure_code,omitempty"`
 	Attempts         int              `json:"attempts"`
 	ActiveStage      string           `json:"active_stage,omitempty"`
 	InputBytes       int64            `json:"input_bytes"`
+	MediaReleased    bool             `json:"media_released,omitempty"`
 	Created          time.Time        `json:"created"`
 	Updated          time.Time        `json:"updated"`
 	Artifacts        []Artifact       `json:"artifacts"`
@@ -767,14 +801,131 @@ type Job struct {
 var downloadable = map[string]string{"transcript": "application/json", "vtt": "text/vtt; charset=utf-8", "speaker-transcript": "application/json", "speaker-vtt": "text/vtt; charset=utf-8"}
 
 func (h *Handler) view(m speechjob.Manifest) Job {
-	j := Job{ID: m.ID, Name: m.Name, Profile: h.byConfig[m.Configuration].id, ProfileAvailable: h.byConfig[m.Configuration].id != "", Status: m.Status, Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
+	profile := h.byConfig[m.Configuration].id
+	language, speakers := recordingOptions(m, profile)
+	j := Job{ID: m.ID, Name: m.Name, Title: recordingTitle(m), Language: language, SpeakerLabels: speakers, Profile: profile, ProfileAvailable: profile != "", Status: m.Status, FailureCode: publicFailureCode(m), Attempts: m.Attempts, ActiveStage: m.ActiveStage, InputBytes: m.Input.Bytes, MediaReleased: m.MediaReleased, Created: m.Created, Updated: m.Updated, Artifacts: []Artifact{}}
 	for _, cp := range m.Checkpoints {
 		if _, ok := downloadable[cp.Stage]; ok && cp.Blob.Bytes <= 16<<20 {
-			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, cp.Blob.Bytes, cp.Blob.SHA256})
+			extension := ".json"
+			if strings.Contains(cp.Stage, "vtt") {
+				extension = ".vtt"
+			}
+			j.Artifacts = append(j.Artifacts, Artifact{cp.Stage, exportFilename(j.Title, j.Language, cp.Stage, extension), cp.Blob.Bytes, cp.Blob.SHA256})
 		}
 	}
 	return j
 }
+
+// publicFailureCode maps exact stable failure classes to non-sensitive UI codes.
+// Raw stage errors can contain paths or model details and never cross HTTP.
+func publicFailureCode(m speechjob.Manifest) string {
+	if m.Status != speechjob.Failed {
+		return ""
+	}
+	switch m.Error {
+	case "unsupported media input: expected RIFF/WAVE content", "unsupported media input: expected ISO BMFF content":
+		return "media_type_mismatch"
+	default:
+		return "job_failed"
+	}
+}
+
+func recordingTitle(m speechjob.Manifest) string {
+	if m.Title != "" {
+		return m.Title
+	}
+	base := m.Name
+	if dot := strings.LastIndex(base, "."); dot > 0 {
+		base = base[:dot]
+	}
+	words := []string{}
+	for _, word := range strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(base)) {
+		start := 0
+		runes := []rune(word)
+		for i := 1; i < len(runes); i++ {
+			if unicode.IsDigit(runes[i]) != unicode.IsDigit(runes[i-1]) {
+				words = append(words, titleWord(string(runes[start:i])))
+				start = i
+			}
+		}
+		words = append(words, titleWord(string(runes[start:])))
+	}
+	if len(words) == 0 {
+		return "Untitled recording"
+	}
+	return strings.Join(words, " ")
+}
+
+func titleWord(word string) string {
+	lower := strings.ToLower(word)
+	if upper := map[string]string{"jfk": "JFK", "minds": "MINDS", "pt": "PT", "api": "API"}[lower]; upper != "" {
+		return upper
+	}
+	runes := []rune(lower)
+	if len(runes) > 0 {
+		runes[0] = unicode.ToUpper(runes[0])
+	}
+	return string(runes)
+}
+
+func recordingOptions(m speechjob.Manifest, profile string) (string, bool) {
+	parts := strings.Split(profile, "-")
+	if len(parts) == 3 {
+		return parts[1], parts[0] == "diar"
+	}
+	var outer struct {
+		Config string `json:"Config"`
+	}
+	var inner struct {
+		Profile struct {
+			Language  string          `json:"language"`
+			Community json.RawMessage `json:"community"`
+		} `json:"Profile"`
+	}
+	if json.Unmarshal([]byte(m.Configuration), &outer) == nil && json.Unmarshal([]byte(outer.Config), &inner) == nil {
+		speakers := len(inner.Profile.Community) > 0 && string(inner.Profile.Community) != "null"
+		return inner.Profile.Language, speakers
+	}
+	for _, cp := range m.Checkpoints {
+		if cp.Stage == "speaker-transcript" || cp.Stage == "speaker-vtt" {
+			return "", true
+		}
+	}
+	return "", false
+}
+
+func (h *Handler) rename(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Header.Get("Content-Type") != "application/json" || r.ContentLength <= 0 || r.ContentLength > 1024 || r.Header.Get("Content-Encoding") != "" {
+		respondError(w, 415, "unsupported_content_type", nil)
+		return
+	}
+	var payload struct {
+		Title string `json:"title"`
+	}
+	limited := http.MaxBytesReader(w, r.Body, 1024)
+	defer limited.Close()
+	d := json.NewDecoder(limited)
+	d.DisallowUnknownFields()
+	if d.Decode(&payload) != nil || d.Decode(new(any)) != io.EOF || !validPublicTitle(payload.Title) {
+		respondError(w, 400, "invalid_title", nil)
+		return
+	}
+	if !h.mutate(w) {
+		return
+	}
+	m, e := h.store.Rename(r.Context(), id, payload.Title)
+	<-h.mutation
+	if e != nil {
+		h.failure(w, e, nil)
+		return
+	}
+	respond(w, 200, h.view(m))
+}
+
+func validPublicTitle(title string) bool {
+	return len(title) >= 1 && len(title) <= 160 && utf8.ValidString(title) && strings.TrimSpace(title) == title && !strings.ContainsAny(title, "\r\n\x00")
+}
+
 func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name string) {
 	contentType, ok := downloadable[name]
 	if !ok {
@@ -817,7 +968,9 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name stri
 		extension = ".vtt"
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+id+"-"+name+extension+`"`)
+	language, _ := recordingOptions(m, h.byConfig[m.Configuration].id)
+	filename := exportFilename(recordingTitle(m), language, name, extension)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Content-Length", fmt.Sprint(cp.Blob.Bytes))
 	w.Header().Set("ETag", `"sha256-`+cp.Blob.SHA256+`"`)
 	if r.Method == http.MethodHead {
@@ -844,6 +997,33 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request, id, name stri
 		remaining -= int64(n)
 	}
 }
+func exportFilename(title, language, artifact, extension string) string {
+	var b strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(title) {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			b.WriteRune(r)
+			lastDash = false
+		} else if b.Len() > 0 && !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+		if b.Len() >= 80 {
+			break
+		}
+	}
+	base := strings.Trim(b.String(), "-")
+	if base == "" {
+		base = "transcript"
+	}
+	languageSuffix := ""
+	if language != "" && language != "auto" && len(language) >= 2 && len(language) <= 4 {
+		languageSuffix = "." + language
+	}
+	suffix := map[string]string{"transcript": "transcript", "vtt": "transcript", "speaker-transcript": "speakers", "speaker-vtt": "speakers"}[artifact]
+	return base + languageSuffix + "." + suffix + extension
+}
+
 func unauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="speech-jobs"`)
 	respondError(w, 401, "unauthorized", nil)

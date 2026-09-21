@@ -51,6 +51,9 @@ func toyAssets(t *testing.T) ServerConfig {
 		if id == 50259 {
 			name = "<|en|>"
 		}
+		if id == 50265 {
+			name = "<|fr|>"
+		}
 		if id == 50267 {
 			name = "<|pt|>"
 		}
@@ -238,6 +241,39 @@ func TestServingProfileSyntheticGo264ToVTT(t *testing.T) {
 	r.Close()
 	if b.String() != "WEBVTT\n\n" {
 		t.Fatal(b.String())
+	}
+}
+
+func TestServingProfileSetSharesModelAndBuildsAllPipelines(t *testing.T) {
+	c := toyAssets(t)
+	base := c.Profile
+	c.Profile = ProfileSettings{}
+	for _, language := range []string{"auto", "en", "pt", "fr"} {
+		for _, extension := range []string{".m4a", ".wav"} {
+			profile := base
+			profile.ID = "asr-" + language + "-" + strings.TrimPrefix(extension, ".")
+			profile.Language = language
+			profile.Extension = extension
+			c.Profiles = append(c.Profiles, profile)
+		}
+	}
+	built, err := buildProfileOwnedRuntimes(context.Background(), c, true, profileRuntimes{defaultVulkanProfileRuntime(), defaultCommunityRuntime()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer built.Close(context.Background())
+	if len(built.Profiles) != 8 || len(built.owners) != 0 {
+		t.Fatalf("profiles=%d owners=%d", len(built.Profiles), len(built.owners))
+	}
+	seen := map[string]bool{}
+	for i, profile := range built.Profiles {
+		if seen[profile.ID] || len(profile.Stages) != 4 || profile.Stages[0].Name != "decode" || profile.Stages[1].Name != "asr-windows" || profile.Stages[2].Name != "transcript" || profile.Stages[3].Name != "vtt" {
+			t.Fatal(i, profile.ID, profile.Stages)
+		}
+		seen[profile.ID] = true
+	}
+	if built.Profiles[0].Stages[0].Version == built.Profiles[1].Stages[0].Version {
+		t.Fatal("M4A and WAV decode identities match")
 	}
 }
 

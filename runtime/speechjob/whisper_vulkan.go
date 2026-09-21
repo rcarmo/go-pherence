@@ -38,8 +38,8 @@ type VulkanWhisperStatus struct {
 // Do not use the encoder through other references or run other global Vulkan
 // clients concurrently. Copies share state. No VulkanInit, models or work start.
 type VulkanWhisperStage struct {
-	s     *vulkanWhisperStageState
-	stage Stage
+	s      *vulkanWhisperStageState
+	stages []Stage
 }
 type vulkanWhisperStageState struct {
 	mu             sync.Mutex
@@ -52,7 +52,18 @@ type vulkanWhisperStageState struct {
 }
 
 func NewVulkanWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer, encoder *whisper.VulkanEncoder, cfg VulkanWhisperStageConfig) (*VulkanWhisperStage, error) {
-	if !cfg.AllowExperimental || !validHash(cfg.BackendSHA256) || cfg.DrainPoll < time.Millisecond || cfg.DrainPoll > 30*time.Second || encoder == nil {
+	return NewVulkanWhisperWindowStages(model, tokenizer, encoder, []VulkanWhisperStageConfig{cfg})
+}
+
+// NewVulkanWhisperWindowStages binds several immutable language profiles to one
+// serial resident encoder owner. All configs must attest the same backend and
+// drain policy. The returned owner closes the encoder exactly once.
+func NewVulkanWhisperWindowStages(model *whisper.Whisper, tokenizer *whisper.Tokenizer, encoder *whisper.VulkanEncoder, cfgs []VulkanWhisperStageConfig) (*VulkanWhisperStage, error) {
+	if len(cfgs) < 1 || len(cfgs) > 32 || encoder == nil {
+		return nil, ErrConfiguration
+	}
+	first := cfgs[0]
+	if !first.AllowExperimental || !validHash(first.BackendSHA256) || first.DrainPoll < time.Millisecond || first.DrainPoll > 30*time.Second {
 		return nil, ErrConfiguration
 	}
 	validate := func() error { return model.ValidatePCMVulkanHostDecoder(context.Background(), encoder) }
@@ -62,17 +73,24 @@ func NewVulkanWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Toke
 	identity, e := json.Marshal(struct {
 		Backend string
 		Stats   whisper.VulkanEncoderStats
-	}{cfg.BackendSHA256, encoder.Stats()})
+	}{first.BackendSHA256, encoder.Stats()})
 	if e != nil {
 		return nil, e
 	}
-	s := newVulkanWhisperOwner(cfg.DrainPoll, vk.VulkanDrain, encoder.Close)
+	s := newVulkanWhisperOwner(first.DrainPoll, vk.VulkanDrain, encoder.Close)
 	binding := &residentStageBinding{identity: hash(identity), validate: validate, encoder: encoder, wrap: s.wrap}
-	st, e := newWhisperWindowStage(model, tokenizer, cfg.Whisper, binding)
-	if e != nil {
-		return nil, e
+	stages := make([]Stage, 0, len(cfgs))
+	for _, cfg := range cfgs {
+		if !cfg.AllowExperimental || cfg.BackendSHA256 != first.BackendSHA256 || cfg.DrainPoll != first.DrainPoll {
+			return nil, ErrConfiguration
+		}
+		st, err := newWhisperWindowStage(model, tokenizer, cfg.Whisper, binding)
+		if err != nil {
+			return nil, err
+		}
+		stages = append(stages, st)
 	}
-	return &VulkanWhisperStage{s: s, stage: st}, nil
+	return &VulkanWhisperStage{s: s, stages: stages}, nil
 }
 func newVulkanWhisperOwner(poll time.Duration, drain func(context.Context, time.Duration) error, closeEncoder func() error) *vulkanWhisperStageState {
 	return &vulkanWhisperStageState{gate: make(chan struct{}, 1), drain: drain, closeEncoder: closeEncoder, poll: poll, quarantineHold: make(chan struct{})}
@@ -81,10 +99,18 @@ func newVulkanWhisperOwner(poll time.Duration, drain func(context.Context, time.
 // Stage returns a copy whose closure retains this owner. Keep the owner handle
 // for Status/Close. Its version differs from host stages even for identical text.
 func (o *VulkanWhisperStage) Stage() Stage {
-	if o == nil {
+	if o == nil || len(o.stages) == 0 {
 		return Stage{}
 	}
-	return o.stage
+	return o.stages[0]
+}
+
+// Stages returns copies of all language-specific stages owned by this encoder.
+func (o *VulkanWhisperStage) Stages() []Stage {
+	if o == nil {
+		return nil
+	}
+	return append([]Stage(nil), o.stages...)
 }
 func (o *VulkanWhisperStage) Status() VulkanWhisperStatus {
 	if o == nil || o.s == nil {

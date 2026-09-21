@@ -55,7 +55,11 @@ func closeCommunityVulkanModel(model interface{ Close() error }, poll time.Durat
 // metadata/values under the server's existing loading resource reservation.
 // Sources close before return; returned models own copies.
 func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (stageOwner, error) {
-	x := c.Profile.Community
+	profiles, err := c.configuredProfiles()
+	if err != nil {
+		return nil, err
+	}
+	x := configuredCommunity(profiles)
 	if x == nil {
 		return nil, nil
 	}
@@ -200,7 +204,11 @@ func prepareCommunity(ctx context.Context, c ServerConfig, r communityRuntime) (
 // inspectCommunityMetadata validates inexpensive exact container headers during
 // --check without loading tensor payloads or PLDA numeric arrays.
 func inspectCommunityMetadata(ctx context.Context, c ServerConfig) error {
-	x := c.Profile.Community
+	profiles, err := c.configuredProfiles()
+	if err != nil {
+		return err
+	}
+	x := configuredCommunity(profiles)
 	if x == nil {
 		return nil
 	}
