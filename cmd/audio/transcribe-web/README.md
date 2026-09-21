@@ -20,9 +20,47 @@ go build -trimpath -o ~/.local/lib/transcribe-web/speechjobserve ./cmd/audio/spe
 go build -trimpath -o ~/.local/lib/transcribe-web/transcribe-web ./cmd/audio/transcribe-web
 ```
 
+### Standalone frontend binary
+
+`transcribe-web` embeds `web/index.html`, `web/app.js` and `web/style.css` through `//go:embed web/*`. Build it from the repository root with the required Go version:
+
+```sh
+mkdir -p dist
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -buildvcs=true -ldflags='-s -w' \
+  -o dist/transcribe-web ./cmd/audio/transcribe-web
+```
+
+The resulting executable needs no `web/` directory or shared C libraries at runtime. Check the build before distribution:
+
+```sh
+file dist/transcribe-web
+ldd dist/transcribe-web                 # expected: not a dynamic executable
+go version -m dist/transcribe-web       # expected: CGO_ENABLED=0
+go test ./cmd/audio/transcribe-web      # reads the embedded assets
+sha256sum dist/transcribe-web
+```
+
+The embedded files are fixed at build time. Rebuild the executable after changing anything under `cmd/audio/transcribe-web/web/`.
+
+This executable contains the trusted-LAN frontend and reverse proxy. It still starts a separate `speechjobserve` executable and requires an administrator-generated JSON configuration. Model weights, model configuration, tokenizer files, Community-1 assets, the job store and queue are external files. Keep their absolute paths in the JSON configuration; do not embed private recordings, credentials or model files.
+
+Run the frontend with absolute child and configuration paths:
+
+```sh
+./dist/transcribe-web \
+  --listen '[::]:8093' \
+  --hosts 'sigma.local:8093,127.0.0.1:8093,localhost:8093' \
+  --backend 'http://127.0.0.1:18093' \
+  --speechjobserve "$HOME/.local/lib/transcribe-web/speechjobserve" \
+  --config "$HOME/.local/lib/transcribe-web/config.json"
+```
+
+`--backend` must use a literal loopback address. `--speechjobserve` and `--config` must name existing absolute regular files; the child executable must have an execute bit.
+
 ## Deployment
 
-The live config is administrator-generated at `~/.local/lib/transcribe-web/config.json`. It contains absolute SHA256-pinned model paths, eight immutable profiles, a private job store, durable queue, resource estimates, the expected Intel Iris Xe device and backend identity. Do not commit local paths or private job data.
+The live config is administrator-generated at `~/.local/lib/transcribe-web/config.json`. It contains absolute SHA256-pinned model paths, sixteen immutable profiles, a private job store, durable queue, resource estimates, the expected Intel Iris Xe device and backend identity. Do not commit local paths or private job data.
 
 Install the unit without starting it:
 
