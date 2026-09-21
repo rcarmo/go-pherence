@@ -12,6 +12,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Use native Laya typed decisions | [Implementation](../model/laya/README.md); [released/native validation](validation/laya-native-20260920.md); [pinned upstream review](validation/laya-upstream-review-20260920.md) |
 | Use native Nimble typed scoring | [Implementation](../model/nimble/README.md); [released/native validation](validation/nimble-native-20260921.md) |
 | Use native Decider typed decisions | [Implementation](../model/decider/README.md); [released/native validation](validation/decider-native-20260921.md) |
+| Use native OpenJEV text NLI/reranking | [Implementation](../model/openjev/README.md); [released/native validation](validation/openjev-native-20260921.md) |
 | Use the native ModernBERT encoder | [Implementation and validation](../model/modernbert/README.md); [numerical/native record](validation/modernbert-native-20260920.md) |
 | Choose a model or checkpoint format | [Supported models](models/supported-models.md) |
 | Select a backend or adjust placement | [Backends](backends/README.md) and [runtime tuning](guides/tuning.md) |

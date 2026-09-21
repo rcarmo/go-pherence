@@ -35,12 +35,14 @@ Use `make gguf-ci-qwen36-reap` for the pinned local Qwen3.6 REAP/TurboQuant gate
 
 [Mapika Decider 0.8B](../../model/decider/README.md) uses the same native Qwen3.5 hybrid runtime with tied embedding/head candidate projection. Ordered Choice, Noul and isolated Score requests reproduce the released prompt tokens and BF16 logits within 0.12; state-first independent scoring is supported, while schema caching, packed questions, FP8, vision and training remain outside the native surface. See the [validation record](../validation/decider-native-20260921.md).
 
+[OpenJEV 0.8B](../../model/openjev/README.md) adds the released three-class sequence head to native Qwen3.5 for text NLI, reranking and reference grading. Four pinned BF16 rows match exact prompt tokens and logits within 0.12. Vision, larger checkpoints, latent MLP heads and shared-prefix batching remain outside the supported surface; see the [validation record](../validation/openjev-native-20260921.md).
+
 | Architecture | Models | Formats | Status |
 |---|---|---|---|
 | **llama** | SmolLM2, LLaMA 3.x | BF16, F16, F32 | ✅ |
 | **qwen2** | Qwen2.5 0.5B–7B | MLX 4-bit, GPTQ 4-bit | ✅ |
 | **qwen3** | Qwen3 0.6B+ | MLX 4-bit, BF16 | ✅ |
-| **qwen3_5_text** | Qwen3.5 hybrid text, Bespoke Nimble 9B, Mapika Decider 0.8B | HF safetensors BF16, MLX 4-bit | ✅ native hybrid linear/full attention; task packages provide pinned prompt and candidate-head contracts |
+| **qwen3_5_text** | Qwen3.5 hybrid text, Bespoke Nimble 9B, Mapika Decider 0.8B, OpenJEV 0.8B | HF safetensors BF16, MLX 4-bit | ✅ native hybrid linear/full attention; task packages provide pinned prompt, candidate-head or sequence-head contracts |
 | **qwen3_moe** | Qwen3-30B-A3B MoE, Qwen3.6 REAP-pruned MoE route masks | MLX 4-bit; GGUF Q4_K/Q6_K REAP checkpoints | ✅ pure Go/SIMD MoE routing + optional static REAP expert masks; native GGUF inspect/smoke/bench/validation via `cmd/models/ggufinspect`, `cmd/models/ggufsmoke`, and `make gguf-ci-qwen36-reap`, including required SIMD rotation readiness plus TurboQuant KV/scratch/aggregate assertions |
 | **gemma3** | Gemma 3 1B+ | MLX 4-bit, BF16 | ✅ |
 | **gemma4** | Gemma 4 E2B+ | MLX 4-bit | ✅ |
