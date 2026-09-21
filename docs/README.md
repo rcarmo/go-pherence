@@ -8,6 +8,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Use the embedded llama.cpp UI | [Build, hosting and limits](../webui/README.md); [validation](validation/embedded-llama-ui-20260920.md) |
 | Run/train Needle 3 or Needle 2 | [Native baseline and outstanding deployment work](../model/needle/README.md); [bounded tool calls](guides/needle-tool-calls.md); [second allocation audit](validation/needle-allocation-pass2-20260920.md) |
 | Run DiffusionGemma text generation/server | [FP8 end-to-end CPU validation](validation/diffusiongemma-fp8-end-to-end-20260920.md); [model/runtime limits](../model/diffusiongemma/README.md) |
+| Run Qwen Image 2.1 CPU generation | [Implementation](../model/qwenimage21/README.md); [pinned end-to-end validation](validation/qwen-image-2.1-native-20260921.md) |
 | Review queued simple-jev support | [Pinned upstream/licensing review](validation/simple-jev-upstream-review-20260920.md) |
 | Use native Laya typed decisions | [Implementation](../model/laya/README.md); [released/native validation](validation/laya-native-20260920.md); [pinned upstream review](validation/laya-upstream-review-20260920.md) |
 | Use native Nimble typed scoring | [Implementation](../model/nimble/README.md); [released/native validation](validation/nimble-native-20260921.md) |
