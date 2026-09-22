@@ -25,13 +25,17 @@ func TestDecoder12HzExecutionContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if contract.MaxFrames != 2 || contract.CodesPerFrame != 15 || contract.SamplesPerFrame != 2000 || contract.MaxSamples != 4000 {
+	if contract.MaxFrames != 2 || contract.CodesPerFrame != 16 || contract.AcousticPerFrame != 15 || contract.SamplesPerFrame != 1920 || contract.MaxDecoderCodes != 32 || contract.MaxAcousticCodes != 30 || contract.MaxSamples != 3840 {
 		t.Fatalf("contract=%+v", contract)
 	}
-	if err := contract.ValidateInput(make([]uint32, 30)); err != nil {
+	codes, err := contract.JoinInput([]uint32{1, 2}, make([]uint32, 30))
+	if err != nil || len(codes) != 32 {
+		t.Fatalf("joined codes=%d err=%v", len(codes), err)
+	}
+	if err := contract.ValidateInput(codes); err != nil {
 		t.Fatal(err)
 	}
-	if err := contract.ValidateOutput(make([]float32, 4000)); err != nil {
+	if err := contract.ValidateOutputForFrames(make([]float32, 3840), 2); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,12 +52,12 @@ func TestDecoder12HzExecutionContractRejectsMalformed(t *testing.T) {
 	if err := contract.ValidateInput([]uint32{1, 2, 3}); err == nil {
 		t.Fatal("expected partial acoustic frame error")
 	}
-	tooManyCodes := make([]uint32, contract.MaxAcousticCodes+contract.CodesPerFrame)
+	tooManyCodes := make([]uint32, contract.MaxDecoderCodes+contract.CodesPerFrame)
 	if err := contract.ValidateInput(tooManyCodes); err == nil {
 		t.Fatal("expected max acoustic input error")
 	}
 	badCodes := make([]uint32, contract.CodesPerFrame)
-	badCodes[0] = uint32(contract.DecoderInput.CodecVocab)
+	badCodes[1] = uint32(contract.DecoderInput.CodecVocab)
 	if err := contract.ValidateInput(badCodes); err == nil {
 		t.Fatal("expected acoustic vocab error")
 	}
@@ -65,5 +69,8 @@ func TestDecoder12HzExecutionContractRejectsMalformed(t *testing.T) {
 	}
 	if err := contract.ValidateOutput(make([]float32, contract.MaxSamples+contract.SamplesPerFrame)); err == nil {
 		t.Fatal("expected max sample output error")
+	}
+	if err := contract.ValidateOutputForFrames(make([]float32, contract.MaxSamples), 1); err == nil {
+		t.Fatal("expected frame-exact sample output error")
 	}
 }

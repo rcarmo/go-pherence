@@ -17,10 +17,11 @@ type CodePredictorRuntime interface {
 	PredictAcoustic(plan RuntimeRequestPlan, semantic []uint32) ([]uint32, error)
 }
 
-// Decoder12HzRuntime is the CPU/reference waveform boundary. It consumes
-// flattened acoustic codebook IDs and returns mono PCM float samples at 24kHz.
+// Decoder12HzRuntime is the CPU/reference waveform boundary. It joins Talker
+// semantic group 0 with flattened CodePredictor acoustic groups 1..15 and
+// returns mono PCM float samples at 24kHz.
 type Decoder12HzRuntime interface {
-	DecodeWaveform(plan RuntimeRequestPlan, acoustic []uint32) ([]float32, error)
+	DecodeWaveform(plan RuntimeRequestPlan, semantic, acoustic []uint32) ([]float32, error)
 }
 
 // RuntimePipeline groups the three execution stages under one contract. The
@@ -44,6 +45,6 @@ func (NotImplementedRuntime) PredictAcoustic(RuntimeRequestPlan, []uint32) ([]ui
 	return nil, ErrRuntimeNotImplemented
 }
 
-func (NotImplementedRuntime) DecodeWaveform(RuntimeRequestPlan, []uint32) ([]float32, error) {
+func (NotImplementedRuntime) DecodeWaveform(RuntimeRequestPlan, []uint32, []uint32) ([]float32, error) {
 	return nil, ErrRuntimeNotImplemented
 }

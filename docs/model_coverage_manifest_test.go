@@ -45,7 +45,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		}
 	}
 	qwen := m.Families["qwen3_tts"].Coverage
-	if !qwen["pipeline_plan"] || qwen["cpu_talker_runtime"] {
+	if !qwen["pipeline_plan"] || qwen["cpu_talker_runtime"] || qwen["cpu_code_predictor_runtime"] || !qwen["decoder12hz_runtime"] {
 		t.Fatalf("unexpected qwen3_tts coverage: %+v", qwen)
 	}
 	for key, path := range map[string]string{
@@ -113,6 +113,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		"code_predictor_execution_contract": "../model/qwen3tts/code_predictor_contract.go",
 		"prompt_runtime_layout":             "../model/qwen3tts/prompt_runtime.go",
 		"embedding_layout":                  "../model/qwen3tts/embedding_layout.go",
+		"decoder12hz_runtime":               "../model/qwen3tts/decoder12hz_cpu.go",
 	} {
 		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
 	}

@@ -84,7 +84,7 @@
         "decoded_wav_reference_fixture": true,
         "cpu_talker_runtime": false,
         "cpu_code_predictor_runtime": false,
-        "decoder12hz_runtime": false,
+        "decoder12hz_runtime": true,
         "nvidia_runtime": false,
         "streaming_runtime": false
       },

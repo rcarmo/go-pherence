@@ -98,7 +98,7 @@ bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/mi
 
 ## Qwen3-TTS
 
-Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, inspector coverage, and the dense F32 CustomVoice Talker first-token path are implemented. Multi-frame semantic generation, acoustic prediction, and audio generation are not implemented.
+Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, inspector coverage, the dense F32 CustomVoice Talker first-token path, and an owned-F32 Decoder12Hz/24 kHz WAV slice are implemented. Multi-frame semantic generation and CodePredictor acoustic generation remain pending; released decoder parity is not claimed.
 
 Implemented package/command surface:
 
@@ -126,8 +126,9 @@ Implemented package/command surface:
 - `model/qwen3tts/frame.go` — semantic-group plus 15-code acoustic frame layout validation.
 - `model/qwen3tts/code_predictor_heads.go` — 15 acoustic-head logits layout and validation contract.
 - `model/qwen3tts/decoder_input.go` — acoustic-codebook tensor contract passed into Decoder12Hz.
-- `model/qwen3tts/decoder_contract.go` — validation-only Decoder12Hz input/output contract for acoustic codes and mono PCM sample counts.
-- `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
+- `model/qwen3tts/decoder_contract.go` — Decoder12Hz contract that explicitly joins semantic group 0 with 15 CodePredictor acoustic groups.
+- `model/qwen3tts/decoder12hz_cpu.go`, `decoder12hz_forward.go` — owned-F32 normalized codebooks, causal pre-transformer, ConvNeXt/BigVGAN upsampling, SnakeBeta, and exact 1920-sample/frame CPU decoding.
+- `model/qwen3tts/waveform.go`, `wav.go` — exact topology sizing plus exclusive 24 kHz mono PCM16 WAV output.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/runtime_request.go` — validation-only synthesis request plan tying conditioning, prompt runtime layout, decoder input, waveform sizing, and output limits.
 - `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
@@ -165,9 +166,8 @@ Remaining coverage before runtime implementation:
 
 Runtime work still pending:
 
-- CPU Talker path.
-- CPU CodePredictor path with short KV cache.
-- Decoder12Hz and WAV output.
+- Pinned independent Talker and Decoder12Hz released-checkpoint parity.
+- CPU CodePredictor path with short KV cache and multi-frame Talker continuation.
 - NVIDIA acceleration and streaming after CPU/reference parity.
 
 ## LFM2.5-8B-A1B

@@ -53,7 +53,7 @@ func (c PipelineExecutionContract) Validate() error {
 	if c.Talker.MaxTokens != c.Plan.MaxFrames || c.CodePredictor.MaxFrames != c.Plan.MaxFrames || c.Decoder12Hz.MaxFrames != c.Plan.MaxFrames {
 		return ErrPipelineContractMismatch
 	}
-	if c.CodePredictor.CodesPerFrame != c.Decoder12Hz.CodesPerFrame || c.CodePredictor.MaxAcousticCodes != c.Decoder12Hz.MaxAcousticCodes {
+	if c.CodePredictor.CodesPerFrame != c.Decoder12Hz.AcousticPerFrame || c.CodePredictor.MaxAcousticCodes != c.Decoder12Hz.MaxAcousticCodes {
 		return ErrPipelineContractMismatch
 	}
 	if c.Decoder12Hz.MaxSamples != c.Plan.MaxSamples {
@@ -75,8 +75,12 @@ func (c PipelineExecutionContract) ValidateStageOutputs(semantic []uint32, acous
 	if err := c.CodePredictor.ValidateOutput(acoustic); err != nil {
 		return err
 	}
-	if err := c.Decoder12Hz.ValidateInput(acoustic); err != nil {
+	codes, err := c.Decoder12Hz.JoinInput(semantic, acoustic)
+	if err != nil {
 		return err
 	}
-	return c.Decoder12Hz.ValidateOutput(samples)
+	if err := c.Decoder12Hz.ValidateInput(codes); err != nil {
+		return err
+	}
+	return c.Decoder12Hz.ValidateOutputForFrames(samples, len(semantic))
 }

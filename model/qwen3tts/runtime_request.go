@@ -55,11 +55,10 @@ func NewRuntimeRequestPlan(cfg ParsedConfig, req RuntimeRequest) (RuntimeRequest
 	}
 	maxFrames := req.MaxFrames
 	if maxFrames == 0 && req.MaxSeconds > 0 {
-		frames := req.MaxSeconds * float64(decoderInput.FrameRateHz)
-		if frames >= float64(int(^uint(0)>>1)) {
-			return RuntimeRequestPlan{}, fmt.Errorf("Qwen3-TTS max seconds overflows frame count")
+		maxFrames, err = waveform.FramesForSeconds(req.MaxSeconds)
+		if err != nil {
+			return RuntimeRequestPlan{}, err
 		}
-		maxFrames = int(frames)
 	}
 	if maxFrames <= 0 {
 		return RuntimeRequestPlan{}, fmt.Errorf("invalid Qwen3-TTS max frames=%d max_seconds=%g", req.MaxFrames, req.MaxSeconds)
@@ -68,7 +67,7 @@ func NewRuntimeRequestPlan(cfg ParsedConfig, req RuntimeRequest) (RuntimeRequest
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
-	maxCodes, err := decoderInput.CodesForFrames(maxFrames)
+	maxCodes, err := decoderInput.AcousticCodesForFrames(maxFrames)
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
@@ -103,7 +102,7 @@ func (p RuntimeRequestPlan) Validate() error {
 	if p.MaxSamples != wantSamples {
 		return fmt.Errorf("invalid Qwen3-TTS request samples=%d want=%d", p.MaxSamples, wantSamples)
 	}
-	wantCodes, err := p.DecoderInput.CodesForFrames(p.MaxFrames)
+	wantCodes, err := p.DecoderInput.AcousticCodesForFrames(p.MaxFrames)
 	if err != nil {
 		return err
 	}

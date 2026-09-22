@@ -82,8 +82,8 @@ Start with `0.6B CustomVoice` because it avoids ECAPA/reference-codec front-end 
 - `model/qwen3tts` covers TTS-specific config parsing, token constants, tensor-group inventory, deterministic CustomVoice prefix IDs, owned F32 Talker weight binding, CustomVoice prefill, GQA/RoPE execution, token suppression, and greedy first-semantic-token generation.
 - Multi-frame Talker continuation depends on the CodePredictor's 15 acoustic embeddings and remains part of Phase T3.
 - No native TTS code predictor package with 15 acoustic heads and compact per-frame KV-cache reuse.
-- No `Decoder12Hz` / speech-tokenizer decoder or encoder implementation.
-- No Qwen3-TTS CLI, synthesis options, streaming interface, WAV writer integration, or audio fixture suite.
+- An owned-F32 CPU `Decoder12Hz` path now binds normalized 16-codebook tables, the eight-layer causal pre-transformer, ConvNeXt and BigVGAN-style transposed-convolution stages, and emits exact 1920-sample/frame 24 kHz mono PCM plus exclusive PCM16 WAV files. Pinned released-tokenizer numeric parity remains pending.
+- No Qwen3-TTS synthesis CLI or streaming interface yet; the CodePredictor still blocks complete text-to-WAV synthesis.
 - Existing speaker embedding code may not be weight-compatible with Qwen3-TTS Base checkpoints without explicit tensor-name and preprocessing parity work.
 
 ## Proposed package layout
@@ -196,10 +196,10 @@ Acceptance:
 
 Goal: produce audio for `0.6B CustomVoice`.
 
-- [ ] Inventory decoder/speech-tokenizer tensor names and map ConvNeXt/transposed-convolution blocks.
-- [ ] Implement a CPU F32 reference decoder first.
-- [ ] Add PCM16 WAV writing or reuse existing audio output helpers.
-- [ ] Add numerical summaries for decoded waveform fixtures: sample rate, duration, min/max/RMS, short hash, optional spectrogram hash.
+- [x] Inventory decoder/speech-tokenizer tensor names and map codebooks, causal transformer, ConvNeXt, SnakeBeta, residual, and transposed-convolution blocks.
+- [x] Implement an owned-F32 CPU reference decoder with exact causal padding/right trimming and 1920× topology output geometry.
+- [x] Add exclusive 24 kHz mono PCM16 WAV writing with finite/range/partial-output checks.
+- [ ] Add pinned released-tokenizer numerical summaries: sample rate, duration, min/max/RMS, short hash, and optional spectrogram hash.
 
 Acceptance:
 
@@ -251,4 +251,4 @@ GOTMPDIR=$PWD/.gotmp go vet ./...
 
 ## Immediate next action
 
-Implement Phase T0/T1 together: config/token/prefix support plus `cmd/qwen/qwen3ttsinspect`. That gives us a safe, testable landing zone before any heavy decoder or codec work.
+Implement the Phase T3 CodePredictor CPU reference so the existing Talker first-token and Decoder12Hz CPU slices can compose into a short model-free synthesis pipeline. Keep released-checkpoint parity approval-gated.

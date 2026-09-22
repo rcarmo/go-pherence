@@ -28,10 +28,10 @@ func TestPipelineExecutionContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if contract.Talker.MaxTokens != 2 || contract.CodePredictor.MaxAcousticCodes != 30 || contract.Decoder12Hz.MaxSamples != 4000 {
+	if contract.Talker.MaxTokens != 2 || contract.CodePredictor.MaxAcousticCodes != 30 || contract.Decoder12Hz.MaxDecoderCodes != 32 || contract.Decoder12Hz.MaxSamples != 3840 {
 		t.Fatalf("contract=%+v", contract)
 	}
-	if err := contract.ValidateStageOutputs([]uint32{0, 1}, make([]uint32, 30), make([]float32, 4000)); err != nil {
+	if err := contract.ValidateStageOutputs([]uint32{0, 1}, make([]uint32, 30), make([]float32, 3840)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -58,13 +58,16 @@ func TestPipelineExecutionContractRejectsMalformedStageOutputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := contract.ValidateStageOutputs([]uint32{0, 1, 2}, make([]uint32, 30), make([]float32, 4000)); err == nil {
+	if err := contract.ValidateStageOutputs([]uint32{0, 1, 2}, make([]uint32, 30), make([]float32, 3840)); err == nil {
 		t.Fatal("expected semantic output error")
 	}
-	if err := contract.ValidateStageOutputs([]uint32{0, 1}, []uint32{1, 2, 3}, make([]float32, 4000)); err == nil {
+	if err := contract.ValidateStageOutputs([]uint32{0, 1}, []uint32{1, 2, 3}, make([]float32, 3840)); err == nil {
 		t.Fatal("expected acoustic output error")
 	}
-	if err := contract.ValidateStageOutputs([]uint32{0, 1}, make([]uint32, 30), make([]float32, 2001)); err == nil {
+	if err := contract.ValidateStageOutputs([]uint32{0, 1}, make([]uint32, 30), make([]float32, 1921)); err == nil {
 		t.Fatal("expected waveform output error")
+	}
+	if err := contract.ValidateStageOutputs([]uint32{0}, make([]uint32, 15), make([]float32, 3840)); err == nil {
+		t.Fatal("expected frame-exact waveform output error")
 	}
 }
