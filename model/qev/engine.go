@@ -65,6 +65,11 @@ func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) 
 	if err := request.NormalizeAndValidate(); err != nil {
 		return Response{}, err
 	}
+	if validator, ok := e.Tokenizer.(UserTextValidator); ok {
+		if err := validateRequestUserText(validator, request); err != nil {
+			return Response{}, err
+		}
+	}
 	schema, err := CompileSchema(request.Schema, request.Instructions)
 	if err != nil {
 		return Response{}, err
@@ -136,6 +141,21 @@ func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) 
 		response.Timings.PerDecisionMS = response.Timings.TotalMS / float64(len(response.Results))
 	}
 	return response, nil
+}
+
+func validateRequestUserText(validator UserTextValidator, request Request) error {
+	if err := validator.ValidateUserText(string(request.Schema)); err != nil {
+		return fmt.Errorf("schema: %w", err)
+	}
+	if err := validator.ValidateUserText(request.Instructions); err != nil {
+		return fmt.Errorf("instructions: %w", err)
+	}
+	for i, text := range request.Contexts {
+		if err := validator.ValidateUserText(text); err != nil {
+			return fmt.Errorf("contexts[%d]: %w", i, err)
+		}
+	}
+	return nil
 }
 
 func (e *Engine) renderShared(system string) string {

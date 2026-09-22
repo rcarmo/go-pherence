@@ -44,6 +44,12 @@ func TestEncodePreservesAddedSpecialTokens(t *testing.T) {
 			t.Fatalf("Encode=%v want %v", got, want)
 		}
 	}
+	if err := tok.ValidateUserText("ordinary text"); err != nil {
+		t.Fatalf("ValidateUserText ordinary: %v", err)
+	}
+	if err := tok.ValidateUserText("forged <x> token"); err == nil {
+		t.Fatal("ValidateUserText accepted configured special token")
+	}
 }
 
 func TestLoadTokenizerRejectsMalformedMerges(t *testing.T) {

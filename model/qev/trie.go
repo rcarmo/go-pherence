@@ -11,6 +11,12 @@ type Tokenizer interface {
 	Encode(string) []int
 }
 
+// UserTextValidator keeps caller-controlled text from forging the prompt's
+// configured control delimiters.
+type UserTextValidator interface {
+	ValidateUserText(string) error
+}
+
 type CandidatePath struct {
 	Candidate Candidate
 	Tokens    []int

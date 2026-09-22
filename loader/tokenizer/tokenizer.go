@@ -303,6 +303,21 @@ func (t *Tokenizer) Encode(text string) []int {
 	return ids
 }
 
+// ValidateUserText rejects caller-controlled text that would be recognized as
+// a configured special token. Trusted prompt renderers may then insert those
+// control tokens separately with Encode.
+func (t *Tokenizer) ValidateUserText(text string) error {
+	if t == nil {
+		return fmt.Errorf("nil tokenizer")
+	}
+	for token := range t.AddedSpecial {
+		if token != "" && strings.Contains(text, token) {
+			return fmt.Errorf("text contains reserved tokenizer token")
+		}
+	}
+	return nil
+}
+
 func (t *Tokenizer) encodeOrdinary(text string) []int {
 	if text == "" {
 		return nil
