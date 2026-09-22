@@ -21,6 +21,12 @@ func TestBuildVisionExecutionPlan(t *testing.T) {
 	if got := findVisionOp(plan, "patch_embedding"); got == nil || !got.Ready {
 		t.Fatalf("patch op not ready: %+v", plan.Ops)
 	}
+	if got := findVisionOp(plan, "siglip_cpu_reference"); got == nil || !got.Ready {
+		t.Fatalf("SigLIP reference op not ready: %+v", plan.Ops)
+	}
+	if got := findVisionOp(plan, "eva_cpu_reference"); got == nil || got.Ready || got.Reason == "" {
+		t.Fatalf("EVA reference should remain pending: %+v", plan.Ops)
+	}
 	if got := findVisionOp(plan, "language_embedding_injection"); got == nil || got.Ready || got.Reason == "" {
 		t.Fatalf("injection op should be pending: %+v", plan.Ops)
 	}

@@ -41,6 +41,10 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - exact RMSNorm, causal GQA/RoPE, SwiGLU, Qwen2 Q/K/V biases, MiniCPM embedding/depth/logit scaling, and tied/untied LM heads
   - request-local clonable KV state, one-token hidden/logit output, and deterministic greedy decode from injected embeddings
   - synthetic coverage for all three variants; released-checkpoint parity remains pending
+- SigLIP vision CPU reference:
+  - owned-F32 `vpm.embeddings`, `vpm.encoder.layers.*`, and post-LayerNorm tensor binding
+  - Conv2D patch embedding, positional embeddings, full multi-head self-attention, pre-LayerNorm residual blocks, and tanh-GELU MLP
+  - synthetic patch/token execution with strict shape, policy, ownership, determinism, and non-finite checks; EVA02 and released-model vision parity remain pending
 - Embedding boundary:
   - validated replacement of planned image patch token embeddings with resampler outputs
   - validated replacement of planned MiniCPM-O audio patch token embeddings with future audio outputs

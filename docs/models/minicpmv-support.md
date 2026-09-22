@@ -48,6 +48,10 @@ make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under 
   - Binds dense MiniCPM and Qwen2 `llm.*` tensors plus legacy root-level Mistral tensors into owned F32 weights.
   - Implements request-local KV state, token or injected-embedding input, causal GQA/RoPE, RMSNorm, SwiGLU, exact MiniCPM scaling, Qwen2 Q/K/V biases, tied/untied LM heads, and deterministic greedy decoding.
   - Synthetic tests cover all three text variants, strict shape/policy/state rejection, ownership, determinism, and non-finite input/weight failures; released-checkpoint parity remains open.
+- SigLIP vision-tower correctness-first CPU slice.
+  - Binds official `vpm.embeddings`, `vpm.encoder.layers.*`, and `vpm.post_layernorm` tensors into owned F32 weights.
+  - Implements Conv2D patch embedding, learned positional embeddings, full multi-head self-attention, affine LayerNorm, tanh-GELU MLP blocks, residuals, and final token LayerNorm.
+  - Synthetic tests cover patch/token output, nonzero attention, ownership, determinism, malformed shapes/policies, and non-finite pixels; EVA02 and released-checkpoint SigLIP parity remain open.
 - Support/capability summary APIs (`minicpmv.CurrentSupportSummary`, `minicpmv.CurrentCapabilities`, `minicpmv.ValidateSupportSummary`) that mark implemented scaffold surfaces true, numeric runtime/end-to-end generation surfaces false, validate that contract, and report the runtime roadmap path plus bounded pending runtime steps until execution lands.
 - Combined readiness report summarizing metadata, tensor inventory, shape validation, runtime readiness, and bounded blocker details for inspector/CI consumers.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
@@ -132,7 +136,8 @@ The original OpenBMB code path is:
 Not implemented yet:
 
 - MiniCPM-O audio encoder tensor loading/execution.
-- Full EVA02/SigLIP vision tower tensor loading/execution.
+- EVA02 vision tower tensor loading/execution.
+- Independent pinned released-model SigLIP feature parity.
 - Resampler tensor loading/execution beyond tensor-name inventory.
 - Applying full checkpoint chat templates and tokenizing natural-language conversations end-to-end.
 - Independent pinned released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.

@@ -17,14 +17,16 @@ Implemented:
 - Image/audio embedding injection boundary helpers.
 - Runtime interfaces that return `ErrRuntimeNotImplemented` for unbound stages.
 - Owned-F32 MiniCPM, Qwen2, and Mistral dense text binding with request-local KV state, one-token hidden/logit execution, embedding-prefix greedy decoding, GQA/RoPE/RMSNorm/SwiGLU, Qwen2 Q/K/V bias handling, MiniCPM embedding/depth/logit scaling, and tied/untied LM heads.
-- Synthetic tests for the three text variants, malformed shapes/policies/state, ownership, determinism, and non-finite input/weights.
+- Owned-F32 SigLIP patch embedding and transformer execution with full attention, affine LayerNorm, tanh-GELU MLP, positional embeddings, and synthetic token output.
+- Synthetic tests for the three text variants and SigLIP vision slice, including malformed shapes/policies/state, ownership, determinism, and non-finite input/weights.
 - `minicpmvinspect`, fixture helpers, capability/status reports, and Makefile gates.
 
 Not implemented:
 
 - Pinned independent released-checkpoint text hidden/logit parity.
 - Sampling policies beyond deterministic greedy decoding.
-- Numeric EVA02/SigLIP vision tower.
+- Numeric EVA02 vision tower.
+- Pinned independent released-checkpoint SigLIP vision parity.
 - Numeric perceiver resampler/KV projection.
 - Numeric MiniCPM-O audio frontend/encoder.
 - End-to-end generation and parity gates.
@@ -37,10 +39,10 @@ Not implemented:
    - Runs one-token synthetic hidden-state/logit tests without vision/audio and supports deterministic greedy decode from injected embeddings.
    - Remaining gate: approved, pinned, independently generated released-checkpoint hidden/logit fixtures.
 
-2. **Vision tower execution**
-   - Implement EVA02/SigLIP patch embedding, transformer blocks, and selected output-token extraction.
-   - Use `PreprocessImageFile` and `BuildVisionExecutionPlan` as the input/plan boundary.
-   - First gate: synthetic image tensor shape smoke, then local real-image feature checksum fixture.
+2. **Vision tower execution — SigLIP CPU/synthetic slice complete**
+   - SigLIP patch embedding, learned positional embedding, transformer blocks, and post-LayerNorm output are implemented.
+   - `PreprocessImageFile` and `BuildVisionExecutionPlan` remain the input/plan boundary.
+   - Synthetic image tensor execution is covered. EVA02 execution and an approved independent real-image feature checksum fixture remain open.
 
 3. **Resampler execution**
    - Bind resampler query, optional position embedding, attention projection, KV projection, norm, and MLP tensors.

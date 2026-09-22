@@ -81,15 +81,19 @@ type MiniCPMVTextConfig struct {
 }
 
 type MiniCPMVVisionConfig struct {
-	ModelType         string `json:"model_type"`
-	HiddenSize        int    `json:"hidden_size"`
-	ImageSize         int    `json:"image_size"`
-	PatchSize         int    `json:"patch_size"`
-	NumHiddenLayers   int    `json:"num_hidden_layers"`
-	NumAttentionHeads int    `json:"num_attention_heads"`
-	IntermediateSize  int    `json:"intermediate_size"`
-	ProjectionDim     int    `json:"projection_dim"`
-	DType             string `json:"torch_dtype"`
+	ModelType         string  `json:"model_type"`
+	HiddenSize        int     `json:"hidden_size"`
+	ImageSize         int     `json:"image_size"`
+	PatchSize         int     `json:"patch_size"`
+	NumChannels       int     `json:"num_channels"`
+	NumHiddenLayers   int     `json:"num_hidden_layers"`
+	NumAttentionHeads int     `json:"num_attention_heads"`
+	IntermediateSize  int     `json:"intermediate_size"`
+	ProjectionDim     int     `json:"projection_dim"`
+	HiddenAct         string  `json:"hidden_act"`
+	LayerNormEps      float64 `json:"layer_norm_eps"`
+	AttentionDropout  float64 `json:"attention_dropout"`
+	DType             string  `json:"torch_dtype"`
 }
 
 type MiniCPMOAudioConfig struct {

@@ -57,7 +57,9 @@ func BuildVisionExecutionPlan(summary config.MiniCPMVSummary, tensors *TensorInv
 	}
 	add("image_preprocess_bchw", plan.ImageSize > 0 && plan.PatchSize > 0, "missing image/patch size")
 	add("patch_embedding", hasVision && plan.PatchGrid > 0, "vision patch embedding tensors or patch grid missing")
-	add("vision_transformer", hasVision && summary.VisionLayers > 0 && summary.VisionHiddenSize > 0, "vision tower tensor metadata or dimensions missing")
+	add("siglip_cpu_reference", IsLikelySigLIPVision(summary) && hasVision && summary.VisionLayers > 0 && summary.VisionHiddenSize > 0, "SigLIP tensor metadata or dimensions missing")
+	add("eva_cpu_reference", false, "EVA02 tensor execution pending")
+	add("vision_transformer", false, "SigLIP synthetic execution implemented; EVA02 and released-model parity pending")
 	add("vision_token_select", true, "")
 	add("resampler_queries", hasResampler && summary.NumQuery > 0, "resampler query tensors or num_query missing")
 	add("resampler_cross_attention", hasResampler && summary.ResamplerHeads > 0, "resampler attention tensors or heads missing")
