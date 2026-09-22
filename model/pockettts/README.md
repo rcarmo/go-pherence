@@ -18,4 +18,4 @@ Implemented:
 - F32-owned `SimpleMLPAdaLN` reverse-mode gradients, exact forward-mode time JVPs and reverse-over-JVP mixed derivatives, with pinned upstream PyTorch parity;
 - deterministic AdamW, EMA and directory-durable checkpoint/resume state for the frozen topology.
 
-The full LSD `s→t` JVP term, transformer backward, latent precomputation and teacher/student distillation are still open. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
+The normalized LSD `s→t` term now includes exact mixed derivatives and the upstream minimal stop-gradient endpoint rule. Transformer backward, latent precomputation and teacher/student distillation are still open. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.

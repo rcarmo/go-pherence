@@ -17,6 +17,8 @@ import torch
 from torch import nn
 
 from pocket_tts.modules.mlp import SimpleMLPAdaLN, TimestepEmbedder
+from training.modules.samplers import LSD
+from training.modules.utils import f_grad_x_only
 
 UPSTREAM_REVISION = "0acce6b2f390150267557770d2098c5caa9a18ac"
 
@@ -26,12 +28,25 @@ actual_revision = subprocess.check_output(
 ).strip()
 if actual_revision != UPSTREAM_REVISION:
     raise SystemExit(f"upstream revision {actual_revision}, want {UPSTREAM_REVISION}")
-module_path = Path(inspect.getfile(SimpleMLPAdaLN)).resolve()
-expected_module = checkout / "pocket_tts" / "modules" / "mlp.py"
-if module_path != expected_module:
-    raise SystemExit(f"imported {module_path}, want {expected_module}")
+imports = {
+    Path(inspect.getfile(SimpleMLPAdaLN)).resolve(): checkout / "pocket_tts" / "modules" / "mlp.py",
+    Path(inspect.getfile(LSD)).resolve(): checkout / "training" / "modules" / "samplers.py",
+    Path(inspect.getfile(f_grad_x_only)).resolve(): checkout / "training" / "modules" / "utils.py",
+}
+for actual, expected in imports.items():
+    if actual != expected:
+        raise SystemExit(f"imported {actual}, want {expected}")
 subprocess.run(
-    ["git", "diff", "--quiet", "HEAD", "--", "pocket_tts/modules/mlp.py"],
+    [
+        "git",
+        "diff",
+        "--quiet",
+        "HEAD",
+        "--",
+        "pocket_tts/modules/mlp.py",
+        "training/modules/samplers.py",
+        "training/modules/utils.py",
+    ],
     cwd=checkout,
     check=True,
 )
@@ -145,6 +160,57 @@ for time_index in range(2):
         }
     )
 
+model.zero_grad(set_to_none=True)
+condition.grad = None
+s = torch.tensor([0.25], dtype=torch.float32, requires_grad=True)
+t = torch.tensor([0.8], dtype=torch.float32, requires_grad=True)
+noise = torch.tensor([-0.4, 0.7], dtype=torch.float32, requires_grad=True)
+target = torch.tensor([0.6, -0.2], dtype=torch.float32, requires_grad=True)
+logvar = torch.tensor(0.12, dtype=torch.float32, requires_grad=True)
+x_s = s * target + (1 - s) * noise
+
+
+def primary(s_value: torch.Tensor, t_value: torch.Tensor, x_value: torch.Tensor) -> torch.Tensor:
+    return model(condition, s_value, t_value, x_value)
+
+
+velocity, time_derivative = torch.func.jvp(
+    primary,
+    (s, t, x_s),
+    (torch.zeros_like(s), torch.ones_like(t), torch.zeros_like(x_s)),
+)
+x_t = x_s + (t - s) * velocity
+dxdt = velocity + (t - s) * time_derivative
+endpoint = f_grad_x_only(lambda y: model(condition, t, t, y), x_t)
+residual = dxdt - endpoint
+raw_square = residual.square().sum()
+lsd_loss = raw_square * logvar.exp() / noise.shape[-1] - logvar
+lsd_loss.backward()
+lsd = {
+    "s": s.detach().item(),
+    "t": t.detach().item(),
+    "condition": condition.detach().tolist(),
+    "noise": noise.detach().tolist(),
+    "target": target.detach().tolist(),
+    "log_variance": logvar.detach().item(),
+    "velocity": velocity.detach().tolist(),
+    "time_derivative": time_derivative.detach().tolist(),
+    "endpoint": endpoint.detach().tolist(),
+    "residual": residual.detach().tolist(),
+    "raw_square": raw_square.detach().item(),
+    "loss": lsd_loss.detach().item(),
+    "d_condition": condition.grad.detach().tolist(),
+    "d_s": s.grad.detach().item(),
+    "d_t": t.grad.detach().item(),
+    "d_noise": noise.grad.detach().tolist(),
+    "d_target": target.grad.detach().tolist(),
+    "d_log_variance": logvar.grad.detach().item(),
+    "gradients": {
+        name: value.grad.detach().flatten().tolist()
+        for name, value in model.named_parameters()
+    },
+}
+
 fixture = {
     "schema": 1,
     "generator": f"pocket-tts .venv/bin/python (torch {torch.__version__})",
@@ -165,5 +231,6 @@ fixture = {
     },
     "gradients": ordinary_gradients,
     "mixed": mixed,
+    "lsd_minimal": lsd,
 }
 print(json.dumps(fixture, indent=2))
