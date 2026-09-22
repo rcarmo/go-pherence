@@ -90,7 +90,7 @@ func flowLMTrainingFromOracle(t *testing.T, oracle flowLMTrainingOracle) *FlowLM
 	}
 	transformerOracle.Parameters["final.weight"], transformerOracle.Parameters["final.bias"] = p["out_norm.weight"], p["out_norm.bias"]
 	transformer := transformerFromOracle(t, transformerOracle)
-	return &FlowLMTrainingCPU{Embedding: append([]float32(nil), p["conditioner.embed.weight"]...), Vocabulary: oracle.Vocabulary, Hidden: oracle.Hidden, LatentDim: oracle.LatentDim, BOS: append([]float32(nil), p["bos_emb"]...), BOSBeforeVoice: append([]float32(nil), p["bos_before_voice"]...), SpeakerProjection: LinearF32{Weight: append([]float32(nil), p["speaker_proj_weight"]...), In: oracle.LatentDim, Out: oracle.Hidden}, Input: linear("input_linear", oracle.Hidden, oracle.LatentDim, false), Transformer: transformer, EOS: linear("out_eos", 1, oracle.Hidden, true)}
+	return &FlowLMTrainingCPU{Embedding: append([]float32(nil), p["conditioner.embed.weight"]...), Vocabulary: oracle.Vocabulary, Hidden: oracle.Hidden, LatentDim: oracle.LatentDim, BOS: append([]float32(nil), p["bos_emb"]...), BOSBeforeVoice: append([]float32(nil), p["bos_before_voice"]...), LatentMean: append([]float32(nil), p["emb_mean"]...), LatentStd: append([]float32(nil), p["emb_std"]...), SpeakerProjection: LinearF32{Weight: append([]float32(nil), p["speaker_proj_weight"]...), In: oracle.LatentDim, Out: oracle.Hidden}, Input: linear("input_linear", oracle.Hidden, oracle.LatentDim, false), Transformer: transformer, EOS: linear("out_eos", 1, oracle.Hidden, true)}
 }
 
 func flowLMTrainingGradientMap(g *FlowLMTrainingGradients) map[string][]float32 {

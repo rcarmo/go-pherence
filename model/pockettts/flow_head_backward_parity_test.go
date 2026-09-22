@@ -88,6 +88,10 @@ func TestFlowHeadBackwardPyTorchParity(t *testing.T) {
 }
 
 func flowHeadFromOracle(t *testing.T, p map[string][]float32) *FlowHeadCPU {
+	return flowHeadFromOracleDims(t, p, 3)
+}
+
+func flowHeadFromOracleDims(t *testing.T, p map[string][]float32, conditionDim int) *FlowHeadCPU {
 	t.Helper()
 	linear := func(prefix string, out, in int) LinearF32 {
 		weight, ok := p[prefix+".weight"]
@@ -102,7 +106,7 @@ func flowHeadFromOracle(t *testing.T, p map[string][]float32) *FlowHeadCPU {
 	}
 	model := &FlowHeadCPU{
 		Input:     linear("input_proj", 4, 2),
-		Condition: linear("cond_embed", 4, 3),
+		Condition: linear("cond_embed", 4, conditionDim),
 		Time:      make([]TimestepMLP, 2),
 		Blocks:    make([]AdaLNResidual, 2),
 		Final: AdaLNFinal{

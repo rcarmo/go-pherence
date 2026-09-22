@@ -10,6 +10,7 @@ The native training gate covers aligned-manifest admission, exact EOS and LSD-di
 - Flow-head/LSD fixture: `model/pockettts/testdata/flow_head_backward_pytorch.json`, SHA-256 `61e39435037f081a8b7657328ed28d8327fe12b7a3c8cf64f7c1943efe172e00`.
 - Transformer fixture: `model/pockettts/testdata/transformer_backward_pytorch.json`, SHA-256 `05f0100620f498a2a01b55c2c4367bad8b222049179b1ff84f740ba549bd8b42`.
 - FlowLM layout fixture: `model/pockettts/testdata/flowlm_training_pytorch.json`, SHA-256 `fb823cd9140be2fa6d0355ee694dd5e4bc410ef56f8900e958f77e1f0f12462b`.
+- Complete-step fixture: `model/pockettts/testdata/training_step_pytorch.json`, SHA-256 `2774178aba94bfcfea47932d557c53c5aaf2a43ba32a12fbe1d7a463070d22ed`.
 - Oracle: PyTorch `2.13.0+cu130` in the pinned upstream checkout's virtual environment, using `torch.float32` and no Go code.
 
 The fixture has four frozen hidden rows, two latent channels and the mask `[true,true,false,false]`. It records the normalized LSD diagonal loss, EOS loss, weighted total, all trainable gradients, one AdamW update and the resulting EMA shadow.
@@ -55,6 +56,10 @@ The flow fixture instantiates the pinned upstream `SimpleMLPAdaLN` module with a
 
 `FlowLMTrainingCPU.ForwardBackward` implements the one-row `build_sequences_with_conditions` boundary with dropout disabled: `[bos_before_voice, voice, text, input_linear(bos,audio[:-1])]`, followed by stateless transformer/out-norm execution, gathered audio conditions and EOS projection. It returns gradients for the text LUT, both BOS values, speaker/input/EOS projections, transformer, voice latents and normalized audio inputs. The last target latent receives no direct shifted-input gradient. The pinned upstream fixture matches the assembled sequence, `z`, EOS, both caller-input gradients and every parameter within `2e-5`. Every derived allocation uses checked arithmetic and token admission does not narrow `uint32` IDs.
 
+`PocketTrainingStep` calls the same native components with one shared explicit noise tensor and sampled diagonal/`s→t` times. It means valid-row flow losses, applies `p_equal=0.75`, `1-p_equal`, and EOS weight `0.1`, accumulates one shared flow-head gradient and one `dZ` before a single backbone VJP, and backpropagates both learned log-variance leaves through the shared upstream ReLU `w_s_t` MLP. A deterministic `LSD` subclass fixes only sampled times; the fixture calls pinned `TrainableTTS.forward` directly with dropout probabilities zero. Raw flow metrics, normalized flow loss, EOS, total loss, log-variance leaves, caller inputs and every parameter match within `8e-5`.
+
+`FullTrainer` applies decoupled AdamW then EMA and matches PyTorch after one complete step. Its versioned checkpoint stores all trainables, optimizer settings/moments, EMA, mutable latent mean/std and fixed timestep frequencies. Buffer tensors are restored but excluded from AdamW/EMA. Atomic publication uses file `fsync`, rename and parent-directory `fsync`; a resumed second update is identical to uninterrupted execution, and malformed state is rejected without mutation.
+
 ## Numerical results
 
 Against the independent fixture:
@@ -68,14 +73,16 @@ Against the independent fixture:
 - accepted absolute tolerance for reverse-over-JVP mixed gradients: `1e-5`;
 - accepted absolute tolerance for the normalized LSD minimal-stop-gradient row and all gradients: `3e-5`;
 - accepted absolute tolerance for stateless transformer output, input and all-parameter gradients: `1e-5`;
-- accepted absolute tolerance for FlowLM layout outputs, caller-input gradients and all parameters: `2e-5`.
+- accepted absolute tolerance for FlowLM layout outputs, caller-input gradients and all parameters: `2e-5`;
+- accepted absolute tolerance for direct complete-step metrics, input/leaf/all-parameter gradients: `8e-5`;
+- accepted absolute tolerance for full-model AdamW/EMA one-step values: `4e-6`.
 
 Checks run:
 
 ```sh
 GO_PHERENCE_DISABLE_NVIDIA=1 go test ./model/pockettts -count=10
 go test ./model/pockettts \
-  -run '^(TestTinyTrainingPyTorchParity|TestFlowHeadBackward|TestFlowHeadTimeJVP|TestLSDDistill|TestTransformerBackward|TestFlowLMTraining)' -count=100
+  -run '^(TestTinyTrainingPyTorchParity|TestFlowHeadBackward|TestFlowHeadTimeJVP|TestLSDDistill|TestTransformerBackward|TestFlowLMTraining|TestPocketTrainingStep)' -count=100
 go test -race ./model/pockettts \
   -run 'TestTraining|TestEOS|TestFlowLoss|TestTinyTraining|TestFlowHead|TestLSDDistill' -count=10
 go vet ./model/pockettts
@@ -89,4 +96,4 @@ This gate freezes the FlowLM hidden rows. The flow head now has reverse-mode gra
 
 The normalized LSD diagonal and `s→t` self-distillation terms now have exact native loss and flow-head gradients. The `s→t` path includes its time JVP, mixed derivatives and minimal stop-gradient endpoint rule.
 
-Transformer and one-row conditioning backward are implemented. Combined EOS + normalized LSD diagonal + `s→t` loss accumulation and complete one-step parity have not run. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export and long CPU performance qualification also remain open.
+The deterministic one-row F32 correctness graph is complete with dropout disabled and explicit sampled inputs. Allocation, retained-memory and CPU profiling has not yet run on this frozen graph. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export and long CPU performance qualification also remain open.

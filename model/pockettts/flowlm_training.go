@@ -14,6 +14,7 @@ type FlowLMTrainingCPU struct {
 	Vocabulary, Hidden, LatentDim int
 	BOS                           []float32
 	BOSBeforeVoice                []float32
+	LatentMean, LatentStd         []float32
 	SpeakerProjection             LinearF32
 	Input                         LinearF32
 	Transformer                   *TransformerCPU

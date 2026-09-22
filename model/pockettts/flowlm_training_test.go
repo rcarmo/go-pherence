@@ -17,7 +17,7 @@ func tinyFlowLMTraining() *FlowLMTrainingCPU {
 			}
 			return values
 		}(),
-		BOS: []float32{.15, -.25}, BOSBeforeVoice: []float32{.05, -.1, .2, -.3},
+		BOS: []float32{.15, -.25}, BOSBeforeVoice: []float32{.05, -.1, .2, -.3}, LatentMean: []float32{0, 0}, LatentStd: []float32{1, 1},
 		SpeakerProjection: func() LinearF32 { l := tinyLinear(4, 2, .02); l.Bias = nil; return l }(),
 		Input:             func() LinearF32 { l := tinyLinear(4, 2, -.015); l.Bias = nil; return l }(),
 		Transformer:       transformer,

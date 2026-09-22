@@ -18,6 +18,7 @@ Implemented:
 - F32-owned `SimpleMLPAdaLN` reverse-mode gradients, exact forward-mode time JVPs and reverse-over-JVP mixed derivatives, with pinned upstream PyTorch parity;
 - F32-owned stateless causal-transformer backward through bounded attention, adjacent-pair RoPE, layer scales, tanh-GELU FFN and final LayerNorm;
 - exact one-row training layout and gradients for BOS-before-voice, voice projection, text embeddings, shifted audio projection, gathered audio conditions and EOS head;
-- deterministic AdamW, EMA and directory-durable checkpoint/resume state for the frozen topology.
+- direct `TrainableTTS.forward` parity for combined EOS, normalized diagonal and minimal-stop-gradient `s→t` losses, every parameter/input gradient and shared `w_s_t` weighting network;
+- full-model AdamW, EMA and directory-durable checkpoint/resume state, including mutable latent statistics and fixed timestep-frequency buffers.
 
-The normalized LSD `s→t` term now includes exact mixed derivatives and the upstream minimal stop-gradient endpoint rule. Transformer and conditioning backward are implemented. Combined EOS + diagonal + `s→t` loss accumulation and complete one-step parity are still open, followed by latent precomputation and teacher/student distillation. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
+The deterministic one-step correctness graph is complete for one-row F32 training with dropout disabled and explicit sampled inputs. Allocation-first profiling and scratch/`Into` optimisation are next, followed by frozen Mimi latent precomputation and teacher/student distillation. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
