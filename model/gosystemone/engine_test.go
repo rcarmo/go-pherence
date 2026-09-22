@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -57,6 +58,23 @@ func TestEngineDecisionResponseAndContextOrder(t *testing.T) {
 		if got := string(result.Decision["urgent"]); got != "true" && got != "false" {
 			t.Fatalf("result %d decision=%s", i, got)
 		}
+		field := result.Fields["urgent"]
+		if len(field.Candidates) != 2 || string(field.Candidates[0].Value) != "true" || string(field.Candidates[1].Value) != "false" {
+			t.Fatalf("result %d candidates=%+v", i, field.Candidates)
+		}
+		sum, selected := 0.0, 0
+		for _, candidate := range field.Candidates {
+			sum += candidate.Probability
+			if candidate.Selected {
+				selected++
+				if string(candidate.Value) != string(field.Value) || candidate.Probability != field.Probability {
+					t.Fatalf("result %d selected candidate=%+v field=%+v", i, candidate, field)
+				}
+			}
+		}
+		if math.Abs(sum-1) > 1e-12 || selected != 1 {
+			t.Fatalf("result %d candidate sum/selected=%g/%d", i, sum, selected)
+		}
 		if result.Usage.ContextTokens <= 0 || result.Usage.ScoredRows <= 0 {
 			t.Fatalf("result %d usage=%+v", i, result.Usage)
 		}
@@ -69,6 +87,32 @@ func TestEngineDecisionResponseAndContextOrder(t *testing.T) {
 	}
 	if response.Timings.Rounds != 2 {
 		t.Fatalf("rounds=%d want one per context", response.Timings.Rounds)
+	}
+}
+
+func TestEngineGreedyFallbackOmitsUnavailableFullDistribution(t *testing.T) {
+	engine := &Engine{Tokenizer: runeTokenizer{}, Scorer: &fixedScorer{}, BOSToken: 2}
+	response, err := engine.Decide(context.Background(), Request{
+		Schema:   json.RawMessage(`{"severity":{"type":"enum","description":"severity","choices":["low","medium","high"]}}`),
+		Contexts: []string{"one"},
+		Mode:     ModeAuto,
+		TreeMax:  2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := response.Results[0].Fields["severity"]
+	if field.Tree || len(field.Candidates) != 0 || field.Probability <= 0 || field.Probability > 1 {
+		t.Fatalf("greedy field=%+v", field)
+	}
+}
+
+func TestAssembleCandidateResultsRejectsMalformedDistribution(t *testing.T) {
+	field := FieldSpec{Name: "x", Candidates: []Candidate{{Value: json.RawMessage("true")}, {Value: json.RawMessage("false")}}}
+	for _, probabilities := range [][]float64{{1}, {math.NaN(), 1}, {.4, .4}} {
+		if _, err := assembleCandidateResults(field, fieldState{winner: 0, probabilities: probabilities}); err == nil {
+			t.Fatalf("accepted probabilities=%v", probabilities)
+		}
 	}
 }
 

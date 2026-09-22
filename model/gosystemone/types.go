@@ -95,11 +95,18 @@ type CompiledSchema struct {
 	Inputs     []FieldInput
 }
 
-type FieldResult struct {
+type CandidateResult struct {
 	Value       json.RawMessage `json:"value"`
 	Probability float64         `json:"probability"`
-	ScoredNodes int             `json:"scored_nodes"`
-	Tree        bool            `json:"tree"`
+	Selected    bool            `json:"selected"`
+}
+
+type FieldResult struct {
+	Value       json.RawMessage   `json:"value"`
+	Probability float64           `json:"probability"`
+	Candidates  []CandidateResult `json:"candidates,omitempty"`
+	ScoredNodes int               `json:"scored_nodes"`
+	Tree        bool              `json:"tree"`
 }
 
 type ItemUsage struct {

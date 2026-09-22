@@ -10,7 +10,7 @@ go run ./cmd/llm/go-system-one \
   -listen 127.0.0.1:8080
 ```
 
-Open `http://127.0.0.1:8080/go-system-one` for the standalone playground. The API endpoint is `POST /v1/decision`.
+Open `http://127.0.0.1:8080/go-system-one` for the standalone playground. The API endpoint is `POST /v1/decision`. Tree-mode results display every allowed outcome and its constrained model probability; the selected outcome is highlighted. These are model probabilities over the allowed candidates, not calibrated correctness estimates.
 
 ![Go System One decision playground](../../../docs/images/go-system-one-playground.png)
 

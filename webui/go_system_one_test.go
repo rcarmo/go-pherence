@@ -14,7 +14,7 @@ func TestRegisterGoSystemOnePageAndStatus(t *testing.T) {
 	for _, target := range []string{"/go-system-one", "/go-system-one/"} {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
-		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Go System One Decision Playground") || w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Cache-Control") != "no-cache" {
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Go System One Decision Playground") || !strings.Contains(w.Body.String(), "candidate probabilities") || !strings.Contains(w.Body.String(), "prefers-color-scheme:dark") || w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Cache-Control") != "no-cache" {
 			t.Fatalf("%s: code=%d headers=%v body=%q", target, w.Code, w.Header(), w.Body.String())
 		}
 	}

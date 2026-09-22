@@ -329,11 +329,41 @@ func assembleResult(schema CompiledSchema, states []fieldState, contextTokens in
 		field := schema.Fields[i]
 		candidate := field.Candidates[state.winner]
 		value := append(json.RawMessage(nil), candidate.Value...)
+		candidateResults, err := assembleCandidateResults(field, state)
+		if err != nil {
+			return Result{}, err
+		}
 		out.Decision[field.Name] = value
-		out.Fields[field.Name] = FieldResult{Value: append(json.RawMessage(nil), value...), Probability: state.pathScore, ScoredNodes: state.scoredNodes, Tree: state.compiled.Tree}
+		out.Fields[field.Name] = FieldResult{Value: append(json.RawMessage(nil), value...), Probability: state.pathScore, Candidates: candidateResults, ScoredNodes: state.scoredNodes, Tree: state.compiled.Tree}
 		out.Usage.ScoredRows += state.compiled.Rows
 	}
 	out.Usage.ContextTokens = contextTokens
+	return out, nil
+}
+
+func assembleCandidateResults(field FieldSpec, state fieldState) ([]CandidateResult, error) {
+	// Tree scoring visits every branching node and can therefore expose the
+	// complete constrained distribution. Greedy fallback preserves its existing
+	// selected-path probability and omits candidates it did not fully score.
+	if len(state.probabilities) == 0 {
+		return nil, nil
+	}
+	if len(state.probabilities) != len(field.Candidates) {
+		return nil, fmt.Errorf("field %q candidate probabilities=%d want %d", field.Name, len(state.probabilities), len(field.Candidates))
+	}
+	out := make([]CandidateResult, len(field.Candidates))
+	sum := 0.0
+	for i, candidate := range field.Candidates {
+		probability := state.probabilities[i]
+		if math.IsNaN(probability) || math.IsInf(probability, 0) || probability < 0 || probability > 1 {
+			return nil, fmt.Errorf("field %q candidate %d has invalid probability", field.Name, i)
+		}
+		sum += probability
+		out[i] = CandidateResult{Value: append(json.RawMessage(nil), candidate.Value...), Probability: probability, Selected: i == state.winner}
+	}
+	if math.Abs(sum-1) > 1e-9 {
+		return nil, fmt.Errorf("field %q candidate probabilities sum=%g", field.Name, sum)
+	}
 	return out, nil
 }
 

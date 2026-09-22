@@ -116,7 +116,7 @@ The Kev roadmap remains assessment-only. P0 needs a safe head export and indepen
 
 The handler limits requests to 1 MiB, rejects unknown fields and models, serialises inference, propagates cancellation, and accepts 1–256 contexts. Schema compilation accepts boolean and string enum fields only, with at most 32 fields and 255 candidates per field.
 
-The independently authored page is served at `/go-system-one`; it calls only `/v1/decision` and `/go-system-one/v1/status`. Chromium checks cover page load, request submission, decision rendering, constrained probability rendering and the existing embedded chat UI.
+The independently authored page is served at `/go-system-one`; it calls only `/v1/decision` and `/go-system-one/v1/status`. Tree-mode API fields include the complete ordered candidate distribution, and the page renders every allowed outcome and constrained model probability while highlighting the selected outcome. Greedy fallback retains its selected-path probability but cannot claim probabilities for unscored complete paths. Chromium checks cover page load, request submission, two contexts, boolean and three-way enum candidate distributions, selected markers, decision rendering, OS-preference-only light/dark theming, mobile fit and the existing embedded chat UI.
 
 ```sh
 cd webui/frontend

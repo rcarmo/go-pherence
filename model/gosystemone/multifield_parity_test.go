@@ -138,6 +138,14 @@ func TestGoSystemOneNVIDIAMultiFieldReleasedModelMatchesPinnedLlamaCpp(t *testin
 			if math.Abs(gotField.Probability-wantProbability) > 1e-6 {
 				t.Fatalf("context=%d field=%q probability=%.15g want=%.15g", i, field.Name, gotField.Probability, wantProbability)
 			}
+			if len(gotField.Candidates) != len(field.Candidates) {
+				t.Fatalf("context=%d field=%q candidates=%d want=%d", i, field.Name, len(gotField.Candidates), len(field.Candidates))
+			}
+			for candidateIndex, candidateResult := range gotField.Candidates {
+				if string(candidateResult.Value) != string(field.Candidates[candidateIndex].Value) || math.Abs(candidateResult.Probability-oracleField.Probabilities[candidateIndex]) > 1e-6 || candidateResult.Selected != (candidateIndex == oracleField.CandidateIndex) {
+					t.Fatalf("context=%d field=%q candidate=%d got=%+v", i, field.Name, candidateIndex, candidateResult)
+				}
+			}
 			if !gotField.Tree || gotField.ScoredNodes != oracleField.ScoredNodes {
 				t.Fatalf("context=%d field=%q tree=%v nodes=%d", i, field.Name, gotField.Tree, gotField.ScoredNodes)
 			}
