@@ -18,6 +18,7 @@ type flowHeadBackwardOracle struct {
 	Output           []float32            `json:"output"`
 	DCondition       []float32            `json:"d_condition"`
 	DTimes           []float32            `json:"d_times"`
+	JVPTimes         [][]float32          `json:"jvp_times"`
 	DInput           []float32            `json:"d_input"`
 	Parameters       map[string][]float32 `json:"parameters"`
 	Gradients        map[string][]float32 `json:"gradients"`

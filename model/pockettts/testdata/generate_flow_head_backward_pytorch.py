@@ -71,6 +71,17 @@ times = torch.tensor([0.25, 0.8], dtype=torch.float32, requires_grad=True)
 latent = torch.tensor([-0.4, 0.7], dtype=torch.float32, requires_grad=True)
 d_output = torch.tensor([0.6, -0.9], dtype=torch.float32)
 output = model(condition, times[0:1], times[1:2], latent)
+
+def time_function(all_times: torch.Tensor) -> torch.Tensor:
+    return model(condition, all_times[0:1], all_times[1:2], latent)
+
+jvp_times = []
+for time_index in range(2):
+    direction = torch.zeros_like(times)
+    direction[time_index] = 1
+    _, tangent = torch.func.jvp(time_function, (times,), (direction,))
+    jvp_times.append(tangent.detach().tolist())
+
 loss = (output * d_output).sum()
 loss.backward()
 
@@ -86,6 +97,7 @@ fixture = {
     "output": output.detach().tolist(),
     "d_condition": condition.grad.tolist(),
     "d_times": times.grad.tolist(),
+    "jvp_times": jvp_times,
     "d_input": latent.grad.tolist(),
     "parameters": {
         name: value.detach().flatten().tolist()
