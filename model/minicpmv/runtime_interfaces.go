@@ -60,3 +60,14 @@ func NewTextRuntimeInterfaces(text TextBackbone) (RuntimeInterfaces, error) {
 	pending := PendingRuntime{}
 	return RuntimeInterfaces{Vision: pending, Resampler: pending, Text: text, Audio: pending}, nil
 }
+
+// NewTextAudioRuntimeInterfaces exposes implemented text and MiniCPM-O audio
+// stages while leaving vision/resampler explicitly pending. Released parity and
+// end-to-end readiness remain separate gates.
+func NewTextAudioRuntimeInterfaces(text TextBackbone, audio AudioEncoder) (RuntimeInterfaces, error) {
+	if text == nil || audio == nil {
+		return RuntimeInterfaces{}, errors.New("MiniCPM-V/O text and audio runtimes are required")
+	}
+	pending := PendingRuntime{}
+	return RuntimeInterfaces{Vision: pending, Resampler: pending, Text: text, Audio: audio}, nil
+}

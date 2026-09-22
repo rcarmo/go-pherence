@@ -24,7 +24,7 @@ func BuildAudioFeaturePlan(summary config.MiniCPMVSummary, durationMS int) (Audi
 		return plan, fmt.Errorf("MiniCPM-O audio feature plan: missing sampling_rate/mel_bins/feature_size")
 	}
 	if durationMS > 0 {
-		// Whisper-style frontends commonly produce 100 frames/s with a 10ms hop.
+		// Transformers Whisper uses a 160-sample (10 ms at 16 kHz) hop.
 		plan.EstimatedFrames = ceilDiv(durationMS, 10)
 	}
 	plan.Ready = true

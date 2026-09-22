@@ -14,6 +14,6 @@ func TestCurrentCapabilities(t *testing.T) {
 		t.Fatalf("expected pending runtime steps: %+v", caps)
 	}
 	if caps.TextRuntimeGeneration || caps.VisionTowerRuntime || caps.ResamplerRuntime || caps.AudioEncoderRuntime || caps.EndToEndGeneration {
-		t.Fatalf("runtime capabilities must remain false until numeric execution lands: %+v", caps)
+		t.Fatalf("runtime capabilities must remain false until released parity and end-to-end gates pass: %+v", caps)
 	}
 }

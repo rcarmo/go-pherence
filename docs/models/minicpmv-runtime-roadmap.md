@@ -1,6 +1,6 @@
 # MiniCPM-V/O runtime roadmap
 
-This roadmap starts from the `minicpmv-scaffold-v1` state. Metadata, prompt, preprocessing, tensor inventory, readiness, inspection, and a correctness-first dense text CPU slice are implemented and gated by `make minicpmv-check`; released-model text parity and full multimodal tensor execution remain pending.
+This roadmap starts from the `minicpmv-scaffold-v1` state. Metadata, prompt, preprocessing, tensor inventory, readiness, inspection, and correctness-first CPU text, vision, resampler, and MiniCPM-O audio slices are implemented and gated by `make minicpmv-check`; released-model parity and end-to-end multimodal generation remain pending.
 
 ## Current support boundary
 
@@ -27,8 +27,8 @@ Not implemented:
 - Pinned independent released-checkpoint text hidden/logit parity.
 - Sampling policies beyond deterministic greedy decoding.
 - Pinned independent released-checkpoint SigLIP vision parity for both nested and fused-QKV/timm layouts.
-- Numeric perceiver resampler/KV projection.
-- Numeric MiniCPM-O audio frontend/encoder.
+- Pinned independent released-checkpoint perceiver resampler/KV-projection parity.
+- Pinned independent released-checkpoint MiniCPM-O audio frontend/encoder/projector parity.
 - End-to-end generation and parity gates.
 
 ## Runtime implementation order
@@ -53,14 +53,14 @@ Not implemented:
    - `VisionEmbeddingCPU` feeds SigLIP and resampler outputs into `InjectImageEmbeddings` over planned spans.
    - Synthetic token embedding replacement is covered without mutating caller-owned embeddings.
 
-5. **MiniCPM-O audio frontend and encoder**
-   - Implement or reuse mel/filterbank extraction consistent with the checkpoint `audio_config`.
-   - Bind audio encoder tensors using `BuildAudioExecutionPlan` and validate with `ValidateTensorShapes`.
-   - First gate: synthetic audio feature tensor to audio embedding shape; later add real short-audio checksum fixture.
+5. **MiniCPM-O audio frontend and encoder — CPU/synthetic slice complete**
+   - Reuses the exact Transformers-compatible Whisper log-mel frontend for mono 16 kHz PCM.
+   - Binds the `apm.*` Whisper encoder and `audio_projection_layer.*` tensors using owned F32 storage, then executes exact GELU, full attention, the two-layer ReLU projector, and stride-2 average pooling.
+   - Synthetic feature/PCM-to-audio-embedding shape, policy, ownership, determinism, malformed/non-finite, and pooling tests are covered. Approved released short-audio checksum parity remains open.
 
-6. **Audio embedding injection**
-   - Feed audio encoder outputs into `InjectAudioEmbeddings` over spans produced by `BuildAudioPromptPlan`.
-   - First gate: mixed image+audio replacement counts via `BuildMultiModalEmbeddingPlan` plus embedding copy checks.
+6. **Audio embedding injection — synthetic composition complete**
+   - `AudioCPU.EncodeAndInject` feeds pooled encoder outputs into `InjectAudioEmbeddings` over spans produced by `BuildAudioPromptPlan`.
+   - Synthetic non-aliasing replacement and exact prompt-token count checks are covered; mixed image+audio end-to-end generation remains open.
 
 7. **End-to-end generation**
    - Wire tokenizer/chat template application, image/audio preprocessing, embedding injection, text prefill, and decode.

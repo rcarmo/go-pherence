@@ -32,7 +32,7 @@ func BuildReadinessReport(summary config.MiniCPMVSummary, runtime RuntimePlan, t
 		report.Blockers = append(report.Blockers, "vision tower/resampler runtime pending")
 	}
 	if (summary.AudioModelType != "" || audio.MetadataReady) && !audio.Ready {
-		report.Blockers = append(report.Blockers, "MiniCPM-O audio runtime pending")
+		report.Blockers = append(report.Blockers, "MiniCPM-O released audio parity pending")
 	}
 	if resampler == nil || !resampler.Ready {
 		report.Blockers = append(report.Blockers, "resampler tensor binding or execution pending")

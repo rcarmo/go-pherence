@@ -29,10 +29,14 @@ func TestValidateTensorShapesValid(t *testing.T) {
 }
 
 func TestValidateTensorShapesAudio(t *testing.T) {
-	summary := config.MiniCPMVSummary{AudioHiddenSize: 4, AudioFeatureSize: 80}
+	summary := config.MiniCPMVSummary{HiddenSize: 6, AudioHiddenSize: 4, AudioIntermediateSize: 8, AudioFeatureSize: 80}
 	valid := ValidateTensorShapes(summary, map[string]safetensors.TensorInfo{
 		"audio_encoder.conv1.weight":                     {Shape: []int{4, 80, 3}},
 		"audio_encoder.layers.0.self_attn.q_proj.weight": {Shape: []int{4, 4}},
+		"audio_encoder.layers.0.fc1.weight":              {Shape: []int{8, 4}},
+		"audio_projection_layer.linear1.weight":          {Shape: []int{6, 4}},
+		"audio_projection_layer.linear2.weight":          {Shape: []int{6, 6}},
+		"audio_projection_layer.linear2.bias":            {Shape: []int{6}},
 	})
 	if !valid.Valid {
 		t.Fatalf("expected valid audio shapes: %+v", valid)
@@ -40,8 +44,11 @@ func TestValidateTensorShapesAudio(t *testing.T) {
 	bad := ValidateTensorShapes(summary, map[string]safetensors.TensorInfo{
 		"audio_encoder.conv1.weight":                     {Shape: []int{8, 80, 3}},
 		"audio_encoder.layers.0.self_attn.q_proj.weight": {Shape: []int{8, 8}},
+		"audio_encoder.layers.0.fc1.weight":              {Shape: []int{9, 4}},
+		"audio_projection_layer.linear1.weight":          {Shape: []int{4, 6}},
+		"audio_projection_layer.linear2.bias":            {Shape: []int{4}},
 	})
-	if bad.Valid || len(bad.Issues) < 2 {
+	if bad.Valid || len(bad.Issues) < 5 {
 		t.Fatalf("expected audio shape issues: %+v", bad)
 	}
 }

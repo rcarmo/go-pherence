@@ -1,6 +1,7 @@
 package minicpmv
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/loader/config"
@@ -22,7 +23,7 @@ func TestClassifyAudioTensorName(t *testing.T) {
 }
 
 func TestBuildAudioExecutionPlan(t *testing.T) {
-	summary := config.MiniCPMVSummary{AudioModelType: "whisper_encoder", AudioHiddenSize: 1280, AudioLayers: 32, AudioHeads: 20, AudioFeatureSize: 128, AudioMelBins: 128, AudioSamplingRate: 16000}
+	summary := config.MiniCPMVSummary{AudioModelType: "whisper_encoder", AudioHiddenSize: 1280, AudioIntermediateSize: 5120, AudioLayers: 32, AudioHeads: 20, AudioFeatureSize: 128, AudioMelBins: 128, AudioSamplingRate: 16000, AudioMaxSourcePositions: 1500, AudioPoolStep: 2}
 	plan := BuildAudioExecutionPlan(summary, []string{
 		"audio_encoder.conv1.weight",
 		"audio_encoder.layers.0.self_attn.q_proj.weight",
@@ -31,8 +32,14 @@ func TestBuildAudioExecutionPlan(t *testing.T) {
 	if !plan.MetadataReady || !plan.TensorReady || plan.Ready || plan.Counts[AudioConv] != 1 || plan.Counts[AudioAttention] != 1 {
 		t.Fatalf("bad audio plan: %+v", plan)
 	}
-	if got := findAudioOp(plan, "audio_encoder_execution"); got == nil || got.Ready || got.Reason == "" {
-		t.Fatalf("audio execution should be pending: %+v", plan.Ops)
+	if got := findAudioOp(plan, "audio_feature_extraction"); got == nil || !got.Ready || got.Reason != "" {
+		t.Fatalf("audio frontend should be implemented: %+v", plan.Ops)
+	}
+	if got := findAudioOp(plan, "audio_encoder_execution"); got == nil || got.Ready || !strings.Contains(got.Reason, "released parity") {
+		t.Fatalf("audio execution parity should be pending: %+v", plan.Ops)
+	}
+	if got := findAudioOp(plan, "audio_embedding_injection"); got == nil || !got.Ready {
+		t.Fatalf("audio injection should be implemented: %+v", plan.Ops)
 	}
 }
 

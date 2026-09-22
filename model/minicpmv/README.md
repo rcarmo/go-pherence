@@ -46,10 +46,16 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - Conv2D patch embedding, dynamic positional selection, full multi-head self-attention, pre-LayerNorm residual blocks, tanh-GELU MLP, optional vision-to-language KV projection, resampler cross-attention, and final language projection
   - composition through `VisionEmbeddingCPU` into the existing non-aliasing image embedding injection boundary
   - synthetic patch/token/resampler/injection execution with strict shape, policy, ownership, determinism, and non-finite checks; released-model vision parity remains pending
+- MiniCPM-O audio CPU reference:
+  - exact Transformers Whisper 80-bin/16 kHz log-mel frontend reuse
+  - owned-F32 `apm.*` Whisper encoder and `audio_projection_layer.*` binding
+  - exact-GELU convolutional stem, full-attention encoder, two-layer ReLU projection, stride-2 average pooling, and language-embedding output
+  - composition through the existing non-aliasing audio embedding injection boundary
+  - synthetic shape, policy, ownership, determinism, malformed/non-finite, frontend, pooling, and injection coverage; released audio parity remains pending
 - Embedding boundary:
   - validated replacement of planned image patch token embeddings with resampler outputs
-  - validated replacement of planned MiniCPM-O audio patch token embeddings with future audio outputs
-  - combined image+audio replacement-count planning before numeric runtime integration.
+  - validated replacement of planned MiniCPM-O audio patch token embeddings with encoder outputs
+  - combined image+audio replacement-count planning before end-to-end generation integration.
 
 ## Not implemented yet
 
@@ -58,8 +64,7 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 - Capture pinned independent released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.
 - Add sampling policies beyond deterministic greedy decoding.
 - Capture independent released vision/resampler parity for nested and fused-QKV/timm SigLIP layouts.
-- Inject MiniCPM-O audio embeddings into the text backbone.
-- Execute MiniCPM-O audio feature extraction and audio encoder.
+- Capture pinned independent released MiniCPM-O audio frontend/encoder/projector parity.
 - Add end-to-end MiniCPM-V/O generation parity gates.
 
 ## Validation

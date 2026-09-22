@@ -61,7 +61,8 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 		ModelType:       "minicpm-o",
 		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
 		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
-		AudioConfig:     &MiniCPMOAudioConfig{ModelType: "whisper_encoder", DModel: 1280, EncoderLayers: 32, EncoderHeads: 20, NumMelBins: 128, SamplingRate: 16000},
+		AudioConfig:     &MiniCPMOAudioConfig{ModelType: "whisper_encoder", DModel: 1280, EncoderLayers: 32, EncoderHeads: 20, EncoderFFNDim: 5120, NumMelBins: 128, SamplingRate: 16000, MaxSourcePositions: 1500},
+		AudioPoolStep:   2,
 		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
 	}
 	if err := ValidateMiniCPMVConfig(cfg); err != nil {
@@ -71,8 +72,20 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 	if s.ModelType != "minicpm-o" || s.Architecture != "MiniCPMOForCausalLM" || s.TextModelType != "qwen2" {
 		t.Fatalf("bad MiniCPM-O summary: %+v", s)
 	}
-	if s.AudioModelType != "whisper_encoder" || s.AudioHiddenSize != 1280 || s.AudioMelBins != 128 || s.AudioSamplingRate != 16000 {
+	if s.AudioModelType != "whisper_encoder" || s.AudioHiddenSize != 1280 || s.AudioIntermediateSize != 5120 || s.AudioMelBins != 128 || s.AudioSamplingRate != 16000 || s.AudioMaxSourcePositions != 1500 || s.AudioPoolStep != 2 {
 		t.Fatalf("bad MiniCPM-O audio summary: %+v", s)
+	}
+}
+
+func TestMiniCPMOWhisperDefaults(t *testing.T) {
+	cfg := MiniCPMVConfig{
+		Architectures: []string{"MiniCPMO"}, ModelType: "minicpmo",
+		HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, VocabSize: 151700, QueryNum: 64,
+		AudioConfig: &MiniCPMOAudioConfig{ModelType: "whisper", DModel: 1024, EncoderLayers: 24, EncoderHeads: 16, EncoderFFNDim: 4096},
+	}
+	s := cfg.MiniCPMVSummary()
+	if s.AudioFeatureSize != 80 || s.AudioMelBins != 80 || s.AudioSamplingRate != 16000 || s.AudioMaxSourcePositions != 1500 || s.AudioPoolStep != 2 || s.AudioIntermediateSize != 4096 {
+		t.Fatalf("bad Whisper defaults: %+v", s)
 	}
 }
 

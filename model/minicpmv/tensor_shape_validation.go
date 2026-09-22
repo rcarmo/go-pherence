@@ -103,6 +103,24 @@ func validateAudioTensorShape(v *TensorShapeValidation, name string, shape []int
 	if summary.AudioHiddenSize <= 0 {
 		return
 	}
+	if strings.HasPrefix(lower, "audio_projection_layer.linear1.weight") && summary.HiddenSize > 0 {
+		if len(shape) != 2 || shape[0] != summary.HiddenSize || shape[1] != summary.AudioHiddenSize {
+			v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, summary.HiddenSize, summary.AudioHiddenSize))
+		}
+		return
+	}
+	if strings.HasPrefix(lower, "audio_projection_layer.linear2.weight") && summary.HiddenSize > 0 {
+		if len(shape) != 2 || shape[0] != summary.HiddenSize || shape[1] != summary.HiddenSize {
+			v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, summary.HiddenSize, summary.HiddenSize))
+		}
+		return
+	}
+	if strings.HasPrefix(lower, "audio_projection_layer") && strings.HasSuffix(lower, ".bias") && summary.HiddenSize > 0 {
+		if len(shape) != 1 || shape[0] != summary.HiddenSize {
+			v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, summary.HiddenSize))
+		}
+		return
+	}
 	if strings.Contains(lower, "conv") && strings.Contains(lower, "weight") {
 		if len(shape) < 2 || !containsDim(shape, summary.AudioHiddenSize) {
 			v.Add(fmt.Sprintf("%s shape=%v want audio_hidden=%d in convolution weight", name, shape, summary.AudioHiddenSize))
@@ -116,8 +134,8 @@ func validateAudioTensorShape(v *TensorShapeValidation, name string, shape []int
 		return
 	}
 	if strings.Contains(lower, "fc") || strings.Contains(lower, "gate_proj") || strings.Contains(lower, "up_proj") || strings.Contains(lower, "down_proj") {
-		if summary.AudioFeatureSize > 0 && len(shape) == 2 && !containsDim(shape, summary.AudioHiddenSize) {
-			v.Add(fmt.Sprintf("%s shape=%v want audio_hidden=%d", name, shape, summary.AudioHiddenSize))
+		if summary.AudioIntermediateSize > 0 && !inspect.MatrixMatches(shape, summary.AudioHiddenSize, summary.AudioIntermediateSize) {
+			v.Add(fmt.Sprintf("%s shape=%v want matrix using audio_hidden=%d and audio_intermediate=%d", name, shape, summary.AudioHiddenSize, summary.AudioIntermediateSize))
 		}
 	}
 }

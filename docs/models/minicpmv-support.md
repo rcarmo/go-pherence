@@ -14,7 +14,7 @@ Implemented:
 - Prompt image/audio-token planning in `model/minicpmv`.
   - Validates the upstream `<im_start> <im_patch>... <im_end>` image contract and MiniCPM-O `<audio_start> <audio_patch>... <audio_end>` audio contract.
   - Supports patch-only spans for checkpoints that do not use start/end tokens.
-  - Reports exact replacement spans for injecting vision/resampler or future audio embeddings into the language embedding stream.
+  - Reports exact replacement spans for injecting vision/resampler or audio encoder embeddings into the language embedding stream.
 - Pure-Go image preprocessing in `model/minicpmv`.
   - Converts arbitrary Go `image.Image` inputs to RGB/NRGBA.
   - Optional square bilinear resize.
@@ -66,15 +66,17 @@ make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under 
 - Resampler tensor binding plan.
   - Classifies local safetensor names into query, position embedding, KV projection, attention projection, norm, MLP, and other resampler roles.
   - Reports missing required query/KV-projection bindings before numeric resampler execution is implemented.
-- Audio feature/execution/tensor plan scaffold for MiniCPM-O.
-  - Records sample-rate, mel-bin, feature-size, and optional duration-to-frame assumptions.
-  - Classifies audio encoder tensors into convolution, attention, MLP, norm, projector, and other roles.
-  - Reports metadata/tensor readiness while keeping audio feature extraction, encoder execution, and audio embedding integration explicitly pending.
+- Audio feature/execution/tensor plan and CPU reference for MiniCPM-O.
+  - Records sample-rate, mel-bin, feature-size, max-position, projector pooling, and optional duration-to-frame contracts.
+  - Reuses the exact Transformers Whisper 80-bin/16 kHz log-mel frontend and shared CPU Whisper encoder.
+  - Binds owned-F32 `apm.*` and `audio_projection_layer.*` tensors, then runs exact-GELU convolution/encoder execution, two-layer ReLU projection, stride-2 average pooling, and audio embedding injection.
+  - Synthetic/model-free tests cover shape, policy, ownership, determinism, malformed/non-finite input, pooling, and injection; released-checkpoint audio parity remains pending.
 - Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, text plan, vision plan, audio plan, and resampler plan into one API.
 - Runtime interfaces for staged tensor execution.
-  - `NewTextRuntimeInterfaces` installs a `TextCPU` implementation while the stable `VisionTower`, `Resampler`, and `AudioEncoder` interfaces retain the shared `ErrRuntimeNotImplemented` sentinel.
+  - `NewTextRuntimeInterfaces` installs a `TextCPU` implementation while unbound interfaces retain the shared `ErrRuntimeNotImplemented` sentinel.
+  - `NewTextAudioRuntimeInterfaces` additionally installs `AudioCPU` without claiming released parity or end-to-end readiness.
 - Embedding-injection boundary helpers.
-  - Validate flattened `[sequence][hidden]` token embeddings plus `[image][num_query][hidden]` resampler outputs or future `[audio][patch_tokens][hidden]` audio outputs.
+  - Validate flattened `[sequence][hidden]` token embeddings plus `[image][num_query][hidden]` resampler outputs or `[audio][patch_tokens][hidden]` audio outputs.
   - Replace planned image/audio patch spans without mutating caller-owned token embeddings.
   - Summarize combined image+audio embedding replacement counts before numeric runtime integration.
 - Local validation gate and config inspection command:
@@ -136,7 +138,7 @@ The original OpenBMB code path is:
 
 Not implemented yet:
 
-- MiniCPM-O audio encoder tensor loading/execution.
+- Independent pinned released-model MiniCPM-O audio frontend/encoder/projector parity.
 - Independent pinned released-model SigLIP feature parity for nested and fused-QKV/timm layouts.
 - Independent pinned released-model resampler parity.
 - Applying full checkpoint chat templates and tokenizing natural-language conversations end-to-end.

@@ -66,12 +66,12 @@ Whole-tree dry compiles are still useful, but currently fail in unrelated experi
 
 ## MiniCPM-V/O
 
-Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt placeholders, image preprocessing, slice planning, tensor inventory/shape validation, text/vision/resampler/audio execution planning, explicit safetensors inspection, and inspector readiness gates are implemented. Full tensor execution is not implemented.
+Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt placeholders, image preprocessing, slice planning, tensor inventory/shape validation, explicit safetensors inspection, and correctness-first CPU text, nested/fused-QKV SigLIP, perceiver-resampler, image/audio injection, and MiniCPM-O Whisper audio slices are implemented. Released-model parity and end-to-end generation are not implemented.
 
 Implemented package/command surface:
 
 - `loader/config/minicpmv*.go` — MiniCPM-V/O config, processor, tokenizer/chat-template, generation, and audio metadata sidecar parsing.
-- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, text/vision/resampler/audio plans, resampler tensor binding, capability/runtime-status summary, readiness report, committed MiniCPM-O fixture helpers/expected summary, embedding injection boundary, aggregate metadata loader, and local asset discovery/check tooling.
+- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, owned-F32 text/SigLIP/resampler/Whisper-audio CPU references, image/audio embedding injection, capability/runtime-status summary, readiness report, committed MiniCPM-O fixture helpers/expected summary, aggregate metadata loader, and local asset discovery/check tooling.
 - `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
 - `make minicpmv-fixture-path` / `make minicpmv-fixture-summary` — committed fixture discovery and expected-summary reporting.
 - `make minicpmv-fixture-check` — committed MiniCPM-O fixture validation, including audio feature-frame estimation.

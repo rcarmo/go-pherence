@@ -50,7 +50,7 @@ func BuildRuntimePlan(summary config.MiniCPMVSummary, processor *config.MiniCPMV
 	}
 	add("tensor_inventory", plan.TensorMetadataReady, reasonIf(!plan.TensorMetadataReady, "missing text/vision/resampler tensor metadata"))
 	if summary.AudioModelType != "" || summary.AudioHiddenSize > 0 || summary.AudioMelBins > 0 {
-		add("audio_encoder_execution", false, "MiniCPM-O audio encoder tensor execution pending")
+		add("audio_encoder_execution", false, "CPU Whisper frontend/encoder/projector/pooling and embedding injection implemented; released parity pending")
 	}
 	add("vision_tower_execution", false, "nested and fused-QKV/timm SigLIP CPU execution implemented; released parity pending")
 	add("resampler_execution", false, "CPU execution implemented; independent released parity pending")

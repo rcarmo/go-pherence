@@ -18,14 +18,17 @@
     "image_size": 448,
     "patch_size": 14
   },
+  "audio_pool_step": 2,
   "audio_config": {
     "model_type": "whisper_encoder",
     "hidden_size": 1280,
+    "intermediate_size": 5120,
     "num_hidden_layers": 32,
     "num_attention_heads": 20,
     "feature_size": 128,
     "num_mel_bins": 128,
-    "sampling_rate": 16000
+    "sampling_rate": 16000,
+    "max_source_positions": 1500
   },
   "resampler_config": {
     "num_query": 64,

@@ -1,19 +1,18 @@
 // Package minicpmv provides MiniCPM-V/O metadata, prompt, preprocessing,
-// tensor-inventory, and readiness scaffolding.
+// tensor-inventory, and correctness-first CPU execution components.
 //
-// The implemented surface is intentionally explicit about what is ready today:
-// config/processor/tokenizer/generation sidecar parsing, image/audio special
-// token resolution, image/audio/multimodal prompt placeholder construction,
-// image preprocessing, safetensor header inventory/shape checks, text/vision/
-// resampler/audio execution planning, aggregate metadata loading, readiness
-// reports, and not-implemented runtime interfaces.
+// Implemented surfaces include config/processor/tokenizer/generation sidecar
+// parsing, image/audio special-token and prompt planning, image preprocessing,
+// safetensor inventory/shape checks, owned-F32 MiniCPM/Qwen2/Mistral text,
+// nested/fused-QKV SigLIP vision, perceiver resampling, MiniCPM-O Whisper audio,
+// and non-aliasing image/audio embedding injection.
 //
-// Full numeric tensor execution is not implemented yet. The VisionTower,
-// Resampler, TextBackbone, and AudioEncoder interfaces plus
-// ErrRuntimeNotImplemented define the future runtime boundary while preventing
-// the metadata scaffold from accidentally claiming generation readiness.
+// RuntimeStatus remains pending until independent released-model text, vision,
+// resampler, and audio parity plus end-to-end multimodal generation gates pass.
+// Stable runtime interfaces and ErrRuntimeNotImplemented preserve explicit
+// boundaries for stages a caller has not bound.
 //
-// Validate the scaffold from the project root with:
+// Validate the package from the project root with:
 //
 //	make minicpmv-check
 package minicpmv

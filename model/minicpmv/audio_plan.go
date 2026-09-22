@@ -30,33 +30,39 @@ type AudioTensorBinding struct {
 }
 
 type AudioExecutionPlan struct {
-	AudioModelType string                  `json:"audio_model_type,omitempty"`
-	HiddenSize     int                     `json:"hidden_size,omitempty"`
-	Layers         int                     `json:"layers,omitempty"`
-	Heads          int                     `json:"heads,omitempty"`
-	FeatureSize    int                     `json:"feature_size,omitempty"`
-	MelBins        int                     `json:"mel_bins,omitempty"`
-	SamplingRate   int                     `json:"sampling_rate,omitempty"`
-	Bindings       []AudioTensorBinding    `json:"bindings,omitempty"`
-	Counts         map[AudioTensorRole]int `json:"counts,omitempty"`
-	MetadataReady  bool                    `json:"metadata_ready"`
-	TensorReady    bool                    `json:"tensor_ready"`
-	Ready          bool                    `json:"ready"`
-	Ops            []AudioOp               `json:"ops"`
+	AudioModelType    string                  `json:"audio_model_type,omitempty"`
+	HiddenSize        int                     `json:"hidden_size,omitempty"`
+	IntermediateSize  int                     `json:"intermediate_size,omitempty"`
+	Layers            int                     `json:"layers,omitempty"`
+	Heads             int                     `json:"heads,omitempty"`
+	FeatureSize       int                     `json:"feature_size,omitempty"`
+	MelBins           int                     `json:"mel_bins,omitempty"`
+	SamplingRate      int                     `json:"sampling_rate,omitempty"`
+	MaxSourcePosition int                     `json:"max_source_positions,omitempty"`
+	PoolStep          int                     `json:"pool_step,omitempty"`
+	Bindings          []AudioTensorBinding    `json:"bindings,omitempty"`
+	Counts            map[AudioTensorRole]int `json:"counts,omitempty"`
+	MetadataReady     bool                    `json:"metadata_ready"`
+	TensorReady       bool                    `json:"tensor_ready"`
+	Ready             bool                    `json:"ready"`
+	Ops               []AudioOp               `json:"ops"`
 }
 
 func BuildAudioExecutionPlan(summary config.MiniCPMVSummary, names []string) AudioExecutionPlan {
 	plan := AudioExecutionPlan{
-		AudioModelType: summary.AudioModelType,
-		HiddenSize:     summary.AudioHiddenSize,
-		Layers:         summary.AudioLayers,
-		Heads:          summary.AudioHeads,
-		FeatureSize:    summary.AudioFeatureSize,
-		MelBins:        summary.AudioMelBins,
-		SamplingRate:   summary.AudioSamplingRate,
-		Counts:         map[AudioTensorRole]int{},
+		AudioModelType:    summary.AudioModelType,
+		HiddenSize:        summary.AudioHiddenSize,
+		IntermediateSize:  summary.AudioIntermediateSize,
+		Layers:            summary.AudioLayers,
+		Heads:             summary.AudioHeads,
+		FeatureSize:       summary.AudioFeatureSize,
+		MelBins:           summary.AudioMelBins,
+		SamplingRate:      summary.AudioSamplingRate,
+		MaxSourcePosition: summary.AudioMaxSourcePositions,
+		PoolStep:          summary.AudioPoolStep,
+		Counts:            map[AudioTensorRole]int{},
 	}
-	plan.MetadataReady = summary.AudioModelType != "" || summary.AudioHiddenSize > 0 || summary.AudioMelBins > 0 || summary.AudioSamplingRate > 0
+	plan.MetadataReady = summary.AudioModelType != "" && summary.AudioHiddenSize > 0 && summary.AudioIntermediateSize > 0 && summary.AudioLayers > 0 && summary.AudioHeads > 0 && summary.AudioFeatureSize > 0 && summary.AudioMelBins > 0 && summary.AudioSamplingRate > 0 && summary.AudioMaxSourcePositions > 0 && summary.AudioPoolStep > 0
 	sorted := append([]string(nil), names...)
 	sort.Strings(sorted)
 	for _, name := range sorted {
@@ -73,9 +79,9 @@ func BuildAudioExecutionPlan(summary config.MiniCPMVSummary, names []string) Aud
 	}
 	add("audio_metadata", plan.MetadataReady, "missing MiniCPM-O audio_config")
 	add("audio_tensor_inventory", plan.TensorReady, "audio encoder tensor metadata missing")
-	add("audio_feature_extraction", false, "audio feature extraction/mel frontend pending")
-	add("audio_encoder_execution", false, "MiniCPM-O audio encoder tensor execution pending")
-	add("audio_embedding_injection", false, "audio embedding integration pending")
+	add("audio_feature_extraction", plan.MetadataReady, "audio metadata missing for exact Whisper frontend")
+	add("audio_encoder_execution", false, "CPU Whisper encoder/projector/pooling synthetic execution implemented; released parity pending")
+	add("audio_embedding_injection", true, "")
 	plan.Ready = false
 	return plan
 }
