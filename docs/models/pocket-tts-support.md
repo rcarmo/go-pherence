@@ -60,8 +60,8 @@ See [the training validation record](../validation/pocket-tts-native-training-20
 
 The next slices are:
 
-1. run allocation-first optimisation on the frozen correctness graph: pin cold/warm baselines, repeated `-benchmem`, CPU and allocation/in-use profiles plus RSS, then session-owned tapes/gradients and `Into` APIs before SIMD/batching;
-2. frozen Mimi latent precomputation;
+1. frozen Mimi latent precomputation;
+2. profile production-size training shapes, then extend the request-owned workspace into arena-backed tapes and SIMD/batching only where the new profile justifies it;
 3. released-format checkpoint export;
 4. 24-layer teacher to six-layer depth/CFG distillation;
 5. long CPU qualification. GPU training is a separate backend task.

@@ -45,13 +45,21 @@ type TrainingStepGradients struct {
 // step: EOS + normalized LSD diagonal + normalized minimal-stop-gradient s->t.
 // Mimi latents, noise, times and log-variance outputs are supplied explicitly.
 func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, batch FlowLMTrainingBatch, samples TrainingStepSamples, config TrainingStepConfig) (TrainingStepMetrics, TrainingStepGradients, error) {
-	if flowLM == nil || flow == nil || weighting == nil || batch.Frames <= 0 || len(samples.Mask) != batch.Frames || !isFinite(config.PEqual) || config.PEqual < 0 || config.PEqual > 1 || !isFinite(config.EOSLossWeight) || config.EOSLossWeight < 0 {
+	workspace, err := NewTrainingWorkspace(flowLM, flow, batch)
+	if err != nil {
+		return TrainingStepMetrics{}, TrainingStepGradients{}, err
+	}
+	return PocketTrainingStepInto(flowLM, flow, weighting, batch, samples, config, workspace)
+}
+
+func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, batch FlowLMTrainingBatch, samples TrainingStepSamples, config TrainingStepConfig, workspace *TrainingWorkspace) (TrainingStepMetrics, TrainingStepGradients, error) {
+	if flowLM == nil || flow == nil || weighting == nil || workspace == nil || batch.Frames <= 0 || len(samples.Mask) != batch.Frames || !isFinite(config.PEqual) || config.PEqual < 0 || config.PEqual > 1 || !isFinite(config.EOSLossWeight) || config.EOSLossWeight < 0 {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS training step")
 	}
 	if err := validateTrainingStepSamples(batch, samples, flowLM.Hidden, flowLM.LatentDim); err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}
-	weightInputElements, ok := checked.MulInt(4, batch.Frames)
+	_, ok := checked.MulInt(4, batch.Frames)
 	if !ok {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS weighting shape")
 	}
@@ -59,11 +67,21 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 	if !ok {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS weighting rows")
 	}
-	zElements, ok := checked.MulInt(batch.Frames, flowLM.Hidden)
+	_, ok = checked.MulInt(batch.Frames, flowLM.Hidden)
 	if !ok {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS training hidden shape")
 	}
-	weightInputs := make([]float32, weightInputElements)
+	if workspace.frames != batch.Frames || workspace.hidden != flowLM.Hidden || workspace.latent != flowLM.LatentDim || workspace.weightRows != weightRows || !workspace.compatible(flow) {
+		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("Pocket TTS training workspace shape mismatch")
+	}
+	workspace.reset()
+	if flow.Condition.In > len(workspace.dZ) || len(flow.Time) > len(workspace.weightInputs) || flow.Input.In > len(workspace.xTime) || flow.Final.Linear.Out > len(workspace.desired) {
+		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("Pocket TTS training workspace validation shape mismatch")
+	}
+	if err := validateTrainableFlowHead(flow, workspace.dZ[:flow.Condition.In], workspace.weightInputs[:len(flow.Time)], workspace.xTime[:flow.Input.In], workspace.desired[:flow.Final.Linear.Out]); err != nil {
+		return TrainingStepMetrics{}, TrainingStepGradients{}, err
+	}
+	weightInputs := workspace.weightInputs
 	for row := 0; row < batch.Frames; row++ {
 		weightInputs[2*row], weightInputs[2*row+1] = samples.DiagonalTime[row], samples.DiagonalTime[row]
 		base := 2*batch.Frames + 2*row
@@ -73,12 +91,12 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}
-	zeroZ := make([]float32, zElements)
-	zeroEOS := make([]float32, batch.Frames)
-	forward, _, _, err := flowLM.ForwardBackward(batch, zeroZ, zeroEOS)
+	zeroZ, zeroEOS := workspace.zeroZ, workspace.zeroEOS
+	flowLMTape, err := flowLM.forwardTrainingTape(batch, zeroZ, zeroEOS)
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}
+	forward := flowLMTape.output
 	eosLoss, dEOS, err := EOSLossAndGradient(forward.EOS, samples.Mask)
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
@@ -96,11 +114,9 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("Pocket TTS training step has no valid flow rows")
 	}
 	invValid := float32(1) / float32(valid)
-	dZ := make([]float32, len(forward.Z))
-	directTarget := make([]float32, len(batch.NormalizedLatents))
-	flowGradients := newFlowHeadGradients(flow)
-	dDiagLogvar := make([]float32, batch.Frames)
-	dDistillLogvar := make([]float32, batch.Frames)
+	dZ, directTarget := workspace.dZ, workspace.directTarget
+	flowGradients, discardFlowGradients := workspace.flowGradients, workspace.discardFlowGradients
+	dDiagLogvar, dDistillLogvar := workspace.dDiagLogvar, workspace.dDistillLogvar
 	metrics := TrainingStepMetrics{EOS: eosLoss}
 	diagonalObjective, distillObjective := float64(0), float64(0)
 	c, h := flowLM.LatentDim, flowLM.Hidden
@@ -112,7 +128,7 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 		target := batch.NormalizedLatents[row*c : (row+1)*c]
 		diagNoise := samples.Noise[row*c : (row+1)*c]
 		time := samples.DiagonalTime[row]
-		xTime, desired := make([]float32, c), make([]float32, c)
+		xTime, desired := workspace.xTime, workspace.desired
 		for i := 0; i < c; i++ {
 			xTime[i] = time*target[i] + (1-time)*diagNoise[i]
 			desired[i] = target[i] - diagNoise[i]
@@ -129,12 +145,10 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 		for i := range dPrediction {
 			dPrediction[i] *= diagScale
 		}
-		rowFlowGradients := newFlowHeadGradients(flow)
-		dCondition, _, dXTime, err := flow.backwardTraining(tape, dPrediction, rowFlowGradients)
+		dCondition, _, dXTime, err := flow.backwardTraining(tape, dPrediction, flowGradients)
 		if err != nil {
 			return TrainingStepMetrics{}, TrainingStepGradients{}, err
 		}
-		addFlowHeadGradients(flowGradients, rowFlowGradients, 1)
 		for i := range dCondition {
 			dZ[row*h+i] += dCondition[i]
 		}
@@ -150,28 +164,29 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 		}
 		metrics.FlowDiagonal += rawSquare / float64(valid)
 
-		distill, distillGradients, err := flow.LSDDistillForwardBackward(condition, samples.DistillS[row], samples.DistillT[row], samples.Noise[row*c:(row+1)*c], target, logvars[batch.Frames+row])
+		distillScale := (1 - config.PEqual) * invValid
+		distill, distillGradients, err := flow.lsdDistillForwardBackwardInto(condition, samples.DistillS[row], samples.DistillT[row], samples.Noise[row*c:(row+1)*c], target, logvars[batch.Frames+row], flowGradients, discardFlowGradients, distillScale)
 		if err != nil {
 			return TrainingStepMetrics{}, TrainingStepGradients{}, err
 		}
-		distillScale := (1 - config.PEqual) * invValid
-		addFlowHeadGradients(flowGradients, distillGradients.Flow, distillScale)
 		for i := range distillGradients.Condition {
-			dZ[row*h+i] += distillScale * distillGradients.Condition[i]
+			dZ[row*h+i] += distillGradients.Condition[i]
 		}
 		for i := 0; i < c; i++ {
-			directTarget[row*c+i] += distillScale * distillGradients.Target[i]
+			directTarget[row*c+i] += distillGradients.Target[i]
 		}
-		dDistillLogvar[row] = distillScale * distillGradients.DLogVariance
+		dDistillLogvar[row] = distillGradients.DLogVariance
 		distillObjective += distill.Loss / float64(valid)
 		metrics.FlowDistill += distill.RawSquare / float64(valid)
 	}
-	dLogvars := append(append([]float32(nil), dDiagLogvar...), dDistillLogvar...)
+	dLogvars := workspace.dLogvars
+	copy(dLogvars, dDiagLogvar)
+	copy(dLogvars[len(dDiagLogvar):], dDistillLogvar)
 	weightingGradients, err := weighting.backward(weightTape, dLogvars, weightRows)
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}
-	_, flowLMGradients, inputGradients, err := flowLM.ForwardBackward(batch, dZ, dEOS)
+	flowLMGradients, inputGradients, err := flowLM.backwardTrainingTape(flowLMTape, batch, dZ, dEOS)
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}

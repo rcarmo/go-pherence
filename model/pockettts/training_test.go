@@ -326,7 +326,7 @@ func centralDifferenceSlice(t *testing.T, label string, values, gradients []floa
 	}
 }
 
-func assertSliceClose(t *testing.T, label string, got, want []float32, tolerance float64) {
+func assertSliceClose(t testing.TB, label string, got, want []float32, tolerance float64) {
 	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("%s length=%d want=%d", label, len(got), len(want))
@@ -338,7 +338,7 @@ func assertSliceClose(t *testing.T, label string, got, want []float32, tolerance
 	}
 }
 
-func assertClose64(t *testing.T, label string, got, want, tolerance float64) {
+func assertClose64(t testing.TB, label string, got, want, tolerance float64) {
 	t.Helper()
 	if math.Abs(got-want) > tolerance {
 		t.Fatalf("%s=%g want=%g", label, got, want)

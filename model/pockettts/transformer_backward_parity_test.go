@@ -55,7 +55,7 @@ func TestTransformerBackwardPyTorchParity(t *testing.T) {
 	}
 }
 
-func transformerFromOracle(t *testing.T, oracle transformerBackwardOracle) *TransformerCPU {
+func transformerFromOracle(t testing.TB, oracle transformerBackwardOracle) *TransformerCPU {
 	t.Helper()
 	p := oracle.Parameters
 	linear := func(prefix string, out, in int) LinearF32 {

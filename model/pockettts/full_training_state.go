@@ -31,6 +31,10 @@ type FullTrainer struct {
 	StepCount int
 	Moments   map[string]NamedAdamState
 	EMA       map[string][]float32
+	params    map[string][]float32
+	bindings  []fullParamBinding
+	names     []string
+	topology  fullTrainerTopology
 }
 
 func NewFullTrainer(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, config AdamWConfig, emaDecay float32) (*FullTrainer, error) {
@@ -44,7 +48,9 @@ func NewFullTrainer(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSD
 	if err != nil {
 		return nil, err
 	}
-	t := &FullTrainer{FlowLM: flowLM, Flow: flow, Weighting: weighting, Config: config, EMADecay: emaDecay, Moments: map[string]NamedAdamState{}}
+	t := &FullTrainer{FlowLM: flowLM, Flow: flow, Weighting: weighting, Config: config, EMADecay: emaDecay, Moments: map[string]NamedAdamState{}, params: params, names: sortedTrainingKeys(params)}
+	t.topology = fullTrainerTopology{flowLM: flowLM, flow: flow, weighting: weighting, transformerLayers: len(flowLM.Transformer.Layers), timeEmbeddings: len(flow.Time), flowBlocks: len(flow.Blocks), weightingLayers: len(weighting.Layers)}
+	t.bindings = makeFullParamBindings(t.names, params)
 	if emaDecay > 0 {
 		t.EMA = cloneTrainingMap(params)
 	}
@@ -55,20 +61,17 @@ func (t *FullTrainer) Step(gradients TrainingStepGradients) error {
 	if t == nil {
 		return fmt.Errorf("Pocket TTS full trainer is nil")
 	}
-	params, err := fullParameterMap(t.FlowLM, t.Flow, t.Weighting)
-	if err != nil {
+	if err := t.refreshParameterBindings(); err != nil {
 		return err
 	}
-	grads, err := fullGradientMap(gradients)
-	if err != nil {
-		return err
+	params := t.params
+	if gradients.FlowLM == nil || gradients.Flow == nil || gradients.Weighting == nil {
+		return fmt.Errorf("Pocket TTS full gradients are incomplete")
 	}
-	if len(params) != len(grads) {
-		return fmt.Errorf("Pocket TTS full gradient count=%d want=%d", len(grads), len(params))
-	}
-	for name, parameter := range params {
-		gradient, ok := grads[name]
-		if !ok || len(gradient) != len(parameter) {
+	for _, binding := range t.bindings {
+		name, parameter := binding.name, binding.parameter
+		gradient := binding.gradient(gradients)
+		if len(gradient) != len(parameter) {
 			return fmt.Errorf("Pocket TTS full gradient shape mismatch for %q", name)
 		}
 		for _, value := range gradient {
@@ -86,8 +89,9 @@ func (t *FullTrainer) Step(gradients TrainingStepGradients) error {
 	step := t.StepCount + 1
 	beta1Correction := float32(1 - math.Pow(float64(t.Config.Beta1), float64(step)))
 	beta2Correction := float32(1 - math.Pow(float64(t.Config.Beta2), float64(step)))
-	for _, name := range sortedTrainingKeys(params) {
-		parameter, gradient := params[name], grads[name]
+	for _, binding := range t.bindings {
+		name, parameter := binding.name, binding.parameter
+		gradient := binding.gradient(gradients)
 		state, ok := t.Moments[name]
 		if !ok {
 			state = NamedAdamState{Name: name, M: make([]float32, len(parameter)), V: make([]float32, len(parameter))}
@@ -108,8 +112,8 @@ func (t *FullTrainer) Step(gradients TrainingStepGradients) error {
 		if t.EMA == nil {
 			t.EMA = cloneTrainingMap(params)
 		} else {
-			for name, parameter := range params {
-				shadow := t.EMA[name]
+			for _, name := range t.names {
+				parameter, shadow := params[name], t.EMA[name]
 				for i := range parameter {
 					shadow[i] = t.EMADecay*shadow[i] + (1-t.EMADecay)*parameter[i]
 				}
@@ -123,10 +127,10 @@ func (t *FullTrainer) State() (FullTrainingState, error) {
 	if t == nil {
 		return FullTrainingState{}, fmt.Errorf("Pocket TTS full trainer is nil")
 	}
-	params, err := fullParameterMap(t.FlowLM, t.Flow, t.Weighting)
-	if err != nil {
+	if err := t.refreshParameterBindings(); err != nil {
 		return FullTrainingState{}, err
 	}
+	params := t.params
 	s := FullTrainingState{Version: 1, Step: t.StepCount, AdamW: t.Config, EMADecay: t.EMADecay, Params: trainingMapToList(params), Buffers: trainingMapToList(fullBufferMap(t.FlowLM, t.Flow))}
 	for _, name := range sortedAdamKeys(t.Moments) {
 		v := t.Moments[name]
@@ -194,10 +198,10 @@ func (t *FullTrainer) LoadState(s FullTrainingState) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	params, err := fullParameterMap(t.FlowLM, t.Flow, t.Weighting)
-	if err != nil {
+	if err := t.refreshParameterBindings(); err != nil {
 		return err
 	}
+	params := t.params
 	loaded, err := tensorListToMap(s.Params, params, "full parameter")
 	if err != nil {
 		return err
@@ -310,13 +314,23 @@ func fullGradientMap(g TrainingStepGradients) (map[string][]float32, error) {
 		return nil, fmt.Errorf("Pocket TTS full gradients are incomplete")
 	}
 	out := map[string][]float32{}
-	addFlowLMGradients(out, g.FlowLM)
-	addFlowHeadGradientParameters(out, g.Flow)
-	for i, l := range g.Weighting.Layers {
-		p := fmt.Sprintf("flow.w_s_t.%d", 2*i)
-		out[p+".weight"], out[p+".bias"] = l.Weight, l.Bias
+	if err := bindFullGradients(out, g); err != nil {
+		return nil, err
 	}
 	return out, nil
+}
+
+func bindFullGradients(out map[string][]float32, g TrainingStepGradients) error {
+	if g.FlowLM == nil || g.Flow == nil || g.Weighting == nil {
+		return fmt.Errorf("Pocket TTS full gradients are incomplete")
+	}
+	addFlowLMGradients(out, g.FlowLM)
+	addFlowHeadGradientParameters(out, g.Flow)
+	for i, layer := range g.Weighting.Layers {
+		prefix := fmt.Sprintf("flow.w_s_t.%d", 2*i)
+		out[prefix+".weight"], out[prefix+".bias"] = layer.Weight, layer.Bias
+	}
+	return nil
 }
 func fullBufferMap(lm *FlowLMTrainingCPU, flow *FlowHeadCPU) map[string][]float32 {
 	out := map[string][]float32{"flow_lm.emb_mean": lm.LatentMean, "flow_lm.emb_std": lm.LatentStd}

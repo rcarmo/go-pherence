@@ -68,7 +68,7 @@ func TestFlowLMTrainingPyTorchParity(t *testing.T) {
 	}
 }
 
-func flowLMTrainingFromOracle(t *testing.T, oracle flowLMTrainingOracle) *FlowLMTrainingCPU {
+func flowLMTrainingFromOracle(t testing.TB, oracle flowLMTrainingOracle) *FlowLMTrainingCPU {
 	t.Helper()
 	p := oracle.Parameters
 	linear := func(prefix string, out, in int, bias bool) LinearF32 {

@@ -64,9 +64,25 @@ type FlowLMTrainingInputGradients struct {
 // [bos_before_voice, voice, text, input_linear(bos, audio[:-1])]. dZ and dEOS
 // are independent seeds over [T,H] and [T].
 func (m *FlowLMTrainingCPU) ForwardBackward(batch FlowLMTrainingBatch, dZ, dEOS []float32) (FlowLMTrainingOutput, *FlowLMTrainingGradients, FlowLMTrainingInputGradients, error) {
-	rows, prefix, err := m.validate(batch, dZ, dEOS)
+	tape, err := m.forwardTrainingTape(batch, dZ, dEOS)
 	if err != nil {
 		return FlowLMTrainingOutput{}, nil, FlowLMTrainingInputGradients{}, err
+	}
+	gradients, inputGradients, err := m.backwardTrainingTape(tape, batch, dZ, dEOS)
+	return tape.output, gradients, inputGradients, err
+}
+
+type flowLMTrainingTape struct {
+	rows, prefix, textOffset int
+	sequence, audioInput     []float32
+	transformer              *transformerTape
+	output                   FlowLMTrainingOutput
+}
+
+func (m *FlowLMTrainingCPU) forwardTrainingTape(batch FlowLMTrainingBatch, dZ, dEOS []float32) (*flowLMTrainingTape, error) {
+	rows, prefix, err := m.validate(batch, dZ, dEOS)
+	if err != nil {
+		return nil, err
 	}
 	h, c := m.Hidden, m.LatentDim
 	sequenceElements, _ := checked.MulInt(rows, h)
@@ -98,7 +114,7 @@ func (m *FlowLMTrainingCPU) ForwardBackward(batch FlowLMTrainingBatch, dZ, dEOS 
 	}
 	zeroSeed := make([]float32, len(sequence))
 	if err = validateTrainableTransformer(m.Transformer, sequence, zeroSeed, rows); err != nil {
-		return FlowLMTrainingOutput{}, nil, FlowLMTrainingInputGradients{}, err
+		return nil, err
 	}
 	transformerTape, transformed := m.Transformer.forwardTraining(rows, sequence)
 	output := FlowLMTrainingOutput{Z: make([]float32, audioHiddenElements), EOS: make([]float32, batch.Frames), Sequence: append([]float32(nil), sequence...), PrefixRows: prefix, SequenceRows: rows}
@@ -107,25 +123,26 @@ func (m *FlowLMTrainingCPU) ForwardBackward(batch FlowLMTrainingBatch, dZ, dEOS 
 		copy(output.Z[row*h:(row+1)*h], z)
 		output.EOS[row] = linearForwardTraining(m.EOS, z)[0]
 	}
-	gradients := &FlowLMTrainingGradients{
-		Embedding:         make([]float32, len(m.Embedding)),
-		BOS:               make([]float32, len(m.BOS)),
-		BOSBeforeVoice:    make([]float32, len(m.BOSBeforeVoice)),
-		SpeakerProjection: newLinearGradient(m.SpeakerProjection),
-		Input:             newLinearGradient(m.Input),
-		EOS:               newLinearGradient(m.EOS),
+	return &flowLMTrainingTape{rows: rows, prefix: prefix, textOffset: textOffset, sequence: sequence, audioInput: audioInput, transformer: transformerTape, output: output}, nil
+}
+
+func (m *FlowLMTrainingCPU) backwardTrainingTape(tape *flowLMTrainingTape, batch FlowLMTrainingBatch, dZ, dEOS []float32) (*FlowLMTrainingGradients, FlowLMTrainingInputGradients, error) {
+	if tape == nil {
+		return nil, FlowLMTrainingInputGradients{}, fmt.Errorf("nil Pocket TTS FlowLM training tape")
 	}
+	h, c := m.Hidden, m.LatentDim
+	gradients := &FlowLMTrainingGradients{Embedding: make([]float32, len(m.Embedding)), BOS: make([]float32, len(m.BOS)), BOSBeforeVoice: make([]float32, len(m.BOSBeforeVoice)), SpeakerProjection: newLinearGradient(m.SpeakerProjection), Input: newLinearGradient(m.Input), EOS: newLinearGradient(m.EOS)}
 	inputGradients := FlowLMTrainingInputGradients{NormalizedLatents: make([]float32, len(batch.NormalizedLatents)), VoiceLatents: make([]float32, len(batch.VoiceLatents))}
-	dTransformed := make([]float32, rows*h)
+	dTransformed := make([]float32, tape.rows*h)
 	for row := 0; row < batch.Frames; row++ {
-		z := output.Z[row*h : (row+1)*h]
+		z := tape.output.Z[row*h : (row+1)*h]
 		dEOSInput := linearBackwardTraining(m.EOS, z, []float32{dEOS[row]}, &gradients.EOS)
 		for i := 0; i < h; i++ {
-			dTransformed[(prefix+row)*h+i] = dZ[row*h+i] + dEOSInput[i]
+			dTransformed[(tape.prefix+row)*h+i] = dZ[row*h+i] + dEOSInput[i]
 		}
 	}
 	transformerGradients := newTransformerGradients(m.Transformer)
-	dSequence := m.Transformer.backwardTraining(rows, transformerTape, dTransformed, transformerGradients)
+	dSequence := m.Transformer.backwardTraining(tape.rows, tape.transformer, dTransformed, transformerGradients)
 	gradients.Transformer = transformerGradients
 	copy(gradients.BOSBeforeVoice, dSequence[:h])
 	for row := 0; row < batch.VoiceFrames; row++ {
@@ -135,18 +152,18 @@ func (m *FlowLMTrainingCPU) ForwardBackward(batch FlowLMTrainingBatch, dZ, dEOS 
 	for row, token := range batch.TextTokens {
 		base := int(token) * h
 		for i := 0; i < h; i++ {
-			gradients.Embedding[base+i] += dSequence[(textOffset+row)*h+i]
+			gradients.Embedding[base+i] += dSequence[(tape.textOffset+row)*h+i]
 		}
 	}
 	for row := 0; row < batch.Frames; row++ {
-		dAudio := linearBackwardTraining(m.Input, audioInput[row*c:(row+1)*c], dSequence[(prefix+row)*h:(prefix+row+1)*h], &gradients.Input)
+		dAudio := linearBackwardTraining(m.Input, tape.audioInput[row*c:(row+1)*c], dSequence[(tape.prefix+row)*h:(tape.prefix+row+1)*h], &gradients.Input)
 		if row == 0 {
 			addInPlace(gradients.BOS, dAudio)
 		} else {
 			copy(inputGradients.NormalizedLatents[(row-1)*c:row*c], dAudio)
 		}
 	}
-	return output, gradients, inputGradients, nil
+	return gradients, inputGradients, nil
 }
 
 func (m *FlowLMTrainingCPU) validate(batch FlowLMTrainingBatch, dZ, dEOS []float32) (rows, prefix int, err error) {

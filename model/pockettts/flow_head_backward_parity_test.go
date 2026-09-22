@@ -87,11 +87,11 @@ func TestFlowHeadBackwardPyTorchParity(t *testing.T) {
 	}
 }
 
-func flowHeadFromOracle(t *testing.T, p map[string][]float32) *FlowHeadCPU {
+func flowHeadFromOracle(t testing.TB, p map[string][]float32) *FlowHeadCPU {
 	return flowHeadFromOracleDims(t, p, 3)
 }
 
-func flowHeadFromOracleDims(t *testing.T, p map[string][]float32, conditionDim int) *FlowHeadCPU {
+func flowHeadFromOracleDims(t testing.TB, p map[string][]float32, conditionDim int) *FlowHeadCPU {
 	t.Helper()
 	linear := func(prefix string, out, in int) LinearF32 {
 		weight, ok := p[prefix+".weight"]

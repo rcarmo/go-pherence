@@ -96,4 +96,40 @@ This gate freezes the FlowLM hidden rows. The flow head now has reverse-mode gra
 
 The normalized LSD diagonal and `s→t` self-distillation terms now have exact native loss and flow-head gradients. The `s→t` path includes its time JVP, mixed derivatives and minimal stop-gradient endpoint rule.
 
-The deterministic one-row F32 correctness graph is complete with dropout disabled and explicit sampled inputs. Allocation, retained-memory and CPU profiling has not yet run on this frozen graph. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export and long CPU performance qualification also remain open.
+## Allocation-first optimisation
+
+The correctness graph was frozen at `961c645958cdaeb690cfbbef74186b80698d6dd5`. Measurements used Go `1.26.3`, Linux/amd64, an Intel i7-12700 constrained to six single-threaded cores, `GOMAXPROCS=1`, `GO_PHERENCE_DISABLE_NVIDIA=1`, the three-frame/two-valid-frame complete-step fixture, and ten benchmark samples.
+
+Baseline warm results:
+
+| Phase | Time range | Bytes/op | Allocs/op |
+|---|---:|---:|---:|
+| forward/backward | 61.7–77.4 µs | 66,296 | 1,184 |
+| AdamW + EMA | 32.7–37.3 µs | 26,865 | 123 |
+| full step | 98.9–115.0 µs | 93,167 | 1,307 |
+
+The baseline CPU profile spent 30.9% cumulative time in `runtime.mallocgc`; the allocation profile recorded 129,363 objects over 100 steps. `newFlowHeadGradients` and repeated FlowLM/dual forwards were the largest bounded orchestration costs.
+
+Changes, in measured order:
+
+- retained the first FlowLM forward tape for the single seeded backbone VJP;
+- retained the primary dual flow tape for reverse-over-JVP;
+- accumulated diagonal and distill rows into shared step-owned flow gradients, with a separate reusable discard tree for endpoint input-only VJPs;
+- made flow-head admission allocation-free;
+- cached immutable trainer parameter topology and used indexed live-gradient bindings, eliminating warm optimizer map/string construction;
+- added request-owned `TrainingWorkspace` buffers and `PocketTrainingStepInto`; results alias the workspace until its next non-concurrent call;
+- added topology and rebinding guards, checked workspace arithmetic and warm allocation regression tests.
+
+Definitive warm results before the final audit guards were 48.2–51.8 µs, 29,321 B/op and 707 allocs/op for the full step; the guards preserve the same 29,320 B/op and 707 allocs/op in the final quick check. Warm AdamW+EMA is `0 B/op, 0 allocs/op`. Relative to baseline, the full step uses 68.5% fewer allocated bytes and 45.9% fewer allocations, with about half the latency on this tiny workload.
+
+Setup is reported separately:
+
+- workspace: about 2.3 µs, 5,408 B and 86 allocations;
+- trainer: about 15.9 µs, 24,735 B and 128 allocations;
+- fixture/model construction: about 0.75–0.84 ms, 201,457 B and 1,518 allocations.
+
+The 10,000-step maximum RSS moved from 96,640 KiB to 93,696 KiB. The final CPU profile still spent 26.6% cumulative time in `runtime.mallocgc`; the remaining 70,251 allocation objects over 100 steps are distributed across higher-order dual/tape vectors (`linearForwardTraining`, `linearForwardDual`, `linearBackwardDual`, `zeroDualAdjoint`, block tapes and clones). No reusable arithmetic kernel dominates the tiny-shape profile, so SIMD promotion is not justified at this gate. A production-size workload may justify arena-backed tapes and SIMD after frozen Mimi latent preparation supplies representative shapes.
+
+Evidence files are under `/workspace/tmp/pockettts-training-opt/`: `before.txt`, `after-definitive.txt`, CPU/memory profiles, allocation/in-use top reports and RSS logs. They are bounded external evidence and are not committed.
+
+The deterministic one-row F32 correctness and initial allocation-optimisation gates are complete with dropout disabled and explicit sampled inputs. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export, production-size arena/SIMD qualification and long CPU training remain open.

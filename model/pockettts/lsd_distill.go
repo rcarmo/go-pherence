@@ -32,6 +32,15 @@ type LSDDistillGradients struct {
 // matching f_grad_x_only. The primary flow receives exact reverse-over-JVP
 // mixed derivatives.
 func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float32, noise, target []float32, logVariance float32) (LSDDistillResult, LSDDistillGradients, error) {
+	if m == nil {
+		return LSDDistillResult{}, LSDDistillGradients{}, fmt.Errorf("nil Pocket TTS LSD flow head")
+	}
+	gradients := newFlowHeadGradients(m)
+	discard := newFlowHeadGradients(m)
+	return m.lsdDistillForwardBackwardInto(condition, s, t, noise, target, logVariance, gradients, discard, 1)
+}
+
+func (m *FlowHeadCPU) lsdDistillForwardBackwardInto(condition []float32, s, t float32, noise, target []float32, logVariance float32, flowGradients, discardGradients *FlowHeadGradients, gradientScale float32) (LSDDistillResult, LSDDistillGradients, error) {
 	if m == nil || len(noise) == 0 || len(noise) != len(target) || len(noise) != m.Input.In || !isFinite(s) || !isFinite(t) || !isFinite(logVariance) {
 		return LSDDistillResult{}, LSDDistillGradients{}, fmt.Errorf("invalid Pocket TTS LSD distillation row")
 	}
@@ -51,10 +60,13 @@ func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float3
 		xs[i] = s*target[i] + (1-s)*noise[i]
 	}
 	primaryTimes := []float32{s, t}
-	velocity, derivative, err := m.ForwardTimeJVP(condition, primaryTimes, xs, 1)
-	if err != nil {
+	zeroSeed := make([]float32, m.Final.Linear.Out)
+	if err := validateTrainableFlowHead(m, condition, primaryTimes, xs, zeroSeed); err != nil {
 		return LSDDistillResult{}, LSDDistillGradients{}, err
 	}
+	primaryTape := m.forwardDualTape(condition, primaryTimes, xs, 1)
+	velocity := append([]float32(nil), primaryTape.final.output.value...)
+	derivative := append([]float32(nil), primaryTape.final.output.tangent...)
 	delta := t - s
 	xt := make([]float32, channels)
 	dxdt := make([]float32, channels)
@@ -84,7 +96,7 @@ func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float3
 		Condition:    make([]float32, len(condition)),
 		Noise:        make([]float32, channels),
 		Target:       make([]float32, channels),
-		DLogVariance: square*scale - 1,
+		DLogVariance: gradientScale * (square*scale - 1),
 	}
 	dResidual := make([]float32, channels)
 	for i := range dResidual {
@@ -95,7 +107,7 @@ func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float3
 	for i := range dEndpoint {
 		dEndpoint[i] = -dResidual[i]
 	}
-	_, _, dEndpointInput, err := m.backwardTraining(endpointTape, dEndpoint, newFlowHeadGradients(m))
+	_, _, dEndpointInput, err := m.backwardTraining(endpointTape, dEndpoint, discardGradients)
 	if err != nil {
 		return LSDDistillResult{}, LSDDistillGradients{}, err
 	}
@@ -108,10 +120,13 @@ func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float3
 		dDerivative[i] = delta * dResidual[i]
 		dDelta += dResidual[i]*derivative[i] + dEndpointInput[i]*velocity[i]
 	}
-	_, _, flowGradients, dCondition, dPrimaryTimes, dXSPrimary, err := m.ForwardTimeJVPBackward(condition, primaryTimes, xs, 1, dVelocity, dDerivative)
-	if err != nil {
-		return LSDDistillResult{}, LSDDistillGradients{}, err
+	for i := range dVelocity {
+		dVelocity[i] *= gradientScale
+		dDerivative[i] *= gradientScale
+		dEndpointInput[i] *= gradientScale
 	}
+	dDelta *= gradientScale
+	dCondition, dPrimaryTimes, dXSPrimary := m.backwardDualTape(primaryTape, dualAdjoint{value: dVelocity, tangent: dDerivative}, flowGradients)
 	gradients.Flow = flowGradients
 	copy(gradients.Condition, dCondition)
 	dXS := make([]float32, channels)

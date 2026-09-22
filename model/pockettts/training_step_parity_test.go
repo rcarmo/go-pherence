@@ -90,7 +90,7 @@ func TestPocketTrainingStepPyTorchParity(t *testing.T) {
 	}
 }
 
-func trainingStepModelsFromOracle(t *testing.T, oracle trainingStepOracle) (*FlowLMTrainingCPU, *FlowHeadCPU, *LSDWeightMLP) {
+func trainingStepModelsFromOracle(t testing.TB, oracle trainingStepOracle) (*FlowLMTrainingCPU, *FlowHeadCPU, *LSDWeightMLP) {
 	t.Helper()
 	lm, fh := map[string][]float32{}, map[string][]float32{}
 	for name, values := range oracle.Parameters {

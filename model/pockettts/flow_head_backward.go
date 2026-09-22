@@ -91,31 +91,53 @@ func validateTrainableFlowHead(m *FlowHeadCPU, condition, times, input, dOutput 
 	if d < 2 || m.Condition.Out != d || m.Final.Linear.In != d || m.Final.Modulation.In != d || m.Final.Modulation.Out != 2*d || m.Final.Epsilon <= 0 {
 		return fmt.Errorf("invalid Pocket TTS trainable flow-head topology")
 	}
-	linears := []LinearF32{m.Input, m.Condition, m.Final.Linear, m.Final.Modulation}
+	if err := validateTrainableFlowLinear(m.Input); err != nil {
+		return err
+	}
+	if err := validateTrainableFlowLinear(m.Condition); err != nil {
+		return err
+	}
+	if err := validateTrainableFlowLinear(m.Final.Linear); err != nil {
+		return err
+	}
+	if err := validateTrainableFlowLinear(m.Final.Modulation); err != nil {
+		return err
+	}
 	for _, time := range m.Time {
-		linears = append(linears, time.FC1, time.FC2)
+		if err := validateTrainableFlowLinear(time.FC1); err != nil {
+			return err
+		}
+		if err := validateTrainableFlowLinear(time.FC2); err != nil {
+			return err
+		}
 		half := len(time.Frequencies)
 		if half == 0 || time.FC1.In != 2*half || time.FC1.Out != d || time.FC2.In != d || time.FC2.Out != d || len(time.RMSWeight) != d || time.RMSEpsilon <= 0 {
 			return fmt.Errorf("invalid Pocket TTS trainable timestep MLP")
 		}
 	}
 	for _, block := range m.Blocks {
-		linears = append(linears, block.FC1, block.FC2, block.Modulation)
+		if err := validateTrainableFlowLinear(block.FC1); err != nil {
+			return err
+		}
+		if err := validateTrainableFlowLinear(block.FC2); err != nil {
+			return err
+		}
+		if err := validateTrainableFlowLinear(block.Modulation); err != nil {
+			return err
+		}
 		if len(block.NormWeight) != d || len(block.NormBias) != d || block.FC1.In != d || block.FC1.Out != d || block.FC2.In != d || block.FC2.Out != d || block.Modulation.In != d || block.Modulation.Out != 3*d || block.Epsilon <= 0 {
 			return fmt.Errorf("invalid Pocket TTS trainable residual block")
 		}
 	}
-	for _, linear := range linears {
-		if linear.In <= 0 || linear.Out <= 0 || len(linear.Weight) != linear.In*linear.Out || len(linear.WeightBF16) != 0 || (linear.Bias != nil && len(linear.Bias) != linear.Out) {
-			return fmt.Errorf("Pocket TTS training requires owned F32 linear weights")
-		}
+	if !finiteF32(condition) || !finiteF32(times) || !finiteF32(input) || !finiteF32(dOutput) {
+		return fmt.Errorf("Pocket TTS trainable flow-head input is non-finite")
 	}
-	for _, values := range [][]float32{condition, times, input, dOutput} {
-		for _, value := range values {
-			if !isFinite(value) {
-				return fmt.Errorf("Pocket TTS trainable flow-head input is non-finite")
-			}
-		}
+	return nil
+}
+
+func validateTrainableFlowLinear(linear LinearF32) error {
+	if linear.In <= 0 || linear.Out <= 0 || len(linear.Weight) != linear.In*linear.Out || len(linear.WeightBF16) != 0 || (linear.Bias != nil && len(linear.Bias) != linear.Out) {
+		return fmt.Errorf("Pocket TTS training requires owned F32 linear weights")
 	}
 	return nil
 }
