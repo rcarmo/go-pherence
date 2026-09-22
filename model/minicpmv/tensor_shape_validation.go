@@ -50,9 +50,23 @@ func validateTextLayerShape(v *TensorShapeValidation, name string, shape []int, 
 	if summary.HiddenSize <= 0 {
 		return
 	}
+	if strings.HasSuffix(lower, ".bias") {
+		want := 0
+		switch {
+		case strings.Contains(lower, "q_proj"):
+			want = summary.Heads * summary.HeadDim
+		case strings.Contains(lower, "k_proj") || strings.Contains(lower, "v_proj"):
+			want = summary.KVHeads * summary.HeadDim
+		}
+		if want > 0 && (len(shape) != 1 || shape[0] != want) {
+			v.Add(fmt.Sprintf("%s shape=%v want bias [%d]", name, shape, want))
+		}
+		return
+	}
 	if strings.Contains(lower, "q_proj") || strings.Contains(lower, "o_proj") {
-		if !inspect.MatrixMatches(shape, summary.HiddenSize, summary.HiddenSize) {
-			v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d", name, shape, summary.HiddenSize))
+		queryWidth := summary.Heads * summary.HeadDim
+		if queryWidth > 0 && !inspect.MatrixMatches(shape, summary.HiddenSize, queryWidth) {
+			v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d and query_width=%d", name, shape, summary.HiddenSize, queryWidth))
 		}
 		return
 	}

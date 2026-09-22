@@ -26,7 +26,7 @@ func BuildReadinessReport(summary config.MiniCPMVSummary, runtime RuntimePlan, t
 		report.Blockers = append(report.Blockers, "safetensor shape validation is incomplete or failing")
 	}
 	if !text.Ready {
-		report.Blockers = append(report.Blockers, "text prefill/decode runtime pending")
+		report.Blockers = append(report.Blockers, "text released-model parity pending")
 	}
 	if !vision.Ready {
 		report.Blockers = append(report.Blockers, "vision tower/resampler runtime pending")

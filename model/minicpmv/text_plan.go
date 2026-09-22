@@ -44,8 +44,10 @@ func BuildTextExecutionPlan(summary config.MiniCPMVSummary, generation *config.M
 	add("decoder_layers", plan.HasLayers, "decoder layer tensor metadata missing")
 	add("lm_head", plan.HasLMHead, "LM head tensor metadata missing or tied embeddings not resolved")
 	add("generation_config", plan.Generation, "generation_config.json missing; defaults required")
-	add("prefill_decode", false, "MiniCPM/Qwen2/Mistral text prefill/decode binding pending")
-	add("sampling", false, "generation sampling loop pending")
+	add("prefill_decode", true, "")
+	add("synthetic_reference", true, "")
+	add("released_model_parity", false, "pinned independent MiniCPM/Qwen2/Mistral text fixture pending")
+	add("sampling", false, "sampling policies beyond deterministic greedy decoding pending")
 	plan.Ready = false
 	return plan
 }

@@ -26,8 +26,8 @@ func TestMiniCPMVConfigOmniLMMSummary(t *testing.T) {
 	if s.ResamplerGrid != 8 || s.ResamplerHeads != 32 || !s.UseImageStartEnd {
 		t.Fatalf("unexpected resampler/start-end summary: %+v", s)
 	}
-	if s.HeadDim != 128 || s.KVHeads != 8 {
-		t.Fatalf("unexpected text head dims: %+v", s)
+	if s.HeadDim != 128 || s.KVHeads != 8 || s.TextModelType != "mistral" {
+		t.Fatalf("unexpected text head dims/family: %+v", s)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestMiniCPMVConfigTopLevelAliases(t *testing.T) {
 		t.Fatalf("ValidateMiniCPMVConfig aliases: %v", err)
 	}
 	s := cfg.MiniCPMVSummary()
-	if s.NumQuery != 64 || s.ResamplerGrid != 8 || s.MaxSliceNums != 9 {
+	if s.NumQuery != 64 || s.ResamplerGrid != 8 || s.MaxSliceNums != 9 || s.TextModelType != "qwen2" {
 		t.Fatalf("bad alias summary: %+v", s)
 	}
 }

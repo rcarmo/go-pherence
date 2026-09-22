@@ -43,8 +43,11 @@ make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under 
   - Classifies tensors as text embeddings/layers/LM head, vision tower, resampler, projector, norm, or other.
   - Reports dtype/rank/element-count/byte-count summaries and metadata readiness without loading tensor payloads.
 - Safetensors shape validation for key text, vision patch-embedding, MiniCPM-O audio encoder, resampler, and projector tensors against normalized MiniCPM-V/O config dimensions; `make minicpmv-check` includes capability text/JSON smokes, fixture-path text/JSON smokes, plus a tiny explicit safetensors fixture that exercises `-require-tensors-ready` and `-require-shapes-ready`.
-- Text-backbone execution plan scaffold.
-  - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, and pending prefill/decode/sampling stages.
+- Text-backbone execution plan and correctness-first CPU slice.
+  - Reports text dimensions, embedding/layer/LM-head tensor inventory, generation-config presence, implemented prefill/decode, and pending released parity/sampling stages.
+  - Binds dense MiniCPM and Qwen2 `llm.*` tensors plus legacy root-level Mistral tensors into owned F32 weights.
+  - Implements request-local KV state, token or injected-embedding input, causal GQA/RoPE, RMSNorm, SwiGLU, exact MiniCPM scaling, Qwen2 Q/K/V biases, tied/untied LM heads, and deterministic greedy decoding.
+  - Synthetic tests cover all three text variants, strict shape/policy/state rejection, ownership, determinism, and non-finite input/weight failures; released-checkpoint parity remains open.
 - Support/capability summary APIs (`minicpmv.CurrentSupportSummary`, `minicpmv.CurrentCapabilities`, `minicpmv.ValidateSupportSummary`) that mark implemented scaffold surfaces true, numeric runtime/end-to-end generation surfaces false, validate that contract, and report the runtime roadmap path plus bounded pending runtime steps until execution lands.
 - Combined readiness report summarizing metadata, tensor inventory, shape validation, runtime readiness, and bounded blocker details for inspector/CI consumers.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
@@ -63,8 +66,8 @@ make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under 
   - Classifies audio encoder tensors into convolution, attention, MLP, norm, projector, and other roles.
   - Reports metadata/tensor readiness while keeping audio feature extraction, encoder execution, and audio embedding integration explicitly pending.
 - Aggregate metadata loader (`minicpmv.LoadMetadata`) that wires config, processor/tokenizer sidecars, special tokens, safetensor inventory/shape checks, runtime plan, text plan, vision plan, audio plan, and resampler plan into one API.
-- Runtime interface stubs for future tensor execution.
-  - Stable `VisionTower`, `Resampler`, `TextBackbone`, and `AudioEncoder` interfaces return a shared `ErrRuntimeNotImplemented` sentinel until numeric execution is wired.
+- Runtime interfaces for staged tensor execution.
+  - `NewTextRuntimeInterfaces` installs a `TextCPU` implementation while the stable `VisionTower`, `Resampler`, and `AudioEncoder` interfaces retain the shared `ErrRuntimeNotImplemented` sentinel.
 - Embedding-injection boundary helpers.
   - Validate flattened `[sequence][hidden]` token embeddings plus `[image][num_query][hidden]` resampler outputs or future `[audio][patch_tokens][hidden]` audio outputs.
   - Replace planned image/audio patch spans without mutating caller-owned token embeddings.
@@ -132,7 +135,8 @@ Not implemented yet:
 - Full EVA02/SigLIP vision tower tensor loading/execution.
 - Resampler tensor loading/execution beyond tensor-name inventory.
 - Applying full checkpoint chat templates and tokenizing natural-language conversations end-to-end.
-- MiniCPM/Qwen2/Mistral text-backbone weight mapping for MiniCPM-V/O checkpoints.
+- Independent pinned released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.
+- Sampling policies beyond deterministic greedy decoding.
 - End-to-end image+text generation command.
 - GPU/SIMD parity gates for the vision tower and resampler.
 

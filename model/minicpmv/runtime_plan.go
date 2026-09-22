@@ -55,7 +55,7 @@ func BuildRuntimePlan(summary config.MiniCPMVSummary, processor *config.MiniCPMV
 	add("vision_tower_execution", false, "EVA02/SigLIP tensor execution pending")
 	add("resampler_execution", false, "perceiver resampler tensor execution pending")
 	add("embedding_injection", false, "image embedding injection into text embeddings pending")
-	add("text_generation", false, "MiniCPM/Qwen2/Mistral text generation binding pending")
+	add("text_generation", false, "CPU text binding and greedy execution implemented; pinned independent released-model parity pending")
 	plan.RuntimeReady = false
 	return plan
 }

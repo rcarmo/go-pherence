@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 )
@@ -23,6 +24,15 @@ type MiniCPMVConfig struct {
 	VocabSize           int                      `json:"vocab_size"`
 	MaxPositionEmbeds   int                      `json:"max_position_embeddings"`
 	RMSNormEps          float64                  `json:"rms_norm_eps"`
+	RopeTheta           float64                  `json:"rope_theta"`
+	RopeScaling         json.RawMessage          `json:"rope_scaling"`
+	HiddenAct           string                   `json:"hidden_act"`
+	AttentionBias       *bool                    `json:"attention_bias"`
+	ScaleDepth          float64                  `json:"scale_depth"`
+	ScaleEmb            float64                  `json:"scale_emb"`
+	DimModelBase        int                      `json:"dim_model_base"`
+	UseSlidingWindow    bool                     `json:"use_sliding_window"`
+	SlidingWindow       int                      `json:"sliding_window"`
 	BOSTokenID          int                      `json:"bos_token_id"`
 	EOSTokenID          any                      `json:"eos_token_id"`
 	PadTokenID          int                      `json:"pad_token_id"`
@@ -48,16 +58,26 @@ type MiniCPMVConfig struct {
 }
 
 type MiniCPMVTextConfig struct {
-	ModelType         string  `json:"model_type"`
-	HiddenSize        int     `json:"hidden_size"`
-	NumHiddenLayers   int     `json:"num_hidden_layers"`
-	NumAttentionHeads int     `json:"num_attention_heads"`
-	NumKeyValueHeads  int     `json:"num_key_value_heads"`
-	HeadDim           int     `json:"head_dim"`
-	IntermediateSize  int     `json:"intermediate_size"`
-	VocabSize         int     `json:"vocab_size"`
-	MaxPositionEmbeds int     `json:"max_position_embeddings"`
-	RMSNormEps        float64 `json:"rms_norm_eps"`
+	ModelType         string          `json:"model_type"`
+	HiddenSize        int             `json:"hidden_size"`
+	NumHiddenLayers   int             `json:"num_hidden_layers"`
+	NumAttentionHeads int             `json:"num_attention_heads"`
+	NumKeyValueHeads  int             `json:"num_key_value_heads"`
+	HeadDim           int             `json:"head_dim"`
+	IntermediateSize  int             `json:"intermediate_size"`
+	VocabSize         int             `json:"vocab_size"`
+	MaxPositionEmbeds int             `json:"max_position_embeddings"`
+	RMSNormEps        float64         `json:"rms_norm_eps"`
+	RopeTheta         float64         `json:"rope_theta"`
+	RopeScaling       json.RawMessage `json:"rope_scaling"`
+	HiddenAct         string          `json:"hidden_act"`
+	AttentionBias     *bool           `json:"attention_bias"`
+	TieWordEmbeddings *bool           `json:"tie_word_embeddings"`
+	ScaleDepth        float64         `json:"scale_depth"`
+	ScaleEmb          float64         `json:"scale_emb"`
+	DimModelBase      int             `json:"dim_model_base"`
+	UseSlidingWindow  bool            `json:"use_sliding_window"`
+	SlidingWindow     int             `json:"sliding_window"`
 }
 
 type MiniCPMVVisionConfig struct {
@@ -188,6 +208,20 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	s.VocabSize = firstPositive(cfg.VocabSize, textInt(cfg.TextConfig, "vocab"))
 	if cfg.TextConfig != nil {
 		s.TextModelType = cfg.TextConfig.ModelType
+	}
+	if s.TextModelType == "" {
+		switch cfg.ModelType {
+		case "omnilmm":
+			s.TextModelType = "mistral"
+		case "minicpmo", "minicpm_o", "minicpm-o":
+			s.TextModelType = "qwen2"
+		case "minicpmv", "minicpm_v", "minicpm-v":
+			if cfg.ScaleEmb != 0 || cfg.ScaleDepth != 0 || cfg.DimModelBase != 0 {
+				s.TextModelType = "minicpm"
+			} else {
+				s.TextModelType = "qwen2"
+			}
+		}
 	}
 	if cfg.VisionConfig != nil {
 		s.VisionModelType = cfg.VisionConfig.ModelType

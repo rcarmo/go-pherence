@@ -12,7 +12,9 @@ func TestValidateTensorShapesValid(t *testing.T) {
 	infos := map[string]safetensors.TensorInfo{
 		"llm.model.embed_tokens.weight":              {Shape: []int{100, 4}},
 		"llm.model.layers.0.self_attn.q_proj.weight": {Shape: []int{4, 4}},
+		"llm.model.layers.0.self_attn.q_proj.bias":   {Shape: []int{4}},
 		"llm.model.layers.0.self_attn.k_proj.weight": {Shape: []int{2, 4}},
+		"llm.model.layers.0.self_attn.k_proj.bias":   {Shape: []int{2}},
 		"llm.model.layers.0.mlp.gate_proj.weight":    {Shape: []int{8, 4}},
 		"llm.lm_head.weight":                         {Shape: []int{100, 4}},
 		"resampler.query.weight":                     {Shape: []int{2, 4}},
@@ -46,6 +48,7 @@ func TestValidateTensorShapesRejectsMismatches(t *testing.T) {
 	summary := config.MiniCPMVSummary{HiddenSize: 4, KVHeads: 1, HeadDim: 2, IntermediateSize: 8, VisionHiddenSize: 3, NumQuery: 2, PatchSize: 14}
 	infos := map[string]safetensors.TensorInfo{
 		"llm.model.embed_tokens.weight":              {Shape: []int{100, 5}},
+		"llm.model.layers.0.self_attn.q_proj.bias":   {Shape: []int{3}},
 		"llm.model.layers.0.self_attn.k_proj.weight": {Shape: []int{4, 4}},
 		"resampler.query.weight":                     {Shape: []int{3, 4}},
 		"vpm.embeddings.patch_embedding.weight":      {Shape: []int{3, 3, 16, 16}},

@@ -18,8 +18,11 @@ func TestBuildTextExecutionPlan(t *testing.T) {
 	if !plan.MetadataReady || !plan.TensorReady || !plan.Generation || !plan.HasEmbedding || !plan.HasLayers || !plan.HasLMHead || plan.Ready {
 		t.Fatalf("bad text plan: %+v", plan)
 	}
-	if got := findTextOp(plan, "prefill_decode"); got == nil || got.Ready || got.Reason == "" {
-		t.Fatalf("prefill should be pending: %+v", plan.Ops)
+	if got := findTextOp(plan, "prefill_decode"); got == nil || !got.Ready || got.Reason != "" {
+		t.Fatalf("prefill should be implemented: %+v", plan.Ops)
+	}
+	if got := findTextOp(plan, "released_model_parity"); got == nil || got.Ready || got.Reason == "" {
+		t.Fatalf("released parity should remain pending: %+v", plan.Ops)
 	}
 }
 

@@ -1,6 +1,6 @@
 # MiniCPM-V/O runtime roadmap
 
-This roadmap starts from the current `minicpmv-scaffold-v1` state. The metadata, prompt, preprocessing, tensor inventory, readiness, and inspection surfaces are implemented and gated by `make minicpmv-check`; full numeric tensor execution remains pending.
+This roadmap starts from the `minicpmv-scaffold-v1` state. Metadata, prompt, preprocessing, tensor inventory, readiness, inspection, and a correctness-first dense text CPU slice are implemented and gated by `make minicpmv-check`; released-model text parity and full multimodal tensor execution remain pending.
 
 ## Current support boundary
 
@@ -15,12 +15,15 @@ Implemented:
 - Safetensor inventory, dtype/rank/byte summaries, and shape validation.
 - Text, vision, resampler, and audio execution plans.
 - Image/audio embedding injection boundary helpers.
-- Runtime interfaces that return `ErrRuntimeNotImplemented`.
+- Runtime interfaces that return `ErrRuntimeNotImplemented` for unbound stages.
+- Owned-F32 MiniCPM, Qwen2, and Mistral dense text binding with request-local KV state, one-token hidden/logit execution, embedding-prefix greedy decoding, GQA/RoPE/RMSNorm/SwiGLU, Qwen2 Q/K/V bias handling, MiniCPM embedding/depth/logit scaling, and tied/untied LM heads.
+- Synthetic tests for the three text variants, malformed shapes/policies/state, ownership, determinism, and non-finite input/weights.
 - `minicpmvinspect`, fixture helpers, capability/status reports, and Makefile gates.
 
 Not implemented:
 
-- Numeric text prefill/decode.
+- Pinned independent released-checkpoint text hidden/logit parity.
+- Sampling policies beyond deterministic greedy decoding.
 - Numeric EVA02/SigLIP vision tower.
 - Numeric perceiver resampler/KV projection.
 - Numeric MiniCPM-O audio frontend/encoder.
@@ -28,10 +31,11 @@ Not implemented:
 
 ## Runtime implementation order
 
-1. **Text backbone binding**
-   - Map MiniCPM/Qwen2/Mistral text weights to the existing Go decoder abstractions.
-   - Validate embeddings, attention projections, MLP projections, norm, and LM head shapes with real checkpoint headers.
-   - First gate: one-token synthetic hidden-state/logit smoke without vision/audio.
+1. **Text backbone binding — CPU/synthetic slice complete**
+   - Maps MiniCPM/Qwen2 `llm.*` and legacy Mistral root text weights into an owned-F32 CPU decoder.
+   - Validates exact embeddings, attention projections and biases, MLP projections, norm, and LM-head shapes.
+   - Runs one-token synthetic hidden-state/logit tests without vision/audio and supports deterministic greedy decode from injected embeddings.
+   - Remaining gate: approved, pinned, independently generated released-checkpoint hidden/logit fixtures.
 
 2. **Vision tower execution**
    - Implement EVA02/SigLIP patch embedding, transformer blocks, and selected output-token extraction.

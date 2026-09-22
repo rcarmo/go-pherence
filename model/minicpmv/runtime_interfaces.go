@@ -49,3 +49,14 @@ func NewPendingRuntimeInterfaces() RuntimeInterfaces {
 	pending := PendingRuntime{}
 	return RuntimeInterfaces{Vision: pending, Resampler: pending, Text: pending, Audio: pending}
 }
+
+// NewTextRuntimeInterfaces exposes an implemented text backbone while retaining
+// explicit not-implemented sentinels for the vision, resampler, and audio
+// stages. This does not claim end-to-end MiniCPM-V/O readiness.
+func NewTextRuntimeInterfaces(text TextBackbone) (RuntimeInterfaces, error) {
+	if text == nil {
+		return RuntimeInterfaces{}, errors.New("nil MiniCPM-V/O text backbone")
+	}
+	pending := PendingRuntime{}
+	return RuntimeInterfaces{Vision: pending, Resampler: pending, Text: text, Audio: pending}, nil
+}

@@ -29,13 +29,18 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
   - resampler binding plan
   - MiniCPM-O audio tensor plan
 - Runtime/readiness planning:
-  - capability summary with `RuntimeStatusPending` until tensor execution lands
+  - capability summary with `RuntimeStatusPending` until released parity and multimodal tensor execution land
   - text execution plan
   - vision/resampler execution plan
   - MiniCPM-O audio execution plan
   - slice-mode plan
   - combined readiness report
-  - not-implemented runtime interfaces with `ErrRuntimeNotImplemented`
+  - staged runtime interfaces with `ErrRuntimeNotImplemented` for unbound stages
+- Text CPU reference:
+  - owned-F32 MiniCPM/Qwen2 `llm.*` and legacy Mistral root tensor binding
+  - exact RMSNorm, causal GQA/RoPE, SwiGLU, Qwen2 Q/K/V biases, MiniCPM embedding/depth/logit scaling, and tied/untied LM heads
+  - request-local clonable KV state, one-token hidden/logit output, and deterministic greedy decode from injected embeddings
+  - synthetic coverage for all three variants; released-checkpoint parity remains pending
 - Embedding boundary:
   - validated replacement of planned image patch token embeddings with resampler outputs
   - validated replacement of planned MiniCPM-O audio patch token embeddings with future audio outputs
@@ -45,7 +50,8 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 
 `CurrentCapabilities().RuntimeStatus` is `RuntimeStatusPending` / `tensor_execution_pending` until these steps land:
 
-- Bind MiniCPM/Qwen2/Mistral text-backbone weights and prefill/decode.
+- Capture pinned independent released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.
+- Add sampling policies beyond deterministic greedy decoding.
 - Execute EVA02/SigLIP vision tower.
 - Execute perceiver resampler and KV projection.
 - Inject image/audio embeddings into the text backbone.

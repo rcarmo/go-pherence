@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+var _ TextBackbone = (*TextCPU)(nil)
+
 func TestPendingRuntimeInterfaces(t *testing.T) {
 	rt := NewPendingRuntimeInterfaces()
 	if rt.Vision == nil || rt.Resampler == nil || rt.Text == nil || rt.Audio == nil {
