@@ -24,7 +24,7 @@ func TestAttentionProjectionLayoutFromFixture(t *testing.T) {
 	if layout.QLayerFloats != 4194304 || layout.KLayerFloats != 1048576 || layout.VLayerFloats != 1048576 || layout.OLayerFloats != 4194304 {
 		t.Fatalf("projection floats=%+v", layout)
 	}
-	if layout.FullAttentionLayers != 3 || layout.TotalFloatsPerLayer != 10485760 || layout.TotalAttentionFloats != 31457280 {
+	if layout.FullAttentionLayers != 6 || layout.TotalFloatsPerLayer != 10485760 || layout.TotalAttentionFloats != 62914560 {
 		t.Fatalf("totals=%+v", layout)
 	}
 }

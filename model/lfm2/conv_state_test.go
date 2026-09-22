@@ -18,14 +18,14 @@ func TestConvStateLayoutFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if layout.Layers != 21 || layout.HiddenSize != 2048 || layout.LCache != 3 || layout.FloatsPerLayer != 6144 || layout.TotalFloats != 129024 {
+	if layout.Layers != 18 || layout.HiddenSize != 2048 || layout.LCache != 3 || layout.FloatsPerLayer != 6144 || layout.TotalFloats != 110592 {
 		t.Fatalf("layout=%+v", layout)
 	}
 	bytes, err := layout.Bytes(2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes != 258048 {
+	if bytes != 221184 {
 		t.Fatalf("bytes=%d", bytes)
 	}
 }

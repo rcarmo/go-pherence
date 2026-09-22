@@ -15,6 +15,8 @@ type RuntimeStatus struct {
 }
 
 func CurrentRuntimeStatus() RuntimeStatus {
+	// The CPU stages and decoder are implemented, but CPUGeneration remains
+	// gated until the pinned Transformers numeric fixture passes.
 	st := RuntimeStatus{EmbeddingCPU: true, ConvCPU: true, AttentionCPU: true, MoECPU: true}
 	if !st.CPUGeneration {
 		st.Pending = append(st.Pending, "cpu_generation_runtime")

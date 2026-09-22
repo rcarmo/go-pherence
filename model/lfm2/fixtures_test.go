@@ -14,7 +14,7 @@ func TestLoadReferenceMetadata(t *testing.T) {
 	if cfg.ModelType != ModelType || cfg.HiddenSize != 2048 || cfg.NumHiddenLayers != 24 {
 		t.Fatalf("config=%+v", cfg)
 	}
-	if cfg.ConvLayerCount() != 21 || cfg.FullAttentionLayerCount() != 3 {
+	if cfg.ConvLayerCount() != 18 || cfg.FullAttentionLayerCount() != 6 {
 		t.Fatalf("layer counts conv=%d attn=%d", cfg.ConvLayerCount(), cfg.FullAttentionLayerCount())
 	}
 	if cfg.NumExperts != 32 || cfg.NumExpertsPerTok != 4 || cfg.ConvLCache != 3 {

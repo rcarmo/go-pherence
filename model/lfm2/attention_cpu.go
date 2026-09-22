@@ -73,8 +73,12 @@ func (m *FullAttentionCPU) ForwardToken(input []float32, state AttentionCPUState
 	if m == nil {
 		return nil, state, fmt.Errorf("nil LFM2 CPU attention")
 	}
-	if pos < 0 || pos >= m.cfg.MaxPositionEmbeddings {
-		return nil, state, fmt.Errorf("invalid LFM2 attention position=%d max=%d", pos, m.cfg.MaxPositionEmbeddings)
+	maxPosition := m.cfg.MaxPositionEmbeddings
+	if maxPosition == 0 {
+		maxPosition = 128000
+	}
+	if pos < 0 || pos >= maxPosition {
+		return nil, state, fmt.Errorf("invalid LFM2 attention position=%d max=%d", pos, maxPosition)
 	}
 	if len(input) != m.cfg.HiddenSize {
 		return nil, state, fmt.Errorf("invalid LFM2 attention input=%d want %d", len(input), m.cfg.HiddenSize)

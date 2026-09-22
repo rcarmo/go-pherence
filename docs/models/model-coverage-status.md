@@ -172,7 +172,7 @@ Runtime work still pending:
 
 ## LFM2.5-8B-A1B
 
-Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, inspector coverage, and independent F32 embedding, final-head, cached short-convolution, full-attention, and routed-MoE operators are implemented. Full decoder orchestration, short generation, and released-model parity are not implemented.
+Status: metadata, tensor readiness, shape validation, exact pinned layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, inspector coverage, and the stateful F32 CPU decoder with greedy generation are implemented. Released-model numeric parity is not established, so execution readiness remains false.
 
 Implemented package/command surface:
 
@@ -202,6 +202,7 @@ Implemented package/command surface:
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
+- `model/lfm2/decoder_cpu.go` — per-layer norms/residuals, dense/routed FFNs, explicit conv/KV state, final logits, and deterministic greedy decode.
 - `model/lfm2/generation_contract.go` — validation-only generation contract tying prompt/output tokens to request limits and context vocabulary bounds.
 - `model/lfm2/pipeline_contract.go` — validation-only pipeline contract ensuring embedding, conv, attention, MoE, and output contracts agree on shapes.
 - `model/lfm2/runtime_request.go` — validation-only generation request plan tying prompt tokens, context, KV/cache bytes, router scratch, and embedding residency sizing.

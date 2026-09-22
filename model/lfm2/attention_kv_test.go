@@ -18,10 +18,10 @@ func TestAttentionKVLayoutFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if layout.Layers != 3 || layout.KVHeads != 8 || layout.HeadDim != 64 || layout.FloatsPerToken != 3072 {
+	if layout.Layers != 6 || layout.KVHeads != 8 || layout.HeadDim != 64 || layout.FloatsPerToken != 6144 {
 		t.Fatalf("layout=%+v", layout)
 	}
-	want := []int{7, 15, 23}
+	want := []int{2, 6, 10, 14, 18, 21}
 	for i := range want {
 		if layout.LayerIndices[i] != want[i] {
 			t.Fatalf("layer indices=%v", layout.LayerIndices)
@@ -31,7 +31,7 @@ func TestAttentionKVLayoutFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes != 786432 {
+	if bytes != 1572864 {
 		t.Fatalf("bytes=%d", bytes)
 	}
 }

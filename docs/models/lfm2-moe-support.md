@@ -61,10 +61,9 @@ That makes this a hybrid recurrent/convolutional + attention MoE decoder, not a 
 
 ### Missing or uncertain
 
-- `model/lfm2` provides strict config parsing, tensor inventory, and an owned F32 embedding/final-norm/tied-or-untied LM-head CPU stage. Conv, attention, MoE, and end-to-end generation are still pending.
-- No native LFM2 convolution/recurrent block implementation exists.
-- Tensor names and exact block math need inventory against the checkpoint and, ideally, a Transformers reference trace.
-- MoE routing details need parity checks: normalized top-k probabilities, expert bias behavior, routed scaling, and dense-layer exceptions.
+- `model/lfm2` provides strict config parsing, tensor inventory, owned F32 embedding/final-head execution, cached short convolution, full attention, dense/MoE FFNs, and stateful greedy decode.
+- Tensor names and operator math are pinned to the checkpoint config and Transformers source, but released-model numeric fixtures are not yet available.
+- MoE routing implements normalized selected sigmoid weights, selection-only expert bias, routed scaling, and dense-layer exceptions; the pinned Transformers trace must still confirm numeric parity.
 - Long-context behavior needs explicit state/cache accounting because the model advertises 128k positions and mixes `conv_L_cache=3` with full-attention layers.
 
 ## Proposed package layout
@@ -120,7 +119,8 @@ Acceptance:
 - [ ] Integrate batched prompt convolution, per-layer state, residual/norm execution, and cache reset into the full decoder.
 - [x] Implement the per-token MoE sigmoid router/top-k/expert FFN with selection-only expert bias, normalized selected weights, and routed scaling.
 - [ ] Bind and orchestrate dense and routed FFNs across all decoder layers.
-- [ ] Add greedy first-token and short decode parity tests.
+- [x] Add deterministic synthetic greedy first-token and short decode tests with caller-owned state.
+- [ ] Add released-model first-token and short-decode parity after the pinned checkpoint/oracle is approved.
 
 Acceptance:
 
@@ -139,4 +139,4 @@ Acceptance:
 
 ## Immediate next action
 
-Treat LFM2.5 as a separate roadmap track. After Qwen3-TTS T0/T1 is started, the first concrete LFM task should be `model/lfm2/config.go` plus `cmd/models/lfm2inspect`, not runtime generation.
+Capture the pinned Transformers token/logit/conv/attention/router/expert fixtures after checkpoint execution is approved. Keep runtime readiness false until those fixtures pass against the CPU decoder.
