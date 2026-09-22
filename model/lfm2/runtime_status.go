@@ -15,7 +15,7 @@ type RuntimeStatus struct {
 }
 
 func CurrentRuntimeStatus() RuntimeStatus {
-	st := RuntimeStatus{EmbeddingCPU: true}
+	st := RuntimeStatus{EmbeddingCPU: true, ConvCPU: true, AttentionCPU: true, MoECPU: true}
 	if !st.CPUGeneration {
 		st.Pending = append(st.Pending, "cpu_generation_runtime")
 	}

@@ -114,10 +114,12 @@ Acceptance:
 ### Phase L2 — CPU reference path
 
 - [x] Implement owned F32 embeddings, final RMSNorm, and tied-or-untied LM head with synthetic shape, ownership, and logits tests.
-- [ ] Implement per-layer RMSNorm and full-attention layers.
+- [x] Implement the stateful full-attention operator with per-head Q/K RMSNorm, RoPE, GQA, and caller-owned KV.
+- [ ] Integrate per-layer RMSNorm, attention state, and residual execution into the full decoder.
 - [x] Implement the caller-owned single-token short-convolution state transition with `conv_L_cache` semantics and exact `in_proj → B/C/x → depthwise conv → out_proj` ordering.
 - [ ] Integrate batched prompt convolution, per-layer state, residual/norm execution, and cache reset into the full decoder.
-- [ ] Implement MoE router/top-k/expert FFN with expert-bias and normalized-top-k behavior.
+- [x] Implement the per-token MoE sigmoid router/top-k/expert FFN with selection-only expert bias, normalized selected weights, and routed scaling.
+- [ ] Bind and orchestrate dense and routed FFNs across all decoder layers.
 - [ ] Add greedy first-token and short decode parity tests.
 
 Acceptance:

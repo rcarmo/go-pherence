@@ -172,7 +172,7 @@ Runtime work still pending:
 
 ## LFM2.5-8B-A1B
 
-Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, inspector coverage, the owned F32 embedding/final-norm/tied-or-untied LM-head stage, and the single-token short-convolution state transition are implemented. Batched conv, attention, MoE, and generation are not implemented.
+Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, inspector coverage, and independent F32 embedding, final-head, cached short-convolution, full-attention, and routed-MoE operators are implemented. Full decoder orchestration, short generation, and released-model parity are not implemented.
 
 Implemented package/command surface:
 
@@ -184,7 +184,8 @@ Implemented package/command surface:
 - `model/lfm2/execution.go` — per-layer dense-vs-routed-MoE execution role plan.
 - `model/lfm2/routing.go` — expert count, active top-k, normalization, bias, and routed-scaling contract.
 - `model/lfm2/router_layout.go` — router projection/logits/top-k scratch sizing contract.
-- `model/lfm2/moe_contract.go` — validation-only MoE-stage contract tying hidden activations, router scratch, and top-k expert counts.
+- `model/lfm2/moe_contract.go` — MoE-stage contract tying hidden activations, router scratch, and top-k expert counts.
+- `model/lfm2/moe_cpu.go` — sigmoid routing, selection-only expert bias, normalized top-k weights, routed scaling, and selected SwiGLU expert execution.
 - `model/lfm2/ffn_layout.go` — dense and routed expert FFN dimension/parameter contract.
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
@@ -195,6 +196,7 @@ Implemented package/command surface:
 - `model/lfm2/conv_contract.go` — validation-only convolution-stage contract tying hidden activations and conv state to exact float counts.
 - `model/lfm2/conv_projection.go` — per-conv-layer short-convolution kernel/bias sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.
+- `model/lfm2/attention_cpu.go` — caller-owned K/V, Q/K RMSNorm, RoPE, GQA, and output projection for one full-attention layer.
 - `model/lfm2/attention_contract.go` — validation-only full-attention contract tying hidden activations and KV cache to exact float counts.
 - `model/lfm2/attention_projection.go` — full-attention Q/K/V/O projection and GQA sizing contract.
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.

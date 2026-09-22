@@ -4,7 +4,7 @@ import "testing"
 
 func TestCurrentRuntimeStatus(t *testing.T) {
 	st := CurrentRuntimeStatus()
-	if st.RuntimeImplemented || st.CPUGeneration || !st.EmbeddingCPU || st.ConvCPU || st.AttentionCPU || st.MoECPU || st.NVIDIA {
+	if st.RuntimeImplemented || st.CPUGeneration || !st.EmbeddingCPU || !st.ConvCPU || !st.AttentionCPU || !st.MoECPU || st.NVIDIA {
 		t.Fatalf("unexpected implemented status: %+v", st)
 	}
 	want := []string{"cpu_generation_runtime", "nvidia_runtime"}
