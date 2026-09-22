@@ -15,6 +15,7 @@ Implemented:
 - stateful SIMD Mimi decode with released 1,920-sample waveform parity;
 - autoregressive generation contracts and exclusive PCM16 mono WAV output;
 - aligned-manifest admission, exact EOS/FlowMatching/LSD-diagonal losses and analytic gradients for a frozen-backbone affine training topology;
-- deterministic AdamW, EMA and atomic checkpoint/resume state for that topology.
+- F32-owned `SimpleMLPAdaLN` reverse-mode gradients for every parameter, latent input, condition and both time inputs, with pinned upstream PyTorch parity;
+- deterministic AdamW, EMA and directory-durable checkpoint/resume state for the frozen topology.
 
-The full LSD `s→t` JVP term, flow-head/transformer backward, latent precomputation and teacher/student distillation are still open. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
+The full LSD `s→t` JVP term, transformer backward, latent precomputation and teacher/student distillation are still open. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.

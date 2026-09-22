@@ -1,13 +1,13 @@
 # Pocket TTS native training validation — 2026-09-22
 
-The first native training gate covers aligned-manifest admission, exact EOS and LSD-diagonal loss reductions, analytic gradients for a frozen-backbone affine topology, one AdamW step, EMA and deterministic checkpoint resume.
+The native training gate covers aligned-manifest admission, exact EOS and LSD-diagonal loss reductions, F32-owned `SimpleMLPAdaLN` reverse-mode gradients, analytic gradients for a frozen-backbone affine topology, one AdamW step, EMA and deterministic checkpoint resume.
 
 ## Source and fixture
 
 - Upstream: `kyutai-labs/pocket-tts@0acce6b2f390150267557770d2098c5caa9a18ac`.
 - Reference files: `training/dataloader/loader.py`, `training/modules/model.py`, `training/modules/samplers.py`, `training/checkpointing.py` and `training/args.py`.
-- Fixture: `model/pockettts/testdata/training_tiny_pytorch.json`.
-- Fixture SHA-256: `67cc11d62d35c0acb844f6bab548e1d8f1661fef846b743bbe43460c3c8907de`.
+- Frozen-topology fixture: `model/pockettts/testdata/training_tiny_pytorch.json`, SHA-256 `67cc11d62d35c0acb844f6bab548e1d8f1661fef846b743bbe43460c3c8907de`.
+- Flow-head fixture: `model/pockettts/testdata/flow_head_backward_pytorch.json`, SHA-256 `74ff40f86a7dfb988924a08b38d0cec7abe495926ba353cef27630afa7936454`.
 - Oracle: PyTorch `2.13.0+cu130` in the pinned upstream checkout's virtual environment, using `torch.float32` and no Go code.
 
 The fixture has four frozen hidden rows, two latent channels and the mask `[true,true,false,false]`. It records the normalized LSD diagonal loss, EOS loss, weighted total, all trainable gradients, one AdamW update and the resulting EMA shadow.
@@ -43,6 +43,8 @@ and the function returns the mean over selected valid rows. `FlowMatchingLossAnd
 
 `TinyTrainer` applies decoupled AdamW with `DefaultAdamWConfig`, updates EMA after the optimiser step, and stores parameters, moments, EMA, optimiser settings and step in a versioned JSON checkpoint. Explicit zero weight decay remains valid. Saves use a temporary file, file `fsync`, atomic rename and parent-directory `fsync`. Reloaded state produces the same second update as uninterrupted state.
 
+`FlowHeadCPU.ForwardBackward` owns a single-row reverse-mode tape for F32 weights. It differentiates affine projections, SiLU, affine and non-affine LayerNorm, the upstream unbiased-variance timestep norm, AdaLN modulation, residual gates, both time embeddings, the latent input and the FlowLM condition. It rejects BF16 inference storage because training must own mutable F32 parameters. The fixture instantiates the pinned upstream `SimpleMLPAdaLN` module with a reviewable four-channel topology; separate central differences cover every native parameter and input.
+
 ## Numerical results
 
 Against the independent fixture:
@@ -51,15 +53,17 @@ Against the independent fixture:
 - EOS loss: `0.7662174105644226`;
 - weighted total: `0.20409968495368958`;
 - accepted absolute tolerance for losses: `2e-7`;
-- accepted absolute tolerance for gradients, AdamW values and EMA values: `3e-7`.
+- accepted absolute tolerance for frozen-topology gradients, AdamW values and EMA values: `3e-7`;
+- accepted absolute tolerance for flow-head forward/backward parity: `5e-6`.
 
 Checks run:
 
 ```sh
 GO_PHERENCE_DISABLE_NVIDIA=1 go test ./model/pockettts -count=10
-go test ./model/pockettts -run '^TestTinyTrainingPyTorchParity$' -count=100
+go test ./model/pockettts \
+  -run '^(TestTinyTrainingPyTorchParity|TestFlowHeadBackward)' -count=100
 go test -race ./model/pockettts \
-  -run 'TestTraining|TestEOS|TestFlowLoss|TestTinyTraining' -count=10
+  -run 'TestTraining|TestEOS|TestFlowLoss|TestTinyTraining|TestFlowHeadBackward' -count=10
 go vet ./model/pockettts
 ```
 
@@ -67,8 +71,8 @@ All passed on the amd64 development host.
 
 ## Open boundary
 
-This gate freezes the FlowLM hidden rows. It does not differentiate through the transformer or the released `SimpleMLPAdaLN` flow head.
+This gate freezes the FlowLM hidden rows. The flow head now has reverse-mode gradients, but the transformer does not.
 
-The released LSD objective also has an `s→t` self-distillation term. Its gradient includes a JVP with respect to `t` and the upstream `minimal` stop-gradient rule: the endpoint target propagates into `x_t` while its flow-head parameter gradient is stopped. Native flow-head backward and this JVP boundary are the next loss-parity slice.
+The released LSD objective also has an `s→t` self-distillation term. Its gradient includes a JVP with respect to `t` and the upstream `minimal` stop-gradient rule: the endpoint target propagates into `x_t` while its flow-head parameter gradient is stopped. The time-JVP and its mixed second derivatives are the next loss-parity slice.
 
 Frozen Mimi latent precomputation, full FlowLM backward, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export and long CPU performance qualification have not run.
