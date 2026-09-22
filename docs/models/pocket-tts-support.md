@@ -42,15 +42,25 @@ Training uses a frozen Mimi codec, aligned transcript/audio manifests, optional 
 1. Add raw-audio Mimi encoding for voice cloning after the gated bundle and an approved prompt fixture are available.
 2. Run native ARM64 and RVV performance qualification; amd64 allocation and performance targets pass on the recorded i7-12700 host.
 
-## Training slices
+## Native training
 
-Native training starts after frozen inference parity:
+The first deterministic training gate is implemented:
 
-1. aligned-manifest validation and SIMD Mimi latent precomputation;
-2. FlowLM/EOS/LSD forward losses with scalar fixtures;
-3. backward kernels and one-step gradient parity;
-4. AdamW, EMA and transactional checkpoint export;
+- aligned JSONL admission validates finite monotonic word timings and requires a prompt/target cut with at least one second on each side;
+- EOS reduction covers valid frames plus exactly the first invalid frame;
+- FlowMatching and normalized LSD diagonal losses expose analytic output gradients;
+- a frozen-backbone affine Flow/EOS topology has independent PyTorch parity for loss, every parameter gradient, one AdamW update and EMA within `3e-7`;
+- versioned checkpoint state stores parameters, AdamW moments, EMA and step through atomic save, and resumed second-step state is byte-for-byte equivalent to uninterrupted state.
+
+See [the training validation record](../validation/pocket-tts-native-training-2026-09-22.md) for the fixture and commands.
+
+The next slices are:
+
+1. native `SimpleMLPAdaLN` backward and the LSD `s→t` JVP with the upstream minimal stop-gradient rule;
+2. FlowLM transformer backward and complete one-step gradient parity;
+3. frozen Mimi latent precomputation;
+4. released-format checkpoint export;
 5. 24-layer teacher to six-layer depth/CFG distillation;
 6. long CPU qualification. GPU training is a separate backend task.
 
-Inference and training are not complete. Current released parity covers the tokenizer, tensor inventory and flow head only.
+Preset-voice inference is complete for the pinned released artefacts. Raw-audio voice cloning needs the gated encoder bundle. Full native training is incomplete.

@@ -13,6 +13,8 @@ Implemented:
 - native preset voice-state K/V import and released first-latent parity;
 - SIMD `SimpleMLPAdaLN` flow-head execution with released-weight parity;
 - stateful SIMD Mimi decode with released 1,920-sample waveform parity;
-- autoregressive generation contracts and exclusive PCM16 mono WAV output.
+- autoregressive generation contracts and exclusive PCM16 mono WAV output;
+- aligned-manifest admission, exact EOS/FlowMatching/LSD-diagonal losses and analytic gradients for a frozen-backbone affine training topology;
+- deterministic AdamW, EMA and atomic checkpoint/resume state for that topology.
 
-See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
+The full LSD `s→t` JVP term, flow-head/transformer backward, latent precomputation and teacher/student distillation are still open. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
