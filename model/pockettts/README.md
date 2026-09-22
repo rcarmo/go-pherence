@@ -17,6 +17,7 @@ Implemented:
 - aligned-manifest admission, exact EOS/FlowMatching/LSD-diagonal losses and analytic gradients for a frozen-backbone affine training topology;
 - F32-owned `SimpleMLPAdaLN` reverse-mode gradients, exact forward-mode time JVPs and reverse-over-JVP mixed derivatives, with pinned upstream PyTorch parity;
 - F32-owned stateless causal-transformer backward through bounded attention, adjacent-pair RoPE, layer scales, tanh-GELU FFN and final LayerNorm;
+- exact one-row training layout and gradients for BOS-before-voice, voice projection, text embeddings, shifted audio projection, gathered audio conditions and EOS head;
 - deterministic AdamW, EMA and directory-durable checkpoint/resume state for the frozen topology.
 
-The normalized LSD `s→t` term now includes exact mixed derivatives and the upstream minimal stop-gradient endpoint rule. Transformer-block backward is implemented; conditioning layout, embedding/projection gradients and complete one-step parity are still open, followed by latent precomputation and teacher/student distillation. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
+The normalized LSD `s→t` term now includes exact mixed derivatives and the upstream minimal stop-gradient endpoint rule. Transformer and conditioning backward are implemented. Combined EOS + diagonal + `s→t` loss accumulation and complete one-step parity are still open, followed by latent precomputation and teacher/student distillation. See [`docs/models/pocket-tts-support.md`](../../docs/models/pocket-tts-support.md) for provenance, limits and the inference/training sequence.
