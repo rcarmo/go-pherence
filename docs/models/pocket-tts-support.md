@@ -51,13 +51,14 @@ The first deterministic training gate is implemented:
 - FlowMatching and normalized LSD diagonal losses expose analytic output gradients;
 - a frozen-backbone affine Flow/EOS topology has independent PyTorch parity for loss, every parameter gradient, one AdamW update and EMA within `3e-7`;
 - F32-owned `SimpleMLPAdaLN` reverse-mode covers every parameter, latent input, condition and both time inputs; exact forward-mode time JVPs and reverse-over-JVP mixed derivatives cover both time conditions; the normalized LSD `s→t` row implements the upstream minimal stop-gradient endpoint rule; pinned upstream-module fixtures match within `3e-5`, with separate all-parameter central differences;
+- F32-owned stateless transformer backward covers bounded causal attention, adjacent-pair RoPE, softmax, residual layer scales, both affine LayerNorms, tanh-GELU FFN and final LayerNorm; a context-two upstream fixture matches output, full sequence gradient and every parameter within `1e-5`;
 - versioned checkpoint state stores parameters, AdamW settings/moments, EMA and step through a directory-durable atomic save, and resumed second-step state is byte-for-byte equivalent to uninterrupted state.
 
 See [the training validation record](../validation/pocket-tts-native-training-2026-09-22.md) for the fixture and commands.
 
 The next slices are:
 
-1. FlowLM transformer backward and complete one-step gradient parity;
+1. FlowLM conditioning layout plus embedding/input/EOS projection gradients and complete one-step parity;
 2. frozen Mimi latent precomputation;
 3. released-format checkpoint export;
 4. 24-layer teacher to six-layer depth/CFG distillation;

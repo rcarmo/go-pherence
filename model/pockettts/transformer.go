@@ -5,6 +5,7 @@ import (
 	"math"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/checked"
 )
 
 type TransformerLayerCPU struct {
@@ -24,14 +25,18 @@ type TransformerCPU struct {
 }
 
 func (m *TransformerCPU) Forward(sequence []float32, rows int) ([]float32, error) {
-	if m == nil || rows <= 0 || m.Width <= 0 || m.Heads <= 0 || m.HeadDim <= 0 || m.Width != m.Heads*m.HeadDim || len(sequence) != rows*m.Width || len(m.Layers) == 0 {
+	if m == nil || rows <= 0 || m.Width <= 0 || m.Heads <= 0 || m.HeadDim <= 0 || m.Width != m.Heads*m.HeadDim || len(m.Layers) == 0 {
+		return nil, fmt.Errorf("invalid Pocket TTS transformer input")
+	}
+	elements, ok := checked.MulInt(rows, m.Width)
+	if !ok || len(sequence) != elements {
 		return nil, fmt.Errorf("invalid Pocket TTS transformer input")
 	}
 	hidden := append([]float32(nil), sequence...)
 	rope := simd.BuildRoPEFreqs(rows, m.HeadDim/2, m.HeadDim, m.MaxPeriod)
 	for i := range m.Layers {
 		var err error
-		hidden, err = m.Layers[i].forward(hidden, rows, m.Width, m.Heads, m.HeadDim, rope)
+		hidden, err = m.Layers[i].forward(hidden, rows, m.Width, m.Heads, m.HeadDim, m.Context, rope)
 		if err != nil {
 			return nil, fmt.Errorf("Pocket TTS transformer layer %d: %w", i, err)
 		}
@@ -46,7 +51,7 @@ func (m *TransformerCPU) Forward(sequence []float32, rows int) ([]float32, error
 	return hidden, nil
 }
 
-func (l TransformerLayerCPU) forward(input []float32, rows, width, heads, headDim int, rope []float32) ([]float32, error) {
+func (l TransformerLayerCPU) forward(input []float32, rows, width, heads, headDim, context int, rope []float32) ([]float32, error) {
 	norm := make([]float32, len(input))
 	if !simd.LayerNormLastAxisTo(norm, input, rows, width, l.Norm1Weight, l.Norm1Bias, 1e-5) {
 		return nil, fmt.Errorf("attention LayerNorm failed")
@@ -68,17 +73,21 @@ func (l TransformerLayerCPU) forward(input []float32, rows, width, heads, headDi
 	scores := make([]float32, rows)
 	scale := float32(1 / math.Sqrt(float64(headDim)))
 	for row := 0; row < rows; row++ {
+		start := 0
+		if context > 0 && row-context+1 > 0 {
+			start = row - context + 1
+		}
 		for head := 0; head < heads; head++ {
 			qh := q[row*width+head*headDim : row*width+(head+1)*headDim]
-			for key := 0; key <= row; key++ {
-				scores[key] = simd.Sdot(qh, k[key*width+head*headDim:key*width+(head+1)*headDim]) * scale
+			for key := start; key <= row; key++ {
+				scores[key-start] = simd.Sdot(qh, k[key*width+head*headDim:key*width+(head+1)*headDim]) * scale
 			}
-			if !simd.SoftmaxInPlace(scores[:row+1]) {
+			if !simd.SoftmaxInPlace(scores[:row-start+1]) {
 				return nil, fmt.Errorf("softmax failed")
 			}
 			dst := attention[row*width+head*headDim : row*width+(head+1)*headDim]
-			for key := 0; key <= row; key++ {
-				simd.VecScaleAdd(dst, dst, v[key*width+head*headDim:key*width+(head+1)*headDim], scores[key])
+			for key := start; key <= row; key++ {
+				simd.VecScaleAdd(dst, dst, v[key*width+head*headDim:key*width+(head+1)*headDim], scores[key-start])
 			}
 		}
 	}
