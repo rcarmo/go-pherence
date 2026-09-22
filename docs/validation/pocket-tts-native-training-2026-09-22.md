@@ -7,7 +7,7 @@ The native training gate covers aligned-manifest admission, exact EOS and LSD-di
 - Upstream: `kyutai-labs/pocket-tts@0acce6b2f390150267557770d2098c5caa9a18ac`.
 - Reference files: `training/dataloader/loader.py`, `training/modules/model.py`, `training/modules/samplers.py`, `training/checkpointing.py` and `training/args.py`.
 - Frozen-topology fixture: `model/pockettts/testdata/training_tiny_pytorch.json`, SHA-256 `67cc11d62d35c0acb844f6bab548e1d8f1661fef846b743bbe43460c3c8907de`.
-- Flow-head fixture: `model/pockettts/testdata/flow_head_backward_pytorch.json`, SHA-256 `084da927fb546effbe48a6776f4fd6eb0d7d3dba5db5a5bf5c5d05b2c97b50bc`.
+- Flow-head fixture: `model/pockettts/testdata/flow_head_backward_pytorch.json`, SHA-256 `ea4f3942de67e10e5f7ba3bf7b792ff7d382ee3634b77af484de9a0361e05c1e`.
 - Oracle: PyTorch `2.13.0+cu130` in the pinned upstream checkout's virtual environment, using `torch.float32` and no Go code.
 
 The fixture has four frozen hidden rows, two latent channels and the mask `[true,true,false,false]`. It records the normalized LSD diagonal loss, EOS loss, weighted total, all trainable gradients, one AdamW update and the resulting EMA shadow.
@@ -43,7 +43,7 @@ and the function returns the mean over selected valid rows. `FlowMatchingLossAnd
 
 `TinyTrainer` applies decoupled AdamW with `DefaultAdamWConfig`, updates EMA after the optimiser step, and stores parameters, moments, EMA, optimiser settings and step in a versioned JSON checkpoint. Explicit zero weight decay remains valid. Saves use a temporary file, file `fsync`, atomic rename and parent-directory `fsync`. Reloaded state produces the same second update as uninterrupted state.
 
-`FlowHeadCPU.ForwardBackward` owns a single-row reverse-mode tape for F32 weights. It differentiates affine projections, SiLU, affine and non-affine LayerNorm, the upstream unbiased-variance timestep norm, AdaLN modulation, residual gates, both time embeddings, the latent input and the FlowLM condition. `ForwardTimeJVP` propagates an exact forward-mode tangent for either time condition through the same operations. Both reject BF16 inference storage because training must own mutable F32 parameters. The fixture instantiates the pinned upstream `SimpleMLPAdaLN` module with a reviewable four-channel topology and stores both PyTorch time-JVP vectors; separate central differences cover every native parameter and input.
+`FlowHeadCPU.ForwardBackward` owns a single-row reverse-mode tape for F32 weights. It differentiates affine projections, SiLU, affine and non-affine LayerNorm, the upstream unbiased-variance timestep norm, AdaLN modulation, residual gates, both time embeddings, the latent input and the FlowLM condition. `ForwardTimeJVP` propagates an exact forward-mode tangent for either time condition through the same operations. `ForwardTimeJVPBackward` applies reverse-over-forward AD so objectives depending on both `v` and `dv/dt` receive exact mixed parameter/input derivatives. All reject BF16 inference storage because training must own mutable F32 parameters. The fixture instantiates the pinned upstream `SimpleMLPAdaLN` module with a reviewable four-channel topology and stores both PyTorch time-JVP and mixed-gradient cases; separate central differences cover every native parameter and input. The generator verifies the exact clean upstream revision and imported module path before writing.
 
 ## Numerical results
 
@@ -54,7 +54,8 @@ Against the independent fixture:
 - weighted total: `0.20409968495368958`;
 - accepted absolute tolerance for losses: `2e-7`;
 - accepted absolute tolerance for frozen-topology gradients, AdamW values and EMA values: `3e-7`;
-- accepted absolute tolerance for flow-head forward/backward and time-JVP parity: `5e-6`.
+- accepted absolute tolerance for flow-head forward/backward and time-JVP parity: `5e-6`;
+- accepted absolute tolerance for reverse-over-JVP mixed gradients: `1e-5`.
 
 Checks run:
 
@@ -73,6 +74,6 @@ All passed on the amd64 development host.
 
 This gate freezes the FlowLM hidden rows. The flow head now has reverse-mode gradients, but the transformer does not.
 
-The released LSD objective also has an `s→t` self-distillation term. Its gradient includes a JVP with respect to `t` and the upstream `minimal` stop-gradient rule: the endpoint target propagates into `x_t` while its flow-head parameter gradient is stopped. The time-JVP is implemented. Reverse-over-JVP mixed derivatives are the next loss-parity slice.
+The released LSD objective also has an `s→t` self-distillation term. Its gradient includes a JVP with respect to `t` and the upstream `minimal` stop-gradient rule: the endpoint target propagates into `x_t` while its flow-head parameter gradient is stopped. Time-JVP and reverse-over-JVP mixed derivatives are implemented. The next loss-parity slice composes them with the upstream minimal stop-gradient endpoint rule.
 
 Frozen Mimi latent precomputation, full FlowLM backward, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export and long CPU performance qualification have not run.

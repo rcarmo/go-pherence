@@ -22,6 +22,16 @@ type flowHeadBackwardOracle struct {
 	DInput           []float32            `json:"d_input"`
 	Parameters       map[string][]float32 `json:"parameters"`
 	Gradients        map[string][]float32 `json:"gradients"`
+	Mixed            []struct {
+		TimeIndex  int                  `json:"time_index"`
+		DOutput    []float32            `json:"d_output"`
+		DTangent   []float32            `json:"d_tangent"`
+		Loss       float32              `json:"loss"`
+		DCondition []float32            `json:"d_condition"`
+		DTimes     []float32            `json:"d_times"`
+		DInput     []float32            `json:"d_input"`
+		Gradients  map[string][]float32 `json:"gradients"`
+	} `json:"mixed"`
 }
 
 func TestFlowHeadBackwardPyTorchParity(t *testing.T) {

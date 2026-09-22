@@ -8,7 +8,10 @@ generate_flow_head_backward_pytorch.py > /path/to/go-pherence/model/pockettts/\
 testdata/flow_head_backward_pytorch.json
 """
 
+import inspect
 import json
+import subprocess
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -16,6 +19,22 @@ from torch import nn
 from pocket_tts.modules.mlp import SimpleMLPAdaLN, TimestepEmbedder
 
 UPSTREAM_REVISION = "0acce6b2f390150267557770d2098c5caa9a18ac"
+
+checkout = Path.cwd().resolve()
+actual_revision = subprocess.check_output(
+    ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
+).strip()
+if actual_revision != UPSTREAM_REVISION:
+    raise SystemExit(f"upstream revision {actual_revision}, want {UPSTREAM_REVISION}")
+module_path = Path(inspect.getfile(SimpleMLPAdaLN)).resolve()
+expected_module = checkout / "pocket_tts" / "modules" / "mlp.py"
+if module_path != expected_module:
+    raise SystemExit(f"imported {module_path}, want {expected_module}")
+subprocess.run(
+    ["git", "diff", "--quiet", "HEAD", "--", "pocket_tts/modules/mlp.py"],
+    cwd=checkout,
+    check=True,
+)
 
 
 def fill_linear(linear: nn.Linear, start: float) -> None:
@@ -84,6 +103,47 @@ for time_index in range(2):
 
 loss = (output * d_output).sum()
 loss.backward()
+ordinary_gradients = {
+    name: value.grad.detach().flatten().tolist()
+    for name, value in model.named_parameters()
+}
+ordinary_inputs = {
+    "d_condition": condition.grad.detach().tolist(),
+    "d_times": times.grad.detach().tolist(),
+    "d_input": latent.grad.detach().tolist(),
+}
+
+d_tangent = torch.tensor([-0.35, 0.45], dtype=torch.float32)
+mixed = []
+for time_index in range(2):
+    model.zero_grad(set_to_none=True)
+    condition.grad = None
+    times.grad = None
+    latent.grad = None
+    direction = torch.zeros_like(times)
+    direction[time_index] = 1
+    output_mixed, tangent_mixed = torch.func.jvp(
+        time_function, (times,), (direction,)
+    )
+    mixed_loss = (output_mixed * d_output).sum() + (
+        tangent_mixed * d_tangent
+    ).sum()
+    mixed_loss.backward()
+    mixed.append(
+        {
+            "time_index": time_index,
+            "d_output": d_output.tolist(),
+            "d_tangent": d_tangent.tolist(),
+            "loss": mixed_loss.item(),
+            "d_condition": condition.grad.detach().tolist(),
+            "d_times": times.grad.detach().tolist(),
+            "d_input": latent.grad.detach().tolist(),
+            "gradients": {
+                name: value.grad.detach().flatten().tolist()
+                for name, value in model.named_parameters()
+            },
+        }
+    )
 
 fixture = {
     "schema": 1,
@@ -95,17 +155,15 @@ fixture = {
     "input": latent.detach().tolist(),
     "d_output": d_output.tolist(),
     "output": output.detach().tolist(),
-    "d_condition": condition.grad.tolist(),
-    "d_times": times.grad.tolist(),
+    "d_condition": ordinary_inputs["d_condition"],
+    "d_times": ordinary_inputs["d_times"],
     "jvp_times": jvp_times,
-    "d_input": latent.grad.tolist(),
+    "d_input": ordinary_inputs["d_input"],
     "parameters": {
         name: value.detach().flatten().tolist()
         for name, value in model.state_dict().items()
     },
-    "gradients": {
-        name: value.grad.detach().flatten().tolist()
-        for name, value in model.named_parameters()
-    },
+    "gradients": ordinary_gradients,
+    "mixed": mixed,
 }
 print(json.dumps(fixture, indent=2))
