@@ -44,7 +44,7 @@ Go System One now asks tokenizers that implement `UserTextValidator` to validate
 
 Kev reports five-question latency in the tens of milliseconds on H100 and MI300X when Qwen3.5 uses `flash-linear-attention`. It does not publish an RTX 3060 result. Its model cards report about 9 GB for Kev-4B bf16 and 19 GB for Kev-9B bf16; the latter cannot fit this project's 12 GB target. Apple M5 bf16 medians are 329 ms for 0.8B, 779 ms for 4B and about 2 seconds for 9B on a roughly 230-token state.
 
-These measurements use different models, precision, hardware, state length and question count from Go System One's 135.3–136.7 ms Gemma 4 request on an RTX 3060. They do not support a direct speed comparison or a Go System One runtime change.
+These measurements use different models, precision, hardware, state length and question count from Go System One's 80.65 ms median Gemma 4 request on an RTX 3060. They do not support a direct speed comparison or a Go System One runtime change.
 
 ## Licence and checkpoint scope
 

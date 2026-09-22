@@ -77,14 +77,11 @@ func (m *GPUGGUFMatrix) Free() {
 	}
 }
 
-// ProjectQ4PairToBuffers quantises x once and projects it through two
-// coalesced Q4_K matrices with identical input dimensions.
+// ProjectQ4PairToBuffers quantises x once and projects it through two Q4_K
+// matrices with identical input dimensions. Output dimensions may differ.
 func ProjectQ4PairToBuffers(outA, outB, x *Buffer, batch int, a, b *GPUGGUFMatrix) error {
 	if a != nil && b != nil && a.q4k != nil && b.q4k != nil && a.q4k.raw && b.q4k.raw && a.InDim == b.InDim {
-		if err := gemmQ4RawUpstream(outA, x, batch, a.q4k); err != nil {
-			return err
-		}
-		return gemmQ4RawUpstream(outB, x, batch, b.q4k)
+		return gemmQ4RawUpstreamPair(outA, outB, x, batch, a.q4k, b.q4k)
 	}
 	if a == nil || b == nil || a.QType != gguf.QuantQ4_K || b.QType != gguf.QuantQ4_K || a.q4k == nil || b.q4k == nil || !a.q4k.coalesced || !b.q4k.coalesced || a.InDim != b.InDim {
 		if a == nil || b == nil {

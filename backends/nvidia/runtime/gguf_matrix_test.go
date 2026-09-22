@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"encoding/binary"
+	"math"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/half"
@@ -52,6 +53,81 @@ func TestGPUGGUFMatrixDispatchesAdmittedKTypes(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestProjectQ4RawPairMatchesSeparateProjections(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA unavailable")
+	}
+	const inDim, outDim, batch = 256, 256, 24
+	makeMatrix := func(offset int) *gguf.QuantMatrix {
+		raw := make([]byte, outDim*144)
+		for r := 0; r < outDim; r++ {
+			block := raw[r*144 : (r+1)*144]
+			binary.LittleEndian.PutUint16(block[:2], half.F32ToF16(.02))
+			binary.LittleEndian.PutUint16(block[2:4], half.F32ToF16(.003))
+			for i := 0; i < 12; i++ {
+				block[4+i] = byte(1 + (i+r+offset)%12)
+			}
+			for i := 0; i < 128; i++ {
+				block[16+i] = byte((i*7 + r*11 + offset) & 0xff)
+			}
+		}
+		return &gguf.QuantMatrix{Name: "fixture", QType: gguf.QuantQ4_K, Raw: raw, InDim: inDim, OutDim: outDim}
+	}
+	a, err := UploadGGUFMatrix(makeMatrix(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Free()
+	b, err := UploadGGUFMatrix(makeMatrix(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Free()
+	x, _ := Malloc(batch * inDim)
+	wantA, _ := Malloc(batch * outDim)
+	wantB, _ := Malloc(batch * outDim)
+	gotA, _ := Malloc(batch * outDim)
+	gotB, _ := Malloc(batch * outDim)
+	defer x.Free()
+	defer wantA.Free()
+	defer wantB.Free()
+	defer gotA.Free()
+	defer gotB.Free()
+	host := make([]float32, batch*inDim)
+	for i := range host {
+		host[i] = float32((i%31)-15) / 17
+	}
+	if err := x.Upload(host); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.ProjectBatchToBuffer(wantA, x, batch); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.ProjectBatchToBuffer(wantB, x, batch); err != nil {
+		t.Fatal(err)
+	}
+	if err := ProjectQ4PairToBuffers(gotA, gotB, x, batch, a, b); err != nil {
+		t.Fatal(err)
+	}
+	if err := SyncErr(); err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]*Buffer{{wantA, gotA}, {wantB, gotB}} {
+		want, got := make([]float32, batch*outDim), make([]float32, batch*outDim)
+		if err := pair[0].Download(want); err != nil {
+			t.Fatal(err)
+		}
+		if err := pair[1].Download(got); err != nil {
+			t.Fatal(err)
+		}
+		for i := range got {
+			if diff := math.Abs(float64(got[i] - want[i])); diff != 0 {
+				t.Fatalf("index=%d got=%g want=%g diff=%g", i, got[i], want[i], diff)
+			}
+		}
 	}
 }
 

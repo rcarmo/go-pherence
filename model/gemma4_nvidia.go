@@ -26,9 +26,13 @@ type Gemma4NVIDIA struct {
 
 type gemma4NVIDIALayer struct {
 	q, k, v, o                                   *nvidia.GPUGGUFMatrix
-	gate, up, down                               *nvidia.GPUGGUFMatrix
+	gate, up, gateUp, down                       *nvidia.GPUGGUFMatrix
 	inputNorm, postNorm, preFFNNorm, postFFNNorm *nvidia.Buffer
 	qNorm, kNorm                                 *nvidia.Buffer
+}
+
+func q4GateUpCompatible(gate, up *gguf.QuantMatrix) bool {
+	return gate != nil && up != nil && gate.QType == gguf.QuantQ4_K && up.QType == gguf.QuantQ4_K && gate.InDim == up.InDim && gate.OutDim == up.OutDim
 }
 
 func NewGemma4NVIDIA(m *LlamaModel) (*Gemma4NVIDIA, error) {
@@ -85,9 +89,25 @@ func NewGemma4NVIDIA(m *LlamaModel) (*Gemma4NVIDIA, error) {
 		for name, pair := range map[string]struct {
 			src *gguf.QuantMatrix
 			dst **nvidia.GPUGGUFMatrix
-		}{"O": {src.OWGGUF, &dst.o}, "gate": {src.GateWGGUF, &dst.gate}, "up": {src.UpWGGUF, &dst.up}, "down": {src.DownWGGUF, &dst.down}} {
+		}{"O": {src.OWGGUF, &dst.o}, "down": {src.DownWGGUF, &dst.down}} {
 			if *pair.dst, err = nvidia.UploadGGUFMatrix(pair.src); err != nil {
 				return nil, fmt.Errorf("layer %d %s: %w", i, name, err)
+			}
+		}
+		if q4GateUpCompatible(src.GateWGGUF, src.UpWGGUF) {
+			raw := make([]byte, 0, len(src.GateWGGUF.Raw)+len(src.UpWGGUF.Raw))
+			raw = append(raw, src.GateWGGUF.Raw...)
+			raw = append(raw, src.UpWGGUF.Raw...)
+			combined := &gguf.QuantMatrix{Name: src.GateWGGUF.Name + "+" + src.UpWGGUF.Name, QType: gguf.QuantQ4_K, Raw: raw, InDim: src.GateWGGUF.InDim, OutDim: src.GateWGGUF.OutDim + src.UpWGGUF.OutDim}
+			if dst.gateUp, err = nvidia.UploadGGUFMatrix(combined); err != nil {
+				return nil, fmt.Errorf("layer %d gate/up: %w", i, err)
+			}
+		} else {
+			if dst.gate, err = nvidia.UploadGGUFMatrix(src.GateWGGUF); err != nil {
+				return nil, fmt.Errorf("layer %d gate: %w", i, err)
+			}
+			if dst.up, err = nvidia.UploadGGUFMatrix(src.UpWGGUF); err != nil {
+				return nil, fmt.Errorf("layer %d up: %w", i, err)
 			}
 		}
 		if dst.inputNorm, err = uploadF32(src.InputNorm.Data()); err != nil {
@@ -181,7 +201,7 @@ func (l *gemma4NVIDIALayer) free() {
 		return
 	}
 	seen := map[*nvidia.GPUGGUFMatrix]bool{}
-	for _, m := range []*nvidia.GPUGGUFMatrix{l.q, l.k, l.v, l.o, l.gate, l.up, l.down} {
+	for _, m := range []*nvidia.GPUGGUFMatrix{l.q, l.k, l.v, l.o, l.gate, l.up, l.gateUp, l.down} {
 		if m != nil && !seen[m] {
 			m.Free()
 			seen[m] = true
@@ -276,6 +296,7 @@ func (g *Gemma4NVIDIA) runPrefillBatchOutput(ctx context.Context, tokens []int, 
 	o, _ := nvidia.Malloc(B * h)
 	gate, _ := nvidia.Malloc(B * maxInter)
 	up, _ := nvidia.Malloc(B * maxInter)
+	gateUp, _ := nvidia.Malloc(B * maxInter * 2)
 	down, _ := nvidia.Malloc(B * h)
 	defer q.Free()
 	defer k.Free()
@@ -284,6 +305,7 @@ func (g *Gemma4NVIDIA) runPrefillBatchOutput(ctx context.Context, tokens []int, 
 	defer o.Free()
 	defer gate.Free()
 	defer up.Free()
+	defer gateUp.Free()
 	defer down.Free()
 	for l := 0; l < m.Config.NumLayers; l++ {
 		if err := ctx.Err(); err != nil {
@@ -365,11 +387,20 @@ func (g *Gemma4NVIDIA) runPrefillBatchOutput(ctx context.Context, tokens []int, 
 		if err := nvidia.IdeogramRMSNormRowsBuffer(normed, hidden, gl.preFFNNorm, nil, B, h, float32(m.Config.RMSNormEps), false); err != nil {
 			return err
 		}
-		if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
-			return err
-		}
-		if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
-			return err
+		if gl.gateUp != nil {
+			if err := gl.gateUp.ProjectBatchToBuffer(gateUp, normed, B); err != nil {
+				return err
+			}
+			if err := nvidia.GateUpGELUBuffer(gateUp, gate, B, inter); err != nil {
+				return err
+			}
+		} else {
+			if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
+				return err
+			}
+			if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
+				return err
+			}
 		}
 		if err := gl.down.ProjectBatchToBuffer(down, gate, B); err != nil {
 			return err
@@ -853,6 +884,7 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 	o, _ := nvidia.Malloc(B * h)
 	gate, _ := nvidia.Malloc(B * maxInter)
 	up, _ := nvidia.Malloc(B * maxInter)
+	gateUp, _ := nvidia.Malloc(B * maxInter * 2)
 	down, _ := nvidia.Malloc(B * h)
 	defer q.Free()
 	defer k.Free()
@@ -861,6 +893,7 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 	defer o.Free()
 	defer gate.Free()
 	defer up.Free()
+	defer gateUp.Free()
 	defer down.Free()
 	for l := 0; l < m.Config.NumLayers; l++ {
 		if err := ctx.Err(); err != nil {
@@ -965,11 +998,20 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 		} else {
 			return nil, fmt.Errorf("layer %d missing Gemma4 pre-FFN norm", l)
 		}
-		if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
-			return nil, err
-		}
-		if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
-			return nil, err
+		if gl.gateUp != nil {
+			if err := gl.gateUp.ProjectBatchToBuffer(gateUp, normed, B); err != nil {
+				return nil, err
+			}
+			if err := nvidia.GateUpGELUBuffer(gateUp, gate, B, inter); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
+				return nil, err
+			}
+			if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
+				return nil, err
+			}
 		}
 		if err := gl.down.ProjectBatchToBuffer(down, gate, B); err != nil {
 			return nil, err
@@ -1094,7 +1136,7 @@ func (g *Gemma4NVIDIA) ResidentBytes() int64 {
 		}
 	}
 	for i := range g.layers {
-		for _, m := range []*nvidia.GPUGGUFMatrix{g.layers[i].q, g.layers[i].k, g.layers[i].v, g.layers[i].o, g.layers[i].gate, g.layers[i].up, g.layers[i].down} {
+		for _, m := range []*nvidia.GPUGGUFMatrix{g.layers[i].q, g.layers[i].k, g.layers[i].v, g.layers[i].o, g.layers[i].gate, g.layers[i].up, g.layers[i].gateUp, g.layers[i].down} {
 			add(m)
 		}
 	}

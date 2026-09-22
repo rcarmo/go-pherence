@@ -386,18 +386,46 @@ func GemvQ4KBatchToBuffer(outBuf *Buffer, xBuf *Buffer, batch int, m *GPUQ4KMatr
 }
 
 func gemmQ4RawUpstream(out, x *Buffer, batch int, m *GPUQ4KMatrix) error {
-	blocks := m.InDim / 128
-	tileRows := upstreamQ4TileRows(batch)
-	stride := (batch + tileRows - 1) / tileRows * tileRows
-	q8, unlock, err := q4UpstreamQ8(stride * blocks * 144)
+	q8, unlock, err := prepareQ4RawUpstream(x, batch, m.InDim)
 	if err != nil {
 		return err
 	}
 	defer unlock()
-	kk, bb, ss := uint32(m.InDim), uint32(batch), uint32(stride)
-	if err = LaunchKernel(fnQuantizeQ81MMQ, uint32(batch), 1, 1, 32, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&q8.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&bb), unsafe.Pointer(&ss)); err != nil {
+	return gemmQ4RawUpstreamPrepared(out, q8, batch, m)
+}
+
+func gemmQ4RawUpstreamPair(outA, outB, x *Buffer, batch int, a, b *GPUQ4KMatrix) error {
+	if a == nil || b == nil || !a.raw || !b.raw || a.InDim != b.InDim {
+		return fmt.Errorf("invalid raw Q4_K projection pair")
+	}
+	q8, unlock, err := prepareQ4RawUpstream(x, batch, a.InDim)
+	if err != nil {
 		return err
 	}
+	defer unlock()
+	if err = gemmQ4RawUpstreamPrepared(outA, q8, batch, a); err != nil {
+		return err
+	}
+	return gemmQ4RawUpstreamPrepared(outB, q8, batch, b)
+}
+
+func prepareQ4RawUpstream(x *Buffer, batch, inDim int) (*Buffer, func(), error) {
+	blocks := inDim / 128
+	tileRows := upstreamQ4TileRows(batch)
+	stride := (batch + tileRows - 1) / tileRows * tileRows
+	q8, unlock, err := q4UpstreamQ8(stride * blocks * 144)
+	if err != nil {
+		return nil, nil, err
+	}
+	kk, bb, ss := uint32(inDim), uint32(batch), uint32(stride)
+	if err = LaunchKernel(fnQuantizeQ81MMQ, uint32(inDim/128), uint32(batch), 1, 32, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&q8.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&bb), unsafe.Pointer(&ss)); err != nil {
+		unlock()
+		return nil, nil, err
+	}
+	return q8, unlock, nil
+}
+
+func gemmQ4RawUpstreamPrepared(out, q8 *Buffer, batch int, m *GPUQ4KMatrix) error {
 	var fn CUfunction
 	switch {
 	case batch <= 8:
@@ -411,7 +439,7 @@ func gemmQ4RawUpstream(out, x *Buffer, batch int, m *GPUQ4KMatrix) error {
 	default:
 		fn = fnQ4UpstreamMMQJ64
 	}
-	nn := uint32(m.OutDim)
+	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
 	return LaunchKernel(fn, uint32((m.OutDim+127)/128), uint32((batch+upstreamQ4TileRows(batch)-1)/upstreamQ4TileRows(batch)), 1, 32, 8, 1, uint32(upstreamQ4SharedBytes(batch)), unsafe.Pointer(&m.Q.Ptr), unsafe.Pointer(&q8.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&nn), unsafe.Pointer(&kk), unsafe.Pointer(&bb))
 }
 

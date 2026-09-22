@@ -34,7 +34,7 @@ func ProbeQ4UpstreamMMQ(out, x, raw *Buffer, batch, inDim, outDim int) error {
 	}
 	defer q8.Free()
 	kk, bb, ss := uint32(inDim), uint32(batch), uint32(stride)
-	if err = LaunchKernel(fnQuantizeQ81MMQ, uint32(batch), 1, 1, 32, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&q8.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&bb), unsafe.Pointer(&ss)); err != nil {
+	if err = LaunchKernel(fnQuantizeQ81MMQ, uint32(inDim/128), uint32(batch), 1, 32, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&q8.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&bb), unsafe.Pointer(&ss)); err != nil {
 		return err
 	}
 	nn := uint32(outDim)
