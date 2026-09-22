@@ -52,9 +52,9 @@ func BuildRuntimePlan(summary config.MiniCPMVSummary, processor *config.MiniCPMV
 	if summary.AudioModelType != "" || summary.AudioHiddenSize > 0 || summary.AudioMelBins > 0 {
 		add("audio_encoder_execution", false, "MiniCPM-O audio encoder tensor execution pending")
 	}
-	add("vision_tower_execution", false, "EVA02/SigLIP tensor execution pending")
-	add("resampler_execution", false, "perceiver resampler tensor execution pending")
-	add("embedding_injection", false, "image embedding injection into text embeddings pending")
+	add("vision_tower_execution", false, "SigLIP CPU execution implemented; legacy EVA/timm execution and released parity pending")
+	add("resampler_execution", false, "CPU execution implemented; independent released parity pending")
+	add("embedding_injection", true, "")
 	add("text_generation", false, "CPU text binding and greedy execution implemented; pinned independent released-model parity pending")
 	plan.RuntimeReady = false
 	return plan

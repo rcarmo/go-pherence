@@ -57,9 +57,8 @@ This package owns the Go-side metadata, prompt, preprocessing, and readiness sca
 
 - Capture pinned independent released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.
 - Add sampling policies beyond deterministic greedy decoding.
-- Execute EVA02/SigLIP vision tower.
-- Execute perceiver resampler and KV projection.
-- Inject image/audio embeddings into the text backbone.
+- Execute the legacy EVA/timm vision tower and capture independent released vision/resampler parity.
+- Inject MiniCPM-O audio embeddings into the text backbone.
 - Execute MiniCPM-O audio feature extraction and audio encoder.
 - Add end-to-end MiniCPM-V/O generation parity gates.
 

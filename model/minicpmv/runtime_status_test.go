@@ -4,7 +4,7 @@ import "testing"
 
 func TestPendingRuntimeSteps(t *testing.T) {
 	steps := PendingRuntimeSteps()
-	if len(steps) < 5 {
+	if len(steps) < 4 {
 		t.Fatalf("expected runtime steps, got %v", steps)
 	}
 	for i, step := range steps {
