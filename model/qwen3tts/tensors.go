@@ -70,7 +70,7 @@ func TensorGroup(name string) string {
 		return "speech_tokenizer"
 	case strings.Contains(s, "speaker_encoder") || strings.HasPrefix(s, "speaker.") || strings.HasPrefix(s, "ecapa"):
 		return "speaker_encoder"
-	case strings.Contains(s, "code_predictor") || strings.Contains(s, "codec_embedding") || strings.Contains(s, "small_to_mtp_projection"):
+	case strings.Contains(s, "code_predictor") || strings.Contains(s, "small_to_mtp_projection") || strings.HasPrefix(s, "model.codec_embedding."):
 		return "code_predictor"
 	case strings.HasPrefix(s, "talker.") || strings.HasPrefix(s, "model.talker") || strings.Contains(s, "text_projection") || strings.Contains(s, "text_embedding") || strings.Contains(s, "codec_head"):
 		return "talker"

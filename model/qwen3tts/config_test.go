@@ -12,7 +12,7 @@ func TestParseConfigCustomVoice(t *testing.T) {
 			"num_hidden_layers":28,
 			"num_attention_heads":16,
 			"num_key_value_heads":8,
-			"head_dim":64,
+			"head_dim":128,
 			"vocab_size":3072,
 			"text_vocab_size":151936,
 			"text_hidden_size":2048,
@@ -26,7 +26,7 @@ func TestParseConfigCustomVoice(t *testing.T) {
 				"num_hidden_layers":5,
 				"num_attention_heads":16,
 				"num_key_value_heads":8,
-				"head_dim":64,
+				"head_dim":128,
 				"vocab_size":2048,
 				"num_code_groups":16
 			}
@@ -49,20 +49,23 @@ func TestParseConfigCustomVoice(t *testing.T) {
 	}
 }
 
-func TestParseConfigDerivesMissingHeadDim(t *testing.T) {
+func TestParseConfigUsesOfficialMissingHeadDimDefault(t *testing.T) {
 	cfg, err := ParseConfig([]byte(`{"talker_config":{"hidden_size":1024,"num_attention_heads":16,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.TalkerHeadDim != 64 || cfg.CPHeadDim != 64 {
+	if cfg.TalkerHeadDim != 128 || cfg.CPHeadDim != 128 {
 		t.Fatalf("head dims talker=%d cp=%d", cfg.TalkerHeadDim, cfg.CPHeadDim)
 	}
 }
 
-func TestParseConfigRejectsBadDims(t *testing.T) {
-	_, err := ParseConfig([]byte(`{"talker_config":{"hidden_size":1025,"num_attention_heads":16,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"head_dim":64}}}`))
-	if err == nil {
-		t.Fatal("expected invalid head dims")
+func TestParseConfigAcceptsAttentionWidthDifferentFromHidden(t *testing.T) {
+	cfg, err := ParseConfig([]byte(`{"talker_config":{"hidden_size":1024,"num_attention_heads":16,"head_dim":128,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"head_dim":128}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TalkerNumAttentionHeads*cfg.TalkerHeadDim != 2048 || cfg.CPNumAttentionHeads*cfg.CPHeadDim != 2048 {
+		t.Fatalf("query widths talker/cp=%d/%d", cfg.TalkerNumAttentionHeads*cfg.TalkerHeadDim, cfg.CPNumAttentionHeads*cfg.CPHeadDim)
 	}
 }
 
@@ -110,6 +113,15 @@ func TestTensorCoverage(t *testing.T) {
 	}
 	if !cov.Readiness.PresentOptional["speaker_encoder"] {
 		t.Fatalf("optional readiness=%+v", cov.Readiness)
+	}
+}
+
+func TestTensorGroupDistinguishesTalkerAndCodePredictorEmbeddings(t *testing.T) {
+	if got := TensorGroup("talker.model.codec_embedding.weight"); got != "talker" {
+		t.Fatalf("talker codec embedding group=%q", got)
+	}
+	if got := TensorGroup("model.codec_embedding.0.weight"); got != "code_predictor" {
+		t.Fatalf("predictor codec embedding group=%q", got)
 	}
 }
 

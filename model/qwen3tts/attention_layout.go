@@ -60,8 +60,8 @@ func (l AttentionLayout) Validate() error {
 	if l.Name == "" || l.HiddenSize <= 0 || l.Layers <= 0 || l.Heads <= 0 || l.KVHeads <= 0 || l.HeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS attention layout dims: %+v", l)
 	}
-	if l.HiddenSize != sizeProduct(l.Heads, l.HeadDim) {
-		return fmt.Errorf("invalid Qwen3-TTS %s attention hidden/head dims: hidden=%d heads=%d head_dim=%d", l.Name, l.HiddenSize, l.Heads, l.HeadDim)
+	if sizeProduct(l.Heads, l.HeadDim) <= 0 {
+		return fmt.Errorf("invalid Qwen3-TTS %s attention query width: heads=%d head_dim=%d", l.Name, l.Heads, l.HeadDim)
 	}
 	if l.Heads%l.KVHeads != 0 {
 		return fmt.Errorf("invalid Qwen3-TTS %s GQA grouping: heads=%d kv_heads=%d", l.Name, l.Heads, l.KVHeads)

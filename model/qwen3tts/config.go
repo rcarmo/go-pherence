@@ -88,10 +88,10 @@ func ParseConfig(data []byte) (ParsedConfig, error) {
 	}
 	talkerHidden := i(t, "hidden_size", 1024)
 	talkerHeads := i(t, "num_attention_heads", 16)
-	talkerHeadDim := i(t, "head_dim", derivedHeadDim(talkerHidden, talkerHeads))
+	talkerHeadDim := i(t, "head_dim", 128)
 	cpHidden := i(cp, "hidden_size", 1024)
 	cpHeads := i(cp, "num_attention_heads", 16)
-	cpHeadDim := i(cp, "head_dim", derivedHeadDim(cpHidden, cpHeads))
+	cpHeadDim := i(cp, "head_dim", 128)
 	out := ParsedConfig{
 		ModelType:                  mt,
 		ModelSize:                  str(v, "tts_model_size", "unknown"),
@@ -152,8 +152,8 @@ func (c ParsedConfig) Validate() error {
 	if c.TalkerHiddenSize <= 0 || c.TalkerNumAttentionHeads <= 0 || c.TalkerNumKeyValueHeads <= 0 || c.TalkerHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS talker attention dims: %+v", c)
 	}
-	if c.TalkerHiddenSize != sizeProduct(c.TalkerNumAttentionHeads, c.TalkerHeadDim) {
-		return fmt.Errorf("invalid Qwen3-TTS talker head dims: hidden=%d heads=%d head_dim=%d", c.TalkerHiddenSize, c.TalkerNumAttentionHeads, c.TalkerHeadDim)
+	if sizeProduct(c.TalkerNumAttentionHeads, c.TalkerHeadDim) <= 0 {
+		return fmt.Errorf("invalid Qwen3-TTS talker query width: heads=%d head_dim=%d", c.TalkerNumAttentionHeads, c.TalkerHeadDim)
 	}
 	if c.TalkerNumKeyValueHeads > c.TalkerNumAttentionHeads || c.TalkerNumAttentionHeads%c.TalkerNumKeyValueHeads != 0 {
 		return fmt.Errorf("invalid Qwen3-TTS talker GQA dims: heads=%d kv_heads=%d", c.TalkerNumAttentionHeads, c.TalkerNumKeyValueHeads)
@@ -161,8 +161,8 @@ func (c ParsedConfig) Validate() error {
 	if c.CPHiddenSize <= 0 || c.CPNumAttentionHeads <= 0 || c.CPNumKeyValueHeads <= 0 || c.CPHeadDim <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor attention dims: %+v", c)
 	}
-	if c.CPHiddenSize != sizeProduct(c.CPNumAttentionHeads, c.CPHeadDim) {
-		return fmt.Errorf("invalid Qwen3-TTS code predictor head dims: hidden=%d heads=%d head_dim=%d", c.CPHiddenSize, c.CPNumAttentionHeads, c.CPHeadDim)
+	if sizeProduct(c.CPNumAttentionHeads, c.CPHeadDim) <= 0 {
+		return fmt.Errorf("invalid Qwen3-TTS code predictor query width: heads=%d head_dim=%d", c.CPNumAttentionHeads, c.CPHeadDim)
 	}
 	if c.CPNumKeyValueHeads > c.CPNumAttentionHeads || c.CPNumAttentionHeads%c.CPNumKeyValueHeads != 0 {
 		return fmt.Errorf("invalid Qwen3-TTS code predictor GQA dims: heads=%d kv_heads=%d", c.CPNumAttentionHeads, c.CPNumKeyValueHeads)
@@ -229,11 +229,4 @@ func anyInt(x any, def int) int {
 	default:
 		return def
 	}
-}
-
-func derivedHeadDim(hidden, heads int) int {
-	if hidden > 0 && heads > 0 && hidden%heads == 0 {
-		return hidden / heads
-	}
-	return 0
 }

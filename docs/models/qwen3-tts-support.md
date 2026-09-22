@@ -4,7 +4,7 @@ This note maps <https://github.com/TrevorS/qwen3-tts-rs> and the official Qwen3-
 
 ## Source reviewed
 
-- Reference implementation: <https://github.com/TrevorS/qwen3-tts-rs>
+- Reference implementation: <https://github.com/TrevorS/qwen3-tts-rs/tree/711ceee07cad92673f86de8997bdf54c30caa49f> (`711ceee07cad92673f86de8997bdf54c30caa49f`)
 - Upstream model family: <https://github.com/QwenLM/Qwen3-TTS>
 - Official checkpoint IDs referenced by the Rust implementation:
   - `Qwen/Qwen3-TTS-12Hz-0.6B-Base`
@@ -79,8 +79,8 @@ Start with `0.6B CustomVoice` because it avoids ECAPA/reference-codec front-end 
 
 ### Missing or insufficient
 
-- `model/qwen3tts` now covers TTS-specific config parsing, token constants, tensor-group inventory, and deterministic CustomVoice prefix IDs; checkpoint binding and pipeline state are still pending.
-- No native Qwen3-TTS talker wrapper that can mix text projections, codec embeddings, MRoPE, speaker/control prefixes, and semantic-token generation.
+- `model/qwen3tts` covers TTS-specific config parsing, token constants, tensor-group inventory, deterministic CustomVoice prefix IDs, owned F32 Talker weight binding, CustomVoice prefill, GQA/RoPE execution, token suppression, and greedy first-semantic-token generation.
+- Multi-frame Talker continuation depends on the CodePredictor's 15 acoustic embeddings and remains part of Phase T3.
 - No native TTS code predictor package with 15 acoustic heads and compact per-frame KV-cache reuse.
 - No `Decoder12Hz` / speech-tokenizer decoder or encoder implementation.
 - No Qwen3-TTS CLI, synthesis options, streaming interface, WAV writer integration, or audio fixture suite.
@@ -163,16 +163,19 @@ Acceptance:
 
 Goal: generate semantic tokens from text on CPU for `0.6B CustomVoice`.
 
-- [ ] Bind talker weights and validate tensor shapes.
-- [ ] Implement text embedding, text projection/SwiGLU, codec embedding, MRoPE, decoder layers, RMSNorm, and codec LM head.
-- [ ] Reuse checked SIMD runtime APIs for matmul/RMSNorm/activation and maintain scalar/reference tests.
-- [ ] Add token suppression for codec control range `[vocab_size-1024, vocab_size)` except EOS.
-- [ ] Add deterministic greedy/seeded sampling parity against reference fixtures.
+- [x] Bind dense F32 Talker weights transactionally and validate exact tensor shapes.
+- [x] Implement text embedding, biased text projection/SiLU, codec embedding, GQA/RoPE decoder layers, RMSNorm, and codec LM head for CustomVoice prefill.
+- [x] Reuse checked SIMD runtime APIs for GEMV, RMSNorm, activation, RoPE, attention, and residual operations.
+- [x] Add greedy token suppression for codec control range `[vocab_size-1024, vocab_size)` except EOS.
+- [x] Add deterministic synthetic first-token, malformed tensor, forged-control, ownership, and non-finite tests.
+- [ ] Replace the independent-reference placeholder with exact hidden/logit checksums and first semantic token from the pinned 0.6B CustomVoice oracle.
+- [ ] Extend from first-token prefill to a short semantic sequence after Phase T3 supplies the 15 acoustic embeddings required for each continuation step.
 
 Acceptance:
 
-- First semantic token and a short semantic-token sequence match reference for fixed inputs.
-- Malformed dimension/buffer tests cover all exported talker entrypoints.
+- The CPU path produces a deterministic first semantic token from the exact ten-position CustomVoice prefill.
+- The independent oracle fixture must pass before numeric parity is marked ready.
+- Malformed dimensions, prompt controls, buffers, and non-finite logits fail closed.
 
 ### Phase T3 — Code predictor CPU reference
 

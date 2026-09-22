@@ -98,7 +98,7 @@ bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/mi
 
 ## Qwen3-TTS
 
-Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, and inspector coverage are implemented. Audio generation is not implemented.
+Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, inspector coverage, and the dense F32 CustomVoice Talker first-token path are implemented. Multi-frame semantic generation, acoustic prediction, and audio generation are not implemented.
 
 Implemented package/command surface:
 
@@ -107,7 +107,8 @@ Implemented package/command surface:
 - `model/qwen3tts/prompt.go` — tokenizer loading plus tokenized CustomVoice prompt builder.
 - `model/qwen3tts/prefill.go` — Talker prefill stream/embedding sizing contract.
 - `model/qwen3tts/talker_input.go` — text projection plus codec-control embedding fusion layout.
-- `model/qwen3tts/talker_contract.go` — validation-only CPU/reference Talker output contract tied to runtime request limits and semantic token ranges.
+- `model/qwen3tts/talker_contract.go` — CPU/reference Talker output contract tied to runtime request limits and semantic token ranges.
+- `model/qwen3tts/talker_cpu.go` — owned F32 Talker weight binding, CustomVoice prefill, GQA/RoPE transformer execution, codec-token suppression, and greedy first-token generation.
 - `model/qwen3tts/code_predictor_contract.go` — validation-only CPU/reference CodePredictor contract tying semantic input to bounded acoustic frame output.
 - `model/qwen3tts/prompt_runtime.go` — prompt-specific prefill plus Talker input-fusion contract.
 - `model/qwen3tts/embedding_layout.go` — text embedding, projection, codec-head, and codec-embedding matrix sizing.

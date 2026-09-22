@@ -256,8 +256,8 @@ func (p TransformerPlan) Validate(label string) error {
 	if p.HiddenSize <= 0 || p.Layers <= 0 || p.Heads <= 0 || p.KVHeads <= 0 || p.HeadDim <= 0 || p.VocabSize <= 0 {
 		return fmt.Errorf("invalid Qwen3-TTS %s plan: %+v", label, p)
 	}
-	if p.HiddenSize != sizeProduct(p.Heads, p.HeadDim) {
-		return fmt.Errorf("invalid Qwen3-TTS %s hidden/head dims: hidden=%d heads=%d head_dim=%d", label, p.HiddenSize, p.Heads, p.HeadDim)
+	if sizeProduct(p.Heads, p.HeadDim) <= 0 {
+		return fmt.Errorf("invalid Qwen3-TTS %s query width: heads=%d head_dim=%d", label, p.Heads, p.HeadDim)
 	}
 	if p.Heads%p.KVHeads != 0 {
 		return fmt.Errorf("invalid Qwen3-TTS %s GQA grouping", label)
