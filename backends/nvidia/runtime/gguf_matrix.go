@@ -2,6 +2,7 @@ package nvidia
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
@@ -23,7 +24,7 @@ func UploadGGUFMatrix(m *gguf.QuantMatrix) (*GPUGGUFMatrix, error) {
 	var err error
 	switch m.QType {
 	case gguf.QuantQ4_K:
-		out.q4k, err = UploadQ4KMatrixRows(m.Raw, m.InDim, m.OutDim)
+		out.q4k, err = UploadQ4KMatrixRaw(m.Raw, m.InDim, m.OutDim)
 	case gguf.QuantQ5_K:
 		out.qk, err = UploadQ5KMatrixRows(m.Raw, m.InDim, m.OutDim)
 	case gguf.QuantQ6_K:
@@ -74,6 +75,50 @@ func (m *GPUGGUFMatrix) Free() {
 		m.qk.Free()
 		m.qk = nil
 	}
+}
+
+// ProjectQ4PairToBuffers quantises x once and projects it through two
+// coalesced Q4_K matrices with identical input dimensions.
+func ProjectQ4PairToBuffers(outA, outB, x *Buffer, batch int, a, b *GPUGGUFMatrix) error {
+	if a != nil && b != nil && a.q4k != nil && b.q4k != nil && a.q4k.raw && b.q4k.raw && a.InDim == b.InDim {
+		if err := gemmQ4RawUpstream(outA, x, batch, a.q4k); err != nil {
+			return err
+		}
+		return gemmQ4RawUpstream(outB, x, batch, b.q4k)
+	}
+	if a == nil || b == nil || a.QType != gguf.QuantQ4_K || b.QType != gguf.QuantQ4_K || a.q4k == nil || b.q4k == nil || !a.q4k.coalesced || !b.q4k.coalesced || a.InDim != b.InDim {
+		if a == nil || b == nil {
+			return fmt.Errorf("invalid Q4_K projection pair")
+		}
+		if err := a.ProjectBatchToBuffer(outA, x, batch); err != nil {
+			return err
+		}
+		return b.ProjectBatchToBuffer(outB, x, batch)
+	}
+	groups := a.InDim / 32
+	q, d, s, unlock, err := q8ProjectionBuffers(batch*a.InDim, batch*groups, batch*groups*4)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err = quantizeQ8RowsSum(q, d, s, x, batch, a.InDim); err != nil {
+		return err
+	}
+	if batch >= 16 && fnQ4PairMMQJ16 != 0 {
+		return gemmQ4PairPrepared(outA, outB, q, d, s, batch, a.q4k, b.q4k)
+	}
+	if err = gemmQ4CoalescedPrepared(outA, q, d, s, batch, a.q4k); err != nil {
+		return err
+	}
+	return gemmQ4CoalescedPrepared(outB, q, d, s, batch, b.q4k)
+}
+
+func (m *GPUGGUFMatrix) ProjectSelectedRows(out, x, rows *Buffer, count int) error {
+	if m == nil || m.QType != gguf.QuantQ5_K || m.qk == nil || m.qk.PackedQ == nil || m.qk.PackedScale == nil || m.qk.PackedMin == nil || out == nil || x == nil || rows == nil || count <= 0 || out.Size < count*4 || x.Size < m.InDim*4 || rows.Size < count*4 || fnQ5PackedSelected == 0 {
+		return fmt.Errorf("invalid selected Q5_K projection")
+	}
+	kk, cc := uint32(m.InDim), uint32(count)
+	return LaunchKernel(fnQ5PackedSelected, uint32(count), 1, 1, 32, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&m.qk.PackedQ.Ptr), unsafe.Pointer(&m.qk.PackedScale.Ptr), unsafe.Pointer(&m.qk.PackedMin.Ptr), unsafe.Pointer(&rows.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&cc))
 }
 
 func (m *GPUGGUFMatrix) ProjectBatchToBuffer(out, x *Buffer, batch int) error {

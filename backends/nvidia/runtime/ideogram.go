@@ -126,6 +126,20 @@ func IdeogramLayerNormNoAffineBuffer(out, x *Buffer, rows, cols int, eps float32
 
 // IdeogramRMSNormRows computes row-wise RMSNorm with per-column weight and an
 // optional per-column scale vector through temporary device buffers.
+var fnRMSNormRowsNoWeight CUfunction
+
+func IdeogramRMSNormRowsNoWeightBuffer(out, x *Buffer, rows, cols int, eps float32) error {
+	if fnRMSNormRowsNoWeight == 0 || !megaModuleOK || out == nil || x == nil || rows <= 0 || cols <= 0 {
+		return fmt.Errorf("invalid Ideogram RMSNorm no-weight buffers")
+	}
+	n, ok := checked.MulInt(rows, cols)
+	if !ok || out.Size < n*4 || x.Size < n*4 {
+		return fmt.Errorf("invalid Ideogram RMSNorm no-weight size")
+	}
+	rr, cc := uint32(rows), uint32(cols)
+	return LaunchKernel(fnRMSNormRowsNoWeight, rr, 1, 1, 256, 1, 1, 256*4, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&cc), unsafe.Pointer(&eps))
+}
+
 func IdeogramRMSNormRowsBuffer(out, x, weight, scale *Buffer, rows, cols int, eps float32, useScale bool) error {
 	if fnIdeogramRMSNormRowsF32 == 0 || !megaModuleOK || out == nil || x == nil || weight == nil || rows <= 0 || cols <= 0 || !fitsUint32(rows) || !fitsUint32(cols) {
 		return fmt.Errorf("invalid Ideogram RMSNorm rows device buffers")

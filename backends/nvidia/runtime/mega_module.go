@@ -50,7 +50,7 @@ func loadMegaModule() {
 
 		// Combine all PTX entries into one module
 		var combined strings.Builder
-		combined.WriteString(".version 7.0\n.target sm_80\n.address_size 64\n\n")
+		combined.WriteString(".version 8.7\n.target sm_80\n.address_size 64\n\n")
 
 		entries := megaModuleEntries()
 		if err := validateModuleEntries(entries); err != nil {
@@ -130,6 +130,7 @@ func Q4Ready() bool {
 }
 
 func shutdownMegaModule() {
+	freeQ4UpstreamScratch()
 	freeQ8ProjectionScratch()
 	freeNVFP4Scratch()
 	FreeBF16LMHeadScratch()

@@ -160,6 +160,16 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 			defer prefix.Close()
 		}
 	}
+	if len(branches) == 1 && len(branches[0].Tokens) > 0 {
+		packed := append(append([]int(nil), contextTokens...), branches[0].Tokens...)
+		logits, err := s.GPU.ScorePrefixedSingleBranch(ctx, prefix, packed, branches[0].CandidateTokens)
+		if err != nil {
+			return nil, fmt.Errorf("NVIDIA packed context/branch: %w", err)
+		}
+		out := make([][]float32, 1)
+		out[0] = logits
+		return out, nil
+	}
 	gpuCtx, err := s.GPU.RefillPrefixed(ctx, prefix, contextTokens)
 	if err != nil {
 		return nil, fmt.Errorf("NVIDIA context prefill: %w", err)

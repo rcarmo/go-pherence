@@ -236,6 +236,9 @@ func (g *Gemma4NVIDIA) PrefillPreparedCapacity(ctx context.Context, tokens []int
 }
 
 func (g *Gemma4NVIDIA) runPrefillBatch(ctx context.Context, tokens []int, pos0 int, arena *gemma4NVIDIAKVArena, final []float32) error {
+	return g.runPrefillBatchOutput(ctx, tokens, pos0, arena, final, nil)
+}
+func (g *Gemma4NVIDIA) runPrefillBatchOutput(ctx context.Context, tokens []int, pos0 int, arena *gemma4NVIDIAKVArena, final []float32, finalDevice *nvidia.Buffer) error {
 	m := g.model
 	B, h := len(tokens), m.Config.HiddenSize
 	host := make([]float32, B*h)
@@ -322,12 +325,8 @@ func (g *Gemma4NVIDIA) runPrefillBatch(ctx context.Context, tokens []int, pos0 i
 				return err
 			}
 		}
-		ones, _ := nvidia.Malloc(hd)
-		_ = ones.Upload(makeOnes(hd))
-		normErr := nvidia.IdeogramRMSNormRowsBuffer(v, v, ones, nil, B*kvHeads, hd, float32(m.Config.RMSNormEps), false)
-		ones.Free()
-		if normErr != nil {
-			return normErr
+		if err := nvidia.IdeogramRMSNormRowsNoWeightBuffer(v, v, B*kvHeads, hd, float32(m.Config.RMSNormEps)); err != nil {
+			return err
 		}
 		_, rot := m.ensureGemma4RoPE(l, pos0+B-1)
 		rope := g.ropeSWA
@@ -366,10 +365,7 @@ func (g *Gemma4NVIDIA) runPrefillBatch(ctx context.Context, tokens []int, pos0 i
 		if err := nvidia.IdeogramRMSNormRowsBuffer(normed, hidden, gl.preFFNNorm, nil, B, h, float32(m.Config.RMSNormEps), false); err != nil {
 			return err
 		}
-		if err := gl.gate.ProjectBatchToBuffer(gate, normed, B); err != nil {
-			return err
-		}
-		if err := gl.up.ProjectBatchToBuffer(up, normed, B); err != nil {
+		if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
 			return err
 		}
 		if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
@@ -392,6 +388,14 @@ func (g *Gemma4NVIDIA) runPrefillBatch(ctx context.Context, tokens []int, pos0 i
 			}
 		}
 	}
+	if finalDevice != nil {
+		if finalDevice.Size < h*4 {
+			return fmt.Errorf("NVIDIA prefill final device buffer too small")
+		}
+		if err := nvidia.CopyDtoD(finalDevice.Ptr, hidden.Ptr+nvidia.CUdeviceptr((B-1)*h*4), uint64(h*4)); err != nil {
+			return err
+		}
+	}
 	if final != nil {
 		if len(final) < h {
 			return fmt.Errorf("NVIDIA prefill final buffer=%d, want %d", len(final), h)
@@ -403,6 +407,33 @@ func (g *Gemma4NVIDIA) runPrefillBatch(ctx context.Context, tokens []int, pos0 i
 		copy(final, all[(B-1)*h:B*h])
 	}
 	return nil
+}
+
+// ScorePrefixedSingleBranch packs a request context and one forced branch into
+// a single causal prefill against an immutable cached prefix.
+func (g *Gemma4NVIDIA) ScorePrefixedSingleBranch(ctx context.Context, prefix *Gemma4NVIDIAContext, tokens, candidates []int) ([]float32, error) {
+	if g == nil || ctx == nil || prefix == nil || prefix.closed || prefix.owner != g || prefix.arena == nil || len(tokens) == 0 || len(prefix.tokens)+len(tokens) > prefix.arena.trunkLen {
+		return nil, fmt.Errorf("invalid NVIDIA prefixed branch")
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	h := g.model.Config.HiddenSize
+	last, err := nvidia.Malloc(h)
+	if err != nil {
+		return nil, err
+	}
+	defer last.Free()
+	for start := 0; start < len(tokens); start += 512 {
+		end := min(start+512, len(tokens))
+		dst := last
+		if end != len(tokens) {
+			dst = nil
+		}
+		if err := g.runPrefillBatchOutput(ctx, tokens[start:end], len(prefix.tokens)+start, prefix.arena, nil, dst); err != nil {
+			return nil, err
+		}
+	}
+	return g.finishSelectedDevice(last, candidates)
 }
 
 func (g *Gemma4NVIDIA) RefillPrefixed(ctx context.Context, prefix *Gemma4NVIDIAContext, suffix []int) (*Gemma4NVIDIAContext, error) {
@@ -555,11 +586,7 @@ func (g *Gemma4NVIDIA) runPrefillToken(ctx context.Context, token, pos int, aren
 			}
 		}
 		if src.HasKV {
-			ones, _ := nvidia.Malloc(hd)
-			_ = ones.Upload(makeOnes(hd))
-			err := nvidia.IdeogramRMSNormRowsBuffer(v, v, ones, nil, kvHeads, hd, float32(m.Config.RMSNormEps), false)
-			ones.Free()
-			if err != nil {
+			if err := nvidia.IdeogramRMSNormRowsNoWeightBuffer(v, v, kvHeads, hd, float32(m.Config.RMSNormEps)); err != nil {
 				return err
 			}
 		}
@@ -877,13 +904,9 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 			}
 		}
 		if src.HasKV {
-			ones, _ := nvidia.Malloc(hd)
-			_ = ones.Upload(makeOnes(hd))
-			if err := nvidia.IdeogramRMSNormRowsBuffer(v, v, ones, nil, B*kvHeads, hd, float32(m.Config.RMSNormEps), false); err != nil {
-				ones.Free()
+			if err := nvidia.IdeogramRMSNormRowsNoWeightBuffer(v, v, B*kvHeads, hd, float32(m.Config.RMSNormEps)); err != nil {
 				return nil, err
 			}
-			ones.Free()
 		}
 		_, rot := m.ensureGemma4RoPE(l, positions[0])
 		rope := g.ropeSWA
@@ -942,10 +965,7 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 		} else {
 			return nil, fmt.Errorf("layer %d missing Gemma4 pre-FFN norm", l)
 		}
-		if err := gl.gate.ProjectBatchToBuffer(gate, normed, B); err != nil {
-			return nil, err
-		}
-		if err := gl.up.ProjectBatchToBuffer(up, normed, B); err != nil {
+		if err := nvidia.ProjectQ4PairToBuffers(gate, up, normed, B, gl.gate, gl.up); err != nil {
 			return nil, err
 		}
 		if err := nvidia.GELUTanhMulBuffer(gate, up, B*inter); err != nil {
@@ -979,6 +999,56 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 	return out, nil
 }
 
+func (g *Gemma4NVIDIA) FinishSelected(hidden []float32, tokens []int) ([]float32, error) {
+	h := g.model.Config.HiddenSize
+	if len(hidden) < h {
+		return nil, fmt.Errorf("invalid selected logits")
+	}
+	hb, err := nvidia.Malloc(h)
+	if err != nil {
+		return nil, err
+	}
+	defer hb.Free()
+	if err = hb.Upload(hidden[:h]); err != nil {
+		return nil, err
+	}
+	return g.finishSelectedDevice(hb, tokens)
+}
+func (g *Gemma4NVIDIA) finishSelectedDevice(hb *nvidia.Buffer, tokens []int) ([]float32, error) {
+	m := g.model
+	h := m.Config.HiddenSize
+	if hb == nil || hb.Size < h*4 || len(tokens) == 0 {
+		return nil, fmt.Errorf("invalid selected device logits")
+	}
+	nb, _ := nvidia.Malloc(h)
+	rb, _ := nvidia.MallocBytes(len(tokens) * 4)
+	lb, _ := nvidia.Malloc(len(tokens))
+	defer nb.Free()
+	defer rb.Free()
+	defer lb.Free()
+	ids := make([]uint32, len(tokens))
+	for i, t := range tokens {
+		if t < 0 || t >= m.Config.VocabSize {
+			return nil, fmt.Errorf("candidate token outside vocab")
+		}
+		ids[i] = uint32(t)
+	}
+	if err := rb.UploadUint32(ids); err != nil {
+		return nil, err
+	}
+	if err := nvidia.IdeogramRMSNormRowsBuffer(nb, hb, g.norm, nil, 1, h, float32(m.Config.RMSNormEps), false); err != nil {
+		return nil, err
+	}
+	if err := g.lmHead.ProjectSelectedRows(lb, nb, rb, len(tokens)); err != nil {
+		return nil, err
+	}
+	out := make([]float32, len(tokens))
+	if err := lb.Download(out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (g *Gemma4NVIDIA) finishRow(hidden []float32) ([]float32, error) {
 	m := g.model
 	h, vocab := m.Config.HiddenSize, m.Config.VocabSize
@@ -1004,13 +1074,6 @@ func (g *Gemma4NVIDIA) finishRow(hidden []float32) ([]float32, error) {
 	applyLlamaFinalLogitSoftcap(out, m.Config.FinalLogitSoftcapping)
 	applyLlamaSuppressTokens(out, m.SuppressTokens)
 	return out, nil
-}
-func makeOnes(n int) []float32 {
-	x := make([]float32, n)
-	for i := range x {
-		x[i] = 1
-	}
-	return x
 }
 func (g *Gemma4NVIDIA) DeviceName() string {
 	if g == nil {

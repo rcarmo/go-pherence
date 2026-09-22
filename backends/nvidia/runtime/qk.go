@@ -13,6 +13,7 @@ var (
 	fnQ5KGemmWarp      CUfunction
 	fnQ5PackedF32      CUfunction
 	fnQ5PackedQ8       CUfunction
+	fnQ5PackedSelected CUfunction
 	fnQ6KGemvBatch     CUfunction
 	fnQ6KGemmWarp      CUfunction
 	fnQ6KGemmBatch8    CUfunction
@@ -20,6 +21,7 @@ var (
 	fnQ6KQ8Batch4      CUfunction
 	fnQuantizeQ8Rows16 CUfunction
 	fnQ6PackedQ8       CUfunction
+	fnQ6PackedMMQ8     CUfunction
 	fnQ6PackedF32      CUfunction
 )
 
@@ -294,6 +296,9 @@ func gemmQ6PackedQ8ToBuffer(out, x *Buffer, batch int, m *GPUQKMatrix) error {
 		return err
 	}
 	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
+	if batch >= 4 && fnQ6PackedMMQ8 != 0 {
+		return LaunchKernel(fnQ6PackedMMQ8, uint32((m.OutDim+31)/32), uint32((batch+7)/8), 1, 256, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&m.PackedQ.Ptr), unsafe.Pointer(&m.PackedScale.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
+	}
 	return LaunchKernel(fnQ6PackedQ8, uint32((m.OutDim+3)/4), uint32((batch+3)/4), 1, 128, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&m.PackedQ.Ptr), unsafe.Pointer(&m.PackedScale.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
 }
 
