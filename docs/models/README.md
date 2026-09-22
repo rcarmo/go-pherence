@@ -6,6 +6,7 @@
 * [Hunyuan3D-2 support assessment](hunyuan3d-2-support.md)
 * [Ideogram 4 on SpaceMIT K3](ideogram4-spacemit.md)
 * [Ideogram 4 FP8 support](ideogram4-support.md)
+* [Kev porting assessment and roadmap](kev-porting-roadmap.md)
 * [LFM2.5-8B-A1B support roadmap](lfm2-moe-support.md)
 * [MiniCPM-V/O runtime roadmap](minicpmv-runtime-roadmap.md)
 * [MiniCPM-V / MiniCPM-O support](minicpmv-support.md)
