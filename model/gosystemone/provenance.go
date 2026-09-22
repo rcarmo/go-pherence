@@ -1,6 +1,6 @@
-package qev
+package gosystemone
 
-// Provenance is the immutable source and artifact contract for QEV v1.
+// Provenance is the immutable source and artifact contract for Go System One v1.
 type Provenance struct {
 	ModelRepository       string
 	ModelRevision         string

@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"crypto/sha256"
@@ -11,7 +11,7 @@ import (
 
 func TestVerifyArtifact(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "fixture")
-	body := []byte("qev fixture\n")
+	body := []byte("go-system-one fixture\n")
 	if err := os.WriteFile(path, body, 0o600); err != nil {
 		t.Fatal(err)
 	}

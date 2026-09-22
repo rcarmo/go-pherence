@@ -7,7 +7,7 @@ import (
 	"github.com/rcarmo/go-pherence/loader/gguf"
 )
 
-// GPUGGUFMatrix is a resident projection in one of the QEV-admitted K formats.
+// GPUGGUFMatrix is a resident projection in one of the Go System One-admitted K formats.
 type GPUGGUFMatrix struct {
 	QType  gguf.QuantType
 	InDim  int

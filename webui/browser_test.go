@@ -25,7 +25,7 @@ func TestBrowserServer(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": []any{map[string]any{"id": "fixture-model", "object": "model", "created": 1, "owned_by": "go-pherence"}}})
 	})
-	RegisterQEV(mux, QEVConfig{ModelID: "fixture-model", Backend: "fixture", Device: "synthetic", MaxContexts: 256, MaxFields: 32, MaxCandidates: 255})
+	RegisterGoSystemOne(mux, GoSystemOneConfig{ModelID: "fixture-model", Backend: "fixture", Device: "synthetic", MaxContexts: 256, MaxFields: 32, MaxCandidates: 255})
 	mux.HandleFunc("/v1/decision", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Contexts []string `json:"contexts"`

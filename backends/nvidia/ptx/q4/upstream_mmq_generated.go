@@ -15,7 +15,7 @@ const UpstreamQuantMMQPTX = `
 .target sm_86
 .address_size 64
 
-	// .globl	qev_mmq_q4_k_j8
+	// .globl	go_system_one_mmq_q4_k_j8
 .global .align 1 .b8 kmask_iq2xs[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 .global .align 1 .b8 ksigns_iq2xs[128] = {0, 129, 130, 3, 132, 5, 6, 135, 136, 9, 10, 139, 12, 141, 142, 15, 144, 17, 18, 147, 20, 149, 150, 23, 24, 153, 154, 27, 156, 29, 30, 159, 160, 33, 34, 163, 36, 165, 166, 39, 40, 169, 170, 43, 172, 45, 46, 175, 48, 177, 178, 51, 180, 53, 54, 183, 184, 57, 58, 187, 60, 189, 190, 63, 192, 65, 66, 195, 68, 197, 198, 71, 72, 201, 202, 75, 204, 77, 78, 207, 80, 209, 210, 83, 212, 85, 86, 215, 216, 89, 90, 219, 92, 221, 222, 95, 96, 225, 226, 99, 228, 101, 102, 231, 232, 105, 106, 235, 108, 237, 238, 111, 240, 113, 114, 243, 116, 245, 246, 119, 120, 249, 250, 123, 252, 125, 126, 255};
 .global .align 8 .b8 ksigns64[1024] = {0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 255, 0, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 0, 255, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 0, 255, 0, 0, 0, 255, 0, 0, 255, 255, 0, 0, 0, 0, 255, 0, 255, 255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 255, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 0, 255, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 0, 255, 255, 255, 0, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 255, 255, 0, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 255, 255, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 255, 255, 0, 0, 0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 255, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 255, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 255, 255, 0, 0, 255, 255, 0, 0, 0, 0, 255, 0, 255, 255, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 0, 255, 255, 0, 255, 255, 0, 0, 255, 255, 255, 0, 255, 255, 0, 255, 0, 0, 0, 255, 255, 255, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 0, 255, 255, 0, 255, 255, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 0, 255, 0, 255, 255, 255, 255, 0, 255, 0, 255, 255, 255, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 255, 255, 0, 0, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255, 0, 255, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255, 0, 0, 255, 0, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255, 255, 0, 0, 255, 0, 255, 255, 255, 255, 0, 0, 255, 255, 0, 0, 0, 0, 255, 0, 255, 0, 255, 0, 0, 0, 255, 0, 255, 255, 0, 255, 0, 0, 255, 0, 255, 255, 255, 255, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255, 0, 255, 255, 0, 0, 0, 255, 255, 0, 255, 255, 255, 0, 0, 255, 255, 0, 255, 0, 0, 255, 0, 255, 255, 0, 255, 0, 255, 255, 0, 255, 255, 0, 255, 255, 0, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255, 255, 255, 0, 255, 255, 0, 255, 255, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 0, 255, 0, 0, 0, 0, 0, 0, 255, 255, 0, 255, 0, 0, 0, 0, 255, 255, 255, 0, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 0, 0, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 255, 255, 255, 0, 0, 255, 255, 255, 0, 0, 0, 255, 0, 255, 255, 255, 255, 0, 0, 255, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 255, 255, 0, 255, 0, 255, 255, 255, 0, 0, 255, 255, 0, 255, 255, 0, 255, 0, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 0, 0, 255, 0, 0, 255, 255, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 0, 0, 255, 0, 255, 255, 255, 0, 255, 0, 255, 0, 255, 255, 255, 255, 0, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 0, 255, 0, 255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 255, 255, 0, 0, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 255, 255, 255, 255, 255};
@@ -30,13 +30,13 @@ const UpstreamQuantMMQPTX = `
 .extern .shared .align 16 .b8 data_mul_mat_q[];
 .extern .shared .align 16 .b8 ids[];
 
-.visible .entry qev_mmq_q4_k_j8(
-	.param .u64 qev_mmq_q4_k_j8_param_0,
-	.param .u64 qev_mmq_q4_k_j8_param_1,
-	.param .u64 qev_mmq_q4_k_j8_param_2,
-	.param .u32 qev_mmq_q4_k_j8_param_3,
-	.param .u32 qev_mmq_q4_k_j8_param_4,
-	.param .u32 qev_mmq_q4_k_j8_param_5
+.visible .entry go_system_one_mmq_q4_k_j8(
+	.param .u64 go_system_one_mmq_q4_k_j8_param_0,
+	.param .u64 go_system_one_mmq_q4_k_j8_param_1,
+	.param .u64 go_system_one_mmq_q4_k_j8_param_2,
+	.param .u32 go_system_one_mmq_q4_k_j8_param_3,
+	.param .u32 go_system_one_mmq_q4_k_j8_param_4,
+	.param .u32 go_system_one_mmq_q4_k_j8_param_5
 )
 {
 	.reg .pred 	%p<12>;
@@ -46,11 +46,11 @@ const UpstreamQuantMMQPTX = `
 	.reg .b64 	%rd<94>;
 
 
-	ld.param.u64 	%rd22, [qev_mmq_q4_k_j8_param_0];
-	ld.param.u64 	%rd23, [qev_mmq_q4_k_j8_param_1];
-	ld.param.u64 	%rd24, [qev_mmq_q4_k_j8_param_2];
-	ld.param.u32 	%r56, [qev_mmq_q4_k_j8_param_4];
-	ld.param.u32 	%r57, [qev_mmq_q4_k_j8_param_5];
+	ld.param.u64 	%rd22, [go_system_one_mmq_q4_k_j8_param_0];
+	ld.param.u64 	%rd23, [go_system_one_mmq_q4_k_j8_param_1];
+	ld.param.u64 	%rd24, [go_system_one_mmq_q4_k_j8_param_2];
+	ld.param.u32 	%r56, [go_system_one_mmq_q4_k_j8_param_4];
+	ld.param.u32 	%r57, [go_system_one_mmq_q4_k_j8_param_5];
 	cvta.to.global.u64 	%rd1, %rd24;
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ctaid.y;
@@ -1141,7 +1141,7 @@ $L__BB0_8:
 $L__BB0_11:
 	mov.u32 	%r493, %ctaid.y;
 	shl.b32 	%r492, %r493, 3;
-	ld.param.u32 	%r491, [qev_mmq_q4_k_j8_param_5];
+	ld.param.u32 	%r491, [go_system_one_mmq_q4_k_j8_param_5];
 	sub.s32 	%r490, %r491, %r492;
 	min.s32 	%r489, %r490, 8;
 	mov.u32 	%r488, %tid.y;
@@ -1158,7 +1158,7 @@ $L__BB0_11:
 	add.s32 	%r53, %r444, %r443;
 	@%p8 bra 	$L__BB0_13;
 
-	ld.param.u32 	%r502, [qev_mmq_q4_k_j8_param_3];
+	ld.param.u32 	%r502, [go_system_one_mmq_q4_k_j8_param_3];
 	ld.shared.u32 	%r445, [%r53];
 	mad.lo.s32 	%r446, %r445, %r502, %r51;
 	cvt.s64.s32 	%rd77, %r446;
@@ -1170,14 +1170,14 @@ $L__BB0_11:
 $L__BB0_13:
 	mov.u32 	%r498, %ctaid.y;
 	shl.b32 	%r497, %r498, 3;
-	ld.param.u32 	%r496, [qev_mmq_q4_k_j8_param_5];
+	ld.param.u32 	%r496, [go_system_one_mmq_q4_k_j8_param_5];
 	sub.s32 	%r495, %r496, %r497;
 	min.s32 	%r494, %r495, 8;
 	add.s32 	%r54, %r52, 1;
 	setp.ge.s32 	%p9, %r54, %r494;
 	@%p9 bra 	$L__BB0_15;
 
-	ld.param.u32 	%r501, [qev_mmq_q4_k_j8_param_3];
+	ld.param.u32 	%r501, [go_system_one_mmq_q4_k_j8_param_3];
 	ld.shared.u32 	%r447, [%r53+4];
 	mad.lo.s32 	%r448, %r447, %r501, %r51;
 	cvt.s64.s32 	%rd81, %r448;
@@ -1189,7 +1189,7 @@ $L__BB0_13:
 $L__BB0_15:
 	@%p8 bra 	$L__BB0_17;
 
-	ld.param.u32 	%r500, [qev_mmq_q4_k_j8_param_3];
+	ld.param.u32 	%r500, [go_system_one_mmq_q4_k_j8_param_3];
 	ld.shared.u32 	%r449, [%r53];
 	mad.lo.s32 	%r450, %r449, %r500, %r51;
 	add.s32 	%r451, %r450, 8;
@@ -1202,7 +1202,7 @@ $L__BB0_15:
 $L__BB0_17:
 	@%p9 bra 	$L__BB0_19;
 
-	ld.param.u32 	%r499, [qev_mmq_q4_k_j8_param_3];
+	ld.param.u32 	%r499, [go_system_one_mmq_q4_k_j8_param_3];
 	ld.shared.u32 	%r452, [%r53+4];
 	mad.lo.s32 	%r453, %r452, %r499, %r51;
 	add.s32 	%r454, %r453, 8;
@@ -1216,14 +1216,14 @@ $L__BB0_19:
 	ret;
 
 }
-	// .globl	qev_mmq_q4_k_j16
-.visible .entry qev_mmq_q4_k_j16(
-	.param .u64 qev_mmq_q4_k_j16_param_0,
-	.param .u64 qev_mmq_q4_k_j16_param_1,
-	.param .u64 qev_mmq_q4_k_j16_param_2,
-	.param .u32 qev_mmq_q4_k_j16_param_3,
-	.param .u32 qev_mmq_q4_k_j16_param_4,
-	.param .u32 qev_mmq_q4_k_j16_param_5
+	// .globl	go_system_one_mmq_q4_k_j16
+.visible .entry go_system_one_mmq_q4_k_j16(
+	.param .u64 go_system_one_mmq_q4_k_j16_param_0,
+	.param .u64 go_system_one_mmq_q4_k_j16_param_1,
+	.param .u64 go_system_one_mmq_q4_k_j16_param_2,
+	.param .u32 go_system_one_mmq_q4_k_j16_param_3,
+	.param .u32 go_system_one_mmq_q4_k_j16_param_4,
+	.param .u32 go_system_one_mmq_q4_k_j16_param_5
 )
 {
 	.reg .pred 	%p<16>;
@@ -1233,11 +1233,11 @@ $L__BB0_19:
 	.reg .b64 	%rd<110>;
 
 
-	ld.param.u64 	%rd21, [qev_mmq_q4_k_j16_param_0];
-	ld.param.u64 	%rd22, [qev_mmq_q4_k_j16_param_1];
-	ld.param.u64 	%rd23, [qev_mmq_q4_k_j16_param_2];
-	ld.param.u32 	%r55, [qev_mmq_q4_k_j16_param_4];
-	ld.param.u32 	%r56, [qev_mmq_q4_k_j16_param_5];
+	ld.param.u64 	%rd21, [go_system_one_mmq_q4_k_j16_param_0];
+	ld.param.u64 	%rd22, [go_system_one_mmq_q4_k_j16_param_1];
+	ld.param.u64 	%rd23, [go_system_one_mmq_q4_k_j16_param_2];
+	ld.param.u32 	%r55, [go_system_one_mmq_q4_k_j16_param_4];
+	ld.param.u32 	%r56, [go_system_one_mmq_q4_k_j16_param_5];
 	cvta.to.global.u64 	%rd1, %rd23;
 	mov.u32 	%r1, %ctaid.y;
 	mov.u32 	%r2, %tid.y;
@@ -2764,7 +2764,7 @@ $L__BB1_11:
 	add.s32 	%r50, %r590, %r589;
 	@%p8 bra 	$L__BB1_13;
 
-	ld.param.u32 	%r652, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r652, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r591, [%r50];
 	mad.lo.s32 	%r592, %r591, %r652, %r48;
 	cvt.s64.s32 	%rd78, %r592;
@@ -2778,7 +2778,7 @@ $L__BB1_13:
 	setp.ge.s32 	%p9, %r51, %r34;
 	@%p9 bra 	$L__BB1_15;
 
-	ld.param.u32 	%r651, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r651, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r593, [%r50+4];
 	mad.lo.s32 	%r594, %r593, %r651, %r48;
 	cvt.s64.s32 	%rd82, %r594;
@@ -2790,7 +2790,7 @@ $L__BB1_13:
 $L__BB1_15:
 	@%p8 bra 	$L__BB1_17;
 
-	ld.param.u32 	%r650, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r650, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r595, [%r50];
 	mad.lo.s32 	%r596, %r595, %r650, %r48;
 	add.s32 	%r597, %r596, 8;
@@ -2803,7 +2803,7 @@ $L__BB1_15:
 $L__BB1_17:
 	@%p9 bra 	$L__BB1_19;
 
-	ld.param.u32 	%r649, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r649, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r598, [%r50+4];
 	mad.lo.s32 	%r599, %r598, %r649, %r48;
 	add.s32 	%r600, %r599, 8;
@@ -2818,7 +2818,7 @@ $L__BB1_19:
 	setp.ge.s32 	%p12, %r52, %r34;
 	@%p12 bra 	$L__BB1_21;
 
-	ld.param.u32 	%r648, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r648, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r601, [%r50+32];
 	mad.lo.s32 	%r602, %r601, %r648, %r48;
 	cvt.s64.s32 	%rd94, %r602;
@@ -2832,7 +2832,7 @@ $L__BB1_21:
 	setp.ge.s32 	%p13, %r53, %r34;
 	@%p13 bra 	$L__BB1_23;
 
-	ld.param.u32 	%r647, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r647, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r603, [%r50+36];
 	mad.lo.s32 	%r604, %r603, %r647, %r48;
 	cvt.s64.s32 	%rd98, %r604;
@@ -2844,7 +2844,7 @@ $L__BB1_21:
 $L__BB1_23:
 	@%p12 bra 	$L__BB1_25;
 
-	ld.param.u32 	%r646, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r646, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r605, [%r50+32];
 	mad.lo.s32 	%r606, %r605, %r646, %r48;
 	add.s32 	%r607, %r606, 8;
@@ -2857,7 +2857,7 @@ $L__BB1_23:
 $L__BB1_25:
 	@%p13 bra 	$L__BB1_27;
 
-	ld.param.u32 	%r645, [qev_mmq_q4_k_j16_param_3];
+	ld.param.u32 	%r645, [go_system_one_mmq_q4_k_j16_param_3];
 	ld.shared.u32 	%r608, [%r50+36];
 	mad.lo.s32 	%r609, %r608, %r645, %r48;
 	add.s32 	%r610, %r609, 8;
@@ -2871,14 +2871,14 @@ $L__BB1_27:
 	ret;
 
 }
-	// .globl	qev_mmq_q4_k_j24
-.visible .entry qev_mmq_q4_k_j24(
-	.param .u64 qev_mmq_q4_k_j24_param_0,
-	.param .u64 qev_mmq_q4_k_j24_param_1,
-	.param .u64 qev_mmq_q4_k_j24_param_2,
-	.param .u32 qev_mmq_q4_k_j24_param_3,
-	.param .u32 qev_mmq_q4_k_j24_param_4,
-	.param .u32 qev_mmq_q4_k_j24_param_5
+	// .globl	go_system_one_mmq_q4_k_j24
+.visible .entry go_system_one_mmq_q4_k_j24(
+	.param .u64 go_system_one_mmq_q4_k_j24_param_0,
+	.param .u64 go_system_one_mmq_q4_k_j24_param_1,
+	.param .u64 go_system_one_mmq_q4_k_j24_param_2,
+	.param .u32 go_system_one_mmq_q4_k_j24_param_3,
+	.param .u32 go_system_one_mmq_q4_k_j24_param_4,
+	.param .u32 go_system_one_mmq_q4_k_j24_param_5
 )
 {
 	.reg .pred 	%p<20>;
@@ -2888,12 +2888,12 @@ $L__BB1_27:
 	.reg .b64 	%rd<126>;
 
 
-	ld.param.u64 	%rd21, [qev_mmq_q4_k_j24_param_0];
-	ld.param.u64 	%rd22, [qev_mmq_q4_k_j24_param_1];
-	ld.param.u64 	%rd23, [qev_mmq_q4_k_j24_param_2];
-	ld.param.u32 	%r55, [qev_mmq_q4_k_j24_param_3];
-	ld.param.u32 	%r56, [qev_mmq_q4_k_j24_param_4];
-	ld.param.u32 	%r57, [qev_mmq_q4_k_j24_param_5];
+	ld.param.u64 	%rd21, [go_system_one_mmq_q4_k_j24_param_0];
+	ld.param.u64 	%rd22, [go_system_one_mmq_q4_k_j24_param_1];
+	ld.param.u64 	%rd23, [go_system_one_mmq_q4_k_j24_param_2];
+	ld.param.u32 	%r55, [go_system_one_mmq_q4_k_j24_param_3];
+	ld.param.u32 	%r56, [go_system_one_mmq_q4_k_j24_param_4];
+	ld.param.u32 	%r57, [go_system_one_mmq_q4_k_j24_param_5];
 	cvta.to.global.u64 	%rd1, %rd23;
 	mov.u32 	%r1, %ctaid.y;
 	mov.u32 	%r2, %tid.y;
@@ -4987,14 +4987,14 @@ $L__BB2_35:
 	ret;
 
 }
-	// .globl	qev_mmq_q4_k_j32
-.visible .entry qev_mmq_q4_k_j32(
-	.param .u64 qev_mmq_q4_k_j32_param_0,
-	.param .u64 qev_mmq_q4_k_j32_param_1,
-	.param .u64 qev_mmq_q4_k_j32_param_2,
-	.param .u32 qev_mmq_q4_k_j32_param_3,
-	.param .u32 qev_mmq_q4_k_j32_param_4,
-	.param .u32 qev_mmq_q4_k_j32_param_5
+	// .globl	go_system_one_mmq_q4_k_j32
+.visible .entry go_system_one_mmq_q4_k_j32(
+	.param .u64 go_system_one_mmq_q4_k_j32_param_0,
+	.param .u64 go_system_one_mmq_q4_k_j32_param_1,
+	.param .u64 go_system_one_mmq_q4_k_j32_param_2,
+	.param .u32 go_system_one_mmq_q4_k_j32_param_3,
+	.param .u32 go_system_one_mmq_q4_k_j32_param_4,
+	.param .u32 go_system_one_mmq_q4_k_j32_param_5
 )
 {
 	.reg .pred 	%p<24>;
@@ -5004,12 +5004,12 @@ $L__BB2_35:
 	.reg .b64 	%rd<142>;
 
 
-	ld.param.u64 	%rd21, [qev_mmq_q4_k_j32_param_0];
-	ld.param.u64 	%rd22, [qev_mmq_q4_k_j32_param_1];
-	ld.param.u64 	%rd23, [qev_mmq_q4_k_j32_param_2];
-	ld.param.u32 	%r58, [qev_mmq_q4_k_j32_param_3];
-	ld.param.u32 	%r59, [qev_mmq_q4_k_j32_param_4];
-	ld.param.u32 	%r60, [qev_mmq_q4_k_j32_param_5];
+	ld.param.u64 	%rd21, [go_system_one_mmq_q4_k_j32_param_0];
+	ld.param.u64 	%rd22, [go_system_one_mmq_q4_k_j32_param_1];
+	ld.param.u64 	%rd23, [go_system_one_mmq_q4_k_j32_param_2];
+	ld.param.u32 	%r58, [go_system_one_mmq_q4_k_j32_param_3];
+	ld.param.u32 	%r59, [go_system_one_mmq_q4_k_j32_param_4];
+	ld.param.u32 	%r60, [go_system_one_mmq_q4_k_j32_param_5];
 	cvta.to.global.u64 	%rd1, %rd23;
 	mov.u32 	%r1, %ctaid.y;
 	mov.u32 	%r2, %tid.y;
@@ -7575,14 +7575,14 @@ $L__BB3_43:
 	ret;
 
 }
-	// .globl	qev_mmq_q4_k_j64
-.visible .entry qev_mmq_q4_k_j64(
-	.param .u64 qev_mmq_q4_k_j64_param_0,
-	.param .u64 qev_mmq_q4_k_j64_param_1,
-	.param .u64 qev_mmq_q4_k_j64_param_2,
-	.param .u32 qev_mmq_q4_k_j64_param_3,
-	.param .u32 qev_mmq_q4_k_j64_param_4,
-	.param .u32 qev_mmq_q4_k_j64_param_5
+	// .globl	go_system_one_mmq_q4_k_j64
+.visible .entry go_system_one_mmq_q4_k_j64(
+	.param .u64 go_system_one_mmq_q4_k_j64_param_0,
+	.param .u64 go_system_one_mmq_q4_k_j64_param_1,
+	.param .u64 go_system_one_mmq_q4_k_j64_param_2,
+	.param .u32 go_system_one_mmq_q4_k_j64_param_3,
+	.param .u32 go_system_one_mmq_q4_k_j64_param_4,
+	.param .u32 go_system_one_mmq_q4_k_j64_param_5
 )
 {
 	.reg .pred 	%p<40>;
@@ -7592,12 +7592,12 @@ $L__BB3_43:
 	.reg .b64 	%rd<224>;
 
 
-	ld.param.u64 	%rd29, [qev_mmq_q4_k_j64_param_0];
-	ld.param.u64 	%rd30, [qev_mmq_q4_k_j64_param_1];
-	ld.param.u64 	%rd31, [qev_mmq_q4_k_j64_param_2];
-	ld.param.u32 	%r59, [qev_mmq_q4_k_j64_param_3];
-	ld.param.u32 	%r60, [qev_mmq_q4_k_j64_param_4];
-	ld.param.u32 	%r61, [qev_mmq_q4_k_j64_param_5];
+	ld.param.u64 	%rd29, [go_system_one_mmq_q4_k_j64_param_0];
+	ld.param.u64 	%rd30, [go_system_one_mmq_q4_k_j64_param_1];
+	ld.param.u64 	%rd31, [go_system_one_mmq_q4_k_j64_param_2];
+	ld.param.u32 	%r59, [go_system_one_mmq_q4_k_j64_param_3];
+	ld.param.u32 	%r60, [go_system_one_mmq_q4_k_j64_param_4];
+	ld.param.u32 	%r61, [go_system_one_mmq_q4_k_j64_param_5];
 	cvta.to.global.u64 	%rd1, %rd31;
 	mov.u32 	%r1, %ctaid.y;
 	mov.u32 	%r2, %tid.y;
@@ -11386,14 +11386,14 @@ $L__BB4_75:
 	ret;
 
 }
-	// .globl	qev_mmq_q6_k_j24
-.visible .entry qev_mmq_q6_k_j24(
-	.param .u64 qev_mmq_q6_k_j24_param_0,
-	.param .u64 qev_mmq_q6_k_j24_param_1,
-	.param .u64 qev_mmq_q6_k_j24_param_2,
-	.param .u32 qev_mmq_q6_k_j24_param_3,
-	.param .u32 qev_mmq_q6_k_j24_param_4,
-	.param .u32 qev_mmq_q6_k_j24_param_5
+	// .globl	go_system_one_mmq_q6_k_j24
+.visible .entry go_system_one_mmq_q6_k_j24(
+	.param .u64 go_system_one_mmq_q6_k_j24_param_0,
+	.param .u64 go_system_one_mmq_q6_k_j24_param_1,
+	.param .u64 go_system_one_mmq_q6_k_j24_param_2,
+	.param .u32 go_system_one_mmq_q6_k_j24_param_3,
+	.param .u32 go_system_one_mmq_q6_k_j24_param_4,
+	.param .u32 go_system_one_mmq_q6_k_j24_param_5
 )
 {
 	.reg .pred 	%p<20>;
@@ -11403,12 +11403,12 @@ $L__BB4_75:
 	.reg .b64 	%rd<165>;
 
 
-	ld.param.u64 	%rd31, [qev_mmq_q6_k_j24_param_0];
-	ld.param.u64 	%rd32, [qev_mmq_q6_k_j24_param_1];
-	ld.param.u64 	%rd33, [qev_mmq_q6_k_j24_param_2];
-	ld.param.u32 	%r58, [qev_mmq_q6_k_j24_param_3];
-	ld.param.u32 	%r59, [qev_mmq_q6_k_j24_param_4];
-	ld.param.u32 	%r60, [qev_mmq_q6_k_j24_param_5];
+	ld.param.u64 	%rd31, [go_system_one_mmq_q6_k_j24_param_0];
+	ld.param.u64 	%rd32, [go_system_one_mmq_q6_k_j24_param_1];
+	ld.param.u64 	%rd33, [go_system_one_mmq_q6_k_j24_param_2];
+	ld.param.u32 	%r58, [go_system_one_mmq_q6_k_j24_param_3];
+	ld.param.u32 	%r59, [go_system_one_mmq_q6_k_j24_param_4];
+	ld.param.u32 	%r60, [go_system_one_mmq_q6_k_j24_param_5];
 	cvta.to.global.u64 	%rd1, %rd33;
 	mov.u32 	%r1, %ctaid.y;
 	mov.u32 	%r2, %tid.y;

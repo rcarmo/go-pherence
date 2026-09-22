@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"context"
@@ -17,7 +17,7 @@ type Branch struct {
 }
 
 // ContextScorer owns model/session execution. Implementations may score rows
-// sequentially as an oracle or fuse them on a device without changing QEV's
+// sequentially as an oracle or fuse them on a device without changing Go System One's
 // schema and trie semantics.
 type ContextScorer interface {
 	ScoreContext(context.Context, []int, []Branch, bool) ([][]float32, error)
@@ -49,7 +49,7 @@ type fieldState struct {
 
 func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) {
 	if e == nil {
-		return Response{}, fmt.Errorf("qev engine is not configured")
+		return Response{}, fmt.Errorf("go-system-one engine is not configured")
 	}
 	now := e.Now
 	if now == nil {
@@ -60,7 +60,7 @@ func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) 
 		return Response{}, err
 	}
 	if e.Tokenizer == nil || e.Scorer == nil {
-		return Response{}, fmt.Errorf("qev engine is not configured")
+		return Response{}, fmt.Errorf("go-system-one engine is not configured")
 	}
 	if err := request.NormalizeAndValidate(); err != nil {
 		return Response{}, err

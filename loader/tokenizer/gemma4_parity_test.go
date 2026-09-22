@@ -7,15 +7,15 @@ import (
 )
 
 func TestGemma4WhitespaceTokenizationPinnedLlamaCppFixture(t *testing.T) {
-	dir := os.Getenv("GO_PHERENCE_GEMMA4_12B_TOKENIZER")
+	dir := os.Getenv("GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER")
 	if dir == "" {
-		t.Skip("set GO_PHERENCE_GEMMA4_12B_TOKENIZER for pinned tokenizer parity")
+		t.Skip("set GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER for pinned tokenizer parity")
 	}
 	tok, err := LoadWithConfig(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile("../../model/qev/testdata/llamacpp-gemma4-12b-boolean.json")
+	data, err := os.ReadFile("../../model/gosystemone/testdata/llamacpp-go-system-one-gemma4-12b-boolean.json")
 	if err != nil {
 		t.Fatal(err)
 	}

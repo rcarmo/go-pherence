@@ -1,5 +1,5 @@
-// Package qev implements finite-schema decisions over Gemma4 token logits.
-package qev
+// Package gosystemone implements finite-schema decisions over Gemma4 token logits.
+package gosystemone
 
 import (
 	"encoding/json"

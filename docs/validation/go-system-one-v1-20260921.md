@@ -1,6 +1,6 @@
-# QEV v1 validation — 21 September 2026
+# Go System One v1 validation — 21 September 2026
 
-QEV v1 serves bounded boolean and enum decisions from the pinned Gemma 4 12B GGUF. CPU/SIMD defines the numerical oracle. The NVIDIA path keeps projection weights resident and executes prompt prefill, independent suffix transformers and the LM head through native PTX.
+Go System One v1 serves bounded boolean and enum decisions from the pinned Gemma 4 12B GGUF. CPU/SIMD defines the numerical oracle. The NVIDIA path keeps projection weights resident and executes prompt prefill, independent suffix transformers and the LM head through native PTX.
 
 ## Frozen inputs
 
@@ -14,7 +14,7 @@ QEV v1 serves bounded boolean and enum decisions from the pinned Gemma 4 12B GGU
 | Device | NVIDIA GeForce RTX 3060, 12,288 MiB, compute capability 8.6 |
 | Driver | 580.173.02 |
 
-`model/qev/testdata/provenance.json` records the model, tokenizer, source and runtime bounds. `qevserver` verifies all four artifact hashes before parsing them unless `-verify-artifacts=false` is set explicitly.
+`model/gosystemone/testdata/provenance.json` records the model, tokenizer, source and runtime bounds. `go-system-one` verifies all four artifact hashes before parsing them unless `-verify-artifacts=false` is set explicitly.
 
 ## Numerical gates
 
@@ -23,9 +23,9 @@ Synthetic differential tests cover Q4_K, Q5_K and Q6_K projection kernels; devic
 The opt-in released-model test is:
 
 ```sh
-GO_PHERENCE_GEMMA4_12B=/tmp/qev-gemma4-12b/gemma-4-12b-it-UD-Q4_K_XL.gguf \
-GO_PHERENCE_GEMMA4_12B_TOKENIZER=/tmp/qev-gemma4-12b/tokenizer \
-go test ./model/qev -run '^TestGemma4NVIDIAReleasedModelMatchesPinnedLlamaCppDecision$' -count=1 -v
+GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B=/tmp/go-system-one-gemma4-12b/gemma-4-12b-it-UD-Q4_K_XL.gguf \
+GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER=/tmp/go-system-one-gemma4-12b/tokenizer \
+go test ./model/gosystemone -run '^TestGoSystemOneNVIDIAReleasedModelMatchesPinnedLlamaCppDecision$' -count=1 -v
 ```
 
 It uses the checked-in llama.cpp fixture prompt and candidate paths. The native NVIDIA result selected `true` with probability `0.999999999956813`; the pinned oracle probability is `0.999999999905886`. The full-vocabulary one-token diagnostic had the same CPU/SIMD and NVIDIA argmax. Representative logits differed by 0.0035–0.0532 after quantised reduction-order changes.
@@ -54,14 +54,14 @@ These figures are controlled samples on this host, not a throughput distribution
 
 The handler limits requests to 1 MiB, rejects unknown fields and models, serialises inference, propagates cancellation, and accepts 1–256 contexts. Schema compilation accepts boolean and string enum fields only, with at most 32 fields and 255 candidates per field.
 
-The independently authored page is served at `/qev`; it calls only `/v1/decision` and `/qev/v1/status`. Chromium checks cover page load, request submission, decision rendering, constrained probability rendering and the existing embedded chat UI.
+The independently authored page is served at `/go-system-one`; it calls only `/v1/decision` and `/go-system-one/v1/status`. Chromium checks cover page load, request submission, decision rendering, constrained probability rendering and the existing embedded chat UI.
 
 ```sh
 cd webui/frontend
 bun x playwright test --config playwright.go.config.ts
 ```
 
-Three Chromium scenarios passed, including the QEV page. The final repository gates also passed: `go test ./...`, `go vet ./...`, `go test -race ./model/qev ./webui ./cmd/llm/qevserver`, `git diff --check`, the released-model NVIDIA/llama.cpp parity test above, and compile-only `linux/arm64` and `linux/riscv64` builds of `qevserver`, `model/qev` and `webui`.
+Three Chromium scenarios passed, including the Go System One page. The final repository gates also passed: `go test ./...`, `go vet ./...`, `go test -race ./model/gosystemone ./webui ./cmd/llm/go-system-one`, `git diff --check`, the released-model NVIDIA/llama.cpp parity test above, and compile-only `linux/arm64` and `linux/riscv64` builds of `go-system-one`, `model/gosystemone` and `webui`.
 
 ## Native and compile-only scope
 

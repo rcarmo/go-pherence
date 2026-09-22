@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
-func TestGemma4CPUScorerRestoresTrunkBetweenBranches(t *testing.T) {
-	m := qevZeroLayerModel()
+func TestGoSystemOneGemma4CPUScorerRestoresTrunkBetweenBranches(t *testing.T) {
+	m := goSystemOneZeroLayerModel()
 	scorer := &Gemma4CPUScorer{Model: m}
 	prompt := []int{1}
 	branches := []Branch{
@@ -30,8 +30,8 @@ func TestGemma4CPUScorerRestoresTrunkBetweenBranches(t *testing.T) {
 	}
 }
 
-func TestGemma4SIMDBatchScorerMatchesCPUOracle(t *testing.T) {
-	m := qevSingleLayerModel()
+func TestGoSystemOneGemma4SIMDBatchScorerMatchesCPUOracle(t *testing.T) {
+	m := goSystemOneSingleLayerModel()
 	prompt := []int{1, 2}
 	branches := []Branch{
 		{Tokens: []int{0}, CandidateTokens: []int{0, 1, 2}},
@@ -66,8 +66,8 @@ func TestGemma4SIMDBatchScorerMatchesCPUOracle(t *testing.T) {
 	}
 }
 
-func TestGemma4SIMDBatchScorerChunksAtDecisionSequenceBound(t *testing.T) {
-	m := qevSingleLayerModel()
+func TestGoSystemOneGemma4SIMDBatchScorerChunksAtDecisionSequenceBound(t *testing.T) {
+	m := goSystemOneSingleLayerModel()
 	branches := make([]Branch, DecisionSequences+3)
 	for i := range branches {
 		branches[i] = Branch{Tokens: []int{i % m.Config.VocabSize}, CandidateTokens: []int{0, 1, 2}}
@@ -93,8 +93,8 @@ func TestGemma4SIMDBatchScorerChunksAtDecisionSequenceBound(t *testing.T) {
 	}
 }
 
-func TestGemma4CPUScorerValidation(t *testing.T) {
-	m := qevZeroLayerModel()
+func TestGoSystemOneGemma4CPUScorerValidation(t *testing.T) {
+	m := goSystemOneZeroLayerModel()
 	s := &Gemma4CPUScorer{Model: m}
 	for _, tc := range []struct {
 		prompt   []int
@@ -111,8 +111,8 @@ func TestGemma4CPUScorerValidation(t *testing.T) {
 	}
 }
 
-func qevSingleLayerModel() *model.LlamaModel {
-	m := qevZeroLayerModel()
+func goSystemOneSingleLayerModel() *model.LlamaModel {
+	m := goSystemOneZeroLayerModel()
 	m.Config.NumLayers = 1
 	m.Config.Intermediate = 2
 	m.Config.RMSNormEps = 1e-6
@@ -127,7 +127,7 @@ func qevSingleLayerModel() *model.LlamaModel {
 	return m
 }
 
-func qevZeroLayerModel() *model.LlamaModel {
+func goSystemOneZeroLayerModel() *model.LlamaModel {
 	return &model.LlamaModel{
 		Config: model.LlamaConfig{ModelType: "gemma4_text", VocabSize: 3, HiddenSize: 2, NumHeads: 1, NumKVHeads: 1, HeadDim: 2},
 		EmbedTokens: tensor.FromFloat32([]float32{

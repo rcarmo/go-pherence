@@ -165,7 +165,7 @@ func UploadQ4KMatrixRows(raw []byte, inDim, outDim int) (*GPUQ4KMatrix, error) {
 }
 
 // UploadQ4KMatrixRowsCoalesced preserves the Q4_K bit width while arranging
-// each 32-value group contiguously for the QEV DP4A kernels.
+// each 32-value group contiguously for the Go System One DP4A kernels.
 func UploadQ4KMatrixRowsCoalesced(raw []byte, inDim, outDim int) (*GPUQ4KMatrix, error) {
 	return uploadQ4KMatrixRows(raw, inDim, outDim, true)
 }

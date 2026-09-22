@@ -8,23 +8,23 @@ import (
 	"testing"
 )
 
-func TestRegisterQEVPageAndStatus(t *testing.T) {
+func TestRegisterGoSystemOnePageAndStatus(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterQEV(mux, QEVConfig{ModelID: "gemma4-12b", Backend: "nvidia", Device: "RTX 3060", ResidentBytes: 42, MaxContexts: 256, MaxFields: 32, MaxCandidates: 255})
-	for _, target := range []string{"/qev", "/qev/"} {
+	RegisterGoSystemOne(mux, GoSystemOneConfig{ModelID: "gemma4-12b", Backend: "nvidia", Device: "RTX 3060", ResidentBytes: 42, MaxContexts: 256, MaxFields: 32, MaxCandidates: 255})
+	for _, target := range []string{"/go-system-one", "/go-system-one/"} {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
-		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "QEV Decision Playground") || w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Cache-Control") != "no-cache" {
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Go System One Decision Playground") || w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Cache-Control") != "no-cache" {
 			t.Fatalf("%s: code=%d headers=%v body=%q", target, w.Code, w.Header(), w.Body.String())
 		}
 	}
 	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, httptest.NewRequest(http.MethodHead, "/qev/v1/status", nil))
+	mux.ServeHTTP(w, httptest.NewRequest(http.MethodHead, "/go-system-one/v1/status", nil))
 	if w.Code != http.StatusOK || w.Body.Len() != 0 || w.Header().Get("Content-Length") == "" {
 		t.Fatalf("HEAD status: code=%d headers=%v body=%q", w.Code, w.Header(), w.Body.String())
 	}
 	w = httptest.NewRecorder()
-	mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/qev/v1/status", nil))
+	mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/go-system-one/v1/status", nil))
 	var got struct {
 		Model         string `json:"model"`
 		Backend       string `json:"backend"`
@@ -41,17 +41,17 @@ func TestRegisterQEVPageAndStatus(t *testing.T) {
 	}
 }
 
-func TestRegisterQEVMethodAndPathBoundaries(t *testing.T) {
+func TestRegisterGoSystemOneMethodAndPathBoundaries(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterQEV(mux, QEVConfig{ModelID: "m", Backend: "simd", MaxContexts: 1, MaxFields: 1, MaxCandidates: 1})
-	for _, target := range []string{"/qev/nope", "/qev/index.html"} {
+	RegisterGoSystemOne(mux, GoSystemOneConfig{ModelID: "m", Backend: "simd", MaxContexts: 1, MaxFields: 1, MaxCandidates: 1})
+	for _, target := range []string{"/go-system-one/nope", "/go-system-one/index.html"} {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
 		if w.Code != http.StatusNotFound {
 			t.Fatalf("%s status=%d", target, w.Code)
 		}
 	}
-	for _, target := range []string{"/qev", "/qev/v1/status"} {
+	for _, target := range []string{"/go-system-one", "/go-system-one/v1/status"} {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, httptest.NewRequest(http.MethodPost, target, nil))
 		if w.Code != http.StatusMethodNotAllowed || w.Header().Get("Allow") != "GET, HEAD" {

@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"crypto/sha256"
@@ -10,7 +10,7 @@ import (
 )
 
 // VerifyV1Artifacts validates the exact model and tokenizer files frozen by the
-// QEV v1 provenance contract. Verification happens before either artifact is
+// Go System One v1 provenance contract. Verification happens before either artifact is
 // parsed so a server cannot accidentally start with a similarly named export.
 func VerifyV1Artifacts(modelPath, tokenizerDir string) error {
 	if err := verifyArtifact(modelPath, V1Provenance.ModelBytes, V1Provenance.ModelSHA256); err != nil {

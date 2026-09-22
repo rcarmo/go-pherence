@@ -47,7 +47,7 @@ This assessment uses go-pherence commit `38fe3fab99781a4f656f7d72396e8cb83796233
 | TypeSafe HTTP service | No native `/v1/systemone` server exists | Add only after the library API and released-model parity pass. Authentication and public binding remain deployment concerns. |
 | Native training | Needle has model-specific LoRA training; Qwen3.5 has inference-side LoRA merge | Full Qwen3.5 adapter and pointer-head training, optimiser state and gradient parity are not implemented. Keep Python training as the reference workflow initially. |
 
-The earlier [QEV comparison](../validation/qev-kev-20260922.md) remains valid for QEV: Kev's trained pointer head cannot be attached to the pinned Gemma 4 checkpoint. Repository-wide port feasibility is better because the separate native Qwen3.5 runtime already exists.
+The earlier [Go System One comparison](../validation/go-system-one-kev-20260922.md) remains valid for Go System One: Kev's trained pointer head cannot be attached to the pinned Gemma 4 checkpoint. Repository-wide port feasibility is better because the separate native Qwen3.5 runtime already exists.
 
 ## Priorities
 
@@ -68,7 +68,7 @@ The package should own Kev checkpoint validation, prompt semantics, pointer read
 
 - Extend the Qwen LoRA loader with an explicit, tested Kev/PEFT prefix contract. Do not accept arbitrary suffix matching or silently ignored tensors.
 - Load the pinned Qwen3.5-0.8B base, merge every declared adapter target, and reject missing, duplicate, undeclared or shape-incompatible tensors transactionally.
-- Implement delimiter-safe tokenisation matching Kev's rewrite rule; do not reuse QEV's reject-only policy if it changes Kev-visible text.
+- Implement delimiter-safe tokenisation matching Kev's rewrite rule; do not reuse Go System One's reject-only policy if it changes Kev-visible text.
 - Prefill the state once. Clone `Qwen35BaseForwardState` for each question and process branch rows independently. Retain only option-end and decision hidden rows.
 - Apply the F32 pointer head and stored temperature. Preserve question and option order explicitly.
 - Expose a library-level System One call before adding network code.
@@ -87,7 +87,7 @@ Kev's repeated-state cache is useful when the same state is asked different ques
 
 Measure cold state prefill, warm prefix reuse, clone cost and retained bytes before adding a service cache. The cache key must include model and adapter identity, dtype, token IDs, position policy and isolation mode. Set an explicit byte budget and NVIDIA headroom; do not copy Kev's four-entry count limit without measuring state size.
 
-A later HTTP package may implement `/v1/systemone`, `/v1/systemone/separate`, `/v1/systemone/permute` and `/v1/models`. Keep it separate from QEV's `/v1/decision`. Match the TypeSafe wire contract with official-SDK tests before describing it as compatible. Bind locally and retain single admission until memory and concurrency tests justify another policy.
+A later HTTP package may implement `/v1/systemone`, `/v1/systemone/separate`, `/v1/systemone/permute` and `/v1/models`. Keep it separate from Go System One's `/v1/decision`. Match the TypeSafe wire contract with official-SDK tests before describing it as compatible. Bind locally and retain single admission until memory and concurrency tests justify another policy.
 
 ### P2 — Consider Kev-4B after the 0.8B port qualifies
 
@@ -110,4 +110,4 @@ Date-fact preprocessing, fine-tuning automation, Modal orchestration and the Nex
 - Kev serving allows 8,192 tokens although training used at most 384 state tokens and 1,024 tokens for state plus one question. Native admission must preserve this quality caveat.
 - A single fitted temperature calibrates an evaluated distribution. It is not a universal accuracy estimate and may not transfer to local tasks.
 - Dataset licences vary. Porting inference code and Apache model artifacts does not grant redistribution rights for all training or evaluation data.
-- QEV, Decider and Kev have distinct learned contracts. Shared runtime and evaluation helpers should not collapse their prompt formats, response semantics or validation rules.
+- Go System One, Decider and Kev have distinct learned contracts. Shared runtime and evaluation helpers should not collapse their prompt formats, response semantics or validation rules.

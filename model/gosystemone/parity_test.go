@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/rcarmo/go-pherence/model"
 )
 
-type llamaCppQEVFixture struct {
+type llamaCppGoSystemOneFixture struct {
 	Schema string `json:"schema"`
 	Oracle struct {
 		Revision    string            `json:"revision"`
@@ -48,13 +48,13 @@ type llamaCppQEVFixture struct {
 	} `json:"result"`
 }
 
-func loadLlamaCppQEVFixture(t *testing.T) llamaCppQEVFixture {
+func loadLlamaCppGoSystemOneFixture(t *testing.T) llamaCppGoSystemOneFixture {
 	t.Helper()
-	data, err := os.ReadFile("testdata/llamacpp-gemma4-12b-boolean.json")
+	data, err := os.ReadFile("testdata/llamacpp-go-system-one-gemma4-12b-boolean.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fixture llamaCppQEVFixture
+	var fixture llamaCppGoSystemOneFixture
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
@@ -62,8 +62,8 @@ func loadLlamaCppQEVFixture(t *testing.T) llamaCppQEVFixture {
 }
 
 func TestPinnedLlamaCppFixtureContract(t *testing.T) {
-	fixture := loadLlamaCppQEVFixture(t)
-	if fixture.Schema != "go-pherence-qev-llamacpp-parity-v1" || fixture.Oracle.Revision != V1Provenance.LlamaRevision || fixture.Oracle.ModelSHA256 != V1Provenance.ModelSHA256 {
+	fixture := loadLlamaCppGoSystemOneFixture(t)
+	if fixture.Schema != "go-pherence-go-system-one-llamacpp-parity-v1" || fixture.Oracle.Revision != V1Provenance.LlamaRevision || fixture.Oracle.ModelSHA256 != V1Provenance.ModelSHA256 {
 		t.Fatalf("oracle=%+v schema=%q", fixture.Oracle, fixture.Schema)
 	}
 	if fixture.Oracle.Environment["DECIDE_TREE"] != "1" || fixture.Oracle.Environment["DECIDE_NSEQ"] != "12" {
@@ -82,12 +82,12 @@ func TestPinnedLlamaCppFixtureContract(t *testing.T) {
 	}
 }
 
-func TestGemma4NVIDIAReleasedModelMatchesPinnedLlamaCppDecision(t *testing.T) {
-	modelPath, tokenizerDir := os.Getenv("GO_PHERENCE_GEMMA4_12B"), os.Getenv("GO_PHERENCE_GEMMA4_12B_TOKENIZER")
+func TestGoSystemOneNVIDIAReleasedModelMatchesPinnedLlamaCppDecision(t *testing.T) {
+	modelPath, tokenizerDir := os.Getenv("GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B"), os.Getenv("GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER")
 	if modelPath == "" || tokenizerDir == "" {
-		t.Skip("set GO_PHERENCE_GEMMA4_12B and GO_PHERENCE_GEMMA4_12B_TOKENIZER")
+		t.Skip("set GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B and GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER")
 	}
-	fixture := loadLlamaCppQEVFixture(t)
+	fixture := loadLlamaCppGoSystemOneFixture(t)
 	tok, err := tokenizer.LoadWithConfig(tokenizerDir)
 	if err != nil {
 		t.Fatal(err)

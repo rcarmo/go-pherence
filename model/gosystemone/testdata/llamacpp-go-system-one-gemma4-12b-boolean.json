@@ -1,5 +1,5 @@
 {
-  "schema": "go-pherence-qev-llamacpp-parity-v1",
+  "schema": "go-pherence-go-system-one-llamacpp-parity-v1",
   "oracle": {
     "repository": "https://github.com/thecodacus/llama.cpp",
     "revision": "14d04e755fa28653e87b9a07072892265bdc0fad",

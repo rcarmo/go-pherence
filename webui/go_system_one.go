@@ -8,12 +8,12 @@ import (
 	"strconv"
 )
 
-//go:embed qev/index.html
-var qevFiles embed.FS
+//go:embed go-system-one/index.html
+var goSystemOneFiles embed.FS
 
-// QEVConfig describes the independently authored decision playground. The
+// GoSystemOneConfig describes the independently authored decision playground. The
 // decision handler remains the only inference API and is registered separately.
-type QEVConfig struct {
+type GoSystemOneConfig struct {
 	ModelID       string
 	Backend       string
 	Device        string
@@ -24,24 +24,24 @@ type QEVConfig struct {
 	Busy          func() bool
 }
 
-// RegisterQEV attaches the standalone playground and its immutable runtime
+// RegisterGoSystemOne attaches the standalone playground and its immutable runtime
 // metadata to an existing decision-server mux.
-func RegisterQEV(mux *http.ServeMux, cfg QEVConfig) {
+func RegisterGoSystemOne(mux *http.ServeMux, cfg GoSystemOneConfig) {
 	if mux == nil {
-		panic("webui: nil QEV mux")
+		panic("webui: nil Go System One mux")
 	}
 	if cfg.ModelID == "" || cfg.Backend == "" || cfg.MaxContexts <= 0 || cfg.MaxFields <= 0 || cfg.MaxCandidates <= 0 {
-		panic("webui: invalid QEV config")
+		panic("webui: invalid Go System One config")
 	}
-	mux.Handle("/qev", qevPageHandler{})
-	mux.Handle("/qev/", qevPageHandler{})
-	mux.Handle("/qev/v1/status", qevStatusHandler{cfg: cfg})
+	mux.Handle("/go-system-one", goSystemOnePageHandler{})
+	mux.Handle("/go-system-one/", goSystemOnePageHandler{})
+	mux.Handle("/go-system-one/v1/status", goSystemOneStatusHandler{cfg: cfg})
 }
 
-type qevPageHandler struct{}
+type goSystemOnePageHandler struct{}
 
-func (qevPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/qev" && r.URL.Path != "/qev/" {
+func (goSystemOnePageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/go-system-one" && r.URL.Path != "/go-system-one/" {
 		http.NotFound(w, r)
 		return
 	}
@@ -50,7 +50,7 @@ func (qevPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
-	body, err := qevFiles.ReadFile("qev/index.html")
+	body, err := goSystemOneFiles.ReadFile("go-system-one/index.html")
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -66,9 +66,9 @@ func (qevPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type qevStatusHandler struct{ cfg QEVConfig }
+type goSystemOneStatusHandler struct{ cfg GoSystemOneConfig }
 
-func (h qevStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h goSystemOneStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)

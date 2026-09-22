@@ -1,5 +1,5 @@
 {
-  "schema": "go-pherence-qev-provenance-v1",
+  "schema": "go-pherence-go-system-one-provenance-v1",
   "model": {
     "repository": "unsloth/gemma-4-12b-it-GGUF",
     "revision": "fc034cfff751157913579611efad8462ac1be606",

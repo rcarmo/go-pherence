@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-// Tokenizer is the minimal deterministic tokenizer boundary required by QEV.
+// Tokenizer is the minimal deterministic tokenizer boundary required by Go System One.
 type Tokenizer interface {
 	Encode(string) []int
 }

@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ type rawField struct {
 }
 
 // CompileSchema accepts compact field objects and JSON Schema properties.
-// QEV v1 deliberately supports only boolean and string enum fields.
+// Go System One v1 deliberately supports only boolean and string enum fields.
 func CompileSchema(data []byte, instructions string) (CompiledSchema, error) {
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 || trimmed[0] != '{' {

@@ -698,7 +698,7 @@ func (g *Gemma4NVIDIA) ScoreIndependentBranches(ctx context.Context, trunk MTPPr
 		}
 	}
 	if trunk.SeqLen+maxDepth > 2048 {
-		return Gemma4BranchBatchResult{}, fmt.Errorf("NVIDIA QEV attention supports at most 2048 visible tokens")
+		return Gemma4BranchBatchResult{}, fmt.Errorf("NVIDIA Go System One attention supports at most 2048 visible tokens")
 	}
 	out := Gemma4BranchBatchResult{Logits: make([][]float32, len(branches))}
 	kvArena, err := newGemma4NVIDIAKVArena(m, trunk, len(branches), maxDepth)

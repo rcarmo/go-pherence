@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-test('QEV playground submits a bounded decision request', async ({ page }) => {
+test('Go System One playground submits a bounded decision request', async ({ page }) => {
 	const errors: string[] = [];
 	page.on('pageerror', (e) => errors.push(e.message));
-	await page.goto('/qev');
-	await expect(page.getByRole('heading', { name: 'QEV Decision Playground' })).toBeVisible();
+	await page.goto('/go-system-one');
+	await expect(page.getByRole('heading', { name: 'Go System One Decision Playground' })).toBeVisible();
 	await expect(page.locator('#status')).toContainText('ready');
 	await page.getByRole('button', { name: 'Run decision' }).click();
 	await expect(page.locator('.decision').first()).toContainText('"urgent": true');
 	await expect(page.locator('.prob').first()).toHaveText('87.50%');
 	await expect(page.locator('.pill').first()).toContainText('total: 3.50 ms');
-	await page.screenshot({ path: test.info().outputPath('qev.png'), fullPage: true });
+	await page.screenshot({ path: test.info().outputPath('go-system-one.png'), fullPage: true });
 	expect(errors).toEqual([]);
 });
 

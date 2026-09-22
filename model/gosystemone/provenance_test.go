@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"crypto/sha256"
@@ -57,7 +57,7 @@ func TestV1ProvenanceMatchesCheckedInManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := V1Provenance
-	if manifest.Schema != "go-pherence-qev-provenance-v1" || manifest.Model.Repository != p.ModelRepository || manifest.Model.Revision != p.ModelRevision || manifest.Model.File != p.ModelFile || manifest.Model.SHA256 != p.ModelSHA256 || manifest.Model.Bytes != p.ModelBytes || manifest.Model.License != p.ModelLicense {
+	if manifest.Schema != "go-pherence-go-system-one-provenance-v1" || manifest.Model.Repository != p.ModelRepository || manifest.Model.Revision != p.ModelRevision || manifest.Model.File != p.ModelFile || manifest.Model.SHA256 != p.ModelSHA256 || manifest.Model.Bytes != p.ModelBytes || manifest.Model.License != p.ModelLicense {
 		t.Fatalf("model manifest=%+v provenance=%+v", manifest.Model, p)
 	}
 	if manifest.Tokenizer.Repository != p.TokenizerRepository || manifest.Tokenizer.Revision != p.TokenizerRevision || manifest.Tokenizer.Files["tokenizer.json"] != p.TokenizerSHA256 || manifest.Tokenizer.Files["tokenizer_config.json"] != p.TokenizerConfigSHA256 || manifest.Tokenizer.Files["chat_template.jinja"] != p.ChatTemplateSHA256 {
@@ -69,10 +69,10 @@ func TestV1ProvenanceMatchesCheckedInManifest(t *testing.T) {
 }
 
 func TestPinnedGemma4Artifacts(t *testing.T) {
-	modelPath := os.Getenv("GO_PHERENCE_GEMMA4_12B")
-	tokenizerDir := os.Getenv("GO_PHERENCE_GEMMA4_12B_TOKENIZER")
+	modelPath := os.Getenv("GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B")
+	tokenizerDir := os.Getenv("GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER")
 	if modelPath == "" || tokenizerDir == "" {
-		t.Skip("set GO_PHERENCE_GEMMA4_12B and GO_PHERENCE_GEMMA4_12B_TOKENIZER for pinned artifact checks")
+		t.Skip("set GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B and GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER for pinned artifact checks")
 	}
 	assertPinnedFile(t, modelPath, V1Provenance.ModelBytes, V1Provenance.ModelSHA256)
 	for name, want := range map[string]string{

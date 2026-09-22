@@ -1,4 +1,4 @@
-package qev
+package gosystemone
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/rcarmo/go-pherence/model"
 )
 
-// Gemma4CPUScorer is the correctness oracle for QEV branch execution. It owns
+// Gemma4CPUScorer is the correctness oracle for Go System One branch execution. It owns
 // one request-local session per context, checkpoints the prefilled trunk and
 // restores it before every branch. A fused implementation must match these
 // candidate logits before it can replace this path.
@@ -280,7 +280,7 @@ func validateGemma4ScoringInput(ctx context.Context, m *model.LlamaModel, prompt
 		}
 	}
 	if len(prompt)+maxDepth > MaxContextTokens {
-		return 0, fmt.Errorf("prepared prompt %d + branch %d exceeds QEV context %d", len(prompt), maxDepth, MaxContextTokens)
+		return 0, fmt.Errorf("prepared prompt %d + branch %d exceeds Go System One context %d", len(prompt), maxDepth, MaxContextTokens)
 	}
 	if maxContext := m.Config.MaxSeqLen; maxContext > 0 && len(prompt)+maxDepth > maxContext {
 		return 0, fmt.Errorf("prepared prompt %d + branch %d exceeds model context %d", len(prompt), maxDepth, maxContext)
