@@ -54,14 +54,15 @@ The first deterministic training gate is implemented:
 - F32-owned stateless transformer backward covers bounded causal attention, adjacent-pair RoPE, softmax, residual layer scales, both affine LayerNorms, tanh-GELU FFN and final LayerNorm; a context-two upstream fixture matches output, full sequence gradient and every parameter within `1e-5`;
 - the exact one-row conditioning layout covers BOS-before-voice, voice projection, text lookup, shifted `[BOS,audio[:-1]]` projection, gathered audio rows and EOS; the upstream layout fixture matches the assembled sequence, outputs, caller-input gradients and every parameter within `2e-5`;
 - a direct pinned `TrainableTTS.forward` fixture with shared sampled noise matches raw/normalized flow metrics, EOS, total loss, both log-variance leaf gradients, audio/voice inputs and every FlowLM/flow-head/`w_s_t` parameter within `8e-5`;
-- full-model AdamW/EMA matches PyTorch after one step; versioned directory-durable checkpoints include trainables, optimizer moments/settings, EMA, mutable latent statistics and fixed timestep frequencies, and resumed second-step state is byte-for-byte equivalent to uninterrupted state.
+- full-model AdamW/EMA matches PyTorch after one step; versioned directory-durable checkpoints include trainables, optimizer moments/settings, EMA, mutable latent statistics and fixed timestep frequencies, and resumed second-step state is byte-for-byte equivalent to uninterrupted state;
+- upstream frozen-Mimi latent stores are admitted with exact sidecar fields, Mimi SHA-256 binding, index-derived shard names, root confinement, bounded F32 `[frames,32]` tensors, per-shard immutable content digests and non-finite rejection; native deterministic F32 shard output loads through upstream `safetensors`, and fixed padded overlap stitching preserves upstream valid-mask semantics.
 
 See [the training validation record](../validation/pocket-tts-native-training-2026-09-22.md) for the fixture and commands.
 
 The next slices are:
 
-1. frozen Mimi latent precomputation;
-2. profile production-size training shapes, then extend the request-owned workspace into arena-backed tapes and SIMD/batching only where the new profile justifies it;
+1. run native frozen-Mimi raw-audio encoding after the encoder bundle/fixture is approved; until then consume upstream-generated caches through the completed interchange boundary;
+2. admit and profile production-size cache shapes, then extend the request-owned workspace into arena-backed tapes and SIMD/batching only where the profile justifies it;
 3. released-format checkpoint export;
 4. 24-layer teacher to six-layer depth/CFG distillation;
 5. long CPU qualification. GPU training is a separate backend task.

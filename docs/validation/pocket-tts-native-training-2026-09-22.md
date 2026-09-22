@@ -132,4 +132,22 @@ The 10,000-step maximum RSS moved from 96,640 KiB to 93,696 KiB. The final CPU p
 
 Evidence files are under `/workspace/tmp/pockettts-training-opt/`: `before.txt`, `after-definitive.txt`, CPU/memory profiles, allocation/in-use top reports and RSS logs. They are bounded external evidence and are not committed.
 
-The deterministic one-row F32 correctness and initial allocation-optimisation gates are complete with dropout disabled and explicit sampled inputs. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export, production-size arena/SIMD qualification and long CPU training remain open.
+## Frozen Mimi latent-cache interchange
+
+The pinned upstream contract is implemented without claiming a native raw-audio encoder:
+
+- `<source>_latents.jsonl` preserves each audio row and adds `latents_file`;
+- the exact relative shard path is `latents/<mimi_hash[:8]>/<source>_<index:08d>.safetensors`;
+- `<source>_latents.meta.json` contains `stitch_frames`, `noise_floor`, `frame_rate`, `weights_path` and the full SHA-256 `mimi_hash`;
+- each shard contains exactly one finite F32 tensor named `latents`, row-major `[frames,channels]`;
+- admission requires explicit row/frame/total-element ceilings, exact 12.5 Hz metadata and expected Mimi hash, real-path root confinement, checked arithmetic and a content digest retained in private immutable cache state;
+- each load rechecks dtype, shape and digest before returning owned F32 values;
+- native shard publication fsyncs the temporary file, atomically renames it and fsyncs the parent directory.
+
+Latent-mode manifest admission follows upstream rather than the stricter raw-audio split gate: at least one aligned word record is required, null boundary timestamps are allowed, and rows with no eligible one-second cut fall back to frame zero and the full transcript.
+
+Stitching preserves upstream's cold-start correction. The loader freshly encodes a fixed, zero-padded `stitch_frames` audio prefix at the selected cut, discards `min(stitch_frames,target_frames)` cached frames, appends the cached tail and uses `target_frames` as the valid-mask length. Therefore the physical tensor can be longer than its valid target when a target is shorter than the fixed overlap.
+
+The deterministic native writer was independently loaded with the pinned checkout's `safetensors.safe_open`: one `torch.float32` `latents` tensor, shape `[2,2]`, and exact values `[[1.25,-2.5],[3.75,4.0]]`. Repeated and race tests cover round-trip, short-target stitching, no-cut/null-boundary fallback, malformed metadata/path/dtype/shape/limits, post-admission replacement, non-finite data and failure non-publication.
+
+The deterministic one-row F32 correctness, initial allocation optimisation and latent-cache interchange gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Production-size shape admission/profiling, 24-layer teacher to six-layer depth/CFG distillation, released safetensors checkpoint export and long CPU training remain open.

@@ -167,3 +167,72 @@ func LoadAlignedTrainingManifest(path string, maxEntries int) ([]TrainingEntry, 
 	defer f.Close()
 	return ReadAlignedTrainingManifest(f, maxEntries)
 }
+
+// validateLatentEntry preserves upstream latent-mode fallback semantics: rows
+// without an eligible aligned cut train from frame zero and the full transcript.
+func (e TrainingEntry) validateLatentEntry() error {
+	if strings.TrimSpace(e.Path) == "" || !finite64(e.Duration) || e.Duration <= 0 || !finite64(e.Start) || e.Start < 0 || strings.TrimSpace(e.Transcript) == "" || strings.TrimSpace(e.LatentsFile) == "" || len(e.Words) == 0 {
+		return fmt.Errorf("invalid latent manifest entry")
+	}
+	lastStart, lastEnd := -1.0, -1.0
+	for i, word := range e.Words {
+		if strings.TrimSpace(word.Word) == "" {
+			return fmt.Errorf("word %d is empty", i)
+		}
+		if word.Start != nil {
+			start := *word.Start
+			if !finite64(start) || start < 0 || start > e.Duration || start < lastStart {
+				return fmt.Errorf("word %d has invalid start", i)
+			}
+			lastStart = start
+		}
+		if word.End != nil {
+			end := *word.End
+			if !finite64(end) || end < 0 || end > e.Duration || end < lastEnd || (word.Start != nil && end < *word.Start) {
+				return fmt.Errorf("word %d has invalid end", i)
+			}
+			lastEnd = end
+		}
+	}
+	return nil
+}
+
+func loadLatentTrainingManifest(path string, maxEntries int) ([]TrainingEntry, error) {
+	if maxEntries <= 0 {
+		return nil, fmt.Errorf("Pocket TTS latent manifest max entries must be positive")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open Pocket TTS latent manifest: %w", err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64<<10), trainingManifestLineLimit)
+	entries := make([]TrainingEntry, 0, min(maxEntries, 1024))
+	line := 0
+	for scanner.Scan() {
+		line++
+		raw := strings.TrimSpace(scanner.Text())
+		if raw == "" {
+			return nil, fmt.Errorf("Pocket TTS latent manifest line %d is blank", line)
+		}
+		if len(entries) == maxEntries {
+			return nil, fmt.Errorf("Pocket TTS latent manifest exceeds %d entries", maxEntries)
+		}
+		var entry TrainingEntry
+		if err = json.Unmarshal([]byte(raw), &entry); err != nil {
+			return nil, fmt.Errorf("Pocket TTS latent manifest line %d: %w", line, err)
+		}
+		if err = entry.validateLatentEntry(); err != nil {
+			return nil, fmt.Errorf("Pocket TTS latent manifest line %d: %w", line, err)
+		}
+		entries = append(entries, entry)
+	}
+	if err = scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read Pocket TTS latent manifest: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("Pocket TTS latent manifest is empty")
+	}
+	return entries, nil
+}
