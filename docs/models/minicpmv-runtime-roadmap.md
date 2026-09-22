@@ -18,7 +18,8 @@ Implemented:
 - Runtime interfaces that return `ErrRuntimeNotImplemented` for unbound stages.
 - Owned-F32 MiniCPM, Qwen2, and Mistral dense text binding with request-local KV state, one-token hidden/logit execution, embedding-prefix greedy decoding, GQA/RoPE/RMSNorm/SwiGLU, Qwen2 Q/K/V bias handling, MiniCPM embedding/depth/logit scaling, and tied/untied LM heads.
 - Owned-F32 SigLIP patch embedding and transformer execution with full attention, affine LayerNorm, tanh-GELU MLP, positional embeddings, and synthetic token output.
-- Synthetic tests for the three text variants and SigLIP vision slice, including malformed shapes/policies/state, ownership, determinism, and non-finite input/weights.
+- Owned-F32 perceiver resampler execution with optional vision-to-language KV projection, packed Q/K/V attention weights, source/query 2D positions, cross-attention, final projection, and composition into image embedding injection.
+- Synthetic tests for the three text variants, SigLIP vision, resampler, and injection slices, including malformed shapes/policies/state, ownership, determinism, and non-finite input/weights.
 - `minicpmvinspect`, fixture helpers, capability/status reports, and Makefile gates.
 
 Not implemented:
@@ -44,14 +45,14 @@ Not implemented:
    - `PreprocessImageFile` and `BuildVisionExecutionPlan` remain the input/plan boundary.
    - Synthetic image tensor execution is covered. EVA02 execution and an approved independent real-image feature checksum fixture remain open.
 
-3. **Resampler execution**
-   - Bind resampler query, optional position embedding, attention projection, KV projection, norm, and MLP tensors.
-   - Use `BuildResamplerTensorPlan` and `NewResamplerShape` as the readiness boundary.
-   - First gate: synthetic vision-token to `num_query × hidden` output shape and deterministic checksum fixture.
+3. **Resampler execution — CPU/synthetic slice complete**
+   - Binds resampler query, optional query position, packed attention projection, KV projection, norms, output projection, and final projection tensors.
+   - Uses `BuildResamplerTensorPlan` and `NewResamplerShape` as the readiness boundary.
+   - Synthetic vision-token to `num_query × hidden` shape, source/query positions, ownership, and deterministic execution are covered. Approved released parity remains open.
 
-4. **Image embedding injection**
-   - Feed resampler outputs into `InjectImageEmbeddings` over spans produced by `BuildPromptPlanFromSummary`.
-   - First gate: token embedding replacement parity with synthetic placeholders.
+4. **Image embedding injection — synthetic composition complete**
+   - `VisionEmbeddingCPU` feeds SigLIP and resampler outputs into `InjectImageEmbeddings` over planned spans.
+   - Synthetic token embedding replacement is covered without mutating caller-owned embeddings.
 
 5. **MiniCPM-O audio frontend and encoder**
    - Implement or reuse mel/filterbank extraction consistent with the checkpoint `audio_config`.

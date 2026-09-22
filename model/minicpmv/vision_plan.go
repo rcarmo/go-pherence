@@ -64,7 +64,8 @@ func BuildVisionExecutionPlan(summary config.MiniCPMVSummary, tensors *TensorInv
 	add("resampler_queries", hasResampler && summary.NumQuery > 0, "resampler query tensors or num_query missing")
 	add("resampler_cross_attention", hasResampler && summary.ResamplerHeads > 0, "resampler attention tensors or heads missing")
 	add("resampler_kv_projection", !plan.NeedsKVProj || hasResampler || hasProjector, "vision/text hidden sizes differ and kv/projector tensors are missing")
-	add("language_embedding_injection", false, "text embedding integration pending")
+	add("resampler_cpu_reference", hasResampler && summary.NumQuery > 0 && summary.ResamplerHeads > 0 && (!plan.NeedsKVProj || hasResampler || hasProjector), "resampler metadata or tensors missing")
+	add("language_embedding_injection", true, "")
 	plan.Ready = false
 	return plan
 }
