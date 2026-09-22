@@ -16,6 +16,7 @@ type RuntimeRequest struct {
 
 type RuntimeRequestPlan struct {
 	Context        ContextLayout `json:"context"`
+	Tokens         []uint32      `json:"tokens"`
 	PromptTokens   int           `json:"prompt_tokens"`
 	MaxNewTokens   int           `json:"max_new_tokens"`
 	MaxSequence    int           `json:"max_sequence"`
@@ -60,7 +61,8 @@ func NewRuntimeRequestPlan(cfg Config, req RuntimeRequest) (RuntimeRequestPlan, 
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
-	plan := RuntimeRequestPlan{Context: runtimePlan.ContextLayout, PromptTokens: len(req.Tokens), MaxNewTokens: req.MaxNewTokens, MaxSequence: maxSeq, BytesPerFloat: req.BytesPerFloat, KVBytes: kvBytes, ConvStateBytes: convBytes, RouterScratch: routerScratch, EmbeddingBytes: embeddingBytes}
+	tokens := append([]uint32(nil), req.Tokens...)
+	plan := RuntimeRequestPlan{Context: runtimePlan.ContextLayout, Tokens: tokens, PromptTokens: len(tokens), MaxNewTokens: req.MaxNewTokens, MaxSequence: maxSeq, BytesPerFloat: req.BytesPerFloat, KVBytes: kvBytes, ConvStateBytes: convBytes, RouterScratch: routerScratch, EmbeddingBytes: embeddingBytes}
 	return plan, plan.Validate()
 }
 
@@ -69,8 +71,11 @@ func (p RuntimeRequestPlan) Validate() error {
 		return err
 	}
 	total, ok := checked.AddInt(p.PromptTokens, p.MaxNewTokens)
-	if !ok || p.PromptTokens <= 0 || p.MaxNewTokens <= 0 || p.MaxSequence != total || p.BytesPerFloat <= 0 {
+	if !ok || p.PromptTokens <= 0 || len(p.Tokens) != p.PromptTokens || p.MaxNewTokens <= 0 || p.MaxSequence != total || p.BytesPerFloat <= 0 {
 		return fmt.Errorf("invalid LFM2 runtime request plan limits: %+v", p)
+	}
+	if err := p.Context.ValidateSequence(p.Tokens); err != nil {
+		return err
 	}
 	if p.MaxSequence > p.Context.MaxPositionEmbeddings {
 		return fmt.Errorf("LFM2 runtime request max sequence=%d exceeds context=%d", p.MaxSequence, p.Context.MaxPositionEmbeddings)

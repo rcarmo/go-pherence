@@ -172,7 +172,7 @@ Runtime work still pending:
 
 ## LFM2.5-8B-A1B
 
-Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, and inspector coverage are implemented. Generation is not implemented.
+Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, inspector coverage, the owned F32 embedding/final-norm/tied-or-untied LM-head stage, and the single-token short-convolution state transition are implemented. Batched conv, attention, MoE, and generation are not implemented.
 
 Implemented package/command surface:
 
@@ -188,8 +188,10 @@ Implemented package/command surface:
 - `model/lfm2/ffn_layout.go` — dense and routed expert FFN dimension/parameter contract.
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
-- `model/lfm2/embedding_contract.go` — validation-only embedding-stage contract tying prompt tokens to hidden activation shape.
+- `model/lfm2/embedding_contract.go` — embedding-stage contract tying prompt tokens to hidden activation shape.
+- `model/lfm2/embedding_cpu.go` — owned F32 token embeddings, final RMSNorm, and tied-or-untied LM-head logits.
 - `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
+- `model/lfm2/conv_cpu.go` — caller-owned single-token `in_proj → B/C/x → depthwise causal convolution → out_proj` transition.
 - `model/lfm2/conv_contract.go` — validation-only convolution-stage contract tying hidden activations and conv state to exact float counts.
 - `model/lfm2/conv_projection.go` — per-conv-layer short-convolution kernel/bias sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.
