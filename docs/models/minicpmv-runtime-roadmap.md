@@ -26,8 +26,7 @@ Not implemented:
 
 - Pinned independent released-checkpoint text hidden/logit parity.
 - Sampling policies beyond deterministic greedy decoding.
-- Numeric EVA02 vision tower.
-- Pinned independent released-checkpoint SigLIP vision parity.
+- Pinned independent released-checkpoint SigLIP vision parity for both nested and fused-QKV/timm layouts.
 - Numeric perceiver resampler/KV projection.
 - Numeric MiniCPM-O audio frontend/encoder.
 - End-to-end generation and parity gates.
@@ -40,10 +39,10 @@ Not implemented:
    - Runs one-token synthetic hidden-state/logit tests without vision/audio and supports deterministic greedy decode from injected embeddings.
    - Remaining gate: approved, pinned, independently generated released-checkpoint hidden/logit fixtures.
 
-2. **Vision tower execution — SigLIP CPU/synthetic slice complete**
-   - SigLIP patch embedding, learned positional embedding, transformer blocks, and post-LayerNorm output are implemented.
+2. **Vision tower execution — CPU/synthetic slices complete**
+   - Both nested SigLIP (`vpm.encoder.layers.*`) and the MiniCPM-V 2.0 timm SigLIP fused-QKV layout (`vpm.blocks.*`) implement patch embedding, positional embedding, transformer blocks, and post-LayerNorm output.
    - `PreprocessImageFile` and `BuildVisionExecutionPlan` remain the input/plan boundary.
-   - Synthetic image tensor execution is covered. EVA02 execution and an approved independent real-image feature checksum fixture remain open.
+   - Synthetic image tensor execution is covered. An approved independent real-image feature checksum fixture remains open.
 
 3. **Resampler execution — CPU/synthetic slice complete**
    - Binds resampler query, optional query position, packed attention projection, KV projection, norms, output projection, and final projection tensors.

@@ -20,6 +20,8 @@ func TestValidateTensorShapesValid(t *testing.T) {
 		"resampler.query.weight":                     {Shape: []int{2, 4}},
 		"resampler.kv_proj.weight":                   {Shape: []int{4, 3}},
 		"vpm.embeddings.patch_embedding.weight":      {Shape: []int{3, 3, 14, 14}},
+		"vpm.pos_embed":                              {Shape: []int{1, 9, 3}},
+		"vpm.blocks.0.attn.qkv.weight":               {Shape: []int{9, 3}},
 	}
 	if v := ValidateTensorShapes(summary, infos); !v.Valid || len(v.Issues) != 0 {
 		t.Fatalf("expected valid tensor shapes: %+v", v)
@@ -52,6 +54,8 @@ func TestValidateTensorShapesRejectsMismatches(t *testing.T) {
 		"llm.model.layers.0.self_attn.k_proj.weight": {Shape: []int{4, 4}},
 		"resampler.query.weight":                     {Shape: []int{3, 4}},
 		"vpm.embeddings.patch_embedding.weight":      {Shape: []int{3, 3, 16, 16}},
+		"vpm.pos_embed":                              {Shape: []int{1, 9, 4}},
+		"vpm.blocks.0.attn.qkv.weight":               {Shape: []int{8, 3}},
 	}
 	v := ValidateTensorShapes(summary, infos)
 	if v.Valid || len(v.Issues) < 4 {

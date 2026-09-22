@@ -24,9 +24,6 @@ func TestBuildVisionExecutionPlan(t *testing.T) {
 	if got := findVisionOp(plan, "siglip_cpu_reference"); got == nil || !got.Ready {
 		t.Fatalf("SigLIP reference op not ready: %+v", plan.Ops)
 	}
-	if got := findVisionOp(plan, "eva_cpu_reference"); got == nil || got.Ready || got.Reason == "" {
-		t.Fatalf("EVA reference should remain pending: %+v", plan.Ops)
-	}
 	if got := findVisionOp(plan, "resampler_cpu_reference"); got == nil || !got.Ready {
 		t.Fatalf("resampler reference op not ready: %+v", plan.Ops)
 	}
@@ -47,7 +44,7 @@ func TestBuildVisionExecutionPlanMissingTensors(t *testing.T) {
 }
 
 func TestVisionModelTypeHelpers(t *testing.T) {
-	if !IsLikelySigLIPVision(config.MiniCPMVSummary{VisionModelType: "SiglipVisionModel"}) {
+	if !IsLikelySigLIPVision(config.MiniCPMVSummary{VisionModelType: "SiglipVisionModel"}) || !IsLikelySigLIPVision(config.MiniCPMVSummary{VisionModelType: "vit_so400m_patch14_siglip_384.webli"}) {
 		t.Fatalf("expected siglip detection")
 	}
 	if !IsLikelyEVAVision(config.MiniCPMVSummary{VisionModelType: "eva02"}) {

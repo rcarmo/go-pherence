@@ -36,7 +36,7 @@ func TestMiniCPMVConfigNestedSummary(t *testing.T) {
 		Architectures:   []string{"MiniCPMVForCausalLM"},
 		ModelType:       "minicpmv",
 		TextConfig:      &MiniCPMVTextConfig{ModelType: "qwen2", HiddenSize: 3584, NumHiddenLayers: 28, NumAttentionHeads: 28, NumKeyValueHeads: 4, IntermediateSize: 18944, VocabSize: 151666},
-		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
+		VisionConfig:    &MiniCPMVVisionConfig{ModelType: "siglip_vision_model", HiddenSize: 1152, IntermediateSize: 4304, NumHiddenLayers: 27, NumAttentionHeads: 16, ImageSize: 448, PatchSize: 14},
 		SliceConfig:     MiniCPMVSliceConfig{MaxSliceNums: 9, ScaleResolution: 448, PatchSize: 14},
 		ResamplerConfig: &MiniCPMVResamplerConfig{NumQuery: 64, NumHeads: 28, KVDim: 1152},
 	}
@@ -47,7 +47,7 @@ func TestMiniCPMVConfigNestedSummary(t *testing.T) {
 	if s.TextModelType != "qwen2" || s.VisionModelType != "siglip_vision_model" {
 		t.Fatalf("missing nested model types: %+v", s)
 	}
-	if s.HiddenSize != 3584 || s.VisionHiddenSize != 1152 || s.ImageSize != 448 || s.PatchSize != 14 {
+	if s.HiddenSize != 3584 || s.VisionHiddenSize != 1152 || s.VisionIntermediate != 4304 || s.ImageSize != 448 || s.PatchSize != 14 {
 		t.Fatalf("unexpected nested dims: %+v", s)
 	}
 	if s.MaxSliceNums != 9 || s.ScaleResolution != 448 || s.SlicePatchSize != 14 {
@@ -77,12 +77,12 @@ func TestMiniCPMOConfigNestedSummary(t *testing.T) {
 }
 
 func TestMiniCPMVConfigTopLevelAliases(t *testing.T) {
-	cfg := MiniCPMVConfig{Architectures: []string{"MiniCPMV"}, ModelType: "minicpmv", HiddenSize: 2304, NumHiddenLayers: 40, NumAttentionHeads: 36, NumKeyValueHeads: 36, VocabSize: 122753, QueryNum: 64, ImageSize: 448, PatchSize: 14, MaxSliceNums: 9}
+	cfg := MiniCPMVConfig{Architectures: []string{"MiniCPMV"}, ModelType: "minicpmv", HiddenSize: 2304, NumHiddenLayers: 40, NumAttentionHeads: 36, NumKeyValueHeads: 36, VocabSize: 122753, QueryNum: 64, ImageSize: 448, PatchSize: 14, MaxSliceNums: 9, VisionEncoder: "vit_so400m_patch14_siglip_384.webli", DropVisionLastLayer: true}
 	if err := ValidateMiniCPMVConfig(cfg); err != nil {
 		t.Fatalf("ValidateMiniCPMVConfig aliases: %v", err)
 	}
 	s := cfg.MiniCPMVSummary()
-	if s.NumQuery != 64 || s.ResamplerGrid != 8 || s.MaxSliceNums != 9 || s.TextModelType != "qwen2" {
+	if s.NumQuery != 64 || s.ResamplerGrid != 8 || s.MaxSliceNums != 9 || s.TextModelType != "qwen2" || s.VisionModelType != cfg.VisionEncoder || s.VisionHiddenSize != 1152 || s.VisionIntermediate != 4304 || s.VisionLayers != 26 || s.VisionHeads != 16 {
 		t.Fatalf("bad alias summary: %+v", s)
 	}
 }

@@ -16,7 +16,6 @@ func ValidateTensorShapes(summary config.MiniCPMVSummary, infos map[string]safet
 	v := TensorShapeValidation{Valid: true}
 	for name, info := range infos {
 		shape := info.Shape
-		lower := strings.ToLower(name)
 		switch ClassifyTensorName(name) {
 		case TensorTextEmbedding:
 			if summary.HiddenSize > 0 && (len(shape) != 2 || shape[1] != summary.HiddenSize) {
@@ -33,9 +32,7 @@ func ValidateTensorShapes(summary config.MiniCPMVSummary, infos map[string]safet
 				v.Add(fmt.Sprintf("%s shape=%v want dims involving hidden=%d or vision_hidden=%d", name, shape, summary.HiddenSize, summary.VisionHiddenSize))
 			}
 		case TensorVisionTower:
-			if strings.Contains(lower, "patch") && strings.Contains(lower, "weight") && summary.PatchSize > 0 && len(shape) >= 3 && !containsDim(shape, summary.PatchSize) {
-				v.Add(fmt.Sprintf("%s shape=%v want patch_size=%d in patch embedding", name, shape, summary.PatchSize))
-			}
+			validateVisionTensorShape(&v, name, shape, summary)
 		case TensorAudioEncoder:
 			validateAudioTensorShape(&v, name, shape, summary)
 		case TensorTextLayer:
@@ -43,6 +40,23 @@ func ValidateTensorShapes(summary config.MiniCPMVSummary, infos map[string]safet
 		}
 	}
 	return v
+}
+
+func validateVisionTensorShape(v *TensorShapeValidation, name string, shape []int, summary config.MiniCPMVSummary) {
+	lower := strings.ToLower(name)
+	if strings.Contains(lower, "patch") && strings.Contains(lower, "weight") && summary.PatchSize > 0 && len(shape) >= 3 && !containsDim(shape, summary.PatchSize) {
+		v.Add(fmt.Sprintf("%s shape=%v want patch_size=%d in patch embedding", name, shape, summary.PatchSize))
+		return
+	}
+	if strings.Contains(lower, "pos_embed") && summary.VisionHiddenSize > 0 && (len(shape) < 2 || shape[len(shape)-1] != summary.VisionHiddenSize) {
+		v.Add(fmt.Sprintf("%s shape=%v want final vision_hidden=%d", name, shape, summary.VisionHiddenSize))
+		return
+	}
+	if strings.Contains(lower, ".attn.qkv.weight") && summary.VisionHiddenSize > 0 {
+		if len(shape) != 2 || shape[0] != 3*summary.VisionHiddenSize || shape[1] != summary.VisionHiddenSize {
+			v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, 3*summary.VisionHiddenSize, summary.VisionHiddenSize))
+		}
+	}
 }
 
 func validateTextLayerShape(v *TensorShapeValidation, name string, shape []int, summary config.MiniCPMVSummary) {

@@ -38,6 +38,8 @@ type MiniCPMVConfig struct {
 	PadTokenID          int                      `json:"pad_token_id"`
 	TieWordEmbeddings   bool                     `json:"tie_word_embeddings"`
 	MMVisionTower       string                   `json:"mm_vision_tower"`
+	VisionEncoder       string                   `json:"vision_encoder"`
+	DropVisionLastLayer bool                     `json:"drop_vision_last_layer"`
 	UseMMProj           bool                     `json:"use_mm_proj"`
 	NumQuery            int                      `json:"num_query"`
 	QueryNum            int                      `json:"query_num"`
@@ -128,42 +130,43 @@ type MiniCPMVSliceConfig struct {
 // MiniCPMVSummary is the normalized readiness surface consumed by model/cmd
 // packages without having to understand every upstream config variant.
 type MiniCPMVSummary struct {
-	Architecture      string `json:"architecture"`
-	ModelType         string `json:"model_type"`
-	TextModelType     string `json:"text_model_type"`
-	VisionModelType   string `json:"vision_model_type"`
-	HiddenSize        int    `json:"hidden_size"`
-	Layers            int    `json:"layers"`
-	Heads             int    `json:"heads"`
-	KVHeads           int    `json:"kv_heads"`
-	HeadDim           int    `json:"head_dim"`
-	IntermediateSize  int    `json:"intermediate_size"`
-	VocabSize         int    `json:"vocab_size"`
-	ImageSize         int    `json:"image_size"`
-	PatchSize         int    `json:"patch_size"`
-	VisionHiddenSize  int    `json:"vision_hidden_size"`
-	VisionLayers      int    `json:"vision_layers"`
-	VisionHeads       int    `json:"vision_heads"`
-	AudioModelType    string `json:"audio_model_type,omitempty"`
-	AudioHiddenSize   int    `json:"audio_hidden_size,omitempty"`
-	AudioLayers       int    `json:"audio_layers,omitempty"`
-	AudioHeads        int    `json:"audio_heads,omitempty"`
-	AudioFeatureSize  int    `json:"audio_feature_size,omitempty"`
-	AudioMelBins      int    `json:"audio_mel_bins,omitempty"`
-	AudioSamplingRate int    `json:"audio_sampling_rate,omitempty"`
-	NumQuery          int    `json:"num_query"`
-	ResamplerGrid     int    `json:"resampler_grid"`
-	ResamplerHeads    int    `json:"resampler_heads"`
-	UseImageStartEnd  bool   `json:"use_image_start_end"`
-	ImageTokenID      int    `json:"image_token_id"`
-	ImageStartTokenID int    `json:"image_start_token_id"`
-	ImageEndTokenID   int    `json:"image_end_token_id"`
-	SliceMode         bool   `json:"slice_mode"`
-	MaxSliceNums      int    `json:"max_slice_nums,omitempty"`
-	ScaleResolution   int    `json:"scale_resolution,omitempty"`
-	SlicePatchSize    int    `json:"slice_patch_size,omitempty"`
-	RuntimeReady      bool   `json:"runtime_ready"`
-	RuntimeNote       string `json:"runtime_note"`
+	Architecture       string `json:"architecture"`
+	ModelType          string `json:"model_type"`
+	TextModelType      string `json:"text_model_type"`
+	VisionModelType    string `json:"vision_model_type"`
+	HiddenSize         int    `json:"hidden_size"`
+	Layers             int    `json:"layers"`
+	Heads              int    `json:"heads"`
+	KVHeads            int    `json:"kv_heads"`
+	HeadDim            int    `json:"head_dim"`
+	IntermediateSize   int    `json:"intermediate_size"`
+	VocabSize          int    `json:"vocab_size"`
+	ImageSize          int    `json:"image_size"`
+	PatchSize          int    `json:"patch_size"`
+	VisionHiddenSize   int    `json:"vision_hidden_size"`
+	VisionIntermediate int    `json:"vision_intermediate_size"`
+	VisionLayers       int    `json:"vision_layers"`
+	VisionHeads        int    `json:"vision_heads"`
+	AudioModelType     string `json:"audio_model_type,omitempty"`
+	AudioHiddenSize    int    `json:"audio_hidden_size,omitempty"`
+	AudioLayers        int    `json:"audio_layers,omitempty"`
+	AudioHeads         int    `json:"audio_heads,omitempty"`
+	AudioFeatureSize   int    `json:"audio_feature_size,omitempty"`
+	AudioMelBins       int    `json:"audio_mel_bins,omitempty"`
+	AudioSamplingRate  int    `json:"audio_sampling_rate,omitempty"`
+	NumQuery           int    `json:"num_query"`
+	ResamplerGrid      int    `json:"resampler_grid"`
+	ResamplerHeads     int    `json:"resampler_heads"`
+	UseImageStartEnd   bool   `json:"use_image_start_end"`
+	ImageTokenID       int    `json:"image_token_id"`
+	ImageStartTokenID  int    `json:"image_start_token_id"`
+	ImageEndTokenID    int    `json:"image_end_token_id"`
+	SliceMode          bool   `json:"slice_mode"`
+	MaxSliceNums       int    `json:"max_slice_nums,omitempty"`
+	ScaleResolution    int    `json:"scale_resolution,omitempty"`
+	SlicePatchSize     int    `json:"slice_patch_size,omitempty"`
+	RuntimeReady       bool   `json:"runtime_ready"`
+	RuntimeNote        string `json:"runtime_note"`
 }
 
 func ReadMiniCPMVConfig(dir string) (MiniCPMVConfig, error) {
@@ -230,6 +233,7 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	if cfg.VisionConfig != nil {
 		s.VisionModelType = cfg.VisionConfig.ModelType
 		s.VisionHiddenSize = cfg.VisionConfig.HiddenSize
+		s.VisionIntermediate = cfg.VisionConfig.IntermediateSize
 		s.VisionLayers = cfg.VisionConfig.NumHiddenLayers
 		s.VisionHeads = cfg.VisionConfig.NumAttentionHeads
 		s.ImageSize = firstPositive(cfg.ImageSize, cfg.VisionConfig.ImageSize)
@@ -237,6 +241,21 @@ func (cfg MiniCPMVConfig) MiniCPMVSummary() MiniCPMVSummary {
 	} else {
 		s.ImageSize = cfg.ImageSize
 		s.PatchSize = cfg.PatchSize
+		if cfg.VisionEncoder != "" {
+			s.VisionModelType = cfg.VisionEncoder
+		}
+		// The published v2.0 checkpoint uses this exact timm SigLIP So400m
+		// preset. Record its architecture dimensions even though they are not
+		// repeated in config.json.
+		if cfg.VisionEncoder == "vit_so400m_patch14_siglip_384.webli" {
+			s.VisionHiddenSize = 1152
+			s.VisionIntermediate = 4304
+			s.VisionLayers = 27
+			if cfg.DropVisionLastLayer {
+				s.VisionLayers--
+			}
+			s.VisionHeads = 16
+		}
 	}
 	if cfg.AudioConfig != nil {
 		s.AudioModelType = cfg.AudioConfig.ModelType

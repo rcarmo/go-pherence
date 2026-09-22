@@ -64,12 +64,12 @@ func SummarizeTensors(names []string) TensorInventory {
 func ClassifyTensorName(name string) TensorGroup {
 	n := strings.ToLower(name)
 	switch {
-	case strings.Contains(n, "resampler") || strings.Contains(n, "query_tokens") || strings.Contains(n, "pos_embed"):
+	case strings.Contains(n, "resampler") || strings.Contains(n, "query_tokens"):
 		return TensorResampler
+	case strings.HasPrefix(n, "vpm.") || strings.Contains(n, "vision_tower") || strings.Contains(n, "vision_model") || strings.Contains(n, "clip") || strings.Contains(n, "siglip") || strings.Contains(n, "eva"):
+		return TensorVisionTower
 	case strings.Contains(n, "audio") || strings.Contains(n, "whisper") || strings.Contains(n, "apm") || strings.Contains(n, "audio_tower") || strings.Contains(n, "audio_encoder"):
 		return TensorAudioEncoder
-	case strings.Contains(n, "vision_tower") || strings.Contains(n, "vpm") || strings.Contains(n, "vision_model") || strings.Contains(n, "clip") || strings.Contains(n, "siglip") || strings.Contains(n, "eva"):
-		return TensorVisionTower
 	case strings.Contains(n, "mm_projector") || strings.Contains(n, "multi_modal_projector") || strings.Contains(n, "vision_proj"):
 		return TensorProjector
 	case strings.Contains(n, "embed_tokens.weight") || strings.HasSuffix(n, "tok_embeddings.weight"):

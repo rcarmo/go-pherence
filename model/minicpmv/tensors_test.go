@@ -12,6 +12,7 @@ func TestClassifyTensorName(t *testing.T) {
 		"audio_encoder.layers.0.self_attn.q_proj.weight":            TensorAudioEncoder,
 		"resampler.query.weight":                                    TensorResampler,
 		"resampler.pos_embed":                                       TensorResampler,
+		"vpm.pos_embed":                                             TensorVisionTower,
 		"mm_projector.0.weight":                                     TensorProjector,
 		"model.norm.weight":                                         TensorNorm,
 	}

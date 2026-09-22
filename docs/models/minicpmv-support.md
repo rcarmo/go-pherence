@@ -49,10 +49,10 @@ make minicpmv-assets-check      # discover/inspect local MiniCPM-V/O dirs under 
   - Implements request-local KV state, token or injected-embedding input, causal GQA/RoPE, RMSNorm, SwiGLU, exact MiniCPM scaling, Qwen2 Q/K/V biases, tied/untied LM heads, and deterministic greedy decoding.
   - Synthetic tests cover all three text variants, strict shape/policy/state rejection, ownership, determinism, and non-finite input/weight failures; released-checkpoint parity remains open.
 - SigLIP vision-tower and perceiver-resampler correctness-first CPU slices.
-  - Binds official `vpm.embeddings`, `vpm.encoder.layers.*`, `vpm.post_layernorm`, and `resampler.*` tensors into owned F32 weights.
+  - Binds nested SigLIP `vpm.embeddings`/`vpm.encoder.layers.*`, MiniCPM-V 2.0 timm fused-QKV `vpm.patch_embed`/`vpm.blocks.*`, final vision norm, and `resampler.*` tensors into owned F32 weights.
   - Implements Conv2D patch embedding, learned/dynamic positional embeddings, full multi-head self-attention, affine LayerNorm, tanh-GELU MLP blocks, optional vision-to-language KV projection, packed Q/K/V cross-attention, and final language projection.
   - `VisionEmbeddingCPU` composes SigLIP, resampling, and the existing non-aliasing image embedding injection boundary.
-  - Synthetic tests cover patch/token/resampler/injection output, nonzero attention, ownership, determinism, malformed shapes/policies, and non-finite pixels; EVA02 and released-checkpoint vision parity remain open.
+  - Synthetic tests cover both vision layouts plus patch/token/resampler/injection output, nonzero attention, ownership, determinism, malformed shapes/policies, and non-finite pixels; released-checkpoint vision parity remains open.
 - Support/capability summary APIs (`minicpmv.CurrentSupportSummary`, `minicpmv.CurrentCapabilities`, `minicpmv.ValidateSupportSummary`) that mark implemented scaffold surfaces true, numeric runtime/end-to-end generation surfaces false, validate that contract, and report the runtime roadmap path plus bounded pending runtime steps until execution lands.
 - Combined readiness report summarizing metadata, tensor inventory, shape validation, runtime readiness, and bounded blocker details for inspector/CI consumers.
 - Runtime-plan scaffold that reports which metadata stages are ready and keeps tensor execution stages explicitly pending.
@@ -137,8 +137,7 @@ The original OpenBMB code path is:
 Not implemented yet:
 
 - MiniCPM-O audio encoder tensor loading/execution.
-- EVA02 vision tower tensor loading/execution.
-- Independent pinned released-model SigLIP feature parity.
+- Independent pinned released-model SigLIP feature parity for nested and fused-QKV/timm layouts.
 - Independent pinned released-model resampler parity.
 - Applying full checkpoint chat templates and tokenizing natural-language conversations end-to-end.
 - Independent pinned released-model hidden/logit parity for MiniCPM/Qwen2/Mistral text backbones.
