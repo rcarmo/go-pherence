@@ -380,6 +380,9 @@ $L__BB0_37:
 	bar.sync 	0;
 	mov.f32 	%f197, 0f00000000;
 	ld.shared.f32 	%f17, [_ZZ26gqa_attention_causal_batchE6reduce];
+	// All warps must read the shared maximum before any warp overwrites
+	// the reduction workspace with its exponential sum.
+	bar.sync 	0;
 	@%p21 bra 	$L__BB0_44;
 
 	mov.u32 	%r164, -2;

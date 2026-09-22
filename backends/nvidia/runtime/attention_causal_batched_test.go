@@ -101,3 +101,68 @@ func causalAttentionCPU(q, k, v []float32, rows, pos0, kvLen, window, heads, kvH
 	}
 	return out
 }
+
+// A short key range leaves some warps with no exponentials to calculate. They
+// must not overwrite reduce[0] before other warps load the softmax maximum.
+func TestCausalBatchAttentionShortSoftmaxRace(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA unavailable")
+	}
+	const rows, pos0, heads, kvHeads, dim = 24, 57, 16, 8, 256
+	const kvLen = pos0 + rows
+	q, k, v := make([]float32, rows*heads*dim), make([]float32, kvLen*kvHeads*dim), make([]float32, kvLen*kvHeads*dim)
+	for i := range q {
+		q[i] = 1 + float32(i%7)*.1
+	}
+	for i := range k {
+		k[i] = 1 + float32(i%11)*.1
+		v[i] = float32(i%37-18) * .07
+	}
+	qb, err := Malloc(len(q))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qb.Free()
+	kb, err := Malloc(len(k))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer kb.Free()
+	vb, err := Malloc(len(v))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer vb.Free()
+	ob, err := Malloc(len(q))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ob.Free()
+	for _, x := range []struct {
+		b *Buffer
+		x []float32
+	}{{qb, q}, {kb, k}, {vb, v}} {
+		if err := x.b.Upload(x.x); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scale := float32(1 / math.Sqrt(dim))
+	for _, window := range []int{0, 8} {
+		want := causalAttentionCPU(q, k, v, rows, pos0, kvLen, window, heads, kvHeads, dim, scale)
+		got := make([]float32, len(q))
+		for repeat := 0; repeat < 32; repeat++ {
+			if err := CausalBatchAttentionBuffer(ob, qb, kb, vb, rows, pos0, kvLen, window, heads, kvHeads, dim, scale); err != nil {
+				t.Fatal(err)
+			}
+			if err := ob.Download(got); err != nil {
+				t.Fatal(err)
+			}
+			for i, x := range got {
+				d := math.Abs(float64(x - want[i]))
+				if math.IsNaN(d) || d > 2e-5*math.Max(1, math.Abs(float64(want[i]))) {
+					t.Fatalf("window=%d repeat=%d index=%d got=%g want=%g diff=%g", window, repeat, i, x, want[i], d)
+				}
+			}
+		}
+	}
+}
