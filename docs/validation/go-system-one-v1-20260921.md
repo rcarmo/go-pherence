@@ -30,6 +30,14 @@ go test ./model/gosystemone -run '^TestGoSystemOneNVIDIAReleasedModelMatchesPinn
 
 It uses the checked-in llama.cpp fixture prompt and candidate paths. The native NVIDIA result selected `true` with probability `0.999999999956813`; the pinned oracle probability is `0.999999999905886`. The full-vocabulary one-token diagnostic had the same CPU/SIMD and NVIDIA argmax. Representative logits differed by 0.0035–0.0532 after quantised reduction-order changes.
 
+The second fixture, `llamacpp-go-system-one-gemma4-12b-multifield.json`, adds two contexts, two fields and a three-way multi-token enum. The pinned worker selects `critical incident`/`true` for a production outage and `routine maintenance`/`false` for completed maintenance. Native NVIDIA matches all four winners and probabilities within `1e-6`. The fixture records exact rendered text, SHA-256 values, token IDs, candidate indices and the worker environment.
+
+```sh
+GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B=/tmp/go-system-one-gemma4-12b/gemma-4-12b-it-UD-Q4_K_XL.gguf \
+GO_PHERENCE_GO_SYSTEM_ONE_GEMMA4_12B_TOKENIZER=/tmp/go-system-one-gemma4-12b/tokenizer \
+go test ./model/gosystemone -run 'TestGoSystemOneNVIDIAMultiFieldReleasedModelMatchesPinnedLlamaCpp' -count=1 -v
+```
+
 ## Warm decision timing
 
 Startup, artifact hashing, GGUF parsing and the resident upload are excluded. The measured interval starts when the HTTP handler receives `POST /v1/decision` and ends when it writes the complete response. The request used one 77-token prepared prompt, a 20-token context, one boolean tree node and a four-token suffix.
@@ -74,6 +82,35 @@ The server completed 100 sequential warm requests after one warm-up. Five client
 The accepted optimisation set has no request-unbounded cache and does not change single admission, cancellation ownership or the 12 GB device budget. Concatenated Q4 gate/up matrices replace the two original resident matrices with the same raw bytes; they do not duplicate weights.
 
 Rejected experiments included Q5 128-output-row tiles, Q6 128/256-output-row tiles outside their measured shapes, Q6 128-thread blocks, 512/1,024-value Q6 K tiles, wider J16/J24 Q6 row tiles, coalesced Q4 gate/up pairs and narrow-shape Q4 J8 dispatch. Each was slower in the released-model shape probe or failed to improve whole-request latency. Numerically incorrect Q5 J16 experiments were discarded before integration.
+
+## Workload matrix and cache admission
+
+Five warm samples per case used the pinned model and RTX 3060. Each schema was warmed before measurement. Times cover the complete HTTP handler.
+
+| Case | Workload | Median | Range |
+|---|---|---:|---:|
+| Baseline | 20 context tokens, one boolean field, tree, cache hit | 81.00 ms | 80.44–81.94 ms |
+| Cache disabled | Baseline with `cache_prompt=false` | 252.06 ms | 251.38–252.70 ms |
+| Short context | 15 context tokens, one boolean field | 81.14 ms | 80.90–81.63 ms |
+| Long context | 371 context tokens, one boolean field | 1,224.59 ms | 1,221.76–1,231.35 ms |
+| Deep enum | Three multi-token candidates, five scored rows | 99.25 ms | 99.05–101.38 ms |
+| Four fields | Four booleans, 20 scored rows | 742.57 ms | 739.86–750.00 ms |
+| Four contexts | Four contexts, one boolean, four rounds | 327.51 ms | 326.50–328.28 ms |
+| Auto tree | Three candidates, `tree_max=128` | 97.84 ms | 97.79–98.41 ms |
+| Auto greedy | Three candidates, `tree_max=2` | 97.66 ms | 97.57–98.86 ms |
+| Cache miss | Alternate schema, then baseline | 255.03 ms | 252.70–257.63 ms |
+
+The scorer retains one shared schema-prefix context. Its key is the exact shared token sequence, and reuse now also requires enough preallocated trunk capacity for the current context and suffix. A longer context therefore replaces an undersized entry instead of failing with `invalid NVIDIA prefixed branch`. Alternating short contexts under one schema stayed at 80.9–82.7 ms. The one-entry cache is bounded by construction; an LRU for repeated context text would retain substantial per-layer KV and is not justified by this schema-prefix workload.
+
+The handler retains single admission. A second request sent 50 ms into a 1.2-second long-context request received HTTP 429 with `decision inference busy; retry later`. The matrix shows roughly linear context/field multiplication, while the device already uses 9,646 MiB with the larger cached arena. Multi-request batching or concurrent admission would need a separate memory and ownership design; this release keeps the existing policy.
+
+## Product decisions
+
+Go System One v1 keeps boolean and unordered string-enum fields. An ordered-score field needs separate probability-distribution, expected-level and compatibility semantics; no released Go System One checkpoint or labelled task requires it, so v1 does not add one.
+
+The checked-in fixtures establish decision parity, not quality or probability calibration. No unspent labelled calibration/test cohort exists for Go System One. NLL, Brier score, expected calibration error, confident-error and risk/coverage claims therefore remain unavailable. Raw constrained probabilities must be labelled as model probabilities.
+
+The Kev roadmap remains assessment-only. P0 needs a safe head export and independent Transformers fixture; P1/P2 depend on that artifact and explicit implementation approval. No Kev checkpoint is loaded by Go System One, and `/v1/systemone` remains absent.
 
 ## HTTP and browser checks
 

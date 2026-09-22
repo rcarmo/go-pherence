@@ -31,12 +31,13 @@ type Gemma4SIMDBatchScorer struct {
 // uploads the immutable trunk into a request-owned device KV arena and executes
 // every sibling transformer/LM-head projection through the resident PTX graph.
 type Gemma4NVIDIAScorer struct {
-	Model        *model.LlamaModel
-	GPU          *model.Gemma4NVIDIA
-	PromptCache  model.Gemma4PromptCacheConfig
-	mu           sync.Mutex
-	cachedTokens []int
-	cached       *model.Gemma4NVIDIAContext
+	Model          *model.LlamaModel
+	GPU            *model.Gemma4NVIDIA
+	PromptCache    model.Gemma4PromptCacheConfig
+	mu             sync.Mutex
+	cachedTokens   []int
+	cachedTrunkCap int
+	cached         *model.Gemma4NVIDIAContext
 }
 
 func (s *Gemma4NVIDIAScorer) Close() {
@@ -50,6 +51,7 @@ func (s *Gemma4NVIDIAScorer) Close() {
 		s.cached = nil
 	}
 	s.cachedTokens = nil
+	s.cachedTrunkCap = 0
 }
 
 func (s *Gemma4CPUScorer) ScoreContext(ctx context.Context, prompt []int, branches []Branch, allowCache bool) ([][]float32, error) {
@@ -138,7 +140,8 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var prefix *model.Gemma4NVIDIAContext
-	hit := allowCache && sameTokenSlice(s.cachedTokens, shared) && s.cached != nil
+	trunkCap := len(shared) + len(contextTokens) + maxDepth
+	hit := allowCache && cacheCanReuse(shared, s.cachedTokens, trunkCap, s.cachedTrunkCap, s.cached != nil)
 	if hit {
 		prefix = s.cached
 	} else {
@@ -146,7 +149,6 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 			s.cached.Close()
 			s.cached = nil
 		}
-		trunkCap := len(shared) + len(contextTokens) + maxDepth
 		p, err := s.GPU.PrefillPreparedCapacity(ctx, shared, trunkCap, DecisionSequences, maxDepth)
 		if err != nil {
 			return nil, fmt.Errorf("NVIDIA shared prefill: %w", err)
@@ -154,6 +156,7 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 		if allowCache {
 			s.cached = p
 			s.cachedTokens = append([]int(nil), shared...)
+			s.cachedTrunkCap = trunkCap
 			prefix = s.cached
 		} else {
 			prefix = p
@@ -194,6 +197,10 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 		}
 	}
 	return out, nil
+}
+
+func cacheCanReuse(shared, cached []int, requiredTrunkCap, cachedTrunkCap int, cachedPresent bool) bool {
+	return cachedPresent && cachedTrunkCap >= requiredTrunkCap && sameTokenSlice(cached, shared)
 }
 
 func sameTokenSlice(a, b []int) bool {
