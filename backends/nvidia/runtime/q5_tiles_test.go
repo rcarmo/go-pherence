@@ -13,7 +13,7 @@ func TestQ5PackedMMQ64TilesMatchBatch4(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA unavailable")
 	}
-	if fnQ5PackedMMQ64J8 == 0 || fnQ5PackedMMQ64J16 == 0 || fnQ5PackedMMQ64J24 == 0 {
+	if fnQ5PackedMMQ64J8 == 0 || fnQ5PackedMMQ64J16 == 0 || fnQ5PackedMMQ64J24 == 0 || fnQ5Staged24 == 0 || fnQ5Staged32 == 0 {
 		t.Fatal("Q5_K MMQ64 tile functions were not loaded")
 	}
 	for _, tc := range []struct {
@@ -23,6 +23,9 @@ func TestQ5PackedMMQ64TilesMatchBatch4(t *testing.T) {
 		{name: "j8_batch_tail", outDim: 1024, batch: 7},
 		{name: "j16_batch_tail", outDim: 2304, batch: 15},
 		{name: "j24_batch_tail", outDim: 2304, batch: 23},
+		{name: "packed_j16_tail", outDim: 2304, batch: 129},
+		{name: "staged_narrow_double_tail", outDim: 79, batch: 131},
+		{name: "staged_wide_double_tail", outDim: 2305, batch: 25},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testQ5PackedMMQ64Case(t, tc.outDim, tc.batch)
@@ -32,9 +35,24 @@ func TestQ5PackedMMQ64TilesMatchBatch4(t *testing.T) {
 
 func testQ5PackedMMQ64Case(t *testing.T, outDim, batch int) {
 	t.Helper()
-	const inDim = 256
-	raw := make([]byte, outDim*176)
-	for r := 0; r < outDim; r++ {
+	testQ5PackedWidth(t, 256, outDim, batch)
+}
+
+func TestQ5StagedChunkTails(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA unavailable")
+	}
+	for _, inDim := range []int{512, 768, 3840} {
+		for _, batch := range []int{25, 131} {
+			t.Run(fmt.Sprintf("k%d_b%d", inDim, batch), func(t *testing.T) { testQ5PackedWidth(t, inDim, 2305, batch) })
+		}
+	}
+}
+
+func testQ5PackedWidth(t *testing.T, inDim, outDim, batch int) {
+	t.Helper()
+	raw := make([]byte, outDim*(inDim/256)*176)
+	for r := 0; r < len(raw)/176; r++ {
 		block := raw[r*176 : (r+1)*176]
 		binary.LittleEndian.PutUint16(block[0:2], half.F32ToF16(.02))
 		binary.LittleEndian.PutUint16(block[2:4], half.F32ToF16(.003))
@@ -76,12 +94,18 @@ func testQ5PackedMMQ64Case(t *testing.T, outDim, batch int) {
 		t.Fatal(err)
 	}
 	old8, old16, old24 := fnQ5PackedMMQ64J8, fnQ5PackedMMQ64J16, fnQ5PackedMMQ64J24
+	oldStaged24, oldStaged32 := fnQ5Staged24, fnQ5Staged32
+	defer func() {
+		fnQ5Staged24, fnQ5Staged32 = oldStaged24, oldStaged32
+		fnQ5PackedMMQ64J8, fnQ5PackedMMQ64J16, fnQ5PackedMMQ64J24 = old8, old16, old24
+	}()
+	fnQ5Staged24, fnQ5Staged32 = 0, 0
 	fnQ5PackedMMQ64J8, fnQ5PackedMMQ64J16, fnQ5PackedMMQ64J24 = 0, 0, 0
 	if err := GemvQ5KBatchToBuffer(wantBuf, x, batch, m); err != nil {
 		t.Fatal(err)
 	}
 	fnQ5PackedMMQ64J8, fnQ5PackedMMQ64J16, fnQ5PackedMMQ64J24 = old8, old16, old24
-	defer func() { fnQ5PackedMMQ64J8, fnQ5PackedMMQ64J16, fnQ5PackedMMQ64J24 = old8, old16, old24 }()
+	fnQ5Staged24, fnQ5Staged32 = oldStaged24, oldStaged32
 	if err := GemvQ5KBatchToBuffer(gotBuf, x, batch, m); err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,12 @@ type moduleFunctions map[string]CUfunction
 
 func (f moduleFunctions) get(name string) CUfunction { return f[name] }
 
+var fnQ5Staged24, fnQ5Staged32, fnQ6Staged24 CUfunction
+
 func bindMegaModuleFunctions(f moduleFunctions) {
+	fnQ5Staged24 = f.get("q5_staged_j24_o64")
+	fnQ5Staged32 = f.get("q5_staged_j32_o64")
+	fnQ6Staged24 = f.get("q6_staged_j24_o64")
 	sgemmFn = f.get("sgemm_nn")
 	sgemmCompensatedFn = f.get("sgemm_nn_compensated")
 	sgemmOracleFn = sgemmFn
@@ -23,6 +28,9 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	ropePartialFn = f.get("rope_partial")
 	ropePartialSequenceFn = f.get("rope_partial_sequence")
 	attnCausalBatchFn = f.get("gqa_attention_causal_batch")
+	attnSegmentedFn = f.get("gqa_attention_segmented")
+	ropeSegmentedFn = f.get("rope_partial_segmented")
+	selectedBatchFn = f.get("gemv_q5_packed_selected_batch_f32")
 	attnScoreFn = f.get("gqa_attention_scores")
 	softmaxRowsFn = f.get("row_softmax_debug")
 	attnFn = f.get("gqa_attention")

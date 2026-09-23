@@ -29,6 +29,7 @@ type options struct {
 	listen       string
 	backend      string
 	verify       bool
+	packedRows   int
 }
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, args []string) error {
+func parseOptions(args []string) (options, error) {
 	fs := flag.NewFlagSet("go-system-one", flag.ContinueOnError)
 	var cfg options
 	fs.StringVar(&cfg.modelPath, "model", "", "pinned Gemma 4 12B GGUF file")
@@ -48,17 +49,35 @@ func run(ctx context.Context, args []string) error {
 	fs.StringVar(&cfg.listen, "listen", "127.0.0.1:8080", "HTTP listen address")
 	fs.StringVar(&cfg.backend, "backend", "nvidia", "scoring backend: nvidia or simd")
 	fs.BoolVar(&cfg.verify, "verify-artifacts", true, "verify exact Go System One v1 model/tokenizer SHA-256 pins")
+	fs.IntVar(&cfg.packedRows, "packed-token-rows", -1, "NVIDIA packed token budget (-1 automatic: 512 on NVIDIA, 0 on SIMD; 0 forces serial)")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return cfg, err
 	}
 	if cfg.modelPath == "" || cfg.tokenizerDir == "" {
-		return fmt.Errorf("-model and -tokenizer-dir are required")
+		return cfg, fmt.Errorf("-model and -tokenizer-dir are required")
 	}
 	if cfg.modelID == "" {
-		return fmt.Errorf("-model-id must not be empty")
+		return cfg, fmt.Errorf("-model-id must not be empty")
 	}
 	if cfg.backend != "nvidia" && cfg.backend != "simd" {
-		return fmt.Errorf("-backend must be nvidia or simd")
+		return cfg, fmt.Errorf("-backend must be nvidia or simd")
+	}
+	if cfg.packedRows == -1 {
+		cfg.packedRows = 0
+		if cfg.backend == "nvidia" {
+			cfg.packedRows = model.Gemma4PackedRows
+		}
+	}
+	if cfg.packedRows < 0 || cfg.packedRows > model.Gemma4PackedRows || (cfg.packedRows > 0 && cfg.backend != "nvidia") {
+		return cfg, fmt.Errorf("-packed-token-rows requires nvidia and must be automatic (-1) or 0..%d", model.Gemma4PackedRows)
+	}
+	return cfg, nil
+}
+
+func run(ctx context.Context, args []string) error {
+	cfg, err := parseOptions(args)
+	if err != nil {
+		return err
 	}
 	if cfg.verify {
 		log.Printf("go-system-one: verifying pinned artifacts")
@@ -92,10 +111,10 @@ func run(ctx context.Context, args []string) error {
 		if err != nil {
 			return fmt.Errorf("initialize NVIDIA scorer: %w", err)
 		}
-		defer gpu.Close()
 		defer nvidia.Shutdown()
+		defer gpu.Close()
 		device, residentBytes = gpu.DeviceName(), gpu.ResidentBytes()
-		nvidiaScorer = &gosystemone.Gemma4NVIDIAScorer{Model: m, GPU: gpu}
+		nvidiaScorer = &gosystemone.Gemma4NVIDIAScorer{Model: m, GPU: gpu, PackedTokenRows: cfg.packedRows}
 		defer nvidiaScorer.Close()
 		scorer = nvidiaScorer
 	} else {
@@ -110,7 +129,7 @@ func run(ctx context.Context, args []string) error {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- server.ListenAndServe() }()
-	log.Printf("go-system-one: listening on http://%s/go-system-one backend=%s device=%s resident_bytes=%d", cfg.listen, cfg.backend, device, residentBytes)
+	log.Printf("go-system-one: listening on http://%s/go-system-one backend=%s device=%s resident_bytes=%d packed_token_rows=%d", cfg.listen, cfg.backend, device, residentBytes, cfg.packedRows)
 	select {
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {

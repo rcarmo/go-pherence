@@ -31,13 +31,15 @@ type Gemma4SIMDBatchScorer struct {
 // uploads the immutable trunk into a request-owned device KV arena and executes
 // every sibling transformer/LM-head projection through the resident PTX graph.
 type Gemma4NVIDIAScorer struct {
-	Model          *model.LlamaModel
-	GPU            *model.Gemma4NVIDIA
-	PromptCache    model.Gemma4PromptCacheConfig
-	mu             sync.Mutex
-	cachedTokens   []int
-	cachedTrunkCap int
-	cached         *model.Gemma4NVIDIAContext
+	Model       *model.LlamaModel
+	GPU         *model.Gemma4NVIDIA
+	PromptCache model.Gemma4PromptCacheConfig
+	// PackedTokenRows enables experimental cross-context packing (0 disables).
+	PackedTokenRows int
+	mu              sync.Mutex
+	cachedTokens    []int
+	cachedTrunkCap  int
+	cached          *model.Gemma4NVIDIAContext
 }
 
 func (s *Gemma4NVIDIAScorer) Close() {

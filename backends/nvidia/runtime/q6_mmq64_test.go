@@ -13,7 +13,7 @@ func TestQ6PackedMMQTilesMatchMMQ8(t *testing.T) {
 	if !SgemmReady() {
 		t.Skip("CUDA unavailable")
 	}
-	if fnQ6PackedMMQ64 == 0 || fnQ6PackedMMQ64J12 == 0 || fnQ6PackedMMQ64J16 == 0 {
+	if fnQ6PackedMMQ64 == 0 || fnQ6PackedMMQ64J12 == 0 || fnQ6PackedMMQ64J16 == 0 || fnQ6Staged24 == 0 {
 		t.Fatal("Q6_K MMQ64 tile functions were not loaded")
 	}
 	for _, tc := range []struct {
@@ -23,6 +23,10 @@ func TestQ6PackedMMQTilesMatchMMQ8(t *testing.T) {
 		{name: "narrow_j8", inDim: 256, outDim: 256, batch: 24},
 		{name: "wide_j12_tail", inDim: 8192, outDim: 64, batch: 23},
 		{name: "wide_j16_tail", inDim: 8192, outDim: 64, batch: 15},
+		{name: "packed_narrow_j12_tail", inDim: 256, outDim: 128, batch: 127},
+		{name: "packed_wide_j16_tail", inDim: 8192, outDim: 64, batch: 257},
+		{name: "staged_narrow_row_tail", inDim: 3840, outDim: 79, batch: 131},
+		{name: "staged_wide_double_tail", inDim: 8192, outDim: 79, batch: 25},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testQ6PackedMMQCase(t, tc.inDim, tc.outDim, tc.batch)
@@ -76,13 +80,15 @@ func testQ6PackedMMQCase(t *testing.T, inDim, outDim, batch int) {
 	if err := x.Upload(host); err != nil {
 		t.Fatal(err)
 	}
-	old64, old12, old16 := fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16
-	fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16 = 0, 0, 0
+	old64, old12, old16, oldStaged := fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16, fnQ6Staged24
+	defer func() {
+		fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16, fnQ6Staged24 = old64, old12, old16, oldStaged
+	}()
+	fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16, fnQ6Staged24 = 0, 0, 0, 0
 	if err := GemvQ6KBatchToBuffer(wantBuf, x, batch, m); err != nil {
 		t.Fatal(err)
 	}
-	fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16 = old64, old12, old16
-	defer func() { fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16 = old64, old12, old16 }()
+	fnQ6PackedMMQ64, fnQ6PackedMMQ64J12, fnQ6PackedMMQ64J16, fnQ6Staged24 = old64, old12, old16, oldStaged
 	if err := GemvQ6KBatchToBuffer(gotBuf, x, batch, m); err != nil {
 		t.Fatal(err)
 	}

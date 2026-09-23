@@ -1,0 +1,61 @@
+{
+  "description": "Frozen synthetic mechanics cohort for serial-F32 versus packed-Q8 comparisons. Cases have no ground-truth labels and cannot establish accuracy. Ambiguous wording does not guarantee a near-tie model output.",
+  "thresholds": [0.5, 0.9, 0.95],
+  "requests": [
+    {
+      "model": "gemma-4-12b-it-go-system-one",
+      "instructions": "Answer from the context.",
+      "schema": {
+        "priority": {"type": "enum", "description": "Priority level", "choices": ["critical incident", "routine maintenance", "customer follow-up"]},
+        "urgent": {"type": "boolean", "description": "Needs urgent handling?"}
+      },
+      "contexts": [
+        "All production payment requests have failed for thirty minutes. Customers cannot buy anything.",
+        "The planned update finished successfully. All checks are green and no action is needed.",
+        "A customer asks for a copy of last month's invoice by the end of next week.",
+        "There is an active fire in the server room. Staff have evacuated.",
+        "A nightly backup was delayed by two minutes and has now completed successfully.",
+        "A customer reported an error once. We cannot reproduce it and have no impact data.",
+        "One monitor reports an outage; another says all services are healthy. Neither reading has been verified.",
+        "A production error rate increased from 0.1% to 0.2%. The alert threshold is 1%. No customer has reported a problem.",
+        "An internal test server is down. It is not used by customers, but a release demonstration starts in ten minutes.",
+        "A certificate expires tomorrow. Renewal is scheduled tonight and there is a tested backup certificate.",
+        "A certificate expires in ten minutes. Automatic renewal has failed and the service has no backup.",
+        "The ticket says urgent, but its description requests a cosmetic change next quarter.",
+        "The ticket says routine, but reports that every database replica is offline and new data is being lost.",
+        "A customer needs help. No deadline, symptoms, affected service or impact is provided.",
+        "A customer requests a status update while an engineer performs planned maintenance. Service availability is normal.",
+        "Maintenance was completed, but one customer still cannot sign in. It is unclear whether the maintenance caused this."
+      ],
+      "mode": "tree", "tree_max": 128, "cache_prompt": true
+    },
+    {
+      "model": "gemma-4-12b-it-go-system-one",
+      "instructions": "Classify the reported state and route the ticket using only the context. Choose one allowed value for each field.",
+      "schema": {
+        "priority": {"type": "enum", "description": "Current operational state", "choices": ["critical incident", "critical warning", "routine maintenance", "routine monitoring"]},
+        "route": {"type": "enum", "description": "Team to handle the ticket", "choices": ["technical support", "technical operations", "customer support", "customer operations"]},
+        "urgent": {"type": "boolean", "description": "Does this require immediate action?"}
+      },
+      "contexts": [
+        "The payment database is unavailable. The on-call infrastructure team must restore production immediately.",
+        "There is no outage. Infrastructure engineers are applying a scheduled patch during the maintenance window.",
+        "A customer cannot find the invoice download button. The account and service both work normally.",
+        "A customer wants to change the billing contact for a renewal next month.",
+        "System monitors show rising disk use. Capacity is 70% and grows by one percentage point per day.",
+        "System monitors show rising disk use. Capacity is 99.9% and new writes have begun failing.",
+        "An unverified monitor alert suggests data loss, but the application is healthy and there is no corroborating evidence.",
+        "Support reproduced a customer's sign-in failure. Operations sees no infrastructure issue. The impact is limited to one account.",
+        "Operations found an infrastructure issue affecting sign-in for every account. Customer support is receiving many reports.",
+        "A technical support engineer and a technical operations engineer each say the other team owns this ticket. No diagnosis is recorded.",
+        "The customer support and customer operations teams need to decide who should update an account contact. The ticket has no deadline.",
+        "Monitoring detected unusual traffic. It could be a successful campaign or a denial-of-service attack; response times are still normal.",
+        "Scheduled maintenance may have caused intermittent failures, but they have stopped. Engineers are watching the dashboards.",
+        "The service is healthy now, but a redundant cooling unit failed and the remaining unit is running close to its limit.",
+        "The description is blank apart from: please investigate when someone is available.",
+        "A production incident was resolved an hour ago. One customer wants an explanation and the operations team is preparing the review."
+      ],
+      "mode": "tree", "tree_max": 128, "cache_prompt": true
+    }
+  ]
+}
