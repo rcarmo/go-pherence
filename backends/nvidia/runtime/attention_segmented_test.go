@@ -80,7 +80,7 @@ func TestSegmentedRowsValidation(t *testing.T) {
 			t.Fatal("invalid lengths accepted")
 		}
 	}
-	for _, prefix := range []int{0, -1, 2048} {
+	for _, prefix := range []int{0, -1, MaxDecisionAttentionTokens} {
 		if p, err := NewSegmentedRows([]int{1}, prefix); err == nil {
 			p.Close()
 			t.Fatal("invalid prefix accepted")

@@ -27,7 +27,7 @@ func NewSegmentedRows(lengths []int, prefix int) (*SegmentedRows, error) {
 }
 
 func NewBranchedRows(segments []AttentionSegment, prefix int) (*SegmentedRows, error) {
-	if len(segments) == 0 || len(segments) > 512 || prefix < 1 || prefix >= 2048 {
+	if len(segments) == 0 || len(segments) > 512 || prefix < 1 || prefix >= MaxDecisionAttentionTokens {
 		return nil, fmt.Errorf("invalid segmented prefix/lengths")
 	}
 	var ids []uint32
@@ -35,7 +35,7 @@ func NewBranchedRows(segments []AttentionSegment, prefix int) (*SegmentedRows, e
 	roots := map[int]int{}
 	for _, segment := range segments {
 		n, parent, plen := segment.Length, segment.ParentStart, segment.ParentLength
-		if n < 1 || n > 512-rows || plen < 0 || plen > 2048-prefix-n || parent < 0 || (plen > 0 && roots[parent] != plen) || (plen == 0 && parent != 0) {
+		if n < 1 || n > 512-rows || plen < 0 || plen > MaxDecisionAttentionTokens-prefix-n || parent < 0 || (plen > 0 && roots[parent] != plen) || (plen == 0 && parent != 0) {
 			return nil, fmt.Errorf("invalid segment length/parent")
 		}
 		if plen == 0 {
@@ -74,9 +74,27 @@ func (p *SegmentedRows) RoPE(x, table *Buffer, heads, dim, rot int) error {
 	return LaunchKernel(ropeSegmentedFn, uint32((p.rows*heads*rot+255)/256), 1, 1, 256, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&table.Ptr), unsafe.Pointer(&p.starts.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&pre), unsafe.Pointer(&h), unsafe.Pointer(&d), unsafe.Pointer(&ro))
 }
 
+// AttentionFromPrefix reads a compacted sliding prefix while RoPE still uses
+// the original absolute positions from the immutable plan.
+func (p *SegmentedRows) AttentionFromPrefix(out, q, k, v, pk, pv *Buffer, base, window, heads, kvHeads, dim int, scale float32) error {
+	if !p.valid() || base < 0 || base >= p.prefix || base > 0 && (window <= 0 || p.prefix-base < window-1) {
+		return fmt.Errorf("invalid compacted segmented prefix")
+	}
+	view := *p
+	view.prefix -= base
+	return view.Attention(out, q, k, v, pk, pv, window, heads, kvHeads, dim, scale)
+}
+
 func (p *SegmentedRows) Attention(out, q, k, v, pk, pv *Buffer, window, heads, kvHeads, dim int, scale float32) error {
 	if !p.valid() || attnSegmentedFn == 0 || window < 0 || heads < 1 || heads > 256 || kvHeads < 1 || heads%kvHeads != 0 || dim < 1 || dim > 2048 || !hasFloats(out, p.rows*heads*dim) || !hasFloats(q, p.rows*heads*dim) || !hasFloats(k, p.rows*kvHeads*dim) || !hasFloats(v, p.rows*kvHeads*dim) || !hasFloats(pk, p.prefix*kvHeads*dim) || !hasFloats(pv, p.prefix*kvHeads*dim) {
 		return fmt.Errorf("invalid segmented attention")
+	}
+	visible := p.prefix + p.longest
+	if window > 0 {
+		visible = min(visible, window)
+	}
+	if visible > 2048 {
+		return longAttention(out, q, k, v, pk, pv, nil, nil, p.starts, p.rows, 0, 0, window, heads, kvHeads, dim, p.prefix, 0, 0, 0, 2, visible, scale)
 	}
 	r, pre, w, h, kh, d := uint32(p.rows), uint32(p.prefix), uint32(window), uint32(heads), uint32(kvHeads), uint32(dim)
 	return LaunchKernel(attnSegmentedFn, h, r, 1, 256, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&pk.Ptr), unsafe.Pointer(&pv.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&p.starts.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&pre), unsafe.Pointer(&w), unsafe.Pointer(&h), unsafe.Pointer(&kh), unsafe.Pointer(&d), unsafe.Pointer(&scale))

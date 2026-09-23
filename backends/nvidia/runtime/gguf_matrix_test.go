@@ -136,3 +136,78 @@ func TestGPUGGUFMatrixRejectsUnsupportedType(t *testing.T) {
 		t.Fatal("accepted F32 as admitted quantized matrix")
 	}
 }
+
+func TestSelectedBatchMatchesSingleRow(t *testing.T) {
+	if !SgemmReady() {
+		t.Skip("CUDA unavailable")
+	}
+	const width, vocab, rows = 512, 7, 3
+	raw := make([]byte, vocab*(width/256)*176)
+	for r := 0; r < vocab*(width/256); r++ {
+		b := raw[r*176 : (r+1)*176]
+		for i := range b {
+			b[i] = byte((r*13 + i*7) % 256)
+		}
+		binary.LittleEndian.PutUint16(b[:2], half.F32ToF16(.013))
+		binary.LittleEndian.PutUint16(b[2:4], half.F32ToF16(.017))
+	}
+	m, err := UploadGGUFMatrix(&gguf.QuantMatrix{Name: "selected fixture", QType: gguf.QuantQ5_K, Raw: raw, InDim: width, OutDim: vocab})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Free()
+	x, err := Malloc(rows * width)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.Free()
+	host := make([]float32, rows*width)
+	for i := range host {
+		host[i] = float32(math.Sin(float64(i) * .7))
+	}
+	if err = x.Upload(host); err != nil {
+		t.Fatal(err)
+	}
+	ids := [][]int{{6, 0, 2}, {1}, {3, 2}}
+	got, err := m.ProjectSelectedBatch(x, ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, list := range ids {
+		b, err := Malloc(len(list))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer b.Free()
+		out, err := Malloc(len(list))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer out.Free()
+		selected := make([]uint32, len(list))
+		for j, id := range list {
+			selected[j] = uint32(id)
+		}
+		if err = b.UploadUint32(selected); err != nil {
+			t.Fatal(err)
+		}
+		view := &Buffer{Ptr: x.Ptr + CUdeviceptr(i*width*4), Size: width * 4}
+		if err = m.ProjectSelectedRows(out, view, b, len(list)); err != nil {
+			t.Fatal(err)
+		}
+		want := make([]float32, len(list))
+		if err = out.Download(want); err != nil {
+			t.Fatal(err)
+		}
+		for j, v := range want {
+			if got[i][j] != v {
+				t.Fatalf("[%d][%d] got=%g want=%g", i, j, got[i][j], v)
+			}
+		}
+	}
+	for _, bad := range [][][]int{nil, {{-1}}, {{vocab}}, {{}}} {
+		if _, err = m.ProjectSelectedBatch(x, bad); err == nil {
+			t.Fatal("bad IDs accepted")
+		}
+	}
+}

@@ -144,10 +144,7 @@ func NewGemma4NVIDIA(m *LlamaModel) (*Gemma4NVIDIA, error) {
 	if g.lmHead, err = nvidia.UploadGGUFMatrix(m.LMHeadGGUF); err != nil {
 		return nil, fmt.Errorf("LM head: %w", err)
 	}
-	maxSeq := m.Config.MaxSeqLen
-	if maxSeq <= 0 || maxSeq > 2048 {
-		maxSeq = 2048
-	}
+	maxSeq := g.contextLimit()
 	ropeCfg := m.Config
 	if ropeCfg.GlobalHeadDim <= 0 {
 		ropeCfg.GlobalHeadDim = ropeCfg.HeadDim
@@ -226,8 +223,11 @@ func (g *Gemma4NVIDIA) PrefillPrepared(ctx context.Context, tokens []int, branch
 }
 
 func (g *Gemma4NVIDIA) PrefillPreparedCapacity(ctx context.Context, tokens []int, trunkCap, branchCap, suffixCap int) (*Gemma4NVIDIAContext, error) {
-	if g == nil || ctx == nil || len(tokens) == 0 || trunkCap < len(tokens) || trunkCap > 2048 || branchCap <= 0 || branchCap > 256 || suffixCap <= 0 {
+	if g == nil || ctx == nil || len(tokens) == 0 || trunkCap < len(tokens) || branchCap <= 0 || branchCap > 256 || suffixCap <= 0 {
 		return nil, fmt.Errorf("invalid NVIDIA Gemma4 prefill")
+	}
+	if trunkCap > g.contextLimit() || len(tokens) > g.contextLimit() || suffixCap > g.contextLimit()-len(tokens) {
+		return nil, fmt.Errorf("%w: prompt=%d capacity=%d suffix=%d limit=%d tokens", ErrGemma4ContextCapacity, len(tokens), trunkCap, suffixCap, g.contextLimit())
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -674,7 +674,7 @@ func (g *Gemma4NVIDIA) runPrefillToken(ctx context.Context, token, pos int, aren
 		if m.Config.SlidingWindow > 0 && len(m.Config.LayerTypes) > l && m.Config.LayerTypes[l] == "sliding_attention" && pos+1 > m.Config.SlidingWindow {
 			start = pos + 1 - m.Config.SlidingWindow
 		}
-		if err := nvidia.IndependentBranchAttentionBuffer(attn, q, arena.trunkK[kvLayer], arena.trunkV[kvLayer], nil, nil, active, 1, 1, arena.trunkLen, 0, start, pos+1-start, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd)); err != nil {
+		if err := nvidia.IndependentBranchAttentionBuffer(attn, q, arena.trunkK[kvLayer], arena.trunkV[kvLayer], nil, nil, active, 1, 1, pos+1-arena.trunkBase[kvLayer], 0, start-arena.trunkBase[kvLayer], pos+1-start, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd)); err != nil {
 			return err
 		}
 		if err := gl.o.ProjectBatchToBuffer(o, attn, 1); err != nil {
@@ -757,8 +757,8 @@ func (g *Gemma4NVIDIA) ScoreIndependentBranches(ctx context.Context, trunk MTPPr
 			}
 		}
 	}
-	if trunk.SeqLen+maxDepth > 2048 {
-		return Gemma4BranchBatchResult{}, fmt.Errorf("NVIDIA Go System One attention supports at most 2048 visible tokens")
+	if trunk.SeqLen+maxDepth > g.contextLimit() {
+		return Gemma4BranchBatchResult{}, fmt.Errorf("%w: prompt=%d suffix=%d limit=%d tokens", ErrGemma4ContextCapacity, trunk.SeqLen, maxDepth, g.contextLimit())
 	}
 	out := Gemma4BranchBatchResult{Logits: make([][]float32, len(branches))}
 	kvArena, err := newGemma4NVIDIAKVArena(m, trunk, len(branches), maxDepth)
@@ -1003,7 +1003,7 @@ func (g *Gemma4NVIDIA) runDepth(ctx context.Context, trunk MTPPromptContext, dep
 		if err != nil {
 			return nil, err
 		}
-		if err := nvidia.IndependentBranchAttentionBuffer(attn, q, kvArena.trunkK[kvLayer], kvArena.trunkV[kvLayer], kvArena.suffixK[kvLayer], kvArena.suffixV[kvLayer], activeBuf, B, kvArena.branches, kvArena.trunkUsed, kvArena.suffixCap, seqStart, seqLen, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd)); err != nil {
+		if err := nvidia.IndependentBranchAttentionBuffer(attn, q, kvArena.trunkK[kvLayer], kvArena.trunkV[kvLayer], kvArena.suffixK[kvLayer], kvArena.suffixV[kvLayer], activeBuf, B, kvArena.branches, kvArena.trunkUsed-kvArena.trunkBase[kvLayer], kvArena.suffixCap, seqStart-kvArena.trunkBase[kvLayer], seqLen, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd)); err != nil {
 			activeBuf.Free()
 			return nil, err
 		}
