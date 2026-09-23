@@ -113,41 +113,45 @@ func TestGoSystemOneNVIDIAMultiFieldReleasedModelMatchesPinnedLlamaCpp(t *testin
 	for i := range fixture.Contexts {
 		contexts[i] = fixture.Contexts[i].Text
 	}
-	response, err := (&Engine{Tokenizer: tok, Scorer: scorer, BOSToken: m.Config.BOSTokenID}).Decide(context.Background(), Request{
-		Model: fixture.Schema, Instructions: fixture.Instructions, Schema: fixture.SchemaJSON, Contexts: contexts, Mode: ModeTree,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(response.Results) != len(fixture.Oracle.Results) {
-		t.Fatalf("results=%d want=%d", len(response.Results), len(fixture.Oracle.Results))
-	}
-	compiled, err := CompileSchema(fixture.SchemaJSON, fixture.Instructions)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, want := range fixture.Oracle.Results {
-		for _, oracleField := range want.Fields {
-			field := compiled.Fields[oracleField.FieldIndex]
-			candidate := field.Candidates[oracleField.CandidateIndex]
-			gotField := response.Results[i].Fields[field.Name]
-			if string(gotField.Value) != string(candidate.Value) {
-				t.Fatalf("context=%d field=%q value=%s want=%s", i, field.Name, gotField.Value, candidate.Value)
-			}
-			wantProbability := oracleField.Probabilities[oracleField.CandidateIndex]
-			if math.Abs(gotField.Probability-wantProbability) > 1e-6 {
-				t.Fatalf("context=%d field=%q probability=%.15g want=%.15g", i, field.Name, gotField.Probability, wantProbability)
-			}
-			if len(gotField.Candidates) != len(field.Candidates) {
-				t.Fatalf("context=%d field=%q candidates=%d want=%d", i, field.Name, len(gotField.Candidates), len(field.Candidates))
-			}
-			for candidateIndex, candidateResult := range gotField.Candidates {
-				if string(candidateResult.Value) != string(field.Candidates[candidateIndex].Value) || math.Abs(candidateResult.Probability-oracleField.Probabilities[candidateIndex]) > 1e-6 || candidateResult.Selected != (candidateIndex == oracleField.CandidateIndex) {
-					t.Fatalf("context=%d field=%q candidate=%d got=%+v", i, field.Name, candidateIndex, candidateResult)
+	for _, budget := range []int{0, 128, 256, 512} {
+		scorer.PackedTokenRows = budget
+		response, err := (&Engine{Tokenizer: tok, Scorer: scorer, BOSToken: m.Config.BOSTokenID}).Decide(context.Background(), Request{
+			Model: fixture.Schema, Instructions: fixture.Instructions, Schema: fixture.SchemaJSON, Contexts: contexts, Mode: ModeTree,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(response.Results) != len(fixture.Oracle.Results) {
+			t.Fatalf("results=%d want=%d", len(response.Results), len(fixture.Oracle.Results))
+		}
+		compiled, err := CompileSchema(fixture.SchemaJSON, fixture.Instructions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("packed budget=%d total_ms=%g", budget, response.Timings.TotalMS)
+		for i, want := range fixture.Oracle.Results {
+			for _, oracleField := range want.Fields {
+				field := compiled.Fields[oracleField.FieldIndex]
+				candidate := field.Candidates[oracleField.CandidateIndex]
+				gotField := response.Results[i].Fields[field.Name]
+				if string(gotField.Value) != string(candidate.Value) {
+					t.Fatalf("context=%d field=%q value=%s want=%s", i, field.Name, gotField.Value, candidate.Value)
 				}
-			}
-			if !gotField.Tree || gotField.ScoredNodes != oracleField.ScoredNodes {
-				t.Fatalf("context=%d field=%q tree=%v nodes=%d", i, field.Name, gotField.Tree, gotField.ScoredNodes)
+				wantProbability := oracleField.Probabilities[oracleField.CandidateIndex]
+				if math.Abs(gotField.Probability-wantProbability) > 1e-6 {
+					t.Fatalf("context=%d field=%q probability=%.15g want=%.15g", i, field.Name, gotField.Probability, wantProbability)
+				}
+				if len(gotField.Candidates) != len(field.Candidates) {
+					t.Fatalf("context=%d field=%q candidates=%d want=%d", i, field.Name, len(gotField.Candidates), len(field.Candidates))
+				}
+				for candidateIndex, candidateResult := range gotField.Candidates {
+					if string(candidateResult.Value) != string(field.Candidates[candidateIndex].Value) || math.Abs(candidateResult.Probability-oracleField.Probabilities[candidateIndex]) > 1e-6 || candidateResult.Selected != (candidateIndex == oracleField.CandidateIndex) {
+						t.Fatalf("context=%d field=%q candidate=%d got=%+v", i, field.Name, candidateIndex, candidateResult)
+					}
+				}
+				if !gotField.Tree || gotField.ScoredNodes != oracleField.ScoredNodes {
+					t.Fatalf("context=%d field=%q tree=%v nodes=%d", i, field.Name, gotField.Tree, gotField.ScoredNodes)
+				}
 			}
 		}
 	}

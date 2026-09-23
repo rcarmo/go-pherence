@@ -256,7 +256,13 @@ func gemmQ5PackedQ8ToBuffer(out, x *Buffer, batch int, m *GPUQKMatrix) error {
 	}
 	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
 	fn, tile, rows, threads := fnQ5PackedQ8, 4, 4, 128
-	if batch > 16 && m.OutDim <= 2048 && fnQ5PackedMMQ64J8 != 0 {
+	if batch >= 128 && fnQ5Staged32 != 0 {
+		fn, tile, rows, threads = fnQ5Staged32, 32, 64, 256
+	} else if batch > 16 && m.OutDim > 2048 && fnQ5Staged24 != 0 {
+		fn, tile, rows, threads = fnQ5Staged24, 24, 64, 256
+	} else if batch >= 128 && m.OutDim > 2048 && fnQ5PackedMMQ64J16 != 0 {
+		fn, tile, rows, threads = fnQ5PackedMMQ64J16, 16, 64, 256
+	} else if batch > 16 && m.OutDim <= 2048 && fnQ5PackedMMQ64J8 != 0 {
 		fn, tile, rows, threads = fnQ5PackedMMQ64J8, 8, 64, 256
 	} else if batch > 16 && fnQ5PackedMMQ64J24 != 0 {
 		fn, tile, rows, threads = fnQ5PackedMMQ64J24, 24, 64, 256
@@ -312,7 +318,13 @@ func gemmQ6PackedQ8ToBuffer(out, x *Buffer, batch int, m *GPUQKMatrix) error {
 		return err
 	}
 	kk, nn, bb := uint32(m.InDim), uint32(m.OutDim), uint32(batch)
-	if batch >= 17 && m.InDim >= 8192 && fnQ6PackedMMQ64J12 != 0 {
+	if fnQ6Staged24 != 0 && (batch >= 128 || batch > 16 && m.InDim >= 8192) {
+		return LaunchKernel(fnQ6Staged24, uint32((m.OutDim+63)/64), uint32((batch+23)/24), 1, 256, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&m.PackedQ.Ptr), unsafe.Pointer(&m.PackedScale.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
+	}
+	if batch >= 256 && m.InDim >= 8192 && fnQ6PackedMMQ64J16 != 0 {
+		return LaunchKernel(fnQ6PackedMMQ64J16, uint32((m.OutDim+63)/64), uint32((batch+15)/16), 1, 256, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&m.PackedQ.Ptr), unsafe.Pointer(&m.PackedScale.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
+	}
+	if batch >= 17 && fnQ6PackedMMQ64J12 != 0 {
 		return LaunchKernel(fnQ6PackedMMQ64J12, uint32((m.OutDim+63)/64), uint32((batch+11)/12), 1, 256, 1, 1, 0, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&d.Ptr), unsafe.Pointer(&m.PackedQ.Ptr), unsafe.Pointer(&m.PackedScale.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&kk), unsafe.Pointer(&nn), unsafe.Pointer(&bb))
 	}
 	if batch == 12 && m.InDim >= 8192 && fnQ6PackedMMQ64J12 != 0 {

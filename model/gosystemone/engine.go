@@ -30,6 +30,17 @@ type SplitContextScorer interface {
 	ScoreSplitContext(context.Context, []int, []int, []Branch, bool) ([][]float32, error)
 }
 
+// BatchContextScorer scores one branch across independent contexts. Results
+// retain input context order and each row contains only CandidateTokens logits.
+type BatchContextScorer interface {
+	ScoreSplitContexts(context.Context, []int, [][]int, Branch, bool) ([][]float32, error)
+}
+
+// BatchTreeScorer preserves field/node order across independent contexts.
+type BatchTreeScorer interface {
+	ScoreSplitContextTrees(context.Context, []int, [][]int, []Branch, bool) ([][][]float32, error)
+}
+
 type Engine struct {
 	Tokenizer Tokenizer
 	Scorer    ContextScorer
@@ -110,12 +121,67 @@ func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) 
 
 	scoringStart := now()
 	totalRounds := 0
+	var packedScores [][][]float32
+	allTree := true
+	var branches []Branch
+	for _, field := range fields {
+		allTree = allTree && field.Tree
+		for _, node := range field.Nodes {
+			branches = append(branches, Branch{Tokens: append(append([]int(nil), field.Suffix...), node.Prefix...), CandidateTokens: append([]int(nil), node.Options...)})
+		}
+	}
+	if batch, ok := e.Scorer.(BatchTreeScorer); ok && allTree && len(branches) > 0 {
+		packedScores, err = batch.ScoreSplitContextTrees(ctx, sharedTokens, contexts, branches, request.AllowCache())
+		if err != nil {
+			return Response{}, err
+		}
+		if len(packedScores) != len(contexts) {
+			return Response{}, fmt.Errorf("batch scorer context count mismatch")
+		}
+	} else if batch, ok := e.Scorer.(BatchContextScorer); ok && len(contexts) > 1 && allTree && len(fields) == 1 && len(branches) == 1 {
+		var rows [][]float32
+		rows, err = batch.ScoreSplitContexts(ctx, sharedTokens, contexts, branches[0], request.AllowCache())
+		if err != nil {
+			return Response{}, err
+		}
+		if len(rows) != len(contexts) {
+			return Response{}, fmt.Errorf("batch scorer context count mismatch")
+		}
+		packedScores = make([][][]float32, len(rows))
+		for i := range rows {
+			packedScores[i] = [][]float32{rows[i]}
+		}
+	}
 	for i, contextTokens := range contexts {
 		states := make([]fieldState, len(fields))
 		for f, field := range fields {
 			states[f] = newFieldState(field)
 		}
-		rounds, err := e.scoreFields(ctx, sharedTokens, contextTokens, states, request.AllowCache())
+		rounds := 1
+		if packedScores != nil {
+			if len(packedScores[i]) != len(branches) {
+				return Response{}, fmt.Errorf("batch scorer branch count mismatch")
+			}
+			offset := 0
+			for f, field := range fields {
+				n := len(field.Nodes)
+				for j, node := range field.Nodes {
+					if len(packedScores[i][offset+j]) != len(node.Options) {
+						return Response{}, fmt.Errorf("batch candidate count mismatch")
+					}
+				}
+				winner, probabilities, scoreErr := FinishTree(field, packedScores[i][offset:offset+n])
+				if scoreErr != nil {
+					return Response{}, scoreErr
+				}
+				states[f].winner, states[f].probabilities = winner, probabilities
+				states[f].pathScore = probabilities[winner]
+				states[f].scoredNodes = n
+				offset += n
+			}
+		} else {
+			rounds, err = e.scoreFields(ctx, sharedTokens, contextTokens, states, request.AllowCache())
+		}
 		if err != nil {
 			return Response{}, fmt.Errorf("contexts[%d]: %w", i, err)
 		}

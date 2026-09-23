@@ -45,6 +45,9 @@ func validateModuleEntries(entries []moduleEntry) error {
 
 func megaModuleEntries() []moduleEntry {
 	return []moduleEntry{
+		{"q6_staged_j24_o64", ptx.QKStagedPTX},
+		{"q5_staged_j24_o64", "// included in QKStagedPTX\n"},
+		{"q5_staged_j32_o64", "// included in QKStagedPTX\n"},
 		{"sgemm_nn", ptx.SgemmPTX},
 		{"sgemm_nn_compensated", ptx.SgemmCompensatedPTX},
 		{"sgemm_nn_reg2", ptx.SgemmReg2PTX},
@@ -66,6 +69,9 @@ func megaModuleEntries() []moduleEntry {
 		{"gqa_attention", ptx.AttentionPTX},
 		{"gqa_attention_independent", ptx.IndependentBranchAttentionPTX},
 		{"gqa_attention_causal_batch", ptx.CausalBatchAttentionWarpPTX},
+		{"gqa_attention_segmented", ptx.PackedDecisionPTX},
+		{"rope_partial_segmented", "// included in PackedDecisionPTX\n"},
+		{"gemv_q5_packed_selected_batch_f32", "// included in PackedDecisionPTX\n"},
 		{"gqa_attention_splitkv_partial", ptx.AttentionSplitKVPartialPTX},
 		{"gqa_attention_splitkv_merge", ptx.AttentionSplitKVMergePTX},
 		{"gelu_tanh_mul", ptx.GELUTanhMulPTX},
