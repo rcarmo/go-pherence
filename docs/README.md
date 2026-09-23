@@ -10,6 +10,7 @@ Start with the task you want to run. Model inspection, native inference and nume
 | Run DiffusionGemma text generation/server | [FP8 end-to-end CPU validation](validation/diffusiongemma-fp8-end-to-end-20260920.md); [model/runtime limits](../model/diffusiongemma/README.md) |
 | Run Qwen Image 2.1 CPU generation | [Implementation](../model/qwenimage21/README.md); [pinned end-to-end validation](validation/qwen-image-2.1-native-20260921.md) |
 | Review queued simple-jev support | [Pinned upstream/licensing review](validation/simple-jev-upstream-review-20260920.md) |
+| Run Go System One typed decisions | [API](go-system-one-api.md); [playground](go-system-one-playground.md); [NVIDIA long contexts and validation](go-system-one-long-context.md) |
 | Use native Laya typed decisions | [Implementation](../model/laya/README.md); [released/native validation](validation/laya-native-20260920.md); [pinned upstream review](validation/laya-upstream-review-20260920.md) |
 | Use native Nimble typed scoring | [Implementation](../model/nimble/README.md); [released/native validation](validation/nimble-native-20260921.md) |
 | Use native Decider typed decisions | [Implementation](../model/decider/README.md); [released/native validation](validation/decider-native-20260921.md) |

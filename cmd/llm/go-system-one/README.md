@@ -10,11 +10,15 @@ go run ./cmd/llm/go-system-one \
   -listen 127.0.0.1:8080
 ```
 
-Open `http://127.0.0.1:8080/go-system-one` for the standalone playground. The API endpoint is `POST /v1/decision`. Tree-mode results display every allowed outcome and its constrained model probability; the selected outcome is highlighted. These are model probabilities over the allowed candidates, not calibrated correctness estimates.
+Open `http://127.0.0.1:8080/go-system-one` for the standalone playground. The default TypeSafe view calls `POST /v1/systemone` for Noul, Choice and Score. Select Batch decisions for `POST /v1/decision`. Tree-mode results display every allowed outcome and its constrained model probability; the selected outcome is highlighted. These are model probabilities over the allowed candidates, not calibrated correctness estimates.
 
 ![Go System One decision playground](../../../docs/images/go-system-one-playground.png)
 
 The command verifies the frozen model, tokenizer, tokenizer configuration and chat-template SHA-256 values before loading them. Use `-verify-artifacts=false` only for development fixtures. `-backend simd` selects the correctness-oracle implementation; the 12B SIMD path is too slow for interactive use.
+
+## Execution limits
+
+NVIDIA tree requests pack by default (512 token rows); `-packed-token-rows=0` selects serial execution. Long contexts use bounded attention scratch and compacted sliding-window KV. The logical ceiling is min(model context, 32,768), subject to available memory; capacity refusals are HTTP 422, never input truncation. Full-model requests through 3,937 tokens were validated on an RTX 3060 12 GB. [Details and gates](../../../docs/go-system-one-long-context.md).
 
 ## Deployment limits
 

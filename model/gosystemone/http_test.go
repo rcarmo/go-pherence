@@ -3,6 +3,8 @@ package gosystemone
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/rcarmo/go-pherence/model"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -80,5 +82,30 @@ func TestHandlerRejectsUnconfiguredEngine(t *testing.T) {
 	(&Handler{}).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/decision", strings.NewReader(`{"schema":{"x":{"type":"boolean"}},"contexts":["x"]}`)))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+type capacityScorer struct{}
+
+func (capacityScorer) ScoreContext(context.Context, []int, []Branch, bool) ([][]float32, error) {
+	return nil, fmt.Errorf("prefill: %w", model.ErrGemma4ContextCapacity)
+}
+func TestHandlerCapacityReturns422(t *testing.T) {
+	h := &Handler{Engine: &Engine{Tokenizer: runeTokenizer{}, Scorer: capacityScorer{}, BOSToken: 2}, ModelID: "fixture"}
+	for _, typed := range []bool{false, true} {
+		body := `{"schema":{"x":{"type":"boolean","description":"x"}},"contexts":["hello"]}`
+		if typed {
+			body = `{"state":"hello","questions":{"x":{"type":"noul"}}}`
+		}
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+		if typed {
+			h.ServeSystemOne(w, r)
+		} else {
+			h.ServeHTTP(w, r)
+		}
+		if w.Code != 422 || h.Busy() {
+			t.Fatalf("status=%d busy=%v", w.Code, h.Busy())
+		}
 	}
 }

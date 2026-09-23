@@ -9,13 +9,14 @@ import (
 // gemma4NVIDIAKVArena stores one immutable trunk and only branch-local suffix
 // rows. This keeps memory O(trunk + branches*suffix), not O(branches*trunk).
 type gemma4NVIDIAKVArena struct {
-	trunkK, trunkV   []*nvidia.Buffer
-	suffixK, suffixV []*nvidia.Buffer
-	kvDim            []int
-	branches         int
-	trunkLen         int // physical capacity
-	trunkUsed        int // logical prefix+context rows
-	suffixCap        int
+	trunkK, trunkV                []*nvidia.Buffer
+	suffixK, suffixV              []*nvidia.Buffer
+	kvDim                         []int
+	trunkBase, trunkRows, windows []int // physical sliding-cache metadata
+	branches                      int
+	trunkLen                      int // logical capacity; trunkRows bounds physical storage
+	trunkUsed                     int // logical prefix+context rows
+	suffixCap                     int
 }
 
 func newGemma4NVIDIAKVArena(m *LlamaModel, trunk MTPPromptContext, branches, maxDepth int) (*gemma4NVIDIAKVArena, error) {
@@ -39,10 +40,11 @@ func newGemma4NVIDIAKVArena(m *LlamaModel, trunk MTPPromptContext, branches, max
 		if len(trunk.KVCacheK) <= l || len(trunk.KVCacheV) <= l || len(trunk.KVCacheK[l]) != trunk.SeqLen*dim || len(trunk.KVCacheV[l]) != trunk.SeqLen*dim {
 			return nil, fmt.Errorf("invalid NVIDIA KV trunk layer %d", l)
 		}
-		if err = a.trunkK[l].Upload(trunk.KVCacheK[l]); err != nil {
+		a.trunkBase[l] = trunk.SeqLen - a.trunkRows[l]
+		if err = a.trunkK[l].Upload(trunk.KVCacheK[l][(trunk.SeqLen-a.trunkRows[l])*dim:]); err != nil {
 			return nil, err
 		}
-		if err = a.trunkV[l].Upload(trunk.KVCacheV[l]); err != nil {
+		if err = a.trunkV[l].Upload(trunk.KVCacheV[l][(trunk.SeqLen-a.trunkRows[l])*dim:]); err != nil {
 			return nil, err
 		}
 	}
@@ -54,27 +56,58 @@ func allocGemma4NVIDIAKVArena(m *LlamaModel, trunkLen, branches, maxDepth int) (
 	if m == nil || branches <= 0 || trunkLen <= 0 || maxDepth <= 0 {
 		return nil, fmt.Errorf("invalid NVIDIA KV arena shape")
 	}
-	a := &gemma4NVIDIAKVArena{trunkK: make([]*nvidia.Buffer, m.Config.NumLayers), trunkV: make([]*nvidia.Buffer, m.Config.NumLayers), suffixK: make([]*nvidia.Buffer, m.Config.NumLayers), suffixV: make([]*nvidia.Buffer, m.Config.NumLayers), kvDim: make([]int, m.Config.NumLayers), branches: branches, trunkLen: trunkLen, trunkUsed: trunkLen, suffixCap: maxDepth}
+	dims := make([]int, m.Config.NumLayers)
+	for l := range dims {
+		var err error
+		dims[l], err = m.LayerKVDim(l)
+		if err != nil {
+			return nil, err
+		}
+	}
+	windows := make([]int, len(dims))
+	for l := range windows {
+		if len(m.Config.LayerTypes) > l && m.Config.LayerTypes[l] == "sliding_attention" {
+			windows[l] = m.Config.SlidingWindow
+		}
+	}
+	return allocGemma4NVIDIAKVArenaWindowed(dims, trunkLen, branches, maxDepth, windows)
+}
+func allocGemma4NVIDIAKVArenaWindowed(dims []int, trunkLen, branches, maxDepth int, windows []int) (*gemma4NVIDIAKVArena, error) {
+	if len(dims) == 0 || len(windows) != len(dims) || trunkLen < 1 || trunkLen > nvidia.MaxDecisionAttentionTokens {
+		return nil, fmt.Errorf("%w: invalid KV layout", ErrGemma4ContextCapacity)
+	}
+	for _, window := range windows {
+		if window < 0 || window > nvidia.MaxDecisionAttentionTokens {
+			return nil, fmt.Errorf("%w: invalid sliding window", ErrGemma4ContextCapacity)
+		}
+	}
+	rows := make([]int, len(dims))
+	for l := range rows {
+		rows[l] = trunkLen
+		if windows[l] > 0 {
+			rows[l] = min(trunkLen, windows[l]+Gemma4PackedRows)
+		}
+	}
+	if err := checkGemma4ArenaCapacityRows(dims, rows, branches, maxDepth); err != nil {
+		return nil, err
+	}
+	a := &gemma4NVIDIAKVArena{trunkK: make([]*nvidia.Buffer, len(dims)), trunkV: make([]*nvidia.Buffer, len(dims)), suffixK: make([]*nvidia.Buffer, len(dims)), suffixV: make([]*nvidia.Buffer, len(dims)), kvDim: append([]int(nil), dims...), trunkBase: make([]int, len(dims)), trunkRows: rows, windows: append([]int(nil), windows...), branches: branches, trunkLen: trunkLen, trunkUsed: trunkLen, suffixCap: maxDepth}
 	ok := false
 	defer func() {
 		if !ok {
 			a.free()
 		}
 	}()
-	for l := 0; l < m.Config.NumLayers; l++ {
-		dim, err := m.LayerKVDim(l)
-		if err != nil {
-			return nil, err
-		}
-		a.kvDim[l] = dim
+	for l, dim := range dims {
 		if dim == 0 {
 			continue
 		}
-		a.trunkK[l], err = nvidia.Malloc(trunkLen * dim)
+		var err error
+		a.trunkK[l], err = nvidia.Malloc(rows[l] * dim)
 		if err != nil {
 			return nil, err
 		}
-		a.trunkV[l], err = nvidia.Malloc(trunkLen * dim)
+		a.trunkV[l], err = nvidia.Malloc(rows[l] * dim)
 		if err != nil {
 			return nil, err
 		}
@@ -90,11 +123,12 @@ func allocGemma4NVIDIAKVArena(m *LlamaModel, trunkLen, branches, maxDepth int) (
 	ok = true
 	return a, nil
 }
+
 func (a *gemma4NVIDIAKVArena) cloneTrunk(newTrunkLen, branches, suffixCap int) (*gemma4NVIDIAKVArena, error) {
 	if a == nil || newTrunkLen < a.trunkLen {
 		return nil, fmt.Errorf("invalid NVIDIA trunk clone")
 	}
-	out, err := allocGemma4NVIDIAKVArenaShape(a.kvDim, newTrunkLen, branches, suffixCap)
+	out, err := allocGemma4NVIDIAKVArenaWindowed(a.kvDim, newTrunkLen, branches, suffixCap, a.windows)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +142,8 @@ func (a *gemma4NVIDIAKVArena) cloneTrunk(newTrunkLen, branches, suffixCap int) (
 		if dim == 0 {
 			continue
 		}
-		n := uint64(a.trunkLen * dim * 4)
+		out.trunkBase[l] = a.trunkBase[l]
+		n := uint64(min(a.trunkRows[l], out.trunkRows[l]) * dim * 4)
 		if err := nvidia.CopyDtoD(out.trunkK[l].Ptr, a.trunkK[l].Ptr, n); err != nil {
 			return nil, err
 		}
@@ -121,40 +156,7 @@ func (a *gemma4NVIDIAKVArena) cloneTrunk(newTrunkLen, branches, suffixCap int) (
 }
 
 func allocGemma4NVIDIAKVArenaShape(dims []int, trunkLen, branches, maxDepth int) (*gemma4NVIDIAKVArena, error) {
-	if len(dims) == 0 || trunkLen <= 0 || branches <= 0 || maxDepth <= 0 {
-		return nil, fmt.Errorf("invalid NVIDIA KV arena shape")
-	}
-	a := &gemma4NVIDIAKVArena{trunkK: make([]*nvidia.Buffer, len(dims)), trunkV: make([]*nvidia.Buffer, len(dims)), suffixK: make([]*nvidia.Buffer, len(dims)), suffixV: make([]*nvidia.Buffer, len(dims)), kvDim: append([]int(nil), dims...), branches: branches, trunkLen: trunkLen, trunkUsed: trunkLen, suffixCap: maxDepth}
-	ok := false
-	defer func() {
-		if !ok {
-			a.free()
-		}
-	}()
-	for l, dim := range dims {
-		if dim == 0 {
-			continue
-		}
-		var err error
-		a.trunkK[l], err = nvidia.Malloc(trunkLen * dim)
-		if err != nil {
-			return nil, err
-		}
-		a.trunkV[l], err = nvidia.Malloc(trunkLen * dim)
-		if err != nil {
-			return nil, err
-		}
-		a.suffixK[l], err = nvidia.Malloc(branches * maxDepth * dim)
-		if err != nil {
-			return nil, err
-		}
-		a.suffixV[l], err = nvidia.Malloc(branches * maxDepth * dim)
-		if err != nil {
-			return nil, err
-		}
-	}
-	ok = true
-	return a, nil
+	return allocGemma4NVIDIAKVArenaWindowed(dims, trunkLen, branches, maxDepth, make([]int, len(dims)))
 }
 
 func (a *gemma4NVIDIAKVArena) free() {
@@ -181,7 +183,10 @@ func (a *gemma4NVIDIAKVArena) appendTrunkRows(layer, pos, rows int, k, v *nvidia
 	if k == nil || v == nil || k.Size < rows*dim*4 || v.Size < rows*dim*4 {
 		return fmt.Errorf("invalid NVIDIA trunk KV append shape")
 	}
-	dst := nvidia.CUdeviceptr(pos * dim * 4)
+	if err := a.prepareTrunkWrite(layer, pos, rows); err != nil {
+		return err
+	}
+	dst := nvidia.CUdeviceptr((pos - a.trunkBase[layer]) * dim * 4)
 	n := uint64(rows * dim * 4)
 	if err := nvidia.CopyDtoD(a.trunkK[layer].Ptr+dst, k.Ptr, n); err != nil {
 		return err
@@ -190,18 +195,7 @@ func (a *gemma4NVIDIAKVArena) appendTrunkRows(layer, pos, rows int, k, v *nvidia
 }
 
 func (a *gemma4NVIDIAKVArena) appendTrunkRow(layer, pos int, k, v *nvidia.Buffer) error {
-	if a == nil || layer < 0 || layer >= len(a.trunkK) || a.trunkK[layer] == nil || pos < 0 || pos >= a.trunkLen {
-		return fmt.Errorf("invalid NVIDIA trunk KV append")
-	}
-	dim := a.kvDim[layer]
-	if k == nil || v == nil || k.Size < dim*4 || v.Size < dim*4 {
-		return fmt.Errorf("invalid NVIDIA trunk KV append shape")
-	}
-	dst := nvidia.CUdeviceptr(pos * dim * 4)
-	if err := nvidia.CopyDtoD(a.trunkK[layer].Ptr+dst, k.Ptr, uint64(dim*4)); err != nil {
-		return err
-	}
-	return nvidia.CopyDtoD(a.trunkV[layer].Ptr+dst, v.Ptr, uint64(dim*4))
+	return a.appendTrunkRows(layer, pos, 1, k, v)
 }
 
 func (a *gemma4NVIDIAKVArena) appendRows(layer, pos int, active []int, k, v *nvidia.Buffer) error {

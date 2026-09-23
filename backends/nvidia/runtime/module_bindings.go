@@ -28,6 +28,7 @@ func bindMegaModuleFunctions(f moduleFunctions) {
 	ropePartialFn = f.get("rope_partial")
 	ropePartialSequenceFn = f.get("rope_partial_sequence")
 	attnCausalBatchFn = f.get("gqa_attention_causal_batch")
+	attnLongFn = f.get("gqa_attention_long")
 	attnSegmentedFn = f.get("gqa_attention_segmented")
 	ropeSegmentedFn = f.get("rope_partial_segmented")
 	selectedBatchFn = f.get("gemv_q5_packed_selected_batch_f32")

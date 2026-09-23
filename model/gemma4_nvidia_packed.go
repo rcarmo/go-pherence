@@ -76,7 +76,7 @@ func (g *Gemma4NVIDIA) prefillAttentionSegments(out, q, k, v, rope *nvidia.Buffe
 		if err := packed.RoPE(k, rope, kvHeads, hd, rot); err != nil {
 			return err
 		}
-		return packed.Attention(out, q, k, v, arena.trunkK[layer], arena.trunkV[layer], window, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd))
+		return packed.AttentionFromPrefix(out, q, k, v, arena.trunkK[layer], arena.trunkV[layer], arena.trunkBase[layer], window, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd))
 	}
 	if err := nvidia.RoPEPartialSequenceBuffer(q, rope, rows, pos0, m.Config.NumHeads, hd, rot); err != nil {
 		return err
@@ -87,7 +87,8 @@ func (g *Gemma4NVIDIA) prefillAttentionSegments(out, q, k, v, rope *nvidia.Buffe
 	if err := arena.appendTrunkRows(layer, pos0, rows, k, v); err != nil {
 		return err
 	}
-	return nvidia.CausalBatchAttentionBuffer(out, q, arena.trunkK[layer], arena.trunkV[layer], rows, pos0, pos0+rows, window, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd))
+	base := arena.trunkBase[layer]
+	return nvidia.CausalBatchAttentionBuffer(out, q, arena.trunkK[layer], arena.trunkV[layer], rows, pos0-base, pos0+rows-base, window, m.Config.NumHeads, kvHeads, hd, attentionScale(m.Config, hd))
 }
 
 // ScorePrefixedPacked scores independent token sequences after one immutable
@@ -111,7 +112,7 @@ func (g *Gemma4NVIDIA) ScorePrefixedPacked(ctx context.Context, prefix *Gemma4NV
 	segments := make([]gemma4PrefillSegment, len(paths))
 	rows := 0
 	for i, path := range paths {
-		if len(path) == 0 || len(path) > Gemma4PackedRows-rows || len(candidates[i]) == 0 || len(candidates[i]) > 255 || len(prefix.tokens)+len(path) > 2048 {
+		if len(path) == 0 || len(path) > Gemma4PackedRows-rows || len(candidates[i]) == 0 || len(candidates[i]) > 255 || len(prefix.tokens)+len(path) > g.contextLimit() {
 			return nil, fmt.Errorf("invalid NVIDIA packed path %d", i)
 		}
 		for _, ids := range [][]int{path, candidates[i]} {
@@ -208,7 +209,7 @@ func (g *Gemma4NVIDIA) ScorePrefixedTreeGroups(ctx context.Context, prefix *Gemm
 		}
 		segments = append(segments, gemma4PrefillSegment{offset: start, length: len(c)})
 		for j, b := range branches {
-			if len(prefix.tokens)+len(c)+len(b) > 2048 || len(candidates[j]) < 1 || len(candidates[j]) > 255 {
+			if len(prefix.tokens)+len(c)+len(b) > g.contextLimit() || len(candidates[j]) < 1 || len(candidates[j]) > 255 {
 				return nil, fmt.Errorf("invalid tree group branch")
 			}
 			for _, id := range candidates[j] {

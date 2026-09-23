@@ -69,6 +69,7 @@ func megaModuleEntries() []moduleEntry {
 		{"gqa_attention", ptx.AttentionPTX},
 		{"gqa_attention_independent", ptx.IndependentBranchAttentionPTX},
 		{"gqa_attention_causal_batch", ptx.CausalBatchAttentionWarpPTX},
+		{"gqa_attention_long", ptx.LongAttentionPTX},
 		{"gqa_attention_segmented", ptx.PackedDecisionPTX},
 		{"rope_partial_segmented", "// included in PackedDecisionPTX\n"},
 		{"gemv_q5_packed_selected_batch_f32", "// included in PackedDecisionPTX\n"},

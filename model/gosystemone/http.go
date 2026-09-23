@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/rcarmo/go-pherence/internal/httpinput"
+	"github.com/rcarmo/go-pherence/model"
 )
 
 const MaxRequestBytes int64 = 1 << 20
@@ -90,6 +91,9 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request, systemOne bool) 
 	}
 	if err != nil {
 		status := http.StatusBadRequest
+		if errors.Is(err, model.ErrGemma4ContextCapacity) {
+			status = http.StatusUnprocessableEntity
+		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			status = http.StatusRequestTimeout
 		}

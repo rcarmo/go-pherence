@@ -110,8 +110,15 @@ func CausalBatchAttentionBuffer(out, q, k, v *Buffer, rows, pos0, kvLen, window,
 	kvDim, okKV := checked.MulInt(nKVHeads, headDim)
 	qN, okQN := checked.MulInt(rows, qDim)
 	kvN, okKN := checked.MulInt(kvLen, kvDim)
-	if attnCausalBatchFn == 0 || !okQ || !okKV || !okQN || !okKN || rows <= 0 || pos0 < 0 || kvLen <= 0 || kvLen > 2048 || window < 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 || nHeads%nKVHeads != 0 || out == nil || q == nil || k == nil || v == nil || out.Ptr == 0 || q.Ptr == 0 || k.Ptr == 0 || v.Ptr == 0 || out.Size < qN*4 || q.Size < qN*4 || k.Size < kvN*4 || v.Size < kvN*4 {
+	if attnCausalBatchFn == 0 || !okQ || !okKV || !okQN || !okKN || rows <= 0 || pos0 < 0 || kvLen <= 0 || kvLen > MaxDecisionAttentionTokens || pos0 >= kvLen || rows > kvLen-pos0 || nHeads > 256 || headDim > 2048 || window < 0 || nHeads <= 0 || nKVHeads <= 0 || headDim <= 0 || nHeads%nKVHeads != 0 || out == nil || q == nil || k == nil || v == nil || out.Ptr == 0 || q.Ptr == 0 || k.Ptr == 0 || v.Ptr == 0 || out.Size < qN*4 || q.Size < qN*4 || k.Size < kvN*4 || v.Size < kvN*4 {
 		return fmt.Errorf("invalid causal batch attention")
+	}
+	visible := kvLen
+	if window > 0 {
+		visible = min(visible, window)
+	}
+	if visible > 2048 {
+		return longAttention(out, q, k, v, nil, nil, nil, nil, nil, rows, pos0, kvLen, window, nHeads, nKVHeads, headDim, 0, 0, 0, 0, 0, visible, scale)
 	}
 	rr, p0, kl, ww, hh, kk, dd := uint32(rows), uint32(pos0), uint32(kvLen), uint32(window), uint32(nHeads), uint32(nKVHeads), uint32(headDim)
 	return LaunchKernel(attnCausalBatchFn, hh, rr, 1, 256, 1, 1, 2048*4, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&rr), unsafe.Pointer(&p0), unsafe.Pointer(&kl), unsafe.Pointer(&ww), unsafe.Pointer(&hh), unsafe.Pointer(&kk), unsafe.Pointer(&dd), unsafe.Pointer(&scale))

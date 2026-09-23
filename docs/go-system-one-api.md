@@ -55,9 +55,9 @@ TypeSafe describes confidence separately from candidate probabilities but does n
 
 ## Local limits
 
-Requests are limited to 32 questions, 255 candidates per question and a 1 MiB body. Prompt-token and packed-memory limits match the existing decision engine. Both HTTP routes share one admission gate and return HTTP 429 while another request owns it. Invalid JSON, duplicate request/question/choice keys, unknown properties, unsupported types and forged tokenizer control markers are rejected before scoring. Rejected requests release the gate.
+Requests are limited to 32 questions, 255 candidates per question and a 1 MiB body. NVIDIA attention supports up to min(model context, 32,768) visible tokens, subject to available device memory. Explicit context/KV capacity refusals return HTTP 422 without truncation. See [long-context validation](go-system-one-long-context.md). Both HTTP routes share one admission gate and return HTTP 429 while another request owns it. Invalid JSON, duplicate request/question/choice keys, unknown properties, unsupported types and forged tokenizer control markers are rejected before scoring. Rejected requests release the gate.
 
-The TypeSafe playground update is a separate review slice. This adapter does not implement TypeSafe's hosted models, authentication, billing, `messages`, `options`, raw-logit diagnostics, `/permute`, `/separate` or batch extensions. A request has one `state`; use `/v1/decision` for its existing independent-context batch interface. Matching these request/answer types does not reproduce Jev's weights, training or calibration.
+The [playground](go-system-one-playground.md) exposes TypeSafe questions and the existing batch interface. This adapter does not implement TypeSafe's hosted models, authentication, billing, `messages`, `options`, raw-logit diagnostics, `/permute`, `/separate` or batch extensions. A request has one `state`; use `/v1/decision` for its existing independent-context batch interface. Matching these request/answer types does not reproduce Jev's weights, training or calibration.
 
 ## Measured request costs
 

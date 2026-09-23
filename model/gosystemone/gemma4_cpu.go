@@ -143,7 +143,7 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContext(ctx context.Context, shared, cont
 	defer s.mu.Unlock()
 	var prefix *model.Gemma4NVIDIAContext
 	trunkCap := len(shared) + len(contextTokens) + maxDepth
-	hit := allowCache && cacheCanReuse(shared, s.cachedTokens, trunkCap, s.cachedTrunkCap, s.cached != nil)
+	hit := allowCache && cacheCanReuse(shared, s.cachedTokens, trunkCap, s.cachedTrunkCap, s.cached != nil && s.cached.CanReusePrefix())
 	if hit {
 		prefix = s.cached
 	} else {

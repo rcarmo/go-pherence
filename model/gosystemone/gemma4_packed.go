@@ -49,7 +49,7 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContexts(ctx context.Context, shared []in
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	prefix := s.cached
-	if !allowCache || !cacheCanReuse(shared, s.cachedTokens, len(shared), s.cachedTrunkCap, prefix != nil) {
+	if !allowCache || !cacheCanReuse(shared, s.cachedTokens, len(shared), s.cachedTrunkCap, prefix != nil && prefix.CanReusePrefix()) {
 		if s.cached != nil {
 			s.cached.Close()
 			s.cached = nil
@@ -147,7 +147,7 @@ func (s *Gemma4NVIDIAScorer) ScoreSplitContextTrees(ctx context.Context, shared 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	prefix := s.cached
-	if !allowCache || !cacheCanReuse(shared, s.cachedTokens, len(shared), s.cachedTrunkCap, prefix != nil) {
+	if !allowCache || !cacheCanReuse(shared, s.cachedTokens, len(shared), s.cachedTrunkCap, prefix != nil && prefix.CanReusePrefix()) {
 		if s.cached != nil {
 			s.cached.Close()
 			s.cached = nil
