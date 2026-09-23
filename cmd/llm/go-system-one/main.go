@@ -105,6 +105,7 @@ func run(ctx context.Context, args []string) error {
 	decision := &gosystemone.Handler{Engine: engine, ModelID: cfg.modelID}
 	mux := http.NewServeMux()
 	mux.Handle("/v1/decision", decision)
+	mux.HandleFunc("/v1/systemone", decision.ServeSystemOne)
 	webui.RegisterGoSystemOne(mux, webui.GoSystemOneConfig{ModelID: cfg.modelID, Backend: cfg.backend, Device: device, ResidentBytes: residentBytes, MaxContexts: gosystemone.MaxContexts, MaxFields: gosystemone.MaxFields, MaxCandidates: gosystemone.MaxCandidates, Busy: decision.Busy})
 	server := &http.Server{Addr: cfg.listen, Handler: logRequests(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 

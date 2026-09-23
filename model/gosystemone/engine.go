@@ -48,6 +48,12 @@ type fieldState struct {
 }
 
 func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) {
+	return e.decide(ctx, request, nil)
+}
+
+// decide shares execution without changing the existing decision prompt or
+// schema ordering. The System One adapter supplies its ordered compiled schema.
+func (e *Engine) decide(ctx context.Context, request Request, compiled *CompiledSchema) (Response, error) {
 	if e == nil {
 		return Response{}, fmt.Errorf("go-system-one engine is not configured")
 	}
@@ -70,9 +76,15 @@ func (e *Engine) Decide(ctx context.Context, request Request) (Response, error) 
 			return Response{}, err
 		}
 	}
-	schema, err := CompileSchema(request.Schema, request.Instructions)
-	if err != nil {
-		return Response{}, err
+	var schema CompiledSchema
+	var err error
+	if compiled == nil {
+		schema, err = CompileSchema(request.Schema, request.Instructions)
+		if err != nil {
+			return Response{}, err
+		}
+	} else {
+		schema = *compiled
 	}
 	fields := make([]CompiledField, len(schema.Inputs))
 	for i, input := range schema.Inputs {
