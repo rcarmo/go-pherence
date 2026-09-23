@@ -198,4 +198,19 @@ Teacher seeding implements upstream's champion `ends` selection. `24→6` retain
 
 `DistillTrainer` registers only text embedding, BOS values, speaker/input projections, transformer and final norm. EOS, flow head and `w_s_t` are absent from AdamW moments, weight decay and EMA, so teacher-calibrated heads remain byte-for-byte unchanged. Step validation is transactional; the active gradient subset is copied before mutation to handle hostile parameter aliases. Trainer/student pointers and layer topology are immutable, while same-model same-shape slice rebinding follows live values rather than stale arrays.
 
-The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission, released-format export and depth/CFG distillation gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling and long CPU training remain open.
+## Deterministic tiny-graph CPU soak
+
+The opt-in `TestPocketTrainingDeterministicTinySoak` qualifies checkpoint/resume and retained-memory behavior on the complete exact **tiny** graph. It does not claim released-shape performance or memory qualification.
+
+Two independent 100,000-step-per-run executions passed under `GOMAXPROCS=1` and CPU-only mode. Each test executed 200,000 complete updates: one uninterrupted run and one run that repeatedly replaced and reloaded the same checkpoint path every 10,000 steps. Explicit noise and all sampled times varied deterministically by step. At every boundary, resumed state matched uninterrupted state before save and after reload.
+
+Both executions produced identical hashes:
+
+- final logical state SHA-256: `a30108f97e6be944ec8cc881ebdfe70d7afd3576feb441e985585260da601344`;
+- final checkpoint-file SHA-256: `9682dfb99b55015d03a6a51135c92945f5aa50735cb74943c8c50551b295ec7c`.
+
+Wall times were `12.39 s` and `11.23 s`; external `/usr/bin/time -v` peak RSS was `98,048 KiB` and `97,408 KiB`. Separate continuous/resumed post-GC heap series include step zero. Every sampled boundary remains within 8 MiB for `HeapAlloc`/`HeapInuse` and 10,000 objects of its run baseline. This supports the narrow claim that no large retained-heap growth appeared during these tiny-graph runs; it does not measure transient peaks inside an update. The established warm allocation gates are rechecked in the same executable (`≤720` forward/backward allocations and zero optimizer allocations).
+
+Evidence is under `/workspace/tmp/pockettts-training-soak/` as `soak-v2-100000-run{1,2}.json` and `.log`; it is bounded external evidence and is not committed.
+
+The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission, released-format export, depth/CFG distillation and tiny-graph deterministic soak gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative released production-row profiling and long released-shape CPU training remain artifact-gated and open.
