@@ -32,6 +32,16 @@ func (h *Handler) Busy() bool {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.serve(w, r, false)
+}
+
+// ServeSystemOne shares admission with ServeHTTP; the two routes never execute
+// concurrently against the scorer's owned scratch and caches.
+func (h *Handler) ServeSystemOne(w http.ResponseWriter, r *http.Request) {
+	h.serve(w, r, true)
+}
+
+func (h *Handler) serve(w http.ResponseWriter, r *http.Request, systemOne bool) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -48,7 +58,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	var request Request
-	if err := httpinput.DecodeJSON(w, r, &request, MaxRequestBytes, true); err != nil {
+	var typed SystemOneRequest
+	var target any = &request
+	if systemOne {
+		target = &typed
+	}
+	if err := httpinput.DecodeJSON(w, r, target, MaxRequestBytes, true); err != nil {
 		http.Error(w, "bad request: "+err.Error(), httpinput.ErrorStatus(err))
 		return
 	}
@@ -56,12 +71,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "decision engine is not configured", http.StatusServiceUnavailable)
 		return
 	}
-	if request.Model != "" && request.Model != h.ModelID {
+	modelID := request.Model
+	if systemOne {
+		modelID = typed.Model
+	}
+	if modelID != "" && modelID != h.ModelID {
 		http.Error(w, "unknown model", http.StatusBadRequest)
 		return
 	}
-	request.Model = h.ModelID
-	response, err := h.Engine.Decide(r.Context(), request)
+	var response any
+	var err error
+	if systemOne {
+		typed.Model = h.ModelID
+		response, err = h.Engine.SystemOne(r.Context(), typed)
+	} else {
+		request.Model = h.ModelID
+		response, err = h.Engine.Decide(r.Context(), request)
+	}
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
