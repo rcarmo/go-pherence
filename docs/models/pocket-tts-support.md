@@ -56,7 +56,8 @@ The first deterministic training gate is implemented:
 - a direct pinned `TrainableTTS.forward` fixture with shared sampled noise matches raw/normalized flow metrics, EOS, total loss, both log-variance leaf gradients, audio/voice inputs and every FlowLM/flow-head/`w_s_t` parameter within `8e-5`;
 - full-model AdamW/EMA matches PyTorch after one step; versioned directory-durable checkpoints include trainables, optimizer moments/settings, EMA, mutable latent statistics and fixed timestep frequencies, and resumed second-step state is byte-for-byte equivalent to uninterrupted state;
 - upstream frozen-Mimi latent stores are admitted with exact sidecar fields, Mimi SHA-256 binding, index-derived shard names, root confinement, bounded F32 `[frames,32]` tensors, per-shard immutable content digests and non-finite rejection; native deterministic F32 shard output loads through upstream `safetensors`, and fixed padded overlap stitching preserves upstream valid-mask semantics;
-- allocation-free production-shape admission covers the upstream 30 s target (375 frames), 5 s prompt (62 frames), explicit text/sequence/resident-byte ceilings and effective batches through gradient accumulation. The released worst-case 512-token row is 950 sequence rows, with exactly 89,449,730 trainables and a conservative ≤3.50 GiB resident bound including parameters, gradients, Adam moments, EMA and current F32 tapes. The 24-layer 316,015,874-parameter teacher is also admitted under an explicit 64 GiB ceiling. Live topology/storage is revalidated before workspace allocation.
+- allocation-free production-shape admission covers the upstream 30 s target (375 frames), 5 s prompt (62 frames), explicit text/sequence/resident-byte ceilings and effective batches through gradient accumulation. The released worst-case 512-token row is 950 sequence rows, with exactly 89,449,730 trainables and a conservative ≤3.50 GiB resident bound including parameters, gradients, Adam moments, EMA and current F32 tapes. The 24-layer 316,015,874-parameter teacher is also admitted under an explicit 64 GiB ceiling. Live topology/storage is revalidated before workspace allocation;
+- deterministic released-format export matches upstream state semantics: raw FlowLM parameters and live buffers, partial EMA overlay for tracked parameters, one FlowMatching or two LSD time conditions, no training-only `w_s_t`, and the exact frozen Mimi module state. A pinned independent fixture freezes all 87 released Mimi names/shapes; source BF16 is widened through F32 as upstream's live Mimi module does. Lexical safetensors output is atomically published with file/directory sync and typed post-publication sync uncertainty.
 
 See [the training validation record](../validation/pocket-tts-native-training-2026-09-22.md) for the fixture and commands.
 
@@ -64,8 +65,7 @@ The next slices are:
 
 1. run native frozen-Mimi raw-audio encoding after the encoder bundle/fixture is approved; until then consume upstream-generated caches through the completed interchange boundary;
 2. profile representative production cache rows under the completed shape-admission gate, then extend request-owned storage into arena-backed tapes and SIMD/batching only where the profile justifies it;
-3. released-format checkpoint export;
-4. 24-layer teacher to six-layer depth/CFG distillation;
-5. long CPU qualification. GPU training is a separate backend task.
+3. 24-layer teacher to six-layer depth/CFG distillation;
+4. long CPU qualification. GPU training is a separate backend task.
 
 Preset-voice inference is complete for the pinned released artefacts. Raw-audio voice cloning needs the gated encoder bundle. Full native training is incomplete.

@@ -166,4 +166,19 @@ The activation ceiling counts retained transformer tapes, dense `[heads,rows,row
 
 A 24-layer teacher plan contains exactly `316,015,874` trainables and is admitted under an explicit 64 GiB ceiling. Every compound add/multiply is checked before use. `NewAdmittedTrainingWorkspace` binds a private plan snapshot and reruns execution-grade F32 topology/storage validation before allocation: vocabulary/embedding and BOS shapes, transformer heads/layers/FFN/layer scales, exactly two time embeddings, flow blocks/final projections, default weighting topology, forbidden biases/BF16 side storage and exact aggregate parameter elements. Mutating exported report fields cannot change allocation authority.
 
-The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange and production-shape admission gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling, 24-layer teacher to six-layer depth/CFG distillation, released safetensors checkpoint export and long CPU training remain open.
+## Released-format export
+
+`ExportPocketSafetensors` implements pinned `training/checkpointing.py::export_pocket_safetensors` semantics:
+
+- begin with the raw native FlowLM state, including mutable `emb_mean`/`emb_std` and fixed timestep-frequency buffers;
+- overlay only FlowLM parameter names present in the EMA shadow; untracked/frozen parameters retain raw values;
+- prefix every FlowLM key with `flow_lm.` and exclude the normalized-LSD training-only `flow.w_s_t` network;
+- emit two time conditions for LSD and one for FlowMatching;
+- append exactly the registered frozen Mimi module state under `mimi.*`, not arbitrary source-prefix tensors;
+- write every exported tensor as canonical F32, matching upstream's F32 FlowLM state and F32 Mimi module after loading source weights.
+
+The independent `mimi_state_shapes_pytorch.json` fixture was generated from `build_mimi(config.mimi).state_dict()` at the pinned revision. It freezes 87 released Mimi names/shapes and has SHA-256 `84d0460044d02598042e20b622f6964d5f47caaacd7d683e1f6324fdcba62994`. Native topology-derived inventory matches it exactly. Missing or extra Mimi entries, wrong shapes/dtypes, non-finite values, unsupported FlowLM topology and absent requested EMA are rejected before publication.
+
+The safetensors header and payload are lexical and deterministic. The existing destination directory is synced before temporary-file creation; the complete file is flushed, file-synced and atomically renamed; the directory is synced again. Ordinary errors are pre-publication and destination-preserving. If the rename succeeds but the final sync fails, the typed `PocketExportPublishedError` identifies the complete published path while reporting durability uncertainty. An independent upstream `safetensors.safe_open` check loaded the full synthetic export: 55 tiny FlowLM + 67 tiny-config Mimi tensors, partial-EMA values, live buffers, F32-widened Mimi data and no `w_s_t`.
+
+The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission and released-format export gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling, 24-layer teacher to six-layer depth/CFG distillation and long CPU training remain open.

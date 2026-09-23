@@ -1,0 +1,334 @@
+{
+  "config": "pocket_tts/config/english.yaml",
+  "schema": 1,
+  "tensors": {
+    "mimi.decoder.model.0.conv.bias": [
+      512
+    ],
+    "mimi.decoder.model.0.conv.weight": [
+      512,
+      512,
+      7
+    ],
+    "mimi.decoder.model.11.conv.bias": [
+      1
+    ],
+    "mimi.decoder.model.11.conv.weight": [
+      1,
+      64,
+      3
+    ],
+    "mimi.decoder.model.2.convtr.bias": [
+      256
+    ],
+    "mimi.decoder.model.2.convtr.weight": [
+      512,
+      256,
+      12
+    ],
+    "mimi.decoder.model.3.block.1.conv.bias": [
+      128
+    ],
+    "mimi.decoder.model.3.block.1.conv.weight": [
+      128,
+      256,
+      3
+    ],
+    "mimi.decoder.model.3.block.3.conv.bias": [
+      256
+    ],
+    "mimi.decoder.model.3.block.3.conv.weight": [
+      256,
+      128,
+      1
+    ],
+    "mimi.decoder.model.5.convtr.bias": [
+      128
+    ],
+    "mimi.decoder.model.5.convtr.weight": [
+      256,
+      128,
+      10
+    ],
+    "mimi.decoder.model.6.block.1.conv.bias": [
+      64
+    ],
+    "mimi.decoder.model.6.block.1.conv.weight": [
+      64,
+      128,
+      3
+    ],
+    "mimi.decoder.model.6.block.3.conv.bias": [
+      128
+    ],
+    "mimi.decoder.model.6.block.3.conv.weight": [
+      128,
+      64,
+      1
+    ],
+    "mimi.decoder.model.8.convtr.bias": [
+      64
+    ],
+    "mimi.decoder.model.8.convtr.weight": [
+      128,
+      64,
+      8
+    ],
+    "mimi.decoder.model.9.block.1.conv.bias": [
+      32
+    ],
+    "mimi.decoder.model.9.block.1.conv.weight": [
+      32,
+      64,
+      3
+    ],
+    "mimi.decoder.model.9.block.3.conv.bias": [
+      64
+    ],
+    "mimi.decoder.model.9.block.3.conv.weight": [
+      64,
+      32,
+      1
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.layer_scale_1.scale": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.layer_scale_2.scale": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.linear1.weight": [
+      2048,
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.linear2.weight": [
+      512,
+      2048
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.norm1.bias": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.norm1.weight": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.norm2.bias": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.norm2.weight": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.self_attn.in_proj.weight": [
+      1536,
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.0.self_attn.out_proj.weight": [
+      512,
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.layer_scale_1.scale": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.layer_scale_2.scale": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.linear1.weight": [
+      2048,
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.linear2.weight": [
+      512,
+      2048
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.norm1.bias": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.norm1.weight": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.norm2.bias": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.norm2.weight": [
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.self_attn.in_proj.weight": [
+      1536,
+      512
+    ],
+    "mimi.decoder_transformer.transformer.layers.1.self_attn.out_proj.weight": [
+      512,
+      512
+    ],
+    "mimi.downsample.conv.conv.weight": [
+      32,
+      512,
+      32
+    ],
+    "mimi.encoder.model.0.conv.bias": [
+      64
+    ],
+    "mimi.encoder.model.0.conv.weight": [
+      64,
+      1,
+      7
+    ],
+    "mimi.encoder.model.1.block.1.conv.bias": [
+      32
+    ],
+    "mimi.encoder.model.1.block.1.conv.weight": [
+      32,
+      64,
+      3
+    ],
+    "mimi.encoder.model.1.block.3.conv.bias": [
+      64
+    ],
+    "mimi.encoder.model.1.block.3.conv.weight": [
+      64,
+      32,
+      1
+    ],
+    "mimi.encoder.model.11.conv.bias": [
+      512
+    ],
+    "mimi.encoder.model.11.conv.weight": [
+      512,
+      512,
+      3
+    ],
+    "mimi.encoder.model.3.conv.bias": [
+      128
+    ],
+    "mimi.encoder.model.3.conv.weight": [
+      128,
+      64,
+      8
+    ],
+    "mimi.encoder.model.4.block.1.conv.bias": [
+      64
+    ],
+    "mimi.encoder.model.4.block.1.conv.weight": [
+      64,
+      128,
+      3
+    ],
+    "mimi.encoder.model.4.block.3.conv.bias": [
+      128
+    ],
+    "mimi.encoder.model.4.block.3.conv.weight": [
+      128,
+      64,
+      1
+    ],
+    "mimi.encoder.model.6.conv.bias": [
+      256
+    ],
+    "mimi.encoder.model.6.conv.weight": [
+      256,
+      128,
+      10
+    ],
+    "mimi.encoder.model.7.block.1.conv.bias": [
+      128
+    ],
+    "mimi.encoder.model.7.block.1.conv.weight": [
+      128,
+      256,
+      3
+    ],
+    "mimi.encoder.model.7.block.3.conv.bias": [
+      256
+    ],
+    "mimi.encoder.model.7.block.3.conv.weight": [
+      256,
+      128,
+      1
+    ],
+    "mimi.encoder.model.9.conv.bias": [
+      512
+    ],
+    "mimi.encoder.model.9.conv.weight": [
+      512,
+      256,
+      12
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.layer_scale_1.scale": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.layer_scale_2.scale": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.linear1.weight": [
+      2048,
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.linear2.weight": [
+      512,
+      2048
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.norm1.bias": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.norm1.weight": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.norm2.bias": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.norm2.weight": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.self_attn.in_proj.weight": [
+      1536,
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.0.self_attn.out_proj.weight": [
+      512,
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.layer_scale_1.scale": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.layer_scale_2.scale": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.linear1.weight": [
+      2048,
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.linear2.weight": [
+      512,
+      2048
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.norm1.bias": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.norm1.weight": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.norm2.bias": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.norm2.weight": [
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.self_attn.in_proj.weight": [
+      1536,
+      512
+    ],
+    "mimi.encoder_transformer.transformer.layers.1.self_attn.out_proj.weight": [
+      512,
+      512
+    ],
+    "mimi.quantizer.output_proj.weight": [
+      512,
+      32,
+      1
+    ],
+    "mimi.upsample.convtr.convtr.weight": [
+      512,
+      1,
+      32
+    ]
+  },
+  "upstream_revision": "0acce6b2f390150267557770d2098c5caa9a18ac"
+}
