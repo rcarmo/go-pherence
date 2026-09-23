@@ -132,9 +132,15 @@ The 10,000-step maximum RSS moved from 96,640 KiB to 93,696 KiB. The final CPU p
 
 Evidence files are under `/workspace/tmp/pockettts-training-opt/`: `before.txt`, `after-definitive.txt`, CPU/memory profiles, allocation/in-use top reports and RSS logs. They are bounded external evidence and are not committed.
 
-## Frozen Mimi latent-cache interchange
+## Frozen Mimi raw-audio encoding and latent-cache interchange
 
-The pinned upstream contract is implemented without claiming a native raw-audio encoder:
+The native encoder covers the released SEANet stack, projected finite-context transformer and replicate-padded 16× downsampling. The independent pinned fixture uses 30,721 samples, 272 transformer rows and 17×32 output latents; native output matches upstream within `3e-5`. The same latents pass unchanged through the cache loader.
+
+`EncodeInto` processes at most 16 latent frames (30,720 samples and 256 transformer rows) per chunk while retaining convolution state and transformer K/V across chunks. Workspace setup for 375 frames allocates 91,912,120 bytes in 66 allocations. Reusing that workspace encodes 30 seconds in 4.29–4.77 seconds on an Intel i7-12700 with `GOMAXPROCS=1`, `GO_PHERENCE_DISABLE_NVIDIA=1`, zero bytes and zero allocations per warm call. The convenience path allocates 91,961,272 bytes in 67 allocations. CPU profiling attributes the work to the existing SGEMM/FMA kernels; no new SIMD kernel was added.
+
+Input, written output and workspace storage must be disjoint. The implementation detects aliases before reset or output mutation; tests cover input/output, input/workspace and output/workspace overlap. Checked capacity calculations use the largest intermediate tensor rather than the first convolution shape.
+
+The pinned upstream cache contract is also implemented:
 
 - `<source>_latents.jsonl` preserves each audio row and adds `latents_file`;
 - the exact relative shard path is `latents/<mimi_hash[:8]>/<source>_<index:08d>.safetensors`;
@@ -213,4 +219,4 @@ Wall times were `12.39 s` and `11.23 s`; external `/usr/bin/time -v` peak RSS wa
 
 Evidence is under `/workspace/tmp/pockettts-training-soak/` as `soak-v2-100000-run{1,2}.json` and `.log`; it is bounded external evidence and is not committed.
 
-The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission, released-format export, depth/CFG distillation and tiny-graph deterministic soak gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative released production-row profiling and long released-shape CPU training remain artifact-gated and open.
+The deterministic one-row F32 correctness, allocation optimisation, native raw-audio Mimi encoding, latent-cache interchange, production-shape admission, released-format export, depth/CFG distillation and tiny-graph deterministic soak gates are complete. Representative released production-row profiling and long released-shape CPU training remain open.

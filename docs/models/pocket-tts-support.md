@@ -33,13 +33,14 @@ Training uses a frozen Mimi codec, aligned transcript/audio manifests, optional 
 - Owned-F32 SIMD `SimpleMLPAdaLN` forward execution, including the upstream unbiased-variance time-embedding normalisation quirk.
 - Independent released-weight flow-head parity against a PyTorch 2.13 fixture with maximum accepted absolute error `2e-4`.
 - Stateful native Mimi latent projection, depthwise 16× resampling, two-layer finite-context transformer and SEANet decoder. A released first-latent fixture emits exactly 1,920 samples and matches the upstream waveform within `3e-5`.
+- Native frozen-Mimi raw-audio encoding covers the SEANet encoder, projected causal transformer and replicate-padded 16× downsampling. The pinned 30,721-sample fixture produces 17×32 latents within `3e-5` of upstream and loads through the frozen latent-cache boundary. `EncodeInto` uses bounded 16-frame chunks, rejects overlapping input, output and workspace storage before mutation, and performs zero warm heap allocations. On an Intel i7-12700, a 30-second input took 4.29–4.77 seconds after setup; the 375-frame workspace allocated 91,912,120 bytes in 66 allocations.
 - Autoregressive generation orchestration with caller-owned noise, EOS countdown, persistent FlowLM/Mimi state, exact 1,920-sample chunks and exclusive PCM16 mono WAV output. A released one-frame fixture validates voice-state → text → FlowLM → LSD → Mimi → PCM as one contract.
 - Session-owned `StepInto`, `DecodeFrameInto` and `GenerateInto` paths perform zero warm heap allocations. The measured Intel i7-12700 path emits the first 80 ms chunk in about 51–54 ms, 400 ms of audio in 143–147 ms, and 2 seconds in 398–427 ms. See [the validation record](../validation/pocket-tts-native-inference-2026-09-22.md).
 - `cmd/audio/pockettts` loads external config, model, tokenizer and voice-state files and writes a seeded WAV without Torch, ONNX Runtime, CGo model runtimes or Python subprocesses.
 
 ## Next inference slices
 
-1. Add raw-audio Mimi encoding for voice cloning after the gated bundle and an approved prompt fixture are available.
+1. Connect the released raw-audio Mimi encoder to a user-facing voice-cloning flow with prompt validation and end-to-end generated-audio parity.
 2. Run native ARM64 and RVV performance qualification; amd64 allocation and performance targets pass on the recorded i7-12700 host.
 
 ## Native training
@@ -65,8 +66,7 @@ See [the training validation record](../validation/pocket-tts-native-training-20
 
 The next slices are:
 
-1. run native frozen-Mimi raw-audio encoding after the encoder bundle/fixture is approved; until then consume upstream-generated caches through the completed interchange boundary;
-2. profile representative production cache rows under the completed shape-admission gate, then extend request-owned storage into arena-backed tapes and SIMD/batching only where the profile justifies it;
-3. representative released production-row profiling and long released-shape CPU qualification after approved artifacts are available. GPU training is a separate backend task.
+1. profile representative production cache rows under the completed shape-admission gate, then extend request-owned storage into arena-backed tapes and SIMD/batching only where the profile justifies it;
+2. run long released-shape CPU qualification. GPU training is a separate backend task.
 
-Preset-voice inference is complete for the pinned released artefacts. Raw-audio voice cloning needs the gated encoder bundle. Full native training is incomplete.
+Preset-voice inference and the reusable released raw-audio Mimi encoder are complete for the pinned artefacts. A user-facing voice-cloning flow still needs prompt validation and end-to-end generated-audio parity. Full native training is incomplete.

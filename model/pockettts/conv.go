@@ -55,10 +55,11 @@ func (c CausalConv1D) scratchFloats(length int) int {
 		return 0
 	}
 	extra := 0
-	if outLen > 256 {
+	if outLen >= 16 && (outLen > 256 || (c.In/groups)*c.Kernel > 4096) {
 		extra = (c.In / groups) * c.Kernel * 16
 	}
-	return c.In*(prev+length) + (c.In/groups)*c.Kernel*outLen + outLen + extra
+	tile := min(outLen, 256)
+	return c.In*(prev+length) + (c.In/groups)*c.Kernel*tile + tile + extra
 }
 
 // Forward is the allocating convenience API. Warm paths use ForwardInto.
@@ -103,54 +104,68 @@ func (c CausalConv1D) ForwardInto(out, input []float32, length int, state *Strea
 		copy(joined[ch*total+prev:(ch+1)*total], input[ch*length:(ch+1)*length])
 	}
 	k := inPerGroup * c.Kernel
-	columns, err := scratch.Take(k * outLen)
+	tileCapacity := min(outLen, 256)
+	columns, err := scratch.Take(k * tileCapacity)
 	if err != nil {
 		return err
 	}
-	ones, err := scratch.Take(outLen)
+	ones, err := scratch.Take(tileCapacity)
 	if err != nil {
 		return err
 	}
 	for i := range ones {
 		ones[i] = 1
 	}
+	var packedScratch []float32
+	if outLen >= 16 && (outLen > 256 || k > 4096) {
+		packedScratch, err = scratch.Take(k * 16)
+		if err != nil {
+			return err
+		}
+	}
 	outPerGroup := c.Out / groups
 	for group := 0; group < groups; group++ {
-		for icg := 0; icg < inPerGroup; icg++ {
-			ic := group*inPerGroup + icg
-			for tap := 0; tap < c.Kernel; tap++ {
-				row := columns[(icg*c.Kernel+tap)*outLen : (icg*c.Kernel+tap+1)*outLen]
-				for t := 0; t < outLen; t++ {
-					row[t] = joined[ic*total+t*c.Stride+tap*c.Dilation]
-				}
-			}
-		}
-		var packedScratch []float32
-		if outLen > 256 {
-			packedScratch, err = scratch.Take(k * 16)
-			if err != nil {
-				return err
-			}
-		}
-		for first := 0; first < outPerGroup; {
-			count := min(256, outPerGroup-first)
-			dst := out[(group*outPerGroup+first)*outLen : (group*outPerGroup+first+count)*outLen]
-			weights := c.Weight[(group*outPerGroup+first)*k : (group*outPerGroup+first+count)*k]
-			if outLen <= 256 && k <= 4096 {
-				if !simd.FMAMatrixF32Checked(dst, weights, columns, count, outLen, k) {
-					return fmt.Errorf("Pocket TTS causal conv SIMD matrix failed")
-				}
-			} else if !simd.SgemmNNPackedOverwriteTo(dst, weights, columns, packedScratch, count, outLen, k, k, outLen, outLen) {
-				return fmt.Errorf("Pocket TTS causal conv packed SGEMM failed")
-			}
-			if c.Bias != nil {
-				for row := 0; row < count; row++ {
-					if !simd.VecScaleAddTo(dst[row*outLen:(row+1)*outLen], dst[row*outLen:(row+1)*outLen], ones, c.Bias[group*outPerGroup+first+row]) {
-						return fmt.Errorf("Pocket TTS causal conv SIMD bias failed")
+		for tileStart := 0; tileStart < outLen; tileStart += tileCapacity {
+			tileWidth := min(tileCapacity, outLen-tileStart)
+			tileColumns := columns[:k*tileWidth]
+			for icg := 0; icg < inPerGroup; icg++ {
+				ic := group*inPerGroup + icg
+				for tap := 0; tap < c.Kernel; tap++ {
+					row := tileColumns[(icg*c.Kernel+tap)*tileWidth : (icg*c.Kernel+tap+1)*tileWidth]
+					for t := 0; t < tileWidth; t++ {
+						row[t] = joined[ic*total+(tileStart+t)*c.Stride+tap*c.Dilation]
 					}
 				}
 			}
-			first += count
+			for first := 0; first < outPerGroup; {
+				count := min(256, outPerGroup-first)
+				outputRow := group*outPerGroup + first
+				dst := out[outputRow*outLen+tileStart:]
+				weights := c.Weight[(group*outPerGroup+first)*k : (group*outPerGroup+first+count)*k]
+				if tileWidth < 16 {
+					for row := 0; row < count; row++ {
+						clear(dst[row*outLen : row*outLen+tileWidth])
+					}
+					if !simd.SgemmNNTo(dst, weights, tileColumns, count, tileWidth, k, 1, k, tileWidth, outLen) {
+						return fmt.Errorf("Pocket TTS causal conv narrow SGEMM failed")
+					}
+				} else if outLen <= 256 && k <= 4096 {
+					contiguous := dst[:count*tileWidth]
+					if !simd.FMAMatrixF32Checked(contiguous, weights, tileColumns, count, tileWidth, k) {
+						return fmt.Errorf("Pocket TTS causal conv SIMD matrix failed")
+					}
+				} else if !simd.SgemmNNPackedOverwriteTo(dst, weights, tileColumns, packedScratch, count, tileWidth, k, k, tileWidth, outLen) {
+					return fmt.Errorf("Pocket TTS causal conv packed SGEMM failed m=%d n=%d k=%d", count, tileWidth, k)
+				}
+				if c.Bias != nil {
+					for row := 0; row < count; row++ {
+						if !simd.VecScaleAddTo(dst[row*outLen:row*outLen+tileWidth], dst[row*outLen:row*outLen+tileWidth], ones[:tileWidth], c.Bias[outputRow+row]) {
+							return fmt.Errorf("Pocket TTS causal conv SIMD bias failed")
+						}
+					}
+				}
+				first += count
+			}
 		}
 	}
 	if prev > 0 {
