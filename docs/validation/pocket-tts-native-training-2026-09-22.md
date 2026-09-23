@@ -150,4 +150,20 @@ Stitching preserves upstream's cold-start correction. The loader freshly encodes
 
 The deterministic native writer was independently loaded with the pinned checkout's `safetensors.safe_open`: one `torch.float32` `latents` tensor, shape `[2,2]`, and exact values `[[1.25,-2.5],[3.75,4.0]]`. Repeated and race tests cover round-trip, short-target stitching, no-cut/null-boundary fallback, malformed metadata/path/dtype/shape/limits, post-admission replacement, non-finite data and failure non-publication.
 
-The deterministic one-row F32 correctness, initial allocation optimisation and latent-cache interchange gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Production-size shape admission/profiling, 24-layer teacher to six-layer depth/CFG distillation, released safetensors checkpoint export and long CPU training remain open.
+## Production-shape admission
+
+`PlanTrainingShape` is allocation-free and requires explicit target, prompt, text, total-sequence and resident-byte ceilings. The current exact native graph remains one row; effective batches are represented honestly through gradient accumulation, and a flow-batch multiplier other than one is rejected until native batching exists.
+
+The upstream defaults map to 375 target frames (30 s × 12.5 Hz, exact) and 62 prompt frames (`int(5 s × 12.5 Hz)`). With an explicit 512-token native text ceiling, the worst admitted released row is:
+
+- sequence rows: `1 + 62 + 512 + 375 = 950`;
+- exact trainables: `89,449,730` (`341.22 MiB` F32), including the tokenizer padding row and default normalized-LSD `2→32→32→32→1` weighting MLP;
+- parameters + equal-size gradients + two Adam moments + EMA: five parameter copies;
+- conservative current activation/tape ceiling: `1,870.05 MiB`;
+- conservative resident ceiling: `3,576.17 MiB` (`3.49 GiB`).
+
+The activation ceiling counts retained transformer tapes, dense `[heads,rows,rows]` attention probabilities, backward scratch, FlowLM/workspace buffers and simultaneous primal/dual flow-row tapes, then applies a 2× safety factor for short-lived clones and allocator rounding. It is an admission upper bound, not a measured RSS claim.
+
+A 24-layer teacher plan contains exactly `316,015,874` trainables and is admitted under an explicit 64 GiB ceiling. Every compound add/multiply is checked before use. `NewAdmittedTrainingWorkspace` binds a private plan snapshot and reruns execution-grade F32 topology/storage validation before allocation: vocabulary/embedding and BOS shapes, transformer heads/layers/FFN/layer scales, exactly two time embeddings, flow blocks/final projections, default weighting topology, forbidden biases/BF16 side storage and exact aggregate parameter elements. Mutating exported report fields cannot change allocation authority.
+
+The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange and production-shape admission gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling, 24-layer teacher to six-layer depth/CFG distillation, released safetensors checkpoint export and long CPU training remain open.
