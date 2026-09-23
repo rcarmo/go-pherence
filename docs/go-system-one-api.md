@@ -65,7 +65,7 @@ The [TypeSafe workload matrix](https://github.com/rcarmo/go-system-one/blob/efe3
 
 ## Port validation
 
-This API-only port is independent of the packed-runtime hand-off (#22). Its released-model test runs the existing serial NVIDIA scorer. The standalone source also tested 512-row packing; those standalone results below are not a performance claim for this port.
+This API-only port is independent of the packed-runtime hand-off (#25). Its released-model test runs the existing serial NVIDIA scorer. The standalone source also tested 512-row packing; those standalone results below are not a performance claim for this port.
 
 ## Contract and checks
 
