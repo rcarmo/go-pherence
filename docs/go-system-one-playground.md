@@ -1,6 +1,6 @@
 # Decision playground
 
-This UI review slice requires the `/v1/systemone` API hand-off in #23 before production use. Its browser tests use a synthetic fixture.
+This UI review slice requires the `/v1/systemone` API hand-off in #26 before production use. Its browser tests use a synthetic fixture.
 
 The embedded playground at `/go-system-one` submits requests to both inference routes on the same loopback service. It opens with **TypeSafe questions**; the API selector also offers the existing **Batch decisions** interface.
 
