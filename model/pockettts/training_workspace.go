@@ -2,6 +2,7 @@ package pockettts
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/rcarmo/go-pherence/internal/checked"
 )
@@ -23,6 +24,74 @@ type TrainingWorkspace struct {
 	xTime, desired         []float32
 	flowGradients          *FlowHeadGradients
 	discardFlowGradients   *FlowHeadGradients
+}
+
+// NewAdmittedTrainingWorkspace allocates only after PlanTrainingShape has
+// admitted this exact production row under an explicit resident-byte ceiling.
+func NewAdmittedTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, batch FlowLMTrainingBatch, plan TrainingShapePlan) (*TrainingWorkspace, error) {
+	a := plan.admission
+	if flowLM == nil || flowLM.Transformer == nil || flow == nil || weighting == nil || a.targetFrames <= 0 || batch.Frames != a.targetFrames || batch.VoiceFrames != a.voiceFrames || len(batch.TextTokens) != a.textTokens || flowLM.Hidden != a.hidden || flowLM.LatentDim != a.latent || flowLM.Vocabulary != a.vocabulary || len(flowLM.Embedding) != a.vocabulary*a.hidden || len(flowLM.BOS) != a.latent || len(flowLM.BOSBeforeVoice) != a.hidden || flowLM.Transformer.Heads != a.heads || len(flowLM.Transformer.Layers) != a.transformerLayers || len(flow.Time) != 2 || len(flow.Blocks) != a.flowDepth || flow.Input.In != a.latent || flow.Input.Out != a.flowDim || flow.Condition.In != a.hidden || flow.Condition.Out != a.flowDim || flow.Final.Linear.In != a.flowDim || flow.Final.Linear.Out != a.latent {
+		return nil, fmt.Errorf("Pocket TTS training batch does not match admitted shape")
+	}
+	for _, layer := range flowLM.Transformer.Layers {
+		hasScale := layer.LayerScale1 != nil || layer.LayerScale2 != nil
+		if layer.FC1.Out != a.feedForward || hasScale != a.layerScale || ((layer.LayerScale1 == nil) != (layer.LayerScale2 == nil)) {
+			return nil, fmt.Errorf("Pocket TTS training transformer does not match admitted shape")
+		}
+	}
+	for _, time := range flow.Time {
+		if time.FC1.In != 256 || time.FC1.Out != a.flowDim || time.FC2.In != a.flowDim || time.FC2.Out != a.flowDim || len(time.RMSWeight) != a.flowDim {
+			return nil, fmt.Errorf("Pocket TTS training time embedding does not match admitted shape")
+		}
+	}
+	for _, block := range flow.Blocks {
+		if block.FC1.In != a.flowDim || block.FC1.Out != a.flowDim || block.FC2.In != a.flowDim || block.FC2.Out != a.flowDim || block.Modulation.In != a.flowDim || block.Modulation.Out != 3*a.flowDim {
+			return nil, fmt.Errorf("Pocket TTS training flow block does not match admitted shape")
+		}
+	}
+	if err := validateOwnedTrainingLinear(flowLM.SpeakerProjection, false); err != nil {
+		return nil, err
+	}
+	if err := validateOwnedTrainingLinear(flowLM.Input, false); err != nil {
+		return nil, err
+	}
+	if err := validateOwnedTrainingLinear(flowLM.EOS, true); err != nil {
+		return nil, err
+	}
+	zeroSequence := make([]float32, a.hidden)
+	if err := validateTrainableTransformer(flowLM.Transformer, zeroSequence, zeroSequence, 1); err != nil {
+		return nil, err
+	}
+	if err := validateTrainableFlowHead(flow, make([]float32, a.hidden), make([]float32, 2), make([]float32, a.latent), make([]float32, a.latent)); err != nil {
+		return nil, err
+	}
+	wantWeighting := [4][2]int{{2, 32}, {32, 32}, {32, 32}, {32, 1}}
+	if len(weighting.Layers) != len(wantWeighting) {
+		return nil, fmt.Errorf("Pocket TTS training weighting does not match admitted shape")
+	}
+	for i, layer := range weighting.Layers {
+		if err := validateOwnedTrainingLinear(layer, true); err != nil {
+			return nil, err
+		}
+		if layer.In != wantWeighting[i][0] || layer.Out != wantWeighting[i][1] {
+			return nil, fmt.Errorf("Pocket TTS training weighting does not match admitted shape")
+		}
+	}
+	params, err := fullParameterMap(flowLM, flow, weighting)
+	if err != nil {
+		return nil, err
+	}
+	var elements int64
+	for _, values := range params {
+		if int64(len(values)) > math.MaxInt64-elements {
+			return nil, fmt.Errorf("Pocket TTS training parameter count overflows")
+		}
+		elements += int64(len(values))
+	}
+	if elements != a.parameterElements {
+		return nil, fmt.Errorf("Pocket TTS training parameters do not match admitted shape")
+	}
+	return NewTrainingWorkspace(flowLM, flow, batch)
 }
 
 func NewTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch FlowLMTrainingBatch) (*TrainingWorkspace, error) {

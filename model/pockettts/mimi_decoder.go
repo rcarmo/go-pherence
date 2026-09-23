@@ -40,6 +40,10 @@ type MimiDecoderState struct {
 }
 
 func loadCausalConv(src *safetensors.File, prefix string, in, out, kernel, stride, dilation int) (CausalConv1D, error) {
+	return loadCausalConvWithBias(src, prefix, in, out, kernel, stride, dilation, true)
+}
+
+func loadCausalConvWithBias(src *safetensors.File, prefix string, in, out, kernel, stride, dilation int, bias bool) (CausalConv1D, error) {
 	w, shape, err := src.GetFloat32(prefix + ".weight")
 	if err != nil {
 		return CausalConv1D{}, err
@@ -51,9 +55,12 @@ func loadCausalConv(src *safetensors.File, prefix string, in, out, kernel, strid
 	if !equalShape(shape, []int{out, inPer, kernel}) || !finiteF32(w) {
 		return CausalConv1D{}, fmt.Errorf("invalid Pocket TTS conv %s shape=%v", prefix, shape)
 	}
-	b, err := loadVectorF32(src, prefix+".bias", out)
-	if err != nil {
-		return CausalConv1D{}, err
+	var b []float32
+	if bias {
+		b, err = loadVectorF32(src, prefix+".bias", out)
+		if err != nil {
+			return CausalConv1D{}, err
+		}
 	}
 	return CausalConv1D{Weight: w, Bias: b, In: in, Out: out, Kernel: kernel, Stride: stride, Dilation: dilation}, nil
 }

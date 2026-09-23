@@ -132,4 +132,91 @@ The 10,000-step maximum RSS moved from 96,640 KiB to 93,696 KiB. The final CPU p
 
 Evidence files are under `/workspace/tmp/pockettts-training-opt/`: `before.txt`, `after-definitive.txt`, CPU/memory profiles, allocation/in-use top reports and RSS logs. They are bounded external evidence and are not committed.
 
-The deterministic one-row F32 correctness and initial allocation-optimisation gates are complete with dropout disabled and explicit sampled inputs. Frozen Mimi latent precomputation, 24-layer teacher to six-layer depth/CFG distillation, released safetensors export, production-size arena/SIMD qualification and long CPU training remain open.
+## Frozen Mimi raw-audio encoding and latent-cache interchange
+
+The native encoder covers the released SEANet stack, projected finite-context transformer and replicate-padded 16× downsampling. The independent pinned fixture uses 30,721 samples, 272 transformer rows and 17×32 output latents; native output matches upstream within `3e-5`. The same latents pass unchanged through the cache loader.
+
+`EncodeInto` processes at most 16 latent frames (30,720 samples and 256 transformer rows) per chunk while retaining convolution state and transformer K/V across chunks. Workspace setup for 375 frames allocates 91,912,120 bytes in 66 allocations. Reusing that workspace encodes 30 seconds in 4.29–4.77 seconds on an Intel i7-12700 with `GOMAXPROCS=1`, `GO_PHERENCE_DISABLE_NVIDIA=1`, zero bytes and zero allocations per warm call. The convenience path allocates 91,961,272 bytes in 67 allocations. CPU profiling attributes the work to the existing SGEMM/FMA kernels; no new SIMD kernel was added.
+
+Input, written output and workspace storage must be disjoint. The implementation detects aliases before reset or output mutation; tests cover input/output, input/workspace and output/workspace overlap. Checked capacity calculations use the largest intermediate tensor rather than the first convolution shape.
+
+The pinned upstream cache contract is also implemented:
+
+- `<source>_latents.jsonl` preserves each audio row and adds `latents_file`;
+- the exact relative shard path is `latents/<mimi_hash[:8]>/<source>_<index:08d>.safetensors`;
+- `<source>_latents.meta.json` contains `stitch_frames`, `noise_floor`, `frame_rate`, `weights_path` and the full SHA-256 `mimi_hash`;
+- each shard contains exactly one finite F32 tensor named `latents`, row-major `[frames,channels]`;
+- admission requires explicit row/frame/total-element ceilings, exact 12.5 Hz metadata and expected Mimi hash, real-path root confinement, checked arithmetic and a content digest retained in private immutable cache state;
+- each load rechecks dtype, shape and digest before returning owned F32 values;
+- native shard publication fsyncs the temporary file, atomically renames it and fsyncs the parent directory.
+
+Latent-mode manifest admission follows upstream rather than the stricter raw-audio split gate: at least one aligned word record is required, null boundary timestamps are allowed, and rows with no eligible one-second cut fall back to frame zero and the full transcript.
+
+Stitching preserves upstream's cold-start correction. The loader freshly encodes a fixed, zero-padded `stitch_frames` audio prefix at the selected cut, discards `min(stitch_frames,target_frames)` cached frames, appends the cached tail and uses `target_frames` as the valid-mask length. Therefore the physical tensor can be longer than its valid target when a target is shorter than the fixed overlap.
+
+The deterministic native writer was independently loaded with the pinned checkout's `safetensors.safe_open`: one `torch.float32` `latents` tensor, shape `[2,2]`, and exact values `[[1.25,-2.5],[3.75,4.0]]`. Repeated and race tests cover round-trip, short-target stitching, no-cut/null-boundary fallback, malformed metadata/path/dtype/shape/limits, post-admission replacement, non-finite data and failure non-publication.
+
+## Production-shape admission
+
+`PlanTrainingShape` is allocation-free and requires explicit target, prompt, text, total-sequence and resident-byte ceilings. The current exact native graph remains one row; effective batches are represented honestly through gradient accumulation, and a flow-batch multiplier other than one is rejected until native batching exists.
+
+The upstream defaults map to 375 target frames (30 s × 12.5 Hz, exact) and 62 prompt frames (`int(5 s × 12.5 Hz)`). With an explicit 512-token native text ceiling, the worst admitted released row is:
+
+- sequence rows: `1 + 62 + 512 + 375 = 950`;
+- exact trainables: `89,449,730` (`341.22 MiB` F32), including the tokenizer padding row and default normalized-LSD `2→32→32→32→1` weighting MLP;
+- parameters + equal-size gradients + two Adam moments + EMA: five parameter copies;
+- conservative current activation/tape ceiling: `1,870.05 MiB`;
+- conservative resident ceiling: `3,576.17 MiB` (`3.49 GiB`).
+
+The activation ceiling counts retained transformer tapes, dense `[heads,rows,rows]` attention probabilities, backward scratch, FlowLM/workspace buffers and simultaneous primal/dual flow-row tapes, then applies a 2× safety factor for short-lived clones and allocator rounding. It is an admission upper bound, not a measured RSS claim.
+
+A 24-layer teacher plan contains exactly `316,015,874` trainables and is admitted under an explicit 64 GiB ceiling. Every compound add/multiply is checked before use. `NewAdmittedTrainingWorkspace` binds a private plan snapshot and reruns execution-grade F32 topology/storage validation before allocation: vocabulary/embedding and BOS shapes, transformer heads/layers/FFN/layer scales, exactly two time embeddings, flow blocks/final projections, default weighting topology, forbidden biases/BF16 side storage and exact aggregate parameter elements. Mutating exported report fields cannot change allocation authority.
+
+## Released-format export
+
+`ExportPocketSafetensors` implements pinned `training/checkpointing.py::export_pocket_safetensors` semantics:
+
+- begin with the raw native FlowLM state, including mutable `emb_mean`/`emb_std` and fixed timestep-frequency buffers;
+- overlay only FlowLM parameter names present in the EMA shadow; untracked/frozen parameters retain raw values;
+- prefix every FlowLM key with `flow_lm.` and exclude the normalized-LSD training-only `flow.w_s_t` network;
+- emit two time conditions for LSD and one for FlowMatching;
+- append exactly the registered frozen Mimi module state under `mimi.*`, not arbitrary source-prefix tensors;
+- write every exported tensor as canonical F32, matching upstream's F32 FlowLM state and F32 Mimi module after loading source weights.
+
+The independent `mimi_state_shapes_pytorch.json` fixture was generated from `build_mimi(config.mimi).state_dict()` at the pinned revision. It freezes 87 released Mimi names/shapes and has SHA-256 `84d0460044d02598042e20b622f6964d5f47caaacd7d683e1f6324fdcba62994`. Native topology-derived inventory matches it exactly. Missing or extra Mimi entries, wrong shapes/dtypes, non-finite values, unsupported FlowLM topology and absent requested EMA are rejected before publication.
+
+The safetensors header and payload are lexical and deterministic. The existing destination directory is synced before temporary-file creation; the complete file is flushed, file-synced and atomically renamed; the directory is synced again. Ordinary errors are pre-publication and destination-preserving. If the rename succeeds but the final sync fails, the typed `PocketExportPublishedError` identifies the complete published path while reporting durability uncertainty. An independent upstream `safetensors.safe_open` check loaded the full synthetic export: 55 tiny FlowLM + 67 tiny-config Mimi tensors, partial-EMA values, live buffers, F32-widened Mimi data and no `w_s_t`.
+
+## Depth and CFG distillation
+
+`DepthDistillForwardBackward` follows the pinned `TrainableTTS.forward` distillation branch for one native row:
+
+1. run the student on the fully conditioned sequence;
+2. run the frozen teacher on the same full condition;
+3. run the teacher force-null with no voice or text rows (`[bos_before_voice,audio]`);
+4. form `target = z_null + cfg_coef * (z_conditioned - z_null)` under stop-gradient;
+5. compute hidden-dimension mean-squared error per frame, then mean over `shifted_mask = [mask[0],mask[:-1]]`;
+6. backpropagate only through the student conditioning/backbone.
+
+The independent `depth_distill_pytorch.json` fixture calls the pinned conditioner and transformer modules directly with a one-layer student, two-layer teacher, CFG coefficient `2.0` and original mask `[true,false,false]` (shifted `[true,true,false]`). SHA-256 is `c39e8cb65d7a0b2ce0acde845029acfbc5919a4da57ff374ba4a3e945228d856`. Native loss, student output, conditioned/null teacher outputs, guidance target, audio/voice input gradients and every active student parameter gradient match within `3e-5`; EOS gradients are exactly zero.
+
+Teacher seeding implements upstream's champion `ends` selection. `24→6` retains layers `[0,1,2,21,22,23]`, remaps them to `[0…5]`, copies every non-layer tensor unchanged and owns all copied values. Multi-digit indices and malformed/overflowing state names are covered.
+
+`DistillTrainer` registers only text embedding, BOS values, speaker/input projections, transformer and final norm. EOS, flow head and `w_s_t` are absent from AdamW moments, weight decay and EMA, so teacher-calibrated heads remain byte-for-byte unchanged. Step validation is transactional; the active gradient subset is copied before mutation to handle hostile parameter aliases. Trainer/student pointers and layer topology are immutable, while same-model same-shape slice rebinding follows live values rather than stale arrays.
+
+## Deterministic tiny-graph CPU soak
+
+The opt-in `TestPocketTrainingDeterministicTinySoak` qualifies checkpoint/resume and retained-memory behavior on the complete exact **tiny** graph. It does not claim released-shape performance or memory qualification.
+
+Two independent 100,000-step-per-run executions passed under `GOMAXPROCS=1` and CPU-only mode. Each test executed 200,000 complete updates: one uninterrupted run and one run that repeatedly replaced and reloaded the same checkpoint path every 10,000 steps. Explicit noise and all sampled times varied deterministically by step. At every boundary, resumed state matched uninterrupted state before save and after reload.
+
+Both executions produced identical hashes:
+
+- final logical state SHA-256: `a30108f97e6be944ec8cc881ebdfe70d7afd3576feb441e985585260da601344`;
+- final checkpoint-file SHA-256: `9682dfb99b55015d03a6a51135c92945f5aa50735cb74943c8c50551b295ec7c`.
+
+Wall times were `12.39 s` and `11.23 s`; external `/usr/bin/time -v` peak RSS was `98,048 KiB` and `97,408 KiB`. Separate continuous/resumed post-GC heap series include step zero. Every sampled boundary remains within 8 MiB for `HeapAlloc`/`HeapInuse` and 10,000 objects of its run baseline. This supports the narrow claim that no large retained-heap growth appeared during these tiny-graph runs; it does not measure transient peaks inside an update. The established warm allocation gates are rechecked in the same executable (`≤720` forward/backward allocations and zero optimizer allocations).
+
+Evidence is under `/workspace/tmp/pockettts-training-soak/` as `soak-v2-100000-run{1,2}.json` and `.log`; it is bounded external evidence and is not committed.
+
+The deterministic one-row F32 correctness, allocation optimisation, native raw-audio Mimi encoding, latent-cache interchange, production-shape admission, released-format export, depth/CFG distillation and tiny-graph deterministic soak gates are complete. Representative released production-row profiling and long released-shape CPU training remain open.

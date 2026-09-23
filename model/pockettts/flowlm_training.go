@@ -80,7 +80,11 @@ type flowLMTrainingTape struct {
 }
 
 func (m *FlowLMTrainingCPU) forwardTrainingTape(batch FlowLMTrainingBatch, dZ, dEOS []float32) (*flowLMTrainingTape, error) {
-	rows, prefix, err := m.validate(batch, dZ, dEOS)
+	return m.forwardTrainingTapeMode(batch, dZ, dEOS, false)
+}
+
+func (m *FlowLMTrainingCPU) forwardTrainingTapeMode(batch FlowLMTrainingBatch, dZ, dEOS []float32, allowEmptyText bool) (*flowLMTrainingTape, error) {
+	rows, prefix, err := m.validateMode(batch, dZ, dEOS, allowEmptyText)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +171,11 @@ func (m *FlowLMTrainingCPU) backwardTrainingTape(tape *flowLMTrainingTape, batch
 }
 
 func (m *FlowLMTrainingCPU) validate(batch FlowLMTrainingBatch, dZ, dEOS []float32) (rows, prefix int, err error) {
-	if m == nil || m.Hidden <= 0 || m.LatentDim <= 0 || m.Vocabulary <= 0 || batch.Frames <= 0 || batch.VoiceFrames < 0 || len(batch.TextTokens) == 0 || m.Transformer == nil {
+	return m.validateMode(batch, dZ, dEOS, false)
+}
+
+func (m *FlowLMTrainingCPU) validateMode(batch FlowLMTrainingBatch, dZ, dEOS []float32, allowEmptyText bool) (rows, prefix int, err error) {
+	if m == nil || m.Hidden <= 0 || m.LatentDim <= 0 || m.Vocabulary <= 0 || batch.Frames <= 0 || batch.VoiceFrames < 0 || (!allowEmptyText && len(batch.TextTokens) == 0) || m.Transformer == nil {
 		return 0, 0, fmt.Errorf("invalid Pocket TTS FlowLM training boundary")
 	}
 	embeddingElements, ok := checked.MulInt(m.Vocabulary, m.Hidden)
