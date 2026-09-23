@@ -93,6 +93,39 @@ func TestBrowserServer(t *testing.T) {
 		}
 		fmt.Fprint(w, "data: {\"id\":\"fixture\",\"model\":\"fixture-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
 	})})
+	mux.HandleFunc("/v1/systemone", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			State     json.RawMessage `json:"state"`
+			Questions map[string]struct {
+				Type string `json:"type"`
+			} `json:"questions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.State) == 0 || len(body.Questions) == 0 {
+			http.Error(w, "bad fixture input", http.StatusBadRequest)
+			return
+		}
+		answers := make(map[string]any)
+		for name, q := range body.Questions {
+			switch q.Type {
+			case "noul":
+				answers[name] = map[string]any{"type": "noul", "noul": .875}
+			case "choice":
+				answers[name] = map[string]any{"type": "choice", "choice": "operations", "confidence": .70, "probabilities": map[string]float64{"operations": .85, "billing": .15}}
+			case "score":
+				answers[name] = map[string]any{"type": "score", "score": 1.30, "confidence": .65, "probabilities": map[string]float64{"0": .20, "1": .30, "2": .50}, "legend": map[string]string{"0": "Routine request", "1": "Degraded service", "2": "Total outage"}}
+			default:
+				http.Error(w, "unsupported fixture question", http.StatusBadRequest)
+				return
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "fixture-model", "answers": answers, "usage": map[string]int{"input_tokens": 176, "output_tokens": 120}})
+	})
 	listener, err := net.Listen("tcp", "127.0.0.1:18181")
 	if err != nil {
 		t.Fatal(err)

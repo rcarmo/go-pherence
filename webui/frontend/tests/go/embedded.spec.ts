@@ -7,6 +7,7 @@ test('Go System One playground submits a bounded decision request', async ({ pag
 	await page.goto('/go-system-one');
 	await expect(page.getByRole('heading', { name: 'Decision playground', exact: true })).toBeVisible();
 	await expect(page.locator('#status')).toContainText('ready');
+	await page.locator('#api').selectOption('decision');
 	await page.getByRole('button', { name: 'Run decision' }).click();
 	await expect(page.locator('.decision').first()).toContainText('"urgent": true');
 	const firstContext = page.locator('.card').first();
@@ -48,6 +49,7 @@ test('Go System One playground submits a bounded decision request', async ({ pag
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.emulateMedia({ colorScheme: 'dark' });
 	await page.goto('/go-system-one');
+	await page.locator('#api').selectOption('decision');
 	await page.getByRole('button', { name: 'Run decision' }).click();
 	await expect(page.locator('.decision').first()).toContainText('"urgent": true');
 	await expect(page.locator('.card').first().locator('.candidate')).toHaveCount(5);

@@ -11,8 +11,8 @@ import (
 //go:embed go-system-one/index.html
 var goSystemOneFiles embed.FS
 
-// GoSystemOneConfig describes the independently authored decision playground. The
-// decision handler remains the only inference API and is registered separately.
+// GoSystemOneConfig describes the standalone playground. The decision and
+// System One inference handlers share admission and are registered separately.
 type GoSystemOneConfig struct {
 	ModelID       string
 	Backend       string
