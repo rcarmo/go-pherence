@@ -181,4 +181,21 @@ The independent `mimi_state_shapes_pytorch.json` fixture was generated from `bui
 
 The safetensors header and payload are lexical and deterministic. The existing destination directory is synced before temporary-file creation; the complete file is flushed, file-synced and atomically renamed; the directory is synced again. Ordinary errors are pre-publication and destination-preserving. If the rename succeeds but the final sync fails, the typed `PocketExportPublishedError` identifies the complete published path while reporting durability uncertainty. An independent upstream `safetensors.safe_open` check loaded the full synthetic export: 55 tiny FlowLM + 67 tiny-config Mimi tensors, partial-EMA values, live buffers, F32-widened Mimi data and no `w_s_t`.
 
-The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission and released-format export gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling, 24-layer teacher to six-layer depth/CFG distillation and long CPU training remain open.
+## Depth and CFG distillation
+
+`DepthDistillForwardBackward` follows the pinned `TrainableTTS.forward` distillation branch for one native row:
+
+1. run the student on the fully conditioned sequence;
+2. run the frozen teacher on the same full condition;
+3. run the teacher force-null with no voice or text rows (`[bos_before_voice,audio]`);
+4. form `target = z_null + cfg_coef * (z_conditioned - z_null)` under stop-gradient;
+5. compute hidden-dimension mean-squared error per frame, then mean over `shifted_mask = [mask[0],mask[:-1]]`;
+6. backpropagate only through the student conditioning/backbone.
+
+The independent `depth_distill_pytorch.json` fixture calls the pinned conditioner and transformer modules directly with a one-layer student, two-layer teacher, CFG coefficient `2.0` and original mask `[true,false,false]` (shifted `[true,true,false]`). SHA-256 is `c39e8cb65d7a0b2ce0acde845029acfbc5919a4da57ff374ba4a3e945228d856`. Native loss, student output, conditioned/null teacher outputs, guidance target, audio/voice input gradients and every active student parameter gradient match within `3e-5`; EOS gradients are exactly zero.
+
+Teacher seeding implements upstream's champion `ends` selection. `24→6` retains layers `[0,1,2,21,22,23]`, remaps them to `[0…5]`, copies every non-layer tensor unchanged and owns all copied values. Multi-digit indices and malformed/overflowing state names are covered.
+
+`DistillTrainer` registers only text embedding, BOS values, speaker/input projections, transformer and final norm. EOS, flow head and `w_s_t` are absent from AdamW moments, weight decay and EMA, so teacher-calibrated heads remain byte-for-byte unchanged. Step validation is transactional; the active gradient subset is copied before mutation to handle hostile parameter aliases. Trainer/student pointers and layer topology are immutable, while same-model same-shape slice rebinding follows live values rather than stale arrays.
+
+The deterministic one-row F32 correctness, allocation optimisation, latent-cache interchange, production-shape admission, released-format export and depth/CFG distillation gates are complete. Native raw-audio Mimi encoding still requires the approved encoder bundle/fixture. Representative production-row profiling and long CPU training remain open.
