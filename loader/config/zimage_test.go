@@ -18,6 +18,14 @@ func TestReadZImageTurboConfig(t *testing.T) {
 		t.Fatalf("unexpected text summary: %+v", s)
 	}
 	if s.RuntimeReady {
-		t.Fatalf("Z-Image runtime should be inspection-only until DiT/VAE generation is implemented")
+		t.Fatalf("Z-Image runtime must remain unready until DiT/VAE generation is implemented")
+	}
+	if cfg.VAE.LatentChannels != 16 || cfg.VAE.ScalingFactor != 0.3611 || cfg.VAE.ShiftFactor != 0.1159 || len(cfg.VAE.BlockOutChannels) != 4 {
+		t.Fatalf("unexpected pinned VAE boundary: %+v", cfg.VAE)
+	}
+	for i, want := range []int{128, 256, 512, 512} {
+		if cfg.VAE.BlockOutChannels[i] != want {
+			t.Fatalf("VAE block %d=%d want=%d", i, cfg.VAE.BlockOutChannels[i], want)
+		}
 	}
 }
