@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/rcarmo/go-pherence/loader/weights"
@@ -85,21 +84,7 @@ func TestReleasedMoJevHead(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer src.Close()
-	get := func(name string, shape []int) []float32 {
-		v, dims, err := src.GetFloat32(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(dims, shape) {
-			t.Fatalf("%s shape %v want %v", name, dims, shape)
-		}
-		return v
-	}
-	gamma := get("norm.weight", []int{1024})
-	beta := get("norm.bias", []int{1024})
-	context := get("context_proj.weight", []int{512, 1024})
-	option := get("option_proj.weight", []int{512, 1024})
-	head, err := NewHeadWeights(1024, 512, gamma, beta, context, option)
+	head, err := LoadHead(src, 1024, 512)
 	if err != nil {
 		t.Fatal(err)
 	}
