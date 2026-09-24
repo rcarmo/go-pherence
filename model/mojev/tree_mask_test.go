@@ -186,4 +186,7 @@ func TestTreeMaskRejectsMalformed(t *testing.T) {
 	if !state[0] || !question[0][1] || !candidate[0][0][2] {
 		t.Fatal("returned matrix aliases caller spans")
 	}
+	if !got[1][0] || cap(got[0]) != len(got[0]) {
+		t.Fatal("mask rows must not expose or alias adjacent rows")
+	}
 }
