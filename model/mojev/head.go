@@ -64,49 +64,53 @@ func (h *HeadWeights) ScoreHidden(hidden []float32, state []bool, questions [][]
 	}
 	// Keep all intermediate F32 rows request-local. The SIMD operation has a
 	// checked Go fallback, while the readout stays independent of the encoder.
-	normed := make([]float32, len(hidden))
-	if !simd.LayerNormLastAxisTo(normed, hidden, length, h.Width, h.NormWeight, h.NormBias, 1e-5) {
-		return nil, fmt.Errorf("mojev: LayerNorm rejected validated input")
-	}
-	pool := func(span []bool) []float32 {
-		mean := make([]float32, h.Width)
+	// Pool one span at a time. Each span has a unique owner, so the same
+	// hidden row never needs LayerNorm twice. Padding contributes nothing.
+	row := make([]float32, h.Width)
+	pool := func(dst []float32, span []bool) error {
+		clear(dst)
 		count := float32(0)
 		for pos, active := range span {
 			if !active {
 				continue
 			}
+			if !simd.LayerNormLastAxisTo(row, hidden[pos*h.Width:(pos+1)*h.Width], 1, h.Width, h.NormWeight, h.NormBias, 1e-5) {
+				return fmt.Errorf("mojev: LayerNorm rejected validated input")
+			}
 			count++
-			for j, v := range normed[pos*h.Width : (pos+1)*h.Width] {
-				mean[j] += v
+			for j, v := range row {
+				dst[j] += v
 			}
 		}
 		if count > 0 {
-			for j := range mean {
-				mean[j] /= count
+			for j := range dst {
+				dst[j] /= count
 			}
 		}
-		return mean
+		return nil
 	}
-	project := func(input, weights []float32) []float32 {
-		out := make([]float32, h.Rank)
-		for r := range out {
-			for j, v := range input {
-				out[r] += weights[r*h.Width+j] * v
-			}
-		}
-		return out
+	mean := make([]float32, h.Width)
+	context, question, key := make([]float32, h.Rank), make([]float32, h.Rank), make([]float32, h.Rank)
+	if err := pool(mean, state); err != nil {
+		return nil, err
 	}
-	context := project(pool(state), h.ContextProjection)
+	simd.GemvRows(context, mean, h.ContextProjection, h.Rank, h.Width)
 	logits := make([][]float32, len(questions))
 	for f, q := range questions {
-		question := project(pool(q), h.ContextProjection)
+		if err := pool(mean, q); err != nil {
+			return nil, err
+		}
+		simd.GemvRows(question, mean, h.ContextProjection, h.Rank, h.Width)
 		logits[f] = make([]float32, len(candidates[f]))
 		for n, c := range candidates[f] {
 			if !optionMask[f][n] {
 				logits[f][n] = -math.MaxFloat32
 				continue
 			}
-			key := project(pool(c), h.OptionProjection)
+			if err := pool(mean, c); err != nil {
+				return nil, err
+			}
+			simd.GemvRows(key, mean, h.OptionProjection, h.Rank, h.Width)
 			var dot float32
 			for r, v := range key {
 				dot += (context[r] + question[r]) * v
