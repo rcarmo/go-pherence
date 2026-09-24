@@ -251,4 +251,4 @@ GOTMPDIR=$PWD/.gotmp go vet ./...
 
 ## Immediate next action
 
-Keep the capped CustomVoice CPU path behind released-checkpoint gates. Profile before each optimisation: the decoder causal convolution dominates CPU time, while request-local Talker and CodePredictor scratch reduce allocation volume without a supported latency improvement. Do not infer intelligible speech or natural EOS from the short greedy fixtures.
+Keep the capped CustomVoice CPU path behind released-checkpoint gates. Profile before each optimisation: the decoder causal convolution dominates CPU time, while request-local Talker and CodePredictor scratch reduce allocation volume without a supported latency improvement. Do not infer intelligible speech or natural EOS from the short greedy fixtures. A separate pinned Rust/Candle `Hi` seed-42 CPU probe, bounded at 64 steps, sampled natural EOS at step 46 after 46 complete acoustic frames; see [the validation record](../validation/qwen3-tts-sixteen-frame-20260923.md). Go remains capped at 32 frames and has not reproduced that EOS stop. Three labelled listening WAVs are available for human review, but no intelligibility or quality pass is recorded.

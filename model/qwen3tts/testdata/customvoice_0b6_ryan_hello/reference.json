@@ -152,5 +152,13 @@
   "hi_32_eos_probe_frames": 32,
   "hi_32_eos_probe_seed": 42,
   "hi_32_eos_probe_eos_observed": false,
-  "hi_32_go_waveform_max_abs_threshold": 1.6e-06
+  "hi_32_go_waveform_max_abs_threshold": 1.6e-06,
+  "hi_64_eos_probe_script_sha256": "adcfca5bc31f171391683e7ce46dc21a3cbe59bd0dc32c79d7620fdb836bf5ec",
+  "hi_64_eos_probe_codes_sha256": "076cd7e828d71c652aae38471928e7f111c6b5334e746e9bc9a09610b23bd449",
+  "hi_64_eos_probe_observation_sha256": "e70f88327ec25195db3e3b6db765c9138029c860d255f4ae90ae0f201da2f6a1",
+  "hi_64_eos_probe_waveform_sha256": "8011f727acf104e24e606b5aea4f3881bf55e1d5d575dd5063586a72dce33da2",
+  "hi_64_eos_probe_cap": 64,
+  "hi_64_eos_probe_frames": 46,
+  "hi_64_eos_probe_eos_step": 46,
+  "hi_64_eos_probe_seed": 42
 }
