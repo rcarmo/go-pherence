@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "oracle_repo": "featherless-ai/simple-jev",
+  "oracle_revision": "b02aa81c915a8193759b3cd33fef74721d6e005b",
+  "scoring_sha256": "b1b1303ace5218fb40904e7aaf5a1ad01aa3d072c30678d45e921bb0e8613dfa",
+  "branches": [
+    {
+      "branch": "0",
+      "question": "pick",
+      "labels": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "branch": "1",
+      "question": "rating",
+      "labels": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "branch": "2",
+      "question": "binary",
+      "labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "name": "unequal",
+      "logits": [
+        [
+          0,
+          2,
+          -1
+        ],
+        [
+          -1,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      ],
+      "choice": {
+        "id": "beta",
+        "probabilities": [
+          0.11419519782066345,
+          0.8437947034835815,
+          0.04201006516814232
+        ]
+      },
+      "score": {
+        "value": 2.544210910797119,
+        "probabilities": [
+          0.012037643231451511,
+          0.08894681185483932,
+          0.24178250133991241,
+          0.6572329998016357
+        ]
+      },
+      "noul": {
+        "value": 0.9188438153266906
+      }
+    },
+    {
+      "name": "tie",
+      "logits": [
+        [
+          3,
+          3,
+          -2
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "choice": {
+        "id": "alpha",
+        "probabilities": [
+          0.49832117557525635,
+          0.49832117557525635,
+          0.003357661422342062
+        ]
+      },
+      "score": {
+        "value": 1.5,
+        "probabilities": [
+          0.25,
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "noul": {
+        "value": 0.5
+      }
+    },
+    {
+      "name": "extreme",
+      "logits": [
+        [
+          -1000,
+          1000,
+          0
+        ],
+        [
+          1000,
+          -1000,
+          0,
+          -1000
+        ],
+        [
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          1000
+        ]
+      ],
+      "choice": {
+        "id": "beta",
+        "probabilities": [
+          0.0,
+          1.0,
+          0.0
+        ]
+      },
+      "score": {
+        "value": 0.0,
+        "probabilities": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "noul": {
+        "value": 0.99
+      }
+    }
+  ],
+  "rejected": {
+    "missing_label": "ValueError",
+    "extra_branch": "ValueError",
+    "nonfinite": "ValueError"
+  }
+}
