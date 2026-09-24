@@ -1,5 +1,23 @@
 # Speech commands
 
+## Qwen3-TTS two-frame CPU probe
+
+`cmd/audio/qwen3tts-twoframe` runs the pinned 0.6B CustomVoice Ryan/English
+`Hello world` parity case in native Go and writes a new 24 kHz mono PCM16 WAV.
+It hashes both the Talker checkpoint and speech tokenizer before reading tensor
+payloads, refuses a different model, and never overwrites an output file.
+
+```sh
+go run ./cmd/audio/qwen3tts-twoframe \
+  -model-dir /path/to/Qwen3-TTS-12Hz-0.6B-CustomVoice \
+  -out /path/to/two-frame.wav
+```
+
+The output is exactly two frames (3,840 samples, 160 ms). This fixed CPU
+probe is not general text-to-speech or evidence of intelligible speech. See
+[Qwen3-TTS support](../models/qwen3-tts-support.md) for the released-model
+oracle and remaining gates.
+
 [Command index](commands.md) | [Runtime tuning](tuning.md)
 
 ## `moss-transcribe` — native transcription and diarization

@@ -18,7 +18,7 @@ type Decoder12HzConfig struct {
 }
 
 func DefaultDecoder12HzConfig() Decoder12HzConfig {
-	return Decoder12HzConfig{CodebookDim: 256, LatentDim: 1024, HiddenSize: 1024, Layers: 8, Heads: 16, HeadDim: 64, IntermediateSize: 1024, Quantizers: 16, CodebookSize: 2048, DecoderDim: 1536, PreUpsampleRates: []int{2, 2}, DecoderUpsampleRates: []int{8, 5, 4, 3}, RMSNormEps: 1e-5, RoPETheta: 10000}
+	return Decoder12HzConfig{CodebookDim: 256, LatentDim: 1024, HiddenSize: 512, Layers: 8, Heads: 16, HeadDim: 64, IntermediateSize: 1024, Quantizers: 16, CodebookSize: 2048, DecoderDim: 1536, PreUpsampleRates: []int{2, 2}, DecoderUpsampleRates: []int{8, 5, 4, 3}, RMSNormEps: 1e-5, RoPETheta: 10000}
 }
 
 func tinyDecoder12HzConfig() Decoder12HzConfig {
@@ -26,7 +26,7 @@ func tinyDecoder12HzConfig() Decoder12HzConfig {
 }
 
 func (c Decoder12HzConfig) SamplesPerFrame() (int, error) {
-	if c.CodebookDim <= 0 || c.LatentDim <= 0 || c.HiddenSize != c.Heads*c.HeadDim || c.Layers <= 0 || c.IntermediateSize <= 0 || c.Quantizers != 16 || c.CodebookSize != 2048 || c.DecoderDim <= 0 || c.RMSNormEps <= 0 || c.RoPETheta <= 0 || len(c.PreUpsampleRates) != 2 || len(c.DecoderUpsampleRates) != 4 {
+	if c.CodebookDim <= 0 || c.LatentDim <= 0 || c.HiddenSize <= 0 || c.Heads <= 0 || c.HeadDim <= 0 || sizeProduct(c.Heads, c.HeadDim) <= 0 || c.Layers <= 0 || c.IntermediateSize <= 0 || c.Quantizers != 16 || c.CodebookSize != 2048 || c.DecoderDim <= 0 || c.RMSNormEps <= 0 || c.RoPETheta <= 0 || len(c.PreUpsampleRates) != 2 || len(c.DecoderUpsampleRates) != 4 {
 		return 0, fmt.Errorf("invalid Qwen3-TTS Decoder12Hz topology: %+v", c)
 	}
 	factor := 1
@@ -146,6 +146,7 @@ func LoadDecoder12HzCPU(src Float32TensorSource, cfg Decoder12HzConfig) (*Decode
 	if m.outputProjection, err = loadTalkerLinearOwned(src, "decoder.pre_transformer.output_proj", cfg.HiddenSize, cfg.LatentDim, true); err != nil {
 		return nil, err
 	}
+	attentionWidth := cfg.Heads * cfg.HeadDim
 	for i := range m.layers {
 		p := fmt.Sprintf("decoder.pre_transformer.layers.%d", i)
 		l := &m.layers[i]
@@ -161,16 +162,16 @@ func LoadDecoder12HzCPU(src Float32TensorSource, cfg Decoder12HzConfig) (*Decode
 		if l.mlpScale, err = loadDecoderTensor(src, p+".mlp_layer_scale.scale", []int{cfg.HiddenSize}); err != nil {
 			return nil, err
 		}
-		if l.q, err = loadTalkerLinearOwned(src, p+".self_attn.q_proj", cfg.HiddenSize, cfg.HiddenSize, false); err != nil {
+		if l.q, err = loadTalkerLinearOwned(src, p+".self_attn.q_proj", cfg.HiddenSize, attentionWidth, false); err != nil {
 			return nil, err
 		}
-		if l.k, err = loadTalkerLinearOwned(src, p+".self_attn.k_proj", cfg.HiddenSize, cfg.HiddenSize, false); err != nil {
+		if l.k, err = loadTalkerLinearOwned(src, p+".self_attn.k_proj", cfg.HiddenSize, attentionWidth, false); err != nil {
 			return nil, err
 		}
-		if l.v, err = loadTalkerLinearOwned(src, p+".self_attn.v_proj", cfg.HiddenSize, cfg.HiddenSize, false); err != nil {
+		if l.v, err = loadTalkerLinearOwned(src, p+".self_attn.v_proj", cfg.HiddenSize, attentionWidth, false); err != nil {
 			return nil, err
 		}
-		if l.out, err = loadTalkerLinearOwned(src, p+".self_attn.o_proj", cfg.HiddenSize, cfg.HiddenSize, false); err != nil {
+		if l.out, err = loadTalkerLinearOwned(src, p+".self_attn.o_proj", attentionWidth, cfg.HiddenSize, false); err != nil {
 			return nil, err
 		}
 		if l.gate, err = loadTalkerLinearOwned(src, p+".mlp.gate_proj", cfg.HiddenSize, cfg.IntermediateSize, false); err != nil {
@@ -190,7 +191,7 @@ func LoadDecoder12HzCPU(src Float32TensorSource, cfg Decoder12HzConfig) (*Decode
 	for i, rate := range cfg.PreUpsampleRates {
 		p := fmt.Sprintf("decoder.upsample.%d", i)
 		stage := &m.preUpsample[i]
-		if stage.trans, err = loadDecoderTransConvDynamic(src, p+".0.conv", channels, 2*rate, rate); err != nil {
+		if stage.trans, err = loadDecoderTransConvDynamic(src, p+".0.conv", channels, rate, rate); err != nil {
 			return nil, err
 		}
 		channels = stage.trans.outChannels

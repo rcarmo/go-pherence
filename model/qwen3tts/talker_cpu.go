@@ -347,20 +347,52 @@ func (m *TalkerCPU) forwardInputs(inputs []float32, seqLen int) ([]float32, erro
 	return current, nil
 }
 
+// talkerLayerScratch belongs to one request and one layer. Its output is a
+// borrowed row, valid only until this layer's next forwardWithScratch call.
+// The public prefill and CodePredictor still use the owned reference path.
+type talkerLayerScratch struct {
+	normed, q, k, v, attention, scores, projected, residual, mlpInput, gate, up, down, out []float32
+}
+
+func newTalkerLayerScratch(cfg ParsedConfig, positions int) talkerLayerScratch {
+	h := cfg.TalkerHiddenSize
+	q := cfg.TalkerNumAttentionHeads * cfg.TalkerHeadDim
+	kv := cfg.TalkerNumKeyValueHeads * cfg.TalkerHeadDim
+	return talkerLayerScratch{
+		normed: make([]float32, h), q: make([]float32, q), k: make([]float32, kv), v: make([]float32, kv),
+		attention: make([]float32, q), scores: make([]float32, positions), projected: make([]float32, h),
+		residual: make([]float32, h), mlpInput: make([]float32, h), gate: make([]float32, cfg.TalkerIntermediateSize),
+		up: make([]float32, cfg.TalkerIntermediateSize), down: make([]float32, h), out: make([]float32, h),
+	}
+}
+
 func (l *talkerCPULayer) forward(input, pastK, pastV []float32, pos int, rope []float32, cfg ParsedConfig) ([]float32, []float32, []float32, error) {
+	return l.forwardWithScratch(input, pastK, pastV, pos, rope, cfg, nil)
+}
+
+func (l *talkerCPULayer) forwardWithScratch(input, pastK, pastV []float32, pos int, rope []float32, cfg ParsedConfig, scratch *talkerLayerScratch) ([]float32, []float32, []float32, error) {
 	h := cfg.TalkerHiddenSize
 	queryWidth := cfg.TalkerNumAttentionHeads * cfg.TalkerHeadDim
 	kvWidth := cfg.TalkerNumKeyValueHeads * cfg.TalkerHeadDim
 	if len(input) != h {
 		return nil, nil, nil, fmt.Errorf("input=%d want %d", len(input), h)
 	}
-	normed := append([]float32(nil), input...)
+	var normed []float32
+	if scratch == nil {
+		normed = append([]float32(nil), input...)
+	} else {
+		normed = scratch.normed
+		copy(normed, input)
+	}
 	if !simd.RMSNormTo(normed, l.inputNorm, float32(cfg.TalkerRMSNormEps)) {
 		return nil, nil, nil, fmt.Errorf("input RMSNorm failed")
 	}
-	q := make([]float32, queryWidth)
-	k := make([]float32, kvWidth)
-	v := make([]float32, kvWidth)
+	var q, k, v []float32
+	if scratch == nil {
+		q, k, v = make([]float32, queryWidth), make([]float32, kvWidth), make([]float32, kvWidth)
+	} else {
+		q, k, v = scratch.q, scratch.k, scratch.v
+	}
 	if err := l.q.forward(q, normed); err != nil {
 		return nil, nil, nil, err
 	}
@@ -381,26 +413,35 @@ func (l *talkerCPULayer) forward(input, pastK, pastV []float32, pos int, rope []
 	}
 	kAll := append(pastK, k...)
 	vAll := append(pastV, v...)
-	attention := make([]float32, queryWidth)
-	scores := make([]float32, pos+1)
+	var attention, scores []float32
+	if scratch == nil {
+		attention, scores = make([]float32, queryWidth), make([]float32, pos+1)
+	} else {
+		attention, scores = scratch.attention, scratch.scores[:pos+1]
+	}
 	scale := float32(1 / math.Sqrt(float64(cfg.TalkerHeadDim)))
 	if !simd.GQAAttentionScaleTo(attention, scores, q, kAll, vAll, pos+1, cfg.TalkerNumAttentionHeads, cfg.TalkerNumKeyValueHeads, cfg.TalkerHeadDim, scale) {
 		return nil, nil, nil, fmt.Errorf("GQA attention failed")
 	}
-	projected := make([]float32, h)
+	var projected, residual, mlpInput, gate, up, down, out []float32
+	if scratch == nil {
+		projected, residual, mlpInput = make([]float32, h), make([]float32, h), make([]float32, h)
+		gate, up = make([]float32, cfg.TalkerIntermediateSize), make([]float32, cfg.TalkerIntermediateSize)
+		down, out = make([]float32, h), make([]float32, h)
+	} else {
+		projected, residual, mlpInput = scratch.projected, scratch.residual, scratch.mlpInput
+		gate, up, down, out = scratch.gate, scratch.up, scratch.down, scratch.out
+	}
 	if err := l.o.forward(projected, attention); err != nil {
 		return nil, nil, nil, err
 	}
-	residual := make([]float32, h)
 	if !simd.VecAddTo(residual, input, projected) {
 		return nil, nil, nil, fmt.Errorf("attention residual failed")
 	}
-	mlpInput := append([]float32(nil), residual...)
+	copy(mlpInput, residual)
 	if !simd.RMSNormTo(mlpInput, l.postNorm, float32(cfg.TalkerRMSNormEps)) {
 		return nil, nil, nil, fmt.Errorf("post-attention RMSNorm failed")
 	}
-	gate := make([]float32, cfg.TalkerIntermediateSize)
-	up := make([]float32, cfg.TalkerIntermediateSize)
 	if err := l.gate.forward(gate, mlpInput); err != nil {
 		return nil, nil, nil, err
 	}
@@ -410,11 +451,9 @@ func (l *talkerCPULayer) forward(input, pastK, pastV []float32, pos int, rope []
 	if !simd.SiLUMulTo(gate, gate, up) {
 		return nil, nil, nil, fmt.Errorf("MLP SwiGLU failed")
 	}
-	down := make([]float32, h)
 	if err := l.down.forward(down, gate); err != nil {
 		return nil, nil, nil, err
 	}
-	out := make([]float32, h)
 	if !simd.VecAddTo(out, residual, down) {
 		return nil, nil, nil, fmt.Errorf("MLP residual failed")
 	}
@@ -434,6 +473,12 @@ func normTalkerHeads(x, weight []float32, heads, headDim int, eps float32) error
 }
 
 func greedyTalkerToken(logits []float32, eos uint32) (uint32, error) {
+	return greedyTalkerTokenWithEOS(logits, eos, true)
+}
+
+// greedyTalkerTokenWithEOS retains the reserved-token mask while allowing a
+// caller to withhold EOS for a minimum semantic-token count.
+func greedyTalkerTokenWithEOS(logits []float32, eos uint32, allowEOS bool) (uint32, error) {
 	if len(logits) <= 1024 || int(eos) >= len(logits) {
 		return 0, fmt.Errorf("invalid Qwen3-TTS Talker logits=%d eos=%d", len(logits), eos)
 	}
@@ -441,7 +486,7 @@ func greedyTalkerToken(logits []float32, eos uint32) (uint32, error) {
 	best := -1
 	bestValue := float32(math.Inf(-1))
 	for i, value := range logits {
-		if i >= suppressStart && uint32(i) != eos {
+		if i >= suppressStart && (uint32(i) != eos || !allowEOS) {
 			continue
 		}
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 1) {

@@ -130,48 +130,49 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 
 func (l decoderLayer) forward(input []float32, rows int, cfg Decoder12HzConfig, rope []float32) ([]float32, error) {
 	h := cfg.HiddenSize
+	attentionWidth := cfg.Heads * cfg.HeadDim
 	norm := make([]float32, len(input))
-	q, k, v := make([]float32, len(input)), make([]float32, len(input)), make([]float32, len(input))
+	q, k, v := make([]float32, rows*attentionWidth), make([]float32, rows*attentionWidth), make([]float32, rows*attentionWidth)
 	for row := 0; row < rows; row++ {
 		copy(norm[row*h:(row+1)*h], input[row*h:(row+1)*h])
 		if !simd.RMSNormTo(norm[row*h:(row+1)*h], l.inputNorm, cfg.RMSNormEps) {
 			return nil, fmt.Errorf("input RMSNorm failed")
 		}
-		if err := l.q.forward(q[row*h:(row+1)*h], norm[row*h:(row+1)*h]); err != nil {
+		if err := l.q.forward(q[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if err := l.k.forward(k[row*h:(row+1)*h], norm[row*h:(row+1)*h]); err != nil {
+		if err := l.k.forward(k[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if err := l.v.forward(v[row*h:(row+1)*h], norm[row*h:(row+1)*h]); err != nil {
+		if err := l.v.forward(v[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if !simd.ApplyRoPETo(q[row*h:(row+1)*h], rope, row, cfg.Heads, cfg.HeadDim) || !simd.ApplyRoPETo(k[row*h:(row+1)*h], rope, row, cfg.Heads, cfg.HeadDim) {
+		if !simd.ApplyRoPETo(q[row*attentionWidth:(row+1)*attentionWidth], rope, row, cfg.Heads, cfg.HeadDim) || !simd.ApplyRoPETo(k[row*attentionWidth:(row+1)*attentionWidth], rope, row, cfg.Heads, cfg.HeadDim) {
 			return nil, fmt.Errorf("RoPE failed")
 		}
 	}
-	attention := make([]float32, len(input))
+	attention := make([]float32, rows*attentionWidth)
 	scores := make([]float32, rows)
 	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
 	for row := 0; row < rows; row++ {
 		for head := 0; head < cfg.Heads; head++ {
-			qh := q[row*h+head*cfg.HeadDim : row*h+(head+1)*cfg.HeadDim]
+			qh := q[row*attentionWidth+head*cfg.HeadDim : row*attentionWidth+(head+1)*cfg.HeadDim]
 			for key := 0; key <= row; key++ {
-				scores[key] = simd.Sdot(qh, k[key*h+head*cfg.HeadDim:key*h+(head+1)*cfg.HeadDim]) * scale
+				scores[key] = simd.Sdot(qh, k[key*attentionWidth+head*cfg.HeadDim:key*attentionWidth+(head+1)*cfg.HeadDim]) * scale
 			}
 			if !simd.SoftmaxInPlace(scores[:row+1]) {
 				return nil, fmt.Errorf("attention softmax failed")
 			}
-			dst := attention[row*h+head*cfg.HeadDim : row*h+(head+1)*cfg.HeadDim]
+			dst := attention[row*attentionWidth+head*cfg.HeadDim : row*attentionWidth+(head+1)*cfg.HeadDim]
 			for key := 0; key <= row; key++ {
-				simd.VecScaleAdd(dst, dst, v[key*h+head*cfg.HeadDim:key*h+(head+1)*cfg.HeadDim], scores[key])
+				simd.VecScaleAdd(dst, dst, v[key*attentionWidth+head*cfg.HeadDim:key*attentionWidth+(head+1)*cfg.HeadDim], scores[key])
 			}
 		}
 	}
 	residual := make([]float32, len(input))
 	attnOut := make([]float32, h)
 	for row := 0; row < rows; row++ {
-		if err := l.out.forward(attnOut, attention[row*h:(row+1)*h]); err != nil {
+		if err := l.out.forward(attnOut, attention[row*attentionWidth:(row+1)*attentionWidth]); err != nil {
 			return nil, err
 		}
 		for i := 0; i < h; i++ {
@@ -211,25 +212,41 @@ func (c decoderConv1D) forward(input []float32, length int) ([]float32, int, err
 	if length <= 0 || len(input) != c.inChannels*groups*length {
 		return nil, 0, fmt.Errorf("invalid causal conv input=%d length=%d", len(input), length)
 	}
-	actualIn := c.inChannels * groups
 	out := make([]float32, c.outChannels*length)
 	for oc := 0; oc < c.outChannels; oc++ {
 		group := oc * groups / c.outChannels
+		output := out[oc*length : (oc+1)*length]
+		weights := c.weight[oc*c.inChannels*c.k : (oc+1)*c.inChannels*c.k]
+		if c.k == 1 {
+			for t := 0; t < length; t++ {
+				sum := c.bias[oc]
+				for icg := 0; icg < c.inChannels; icg++ {
+					sum += input[(group*c.inChannels+icg)*length+t] * weights[icg]
+				}
+				output[t] = sum
+			}
+			continue
+		}
 		for t := 0; t < length; t++ {
+			// Causal padding is identical across input channels. Skip only
+			// negative source positions; keep the F32 tap reduction order.
+			firstTap := 0
+			if c.dilation > 0 && t < c.dilation*(c.k-1) {
+				firstTap = c.k - 1 - t/c.dilation
+			}
+			firstSrc := t - c.dilation*(c.k-1-firstTap)
 			sum := c.bias[oc]
 			for icg := 0; icg < c.inChannels; icg++ {
 				ic := group*c.inChannels + icg
-				for tap := 0; tap < c.k; tap++ {
-					src := t - c.dilation*(c.k-1-tap)
-					if src >= 0 {
-						sum += input[ic*length+src] * c.weight[(oc*c.inChannels+icg)*c.k+tap]
-					}
+				samples := input[ic*length : (ic+1)*length]
+				taps := weights[icg*c.k : (icg+1)*c.k]
+				for tap, src := firstTap, firstSrc; tap < c.k; tap, src = tap+1, src+c.dilation {
+					sum += samples[src] * taps[tap]
 				}
 			}
-			out[oc*length+t] = sum
+			output[t] = sum
 		}
 	}
-	_ = actualIn
 	return out, length, nil
 }
 
@@ -241,14 +258,18 @@ func (c decoderConv1D) groups() int {
 }
 
 func (c decoderTransConv1D) forward(input []float32, length int) ([]float32, int, error) {
-	if length <= 0 || len(input) != c.inChannels*length {
-		return nil, 0, fmt.Errorf("invalid transposed conv input=%d", len(input))
+	if length <= 0 || c.inChannels <= 0 || c.outChannels <= 0 || c.stride <= 0 || c.k < c.stride || sizeProduct(c.inChannels, length) != len(input) || sizeProduct(c.inChannels, c.outChannels, c.k) != len(c.weight) || len(c.bias) != c.outChannels {
+		return nil, 0, fmt.Errorf("invalid transposed conv geometry input=%d length=%d channels=%d/%d kernel=%d stride=%d", len(input), length, c.inChannels, c.outChannels, c.k, c.stride)
 	}
-	rawLen := (length-1)*c.stride + c.k
-	raw := make([]float32, c.outChannels*rawLen)
+	outLen := sizeProduct(length, c.stride)
+	outCount := sizeProduct(c.outChannels, outLen)
+	if outLen < 0 || outCount < 0 {
+		return nil, 0, fmt.Errorf("transposed conv output size overflow")
+	}
+	out := make([]float32, outCount)
 	for oc := 0; oc < c.outChannels; oc++ {
-		for t := 0; t < rawLen; t++ {
-			raw[oc*rawLen+t] = c.bias[oc]
+		for t := 0; t < outLen; t++ {
+			out[oc*outLen+t] = c.bias[oc]
 		}
 	}
 	for ic := 0; ic < c.inChannels; ic++ {
@@ -256,16 +277,11 @@ func (c decoderTransConv1D) forward(input []float32, length int) ([]float32, int
 			x := input[ic*length+t]
 			for oc := 0; oc < c.outChannels; oc++ {
 				w := c.weight[(ic*c.outChannels+oc)*c.k : (ic*c.outChannels+oc+1)*c.k]
-				for tap := 0; tap < c.k; tap++ {
-					raw[oc*rawLen+t*c.stride+tap] += x * w[tap]
+				for tap := 0; tap < c.k && t*c.stride+tap < outLen; tap++ {
+					out[oc*outLen+t*c.stride+tap] += x * w[tap]
 				}
 			}
 		}
-	}
-	outLen := length * c.stride
-	out := make([]float32, c.outChannels*outLen)
-	for oc := 0; oc < c.outChannels; oc++ {
-		copy(out[oc*outLen:(oc+1)*outLen], raw[oc*rawLen:oc*rawLen+outLen])
 	}
 	return out, outLen, nil
 }

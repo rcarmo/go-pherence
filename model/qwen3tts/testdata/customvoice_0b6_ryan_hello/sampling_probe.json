@@ -1,0 +1,135 @@
+{
+  "cases": [
+    {
+      "adjusted_logits": [
+        4.0,
+        3.0,
+        3.0,
+        2.0,
+        1.0
+      ],
+      "generated": [],
+      "input_logits": [
+        4.0,
+        3.0,
+        3.0,
+        2.0,
+        1.0
+      ],
+      "name": "topk_ties",
+      "repetition_penalty": 1.0,
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "top_k": 2,
+      "top_p": 1.0
+    },
+    {
+      "adjusted_logits": [
+        1.0,
+        2.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "generated": [],
+      "input_logits": [
+        1.0,
+        2.0,
+        1.0,
+        1.0,
+        0.0
+      ],
+      "name": "topp_order",
+      "repetition_penalty": 1.0,
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "top_k": 0,
+      "top_p": 0.7
+    },
+    {
+      "adjusted_logits": [
+        1.0,
+        4.0,
+        3.0,
+        2.0,
+        0.0
+      ],
+      "generated": [],
+      "input_logits": [
+        1.0,
+        4.0,
+        3.0,
+        2.0,
+        0.0
+      ],
+      "name": "greedy",
+      "repetition_penalty": 1.0,
+      "seed": 42,
+      "temperature": 0.0,
+      "tokens": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "top_k": 1,
+      "top_p": 0.1
+    },
+    {
+      "adjusted_logits": [
+        3.0,
+        2.0,
+        3.3333332538604736,
+        1.0,
+        0.0
+      ],
+      "generated": [
+        2
+      ],
+      "input_logits": [
+        3.0,
+        2.0,
+        4.0,
+        1.0,
+        0.0
+      ],
+      "name": "repetition",
+      "repetition_penalty": 1.2,
+      "seed": 7,
+      "temperature": 0.7,
+      "tokens": [
+        2,
+        2,
+        2,
+        2,
+        0,
+        2
+      ],
+      "top_k": 3,
+      "top_p": 0.9
+    }
+  ],
+  "tts_control": {
+    "kept_acoustic": 2.0,
+    "kept_eos": 10.0,
+    "suppressed_control_is_negative_infinity": true
+  }
+}

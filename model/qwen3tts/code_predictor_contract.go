@@ -2,9 +2,9 @@ package qwen3tts
 
 import "fmt"
 
-// CodePredictorExecutionContract is a validation-only contract for the future
-// CPU/reference CodePredictor implementation. It ties semantic-token input to
-// bounded acoustic-frame output for the Decoder12Hz handoff.
+// CodePredictorExecutionContract validates semantic-token input and bounded
+// acoustic-frame output for the Decoder12Hz handoff. The native CPU first-frame
+// implementation is separate from this request-level validation contract.
 type CodePredictorExecutionContract struct {
 	Plan             RuntimeRequestPlan  `json:"plan"`
 	SemanticLayout   SemanticTokenLayout `json:"semantic_layout"`

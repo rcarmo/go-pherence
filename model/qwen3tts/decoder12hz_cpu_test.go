@@ -83,7 +83,7 @@ func tinyDecoderSource(cfg Decoder12HzConfig) fakeDecoderSource {
 	channels := cfg.LatentDim
 	for i, rate := range cfg.PreUpsampleRates {
 		p := fmt.Sprintf("decoder.upsample.%d", i)
-		add(p+".0.conv.weight", []int{channels, channels, 2 * rate}, zeros(channels*channels*2*rate))
+		add(p+".0.conv.weight", []int{channels, channels, rate}, zeros(channels*channels*rate))
 		add(p+".0.conv.bias", []int{channels}, zeros(channels))
 		addConv(p+".1.dwconv.conv", channels, 1, 7, zeros(channels*7))
 		add(p+".1.norm.weight", []int{channels}, ones(channels))

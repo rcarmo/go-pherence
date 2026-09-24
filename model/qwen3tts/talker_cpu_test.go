@@ -3,8 +3,11 @@ package qwen3tts
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 type fakeTalkerTensorSource map[string]struct {
@@ -129,6 +132,67 @@ func TestTalkerCPUPrefillGreedyFirstToken(t *testing.T) {
 	}
 }
 
+func TestTalkerLayerRequestScratchMatchesOwnedReference(t *testing.T) {
+	cfg := tinyTalkerConfig()
+	cfg.TalkerNumAttentionHeads = 2
+	src := tinyTalkerSource(cfg)
+	prefix := "talker.model.layers.0.self_attn."
+	for _, name := range []string{"q_proj", "k_proj", "v_proj", "o_proj"} {
+		rows, cols := 4, 4
+		if name == "q_proj" {
+			rows = 8
+		}
+		if name == "o_proj" {
+			cols = 8
+		}
+		data := make([]float32, rows*cols)
+		for i := range data {
+			data[i] = float32(i%7-3) / 11
+		}
+		src[prefix+name+".weight"] = struct {
+			data  []float32
+			shape []int
+		}{data, []int{rows, cols}}
+	}
+	m, err := LoadTalkerCPU(src, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const positions = 5
+	rope := simd.BuildRoPEFreqs(positions, cfg.TalkerHeadDim/2, cfg.TalkerHeadDim, cfg.TalkerRoPETheta)
+	work := newTalkerLayerScratch(cfg, positions)
+	var ownedK, ownedV, scratchK, scratchV []float32
+	for pos := 0; pos < positions; pos++ {
+		input := []float32{1 + float32(pos)/3, -2, .75, 1.5}
+		before := slices.Clone(input)
+		want, newK, newV, err := m.layers[0].forward(input, ownedK, ownedV, pos, rope, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ownedK, ownedV = newK, newV
+		got, newK, newV, err := m.layers[0].forwardWithScratch(input, scratchK, scratchV, pos, rope, cfg, &work)
+		if err != nil {
+			t.Fatal(err)
+		}
+		scratchK, scratchV = newK, newV
+		for label, pair := range map[string]struct{ got, want []float32 }{
+			"output": {got, want}, "keys": {scratchK, ownedK}, "values": {scratchV, ownedV},
+		} {
+			if len(pair.got) != len(pair.want) {
+				t.Fatalf("position %d %s length=%d want=%d", pos, label, len(pair.got), len(pair.want))
+			}
+			for i := range pair.got {
+				if math.Float32bits(pair.got[i]) != math.Float32bits(pair.want[i]) {
+					t.Fatalf("position %d %s[%d]=%g want=%g", pos, label, i, pair.got[i], pair.want[i])
+				}
+			}
+		}
+		if !slices.Equal(input, before) {
+			t.Fatalf("position %d mutated input", pos)
+		}
+	}
+}
+
 func TestTalkerCPUOfficialQueryWidthDiffersFromHidden(t *testing.T) {
 	cfg := tinyTalkerConfig()
 	cfg.TalkerNumAttentionHeads = 2
@@ -209,6 +273,34 @@ func TestTalkerCPUSuppressionKeepsEOSAndRejectsNonfinite(t *testing.T) {
 	logits[1] = float32(math.NaN())
 	if _, err := greedyTalkerToken(logits, CodecEOS); err == nil {
 		t.Fatal("accepted NaN logit")
+	}
+}
+
+func TestGreedyTalkerTokenWithMinimumEOS(t *testing.T) {
+	logits := make([]float32, CodecVocabSize)
+	logits[CodecEOS] = 10
+	logits[42], logits[43] = 2, 1
+	logits[2051] = 100 // suppressed control token
+	if token, err := greedyTalkerTokenWithEOS(logits, CodecEOS, false); err != nil || token != 42 {
+		t.Fatalf("min-token selection=%d err=%v", token, err)
+	}
+	if token, err := greedyTalkerTokenWithEOS(logits, CodecEOS, true); err != nil || token != CodecEOS {
+		t.Fatalf("EOS selection=%d err=%v", token, err)
+	}
+	for i := 0; i < CodecVocabSize; i++ {
+		if i < CodecVocabSize-1024 && i != int(CodecEOS) {
+			logits[i] = float32(math.Inf(-1))
+		}
+	}
+	if _, err := greedyTalkerTokenWithEOS(logits, CodecEOS, false); err == nil {
+		t.Fatal("accepted only EOS before minimum")
+	}
+	logits[42] = float32(math.NaN())
+	if _, err := greedyTalkerTokenWithEOS(logits, CodecEOS, false); err == nil {
+		t.Fatal("ignored invalid unsuppressed logit")
+	}
+	if _, err := greedyTalkerTokenWithEOS(nil, CodecEOS, false); err == nil {
+		t.Fatal("accepted empty logits")
 	}
 }
 

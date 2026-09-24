@@ -1,0 +1,213 @@
+{
+  "controlled_change": {
+    "replacement": "f32(logit[1995] - 0.25)",
+    "token_id": 1221
+  },
+  "logits_sha256": "a21ec2ea111681b69195b8bedbdd089a5ac18a64eb7eec32b76fa3cf34c90149",
+  "rows": [
+    {
+      "label": "released",
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "released",
+      "seed": 7,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "released",
+      "seed": 42,
+      "temperature": 0.0,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "released",
+      "seed": 7,
+      "temperature": 0.0,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "released",
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 0,
+      "top_p": 1.0
+    },
+    {
+      "label": "released",
+      "seed": 7,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 0,
+      "top_p": 1.0
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        1221,
+        1221,
+        1221,
+        1995,
+        1995,
+        1221,
+        1221,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 7,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1221,
+        1995,
+        1995,
+        1221
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 42,
+      "temperature": 0.0,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 7,
+      "temperature": 0.0,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995,
+        1995
+      ],
+      "top_k": 50,
+      "top_p": 0.9
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 42,
+      "temperature": 0.7,
+      "tokens": [
+        1221,
+        1221,
+        1221,
+        1995,
+        1995,
+        1221,
+        1221,
+        1995
+      ],
+      "top_k": 0,
+      "top_p": 1.0
+    },
+    {
+      "label": "controlled_near_tie",
+      "seed": 7,
+      "temperature": 0.7,
+      "tokens": [
+        1995,
+        1995,
+        1995,
+        1995,
+        1221,
+        1995,
+        1995,
+        1221
+      ],
+      "top_k": 0,
+      "top_p": 1.0
+    }
+  ]
+}
