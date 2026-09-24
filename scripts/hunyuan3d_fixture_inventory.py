@@ -16,7 +16,6 @@ import struct
 import sys
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -30,15 +29,30 @@ def fetch_bytes(url: str, byte_range: tuple[int, int] | None = None) -> bytes:
         headers["Range"] = f"bytes={byte_range[0]}-{byte_range[1]}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read()
+        if byte_range is None:
+            return resp.read()
+        start, end = byte_range
+        if start < 0 or end < start:
+            raise ValueError(f"invalid HTTP byte range {byte_range}")
+        length = end - start + 1
+        # A proxy may ignore Range. Never read an entire model in a header-only
+        # inventory, and reject a partial response for the wrong offset.
+        content_range = resp.headers.get("Content-Range", "")
+        if resp.status != 206 or not content_range.startswith(f"bytes {start}-{end}/"):
+            raise RuntimeError(f"range request not honoured: {byte_range} ({resp.status}, {content_range})")
+        data = resp.read(length + 1)
+        if len(data) != length:
+            raise RuntimeError(f"range request returned {len(data)} bytes, expected {length}")
+        return data
 
 
 def fetch_json(url: str) -> Any:
     return json.loads(fetch_bytes(url).decode("utf-8"))
 
 
-def resolve_url(repo: str, path: str) -> str:
-    return HF_RESOLVE.format(repo=repo, path=urllib.parse.quote(path))
+def resolve_url(repo: str, path: str, revision: str = "main") -> str:
+    url = HF_RESOLVE.format(repo=repo, path=urllib.parse.quote(path))
+    return url.replace("/resolve/main/", f"/resolve/{urllib.parse.quote(revision, safe='')}/", 1)
 
 
 def tensor_group(name: str) -> str:
@@ -65,8 +79,8 @@ def summarize_tensors(tensors: dict[str, Any], max_examples: int = 8) -> dict[st
     return groups
 
 
-def fetch_safetensors_header(repo: str, path: str) -> dict[str, Any]:
-    url = resolve_url(repo, path)
+def fetch_safetensors_header(repo: str, path: str, revision: str = "main") -> dict[str, Any]:
+    url = resolve_url(repo, path, revision)
     prefix = fetch_bytes(url, (0, 7))
     if len(prefix) != 8:
         raise RuntimeError(f"{path}: expected 8-byte safetensors prefix, got {len(prefix)}")
@@ -126,6 +140,7 @@ def scheduler_reference(config_text: str, steps: int) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default="tencent/Hunyuan3D-2mini", help="Hugging Face repo id")
+    parser.add_argument("--revision", default="f90a0f7df7d5e6f71109cf333f6a95a0ae3194a6", help="pinned 40-character Hugging Face commit SHA")
     parser.add_argument("--subfolder", default="hunyuan3d-dit-v2-mini", help="shape model subfolder")
     parser.add_argument("--out", default="testdata/hunyuan3d/fixture-inventory.json", help="output JSON path")
     parser.add_argument("--include-tensors", action="store_true", help="fetch safetensors headers for tensor inventory")
@@ -134,22 +149,27 @@ def main() -> int:
     args = parser.parse_args()
 
     repo = args.repo
+    revision = args.revision
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise SystemExit("--revision must be a full lowercase 40-character commit SHA")
     subfolder = args.subfolder.strip("/")
-    api = fetch_json(HF_API.format(repo=urllib.parse.quote(repo, safe="/")))
+    api = fetch_json(HF_API.format(repo=urllib.parse.quote(repo, safe="/")) + "/revision/" + revision)
+    if api.get("sha") != revision:
+        raise SystemExit("pinned repository revision does not match API response")
     siblings = [s.get("rfilename", "") for s in api.get("siblings", [])]
     files = sorted(p for p in siblings if p == f"{subfolder}/config.yaml" or p.startswith(f"{subfolder}/"))
     config_path = f"{subfolder}/config.yaml"
     if config_path not in files:
         raise SystemExit(f"config not found in repo listing: {config_path}")
 
-    config_bytes = fetch_bytes(resolve_url(repo, config_path))
+    config_bytes = fetch_bytes(resolve_url(repo, config_path, revision))
     config_text = config_bytes.decode("utf-8")
     safetensors_files = [p for p in files if p.endswith(".safetensors")]
 
     tensor_headers = []
     if args.include_tensors:
         for path in safetensors_files[: args.max_tensor_files]:
-            header = fetch_safetensors_header(repo, path)
+            header = fetch_safetensors_header(repo, path, revision)
             tensor_headers.append({
                 "path": path,
                 "sha256_header": hashlib.sha256(json.dumps(header, sort_keys=True).encode()).hexdigest(),
@@ -159,8 +179,8 @@ def main() -> int:
 
     fixture = {
         "schema": "go-pherence-hunyuan3d-inventory-v1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
         "repo": repo,
+        "revision": revision,
         "subfolder": subfolder,
         "config": {
             "path": config_path,
