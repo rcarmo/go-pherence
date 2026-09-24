@@ -3,6 +3,8 @@ package pockettts
 import (
 	"fmt"
 	"math"
+
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
 
 // LinearF32Gradient has the same row-major [Out,In] layout as LinearF32.
@@ -177,58 +179,80 @@ func newFlowHeadGradients(m *FlowHeadCPU) *FlowHeadGradients {
 }
 
 func (m *FlowHeadCPU) forwardTraining(condition, times, input []float32) (*flowHeadTape, []float32, error) {
+	return m.forwardTrainingScratch(condition, times, input, nil)
+}
+
+func (m *FlowHeadCPU) forwardTrainingScratch(condition, times, input []float32, scratch *flowTapeScratch) (*flowHeadTape, []float32, error) {
 	d := m.Input.Out
 	tape := &flowHeadTape{
-		input:     linearTape{input: append([]float32(nil), input...)},
-		condition: linearTape{input: append([]float32(nil), condition...)},
-		hidden:    linearForwardTraining(m.Input, input),
-		condBase:  linearForwardTraining(m.Condition, condition),
+		input:     linearTape{input: scratch.copy(input)},
+		condition: linearTape{input: scratch.copy(condition)},
+		hidden:    linearForwardTrainingScratch(m.Input, input, scratch),
+		condBase:  linearForwardTrainingScratch(m.Condition, condition, scratch),
 		times:     make([]timeTape, len(m.Time)),
 		blocks:    make([]blockTape, len(m.Blocks)),
 	}
-	tape.cond = append([]float32(nil), tape.condBase...)
+	tape.cond = scratch.copy(tape.condBase)
 	for i := range m.Time {
-		tape.times[i] = timestepForwardTraining(m.Time[i], times[i])
+		tape.times[i] = timestepForwardTrainingScratch(m.Time[i], times[i], scratch)
 		for j := 0; j < d; j++ {
 			tape.cond[j] += tape.times[i].fc2[j] / float32(len(m.Time))
 		}
 	}
-	x := append([]float32(nil), tape.hidden...)
+	x := scratch.copy(tape.hidden)
 	for i := range m.Blocks {
-		tape.blocks[i], x = blockForwardTraining(m.Blocks[i], x, tape.cond)
+		tape.blocks[i], x = blockForwardTrainingScratch(m.Blocks[i], x, tape.cond, scratch)
 	}
-	tape.final, x = finalForwardTraining(m.Final, x, tape.cond)
+	tape.final, x = finalForwardTrainingScratch(m.Final, x, tape.cond, scratch)
 	return tape, x, nil
 }
 
+func linearForwardTrainingInto(output []float32, linear LinearF32, input []float32) {
+	if err := AffineSIMD(output, input, linear.Weight, linear.Bias, linear.In, linear.Out); err != nil {
+		affineScalar(output, input, linear.Weight, linear.Bias, linear.In, linear.Out)
+	}
+}
+
 func linearForwardTraining(linear LinearF32, input []float32) []float32 {
-	output := make([]float32, linear.Out)
-	for row := 0; row < linear.Out; row++ {
-		value := float32(0)
-		if linear.Bias != nil {
-			value = linear.Bias[row]
+	return linearForwardTrainingScratch(linear, input, nil)
+}
+
+func linearForwardTrainingScratch(linear LinearF32, input []float32, scratch *flowTapeScratch) []float32 {
+	output := scratch.take(linear.Out)
+	linearForwardTrainingInto(output, linear, input)
+	return output
+}
+
+func linearForwardRowsTraining(linear LinearF32, input []float32, rows int) []float32 {
+	output := make([]float32, rows*linear.Out)
+	if rows >= 16 {
+		if err := linear.ForwardRows(output, input, rows); err == nil {
+			return output
 		}
-		for column, x := range input {
-			value += linear.Weight[row*linear.In+column] * x
-		}
-		output[row] = value
+	}
+	for row := 0; row < rows; row++ {
+		linearForwardTrainingInto(output[row*linear.Out:(row+1)*linear.Out], linear, input[row*linear.In:(row+1)*linear.In])
 	}
 	return output
 }
 
 func timestepForwardTraining(model TimestepMLP, time float32) timeTape {
+	return timestepForwardTrainingScratch(model, time, nil)
+}
+
+func timestepForwardTrainingScratch(model TimestepMLP, time float32, scratch *flowTapeScratch) timeTape {
 	half := len(model.Frequencies)
-	tape := timeTape{time: time, embedding: make([]float32, 2*half)}
+	tape := timeTape{time: time, embedding: scratch.take(2 * half)}
 	for i, frequency := range model.Frequencies {
 		angle := time * frequency
 		tape.embedding[i] = float32(math.Cos(float64(angle)))
 		tape.embedding[half+i] = float32(math.Sin(float64(angle)))
 	}
-	tape.fc1Pre = linearForwardTraining(model.FC1, tape.embedding)
-	tape.fc1 = siluCopy(tape.fc1Pre)
-	tape.fc2Pre = linearForwardTraining(model.FC2, tape.fc1)
+	tape.fc1Pre = linearForwardTrainingScratch(model.FC1, tape.embedding, scratch)
+	tape.fc1 = siluCopyScratch(tape.fc1Pre, scratch)
+	tape.fc2Pre = linearForwardTrainingScratch(model.FC2, tape.fc1, scratch)
 	tape.mean, tape.variance, tape.scale = varianceNormStats(tape.fc2Pre, model.RMSEpsilon)
-	tape.fc2 = make([]float32, len(tape.fc2Pre))
+	tape.fc2 = scratch.take(len(tape.fc2Pre))
 	for i := range tape.fc2 {
 		tape.fc2[i] = tape.fc2Pre[i] * model.RMSWeight[i] * tape.scale
 	}
@@ -236,20 +260,24 @@ func timestepForwardTraining(model TimestepMLP, time float32) timeTape {
 }
 
 func blockForwardTraining(model AdaLNResidual, input, condition []float32) (blockTape, []float32) {
-	tape := blockTape{x: append([]float32(nil), input...), condition: append([]float32(nil), condition...), condAct: siluCopy(condition)}
-	tape.mod = linearForwardTraining(model.Modulation, tape.condAct)
-	tape.normBase, tape.mean, tape.variance, tape.inv = layerNormBase(input, model.Epsilon)
+	return blockForwardTrainingScratch(model, input, condition, nil)
+}
+
+func blockForwardTrainingScratch(model AdaLNResidual, input, condition []float32, scratch *flowTapeScratch) (blockTape, []float32) {
+	tape := blockTape{x: scratch.copy(input), condition: scratch.copy(condition), condAct: siluCopyScratch(condition, scratch)}
+	tape.mod = linearForwardTrainingScratch(model.Modulation, tape.condAct, scratch)
+	tape.normBase, tape.mean, tape.variance, tape.inv = layerNormBaseScratch(input, model.Epsilon, scratch)
 	d := len(input)
-	tape.normAffine = make([]float32, d)
-	tape.modulated = make([]float32, d)
+	tape.normAffine = scratch.take(d)
+	tape.modulated = scratch.take(d)
 	for i := 0; i < d; i++ {
 		tape.normAffine[i] = tape.normBase[i]*model.NormWeight[i] + model.NormBias[i]
 		tape.modulated[i] = tape.normAffine[i]*(1+tape.mod[d+i]) + tape.mod[i]
 	}
-	tape.fc1Pre = linearForwardTraining(model.FC1, tape.modulated)
-	tape.fc1 = siluCopy(tape.fc1Pre)
-	tape.update = linearForwardTraining(model.FC2, tape.fc1)
-	output := make([]float32, d)
+	tape.fc1Pre = linearForwardTrainingScratch(model.FC1, tape.modulated, scratch)
+	tape.fc1 = siluCopyScratch(tape.fc1Pre, scratch)
+	tape.update = linearForwardTrainingScratch(model.FC2, tape.fc1, scratch)
+	output := scratch.take(d)
 	for i := range output {
 		output[i] = input[i] + tape.mod[2*d+i]*tape.update[i]
 	}
@@ -257,19 +285,27 @@ func blockForwardTraining(model AdaLNResidual, input, condition []float32) (bloc
 }
 
 func finalForwardTraining(model AdaLNFinal, input, condition []float32) (finalTape, []float32) {
-	tape := finalTape{x: append([]float32(nil), input...), condition: append([]float32(nil), condition...), condAct: siluCopy(condition)}
-	tape.mod = linearForwardTraining(model.Modulation, tape.condAct)
-	tape.norm, tape.mean, tape.variance, tape.inv = layerNormBase(input, model.Epsilon)
+	return finalForwardTrainingScratch(model, input, condition, nil)
+}
+
+func finalForwardTrainingScratch(model AdaLNFinal, input, condition []float32, scratch *flowTapeScratch) (finalTape, []float32) {
+	tape := finalTape{x: scratch.copy(input), condition: scratch.copy(condition), condAct: siluCopyScratch(condition, scratch)}
+	tape.mod = linearForwardTrainingScratch(model.Modulation, tape.condAct, scratch)
+	tape.norm, tape.mean, tape.variance, tape.inv = layerNormBaseScratch(input, model.Epsilon, scratch)
 	d := len(input)
-	tape.modulated = make([]float32, d)
+	tape.modulated = scratch.take(d)
 	for i := range input {
 		tape.modulated[i] = tape.norm[i]*(1+tape.mod[d+i]) + tape.mod[i]
 	}
-	return tape, linearForwardTraining(model.Linear, tape.modulated)
+	return tape, linearForwardTrainingScratch(model.Linear, tape.modulated, scratch)
 }
 
 func siluCopy(input []float32) []float32 {
-	output := make([]float32, len(input))
+	return siluCopyScratch(input, nil)
+}
+
+func siluCopyScratch(input []float32, scratch *flowTapeScratch) []float32 {
+	output := scratch.take(len(input))
 	for i, x := range input {
 		output[i] = x * sigmoidF32(x)
 	}
@@ -286,6 +322,16 @@ func sigmoidF32(x float32) float32 {
 }
 
 func layerNormBase(input []float32, epsilon float32) (output []float32, mean, variance, inv float32) {
+	return layerNormBaseScratch(input, epsilon, nil)
+}
+
+func layerNormBaseScratch(input []float32, epsilon float32, scratch *flowTapeScratch) (output []float32, mean, variance, inv float32) {
+	output = scratch.take(len(input))
+	mean, variance, inv = layerNormBaseInto(output, input, epsilon)
+	return output, mean, variance, inv
+}
+
+func layerNormBaseInto(output, input []float32, epsilon float32) (mean, variance, inv float32) {
 	for _, value := range input {
 		mean += value
 	}
@@ -296,11 +342,10 @@ func layerNormBase(input []float32, epsilon float32) (output []float32, mean, va
 	}
 	variance /= float32(len(input))
 	inv = float32(1 / math.Sqrt(float64(variance+epsilon)))
-	output = make([]float32, len(input))
 	for i, value := range input {
 		output[i] = (value - mean) * inv
 	}
-	return output, mean, variance, inv
+	return mean, variance, inv
 }
 
 func varianceNormStats(input []float32, epsilon float32) (mean, variance, scale float32) {
@@ -318,68 +363,127 @@ func varianceNormStats(input []float32, epsilon float32) (mean, variance, scale 
 }
 
 func (m *FlowHeadCPU) backwardTraining(tape *flowHeadTape, dOutput []float32, gradients *FlowHeadGradients) (dCondition, dTimes, dInput []float32, err error) {
-	dHidden, dCond := finalBackwardTraining(m.Final, tape.final, dOutput, &gradients.Final)
+	return m.backwardTrainingScratch(tape, dOutput, gradients, nil)
+}
+
+func (m *FlowHeadCPU) backwardTrainingScratch(tape *flowHeadTape, dOutput []float32, gradients *FlowHeadGradients, scratch *flowTapeScratch) (dCondition, dTimes, dInput []float32, err error) {
+	dHidden, dCond := finalBackwardTrainingScratch(m.Final, tape.final, dOutput, &gradients.Final, scratch)
 	for i := len(m.Blocks) - 1; i >= 0; i-- {
 		var blockCond []float32
-		dHidden, blockCond = blockBackwardTraining(m.Blocks[i], tape.blocks[i], dHidden, &gradients.Blocks[i])
+		dHidden, blockCond = blockBackwardTrainingScratch(m.Blocks[i], tape.blocks[i], dHidden, &gradients.Blocks[i], scratch)
 		addInPlace(dCond, blockCond)
 	}
-	dInput = linearBackwardTraining(m.Input, tape.input.input, dHidden, &gradients.Input)
-	dTimes = make([]float32, len(m.Time))
+	dInput = linearBackwardTrainingScratch(m.Input, tape.input.input, dHidden, &gradients.Input, scratch)
+	dTimes = scratch.take(len(m.Time))
 	for i := range m.Time {
-		dTimeOutput := make([]float32, len(dCond))
+		dTimeOutput := scratch.take(len(dCond))
 		for j := range dCond {
 			dTimeOutput[j] = dCond[j] / float32(len(m.Time))
 		}
-		dTimes[i] = timestepBackwardTraining(m.Time[i], tape.times[i], dTimeOutput, &gradients.Time[i])
+		dTimes[i] = timestepBackwardTrainingScratch(m.Time[i], tape.times[i], dTimeOutput, &gradients.Time[i], scratch)
 	}
-	dCondition = linearBackwardTraining(m.Condition, tape.condition.input, dCond, &gradients.Condition)
+	dCondition = linearBackwardTrainingScratch(m.Condition, tape.condition.input, dCond, &gradients.Condition, scratch)
 	return dCondition, dTimes, dInput, nil
 }
 
-func linearBackwardTraining(linear LinearF32, input, dOutput []float32, gradient *LinearF32Gradient) []float32 {
-	dInput := make([]float32, linear.In)
+func linearBackwardTrainingInto(dInput []float32, linear LinearF32, input, dOutput []float32, gradient *LinearF32Gradient) {
+	clear(dInput)
+	if !simd.SgemmNNTo(dInput, dOutput, linear.Weight, 1, linear.In, linear.Out, 1, linear.Out, linear.In, linear.In) {
+		for row, d := range dOutput {
+			simd.VecScaleAdd(dInput, dInput, linear.Weight[row*linear.In:(row+1)*linear.In], d)
+		}
+	}
 	for row, d := range dOutput {
 		if gradient.Bias != nil {
 			gradient.Bias[row] += d
 		}
-		for column, x := range input {
-			gradient.Weight[row*linear.In+column] += d * x
-			dInput[column] += d * linear.Weight[row*linear.In+column]
+		weight := gradient.Weight[row*linear.In : (row+1)*linear.In]
+		simd.VecScaleAdd(weight, weight, input, d)
+	}
+}
+
+func linearBackwardTraining(linear LinearF32, input, dOutput []float32, gradient *LinearF32Gradient) []float32 {
+	return linearBackwardTrainingScratch(linear, input, dOutput, gradient, nil)
+}
+
+func linearBackwardTrainingScratch(linear LinearF32, input, dOutput []float32, gradient *LinearF32Gradient, scratch *flowTapeScratch) []float32 {
+	dInput := scratch.take(linear.In)
+	linearBackwardTrainingInto(dInput, linear, input, dOutput, gradient)
+	return dInput
+}
+
+func linearBackwardRowsTraining(linear LinearF32, input, dOutput []float32, rows int, gradient *LinearF32Gradient) []float32 {
+	if rows <= 0 || len(input) != rows*linear.In || len(dOutput) != rows*linear.Out {
+		return nil
+	}
+	dInput := make([]float32, rows*linear.In)
+	if rows < 16 || !simd.DenseNNTo(dInput, dOutput, linear.Weight, rows, linear.In, linear.Out, 1, linear.Out, linear.In, linear.In) {
+		for row := 0; row < rows; row++ {
+			linearBackwardTrainingInto(dInput[row*linear.In:(row+1)*linear.In], linear, input[row*linear.In:(row+1)*linear.In], dOutput[row*linear.Out:(row+1)*linear.Out], gradient)
+		}
+		return dInput
+	}
+	transposed := make([]float32, linear.Out*rows)
+	for row := 0; row < rows; row++ {
+		for out := 0; out < linear.Out; out++ {
+			transposed[out*rows+row] = dOutput[row*linear.Out+out]
+		}
+	}
+	if !simd.DenseNNTo(gradient.Weight, transposed, input, linear.Out, linear.In, rows, 1, rows, linear.In, linear.In) {
+		for row := 0; row < rows; row++ {
+			for out, d := range dOutput[row*linear.Out : (row+1)*linear.Out] {
+				weight := gradient.Weight[out*linear.In : (out+1)*linear.In]
+				simd.VecScaleAdd(weight, weight, input[row*linear.In:(row+1)*linear.In], d)
+			}
+		}
+	}
+	if gradient.Bias != nil {
+		for row := 0; row < rows; row++ {
+			for out, d := range dOutput[row*linear.Out : (row+1)*linear.Out] {
+				gradient.Bias[out] += d
+			}
 		}
 	}
 	return dInput
 }
 
 func finalBackwardTraining(model AdaLNFinal, tape finalTape, dOutput []float32, gradient *AdaLNFinalGradient) (dInput, dCondition []float32) {
-	dModulated := linearBackwardTraining(model.Linear, tape.modulated, dOutput, &gradient.Linear)
+	return finalBackwardTrainingScratch(model, tape, dOutput, gradient, nil)
+}
+
+func finalBackwardTrainingScratch(model AdaLNFinal, tape finalTape, dOutput []float32, gradient *AdaLNFinalGradient, scratch *flowTapeScratch) (dInput, dCondition []float32) {
+	dModulated := linearBackwardTrainingScratch(model.Linear, tape.modulated, dOutput, &gradient.Linear, scratch)
 	d := len(tape.x)
-	dNorm := make([]float32, d)
-	dMod := make([]float32, 2*d)
+	dNorm := scratch.take(d)
+	dMod := scratch.take(2 * d)
 	for i, g := range dModulated {
 		dNorm[i] = g * (1 + tape.mod[d+i])
 		dMod[i] = g
 		dMod[d+i] = g * tape.norm[i]
 	}
-	dInput = layerNormBackward(tape.norm, tape.inv, dNorm)
-	dCondAct := linearBackwardTraining(model.Modulation, tape.condAct, dMod, &gradient.Modulation)
-	dCondition = siluBackward(tape.condition, dCondAct)
+	dInput = layerNormBackwardScratch(tape.norm, tape.inv, dNorm, scratch)
+	dCondAct := linearBackwardTrainingScratch(model.Modulation, tape.condAct, dMod, &gradient.Modulation, scratch)
+	dCondition = siluBackwardScratch(tape.condition, dCondAct, scratch)
 	return dInput, dCondition
 }
 
 func blockBackwardTraining(model AdaLNResidual, tape blockTape, dOutput []float32, gradient *AdaLNResidualGradient) (dInput, dCondition []float32) {
+	return blockBackwardTrainingScratch(model, tape, dOutput, gradient, nil)
+}
+
+func blockBackwardTrainingScratch(model AdaLNResidual, tape blockTape, dOutput []float32, gradient *AdaLNResidualGradient, scratch *flowTapeScratch) (dInput, dCondition []float32) {
 	d := len(tape.x)
-	dInput = append([]float32(nil), dOutput...)
-	dMod := make([]float32, 3*d)
-	dUpdate := make([]float32, d)
+	dInput = scratch.copy(dOutput)
+	dMod := scratch.take(3 * d)
+	dUpdate := scratch.take(d)
 	for i, g := range dOutput {
 		dMod[2*d+i] = g * tape.update[i]
 		dUpdate[i] = g * tape.mod[2*d+i]
 	}
-	dFC1 := linearBackwardTraining(model.FC2, tape.fc1, dUpdate, &gradient.FC2)
-	dFC1Pre := siluBackward(tape.fc1Pre, dFC1)
-	dModulated := linearBackwardTraining(model.FC1, tape.modulated, dFC1Pre, &gradient.FC1)
-	dNormAffine := make([]float32, d)
+	dFC1 := linearBackwardTrainingScratch(model.FC2, tape.fc1, dUpdate, &gradient.FC2, scratch)
+	dFC1Pre := siluBackwardScratch(tape.fc1Pre, dFC1, scratch)
+	dModulated := linearBackwardTrainingScratch(model.FC1, tape.modulated, dFC1Pre, &gradient.FC1, scratch)
+	dNormAffine := scratch.take(d)
 	for i, g := range dModulated {
 		dNormAffine[i] = g * (1 + tape.mod[d+i])
 		dMod[i] += g
@@ -387,21 +491,25 @@ func blockBackwardTraining(model AdaLNResidual, tape blockTape, dOutput []float3
 		gradient.NormWeight[i] += dNormAffine[i] * tape.normBase[i]
 		gradient.NormBias[i] += dNormAffine[i]
 	}
-	dNormBase := make([]float32, d)
+	dNormBase := scratch.take(d)
 	for i := range dNormBase {
 		dNormBase[i] = dNormAffine[i] * model.NormWeight[i]
 	}
-	addInPlace(dInput, layerNormBackward(tape.normBase, tape.inv, dNormBase))
-	dCondAct := linearBackwardTraining(model.Modulation, tape.condAct, dMod, &gradient.Modulation)
-	dCondition = siluBackward(tape.condition, dCondAct)
+	addInPlace(dInput, layerNormBackwardScratch(tape.normBase, tape.inv, dNormBase, scratch))
+	dCondAct := linearBackwardTrainingScratch(model.Modulation, tape.condAct, dMod, &gradient.Modulation, scratch)
+	dCondition = siluBackwardScratch(tape.condition, dCondAct, scratch)
 	return dInput, dCondition
 }
 
 func timestepBackwardTraining(model TimestepMLP, tape timeTape, dOutput []float32, gradient *TimestepMLPGradient) float32 {
-	dFC2 := varianceNormBackward(tape, model.RMSWeight, dOutput, gradient.RMSWeight)
-	dFC1 := linearBackwardTraining(model.FC2, tape.fc1, dFC2, &gradient.FC2)
-	dFC1Pre := siluBackward(tape.fc1Pre, dFC1)
-	dEmbedding := linearBackwardTraining(model.FC1, tape.embedding, dFC1Pre, &gradient.FC1)
+	return timestepBackwardTrainingScratch(model, tape, dOutput, gradient, nil)
+}
+
+func timestepBackwardTrainingScratch(model TimestepMLP, tape timeTape, dOutput []float32, gradient *TimestepMLPGradient, scratch *flowTapeScratch) float32 {
+	dFC2 := varianceNormBackwardScratch(tape, model.RMSWeight, dOutput, gradient.RMSWeight, scratch)
+	dFC1 := linearBackwardTrainingScratch(model.FC2, tape.fc1, dFC2, &gradient.FC2, scratch)
+	dFC1Pre := siluBackwardScratch(tape.fc1Pre, dFC1, scratch)
+	dEmbedding := linearBackwardTrainingScratch(model.FC1, tape.embedding, dFC1Pre, &gradient.FC1, scratch)
 	half := len(model.Frequencies)
 	dTime := float32(0)
 	for i, frequency := range model.Frequencies {
@@ -414,8 +522,12 @@ func timestepBackwardTraining(model TimestepMLP, tape timeTape, dOutput []float3
 }
 
 func varianceNormBackward(tape timeTape, alpha, dOutput []float32, dAlpha []float32) []float32 {
+	return varianceNormBackwardScratch(tape, alpha, dOutput, dAlpha, nil)
+}
+
+func varianceNormBackwardScratch(tape timeTape, alpha, dOutput []float32, dAlpha []float32, scratch *flowTapeScratch) []float32 {
 	n := len(tape.fc2Pre)
-	dInput := make([]float32, n)
+	dInput := scratch.take(n)
 	dScale := float32(0)
 	for i, value := range tape.fc2Pre {
 		dAlpha[i] += dOutput[i] * value * tape.scale
@@ -430,21 +542,33 @@ func varianceNormBackward(tape timeTape, alpha, dOutput []float32, dAlpha []floa
 }
 
 func layerNormBackward(normalized []float32, inv float32, dNormalized []float32) []float32 {
+	return layerNormBackwardScratch(normalized, inv, dNormalized, nil)
+}
+
+func layerNormBackwardScratch(normalized []float32, inv float32, dNormalized []float32, scratch *flowTapeScratch) []float32 {
+	dInput := scratch.take(len(normalized))
+	layerNormBackwardInto(dInput, normalized, inv, dNormalized)
+	return dInput
+}
+
+func layerNormBackwardInto(dInput, normalized []float32, inv float32, dNormalized []float32) {
 	n := float32(len(normalized))
 	sum, dot := float32(0), float32(0)
 	for i, g := range dNormalized {
 		sum += g
 		dot += g * normalized[i]
 	}
-	dInput := make([]float32, len(normalized))
 	for i, g := range dNormalized {
 		dInput[i] = inv * (g - sum/n - normalized[i]*dot/n)
 	}
-	return dInput
 }
 
 func siluBackward(input, dOutput []float32) []float32 {
-	dInput := make([]float32, len(input))
+	return siluBackwardScratch(input, dOutput, nil)
+}
+
+func siluBackwardScratch(input, dOutput []float32, scratch *flowTapeScratch) []float32 {
+	dInput := scratch.take(len(input))
 	for i, x := range input {
 		sigmoid := sigmoidF32(x)
 		dInput[i] = dOutput[i] * sigmoid * (1 + x*(1-sigmoid))

@@ -45,18 +45,11 @@ func (m *FlowHeadCPU) ForwardTimeJVP(condition, times, input []float32, timeInde
 }
 
 func linearForwardDual(linear LinearF32, input dualVector) dualVector {
-	output := dualVector{value: make([]float32, linear.Out), tangent: make([]float32, linear.Out)}
-	for row := 0; row < linear.Out; row++ {
-		if linear.Bias != nil {
-			output.value[row] = linear.Bias[row]
-		}
-		for column := 0; column < linear.In; column++ {
-			weight := linear.Weight[row*linear.In+column]
-			output.value[row] += weight * input.value[column]
-			output.tangent[row] += weight * input.tangent[column]
-		}
-	}
-	return output
+	return linearForwardDualScratch(linear, input, nil)
+}
+
+func linearForwardDualScratch(linear LinearF32, input dualVector, scratch *flowTapeScratch) dualVector {
+	return dualVector{value: linearForwardTrainingScratch(linear, input.value, scratch), tangent: linearForwardTrainingScratch(LinearF32{Weight: linear.Weight, In: linear.In, Out: linear.Out}, input.tangent, scratch)}
 }
 
 func timestepForwardDual(model TimestepMLP, time, dTime float32) dualVector {
@@ -109,7 +102,11 @@ func finalForwardDual(model AdaLNFinal, input, condition dualVector) dualVector 
 }
 
 func siluForwardDual(input dualVector) dualVector {
-	output := dualVector{value: make([]float32, len(input.value)), tangent: make([]float32, len(input.value))}
+	return siluForwardDualScratch(input, nil)
+}
+
+func siluForwardDualScratch(input dualVector, scratch *flowTapeScratch) dualVector {
+	output := dualVector{value: scratch.take(len(input.value)), tangent: scratch.take(len(input.value))}
 	for i, value := range input.value {
 		sigmoid := sigmoidF32(value)
 		output.value[i] = value * sigmoid
@@ -119,6 +116,10 @@ func siluForwardDual(input dualVector) dualVector {
 }
 
 func layerNormForwardDual(input dualVector, weight, bias []float32, epsilon float32) dualVector {
+	return layerNormForwardDualScratch(input, weight, bias, epsilon, nil)
+}
+
+func layerNormForwardDualScratch(input dualVector, weight, bias []float32, epsilon float32, scratch *flowTapeScratch) dualVector {
 	n := float32(len(input.value))
 	mean, dMean := float32(0), float32(0)
 	for i, value := range input.value {
@@ -137,7 +138,7 @@ func layerNormForwardDual(input dualVector, weight, bias []float32, epsilon floa
 	dVariance /= n
 	inv := float32(1 / math.Sqrt(float64(variance+epsilon)))
 	dInv := -0.5 * inv * inv * inv * dVariance
-	output := dualVector{value: make([]float32, len(input.value)), tangent: make([]float32, len(input.value))}
+	output := dualVector{value: scratch.take(len(input.value)), tangent: scratch.take(len(input.value))}
 	for i, value := range input.value {
 		center, dCenter := value-mean, input.tangent[i]-dMean
 		output.value[i] = center * inv

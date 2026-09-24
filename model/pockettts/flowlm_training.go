@@ -130,13 +130,58 @@ func (m *FlowLMTrainingCPU) forwardTrainingTapeMode(batch FlowLMTrainingBatch, d
 	return &flowLMTrainingTape{rows: rows, prefix: prefix, textOffset: textOffset, sequence: sequence, audioInput: audioInput, transformer: transformerTape, output: output}, nil
 }
 
+func newFlowLMTrainingGradients(m *FlowLMTrainingCPU) *FlowLMTrainingGradients {
+	if m == nil {
+		return nil
+	}
+	return &FlowLMTrainingGradients{Embedding: make([]float32, len(m.Embedding)), BOS: make([]float32, len(m.BOS)), BOSBeforeVoice: make([]float32, len(m.BOSBeforeVoice)), SpeakerProjection: newLinearGradient(m.SpeakerProjection), Input: newLinearGradient(m.Input), Transformer: newTransformerGradients(m.Transformer), EOS: newLinearGradient(m.EOS)}
+}
+
+func clearTransformerGradients(g *TransformerGradients) {
+	if g == nil {
+		return
+	}
+	for i := range g.Layers {
+		layer := &g.Layers[i]
+		clear(layer.Norm1Weight)
+		clear(layer.Norm1Bias)
+		clear(layer.Norm2Weight)
+		clear(layer.Norm2Bias)
+		clearLinearGradient(&layer.InProjection)
+		clearLinearGradient(&layer.OutProjection)
+		clearLinearGradient(&layer.FC1)
+		clearLinearGradient(&layer.FC2)
+		clear(layer.LayerScale1)
+		clear(layer.LayerScale2)
+	}
+	clear(g.FinalWeight)
+	clear(g.FinalBias)
+}
+
+func clearFlowLMTrainingGradients(g *FlowLMTrainingGradients) {
+	if g == nil {
+		return
+	}
+	clear(g.Embedding)
+	clear(g.BOS)
+	clear(g.BOSBeforeVoice)
+	clearLinearGradient(&g.SpeakerProjection)
+	clearLinearGradient(&g.Input)
+	clearLinearGradient(&g.EOS)
+	clearTransformerGradients(g.Transformer)
+}
+
 func (m *FlowLMTrainingCPU) backwardTrainingTape(tape *flowLMTrainingTape, batch FlowLMTrainingBatch, dZ, dEOS []float32) (*FlowLMTrainingGradients, FlowLMTrainingInputGradients, error) {
-	if tape == nil {
-		return nil, FlowLMTrainingInputGradients{}, fmt.Errorf("nil Pocket TTS FlowLM training tape")
+	gradients := newFlowLMTrainingGradients(m)
+	inputGradients := FlowLMTrainingInputGradients{NormalizedLatents: make([]float32, len(batch.NormalizedLatents)), VoiceLatents: make([]float32, len(batch.VoiceLatents))}
+	return m.backwardTrainingTapeInto(tape, batch, dZ, dEOS, gradients, inputGradients)
+}
+
+func (m *FlowLMTrainingCPU) backwardTrainingTapeInto(tape *flowLMTrainingTape, batch FlowLMTrainingBatch, dZ, dEOS []float32, gradients *FlowLMTrainingGradients, inputGradients FlowLMTrainingInputGradients) (*FlowLMTrainingGradients, FlowLMTrainingInputGradients, error) {
+	if tape == nil || gradients == nil || gradients.Transformer == nil || len(gradients.Embedding) != len(m.Embedding) || len(inputGradients.NormalizedLatents) != len(batch.NormalizedLatents) || len(inputGradients.VoiceLatents) != len(batch.VoiceLatents) {
+		return nil, FlowLMTrainingInputGradients{}, fmt.Errorf("invalid Pocket TTS FlowLM backward workspace")
 	}
 	h, c := m.Hidden, m.LatentDim
-	gradients := &FlowLMTrainingGradients{Embedding: make([]float32, len(m.Embedding)), BOS: make([]float32, len(m.BOS)), BOSBeforeVoice: make([]float32, len(m.BOSBeforeVoice)), SpeakerProjection: newLinearGradient(m.SpeakerProjection), Input: newLinearGradient(m.Input), EOS: newLinearGradient(m.EOS)}
-	inputGradients := FlowLMTrainingInputGradients{NormalizedLatents: make([]float32, len(batch.NormalizedLatents)), VoiceLatents: make([]float32, len(batch.VoiceLatents))}
 	dTransformed := make([]float32, tape.rows*h)
 	for row := 0; row < batch.Frames; row++ {
 		z := tape.output.Z[row*h : (row+1)*h]
@@ -145,9 +190,7 @@ func (m *FlowLMTrainingCPU) backwardTrainingTape(tape *flowLMTrainingTape, batch
 			dTransformed[(tape.prefix+row)*h+i] = dZ[row*h+i] + dEOSInput[i]
 		}
 	}
-	transformerGradients := newTransformerGradients(m.Transformer)
-	dSequence := m.Transformer.backwardTraining(tape.rows, tape.transformer, dTransformed, transformerGradients)
-	gradients.Transformer = transformerGradients
+	dSequence := m.Transformer.backwardTraining(tape.rows, tape.transformer, dTransformed, gradients.Transformer)
 	copy(gradients.BOSBeforeVoice, dSequence[:h])
 	for row := 0; row < batch.VoiceFrames; row++ {
 		dVoice := linearBackwardTraining(m.SpeakerProjection, batch.VoiceLatents[row*c:(row+1)*c], dSequence[(1+row)*h:(2+row)*h], &gradients.SpeakerProjection)

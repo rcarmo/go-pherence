@@ -53,7 +53,13 @@ func PocketTrainingStep(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting 
 }
 
 func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, batch FlowLMTrainingBatch, samples TrainingStepSamples, config TrainingStepConfig, workspace *TrainingWorkspace) (TrainingStepMetrics, TrainingStepGradients, error) {
-	if flowLM == nil || flow == nil || weighting == nil || workspace == nil || batch.Frames <= 0 || len(samples.Mask) != batch.Frames || !isFinite(config.PEqual) || config.PEqual < 0 || config.PEqual > 1 || !isFinite(config.EOSLossWeight) || config.EOSLossWeight < 0 {
+	return pocketTrainingStepIntoTapes(flowLM, flow, weighting, batch, samples, config, workspace, true)
+}
+
+// pocketTrainingStepIntoTapes keeps the owned-tape reference available to
+// differential tests. Production always uses the request-owned row scratch.
+func pocketTrainingStepIntoTapes(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, batch FlowLMTrainingBatch, samples TrainingStepSamples, config TrainingStepConfig, workspace *TrainingWorkspace, reuseTapes bool) (TrainingStepMetrics, TrainingStepGradients, error) {
+	if flowLM == nil || flow == nil || len(flow.Time) != 2 || weighting == nil || workspace == nil || batch.Frames <= 0 || len(samples.Mask) != batch.Frames || !isFinite(config.PEqual) || config.PEqual < 0 || config.PEqual > 1 || !isFinite(config.EOSLossWeight) || config.EOSLossWeight < 0 {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS training step")
 	}
 	if err := validateTrainingStepSamples(batch, samples, flowLM.Hidden, flowLM.LatentDim); err != nil {
@@ -71,7 +77,7 @@ func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weight
 	if !ok {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("invalid Pocket TTS training hidden shape")
 	}
-	if workspace.frames != batch.Frames || workspace.hidden != flowLM.Hidden || workspace.latent != flowLM.LatentDim || workspace.weightRows != weightRows || !workspace.compatible(flow) {
+	if workspace.frames != batch.Frames || workspace.hidden != flowLM.Hidden || workspace.latent != flowLM.LatentDim || workspace.weightRows != weightRows || !workspace.compatible(flowLM, flow) {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, fmt.Errorf("Pocket TTS training workspace shape mismatch")
 	}
 	workspace.reset()
@@ -133,7 +139,14 @@ func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weight
 			xTime[i] = time*target[i] + (1-time)*diagNoise[i]
 			desired[i] = target[i] - diagNoise[i]
 		}
-		tape, prediction, err := flow.forwardTraining(condition, []float32{time, time}, xTime)
+		var primaryTape, ordinaryBackward *flowTapeScratch
+		if reuseTapes {
+			workspace.primaryFlowTape.reset()
+			workspace.endpointFlowBackward.reset()
+			primaryTape = workspace.primaryFlowTape
+			ordinaryBackward = workspace.endpointFlowBackward
+		}
+		tape, prediction, err := flow.forwardTrainingScratch(condition, []float32{time, time}, xTime, primaryTape)
 		if err != nil {
 			return TrainingStepMetrics{}, TrainingStepGradients{}, err
 		}
@@ -145,7 +158,7 @@ func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weight
 		for i := range dPrediction {
 			dPrediction[i] *= diagScale
 		}
-		dCondition, _, dXTime, err := flow.backwardTraining(tape, dPrediction, flowGradients)
+		dCondition, _, dXTime, err := flow.backwardTrainingScratch(tape, dPrediction, flowGradients, ordinaryBackward)
 		if err != nil {
 			return TrainingStepMetrics{}, TrainingStepGradients{}, err
 		}
@@ -165,7 +178,15 @@ func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weight
 		metrics.FlowDiagonal += rawSquare / float64(valid)
 
 		distillScale := (1 - config.PEqual) * invValid
-		distill, distillGradients, err := flow.lsdDistillForwardBackwardInto(condition, samples.DistillS[row], samples.DistillT[row], samples.Noise[row*c:(row+1)*c], target, logvars[batch.Frames+row], flowGradients, discardFlowGradients, distillScale)
+		var endpointTape, primaryBackward, endpointBackward *flowTapeScratch
+		if reuseTapes {
+			workspace.primaryFlowTape.reset()
+			workspace.endpointFlowTape.reset()
+			workspace.primaryFlowBackward.reset()
+			workspace.endpointFlowBackward.reset()
+			primaryTape, endpointTape, primaryBackward, endpointBackward = workspace.primaryFlowTape, workspace.endpointFlowTape, workspace.primaryFlowBackward, workspace.endpointFlowBackward
+		}
+		distill, distillGradients, err := flow.lsdDistillForwardBackwardScratch(condition, samples.DistillS[row], samples.DistillT[row], samples.Noise[row*c:(row+1)*c], target, logvars[batch.Frames+row], flowGradients, discardFlowGradients, distillScale, primaryTape, endpointTape, primaryBackward, endpointBackward)
 		if err != nil {
 			return TrainingStepMetrics{}, TrainingStepGradients{}, err
 		}
@@ -186,7 +207,7 @@ func PocketTrainingStepInto(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weight
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}
-	flowLMGradients, inputGradients, err := flowLM.backwardTrainingTape(flowLMTape, batch, dZ, dEOS)
+	flowLMGradients, inputGradients, err := flowLM.backwardTrainingTapeInto(flowLMTape, batch, dZ, dEOS, workspace.flowLMGradients, workspace.flowLMInputGradients)
 	if err != nil {
 		return TrainingStepMetrics{}, TrainingStepGradients{}, err
 	}

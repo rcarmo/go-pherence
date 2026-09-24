@@ -122,11 +122,11 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 	tape := transformerLayerTape{input: append([]float32(nil), input...)}
 	tape.norm1, _ = transformerNormForward(rows, width, input, l.Norm1Weight, l.Norm1Bias, 1e-5)
 	tape.q, tape.k, tape.v = make([]float32, rows*width), make([]float32, rows*width), make([]float32, rows*width)
+	qkv := linearForwardRowsTraining(l.InProjection, tape.norm1.normalized, rows)
 	for row := 0; row < rows; row++ {
-		qkv := linearForwardTraining(l.InProjection, tape.norm1.normalized[row*width:(row+1)*width])
-		copy(tape.q[row*width:(row+1)*width], qkv[:width])
-		copy(tape.k[row*width:(row+1)*width], qkv[width:2*width])
-		copy(tape.v[row*width:(row+1)*width], qkv[2*width:])
+		copy(tape.q[row*width:(row+1)*width], qkv[row*3*width:row*3*width+width])
+		copy(tape.k[row*width:(row+1)*width], qkv[row*3*width+width:row*3*width+2*width])
+		copy(tape.v[row*width:(row+1)*width], qkv[row*3*width+2*width:(row+1)*3*width])
 		ropeScalar(tape.q[row*width:(row+1)*width], row, heads, headDim, maxPeriod, false)
 		ropeScalar(tape.k[row*width:(row+1)*width], row, heads, headDim, maxPeriod, false)
 	}
@@ -163,11 +163,10 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 			}
 		}
 	}
-	tape.projected = make([]float32, rows*width)
+	tape.projected = linearForwardRowsTraining(l.OutProjection, tape.attention, rows)
 	tape.afterAttention = make([]float32, rows*width)
 	for row := 0; row < rows; row++ {
-		projected := linearForwardTraining(l.OutProjection, tape.attention[row*width:(row+1)*width])
-		copy(tape.projected[row*width:(row+1)*width], projected)
+		projected := tape.projected[row*width : (row+1)*width]
 		for i := 0; i < width; i++ {
 			update := projected[i]
 			if l.LayerScale1 != nil {
@@ -177,18 +176,15 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 		}
 	}
 	tape.norm2, _ = transformerNormForward(rows, width, tape.afterAttention, l.Norm2Weight, l.Norm2Bias, 1e-5)
-	tape.fc1Pre = make([]float32, rows*l.FC1.Out)
+	tape.fc1Pre = linearForwardRowsTraining(l.FC1, tape.norm2.normalized, rows)
 	tape.fc1 = make([]float32, len(tape.fc1Pre))
-	tape.down = make([]float32, rows*width)
+	for i, value := range tape.fc1Pre {
+		tape.fc1[i] = geluTanh(value)
+	}
+	tape.down = linearForwardRowsTraining(l.FC2, tape.fc1, rows)
 	tape.output = append([]float32(nil), tape.afterAttention...)
 	for row := 0; row < rows; row++ {
-		pre := linearForwardTraining(l.FC1, tape.norm2.normalized[row*width:(row+1)*width])
-		copy(tape.fc1Pre[row*l.FC1.Out:(row+1)*l.FC1.Out], pre)
-		for i, value := range pre {
-			tape.fc1[row*l.FC1.Out+i] = geluTanh(value)
-		}
-		down := linearForwardTraining(l.FC2, tape.fc1[row*l.FC1.Out:(row+1)*l.FC1.Out])
-		copy(tape.down[row*width:(row+1)*width], down)
+		down := tape.down[row*width : (row+1)*width]
 		for i := 0; i < width; i++ {
 			update := down[i]
 			if l.LayerScale2 != nil {
@@ -197,19 +193,21 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 			tape.output[row*width+i] += update
 		}
 	}
-	return tape, append([]float32(nil), tape.output...)
+	return tape, tape.output
 }
 
 func transformerNormForward(rows, width int, input, weight, bias []float32, epsilon float32) (transformerNormTape, []float32) {
 	tape := transformerNormTape{input: append([]float32(nil), input...), normalized: make([]float32, len(input)), inv: make([]float32, rows)}
+	// The pre-affine base is consumed within one row; only the affine result
+	// and inverse norm belong to the tape.
+	base := make([]float32, width)
 	for row := 0; row < rows; row++ {
-		base, _, _, inv := layerNormBase(input[row*width:(row+1)*width], epsilon)
-		tape.inv[row] = inv
+		_, _, tape.inv[row] = layerNormBaseInto(base, input[row*width:(row+1)*width], epsilon)
 		for i := 0; i < width; i++ {
 			tape.normalized[row*width+i] = base[i]*weight[i] + bias[i]
 		}
 	}
-	return tape, append([]float32(nil), tape.normalized...)
+	return tape, tape.normalized
 }
 
 func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutput []float32, gradients *TransformerGradients) []float32 {
@@ -236,15 +234,11 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 			dDown[row*width+i] = g
 		}
 	}
-	dNorm2 := make([]float32, rows*width)
-	for row := 0; row < rows; row++ {
-		dFC1 := linearBackwardTraining(l.FC2, tape.fc1[row*l.FC1.Out:(row+1)*l.FC1.Out], dDown[row*width:(row+1)*width], &gradient.FC2)
-		for i := range dFC1 {
-			dFC1[i] *= geluTanhDerivative(tape.fc1Pre[row*l.FC1.Out+i])
-		}
-		dNorm := linearBackwardTraining(l.FC1, tape.norm2.normalized[row*width:(row+1)*width], dFC1, &gradient.FC1)
-		copy(dNorm2[row*width:(row+1)*width], dNorm)
+	dFC1 := linearBackwardRowsTraining(l.FC2, tape.fc1, dDown, rows, &gradient.FC2)
+	for i := range dFC1 {
+		dFC1[i] *= geluTanhDerivative(tape.fc1Pre[i])
 	}
+	dNorm2 := linearBackwardRowsTraining(l.FC1, tape.norm2.normalized, dFC1, rows, &gradient.FC1)
 	addInPlace(dAfter, transformerNormBackward(rows, width, tape.norm2, dNorm2, l.Norm2Weight, gradient.Norm2Weight, gradient.Norm2Bias))
 	dInput := append([]float32(nil), dAfter...)
 	dProjected := make([]float32, rows*width)
@@ -258,13 +252,12 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 			dProjected[row*width+i] = g
 		}
 	}
-	dAttention := make([]float32, rows*width)
-	for row := 0; row < rows; row++ {
-		d := linearBackwardTraining(l.OutProjection, tape.attention[row*width:(row+1)*width], dProjected[row*width:(row+1)*width], &gradient.OutProjection)
-		copy(dAttention[row*width:(row+1)*width], d)
-	}
+	dAttention := linearBackwardRowsTraining(l.OutProjection, tape.attention, dProjected, rows, &gradient.OutProjection)
 	dQ, dK, dV := make([]float32, rows*width), make([]float32, rows*width), make([]float32, rows*width)
 	scale := float32(1 / math.Sqrt(float64(headDim)))
+	// Each query/head consumes dProb before the next one starts. Reuse one
+	// layer-local row instead of allocating per attention head and query.
+	dProb := make([]float32, rows)
 	for query := 0; query < rows; query++ {
 		start := 0
 		if context > 0 && query-context+1 > 0 {
@@ -272,7 +265,7 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 		}
 		for head := 0; head < heads; head++ {
 			base := (head*rows + query) * rows
-			dProb := make([]float32, rows)
+			clear(dProb)
 			weighted := float32(0)
 			for key := start; key <= query; key++ {
 				for d := 0; d < headDim; d++ {
@@ -294,33 +287,32 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 		ropeScalar(dQ[row*width:(row+1)*width], row, heads, headDim, maxPeriod, true)
 		ropeScalar(dK[row*width:(row+1)*width], row, heads, headDim, maxPeriod, true)
 	}
-	dNorm1 := make([]float32, rows*width)
+	packed := make([]float32, rows*3*width)
 	for row := 0; row < rows; row++ {
-		packed := make([]float32, 3*width)
-		copy(packed, dQ[row*width:(row+1)*width])
-		copy(packed[width:], dK[row*width:(row+1)*width])
-		copy(packed[2*width:], dV[row*width:(row+1)*width])
-		d := linearBackwardTraining(l.InProjection, tape.norm1.normalized[row*width:(row+1)*width], packed, &gradient.InProjection)
-		copy(dNorm1[row*width:(row+1)*width], d)
+		copy(packed[row*3*width:row*3*width+width], dQ[row*width:(row+1)*width])
+		copy(packed[row*3*width+width:row*3*width+2*width], dK[row*width:(row+1)*width])
+		copy(packed[row*3*width+2*width:(row+1)*3*width], dV[row*width:(row+1)*width])
 	}
+	dNorm1 := linearBackwardRowsTraining(l.InProjection, tape.norm1.normalized, packed, rows, &gradient.InProjection)
 	addInPlace(dInput, transformerNormBackward(rows, width, tape.norm1, dNorm1, l.Norm1Weight, gradient.Norm1Weight, gradient.Norm1Bias))
 	return dInput
 }
 
 func transformerNormBackward(rows, width int, tape transformerNormTape, dOutput, weight, dWeight, dBias []float32) []float32 {
 	dInput := make([]float32, rows*width)
+	base, dBase := make([]float32, width), make([]float32, width)
 	for row := 0; row < rows; row++ {
 		// Recompute the normalized base from immutable input so zero affine
-		// weights do not make the tape ambiguous.
-		base, _, _, _ := layerNormBase(tape.input[row*width:(row+1)*width], 1e-5)
-		dBase := make([]float32, width)
+		// weights do not make the tape ambiguous. Both row temporaries are
+		// consumed before the next row and never escape in the returned gradient.
+		layerNormBaseInto(base, tape.input[row*width:(row+1)*width], 1e-5)
 		for i := 0; i < width; i++ {
 			g := dOutput[row*width+i]
 			dWeight[i] += g * base[i]
 			dBias[i] += g
 			dBase[i] = g * weight[i]
 		}
-		copy(dInput[row*width:(row+1)*width], layerNormBackward(base, tape.inv[row], dBase))
+		layerNormBackwardInto(dInput[row*width:(row+1)*width], base, tape.inv[row], dBase)
 	}
 	return dInput
 }

@@ -41,6 +41,10 @@ func (m *FlowHeadCPU) LSDDistillForwardBackward(condition []float32, s, t float3
 }
 
 func (m *FlowHeadCPU) lsdDistillForwardBackwardInto(condition []float32, s, t float32, noise, target []float32, logVariance float32, flowGradients, discardGradients *FlowHeadGradients, gradientScale float32) (LSDDistillResult, LSDDistillGradients, error) {
+	return m.lsdDistillForwardBackwardScratch(condition, s, t, noise, target, logVariance, flowGradients, discardGradients, gradientScale, nil, nil, nil, nil)
+}
+
+func (m *FlowHeadCPU) lsdDistillForwardBackwardScratch(condition []float32, s, t float32, noise, target []float32, logVariance float32, flowGradients, discardGradients *FlowHeadGradients, gradientScale float32, primaryScratch, endpointScratch, primaryBackward, endpointBackward *flowTapeScratch) (LSDDistillResult, LSDDistillGradients, error) {
 	if m == nil || len(noise) == 0 || len(noise) != len(target) || len(noise) != m.Input.In || !isFinite(s) || !isFinite(t) || !isFinite(logVariance) {
 		return LSDDistillResult{}, LSDDistillGradients{}, fmt.Errorf("invalid Pocket TTS LSD distillation row")
 	}
@@ -55,34 +59,37 @@ func (m *FlowHeadCPU) lsdDistillForwardBackwardInto(condition []float32, s, t fl
 		}
 	}
 	channels := len(noise)
-	xs := make([]float32, channels)
+	// The primary tape and these row values share a lifetime: the caller
+	// consumes the result before resetting primaryScratch. A nil scratch
+	// keeps the standalone API's result slices owned.
+	xs := primaryScratch.take(channels)
 	for i := range xs {
 		xs[i] = s*target[i] + (1-s)*noise[i]
 	}
 	primaryTimes := []float32{s, t}
-	zeroSeed := make([]float32, m.Final.Linear.Out)
+	zeroSeed := primaryScratch.take(m.Final.Linear.Out)
 	if err := validateTrainableFlowHead(m, condition, primaryTimes, xs, zeroSeed); err != nil {
 		return LSDDistillResult{}, LSDDistillGradients{}, err
 	}
-	primaryTape := m.forwardDualTape(condition, primaryTimes, xs, 1)
-	velocity := append([]float32(nil), primaryTape.final.output.value...)
-	derivative := append([]float32(nil), primaryTape.final.output.tangent...)
+	primaryTape := m.forwardDualTapeScratch(condition, primaryTimes, xs, 1, primaryScratch)
+	velocity := primaryScratch.copy(primaryTape.final.output.value)
+	derivative := primaryScratch.copy(primaryTape.final.output.tangent)
 	delta := t - s
-	xt := make([]float32, channels)
-	dxdt := make([]float32, channels)
+	xt := primaryScratch.take(channels)
+	dxdt := primaryScratch.take(channels)
 	for i := range xt {
 		xt[i] = xs[i] + delta*velocity[i]
 		dxdt[i] = velocity[i] + delta*derivative[i]
 	}
-	endpointTape, endpoint, err := m.forwardTraining(condition, []float32{t, t}, xt)
+	endpointTape, endpoint, err := m.forwardTrainingScratch(condition, []float32{t, t}, xt, endpointScratch)
 	if err != nil {
 		return LSDDistillResult{}, LSDDistillGradients{}, err
 	}
 	result := LSDDistillResult{
-		Velocity:       append([]float32(nil), velocity...),
-		TimeDerivative: append([]float32(nil), derivative...),
-		Endpoint:       append([]float32(nil), endpoint...),
-		Residual:       make([]float32, channels),
+		Velocity:       primaryScratch.copy(velocity),
+		TimeDerivative: primaryScratch.copy(derivative),
+		Endpoint:       primaryScratch.copy(endpoint),
+		Residual:       primaryScratch.take(channels),
 	}
 	square := float32(0)
 	for i := range result.Residual {
@@ -93,27 +100,27 @@ func (m *FlowHeadCPU) lsdDistillForwardBackwardInto(condition []float32, s, t fl
 	result.RawSquare = float64(square)
 	result.Loss = float64(square*scale - logVariance)
 	gradients := LSDDistillGradients{
-		Condition:    make([]float32, len(condition)),
-		Noise:        make([]float32, channels),
-		Target:       make([]float32, channels),
+		Condition:    primaryScratch.take(len(condition)),
+		Noise:        primaryScratch.take(channels),
+		Target:       primaryScratch.take(channels),
 		DLogVariance: gradientScale * (square*scale - 1),
 	}
-	dResidual := make([]float32, channels)
+	dResidual := primaryScratch.take(channels)
 	for i := range dResidual {
 		dResidual[i] = 2 * result.Residual[i] * scale
 	}
 	// Endpoint direct gradients are stopped. Retain only dL/dx_t.
-	dEndpoint := make([]float32, channels)
+	dEndpoint := primaryScratch.take(channels)
 	for i := range dEndpoint {
 		dEndpoint[i] = -dResidual[i]
 	}
-	_, _, dEndpointInput, err := m.backwardTraining(endpointTape, dEndpoint, discardGradients)
+	_, _, dEndpointInput, err := m.backwardTrainingScratch(endpointTape, dEndpoint, discardGradients, endpointBackward)
 	if err != nil {
 		return LSDDistillResult{}, LSDDistillGradients{}, err
 	}
 	// dxdt=v+delta*dvdt and xt=xs+delta*v.
-	dVelocity := make([]float32, channels)
-	dDerivative := make([]float32, channels)
+	dVelocity := primaryScratch.take(channels)
+	dDerivative := primaryScratch.take(channels)
 	dDelta := float32(0)
 	for i := range dVelocity {
 		dVelocity[i] = dResidual[i] + delta*dEndpointInput[i]
@@ -126,10 +133,10 @@ func (m *FlowHeadCPU) lsdDistillForwardBackwardInto(condition []float32, s, t fl
 		dEndpointInput[i] *= gradientScale
 	}
 	dDelta *= gradientScale
-	dCondition, dPrimaryTimes, dXSPrimary := m.backwardDualTape(primaryTape, dualAdjoint{value: dVelocity, tangent: dDerivative}, flowGradients)
+	dCondition, dPrimaryTimes, dXSPrimary := m.backwardDualTapeScratch(primaryTape, dualAdjoint{value: dVelocity, tangent: dDerivative}, flowGradients, primaryBackward)
 	gradients.Flow = flowGradients
 	copy(gradients.Condition, dCondition)
-	dXS := make([]float32, channels)
+	dXS := primaryScratch.take(channels)
 	for i := range dXS {
 		dXS[i] = dXSPrimary[i] + dEndpointInput[i]
 		gradients.Target[i] = s * dXS[i]

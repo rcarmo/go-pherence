@@ -72,40 +72,52 @@ func (m *FlowHeadCPU) ForwardTimeJVPBackward(condition, times, input []float32, 
 }
 
 func (m *FlowHeadCPU) forwardDualTape(condition, times, input []float32, timeIndex int) *dualFlowTape {
-	zeroInput := dualVector{value: append([]float32(nil), input...), tangent: make([]float32, len(input))}
-	zeroCondition := dualVector{value: append([]float32(nil), condition...), tangent: make([]float32, len(condition))}
+	return m.forwardDualTapeScratch(condition, times, input, timeIndex, nil)
+}
+
+func (m *FlowHeadCPU) forwardDualTapeScratch(condition, times, input []float32, timeIndex int, scratch *flowTapeScratch) *dualFlowTape {
+	zeroInput := dualVector{value: scratch.copy(input), tangent: scratch.take(len(input))}
+	zeroCondition := dualVector{value: scratch.copy(condition), tangent: scratch.take(len(condition))}
 	tape := &dualFlowTape{times: make([]dualTimeTape, len(times)), blocks: make([]dualBlockTape, len(m.Blocks))}
-	tape.input = dualLinearTape{input: zeroInput, output: linearForwardDual(m.Input, zeroInput)}
-	tape.condition = dualLinearTape{input: zeroCondition, output: linearForwardDual(m.Condition, zeroCondition)}
-	tape.conditionSum = cloneDual(tape.condition.output)
+	tape.input = dualLinearTape{input: zeroInput, output: linearForwardDualScratch(m.Input, zeroInput, scratch)}
+	tape.condition = dualLinearTape{input: zeroCondition, output: linearForwardDualScratch(m.Condition, zeroCondition, scratch)}
+	tape.conditionSum = cloneDualScratch(tape.condition.output, scratch)
 	for i := range times {
 		dTime := float32(0)
 		if i == timeIndex {
 			dTime = 1
 		}
-		tape.times[i] = timestepForwardDualTape(m.Time[i], times[i], dTime)
+		tape.times[i] = timestepForwardDualTapeScratch(m.Time[i], times[i], dTime, scratch)
 		for j := range tape.conditionSum.value {
 			tape.conditionSum.value[j] += tape.times[i].output.value[j] / float32(len(times))
 			tape.conditionSum.tangent[j] += tape.times[i].output.tangent[j] / float32(len(times))
 		}
 	}
-	x := cloneDual(tape.input.output)
+	x := cloneDualScratch(tape.input.output, scratch)
 	for i := range m.Blocks {
-		tape.blocks[i] = blockForwardDualTape(m.Blocks[i], x, tape.conditionSum)
-		x = cloneDual(tape.blocks[i].output)
+		tape.blocks[i] = blockForwardDualTapeScratch(m.Blocks[i], x, tape.conditionSum, scratch)
+		x = cloneDualScratch(tape.blocks[i].output, scratch)
 	}
-	tape.final = finalForwardDualTape(m.Final, x, tape.conditionSum)
+	tape.final = finalForwardDualTapeScratch(m.Final, x, tape.conditionSum, scratch)
 	return tape
 }
 
 func cloneDual(input dualVector) dualVector {
-	return dualVector{value: append([]float32(nil), input.value...), tangent: append([]float32(nil), input.tangent...)}
+	return cloneDualScratch(input, nil)
+}
+
+func cloneDualScratch(input dualVector, scratch *flowTapeScratch) dualVector {
+	return dualVector{value: scratch.copy(input.value), tangent: scratch.copy(input.tangent)}
 }
 
 func timestepForwardDualTape(model TimestepMLP, time, dTime float32) dualTimeTape {
+	return timestepForwardDualTapeScratch(model, time, dTime, nil)
+}
+
+func timestepForwardDualTapeScratch(model TimestepMLP, time, dTime float32, scratch *flowTapeScratch) dualTimeTape {
 	half := len(model.Frequencies)
 	tape := dualTimeTape{time: time, dTime: dTime}
-	tape.embedding = dualVector{value: make([]float32, 2*half), tangent: make([]float32, 2*half)}
+	tape.embedding = dualVector{value: scratch.take(2 * half), tangent: scratch.take(2 * half)}
 	for i, frequency := range model.Frequencies {
 		angle := time * frequency
 		sine, cosine := float32(math.Sin(float64(angle))), float32(math.Cos(float64(angle)))
@@ -113,29 +125,33 @@ func timestepForwardDualTape(model TimestepMLP, time, dTime float32) dualTimeTap
 		tape.embedding.tangent[i] = -sine * frequency * dTime
 		tape.embedding.tangent[half+i] = cosine * frequency * dTime
 	}
-	tape.fc1Pre = linearForwardDual(model.FC1, tape.embedding)
-	tape.fc1 = siluForwardDual(tape.fc1Pre)
-	tape.fc2Pre = linearForwardDual(model.FC2, tape.fc1)
-	tape.output, tape.mean, tape.dMean, tape.variance, tape.dVariance, tape.scale, tape.dScale = varianceNormForwardDualStats(tape.fc2Pre, model.RMSWeight, model.RMSEpsilon)
+	tape.fc1Pre = linearForwardDualScratch(model.FC1, tape.embedding, scratch)
+	tape.fc1 = siluForwardDualScratch(tape.fc1Pre, scratch)
+	tape.fc2Pre = linearForwardDualScratch(model.FC2, tape.fc1, scratch)
+	tape.output, tape.mean, tape.dMean, tape.variance, tape.dVariance, tape.scale, tape.dScale = varianceNormForwardDualStatsScratch(tape.fc2Pre, model.RMSWeight, model.RMSEpsilon, scratch)
 	return tape
 }
 
 func blockForwardDualTape(model AdaLNResidual, input, condition dualVector) dualBlockTape {
-	tape := dualBlockTape{input: cloneDual(input), condition: cloneDual(condition)}
-	tape.condAct = siluForwardDual(condition)
-	tape.mod = linearForwardDual(model.Modulation, tape.condAct)
-	tape.norm = layerNormForwardDual(input, model.NormWeight, model.NormBias, model.Epsilon)
+	return blockForwardDualTapeScratch(model, input, condition, nil)
+}
+
+func blockForwardDualTapeScratch(model AdaLNResidual, input, condition dualVector, scratch *flowTapeScratch) dualBlockTape {
+	tape := dualBlockTape{input: cloneDualScratch(input, scratch), condition: cloneDualScratch(condition, scratch)}
+	tape.condAct = siluForwardDualScratch(condition, scratch)
+	tape.mod = linearForwardDualScratch(model.Modulation, tape.condAct, scratch)
+	tape.norm = layerNormForwardDualScratch(input, model.NormWeight, model.NormBias, model.Epsilon, scratch)
 	d := len(input.value)
-	tape.modulated = dualVector{value: make([]float32, d), tangent: make([]float32, d)}
+	tape.modulated = dualVector{value: scratch.take(d), tangent: scratch.take(d)}
 	for i := 0; i < d; i++ {
 		scale := 1 + tape.mod.value[d+i]
 		tape.modulated.value[i] = tape.norm.value[i]*scale + tape.mod.value[i]
 		tape.modulated.tangent[i] = tape.norm.tangent[i]*scale + tape.norm.value[i]*tape.mod.tangent[d+i] + tape.mod.tangent[i]
 	}
-	tape.fc1Pre = linearForwardDual(model.FC1, tape.modulated)
-	tape.fc1 = siluForwardDual(tape.fc1Pre)
-	tape.update = linearForwardDual(model.FC2, tape.fc1)
-	tape.output = dualVector{value: make([]float32, d), tangent: make([]float32, d)}
+	tape.fc1Pre = linearForwardDualScratch(model.FC1, tape.modulated, scratch)
+	tape.fc1 = siluForwardDualScratch(tape.fc1Pre, scratch)
+	tape.update = linearForwardDualScratch(model.FC2, tape.fc1, scratch)
+	tape.output = dualVector{value: scratch.take(d), tangent: scratch.take(d)}
 	for i := 0; i < d; i++ {
 		gate := tape.mod.value[2*d+i]
 		tape.output.value[i] = input.value[i] + gate*tape.update.value[i]
@@ -145,66 +161,75 @@ func blockForwardDualTape(model AdaLNResidual, input, condition dualVector) dual
 }
 
 func finalForwardDualTape(model AdaLNFinal, input, condition dualVector) dualFinalTape {
-	tape := dualFinalTape{input: cloneDual(input), condition: cloneDual(condition)}
-	tape.condAct = siluForwardDual(condition)
-	tape.mod = linearForwardDual(model.Modulation, tape.condAct)
-	tape.norm = layerNormForwardDual(input, nil, nil, model.Epsilon)
+	return finalForwardDualTapeScratch(model, input, condition, nil)
+}
+
+func finalForwardDualTapeScratch(model AdaLNFinal, input, condition dualVector, scratch *flowTapeScratch) dualFinalTape {
+	tape := dualFinalTape{input: cloneDualScratch(input, scratch), condition: cloneDualScratch(condition, scratch)}
+	tape.condAct = siluForwardDualScratch(condition, scratch)
+	tape.mod = linearForwardDualScratch(model.Modulation, tape.condAct, scratch)
+	tape.norm = layerNormForwardDualScratch(input, nil, nil, model.Epsilon, scratch)
 	d := len(input.value)
-	tape.modulated = dualVector{value: make([]float32, d), tangent: make([]float32, d)}
+	tape.modulated = dualVector{value: scratch.take(d), tangent: scratch.take(d)}
 	for i := 0; i < d; i++ {
 		scale := 1 + tape.mod.value[d+i]
 		tape.modulated.value[i] = tape.norm.value[i]*scale + tape.mod.value[i]
 		tape.modulated.tangent[i] = tape.norm.tangent[i]*scale + tape.norm.value[i]*tape.mod.tangent[d+i] + tape.mod.tangent[i]
 	}
-	tape.output = linearForwardDual(model.Linear, tape.modulated)
+	tape.output = linearForwardDualScratch(model.Linear, tape.modulated, scratch)
 	return tape
 }
 
 func (m *FlowHeadCPU) backwardDualTape(tape *dualFlowTape, seed dualAdjoint, gradients *FlowHeadGradients) (dCondition, dTimes, dInput []float32) {
-	dHidden, dCond := finalBackwardDual(m.Final, tape.final, seed, &gradients.Final)
+	return m.backwardDualTapeScratch(tape, seed, gradients, nil)
+}
+
+func (m *FlowHeadCPU) backwardDualTapeScratch(tape *dualFlowTape, seed dualAdjoint, gradients *FlowHeadGradients, scratch *flowTapeScratch) (dCondition, dTimes, dInput []float32) {
+	dHidden, dCond := finalBackwardDualScratch(m.Final, tape.final, seed, &gradients.Final, scratch)
 	for i := len(m.Blocks) - 1; i >= 0; i-- {
 		var blockCond dualAdjoint
-		dHidden, blockCond = blockBackwardDual(m.Blocks[i], tape.blocks[i], dHidden, &gradients.Blocks[i])
+		dHidden, blockCond = blockBackwardDualScratch(m.Blocks[i], tape.blocks[i], dHidden, &gradients.Blocks[i], scratch)
 		addDualAdjoint(&dCond, blockCond)
 	}
-	dInputDual := linearBackwardDual(m.Input, tape.input, dHidden, &gradients.Input)
+	dInputDual := linearBackwardDualScratch(m.Input, tape.input, dHidden, &gradients.Input, scratch)
 	dInput = dInputDual.value
-	dTimes = make([]float32, len(m.Time))
+	dTimes = scratch.take(len(m.Time))
 	for i := range m.Time {
-		seed := dualAdjoint{value: make([]float32, len(dCond.value)), tangent: make([]float32, len(dCond.tangent))}
+		seed := dualAdjoint{value: scratch.take(len(dCond.value)), tangent: scratch.take(len(dCond.tangent))}
 		for j := range seed.value {
 			seed.value[j] = dCond.value[j] / float32(len(m.Time))
 			seed.tangent[j] = dCond.tangent[j] / float32(len(m.Time))
 		}
-		dTime, _ := timestepBackwardDual(m.Time[i], tape.times[i], seed, &gradients.Time[i])
+		dTime, _ := timestepBackwardDualScratch(m.Time[i], tape.times[i], seed, &gradients.Time[i], scratch)
 		dTimes[i] = dTime
 	}
-	dConditionDual := linearBackwardDual(m.Condition, tape.condition, dCond, &gradients.Condition)
+	dConditionDual := linearBackwardDualScratch(m.Condition, tape.condition, dCond, &gradients.Condition, scratch)
 	return dConditionDual.value, dTimes, dInput
 }
 
 func linearBackwardDual(linear LinearF32, tape dualLinearTape, seed dualAdjoint, gradient *LinearF32Gradient) dualAdjoint {
+	return linearBackwardDualScratch(linear, tape, seed, gradient, nil)
+}
+
+func linearBackwardDualScratch(linear LinearF32, tape dualLinearTape, seed dualAdjoint, gradient *LinearF32Gradient, scratch *flowTapeScratch) dualAdjoint {
 	input := tape.input
-	dInput := dualAdjoint{value: make([]float32, linear.In), tangent: make([]float32, linear.In)}
-	for row := 0; row < linear.Out; row++ {
-		if gradient.Bias != nil {
-			gradient.Bias[row] += seed.value[row]
-		}
-		for column := 0; column < linear.In; column++ {
-			weight := linear.Weight[row*linear.In+column]
-			gradient.Weight[row*linear.In+column] += seed.value[row]*input.value[column] + seed.tangent[row]*input.tangent[column]
-			dInput.value[column] += seed.value[row] * weight
-			dInput.tangent[column] += seed.tangent[row] * weight
-		}
-	}
-	return dInput
+	dInputValue := scratch.take(linear.In)
+	linearBackwardTrainingInto(dInputValue, linear, input.value, seed.value, gradient)
+	noBiasGradient := LinearF32Gradient{Weight: gradient.Weight}
+	dInputTangent := scratch.take(linear.In)
+	linearBackwardTrainingInto(dInputTangent, linear, input.tangent, seed.tangent, &noBiasGradient)
+	return dualAdjoint{value: dInputValue, tangent: dInputTangent}
 }
 
 func finalBackwardDual(model AdaLNFinal, tape dualFinalTape, seed dualAdjoint, gradient *AdaLNFinalGradient) (dualAdjoint, dualAdjoint) {
-	dModulated := linearBackwardDual(model.Linear, dualLinearTape{input: tape.modulated, output: tape.output}, seed, &gradient.Linear)
+	return finalBackwardDualScratch(model, tape, seed, gradient, nil)
+}
+
+func finalBackwardDualScratch(model AdaLNFinal, tape dualFinalTape, seed dualAdjoint, gradient *AdaLNFinalGradient, scratch *flowTapeScratch) (dualAdjoint, dualAdjoint) {
+	dModulated := linearBackwardDualScratch(model.Linear, dualLinearTape{input: tape.modulated, output: tape.output}, seed, &gradient.Linear, scratch)
 	d := len(tape.input.value)
-	dNorm := zeroDualAdjoint(d)
-	dMod := zeroDualAdjoint(2 * d)
+	dNorm := zeroDualAdjointScratch(d, scratch)
+	dMod := zeroDualAdjointScratch(2*d, scratch)
 	for i := 0; i < d; i++ {
 		scale := 1 + tape.mod.value[d+i]
 		dNorm.value[i] += dModulated.value[i]*scale + dModulated.tangent[i]*tape.mod.tangent[d+i]
@@ -214,17 +239,21 @@ func finalBackwardDual(model AdaLNFinal, tape dualFinalTape, seed dualAdjoint, g
 		dMod.value[d+i] += dModulated.value[i]*tape.norm.value[i] + dModulated.tangent[i]*tape.norm.tangent[i]
 		dMod.tangent[d+i] += dModulated.tangent[i] * tape.norm.value[i]
 	}
-	dInput := layerNormBackwardDual(tape.input, dNorm, nil, model.Epsilon, nil, nil)
-	dCondAct := linearBackwardDual(model.Modulation, dualLinearTape{input: tape.condAct, output: tape.mod}, dMod, &gradient.Modulation)
-	dCondition := siluBackwardDual(tape.condition, dCondAct)
+	dInput := layerNormBackwardDualScratch(tape.input, dNorm, nil, model.Epsilon, nil, nil, scratch)
+	dCondAct := linearBackwardDualScratch(model.Modulation, dualLinearTape{input: tape.condAct, output: tape.mod}, dMod, &gradient.Modulation, scratch)
+	dCondition := siluBackwardDualScratch(tape.condition, dCondAct, scratch)
 	return dInput, dCondition
 }
 
 func blockBackwardDual(model AdaLNResidual, tape dualBlockTape, seed dualAdjoint, gradient *AdaLNResidualGradient) (dualAdjoint, dualAdjoint) {
+	return blockBackwardDualScratch(model, tape, seed, gradient, nil)
+}
+
+func blockBackwardDualScratch(model AdaLNResidual, tape dualBlockTape, seed dualAdjoint, gradient *AdaLNResidualGradient, scratch *flowTapeScratch) (dualAdjoint, dualAdjoint) {
 	d := len(tape.input.value)
-	dInput := dualAdjoint{value: append([]float32(nil), seed.value...), tangent: append([]float32(nil), seed.tangent...)}
-	dMod := zeroDualAdjoint(3 * d)
-	dUpdate := zeroDualAdjoint(d)
+	dInput := dualAdjoint{value: scratch.copy(seed.value), tangent: scratch.copy(seed.tangent)}
+	dMod := zeroDualAdjointScratch(3*d, scratch)
+	dUpdate := zeroDualAdjointScratch(d, scratch)
 	for i := 0; i < d; i++ {
 		gate := tape.mod.value[2*d+i]
 		dMod.value[2*d+i] += seed.value[i]*tape.update.value[i] + seed.tangent[i]*tape.update.tangent[i]
@@ -232,10 +261,10 @@ func blockBackwardDual(model AdaLNResidual, tape dualBlockTape, seed dualAdjoint
 		dUpdate.value[i] += seed.value[i]*gate + seed.tangent[i]*tape.mod.tangent[2*d+i]
 		dUpdate.tangent[i] += seed.tangent[i] * gate
 	}
-	dFC1 := linearBackwardDual(model.FC2, dualLinearTape{input: tape.fc1, output: tape.update}, dUpdate, &gradient.FC2)
-	dFC1Pre := siluBackwardDual(tape.fc1Pre, dFC1)
-	dModulated := linearBackwardDual(model.FC1, dualLinearTape{input: tape.modulated, output: tape.fc1Pre}, dFC1Pre, &gradient.FC1)
-	dNorm := zeroDualAdjoint(d)
+	dFC1 := linearBackwardDualScratch(model.FC2, dualLinearTape{input: tape.fc1, output: tape.update}, dUpdate, &gradient.FC2, scratch)
+	dFC1Pre := siluBackwardDualScratch(tape.fc1Pre, dFC1, scratch)
+	dModulated := linearBackwardDualScratch(model.FC1, dualLinearTape{input: tape.modulated, output: tape.fc1Pre}, dFC1Pre, &gradient.FC1, scratch)
+	dNorm := zeroDualAdjointScratch(d, scratch)
 	for i := 0; i < d; i++ {
 		scale := 1 + tape.mod.value[d+i]
 		dNorm.value[i] += dModulated.value[i]*scale + dModulated.tangent[i]*tape.mod.tangent[d+i]
@@ -245,17 +274,21 @@ func blockBackwardDual(model AdaLNResidual, tape dualBlockTape, seed dualAdjoint
 		dMod.value[d+i] += dModulated.value[i]*tape.norm.value[i] + dModulated.tangent[i]*tape.norm.tangent[i]
 		dMod.tangent[d+i] += dModulated.tangent[i] * tape.norm.value[i]
 	}
-	addDualAdjoint(&dInput, layerNormBackwardDual(tape.input, dNorm, model.NormWeight, model.Epsilon, gradient.NormWeight, gradient.NormBias))
-	dCondAct := linearBackwardDual(model.Modulation, dualLinearTape{input: tape.condAct, output: tape.mod}, dMod, &gradient.Modulation)
-	dCondition := siluBackwardDual(tape.condition, dCondAct)
+	addDualAdjoint(&dInput, layerNormBackwardDualScratch(tape.input, dNorm, model.NormWeight, model.Epsilon, gradient.NormWeight, gradient.NormBias, scratch))
+	dCondAct := linearBackwardDualScratch(model.Modulation, dualLinearTape{input: tape.condAct, output: tape.mod}, dMod, &gradient.Modulation, scratch)
+	dCondition := siluBackwardDualScratch(tape.condition, dCondAct, scratch)
 	return dInput, dCondition
 }
 
 func timestepBackwardDual(model TimestepMLP, tape dualTimeTape, seed dualAdjoint, gradient *TimestepMLPGradient) (dTime, dDTime float32) {
-	dFC2Pre := varianceNormBackwardDual(tape, model.RMSWeight, seed, gradient.RMSWeight)
-	dFC1 := linearBackwardDual(model.FC2, dualLinearTape{input: tape.fc1, output: tape.fc2Pre}, dFC2Pre, &gradient.FC2)
-	dFC1Pre := siluBackwardDual(tape.fc1Pre, dFC1)
-	dEmbedding := linearBackwardDual(model.FC1, dualLinearTape{input: tape.embedding, output: tape.fc1Pre}, dFC1Pre, &gradient.FC1)
+	return timestepBackwardDualScratch(model, tape, seed, gradient, nil)
+}
+
+func timestepBackwardDualScratch(model TimestepMLP, tape dualTimeTape, seed dualAdjoint, gradient *TimestepMLPGradient, scratch *flowTapeScratch) (dTime, dDTime float32) {
+	dFC2Pre := varianceNormBackwardDualScratch(tape, model.RMSWeight, seed, gradient.RMSWeight, scratch)
+	dFC1 := linearBackwardDualScratch(model.FC2, dualLinearTape{input: tape.fc1, output: tape.fc2Pre}, dFC2Pre, &gradient.FC2, scratch)
+	dFC1Pre := siluBackwardDualScratch(tape.fc1Pre, dFC1, scratch)
+	dEmbedding := linearBackwardDualScratch(model.FC1, dualLinearTape{input: tape.embedding, output: tape.fc1Pre}, dFC1Pre, &gradient.FC1, scratch)
 	half := len(model.Frequencies)
 	for i, frequency := range model.Frequencies {
 		angle := tape.time * frequency
@@ -272,7 +305,11 @@ func timestepBackwardDual(model TimestepMLP, tape dualTimeTape, seed dualAdjoint
 }
 
 func siluBackwardDual(input dualVector, seed dualAdjoint) dualAdjoint {
-	output := zeroDualAdjoint(len(input.value))
+	return siluBackwardDualScratch(input, seed, nil)
+}
+
+func siluBackwardDualScratch(input dualVector, seed dualAdjoint, scratch *flowTapeScratch) dualAdjoint {
+	output := zeroDualAdjointScratch(len(input.value), scratch)
 	for i, x := range input.value {
 		s := sigmoidF32(x)
 		first := s * (1 + x*(1-s))
@@ -284,6 +321,10 @@ func siluBackwardDual(input dualVector, seed dualAdjoint) dualAdjoint {
 }
 
 func layerNormBackwardDual(input dualVector, seed dualAdjoint, weight []float32, epsilon float32, dWeight, dBias []float32) dualAdjoint {
+	return layerNormBackwardDualScratch(input, seed, weight, epsilon, dWeight, dBias, nil)
+}
+
+func layerNormBackwardDualScratch(input dualVector, seed dualAdjoint, weight []float32, epsilon float32, dWeight, dBias []float32, scratch *flowTapeScratch) dualAdjoint {
 	// Reverse the explicit dual forward with scalar reductions. This retains
 	// population variance and works for affine and non-affine LayerNorm.
 	n := len(input.value)
@@ -294,7 +335,7 @@ func layerNormBackwardDual(input dualVector, seed dualAdjoint, weight []float32,
 		dMean += input.tangent[i]
 	}
 	mean, dMean = mean/nf, dMean/nf
-	center, dCenter := make([]float32, n), make([]float32, n)
+	center, dCenter := scratch.take(n), scratch.take(n)
 	variance, dVariance := float32(0), float32(0)
 	for i := range center {
 		center[i], dCenter[i] = input.value[i]-mean, input.tangent[i]-dMean
@@ -304,7 +345,7 @@ func layerNormBackwardDual(input dualVector, seed dualAdjoint, weight []float32,
 	variance, dVariance = variance/nf, dVariance/nf
 	inv := float32(1 / math.Sqrt(float64(variance+epsilon)))
 	dInv := -0.5 * inv * inv * inv * dVariance
-	gCenter, gDCenter := make([]float32, n), make([]float32, n)
+	gCenter, gDCenter := scratch.take(n), scratch.take(n)
 	gInv, gDInv := float32(0), float32(0)
 	for i := range center {
 		base, tangentBase := center[i]*inv, dCenter[i]*inv+center[i]*dInv
@@ -332,7 +373,7 @@ func layerNormBackwardDual(input dualVector, seed dualAdjoint, weight []float32,
 		gMean -= gCenter[i]
 		gDMean -= gDCenter[i]
 	}
-	output := zeroDualAdjoint(n)
+	output := zeroDualAdjointScratch(n, scratch)
 	for i := range output.value {
 		output.value[i] = gCenter[i] + gMean/nf
 		output.tangent[i] = gDCenter[i] + gDMean/nf
@@ -341,9 +382,13 @@ func layerNormBackwardDual(input dualVector, seed dualAdjoint, weight []float32,
 }
 
 func varianceNormBackwardDual(tape dualTimeTape, alpha []float32, seed dualAdjoint, dAlpha []float32) dualAdjoint {
+	return varianceNormBackwardDualScratch(tape, alpha, seed, dAlpha, nil)
+}
+
+func varianceNormBackwardDualScratch(tape dualTimeTape, alpha []float32, seed dualAdjoint, dAlpha []float32, scratch *flowTapeScratch) dualAdjoint {
 	n := len(tape.fc2Pre.value)
 	denom := float32(n - 1)
-	gValue, gTangent := make([]float32, n), make([]float32, n)
+	gValue, gTangent := scratch.take(n), scratch.take(n)
 	gScale, gDScale := float32(0), float32(0)
 	for i := 0; i < n; i++ {
 		v, dv := tape.fc2Pre.value[i], tape.fc2Pre.tangent[i]
@@ -369,6 +414,10 @@ func varianceNormBackwardDual(tape dualTimeTape, alpha []float32, seed dualAdjoi
 }
 
 func varianceNormForwardDualStats(input dualVector, alpha []float32, epsilon float32) (output dualVector, mean, dMean, variance, dVariance, scale, dScale float32) {
+	return varianceNormForwardDualStatsScratch(input, alpha, epsilon, nil)
+}
+
+func varianceNormForwardDualStatsScratch(input dualVector, alpha []float32, epsilon float32, scratch *flowTapeScratch) (output dualVector, mean, dMean, variance, dVariance, scale, dScale float32) {
 	n := len(input.value)
 	for i := range input.value {
 		mean += input.value[i]
@@ -383,7 +432,7 @@ func varianceNormForwardDualStats(input dualVector, alpha []float32, epsilon flo
 	variance, dVariance = variance/float32(n-1), dVariance/float32(n-1)
 	scale = float32(1 / math.Sqrt(float64(variance+epsilon)))
 	dScale = -0.5 * scale * scale * scale * dVariance
-	output = dualVector{value: make([]float32, n), tangent: make([]float32, n)}
+	output = dualVector{value: scratch.take(n), tangent: scratch.take(n)}
 	for i := range input.value {
 		output.value[i] = input.value[i] * alpha[i] * scale
 		output.tangent[i] = alpha[i] * (input.tangent[i]*scale + input.value[i]*dScale)
@@ -392,7 +441,11 @@ func varianceNormForwardDualStats(input dualVector, alpha []float32, epsilon flo
 }
 
 func zeroDualAdjoint(n int) dualAdjoint {
-	return dualAdjoint{value: make([]float32, n), tangent: make([]float32, n)}
+	return zeroDualAdjointScratch(n, nil)
+}
+
+func zeroDualAdjointScratch(n int, scratch *flowTapeScratch) dualAdjoint {
+	return dualAdjoint{value: scratch.take(n), tangent: scratch.take(n)}
 }
 
 func addDualAdjoint(dst *dualAdjoint, src dualAdjoint) {

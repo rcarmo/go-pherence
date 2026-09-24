@@ -56,6 +56,52 @@ func TestTransformerBackwardFiniteDifference(t *testing.T) {
 	}
 }
 
+func TestTransformerTrainingOutputStaysOwned(t *testing.T) {
+	model := tinyTrainableTransformer()
+	// Exercise both the inter-layer handoff and optional final norm.
+	model.Layers = append(model.Layers, model.Layers[0])
+	sequence := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2}
+	seed := []float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8}
+	output, _, _, err := model.ForwardBackward(sequence, seed, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := append([]float32(nil), output...)
+	sequence[0] += .2
+	if _, _, _, err = model.ForwardBackward(sequence, seed, 2); err != nil {
+		t.Fatal(err)
+	}
+	assertSliceClose(t, "owned transformer training output", output, original, 0)
+	if &output[0] == &sequence[0] {
+		t.Fatal("transformer output aliases caller input")
+	}
+}
+
+func TestTransformerNormBackwardWithZeroAffineWeight(t *testing.T) {
+	const rows, width = 3, 4
+	input := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2, .8, -.1, .4, -.5}
+	weight := []float32{0, 1.1, .9, 0}
+	bias := []float32{.02, -.03, .01, .04}
+	dOutput := []float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8, -.3, .4, -.5, .6}
+	tape, _ := transformerNormForward(rows, width, input, weight, bias, 1e-5)
+	dWeight, dBias := make([]float32, width), make([]float32, width)
+	dInput := transformerNormBackward(rows, width, tape, dOutput, weight, dWeight, dBias)
+	evaluate := func() float64 {
+		_, output := transformerNormForward(rows, width, input, weight, bias, 1e-5)
+		var total float64
+		for i, value := range output {
+			total += float64(value) * float64(dOutput[i])
+		}
+		return total
+	}
+	checkCentralDifference(t, "zero-weight norm input", input, dInput, evaluate, 3e-3)
+	checkCentralDifference(t, "zero-weight norm weight", weight, dWeight, evaluate, 3e-3)
+	checkCentralDifference(t, "zero-weight norm bias", bias, dBias, evaluate, 3e-3)
+	if dWeight[0] == 0 || dWeight[3] == 0 {
+		t.Fatal("zero affine weight lost its gradient")
+	}
+}
+
 func TestTransformerBackwardWithoutLayerScaleOrFinalNorm(t *testing.T) {
 	model := tinyTrainableTransformer()
 	model.Context = 0

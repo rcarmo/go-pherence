@@ -90,11 +90,9 @@ go vet ./model/pockettts
 
 All passed on the amd64 development host.
 
-## Open boundary
+## Correctness-gate boundary
 
-This gate freezes the FlowLM hidden rows. The flow head now has reverse-mode gradients, but the transformer does not.
-
-The normalized LSD diagonal and `s→t` self-distillation terms now have exact native loss and flow-head gradients. The `s→t` path includes its time JVP, mixed derivatives and minimal stop-gradient endpoint rule.
+The first frozen-hidden-row fixture isolates the Flow/EOS arithmetic. Later fixtures in this record cover the stateless transformer backward, FlowLM conditioning gradients and the complete one-row training step. The normalized LSD diagonal and `s→t` self-distillation paths include the time JVP, mixed derivatives and minimal stop-gradient endpoint rule.
 
 ## Allocation-first optimisation
 
@@ -165,10 +163,11 @@ The upstream defaults map to 375 target frames (30 s × 12.5 Hz, exact) and 62 p
 - sequence rows: `1 + 62 + 512 + 375 = 950`;
 - exact trainables: `89,449,730` (`341.22 MiB` F32), including the tokenizer padding row and default normalized-LSD `2→32→32→32→1` weighting MLP;
 - parameters + equal-size gradients + two Adam moments + EMA: five parameter copies;
-- conservative current activation/tape ceiling: `1,870.05 MiB`;
-- conservative resident ceiling: `3,576.17 MiB` (`3.49 GiB`).
+- conservative current activation/tape ceiling: `3,740.10 MiB`;
+- second persistent flow-gradient scratch: `37.22 MiB`;
+- conservative resident ceiling: `5,483.45 MiB` (`5.35 GiB`).
 
-The activation ceiling counts retained transformer tapes, dense `[heads,rows,rows]` attention probabilities, backward scratch, FlowLM/workspace buffers and simultaneous primal/dual flow-row tapes, then applies a 2× safety factor for short-lived clones and allocator rounding. It is an admission upper bound, not a measured RSS claim.
+The activation ceiling counts retained transformer tapes, dense `[heads,rows,rows]` attention probabilities, backward scratch, FlowLM/workspace buffers and simultaneous primal/dual flow-row tapes, then keeps four copies of that calculated live set for transient clones, allocator rounding and one garbage-collector cycle of dead tapes. The earlier 2× factor admitted 3.49 GiB, but a ten-update released-topology run reached 4,664,672 KiB process RSS, so that factor was removed. The ceiling is an admission upper bound, not a measured RSS claim.
 
 A 24-layer teacher plan contains exactly `316,015,874` trainables and is admitted under an explicit 64 GiB ceiling. Every compound add/multiply is checked before use. `NewAdmittedTrainingWorkspace` binds a private plan snapshot and reruns execution-grade F32 topology/storage validation before allocation: vocabulary/embedding and BOS shapes, transformer heads/layers/FFN/layer scales, exactly two time embeddings, flow blocks/final projections, default weighting topology, forbidden biases/BF16 side storage and exact aggregate parameter elements. Mutating exported report fields cannot change allocation authority.
 
@@ -204,6 +203,116 @@ Teacher seeding implements upstream's champion `ends` selection. `24→6` retain
 
 `DistillTrainer` registers only text embedding, BOS values, speaker/input projections, transformer and final norm. EOS, flow head and `w_s_t` are absent from AdamW moments, weight decay and EMA, so teacher-calibrated heads remain byte-for-byte unchanged. Step validation is transactional; the active gradient subset is copied before mutation to handle hostile parameter aliases. Trainer/student pointers and layer topology are immutable, while same-model same-shape slice rebinding follows live values rather than stale arrays.
 
+## Released production-row profile
+
+`LoadFlowLMTrainingCPU` and `LoadFlowHeadTrainingCPU` materialise the pinned released checkpoint into mutable owned F32 storage, including voice conditioning and latent statistics. The training-only normalized-LSD `w_s_t` network is not present in the exported inference checkpoint; `NewDefaultLSDWeightMLP` constructs upstream's exact `2→32→32→32→1` topology with every affine parameter zero-initialised.
+
+The representative row uses 375 target frames, 62 prompt frames, 32 deterministic text tokens and finite deterministic latent/noise/time arrays. This produces 470 transformer rows (`1 + 62 + 32 + 375`). Measurements used the Intel i7-12700 host, CPU-only mode and one benchmark iteration:
+
+| boundary | time | bytes/op | allocs/op |
+|---|---:|---:|---:|
+| admitted workspace setup after gradient-tree reuse | 8.68–11.21 ms | 400,074,048 | 363 |
+| forward/backward before production SIMD | 104.19 s | 1,880,279,232 | 378,533 |
+| forward/backward after checked primal/dual SIMD, batched transformer linears and reusable gradient trees, one CPU | 22.94 s | 1,561,300,104 | 353,101 |
+| same forward/backward with `GOMAXPROCS=6` | 19.65 s | 1,561,391,352 | 353,846 |
+| warm AdamW + EMA | 594.6 ms | 0 | 0 |
+
+The original CPU profile spent 92.9% of samples in scalar primal/dual linear forward and backward loops. Existing checked SIMD dispatch was sufficient; no new assembly kernel was required. Batching transformer forward, input-gradient and weight-gradient matrices preserves scalar-reference results in a dedicated 17-row differential test and keeps the independent PyTorch/finite-difference gates unchanged.
+
+The remaining allocation profile is dominated by transformer and per-frame primal/dual flow tapes. Reusing the FlowLM gradient tree reduced allocated bytes by about 319 MB and retained the tiny warm gate at 670 allocations against the existing ceiling of 720. The next stage must address per-frame backward temporaries; a whole-utterance scratch would retain memory proportional to the number of frames.
+
+A ten-update released-topology run completed in 3m50s with finite parameters, Adam moments and EMA. Loss was `0.1108239` at step ten. External peak RSS was 4,664,672 KiB. A separate 100-update run passed under `GOMAXPROCS=6`, CPU-only mode and an explicit 45-minute Go test timeout. It took 33m29.856s; loss was `0.1108239` at step ten and `0.006236044` at step 100 (the step-90 value was lower, `0.005383019`). Post-GC live heap stayed between 1,831,802,032 and 1,831,847,704 bytes over the ten-step boundaries; the external peak RSS was 4,328,756 KiB. The test checked finite parameters, Adam moments and EMA after the final update. This qualifies finite repeated updates and bounded live heap on the released six-layer topology for one deterministic synthetic 470-row workload; it does not test 512-token worst-case execution, released-target training quality, checkpoint/resume at released shape or the 24-layer teacher. The first 100-step attempt ended at step 30 under Go's default ten-minute timeout; the subsequent standalone binary with `-test.timeout=45m` exited successfully. The binary preceded the final loader and workspace-topology admission checks; the subsequent package tests cover those checks.
+
+Evidence: `/dev/shm/pockettts-production-profile/soak-100-final.txt` (external log), plus the baseline and batched CPU/allocation profiles in the same directory. Run the opt-in gate from `model/pockettts` with `GO_PHERENCE_POCKETTTS_VOICE_MODEL` pointing at the pinned SHA-256 `fb0dc01b0d4d2e1c905b7a3e0676e3d9c96d5ae460e24e3ab94981805babf997` artifact and `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_STEPS=100`; use `go test -timeout=45m -run '^TestReleasedProductionTrainingSoak$' -count=1 -v`. Ordinary CI skips the released gate.
+
+### Bounded flow-tape scratch — subsequent local slice
+
+`TrainingWorkspace` now reuses separate request-owned tape buffers for each frame's primal/dual primary flow and endpoint flow. The primary scratch resets after the diagonal VJP and again before the next frame. Endpoint storage is separate because its VJP runs while the primary dual tape remains live. Standalone flow APIs still return owned results; the scratch is internal to `PocketTrainingStepInto`.
+
+An opt-in differential ran the same pinned released model and deterministic 470-row inputs through the owned-tape reference and scratch paths. Loss components, every named training parameter gradient, both latent/voice input gradients and both learned log-variance gradient arrays matched exactly; neither scratch spilled beyond its bounded slots. The small PyTorch/finite-difference gates remain unchanged. A ten-update scratch soak completed in 2m57.5s with final loss `0.1108239`, finite parameters/moments/EMA, no spills and 4,314,776 KiB external peak RSS. Its final post-GC heap after release was 382,688 bytes. The earlier 100-update gate used the pre-scratch binary; the scratch path has ten-update evidence, not a new 100-update soak.
+
+At one CPU, the first scratch use allocated 1,254,386,968 bytes in 221,003 objects. A subsequent warm step allocated 1,253,720,600 bytes in 220,726 objects (three samples). Before scratch, the equivalent step allocated 1,561,300,104 bytes in 353,101 objects: the warm reduction is 307,579,504 bytes (19.7%) and 132,375 objects (37.5%). Three timing samples overlap: pre-scratch 25.24–28.53 seconds, scratch 24.12–26.79 seconds; no latency improvement is claimed. Workspace setup now allocates 400,093,152 bytes in 367 allocations, 19,104 bytes and four allocations above the pre-scratch setup. Post-change allocation profiles place the remaining flat object cost in transformer backward, row-wise linear backward, `zeroDualAdjoint` and flow-head backward temporaries; their ownership and capacity need a separate bounded pass.
+
+Evidence: `/dev/shm/pockettts-production-profile/tape-soak10.txt`, `tape-warm-bench.txt`, `tape-mem.pprof`, and `tape-objects-top.txt`. These local files are not committed.
+
+### Primary dual-backward scratch — subsequent local slice
+
+A third request-owned pool holds the primary dual VJP's row-local adjoints and linear input gradients. It is distinct from both live forward tapes and resets before each frame's distillation term. Standalone `ForwardTimeJVPBackward` and `LSDDistillForwardBackward` still allocate owned results. The released owned-vs-scratch differential remains exact for every metric and gradient; the one-step released gate and tiny warm allocation gate pass with no scratch spills.
+
+On the same i7-12700 with `GOMAXPROCS=1`, three warm 470-row samples allocated 1,093,877,592–1,093,877,608 bytes and 151,351 objects per step, down about 160 MB and 69,375 objects from the first tape slice. Elapsed samples were 23.14–28.02 seconds, overlapping the earlier 24.12–26.79 seconds; no latency gain is claimed. Admitted workspace setup allocated 400,102,672 bytes in 369 allocations, an extra 9,520 bytes and two allocations over the first tape slice. The remaining unaddressed costs include transformer backward and ordinary flow-head/endpoint backward temporaries. This slice has released one-step parity and no-spill evidence, not a new ten- or 100-update soak.
+
+Evidence: `/dev/shm/pockettts-production-profile/dual-backward-bench.txt`. The earlier ten-update tape soak predates this third pool.
+
+### Ordinary and endpoint backward scratch — subsequent local slice
+
+A fourth request-owned row-local pool reuses ordinary diagonal and endpoint VJP temporaries. Diagonal backward completes before distillation; the pool resets before endpoint backward. Its `dEndpointInput` stays live in this fourth pool while the primary dual VJP uses the third pool, so the minimal-stop-gradient endpoint and subsequent input-gradient accumulation do not alias.
+
+The pinned released owned-vs-scratch 470-row differential matches every loss component, parameter gradient, caller-input gradient and log-variance gradient exactly. All four pools report zero spills. Three warm one-CPU samples allocated 946,324,104 bytes and 88,351 objects per step, down 147,553,488 bytes (13.5%) and 63,000 objects (41.6%) from the third-pool checkpoint. Setup rose by 9,552 bytes and two allocations to 400,112,224 bytes / 371 allocations. Warm times were 20.64–21.23 seconds versus 23.14–28.02 seconds for the earlier slice; these are three one-iteration samples on the same host, not a controlled distributional speed qualification.
+
+A separate ten-update six-CPU soak passed in 3m4.755s with final loss `0.1108239`, finite parameters/moments/EMA, zero spills, 4,277,760 KiB external peak RSS and 368,504 bytes of post-GC heap after release. A subsequent **100-update four-pool** soak ran a binary built at `55c2f7fc79eef17db8f63734361fdbe4a4c3b5f3` with `GOMAXPROCS=6`, CPU-only mode, the pinned released voice model and an explicit 50-minute test timeout. It exited successfully after 33m47.172s: final loss `0.006236044` (step 90: `0.005383019`), finite parameters/Adam moments/EMA and zero spills checked at every update. Post-GC `HeapAlloc` at ten-step boundaries ranged from 1,833,117,512 to 1,833,155,520 bytes; after release it was 419,864 bytes. External peak RSS was 4,304,368 KiB. This qualifies repeated synthetic 470-row updates and stable retained memory for the four-pool path, not output quality or the 512-token/24-layer boundaries. The remaining allocation owners are transformer backward and non-arena row outputs; their lifetime and retained-memory costs need separate evidence.
+
+Evidence: `/dev/shm/pockettts-production-profile/ordinary-backward-bench.txt`, `ordinary-backward-soak10.txt` and `fourpool-soak100.txt`. These local files are not committed.
+
+### Transformer attention-gradient row reuse — subsequent local slice
+
+The current four-pool allocation profile identified one `dProb` allocation per transformer query/head in backward attention. A function-local, layer-bounded probability-gradient row now resets between query/head iterations; the summation order, gradient ownership and public API are unchanged. The released 470-row owned-vs-scratch all-gradient differential and pinned tiny PyTorch transformer parity passed. An independent lifetime/read review found no material issue.
+
+Three unprofiled warm one-CPU samples allocated 853,930,632 bytes in 43,237 objects per step, down 92,393,472 bytes (9.8%) and 45,114 objects (51.1%) from the four-pool baseline of 946,324,104 bytes / 88,351 objects. Times ranged from 22.08 to 32.34 seconds; these measurements do not qualify a latency change. A separate ten-update six-CPU released synthetic soak passed with final loss `0.1108239`, finite parameter/optimiser/EMA state, zero flow-pool spills, 4,204,276 KiB external peak RSS, and 368,216 bytes of post-GC heap after release. The four-pool 100-update result above predates this transformer change; this slice has ten-update evidence only. Remaining allocations include transformer norm backward and owned row outputs.
+
+Evidence: `/dev/shm/pockettts-production-profile/fourpool-current-objects-top.txt`, `transformer-prob-row-objects-top.txt`, `transformer-prob-row-bench.txt` and `transformer-prob-row-soak10.txt`. These local files are not committed.
+
+### Transformer norm backward row reuse — subsequent local slice
+
+Transformer norm backward now reuses one normalized-base and one affine-gradient row while returning an owned full-sequence input gradient. The helper refactor preserves the original reduction order and nil-scratch behaviour elsewhere in flow training. A central-difference gate with zero affine norm weights covers the case where the pre-affine base cannot be recovered from the forward output. The released 470-row owned-vs-scratch all-gradient differential and ten repeated tiny gates pass; an independent read found no material lifetime or parity issue.
+
+Three warm one-CPU samples allocated 778,957,448 bytes in 24,933 objects per 470-row step, 74,973,184 bytes and 18,304 objects below the attention-row checkpoint. Elapsed samples of 23.18–31.73 seconds are too variable to establish a latency change. A separate ten-update six-CPU synthetic soak passed in 3m15.335s with final loss `0.1108239`, finite parameters/Adam moments/EMA, zero flow-pool spills, 4,039,296 KiB external peak RSS and 389,880 bytes of post-GC heap after release. The 100-update result predates both transformer slices; this slice has ten-update evidence only. Further allocation work requires a new profile of owned row outputs and retained memory.
+
+Evidence: `/dev/shm/pockettts-production-profile/transformer-norm-row-bench.txt` and `transformer-norm-row-soak10.txt`. These local files are not committed.
+
+### LSD row-result scratch — subsequent local slice
+
+The workspace path now uses its live primary flow scratch for one distillation row's temporary vectors, result fields and input-gradient fields. The standalone public method still passes nil scratch and returns owned results. Current workspace consumers finish reading the row before the next reset; the primary dual tape and endpoint input VJP remain in separate live pools. An independent lifetime and slot-count review found no material alias, spill or ownership issue.
+
+The released owned-vs-scratch 470-row differential again matches every metric and gradient exactly, with zero spills in all four pools. Three warm one-CPU samples allocated 776,605,448 bytes in 18,183 objects per step, down 2,352,000 bytes and 6,750 objects from the norm-row slice. Elapsed samples were 22.21–22.65 seconds; they are too few to establish a speed change. A separate ten-update six-CPU synthetic soak passed in 3m20.275s with final loss `0.1108239`, finite parameter/Adam/EMA state, zero spills, 4,043,596 KiB peak RSS and 387,696 bytes of post-GC heap after release. The 100-update gate predates this slice. Scratch capacity and released-shape repeated training have ten-update evidence only here; trained-audio quality is still unmeasured.
+
+Evidence: `/dev/shm/pockettts-production-profile/distill-row-scratch-bench.txt` and `distill-row-scratch-soak10.txt`. These local files are not committed.
+
+### Transformer norm forward row reuse — subsequent local slice
+
+`transformerNormForward` now reuses one pre-affine normalized row within each norm call. The tape still owns its input, affine output and inverse norms; standalone forward results remain owned. This removes one temporary allocation per sequence row and norm call without changing the reduction order. The zero-affine-weight central-difference gate, pinned tiny transformer parity and released all-gradient differential pass; an independent read found no alias/lifetime issue.
+
+Three warm one-CPU samples allocated 751,632,136 bytes in 12,086 objects per 470-row step, 24,973,312 bytes and 6,097 objects below the preceding distillation-row slice. Elapsed samples of 23.50–35.96 seconds overlap earlier noisy measurements, so no latency change is accepted. A separate ten-update six-CPU synthetic soak passed in 3m54.185s with final loss `0.1108239`, finite parameters/moments/EMA, zero flow-pool spills, 4,246,592 KiB peak RSS and 386,704 bytes of post-GC heap after release. An independent 100-update soak of the exact `fbb6571906b2b7a73277615466733d08dfb854df` test binary (SHA-256 `018463e4f39765cf8305c255689178a610c11f956fee9ab6c9c75170994bf8fe`) then passed after a Piclaw process restart without restarting the test. With `GOMAXPROCS=6`, CPU-only mode and a 55-minute test timeout, it completed in 32m9.151s. Final loss was `0.006236044` (step 90: `0.005383019`); the test checked finite parameters, Adam moments and EMA after update 100, and all four scratch pools for zero spills at every update. Post-GC `HeapAlloc` at ten-step boundaries ranged from 1,833,119,312 to 1,833,156,544 bytes; after release it was 419,976 bytes. External peak RSS was 4,246,144 KiB; the process and service both exited successfully. This qualifies finite repeated synthetic 470-row updates and bounded live heap at `fbb65719`; later changes require their own long-run evidence. It does not establish speech quality on recorded training data or 24-layer teacher performance.
+
+Evidence: `/dev/shm/pockettts-production-profile/transformer-norm-forward-row-bench.txt`, `transformer-norm-forward-row-soak10.txt` and `fbb65719-soak100.txt`. These local files are not committed.
+
+### Transformer tape-output copy removal — subsequent local slice
+
+Layer training forward now returns its owned tape output to the next layer, and norm training forward returns its owned affine output instead of making a second copy. Callers either discard the return or read it before any later mutation. `TransformerCPU.ForwardBackward` still returns an owned output; a two-layer repeat-call test checks that it does not alias caller input or change after a second call. An independent caller/lifetime review found no material issue, and the released 470-row owned-vs-scratch differential remains exact.
+
+Three warm one-CPU samples allocated 715,054,856 bytes in 12,067 objects per step, 36,577,280 bytes and 19 objects below `fbb65719`. Elapsed samples of 21.63–29.55 seconds overlap prior samples; no latency gain is accepted. A separate ten-update six-CPU synthetic soak passed in 3m14.598s with final loss `0.1108239`, finite parameters/Adam moments/EMA, zero flow scratch spills, 4,299,456 KiB external peak RSS and 376,504 bytes of post-GC heap after release. A later independent **100-update** run used the exact `ecd5dc1b` test binary (SHA-256 `84931f86569aa85c1f0e2bfac5186a7649a5f61dbde42302e9956bf53ee674bc`) with 32 deterministic text tokens, six Go CPUs, CPU-only mode and a 55-minute timeout. It passed in 33m30.002s; final loss was `0.006236044` (step 90: `0.005383019`). All four scratch pools had zero spills on every update, and parameters, Adam moments and EMA were finite after update 100. Post-GC `HeapAlloc` ranged from 1,833,113,640 to 1,833,148,032 bytes across ten-step samples; after release it was 411,480 bytes. External peak RSS was 4,299,008 KiB. The test and service exited successfully. These are synthetic repeated-update and retained-memory results; recorded-speech quality and 24-layer teacher performance are still unqualified.
+
+Evidence: `/dev/shm/pockettts-production-profile/transformer-tape-outputs-bench.txt`, `transformer-tape-outputs-soak10.txt` and `ecd5dc1b-soak100.txt`. These local files are not committed.
+
+### Maximum admitted text length — repeated synthetic updates
+
+The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.
+
+A separate ten-update run at `75e23f3a3b45662f5fe960a8c783aad79ec46723` used a pinned test binary (SHA-256 `b3687362b2949f9f1cd3300dec3a14577b03bdab9b2a7904eb0c91d4e9fb5e44`), `GOMAXPROCS=6` and CPU-only mode. It passed in 6m32.848s with final loss `0.1204249`, finite parameters/moments/EMA and zero spills on each update. Post-GC heap after update ten was 1,833,113,072 bytes; after release it was 374,600 bytes. External peak RSS was 5,333,608 KiB, within the conservative 5,483.45 MiB admission bound.
+
+A pinned **100-update** run of source `f7544fdc` (test-binary SHA-256 `10467d21f5f153badffaa68257445472e228cb6f730aa99c88045c25e03d9655`) completed in 1h5m12.833s with `GOMAXPROCS=6`, CPU-only mode and an 85-minute test timeout. Final loss was `0.007436165` (step ten: `0.1204249`), with finite parameters, Adam moments and EMA after update 100 and zero flow-pool spills at every update. Ten-step post-GC `HeapAlloc` ranged from 1,833,142,344 to 1,833,150,208 bytes; after release it was 411,720 bytes. External peak RSS was 5,333,980 KiB, below the 5,483.45 MiB admission bound for this tested topology. Test and systemd service exited successfully. This qualifies one synthetic worst-admitted-text workload for finite repeated updates and bounded retained heap; it does not prove a universal RSS ceiling or recorded-speech training quality.
+
+Evidence: `/dev/shm/pockettts-production-profile/released-max-text-step.txt`, `maxtext-ten.txt` and `maxtext100-f7544fdc.txt` (not committed).
+
+### Released-shape resume boundary
+
+The opt-in `TestReleasedTrainingInMemoryResume` loaded the pinned six-layer model, ran one 470-row update, copied the complete parameter/buffer/Adam/EMA state into a fresh released model and compared every state value before and after another update against the uninterrupted trainer. It passed in 90.11 seconds on the local CPU with no serialized checkpoint. The fixture uses deterministic synthetic latents, not recorded speech; this establishes exact released-shape in-memory restore/update equivalence, not training quality or file-based checkpoint/resume.
+
+The existing JSON `SaveFullTrainingState` can emit a released state, but `ReadFullTrainingState` limits the entire JSON value to `512<<20` bytes. The released model alone has 89,449,730 F32 trainables; at step one parameters, two Adam moments and EMA contain at least 1,431,195,680 raw F32 bytes before JSON formatting, names and buffers. Thus a released checkpoint cannot fit the reader's limit. Tiny-graph round trips do not cover this. A production checkpoint needs its own bounded format/reader and measured end-to-end save/load/resume qualification; do not treat the in-memory differential as that gate.
+
+A separate opt-in file-backed gate uses `SaveFullTrainingStateBinary` / `LoadFullTrainingStateBinary`, leaving the old JSON format intact for small fixtures. The binary stores named F32 tensors, metadata and a whole-file SHA-256; its reader requires an explicit caller byte ceiling, bounds each tensor and rejects corrupt/truncated/trailing data. The save path requires an existing directory, flushes and syncs a temporary file before rename and directory sync on the tested Linux filesystem. The released 1,431,217,112-byte file was published in `/dev/shm`, read under a 2 GiB limit and matched the in-memory state exactly; the next resumed update again matched uninterrupted state. It passed in 97.68 seconds with 13,152,592 KiB maximum process RSS during a concurrent four-pool soak. This peak is not covered by the ordinary training admission bound; released checkpointing must reserve additional memory and storage. The current path does not promise cross-platform atomic replacement; it requires an existing directory so newly created parent entries cannot be mistaken for crash-durable publication. A later opt-in test replaced the **same** 1,431,217,112-byte checkpoint after step two, read it into another fresh released model, compared the complete restored parameter/buffer/Adam/EMA state immediately and matched a third update against uninterrupted training. It passed in 136.24 seconds with peak RSS 10,406,672 KiB on the idle host. The earlier 13,152,592 KiB peak was measured under concurrent load, so these two peaks are not directly comparable. The released-size test covers successful repeated publication and restoration; the small-fixture suite covers malformed/over-limit checkpoint rejection and mutates loaded parameter, buffer, moment and EMA slices after restore to verify trainer ownership across garbage collection. Production checkpoint cadence has not been measured, and neither test establishes output quality on recorded audio.
+
+Evidence: `/dev/shm/pockettts-production-profile/released-inmemory-resume.txt`, `released-binary-resume.txt` and `released-binary-resume-twice-final.txt` (not committed).
+
 ## Deterministic tiny-graph CPU soak
 
 The opt-in `TestPocketTrainingDeterministicTinySoak` qualifies checkpoint/resume and retained-memory behavior on the complete exact **tiny** graph. It does not claim released-shape performance or memory qualification.
@@ -219,4 +328,4 @@ Wall times were `12.39 s` and `11.23 s`; external `/usr/bin/time -v` peak RSS wa
 
 Evidence is under `/workspace/tmp/pockettts-training-soak/` as `soak-v2-100000-run{1,2}.json` and `.log`; it is bounded external evidence and is not committed.
 
-The deterministic one-row F32 correctness, allocation optimisation, native raw-audio Mimi encoding, latent-cache interchange, production-shape admission, released-format export, depth/CFG distillation and tiny-graph deterministic soak gates are complete. Representative released production-row profiling and long released-shape CPU training remain open.
+The native raw-audio Mimi encoder, released-topology profiling, four-pool 100-update finite CPU soak and one released-shape binary file-backed resumed update are complete for their measured synthetic workloads. Full native training quality on recorded speech, transformer/row-output allocation, repeated production checkpoint scheduling and 24-layer teacher performance remain open.

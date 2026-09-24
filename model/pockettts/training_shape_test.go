@@ -27,7 +27,7 @@ func TestProductionTrainingShapeAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.SequenceRows != 950 || plan.EffectiveBatchRows != 64 || plan.TransformerLayers != 6 || plan.ParameterElements != 89449730 || plan.ParameterBytes != plan.ParameterElements*4 || plan.GradientBytes != plan.ParameterBytes || plan.AdamMomentBytes != 2*plan.ParameterBytes || plan.EMABytes != plan.ParameterBytes || plan.ActivationUpperBytes <= 0 || plan.ResidentUpperBytes != plan.ParameterBytes*5+plan.ActivationUpperBytes || plan.ResidentUpperBytes > limits.MaxResidentBytes {
+	if plan.SequenceRows != 950 || plan.EffectiveBatchRows != 64 || plan.TransformerLayers != 6 || plan.ParameterElements != 89449730 || plan.ParameterBytes != plan.ParameterElements*4 || plan.GradientBytes != plan.ParameterBytes || plan.AdamMomentBytes != 2*plan.ParameterBytes || plan.EMABytes != plan.ParameterBytes || plan.ActivationUpperBytes <= 0 || plan.FlowScratchBytes <= 0 || plan.ResidentUpperBytes != plan.ParameterBytes*5+plan.ActivationUpperBytes+plan.FlowScratchBytes || plan.ResidentUpperBytes > limits.MaxResidentBytes {
 		t.Fatalf("plan=%+v", plan)
 	}
 	t.Logf("released production row: sequence=%d parameters=%.2f MiB activations<=%.2f MiB resident<=%.2f MiB", plan.SequenceRows, float64(plan.ParameterBytes)/(1<<20), float64(plan.ActivationUpperBytes)/(1<<20), float64(plan.ResidentUpperBytes)/(1<<20))
@@ -76,6 +76,11 @@ func TestTrainingShapeRejectsBeforeAllocation(t *testing.T) {
 	if _, ok := trainingActivationUpperElements(cfg, math.MaxInt64/2, 375, 62); ok {
 		t.Fatal("overflowing activation arithmetic accepted")
 	}
+	bad = cfg
+	bad.FlowLM.Flow.Dim = math.MaxInt
+	if _, ok := trainingFlowGradientElements(bad); ok {
+		t.Fatal("overflowing flow gradient scratch accepted")
+	}
 	if _, err := PlanTrainingShape(cfg, valid, TrainingShapeLimits{}); err == nil {
 		t.Fatal("accepted empty limits")
 	}
@@ -98,6 +103,8 @@ func TestAdmittedTrainingWorkspaceRejectsForgeryAndMismatch(t *testing.T) {
 	cfg.FlowLM.Transformer.NumHeads = 2
 	cfg.FlowLM.Transformer.NumLayers = 1
 	cfg.FlowLM.Transformer.DimFeedforward = 6
+	cfg.FlowLM.Transformer.Context = lm.Transformer.Context
+	cfg.FlowLM.Transformer.MaxPeriod = lm.Transformer.MaxPeriod
 	cfg.FlowLM.Transformer.LayerScale = .01
 	cfg.FlowLM.Flow.Dim = 4
 	cfg.FlowLM.Flow.Depth = 2
@@ -119,10 +126,24 @@ func TestAdmittedTrainingWorkspaceRejectsForgeryAndMismatch(t *testing.T) {
 	if _, err = NewAdmittedTrainingWorkspace(lm, flow, weighting, batch, mutatedReport); err != nil {
 		t.Fatal("mutable report fields changed private admission")
 	}
-	for _, bad := range []TrainingShapePlan{{}, func() TrainingShapePlan { x := plan; x.admission.targetFrames++; return x }(), func() TrainingShapePlan { x := plan; x.admission.hidden++; return x }(), func() TrainingShapePlan { x := plan; x.admission.flowDepth++; return x }()} {
+	for _, bad := range []TrainingShapePlan{{}, func() TrainingShapePlan { x := plan; x.admission.targetFrames++; return x }(), func() TrainingShapePlan { x := plan; x.admission.hidden++; return x }(), func() TrainingShapePlan { x := plan; x.admission.flowDepth++; return x }(), func() TrainingShapePlan { x := plan; x.admission.transformerContext++; return x }(), func() TrainingShapePlan { x := plan; x.admission.transformerMaxPeriod++; return x }()} {
 		if _, err = NewAdmittedTrainingWorkspace(lm, flow, weighting, batch, bad); err == nil {
 			t.Fatal("accepted forged or mismatched plan")
 		}
+	}
+	contextDrift := *lm
+	contextTransformer := *lm.Transformer
+	contextTransformer.Context++
+	contextDrift.Transformer = &contextTransformer
+	if _, err = NewAdmittedTrainingWorkspace(&contextDrift, flow, weighting, batch, plan); err == nil {
+		t.Fatal("accepted transformer context drift from admitted plan")
+	}
+	periodDrift := *lm
+	periodTransformer := *lm.Transformer
+	periodTransformer.MaxPeriod++
+	periodDrift.Transformer = &periodTransformer
+	if _, err = NewAdmittedTrainingWorkspace(&periodDrift, flow, weighting, batch, plan); err == nil {
+		t.Fatal("accepted transformer RoPE period drift from admitted plan")
 	}
 	larger := *lm
 	larger.Embedding = append(append([]float32(nil), lm.Embedding...), make([]float32, lm.Hidden)...)

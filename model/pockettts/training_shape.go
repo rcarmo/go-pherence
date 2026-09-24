@@ -32,7 +32,8 @@ type TrainingShapeLimits struct {
 
 // TrainingShapePlan is allocation-free. Parameter/state byte counts are exact
 // for the configured topology and normalized LSD defaults. ActivationUpperBytes
-// is a deliberately conservative F32 ceiling for the current tape graph.
+// includes four copies of the calculated live tape/scratch set to cover transient
+// clones, allocator rounding, and one garbage-collector cycle of dead tapes.
 type TrainingShapePlan struct {
 	TargetFrames         int
 	VoiceFrames          int
@@ -48,6 +49,7 @@ type TrainingShapePlan struct {
 	AdamMomentBytes      int64
 	EMABytes             int64
 	ActivationUpperBytes int64
+	FlowScratchBytes     int64
 	ResidentUpperBytes   int64
 	admission            trainingShapeAdmission
 }
@@ -56,6 +58,8 @@ type trainingShapeAdmission struct {
 	targetFrames, voiceFrames, textTokens                 int
 	hidden, latent, heads, transformerLayers, feedForward int
 	vocabulary, flowDepth, flowDim                        int
+	transformerContext                                    int
+	transformerMaxPeriod                                  float64
 	layerScale                                            bool
 	parameterElements                                     int64
 }
@@ -113,7 +117,15 @@ func PlanTrainingShape(cfg Config, shape TrainingShape, limits TrainingShapeLimi
 	if !ok {
 		return plan, fmt.Errorf("Pocket TTS activation bytes overflow")
 	}
-	resident, ok := shapeInt64Add(parameterBytes, parameterBytes, moments, parameterBytes, activationBytes)
+	flowGradientElements, ok := trainingFlowGradientElements(cfg)
+	if !ok {
+		return plan, fmt.Errorf("Pocket TTS flow scratch shape overflows")
+	}
+	flowScratchBytes, ok := shapeInt64Mul(flowGradientElements, 4)
+	if !ok {
+		return plan, fmt.Errorf("Pocket TTS flow scratch bytes overflow")
+	}
+	resident, ok := shapeInt64Add(parameterBytes, parameterBytes, moments, parameterBytes, activationBytes, flowScratchBytes)
 	if !ok || resident > limits.MaxResidentBytes {
 		return plan, fmt.Errorf("Pocket TTS training resident upper bytes=%d exceed limit=%d", resident, limits.MaxResidentBytes)
 	}
@@ -121,8 +133,8 @@ func PlanTrainingShape(cfg Config, shape TrainingShape, limits TrainingShapeLimi
 	if ff == 0 {
 		ff = cfg.FlowLM.Transformer.DModel * cfg.FlowLM.Transformer.HiddenScale
 	}
-	admission := trainingShapeAdmission{targetFrames: shape.TargetFrames, voiceFrames: shape.VoiceFrames, textTokens: shape.TextTokens, hidden: cfg.FlowLM.Transformer.DModel, latent: cfg.Mimi.InnerDim, heads: cfg.FlowLM.Transformer.NumHeads, transformerLayers: cfg.FlowLM.Transformer.NumLayers, feedForward: ff, vocabulary: cfg.FlowLM.LookupTable.NBins + 1, flowDepth: cfg.FlowLM.Flow.Depth, flowDim: cfg.FlowLM.Flow.Dim, layerScale: cfg.FlowLM.Transformer.LayerScale != 0, parameterElements: parameters}
-	plan = TrainingShapePlan{TargetFrames: shape.TargetFrames, VoiceFrames: shape.VoiceFrames, TextTokens: shape.TextTokens, Hidden: cfg.FlowLM.Transformer.DModel, Latent: cfg.Mimi.InnerDim, SequenceRows: int(rows), EffectiveBatchRows: int(effective), TransformerLayers: cfg.FlowLM.Transformer.NumLayers, ParameterElements: parameters, ParameterBytes: parameterBytes, GradientBytes: parameterBytes, AdamMomentBytes: moments, EMABytes: parameterBytes, ActivationUpperBytes: activationBytes, ResidentUpperBytes: resident, admission: admission}
+	admission := trainingShapeAdmission{targetFrames: shape.TargetFrames, voiceFrames: shape.VoiceFrames, textTokens: shape.TextTokens, hidden: cfg.FlowLM.Transformer.DModel, latent: cfg.Mimi.InnerDim, heads: cfg.FlowLM.Transformer.NumHeads, transformerLayers: cfg.FlowLM.Transformer.NumLayers, feedForward: ff, vocabulary: cfg.FlowLM.LookupTable.NBins + 1, flowDepth: cfg.FlowLM.Flow.Depth, flowDim: cfg.FlowLM.Flow.Dim, transformerContext: cfg.FlowLM.Transformer.Context, transformerMaxPeriod: cfg.FlowLM.Transformer.MaxPeriod, layerScale: cfg.FlowLM.Transformer.LayerScale != 0, parameterElements: parameters}
+	plan = TrainingShapePlan{TargetFrames: shape.TargetFrames, VoiceFrames: shape.VoiceFrames, TextTokens: shape.TextTokens, Hidden: cfg.FlowLM.Transformer.DModel, Latent: cfg.Mimi.InnerDim, SequenceRows: int(rows), EffectiveBatchRows: int(effective), TransformerLayers: cfg.FlowLM.Transformer.NumLayers, ParameterElements: parameters, ParameterBytes: parameterBytes, GradientBytes: parameterBytes, AdamMomentBytes: moments, EMABytes: parameterBytes, ActivationUpperBytes: activationBytes, FlowScratchBytes: flowScratchBytes, ResidentUpperBytes: resident, admission: admission}
 	return plan, nil
 }
 
@@ -252,6 +264,68 @@ func trainingParameterElements(cfg Config) (int64, bool) {
 	}
 	const weighting = int64(2*32 + 32 + 32*32 + 32 + 32*32 + 32 + 32 + 1)
 	return shapeInt64Add(globals, transformer, flowGlobals, weighting)
+}
+
+func trainingFlowGradientElements(cfg Config) (int64, bool) {
+	c, h, f := int64(cfg.Mimi.InnerDim), int64(cfg.FlowLM.Transformer.DModel), int64(cfg.FlowLM.Flow.Dim)
+	depth := int64(cfg.FlowLM.Flow.Depth)
+	cf, ok := shapeInt64Mul(c, f)
+	if !ok {
+		return 0, false
+	}
+	hf, ok := shapeInt64Mul(h, f)
+	if !ok {
+		return 0, false
+	}
+	ff, ok := shapeInt64Mul(f, f)
+	if !ok {
+		return 0, false
+	}
+	freq, ok := shapeInt64Mul(256, f)
+	if !ok {
+		return 0, false
+	}
+	timeOne, ok := shapeInt64Add(freq, f, ff, f, f)
+	if !ok {
+		return 0, false
+	}
+	times, ok := shapeInt64Mul(2, timeOne)
+	if !ok {
+		return 0, false
+	}
+	threeFF, ok := shapeInt64Mul(3, ff)
+	if !ok {
+		return 0, false
+	}
+	threeF, ok := shapeInt64Mul(3, f)
+	if !ok {
+		return 0, false
+	}
+	block, ok := shapeInt64Add(f, f, ff, f, ff, f, threeFF, threeF)
+	if !ok {
+		return 0, false
+	}
+	blocks, ok := shapeInt64Mul(depth, block)
+	if !ok {
+		return 0, false
+	}
+	twoFF, ok := shapeInt64Mul(2, ff)
+	if !ok {
+		return 0, false
+	}
+	twoF, ok := shapeInt64Mul(2, f)
+	if !ok {
+		return 0, false
+	}
+	final, ok := shapeInt64Add(cf, c, twoFF, twoF)
+	if !ok {
+		return 0, false
+	}
+	one, ok := shapeInt64Add(cf, f, hf, f, times, blocks, final)
+	if !ok {
+		return 0, false
+	}
+	return one, true
 }
 
 func trainingActivationUpperElements(cfg Config, rows, target, voice int64) (int64, bool) {
@@ -392,7 +466,7 @@ func trainingActivationUpperElements(cfg Config, rows, target, voice int64) (int
 	if !ok {
 		return 0, false
 	}
-	return shapeInt64Mul(total, 2)
+	return shapeInt64Mul(total, 4)
 }
 
 func shapeInt64Add(values ...int64) (int64, bool) {
