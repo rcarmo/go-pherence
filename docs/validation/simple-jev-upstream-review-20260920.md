@@ -1,8 +1,8 @@
 # simple-jev upstream review -- 2026-09-20
 
-Implementation is blocked on licensing. The reviewed repository is `featherless-ai/simple-jev` at commit `7cba7d121980e6a230477afa808ea0da0a7719e8` (2026-09-20). It has no root `LICENSE`, `COPYING` or `NOTICE`; package metadata does not grant a project-wide software licence. Upstream issue [#3](https://github.com/featherless-ai/simple-jev/issues/3) already asks which licence applies. Public source visibility and README “open source” wording are not sufficient permission to copy or derive its prompt strings and implementation into go-pherence.
+The 2026-09-20 review of `featherless-ai/simple-jev@7cba7d121980e6a230477afa808ea0da0a7719e8` found no project-wide licence. On 2026-09-23, upstream `b02aa81c915a8193759b3cd33fef74721d6e005b` includes a root Apache-2.0 `LICENSE` (SHA-256 `91ce9931497b6e930c3cbe70a48fd85ddce3e249448c76aa4a8320ef7ca47a19`, copyright Featherless AI / Recursal AI, 2026); upstream [#3](https://github.com/featherless-ai/simple-jev/issues/3) is closed with an Apache-2.0 confirmation. The licensing uncertainty that blocked this review has cleared for that revision.
 
-No simple-jev source was copied, translated or executed inside go-pherence. This record describes externally observable contracts solely to size future work. Implementation must remain queued until upstream adds a compatible licence or the owner supplies explicit permission.
+No simple-jev source or prompt text has been copied, translated or executed inside go-pherence. `model/simplejev` now has separately authored, model-free ordered-label scoring: finite F32 logits, distinct token/public IDs, bounded softmax, exact-logit tie handling and explicit ordinal values. A separate strict, bounded JSON request envelope now admits one state and ordered choice/ordinal questions, but does not reproduce the upstream request schema. An injected model-free label-logit provider can now assemble owned choice/ordinal answers transactionally. An injected model-free adapter requires explicit public-ID/model-text mappings, verifies that each label adds one distinct token at the actual tokenizer boundary and reads only selected logits. It ships no upstream prompt, concrete tokenizer/model backend or independent parity fixture. This record describes externally observable contracts to size the remaining work. `go-pherence` uses MIT; copying or deriving upstream Apache-2.0 source requires preserving its licence and applicable notices. A separately authored MIT implementation must avoid transplanting Apache-licensed code or prompt text. The older Jev bake-off excluded Simple-JEV under its frozen policy and results; a new evaluation needs a new untouched cohort.
 
 ## Pinned contract
 
@@ -26,9 +26,9 @@ go-pherence's existing `model/jevlike` is a learned context/option scorer with i
 
 A future implementation should therefore be a distinct package or adapter layer, sharing only generic components whose contracts genuinely match: bounded HTTP decoding, tokenizer/chat rendering, model next-token logits, stable softmax and response envelopes. It should not reuse Jevlike calibration or head training by name.
 
-## Proposed gates after licensing clears
+## Proposed implementation gates
 
-1. Pin the licensed upstream revision and preserve its licence/attribution.
+1. Pin `b02aa81c915a8193759b3cd33fef74721d6e005b` or another licensed upstream revision. For derived work, preserve Apache-2.0 licence/attribution. For a distinct MIT implementation, use independent source and fixtures without copying upstream code or prompt strings.
 2. Implement strict request types, deterministic structured JSON and all v1 plan strings/mappings. Generate Go fixtures from upstream rather than transcribing expected output manually.
 3. Match upstream validation for XOR context, question limits, key ordering, 2/10/11/50-level score branches, Noul mapping, top-level/message extra handling and unsupported template versions.
 4. Match float32 softmax/scoring for maps and vocabulary-indexed logits, including exact ties, NaN/Inf rejection, branch/label completeness, distinct token IDs and diagnostics filtering.
@@ -37,4 +37,4 @@ A future implementation should therefore be a distinct package or adapter layer,
 7. Add bounded OpenAI-adjacent HTTP endpoints only after the library contract passes; preserve existing APIs rather than overloading Jevlike routes.
 8. Profile allocations and SIMD/scalar model paths under repository `AGENTS.md`; run whole-tree, docs, cross-build and native gates.
 
-No GPU, external API, service or frozen evaluation artifact was touched during this review. The queue item is **blocked by upstream licensing**, not completed or abandoned.
+The original review touched no GPU, service or frozen evaluation artifact. The licence now permits a scoped implementation decision; model/fixture approval, an independent MIT design if required, and evaluation remain separate gates.

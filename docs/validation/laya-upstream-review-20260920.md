@@ -62,6 +62,6 @@ A reusable `model/modernbert` encoder is therefore the prerequisite. It should s
 
 ## Current status
 
-Source and model licensing are compatible, but no native Go ModernBERT implementation or local Laya checkpoint exists in go-pherence. Laya is therefore **scoped and unblocked legally, but not implemented**. The next engineering milestone is ModernBERT tensor/config inventory plus a small upstream hidden-state fixture. simple-jev remains separately blocked on its missing repository licence even though it can call Laya as a backend.
+Source and model licensing are compatible, but no native Go ModernBERT implementation or local Laya checkpoint exists in go-pherence. Laya is therefore **scoped and unblocked legally, but not implemented**. The next engineering milestone is ModernBERT tensor/config inventory plus a small upstream hidden-state fixture. simple-jev can call Laya as a backend; its repository gained an Apache-2.0 root licence in `b02aa81c` after this review. An MIT-only reimplementation still needs an independent design and fresh fixtures.
 
 No frozen evaluation artifact, service or GPU state was changed.
