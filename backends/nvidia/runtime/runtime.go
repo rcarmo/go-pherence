@@ -191,6 +191,7 @@ func Init() bool {
 		regFn(&cuModuleUnload, lib, "cuModuleUnload")
 		regFn(&cuModuleGetFunction, lib, "cuModuleGetFunction")
 		regFn(&cuLaunchKernel, lib, "cuLaunchKernel")
+		bindFixedCUDAKernelLauncher(lib)
 		regFn(&cuCtxSynchronize, lib, "cuCtxSynchronize")
 		regFn(&cuCtxSetCurrent, lib, "cuCtxSetCurrent")
 		regFn(&cuMemcpyDtoD, lib, "cuMemcpyDtoD_v2", "cuMemcpyDtoD")
@@ -642,7 +643,11 @@ func LaunchKernel(fn CUfunction, gridX, gridY, gridZ, blockX, blockY, blockZ uin
 	defer cudaMu.Unlock()
 	ensureContextLocked()
 	stream := uintptr(captureLaunchStream)
-	if r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, stream, argPtrs, nil); r != CUDA_SUCCESS {
+	r := cuLaunchKernel(fn, gridX, gridY, gridZ, blockX, blockY, blockZ, sharedMem, stream, argPtrs, nil)
+	// Match the explicit-stream wrapper: keep the typed pointer table rooted
+	// until the driver has consumed all host arguments, including error paths.
+	runtime.KeepAlive(args)
+	if r != CUDA_SUCCESS {
 		return fmt.Errorf("cuLaunchKernel: error %d", r)
 	}
 	if gpuStatsEnabled.Load() {
