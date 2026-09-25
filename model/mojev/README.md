@@ -10,8 +10,9 @@ both an error and a non-nil closed scorer solely for retrying `Close`. See the
 for measurements, ownership rules and open qualification work. Both the
 [SIMD scorer](../../docs/validation/mojev-simd-tree-20260925.md) and
 [PTX scorer](../../docs/validation/mojev-ptx-tree-20260925.md) share state/question
-ancestors within a question when the whole tree fits scratch capacity, with
-automatic separate-branch fallback for larger trees.
+ancestors within each question. [Bounded candidate groups](../../docs/validation/mojev-tree-groups-20260925.md)
+retain that sharing when a whole tree exceeds scratch capacity; each individual
+candidate path must still fit.
 
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 

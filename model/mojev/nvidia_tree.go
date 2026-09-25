@@ -44,7 +44,6 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 	if err := validateBranchLocalText(row, g.cpu.head); err != nil {
 		return nil, err
 	}
-	fits := true
 	check := func(ids []int) error {
 		for _, id := range ids {
 			if id >= g.cpu.meta.VocabSize {
@@ -60,19 +59,14 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 		if err := check(q); err != nil {
 			return nil, err
 		}
-		n := len(row.State) + len(q)
 		for _, c := range row.Candidates[f] {
 			if err := check(c); err != nil {
 				return nil, err
 			}
-			n += len(c)
+			if len(row.State)+len(q)+len(c) > g.maxTokens {
+				return nil, fmt.Errorf("mojev: branch exceeds GPU token capacity")
+			}
 		}
-		if n > g.maxTokens {
-			fits = false
-		}
-	}
-	if !fits {
-		return ScoreBranchLocalText(row, g.cpu.head, g.encodeBranch)
 	}
 	result := make([][]float32, len(row.Questions))
 	var ids [512]int
@@ -82,41 +76,47 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 	var masks [64][]bool
 	var enabled [64]bool
 	for f, q := range row.Questions {
-		n := copy(ids[:], row.State)
-		n += copy(ids[n:], q)
-		prefix := n
-		for c, values := range row.Candidates[f] {
-			n += copy(ids[n:], values)
-			ends[c] = n
-		}
-		hidden, err := g.encodeTree(TextBranch{IDs: ids[:n], StateLen: len(row.State), QuestionLen: len(q)}, ends[:len(row.Candidates[f])])
-		if err != nil {
-			return nil, err
-		}
-		clear(state[:])
-		clear(question[:])
-		for i := 0; i < prefix; i++ {
-			if i < len(row.State) {
-				state[i] = true
-			} else {
-				question[i] = true
+		result[f] = make([]float32, len(row.Candidates[f]))
+		for first := 0; first < len(row.Candidates[f]); {
+			last := candidateTreeEnd(row.Candidates[f], first, len(row.State)+len(q), g.maxTokens)
+			candidates := row.Candidates[f][first:last]
+			n := copy(ids[:], row.State)
+			n += copy(ids[n:], q)
+			prefix := n
+			for c, values := range candidates {
+				n += copy(ids[n:], values)
+				ends[c] = n
 			}
-		}
-		start := prefix
-		for c, end := range ends[:len(row.Candidates[f])] {
-			clear(candidate[c][:])
-			for i := start; i < end; i++ {
-				candidate[c][i] = true
+			hidden, err := g.encodeTree(TextBranch{IDs: ids[:n], StateLen: len(row.State), QuestionLen: len(q)}, ends[:len(candidates)])
+			if err != nil {
+				return nil, err
 			}
-			masks[c] = candidate[c][:n]
-			enabled[c] = true
-			start = end
+			clear(state[:])
+			clear(question[:])
+			for i := 0; i < prefix; i++ {
+				if i < len(row.State) {
+					state[i] = true
+				} else {
+					question[i] = true
+				}
+			}
+			start := prefix
+			for c, end := range ends[:len(candidates)] {
+				clear(candidate[c][:])
+				for i := start; i < end; i++ {
+					candidate[c][i] = true
+				}
+				masks[c] = candidate[c][:n]
+				enabled[c] = true
+				start = end
+			}
+			logits, err := g.cpu.head.ScoreHidden(hidden, state[:n], [][]bool{question[:n]}, [][][]bool{masks[:len(candidates)]}, [][]bool{enabled[:len(candidates)]})
+			if err != nil {
+				return nil, err
+			}
+			copy(result[f][first:last], logits[0])
+			first = last
 		}
-		logits, err := g.cpu.head.ScoreHidden(hidden, state[:n], [][]bool{question[:n]}, [][][]bool{masks[:len(row.Candidates[f])]}, [][]bool{enabled[:len(row.Candidates[f])]})
-		if err != nil {
-			return nil, err
-		}
-		result[f] = logits[0]
 	}
 	return result, nil
 }

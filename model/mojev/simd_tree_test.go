@@ -24,11 +24,15 @@ func testNVIDIATreeBranches(t *testing.T, g *NVIDIATextScorer) {
 }
 func testTreeBranches(t *testing.T, score, reference func(EncodedRow) ([][]float32, error)) {
 	t.Helper()
-	for _, count := range []int{2, 8, 64} {
+	for _, count := range []int{2, 8, 64, 63} {
 		r := EncodedRow{State: []int{100, 200, 300}, Questions: [][]int{{400, 500}}, Candidates: make([][][]int, 1)}
 		r.Candidates[0] = make([][]int, count)
 		for c := range r.Candidates[0] {
-			r.Candidates[0][c] = make([]int, 1+c%4)
+			length := 1 + c%4
+			if count == 63 {
+				length = 6 + c%3
+			} // Multiple packed groups in 256-token scratch.
+			r.Candidates[0][c] = make([]int, length)
 			for i := range r.Candidates[0][c] {
 				r.Candidates[0][c][i] = 600 + c*4 + i
 			}
@@ -56,7 +60,7 @@ func testTreeBranches(t *testing.T, score, reference func(EncodedRow) ([][]float
 			}
 		}
 	}
-	// Total tree exceeds the scratch cap; each individual path still fits.
+	// Total tree exceeds the scratch cap; each singleton group still fits.
 	r := EncodedRow{State: []int{100}, Questions: [][]int{{200}}, Candidates: [][][]int{{make([]int, 128), make([]int, 128)}}}
 	for c := range r.Candidates[0] {
 		for i := range r.Candidates[0][c] {
@@ -69,6 +73,6 @@ func testTreeBranches(t *testing.T, score, reference func(EncodedRow) ([][]float
 	}
 	want, err := reference(r)
 	if err != nil || !reflect.DeepEqual(got, want) {
-		t.Fatal("capacity fallback", err)
+		t.Fatal("capacity grouping", err)
 	}
 }
