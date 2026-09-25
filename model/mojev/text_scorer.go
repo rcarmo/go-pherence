@@ -142,18 +142,20 @@ func (s *TextScorer) encodeBranchWith(branch TextBranch, fast *qwen.Qwen35SIMDBr
 		}
 		rows[i] = s.embedding[id*h : (id+1)*h]
 	}
+	if fast != nil {
+		out := make([]float32, len(rows)*h)
+		if err := fast.ForwardInto(out, rows, branch.StateLen, branch.QuestionLen, s.rope, s.eps); err != nil {
+			return nil, err
+		}
+		s.normaliseFinal(out)
+		return out, nil
+	}
 	// Local positions prevent sibling length or ordering from changing RoPE.
 	positions := make([]int, len(rows))
 	for i := range positions {
 		positions[i] = i
 	}
-	var hidden [][]float32
-	var err error
-	if fast != nil {
-		hidden, err = fast.Forward(rows, branch.StateLen, branch.QuestionLen, s.rope, s.eps)
-	} else {
-		hidden, err = s.model.ForwardTextBranch(rows, positions, branch.StateLen, branch.QuestionLen, s.rope, s.eps, s.meta)
-	}
+	hidden, err := s.model.ForwardTextBranch(rows, positions, branch.StateLen, branch.QuestionLen, s.rope, s.eps, s.meta)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +171,21 @@ func (s *TextScorer) encodeBranchWith(branch TextBranch, fast *qwen.Qwen35SIMDBr
 		}
 	}
 	return out, nil
+}
+
+func (s *TextScorer) normaliseFinal(rows []float32) {
+	h := s.meta.HiddenSize
+	for t := 0; t < len(rows)/h; t++ {
+		row := rows[t*h : (t+1)*h]
+		var sum float32
+		for _, v := range row {
+			sum += v * v
+		}
+		inv := float32(1 / math.Sqrt(float64(sum/float32(h)+s.eps)))
+		for i, v := range row {
+			row[i] = v * inv * (1 + s.norm[i])
+		}
+	}
 }
 
 // ScoreEncoded computes real text-only encoder and head logits from one encoded
@@ -197,21 +214,12 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 	if err := ValidateTextControls(req, tok); err != nil {
 		return nil, err
 	}
-	encode := func(text string) ([]int, error) { return tok.Encode(text), nil }
-	// Validate the entire public request before any model work. The model-free
-	// assembler already owns the canonical order and per-kind validation rules.
-	zeros := make([][]float64, len(req.Fields))
-	fields := make([]TextField, len(req.Fields))
-	menus := make([][]string, len(req.Fields))
-	for f, field := range req.Fields {
-		zeros[f] = make([]float64, len(field.Options))
-		fields[f] = TextField{Name: field.ID, Description: field.Instructions, Options: field.SortedOptions}
-		menus[f] = field.SortedOptions
-	}
-	if _, err := AssembleTextDecision(req, zeros, encode, 0, stateLimit, questionLimit); err != nil {
+	prepared, err := prepareTextDecision(req, nil)
+	if err != nil {
 		return nil, err
 	}
-	packed, err := PackTextRows([]TextRow{{State: req.State, Menus: menus}}, fields, stateLimit, questionLimit, 0, encode)
+	encode := func(text string) ([]int, error) { return tok.Encode(text), nil }
+	packed, err := prepared.pack(stateLimit, questionLimit, 0, encode)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +232,8 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 		}
 		return ids
 	}
-	row := EncodedRow{State: selectIDs(packed.State[0]), Questions: make([][]int, len(fields)), Candidates: make([][][]int, len(fields))}
-	for f := range fields {
+	row := EncodedRow{State: selectIDs(packed.State[0]), Questions: make([][]int, len(prepared.fields)), Candidates: make([][][]int, len(prepared.fields))}
+	for f := range prepared.fields {
 		row.Questions[f] = selectIDs(packed.Questions[0][f])
 		for n, on := range packed.OptionMask[0][f] {
 			if on {
@@ -244,5 +252,5 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 			rows[f][n] = float64(v)
 		}
 	}
-	return AssembleTextDecision(req, rows, encode, 0, stateLimit, questionLimit)
+	return prepared.assemble(rows, packed.PackedMask[0])
 }

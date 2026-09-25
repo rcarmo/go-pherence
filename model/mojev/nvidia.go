@@ -1,7 +1,9 @@
 package mojev
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -10,6 +12,19 @@ import (
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
 )
+
+// Validate all host-side invariants before touching a device or packing weights.
+func validateAcceleratedTextScorer(cpu *TextScorer, maxTokens int) error {
+	if maxTokens < 3 || maxTokens > 512 || cpu == nil || cpu.head == nil || cpu.model == nil || len(cpu.norm) != 1024 || cpu.meta.VocabSize < 1 || len(cpu.embedding)%1024 != 0 || len(cpu.embedding)/1024 != cpu.meta.VocabSize || cpu.eps != 1e-6 || len(cpu.rope) < maxTokens*64 {
+		return fmt.Errorf("mojev: invalid accelerated scorer configuration")
+	}
+	for _, v := range cpu.norm {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("mojev: nonfinite final norm")
+		}
+	}
+	return qwen.ValidateQwen35F32Branch(cpu.model, cpu.meta, maxTokens)
+}
 
 type gpuLayer struct {
 	linear bool
@@ -37,9 +52,11 @@ type NVIDIATextScorer struct {
 // NewNVIDIATextScorer uploads text weights once. maxTokens bounds each candidate
 // path, not a packed request. This backend requires NVIDIA compute capability
 // compatible with the embedded sm_86 PTX and keeps the CPU implementation intact.
-func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (*NVIDIATextScorer, error) {
-	if cpu == nil || cpu.model == nil || cpu.head == nil || len(cpu.model.Layers) != 24 || cpu.meta.HiddenSize != 1024 || maxTokens < 3 || maxTokens > 512 {
-		return nil, fmt.Errorf("mojev: invalid NVIDIA scorer configuration")
+// If construction and cleanup both fail, the returned closed scorer is non-nil
+// solely so the caller can retry Close; it cannot be used for inference.
+func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScorer, err error) {
+	if err := validateAcceleratedTextScorer(cpu, maxTokens); err != nil {
+		return nil, err
 	}
 	if !nvidia.Init() {
 		return nil, fmt.Errorf("mojev: NVIDIA unavailable")
@@ -57,7 +74,9 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (*NVIDIATextScorer, err
 	ok := false
 	defer func() {
 		if !ok {
-			g.Close()
+			if cleanupErr := g.Close(); cleanupErr != nil {
+				result, err = g, errors.Join(err, cleanupErr)
+			}
 		}
 	}()
 	names := []string{"mj_gemm", "mj_norm", "mj_add", "mj_silu_mul", "mj_conv", "mj_l2", "mj_delta", "mj_gated_norm", "mj_qk_norm_rope", "mj_attention"}
@@ -146,26 +165,33 @@ func (g *NVIDIATextScorer) ResidentBytes() int64 {
 	defer g.mu.Unlock()
 	return g.resident
 }
-func (g *NVIDIATextScorer) Close() {
+
+// Close waits for active work and releases the module and device buffers. A
+// driver failure closes inference immediately but retains resources for a later
+// Close retry; callers must check its error before shutting down the runtime.
+func (g *NVIDIATextScorer) Close() error {
 	if g == nil {
-		return
+		return nil
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.closed {
-		return
+	g.closed = true
+	if g.module != nil {
+		if err := g.module.Close(); err != nil {
+			return err
+		}
+		g.module = nil
 	}
-	_ = nvidia.SyncErr()
 	for i := len(g.buffers) - 1; i >= 0; i-- {
 		g.buffers[i].Free()
 	}
 	g.buffers = nil
+	g.layers = nil
+	g.norm = nil
+	g.scratch = nil
+	g.kernels = nil
 	g.resident = 0
-	if g.module != nil {
-		_ = g.module.Close()
-		g.module = nil
-	}
-	g.closed = true
+	return nil
 }
 func (g *NVIDIATextScorer) launch(name string, blocks int, args ...unsafe.Pointer) error {
 	return nvidia.LaunchKernel(g.kernels[name], uint32(blocks), 1, 1, 256, 1, 1, 0, args...)
@@ -299,8 +325,8 @@ func (g *NVIDIATextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.closed {
-		return nil, fmt.Errorf("mojev: GPU scorer closed")
+	if g.closed || g.cpu == nil || g.cpu.head == nil || g.module == nil {
+		return nil, fmt.Errorf("mojev: GPU scorer closed or uninitialized")
 	}
 	// Reject over-capacity branches before launching any work.
 	for f, q := range row.Questions {
@@ -318,7 +344,7 @@ func (g *NVIDIATextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 
 // ScoreText includes the same validation, tokenizer and public answer path as CPU.
 func (g *NVIDIATextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int) (*TextDecision, error) {
-	if g == nil {
+	if g == nil || g.cpu == nil {
 		return nil, fmt.Errorf("mojev: nil GPU scorer")
 	}
 	return g.cpu.scoreText(req, tok, stateLimit, questionLimit, g.ScoreEncoded)

@@ -60,7 +60,7 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 	type backend struct {
 		name   string
 		scorer executor
-		close  func()
+		close  func() error
 	}
 	var backends []backend
 	if simdEnabled {
@@ -68,7 +68,7 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		backends = append(backends, backend{"simd", s, func() {}})
+		backends = append(backends, backend{"simd", s, func() error { return nil }})
 	}
 	if gpuEnabled {
 		g, e := NewNVIDIATextScorer(cpu, 256)
@@ -108,6 +108,42 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			switch scorer := b.scorer.(type) {
 			case *SIMDTextScorer:
 				hidden, err = scorer.cpu.encodeBranchWith(branch, scorer.branch)
+				// Public Forward rows remain owned; Into failures are transactional.
+				inputs := make([][]float32, len(branch.IDs))
+				for i, id := range branch.IDs {
+					inputs[i] = cpu.embedding[id*1024 : (id+1)*1024]
+				}
+				owned, e := scorer.branch.Forward(inputs, branch.StateLen, branch.QuestionLen, cpu.rope, cpu.eps)
+				if e != nil {
+					t.Fatal(e)
+				}
+				saved := append([]float32(nil), owned[0]...)
+				dst := make([]float32, len(inputs)*1024)
+				if e = scorer.branch.ForwardInto(dst, inputs, branch.StateLen, branch.QuestionLen, cpu.rope, cpu.eps); e != nil {
+					t.Fatal(e)
+				}
+				if !reflect.DeepEqual(saved, owned[0]) || !reflect.DeepEqual(dst[:1024], saved) {
+					t.Fatal("Into parity/ownership")
+				}
+				for i := range dst {
+					dst[i] = 123
+				}
+				if e = scorer.branch.ForwardInto(dst, inputs, 0, branch.QuestionLen, cpu.rope, cpu.eps); e == nil {
+					t.Fatal("invalid Into accepted")
+				}
+				for _, v := range dst {
+					if v != 123 {
+						t.Fatal("partial Into output")
+					}
+				}
+				if a := testing.AllocsPerRun(1, func() {
+					got, e := scorer.ScoreEncoded(repairedTextRow())
+					if e != nil || got == nil {
+						panic(e)
+					}
+				}); a > 140 {
+					t.Fatalf("encoded SIMD allocation regression: %g > 140", a)
+				}
 			case *NVIDIATextScorer:
 				scorer.mu.Lock()
 				hidden, err = scorer.encodeBranch(branch)
@@ -193,8 +229,33 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 				t.Fatal("text isolation", e)
 			}
 			if b.name == "ptx" {
-				b.close()
-				b.close()
+				// Close races safely with scoring: either owned complete output or
+				// a clean closed error, never partial output or a stale launch.
+				var closeWG sync.WaitGroup
+				closeWG.Add(2)
+				go func() {
+					defer closeWG.Done()
+					got, err := b.scorer.ScoreEncoded(repairedTextRow())
+					if err == nil && !reflect.DeepEqual(got, base) {
+						t.Error("close race output")
+					}
+					if err != nil && got != nil {
+						t.Error("close race partial output")
+					}
+				}()
+				go func() {
+					defer closeWG.Done()
+					if err := b.close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				closeWG.Wait()
+				if err := b.close(); err != nil {
+					t.Fatal(err)
+				}
+				if err := b.close(); err != nil {
+					t.Fatal(err)
+				}
 				if got, e := b.scorer.ScoreEncoded(repairedTextRow()); e == nil || got != nil {
 					t.Fatal("closed scorer usable")
 				}

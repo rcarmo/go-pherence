@@ -1,5 +1,14 @@
 # MoJev text scorer and multimodal boundaries
 
+`NewSIMDTextScorer(cpu, maxTokens)` uses prepacked assembly projections,
+SIMD attention and reusable scratch. `NewNVIDIATextScorer(cpu, maxTokens)` uses
+resident F32 PTX weights on compute capability 8.6 or later. Both are explicit
+opt-ins with 3–512 tokens per candidate path. Check the GPU scorer's `Close()`
+error and retry cleanup on failure. A constructor cleanup failure can return
+both an error and a non-nil closed scorer solely for retrying `Close`. See the
+[allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
+for measurements, ownership rules and open qualification work.
+
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 
 `ReadConfig` accepts a pinned, metadata-only `MoLeMo-Lab/mojev` PackedScorer config. It validates the 24-layer Qwen3.5-0.8B hybrid text stack (18 linear and six full-attention layers), nested vision metadata, rank-512 readout, 16,384-token context setting, and 64-option `answer` schema. The Qwen3.5 projection shapes come from `loader/config/qwen35_shapes.go`. A successful parse always returns `RuntimeReady=false`.

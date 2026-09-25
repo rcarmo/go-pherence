@@ -14,24 +14,11 @@ import (
 // upstream public softmax, not the F32 scorer head's masked logit type.
 func AssembleAnswer(kind string, keys, options []string, sortedLogits []float64) (map[string]any, error) {
 	n := len(options)
-	if n < 2 || n > 64 || len(keys) != n || len(sortedLogits) != n {
+	if len(sortedLogits) != n {
 		return nil, fmt.Errorf("mojev: invalid answer cardinality")
 	}
-	if kind != "choice" && kind != "noul" && kind != "score" {
-		return nil, fmt.Errorf("mojev: unsupported answer kind")
-	}
-	if kind == "noul" && (n != 2 || keys[0] != "false" || keys[1] != "true") {
-		return nil, fmt.Errorf("mojev: invalid noul candidates")
-	}
-	seenKeys, seenOptions := make(map[string]bool, n), make(map[string]bool, n)
-	for i, key := range keys {
-		if key == "" || options[i] == "" || seenKeys[key] || seenOptions[options[i]] {
-			return nil, fmt.Errorf("mojev: empty or duplicate answer label")
-		}
-		if kind == "score" && key != strconv.Itoa(i) {
-			return nil, fmt.Errorf("mojev: unordered score levels")
-		}
-		seenKeys[key], seenOptions[options[i]] = true, true
+	if err := validateAnswerLabels(kind, keys, options); err != nil {
+		return nil, err
 	}
 	order := make([]int, n)
 	for i := range order {
@@ -86,4 +73,28 @@ func AssembleAnswer(kind string, keys, options []string, sortedLogits []float64)
 		}
 	}
 	return map[string]any{"type": "score", "score": expected, "confidence": confidence, "legend": legend, "probabilities": mapped}, nil
+}
+
+func validateAnswerLabels(kind string, keys, options []string) error {
+	n := len(options)
+	if n < 2 || n > 64 || len(keys) != n {
+		return fmt.Errorf("mojev: invalid answer cardinality")
+	}
+	if kind != "choice" && kind != "noul" && kind != "score" {
+		return fmt.Errorf("mojev: unsupported answer kind")
+	}
+	if kind == "noul" && (n != 2 || keys[0] != "false" || keys[1] != "true") {
+		return fmt.Errorf("mojev: invalid noul candidates")
+	}
+	seenKeys, seenOptions := make(map[string]bool, n), make(map[string]bool, n)
+	for i, key := range keys {
+		if key == "" || options[i] == "" || seenKeys[key] || seenOptions[options[i]] {
+			return fmt.Errorf("mojev: empty or duplicate answer label")
+		}
+		if kind == "score" && key != strconv.Itoa(i) {
+			return fmt.Errorf("mojev: unordered score levels")
+		}
+		seenKeys[key], seenOptions[options[i]] = true, true
+	}
+	return nil
 }

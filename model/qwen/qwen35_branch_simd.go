@@ -5,6 +5,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	cfg "github.com/rcarmo/go-pherence/loader/config"
@@ -22,21 +23,19 @@ type Qwen35SIMDBranch struct {
 	maxTokens int
 	packed    map[*tensor.Tensor][]float32
 	scratch   map[string][]float32
+	jobs      chan branchProjectionJob
+	jobWait   sync.WaitGroup
+	jobFailed [6]bool
 }
 
 func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens int) (*Qwen35SIMDBranch, error) {
-	if m == nil || len(m.Layers) != 24 || len(m.Layers) != meta.MainLayerCount() || meta.BF16Trajectory || !meta.ZeroCenteredRMSNorm || meta.HiddenSize != 1024 || meta.IntermediateSize != 3584 || meta.NumAttentionHeads != 8 || meta.NumKeyValueHeads != 2 || meta.HeadDim != 256 || meta.LinearNumKeyHeads != 16 || meta.LinearNumValueHeads != 16 || meta.LinearKeyHeadDim != 128 || meta.LinearValueHeadDim != 128 || meta.LinearConvKernelDim != 4 || meta.PartialRotaryFactor != 0.25 || maxTokens < 3 || maxTokens > 512 {
-		return nil, fmt.Errorf("qwen: unsupported SIMD branch configuration")
+	if err := ValidateQwen35F32Branch(m, meta, maxTokens); err != nil {
+		return nil, err
 	}
 	out := &Qwen35SIMDBranch{model: m, meta: meta, maxTokens: maxTokens, packed: map[*tensor.Tensor][]float32{}, scratch: map[string][]float32{}}
 	pack := func(t *tensor.Tensor, in, n int) error {
 		if t == nil || len(t.Data()) != in*n {
 			return fmt.Errorf("qwen: missing dense SIMD tensor")
-		}
-		for _, v := range t.Data() {
-			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-				return fmt.Errorf("qwen: nonfinite SIMD tensor")
-			}
 		}
 		p, e := simd.PackSgemmNTWeights(t.Data(), n, in, in)
 		if e != nil {
@@ -80,6 +79,7 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 		}
 	}
 	out.scratch["ssm"] = make([]float32, 16*128*128)
+	out.scratch["scores"] = make([]float32, maxTokens)
 	// 12 is a common multiple of the 6-row amd64 and 4-row ARM64/RVV
 	// microtiles. Pad projections only, never attention or recurrent tokens.
 	out.scratch["padIn"] = make([]float32, ((maxTokens+11)/12)*12*3584)
@@ -106,18 +106,43 @@ func (s *Qwen35SIMDBranch) project(dst, x []float32, w *tensor.Tensor, rows, in,
 
 func (s *Qwen35SIMDBranch) projectRows(dst, x []float32, w *tensor.Tensor, rows, in, out int) error {
 	clear(dst[:rows*out])
-	workers := min(runtime.GOMAXPROCS(0), 6, out/16)
+	fullCols := out / 16 * 16
+	workers := min(runtime.GOMAXPROCS(0), 6, fullCols/16)
+	if s.jobs != nil {
+		workers = min(cap(s.jobs), fullCols/16)
+	}
 	if workers < 2 || out < 512 {
 		if !simd.SgemmNTPrepackedTo(dst, x, w.Data(), s.packed[w], rows, out, in, 1, in, in, out) {
 			return fmt.Errorf("qwen: SIMD projection failed")
 		}
 		return nil
 	}
+	if s.jobs != nil {
+		clear(s.jobFailed[:])
+		s.jobWait.Add(workers)
+		for worker := 0; worker < workers; worker++ {
+			start := (out / 16) * worker / workers * 16
+			end := (out / 16) * (worker + 1) / workers * 16
+			s.jobs <- branchProjectionJob{worker, dst[start:], x, w.Data()[start*in:], s.packed[w][start*in : end*in], rows, end - start, in, out}
+		}
+		s.jobWait.Wait()
+		for _, failed := range s.jobFailed[:workers] {
+			if failed {
+				return fmt.Errorf("qwen: SIMD projection failed")
+			}
+		}
+		if tail := out / 16 * 16; tail != out {
+			if !simd.SgemmNTTo(dst[tail:], x, w.Data()[tail*in:], rows, out-tail, in, 1, in, in, out) {
+				return fmt.Errorf("qwen: SIMD projection failed")
+			}
+		}
+		return nil
+	}
 	var wg sync.WaitGroup
 	errs := make([]error, workers)
 	for worker := 0; worker < workers; worker++ {
-		start := (out / 16) * worker / workers * 16
-		end := (out / 16) * (worker + 1) / workers * 16
+		start := (fullCols / 16) * worker / workers * 16
+		end := (fullCols / 16) * (worker + 1) / workers * 16
 		wg.Add(1)
 		go func(i, start, end int) {
 			defer wg.Done()
@@ -132,34 +157,66 @@ func (s *Qwen35SIMDBranch) projectRows(dst, x []float32, w *tensor.Tensor, rows,
 			return err
 		}
 	}
+	if tail := out - fullCols; tail > 0 {
+		if !simd.SgemmNTPrepackedTo(dst[fullCols:], x, w.Data()[fullCols*in:], nil, rows, tail, in, 1, in, in, out) {
+			return fmt.Errorf("qwen: SIMD projection failed")
+		}
+	}
 	return nil
 }
 
 // Forward returns owned pre-final-normalisation hidden rows. All positions are
 // branch-local and recurrence starts empty; unrelated nodes are absent.
 func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float32, eps float32) ([][]float32, error) {
-	if s == nil {
-		return nil, fmt.Errorf("qwen: nil SIMD branch")
+	if s == nil || len(inputs) < 3 || len(inputs) > s.maxTokens {
+		return nil, fmt.Errorf("qwen: invalid SIMD branch")
+	}
+	flat := make([]float32, len(inputs)*1024)
+	if err := s.ForwardInto(flat, inputs, ns, nq, rope, eps); err != nil {
+		return nil, err
+	}
+	rows := make([][]float32, len(inputs))
+	for i := range rows {
+		rows[i] = flat[i*1024 : (i+1)*1024 : (i+1)*1024]
+	}
+	return rows, nil
+}
+
+// ForwardInto copies results to caller storage only after a successful forward.
+// Destination must be exactly len(inputs)*1024 and must not alias inputs.
+func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq int, rope []float32, eps float32) error {
+	if s == nil || s.model == nil || len(inputs) > 512 || len(dst) != len(inputs)*1024 {
+		return fmt.Errorf("qwen: invalid SIMD destination")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := len(inputs)
 	if n < 3 || n > s.maxTokens || ns < 1 || ns >= n || nq < 1 || nq >= n-ns || eps <= 0 || math.IsNaN(float64(eps)) || math.IsInf(float64(eps), 0) || len(rope) < n*64 {
-		return nil, fmt.Errorf("qwen: invalid SIMD branch inputs")
+		return fmt.Errorf("qwen: invalid SIMD branch inputs")
+	}
+	if branchSlicesOverlap(dst, rope) {
+		return fmt.Errorf("qwen: destination aliases RoPE")
+	}
+	for _, row := range inputs {
+		if branchSlicesOverlap(dst, row) {
+			return fmt.Errorf("qwen: destination aliases input")
+		}
 	}
 	b := func(name string, width int) []float32 { return s.scratch[name][:n*width] }
 	x, norm := b("x", 1024), b("norm", 1024)
 	for t, row := range inputs {
 		if len(row) != 1024 {
-			return nil, fmt.Errorf("qwen: invalid SIMD input row")
+			return fmt.Errorf("qwen: invalid SIMD input row")
 		}
 		for _, v := range row {
 			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-				return nil, fmt.Errorf("qwen: nonfinite SIMD input")
+				return fmt.Errorf("qwen: nonfinite SIMD input")
 			}
 		}
 		copy(x[t*1024:], row)
 	}
+	stopWorkers := s.startProjectionWorkers()
+	defer stopWorkers()
 	normalise := func(w []float32) {
 		copy(norm, x)
 		for t := 0; t < n; t++ {
@@ -180,7 +237,7 @@ func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float3
 				out int
 			}{{qkv, l.QKVW, 6144}, {z, l.GateW, 2048}, {alpha, l.AlphaW, 16}, {beta, l.BetaW, 16}} {
 				if e := s.project(p.dst, norm, p.w, n, 1024, p.out); e != nil {
-					return nil, e
+					return e
 				}
 			}
 			conv := b("conv", 6144)
@@ -221,7 +278,7 @@ func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float3
 					}
 				}
 				if e := qwen35GatedRMSNormValueHeads(out, z[t*2048:(t+1)*2048], l.Norm.Data(), 16, 128, eps); e != nil {
-					return nil, e
+					return e
 				}
 			}
 		} else {
@@ -235,7 +292,7 @@ func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float3
 				out int
 			}{{qg, l.QW, 4096}, {k, l.KW, 512}, {v, l.VW, 512}} {
 				if e := s.project(p.dst, norm, p.w, n, 1024, p.out); e != nil {
-					return nil, e
+					return e
 				}
 			}
 			q, gates := b("q", 2048), b("gateq", 2048)
@@ -258,45 +315,49 @@ func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float3
 				} else if t < ns+nq {
 					end = ns + nq
 				}
-				o := qwenMTPGroupedAttention(q[t*2048:(t+1)*2048], k[:end*512], v[:end*512], 8, 2, 256)
+				o := attn[t*2048 : (t+1)*2048]
+				if err := qwen35BranchAttentionInto(o, s.scratch["scores"][:end], q[t*2048:(t+1)*2048], k[:end*512], v[:end*512]); err != nil {
+					return err
+				}
 				for j := range o {
-					attn[t*2048+j] = o[j] * sigmoid(gates[t*2048+j])
+					o[j] *= sigmoid(gates[t*2048+j])
 				}
 			}
 		}
 		proj := b("proj", 1024)
 		if e := s.project(proj, attn, ow, n, 2048, 1024); e != nil {
-			return nil, e
+			return e
 		}
-		for i := range x {
-			x[i] += proj[i]
-		}
+		simd.VecAdd(x, x, proj)
 		normalise(post.Data())
 		gate, up := b("gate", 3584), b("up", 3584)
 		if e := s.project(gate, norm, gatew, n, 1024, 3584); e != nil {
-			return nil, e
+			return e
 		}
 		if e := s.project(up, norm, upw, n, 1024, 3584); e != nil {
-			return nil, e
+			return e
 		}
 		for i := range gate {
 			gate[i] = gate[i] * sigmoid(gate[i]) * up[i]
 		}
 		if e := s.project(proj, gate, downw, n, 3584, 1024); e != nil {
-			return nil, e
+			return e
 		}
-		for i := range x {
-			x[i] += proj[i]
+		simd.VecAdd(x, x, proj)
+	}
+	for _, v := range x {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("qwen: nonfinite SIMD output")
 		}
 	}
-	out := make([][]float32, n)
-	for t := range out {
-		for _, v := range x[t*1024 : (t+1)*1024] {
-			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-				return nil, fmt.Errorf("qwen: nonfinite SIMD output")
-			}
-		}
-		out[t] = append([]float32(nil), x[t*1024:(t+1)*1024]...)
+	copy(dst, x)
+	return nil
+}
+
+func branchSlicesOverlap(a, b []float32) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return false
 	}
-	return out, nil
+	x, y := uintptr(unsafe.Pointer(&a[0])), uintptr(unsafe.Pointer(&b[0]))
+	return x < y+uintptr(len(b))*4 && y < x+uintptr(len(a))*4
 }
