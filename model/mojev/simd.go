@@ -35,7 +35,7 @@ func (s *SIMDTextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return ScoreBranchLocalText(row, s.cpu.head, s.encodeBranch)
+	return s.scoreTree(row)
 }
 
 // Internal borrowed output is consumed by the head while the scorer mutex is

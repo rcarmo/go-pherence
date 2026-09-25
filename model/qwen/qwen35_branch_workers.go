@@ -43,17 +43,32 @@ func qwen35BranchAttentionInto(out, scores, q, k, v []float32) error {
 	if n < 1 || len(out) != 2048 || len(q) != 2048 || len(k) != n*512 || len(v) != n*512 {
 		return fmt.Errorf("qwen: invalid branch attention buffers")
 	}
+	return qwen35TreeAttentionInto(out, scores, q, k, v, 0, 0, n)
+}
+
+func qwen35TreeAttentionInto(out, scores, q, k, v []float32, prefix, start, end int) error {
+	if prefix < 0 || start < prefix || end <= start || len(k)%512 != 0 || end > len(k)/512 || len(v) != len(k) || len(scores) != prefix+end-start || len(out) != 2048 || len(q) != 2048 {
+		return fmt.Errorf("qwen: invalid tree attention")
+	}
 	clear(out)
 	for h := 0; h < 8; h++ {
 		qh, oh := q[h*256:(h+1)*256], out[h*256:(h+1)*256]
 		kvh := h / 4 * 256
-		for t := 0; t < n; t++ {
-			scores[t] = simd.Sdot(qh, k[t*512+kvh:t*512+kvh+256]) * 0.0625
+		for i := range scores {
+			t := i
+			if i >= prefix {
+				t = start + i - prefix
+			}
+			scores[i] = simd.Sdot(qh, k[t*512+kvh:t*512+kvh+256]) * 0.0625
 		}
 		if !simd.SoftmaxInPlace(scores) {
 			return fmt.Errorf("qwen: nonfinite branch attention")
 		}
-		for t, w := range scores {
+		for i, w := range scores {
+			t := i
+			if i >= prefix {
+				t = start + i - prefix
+			}
 			simd.Saxpy(w, v[t*512+kvh:t*512+kvh+256], oh)
 		}
 	}

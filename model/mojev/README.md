@@ -7,7 +7,10 @@ opt-ins with 3–512 tokens per candidate path. Check the GPU scorer's `Close()`
 error and retry cleanup on failure. A constructor cleanup failure can return
 both an error and a non-nil closed scorer solely for retrying `Close`. See the
 [allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
-for measurements, ownership rules and open qualification work.
+for measurements, ownership rules and open qualification work. The SIMD scorer
+[shares state/question ancestors](../../docs/validation/mojev-simd-tree-20260925.md)
+within a question when the whole tree fits its scratch capacity, with automatic
+separate-branch fallback for larger trees.
 
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 

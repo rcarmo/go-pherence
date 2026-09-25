@@ -26,38 +26,11 @@ type TextBranchEncoder func(TextBranch) ([]float32, error)
 // not a native encoder or parity with the released packed checkpoint. Errors
 // return no partial logits. The encoder must not carry state between calls.
 func ScoreBranchLocalText(row EncodedRow, head *HeadWeights, encode TextBranchEncoder) ([][]float32, error) {
-	if encode == nil || head == nil || len(row.State) == 0 || len(row.Questions) == 0 ||
-		len(row.Questions) > 256 || len(row.Candidates) != len(row.Questions) {
-		return nil, fmt.Errorf("mojev: invalid branch-local text request")
+	if encode == nil {
+		return nil, fmt.Errorf("mojev: nil branch encoder")
 	}
-	total := 0
-	add := func(ids []int) error {
-		if len(ids) == 0 || len(ids) > 4096-total {
-			return fmt.Errorf("mojev: invalid branch-local text length")
-		}
-		for _, id := range ids {
-			if id < 0 {
-				return fmt.Errorf("mojev: negative token ID")
-			}
-		}
-		total += len(ids)
-		return nil
-	}
-	if err := add(row.State); err != nil {
+	if err := validateBranchLocalText(row, head); err != nil {
 		return nil, err
-	}
-	for f, question := range row.Questions {
-		if err := add(question); err != nil {
-			return nil, err
-		}
-		if len(row.Candidates[f]) < 2 || len(row.Candidates[f]) > 64 {
-			return nil, fmt.Errorf("mojev: invalid candidate count")
-		}
-		for _, candidate := range row.Candidates[f] {
-			if err := add(candidate); err != nil {
-				return nil, err
-			}
-		}
 	}
 	result := make([][]float32, len(row.Questions))
 	questionStart := len(row.State)
@@ -104,4 +77,41 @@ func ScoreBranchLocalText(row EncodedRow, head *HeadWeights, encode TextBranchEn
 		questionStart = candidateStart
 	}
 	return result, nil
+}
+
+func validateBranchLocalText(row EncodedRow, head *HeadWeights) error {
+	if head == nil || len(row.State) == 0 || len(row.Questions) == 0 ||
+		len(row.Questions) > 256 || len(row.Candidates) != len(row.Questions) {
+		return fmt.Errorf("mojev: invalid branch-local text request")
+	}
+	total := 0
+	add := func(ids []int) error {
+		if len(ids) == 0 || len(ids) > 4096-total {
+			return fmt.Errorf("mojev: invalid branch-local text length")
+		}
+		for _, id := range ids {
+			if id < 0 {
+				return fmt.Errorf("mojev: negative token ID")
+			}
+		}
+		total += len(ids)
+		return nil
+	}
+	if err := add(row.State); err != nil {
+		return err
+	}
+	for f, question := range row.Questions {
+		if err := add(question); err != nil {
+			return err
+		}
+		if len(row.Candidates[f]) < 2 || len(row.Candidates[f]) > 64 {
+			return fmt.Errorf("mojev: invalid candidate count")
+		}
+		for _, candidate := range row.Candidates[f] {
+			if err := add(candidate); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

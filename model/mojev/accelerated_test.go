@@ -162,6 +162,9 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			if math.IsNaN(maxHidden) || maxHidden > 2e-3 {
 				t.Fatal("hidden parity")
 			}
+			if scorer, ok := b.scorer.(*SIMDTextScorer); ok {
+				testSIMDTreeBranches(t, scorer)
+			}
 			base := outputs["base"]
 			for _, name := range []string{"sibling_token", "sibling_length", "question_length"} {
 				if !reflect.DeepEqual(base[1], outputs[name][1]) {

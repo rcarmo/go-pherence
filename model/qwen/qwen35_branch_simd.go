@@ -79,6 +79,7 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 		}
 	}
 	out.scratch["ssm"] = make([]float32, 16*128*128)
+	out.scratch["fork"] = make([]float32, 16*128*128)
 	out.scratch["scores"] = make([]float32, maxTokens)
 	// 12 is a common multiple of the 6-row amd64 and 4-row ARM64/RVV
 	// microtiles. Pad projections only, never attention or recurrent tokens.
@@ -185,6 +186,14 @@ func (s *Qwen35SIMDBranch) Forward(inputs [][]float32, ns, nq int, rope []float3
 // ForwardInto copies results to caller storage only after a successful forward.
 // Destination must be exactly len(inputs)*1024 and must not alias inputs.
 func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq int, rope []float32, eps float32) error {
+	return s.ForwardTreeInto(dst, inputs, ns, nq, []int{len(inputs)}, rope, eps)
+}
+
+// ForwardTreeInto shares state/question rows across sibling candidates. Ends
+// gives each nonempty candidate's exclusive end after the ns+nq shared prefix.
+// Recurrence forks at the prefix and full attention excludes every sibling.
+// Positions restart at ns+nq for each candidate. Results are transactional.
+func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns, nq int, ends []int, rope []float32, eps float32) error {
 	if s == nil || s.model == nil || len(inputs) > 512 || len(dst) != len(inputs)*1024 {
 		return fmt.Errorf("qwen: invalid SIMD destination")
 	}
@@ -193,6 +202,37 @@ func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq
 	n := len(inputs)
 	if n < 3 || n > s.maxTokens || ns < 1 || ns >= n || nq < 1 || nq >= n-ns || eps <= 0 || math.IsNaN(float64(eps)) || math.IsInf(float64(eps), 0) || len(rope) < n*64 {
 		return fmt.Errorf("qwen: invalid SIMD branch inputs")
+	}
+	prefix := ns + nq
+	if len(ends) < 1 || len(ends) > 64 {
+		return fmt.Errorf("qwen: invalid candidate boundaries")
+	}
+	var starts, stops, positions, parents [512]int
+	for t := 0; t < prefix; t++ {
+		parents[t] = t - 1
+		positions[t] = t
+		starts[t] = 0
+		stops[t] = prefix
+		if t < ns {
+			stops[t] = ns
+		}
+	}
+	start := prefix
+	for _, end := range ends {
+		if end <= start || end > n {
+			return fmt.Errorf("qwen: invalid candidate boundary")
+		}
+		for t := start; t < end; t++ {
+			parents[t] = t - 1
+			positions[t] = prefix + t - start
+			starts[t] = start
+			stops[t] = end
+		}
+		parents[start] = prefix - 1
+		start = end
+	}
+	if start != n {
+		return fmt.Errorf("qwen: incomplete candidate boundaries")
 	}
 	if branchSlicesOverlap(dst, rope) {
 		return fmt.Errorf("qwen: destination aliases RoPE")
@@ -246,7 +286,10 @@ func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq
 			for t := 0; t < n; t++ {
 				row := conv[t*6144 : (t+1)*6144]
 				for k := 0; k < 4; k++ {
-					p := t - 3 + k
+					p := t
+					for back := 0; back < 3-k && p >= 0; back++ {
+						p = parents[p]
+					}
 					if p >= 0 {
 						src := qkv[p*6144 : (p+1)*6144]
 						weight := cw[k*6144 : (k+1)*6144]
@@ -263,6 +306,11 @@ func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq
 			state := s.scratch["ssm"]
 			clear(state)
 			for t := 0; t < n; t++ {
+				if t == prefix {
+					copy(s.scratch["fork"], state)
+				} else if t > prefix && t == starts[t] {
+					copy(state, s.scratch["fork"])
+				}
 				q, k, v := conv[t*6144:t*6144+2048], conv[t*6144+2048:t*6144+4096], conv[t*6144+4096:(t+1)*6144]
 				out := attn[t*2048 : (t+1)*2048]
 				for h := 0; h < 16; h++ {
@@ -305,18 +353,16 @@ func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq
 				for h := 0; h < 2; h++ {
 					rmsNormQwen35InPlace(k[t*512+h*256:t*512+(h+1)*256], l.KNorm.Data(), eps, true)
 				}
-				llmops.ApplyRoPEPartial(q[t*2048:(t+1)*2048], rope, t, 8, 256, 32)
-				llmops.ApplyRoPEPartial(k[t*512:(t+1)*512], rope, t, 2, 256, 32)
+				llmops.ApplyRoPEPartial(q[t*2048:(t+1)*2048], rope, positions[t], 8, 256, 32)
+				llmops.ApplyRoPEPartial(k[t*512:(t+1)*512], rope, positions[t], 2, 256, 32)
 			}
 			for t := 0; t < n; t++ {
-				end := n
-				if t < ns {
-					end = ns
-				} else if t < ns+nq {
-					end = ns + nq
+				start, end, ancestors := starts[t], stops[t], prefix
+				if t < prefix {
+					ancestors = 0
 				}
 				o := attn[t*2048 : (t+1)*2048]
-				if err := qwen35BranchAttentionInto(o, s.scratch["scores"][:end], q[t*2048:(t+1)*2048], k[:end*512], v[:end*512]); err != nil {
+				if err := qwen35TreeAttentionInto(o, s.scratch["scores"][:ancestors+end-start], q[t*2048:(t+1)*2048], k, v, ancestors, start, end); err != nil {
 					return err
 				}
 				for j := range o {
