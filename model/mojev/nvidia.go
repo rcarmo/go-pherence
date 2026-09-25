@@ -36,17 +36,20 @@ type gpuLayer struct {
 // no candidate KV/recurrent state survives a branch. Close waits for active work.
 // The CPU scorer supplies immutable embeddings and the F32 head readout.
 type NVIDIATextScorer struct {
-	mu        sync.Mutex
-	cpu       *TextScorer
-	maxTokens int
-	layers    []gpuLayer
-	norm      *nvidia.Buffer
-	scratch   map[string]*nvidia.Buffer
-	kernels   map[string]nvidia.CUfunction
-	module    *nvidia.PTXModule
-	buffers   []*nvidia.Buffer
-	resident  int64
-	closed    bool
+	mu                    sync.Mutex
+	cpu                   *TextScorer
+	maxTokens             int
+	layers                []gpuLayer
+	norm                  *nvidia.Buffer
+	scratch               map[string]*nvidia.Buffer
+	kernels               map[string]nvidia.CUfunction
+	module                *nvidia.PTXModule
+	buffers               []*nvidia.Buffer
+	resident              int64
+	closed                bool
+	commands              []nvidia.KernelLaunch
+	commandCount          int
+	hostInput, hostOutput []float32
 }
 
 // NewNVIDIATextScorer uploads text weights once. maxTokens bounds each candidate
@@ -145,6 +148,9 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScor
 			return nil, err
 		}
 	}
+	g.commands = make([]nvidia.KernelLaunch, 512)
+	g.hostInput = make([]float32, maxTokens*1024)
+	g.hostOutput = make([]float32, maxTokens*1024)
 	ok = true
 	return g, nil
 }
@@ -177,6 +183,8 @@ func (g *NVIDIATextScorer) Close() error {
 	defer g.mu.Unlock()
 	g.closed = true
 	if g.module != nil {
+		// PTXModule.Close synchronises before unloading. This also drains any
+		// prefix launched before a mid-batch failure; never free buffers first.
 		if err := g.module.Close(); err != nil {
 			return err
 		}
@@ -190,21 +198,39 @@ func (g *NVIDIATextScorer) Close() error {
 	g.norm = nil
 	g.scratch = nil
 	g.kernels = nil
+	g.commands = nil
+	g.hostInput, g.hostOutput = nil, nil
 	g.resident = 0
 	return nil
 }
 func (g *NVIDIATextScorer) launch(name string, blocks int, args ...unsafe.Pointer) error {
 	return nvidia.LaunchKernel(g.kernels[name], uint32(blocks), 1, 1, 256, 1, 1, 0, args...)
 }
+
+// queue records by-value arguments into preallocated stable launch storage.
+func (g *NVIDIATextScorer) queue(name string, gx, gy int, args ...uint64) error {
+	if g.commandCount >= len(g.commands) || len(args) > 8 {
+		return fmt.Errorf("mojev: GPU command capacity")
+	}
+	c := &g.commands[g.commandCount]
+	c.Function = g.kernels[name]
+	c.Grid = [3]uint32{uint32(gx), uint32(gy), 1}
+	c.Block = [3]uint32{256, 1, 1}
+	c.ArgCount = len(args)
+	copy(c.Args[:], args)
+	g.commandCount++
+	return nil
+}
 func (g *NVIDIATextScorer) normRows(x, w, y *nvidia.Buffer, rows, dim int, zero int32) error {
-	r, d, e := int32(rows), int32(dim), g.cpu.eps
-	return g.launch("mj_norm", rows, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&w.Ptr), unsafe.Pointer(&y.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&d), unsafe.Pointer(&e), unsafe.Pointer(&zero))
+	return g.queue("mj_norm", rows, 1, uint64(x.Ptr), uint64(w.Ptr), uint64(y.Ptr), uint64(rows), uint64(dim), uint64(math.Float32bits(g.cpu.eps)), uint64(zero))
 }
 func (g *NVIDIATextScorer) binary(name string, x, y *nvidia.Buffer, n int) error {
-	size := int32(n)
-	return g.launch(name, (n+255)/256, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&y.Ptr), unsafe.Pointer(&size))
+	return g.queue(name, (n+255)/256, 1, uint64(x.Ptr), uint64(y.Ptr), uint64(n))
 }
 func (g *NVIDIATextScorer) project(x, w, y *nvidia.Buffer, rows, in, out int) error {
+	if g.commands != nil {
+		return g.queue("mj_gemm", (out+63)/64, (rows+31)/32, uint64(x.Ptr), uint64(w.Ptr), uint64(y.Ptr), uint64(rows), uint64(out), uint64(in))
+	}
 	m, n, k := int32(rows), int32(out), int32(in)
 	return nvidia.LaunchKernel(g.kernels["mj_gemm"], uint32((out+63)/64), uint32((rows+31)/32), 1, 256, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&w.Ptr), unsafe.Pointer(&y.Ptr), unsafe.Pointer(&m), unsafe.Pointer(&n), unsafe.Pointer(&k))
 }
@@ -214,7 +240,8 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 	if n > g.maxTokens {
 		return nil, fmt.Errorf("mojev: branch exceeds GPU token capacity %d", g.maxTokens)
 	}
-	input := make([]float32, n*1024)
+	input := g.hostInput[:n*1024]
+	g.commandCount = 0
 	for i, id := range b.IDs {
 		if id < 0 || id >= g.cpu.meta.VocabSize {
 			return nil, fmt.Errorf("mojev: token outside vocabulary")
@@ -226,7 +253,7 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 	if err := x.Upload(input); err != nil {
 		return nil, err
 	}
-	r, eps := int32(n), g.cpu.eps
+	r, eps := uint64(n), uint64(math.Float32bits(g.cpu.eps))
 	for _, l := range g.layers {
 		w := l.w
 		if err := g.normRows(x, w["in"], norm, n, 1024, 1); err != nil {
@@ -242,18 +269,18 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 				}
 			}
 			qkv, conv, cw := s["qkv"], s["conv"], w["conv"]
-			if e := g.launch("mj_conv", (n*6144+255)/256, unsafe.Pointer(&qkv.Ptr), unsafe.Pointer(&cw.Ptr), unsafe.Pointer(&conv.Ptr), unsafe.Pointer(&r)); e != nil {
+			if e := g.queue("mj_conv", (n*6144+255)/256, 1, uint64(qkv.Ptr), uint64(cw.Ptr), uint64(conv.Ptr), r); e != nil {
 				return nil, e
 			}
-			if e := g.launch("mj_l2", n*32, unsafe.Pointer(&conv.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&eps)); e != nil {
+			if e := g.queue("mj_l2", n*32, 1, uint64(conv.Ptr), r, eps); e != nil {
 				return nil, e
 			}
 			a, dt, alpha, beta, out := w["a"], w["dt"], s["alpha"], s["beta"], s["attn"]
-			if e := g.launch("mj_delta", 256, unsafe.Pointer(&conv.Ptr), unsafe.Pointer(&alpha.Ptr), unsafe.Pointer(&beta.Ptr), unsafe.Pointer(&dt.Ptr), unsafe.Pointer(&a.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&r)); e != nil {
+			if e := g.queue("mj_delta", 256, 1, uint64(conv.Ptr), uint64(alpha.Ptr), uint64(beta.Ptr), uint64(dt.Ptr), uint64(a.Ptr), uint64(out.Ptr), r); e != nil {
 				return nil, e
 			}
 			z, gn := s["z"], w["gate_norm"]
-			if e := g.launch("mj_gated_norm", n*16, unsafe.Pointer(&out.Ptr), unsafe.Pointer(&z.Ptr), unsafe.Pointer(&gn.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&eps)); e != nil {
+			if e := g.queue("mj_gated_norm", n*16, 1, uint64(out.Ptr), uint64(z.Ptr), uint64(gn.Ptr), r, eps); e != nil {
 				return nil, e
 			}
 		} else {
@@ -270,13 +297,12 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 				heads, stride, headStride int32
 			}{{"qg", "qn", 8, 4096, 512}, {"k", "kn", 2, 512, 256}} {
 				buf, weight := s[p.name], w[p.weight]
-				if e := g.launch("mj_qk_norm_rope", n*int(p.heads), unsafe.Pointer(&buf.Ptr), unsafe.Pointer(&weight.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&p.heads), unsafe.Pointer(&p.stride), unsafe.Pointer(&p.headStride), unsafe.Pointer(&eps)); e != nil {
+				if e := g.queue("mj_qk_norm_rope", n*int(p.heads), 1, uint64(buf.Ptr), uint64(weight.Ptr), r, uint64(p.heads), uint64(p.stride), uint64(p.headStride), eps); e != nil {
 					return nil, e
 				}
 			}
 			q, k, v, out := s["qg"], s["k"], s["v"], s["attn"]
-			ns, nq := int32(b.StateLen), int32(b.QuestionLen)
-			if e := g.launch("mj_attention", n*8, unsafe.Pointer(&q.Ptr), unsafe.Pointer(&k.Ptr), unsafe.Pointer(&v.Ptr), unsafe.Pointer(&out.Ptr), unsafe.Pointer(&r), unsafe.Pointer(&ns), unsafe.Pointer(&nq)); e != nil {
+			if e := g.queue("mj_attention", n*8, 1, uint64(q.Ptr), uint64(k.Ptr), uint64(v.Ptr), uint64(out.Ptr), r, uint64(b.StateLen), uint64(b.QuestionLen)); e != nil {
 				return nil, e
 			}
 		}
@@ -308,10 +334,13 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 	if e := g.normRows(x, g.norm, norm, n, 1024, 1); e != nil {
 		return nil, e
 	}
+	if e := nvidia.LaunchBatch(g.commands[:g.commandCount]); e != nil {
+		return nil, e
+	}
 	if e := nvidia.SyncErr(); e != nil {
 		return nil, e
 	}
-	out := make([]float32, n*1024)
+	out := g.hostOutput[:n*1024]
 	if e := norm.Download(out); e != nil {
 		return nil, e
 	}

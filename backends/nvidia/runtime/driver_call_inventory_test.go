@@ -23,6 +23,8 @@ func TestRawCUDADriverCallsStayInReviewedScopes(t *testing.T) {
 		// Both hold lockDriver (cudaMu + pinned OS thread) for the entire
 		// operation. Module.Close additionally holds its ownership mutex.
 		"ptx_module.go": {"LoadPTXFunctions": true, "Close": true},
+		// One lockDriver scope covers all launches and optional diagnostic sync.
+		"launch_batch.go": {"LaunchBatch": true},
 	}
 	entries, err := os.ReadDir(".")
 	if err != nil {

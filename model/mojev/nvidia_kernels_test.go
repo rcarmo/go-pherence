@@ -37,31 +37,44 @@ func TestMoJevPTXKernels(t *testing.T) {
 		}
 		return b
 	}
-	for _, shape := range [][3]int{{1, 17, 3}, {7, 65, 33}, {33, 67, 35}} {
-		m, n, k := shape[0], shape[1], shape[2]
-		a, b := make([]float32, m*k), make([]float32, k*n)
-		for i := range a {
-			a[i] = float32(i%11-5) * 0.07
+	for _, batched := range []bool{false, true} {
+		if batched {
+			g.commands = make([]nvidia.KernelLaunch, 8)
+		} else {
+			g.commands = nil
 		}
-		for i := range b {
-			b[i] = float32(i%7-3) * 0.03
-		}
-		da, db, dc := upload(a), upload(b), upload(make([]float32, m*n))
-		if e = g.project(da, db, dc, m, k, n); e != nil {
-			t.Fatal(e)
-		}
-		out := make([]float32, m*n)
-		if e = dc.Download(out); e != nil {
-			t.Fatal(e)
-		}
-		for r := 0; r < m; r++ {
-			for c := 0; c < n; c++ {
-				var want float32
-				for j := 0; j < k; j++ {
-					want += a[r*k+j] * b[j*n+c]
+		for _, shape := range [][3]int{{1, 17, 3}, {7, 65, 33}, {33, 67, 35}} {
+			g.commandCount = 0
+			m, n, k := shape[0], shape[1], shape[2]
+			a, b := make([]float32, m*k), make([]float32, k*n)
+			for i := range a {
+				a[i] = float32(i%11-5) * 0.07
+			}
+			for i := range b {
+				b[i] = float32(i%7-3) * 0.03
+			}
+			da, db, dc := upload(a), upload(b), upload(make([]float32, m*n))
+			if e = g.project(da, db, dc, m, k, n); e != nil {
+				t.Fatal(e)
+			}
+			if batched {
+				if e = nvidia.LaunchBatch(g.commands[:g.commandCount]); e != nil {
+					t.Fatal(e)
 				}
-				if math.Abs(float64(out[r*n+c]-want)) > 1e-5 {
-					t.Fatal("GEMM tail mismatch", shape, r, c)
+			}
+			out := make([]float32, m*n)
+			if e = dc.Download(out); e != nil {
+				t.Fatal(e)
+			}
+			for r := 0; r < m; r++ {
+				for c := 0; c < n; c++ {
+					var want float32
+					for j := 0; j < k; j++ {
+						want += a[r*k+j] * b[j*n+c]
+					}
+					if math.Abs(float64(out[r*n+c]-want)) > 1e-5 {
+						t.Fatal("GEMM tail mismatch", shape, r, c)
+					}
 				}
 			}
 		}
