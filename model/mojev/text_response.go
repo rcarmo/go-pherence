@@ -3,6 +3,8 @@ package mojev
 import (
 	"fmt"
 	"sort"
+
+	"github.com/rcarmo/go-pherence/loader/tokenizer"
 )
 
 // TextDecision is an owned, model-free response over injected sorted logit rows.
@@ -20,7 +22,9 @@ type TextUsage struct {
 
 // AssembleTextDecision combines a decoded text request, an injected text
 // encoder and one sorted logit row per question. It validates every field and
-// returns no partial answers if packing or any row fails.
+// returns no partial answers if packing or any row fails. Callers using the
+// released tokenizer must first apply ValidateTextControls; this lower-level
+// injected-encoder API cannot inspect its tokenizer policy.
 func AssembleTextDecision(req TextRequest, sortedLogits [][]float64, encode TextEncoder, padID, stateLimit, questionLimit int) (*TextDecision, error) {
 	if req.Model == "" || req.State == "" || len(req.Fields) == 0 || len(req.Fields) > 256 || len(sortedLogits) != len(req.Fields) {
 		return nil, fmt.Errorf("mojev: invalid text decision geometry")
@@ -66,4 +70,16 @@ func AssembleTextDecision(req TextRequest, sortedLogits [][]float64, encode Text
 		}
 	}
 	return out, nil
+}
+
+// AssembleSafeTextDecision validates reserved tokens with the released
+// tokenizer before passing its Encode method to the model-free assembler.
+// It returns no partial response if validation fails.
+func AssembleSafeTextDecision(req TextRequest, sortedLogits [][]float64, tok *tokenizer.Tokenizer, padID, stateLimit, questionLimit int) (*TextDecision, error) {
+	if err := ValidateTextControls(req, tok); err != nil {
+		return nil, err
+	}
+	return AssembleTextDecision(req, sortedLogits, func(text string) ([]int, error) {
+		return tok.Encode(text), nil
+	}, padID, stateLimit, questionLimit)
 }
