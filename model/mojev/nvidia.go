@@ -50,6 +50,8 @@ type NVIDIATextScorer struct {
 	commands              []nvidia.KernelLaunch
 	commandCount          int
 	hostInput, hostOutput []float32
+	tree                  *nvidia.Buffer
+	treeRows              []uint32
 }
 
 // NewNVIDIATextScorer uploads text weights once. maxTokens bounds each candidate
@@ -82,7 +84,7 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScor
 			}
 		}
 	}()
-	names := []string{"mj_gemm", "mj_norm", "mj_add", "mj_silu_mul", "mj_conv", "mj_l2", "mj_delta", "mj_gated_norm", "mj_qk_norm_rope", "mj_attention"}
+	names := []string{"mj_gemm", "mj_norm", "mj_add", "mj_silu_mul", "mj_conv", "mj_l2", "mj_delta", "mj_gated_norm", "mj_qk_norm_rope", "mj_attention", "mj_tree_conv", "mj_tree_delta", "mj_tree_qk_norm_rope", "mj_tree_attention"}
 	module, err := nvidia.LoadPTXFunctions(ptx.MoJev, names)
 	if err != nil {
 		return nil, err
@@ -148,6 +150,11 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScor
 			return nil, err
 		}
 	}
+	g.tree, err = g.alloc(maxTokens * 4)
+	if err != nil {
+		return nil, err
+	}
+	g.treeRows = make([]uint32, maxTokens*4)
 	g.commands = make([]nvidia.KernelLaunch, 512)
 	g.hostInput = make([]float32, maxTokens*1024)
 	g.hostOutput = make([]float32, maxTokens*1024)
@@ -200,6 +207,7 @@ func (g *NVIDIATextScorer) Close() error {
 	g.kernels = nil
 	g.commands = nil
 	g.hostInput, g.hostOutput = nil, nil
+	g.tree, g.treeRows = nil, nil
 	g.resident = 0
 	return nil
 }
@@ -221,6 +229,15 @@ func (g *NVIDIATextScorer) queue(name string, gx, gy int, args ...uint64) error 
 	g.commandCount++
 	return nil
 }
+
+// The branch kernel signatures lack the final tree-metadata argument.
+func (g *NVIDIATextScorer) queueTree(name string, blocks int, tree bool, args ...uint64) error {
+	if !tree {
+		args = args[:len(args)-1]
+	}
+	return g.queue(name, blocks, 1, args...)
+}
+
 func (g *NVIDIATextScorer) normRows(x, w, y *nvidia.Buffer, rows, dim int, zero int32) error {
 	return g.queue("mj_norm", rows, 1, uint64(x.Ptr), uint64(w.Ptr), uint64(y.Ptr), uint64(rows), uint64(dim), uint64(math.Float32bits(g.cpu.eps)), uint64(zero))
 }
@@ -236,9 +253,21 @@ func (g *NVIDIATextScorer) project(x, w, y *nvidia.Buffer, rows, in, out int) er
 }
 
 func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
+	return g.encodeTree(b, nil)
+}
+
+func (g *NVIDIATextScorer) encodeTree(b TextBranch, ends []int) ([]float32, error) {
 	n := len(b.IDs)
 	if n > g.maxTokens {
 		return nil, fmt.Errorf("mojev: branch exceeds GPU token capacity %d", g.maxTokens)
+	}
+	if ends != nil {
+		if err := fillGPUTree(g.treeRows[:n*4], n, b.StateLen, b.QuestionLen, ends); err != nil {
+			return nil, err
+		}
+		if err := g.tree.UploadUint32(g.treeRows[:n*4]); err != nil {
+			return nil, err
+		}
 	}
 	input := g.hostInput[:n*1024]
 	g.commandCount = 0
@@ -269,14 +298,18 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 				}
 			}
 			qkv, conv, cw := s["qkv"], s["conv"], w["conv"]
-			if e := g.queue("mj_conv", (n*6144+255)/256, 1, uint64(qkv.Ptr), uint64(cw.Ptr), uint64(conv.Ptr), r); e != nil {
+			convName, deltaName := "mj_conv", "mj_delta"
+			if ends != nil {
+				convName, deltaName = "mj_tree_conv", "mj_tree_delta"
+			}
+			if e := g.queueTree(convName, (n*6144+255)/256, ends != nil, uint64(qkv.Ptr), uint64(cw.Ptr), uint64(conv.Ptr), r, uint64(g.tree.Ptr)); e != nil {
 				return nil, e
 			}
 			if e := g.queue("mj_l2", n*32, 1, uint64(conv.Ptr), r, eps); e != nil {
 				return nil, e
 			}
 			a, dt, alpha, beta, out := w["a"], w["dt"], s["alpha"], s["beta"], s["attn"]
-			if e := g.queue("mj_delta", 256, 1, uint64(conv.Ptr), uint64(alpha.Ptr), uint64(beta.Ptr), uint64(dt.Ptr), uint64(a.Ptr), uint64(out.Ptr), r); e != nil {
+			if e := g.queueTree(deltaName, 256, ends != nil, uint64(conv.Ptr), uint64(alpha.Ptr), uint64(beta.Ptr), uint64(dt.Ptr), uint64(a.Ptr), uint64(out.Ptr), r, uint64(g.tree.Ptr)); e != nil {
 				return nil, e
 			}
 			z, gn := s["z"], w["gate_norm"]
@@ -292,17 +325,25 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 					return nil, e
 				}
 			}
+			ropeName := "mj_qk_norm_rope"
+			if ends != nil {
+				ropeName = "mj_tree_qk_norm_rope"
+			}
 			for _, p := range []struct {
 				name, weight              string
 				heads, stride, headStride int32
 			}{{"qg", "qn", 8, 4096, 512}, {"k", "kn", 2, 512, 256}} {
 				buf, weight := s[p.name], w[p.weight]
-				if e := g.queue("mj_qk_norm_rope", n*int(p.heads), 1, uint64(buf.Ptr), uint64(weight.Ptr), r, uint64(p.heads), uint64(p.stride), uint64(p.headStride), eps); e != nil {
+				if e := g.queueTree(ropeName, n*int(p.heads), ends != nil, uint64(buf.Ptr), uint64(weight.Ptr), r, uint64(p.heads), uint64(p.stride), uint64(p.headStride), eps, uint64(g.tree.Ptr)); e != nil {
 					return nil, e
 				}
 			}
 			q, k, v, out := s["qg"], s["k"], s["v"], s["attn"]
-			if e := g.queue("mj_attention", n*8, 1, uint64(q.Ptr), uint64(k.Ptr), uint64(v.Ptr), uint64(out.Ptr), r, uint64(b.StateLen), uint64(b.QuestionLen)); e != nil {
+			attentionName, arg1, arg2 := "mj_attention", uint64(b.StateLen), uint64(b.QuestionLen)
+			if ends != nil {
+				attentionName, arg1, arg2 = "mj_tree_attention", uint64(g.tree.Ptr), uint64(b.StateLen+b.QuestionLen)
+			}
+			if e := g.queue(attentionName, n*8, 1, uint64(q.Ptr), uint64(k.Ptr), uint64(v.Ptr), uint64(out.Ptr), r, arg1, arg2); e != nil {
 				return nil, e
 			}
 		}
@@ -368,7 +409,7 @@ func (g *NVIDIATextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 			}
 		}
 	}
-	return ScoreBranchLocalText(row, g.cpu.head, g.encodeBranch)
+	return g.scoreTree(row)
 }
 
 // ScoreText includes the same validation, tokenizer and public answer path as CPU.

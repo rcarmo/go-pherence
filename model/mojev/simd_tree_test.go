@@ -8,6 +8,22 @@ import (
 // Called only by the hash-checked released-model test, with its existing scorer.
 func testSIMDTreeBranches(t *testing.T, s *SIMDTextScorer) {
 	t.Helper()
+	testTreeBranches(t, s.ScoreEncoded, func(r EncodedRow) ([][]float32, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return ScoreBranchLocalText(r, s.cpu.head, s.encodeBranch)
+	})
+}
+func testNVIDIATreeBranches(t *testing.T, g *NVIDIATextScorer) {
+	t.Helper()
+	testTreeBranches(t, g.ScoreEncoded, func(r EncodedRow) ([][]float32, error) {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		return ScoreBranchLocalText(r, g.cpu.head, g.encodeBranch)
+	})
+}
+func testTreeBranches(t *testing.T, score, reference func(EncodedRow) ([][]float32, error)) {
+	t.Helper()
 	for _, count := range []int{2, 8, 64} {
 		r := EncodedRow{State: []int{100, 200, 300}, Questions: [][]int{{400, 500}}, Candidates: make([][][]int, 1)}
 		r.Candidates[0] = make([][]int, count)
@@ -17,13 +33,11 @@ func testSIMDTreeBranches(t *testing.T, s *SIMDTextScorer) {
 				r.Candidates[0][c][i] = 600 + c*4 + i
 			}
 		}
-		got, err := s.ScoreEncoded(r)
+		got, err := score(r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		s.mu.Lock()
-		want, err := ScoreBranchLocalText(r, s.cpu.head, s.encodeBranch)
-		s.mu.Unlock()
+		want, err := reference(r)
 		if err != nil || !reflect.DeepEqual(got, want) {
 			t.Fatal("tree vs separate branches", count, err, got, want)
 		}
@@ -32,7 +46,7 @@ func testSIMDTreeBranches(t *testing.T, s *SIMDTextScorer) {
 		for a, b := 0, count-1; a < b; a, b = a+1, b-1 {
 			r.Candidates[0][a], r.Candidates[0][b] = r.Candidates[0][b], r.Candidates[0][a]
 		}
-		reordered, err := s.ScoreEncoded(r)
+		reordered, err := score(r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,13 +63,11 @@ func testSIMDTreeBranches(t *testing.T, s *SIMDTextScorer) {
 			r.Candidates[0][c][i] = 300 + i + c
 		}
 	}
-	got, err := s.ScoreEncoded(r)
+	got, err := score(r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.mu.Lock()
-	want, err := ScoreBranchLocalText(r, s.cpu.head, s.encodeBranch)
-	s.mu.Unlock()
+	want, err := reference(r)
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatal("capacity fallback", err)
 	}

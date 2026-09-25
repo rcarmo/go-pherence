@@ -101,3 +101,52 @@ extern "C" __global__ void mj_attention(const float* qg,const float* k,const flo
  }
  out[t*2048+h*256+d]=(acc/denom)*sigmoid(qg[t*4096+h*512+256+d]);
 }
+
+// Tree rows store parent, local RoPE position, node start and visible end.
+// Sibling rows are excluded from convolution, recurrence and full attention.
+extern "C" __global__ void mj_tree_conv(const float* x,const float* w,float* y,int rows,const int* tree){
+ int i=blockIdx.x*256+threadIdx.x;if(i>=rows*6144)return;int t=i/6144,c=i%6144;float s=0;
+ for(int k=0;k<4;k++){int p=t;for(int back=0;back<3-k&&p>=0;back++)p=tree[p*4];if(p>=0)s+=x[p*6144+c]*w[k*6144+c];}
+ y[i]=s*sigmoid(s);
+}
+extern "C" __global__ void mj_tree_delta(const float* qkv,const float* alpha,const float* beta,const float* dt,const float* a,float* out,int rows,const int* tree){
+ int h=blockIdx.x/16,v=(blockIdx.x%16)*8+(threadIdx.x>>5),lane=threadIdx.x&31;
+ float state[4]={0,0,0,0},fork[4]={0,0,0,0};bool saved=false;
+ for(int t=0;t<rows;t++){
+  if(tree[t*4+2]>0 && t==tree[t*4+2]){
+   if(!saved){for(int j=0;j<4;j++)fork[j]=state[j];saved=true;}
+   else {for(int j=0;j<4;j++)state[j]=fork[j];}
+  }
+  float b=sigmoid(beta[t*16+h]);float av=alpha[t*16+h]+dt[h];
+  float step=av>20?av:log1pf(expf(av));float decay=expf(step*a[h]);
+  float k[4],q[4],pred=0;
+  #pragma unroll
+  for(int j=0;j<4;j++){int idx=h*128+lane+j*32;k[j]=qkv[t*6144+2048+idx];q[j]=qkv[t*6144+idx];state[j]*=decay;pred+=state[j]*k[j];}
+  for(int d=16;d;d>>=1)pred+=__shfl_down_sync(0xffffffff,pred,d);
+  pred=__shfl_sync(0xffffffff,pred,0);
+  float delta=(qkv[t*6144+4096+h*128+v]-pred)*b;float result=0;
+  #pragma unroll
+  for(int j=0;j<4;j++){state[j]+=k[j]*delta;result+=state[j]*q[j];}
+  for(int d=16;d;d>>=1)result+=__shfl_down_sync(0xffffffff,result,d);
+  if(lane==0)out[t*2048+h*128+v]=result*0.08838834764831845f;
+ }
+}
+extern "C" __global__ void mj_tree_qk_norm_rope(float* x,const float* w,int rows,int heads,int stride,int headStride,float eps,const int* tree){
+ int t=blockIdx.x/heads,h=blockIdx.x%heads;int lane=threadIdx.x,base=t*stride+h*headStride;
+ float v=x[base+lane];float inv=rsqrtf(reduce_sum(v*v)/256+eps);
+ __shared__ float norm[256];norm[lane]=v*inv*(1.f+w[lane]);__syncthreads();
+ if(lane<64){int j=lane%32;float angle=tree[t*4+1]*powf(10000000.f,-(2.f*j)/64.f);float c=cosf(angle),s=sinf(angle);int other=lane<32?lane+32:lane-32;v=norm[lane]*c+(lane<32?-norm[other]:norm[other])*s;}else v=norm[lane];
+ x[base+lane]=v;
+}
+extern "C" __global__ void mj_tree_attention(const float* qg,const float* k,const float* v,float* out,int rows,const int* tree,int prefix){
+ int t=blockIdx.x/8,h=blockIdx.x%8,kh=h/4,d=threadIdx.x;
+ int start=tree[t*4+2],end=tree[t*4+3],ancestors=start>0?prefix:0;
+ float q=qg[t*4096+h*512+d];float maxv=-INFINITY,denom=0,acc=0;
+ for(int i=0;i<ancestors+end-start;i++){
+  int j=i<ancestors?i:start+i-ancestors;
+  float score=reduce_sum(q*k[j*512+kh*256+d])*0.0625f;
+  float next=fmaxf(maxv,score);float old=expf(maxv-next),weight=expf(score-next);
+  denom=denom*old+weight;acc=acc*old+weight*v[j*512+kh*256+d];maxv=next;
+ }
+ out[t*2048+h*256+d]=(acc/denom)*sigmoid(qg[t*4096+h*512+256+d]);
+}

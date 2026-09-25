@@ -165,6 +165,9 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			if scorer, ok := b.scorer.(*SIMDTextScorer); ok {
 				testSIMDTreeBranches(t, scorer)
 			}
+			if scorer, ok := b.scorer.(*NVIDIATextScorer); ok {
+				testNVIDIATreeBranches(t, scorer)
+			}
 			base := outputs["base"]
 			for _, name := range []string{"sibling_token", "sibling_length", "question_length"} {
 				if !reflect.DeepEqual(base[1], outputs[name][1]) {
