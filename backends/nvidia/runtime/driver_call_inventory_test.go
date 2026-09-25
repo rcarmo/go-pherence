@@ -20,6 +20,9 @@ func TestRawCUDADriverCallsStayInReviewedScopes(t *testing.T) {
 		"streams.go":      {"initStreamsLocked": true, "PrefetchWeights": true, "MarkComputeDone": true, "WaitPrefetch": true, "SyncAll": true, "BeginCapture": true, "EndCapture": true, "Launch": true, "Destroy": true, "launchKernelOnStreamLocked": true, "shutdownStreams": true},
 		"mega_module.go":  {"loadMegaModule": true},
 		"bf16_native.go":  {"InitNativeBF16": true},
+		// Both hold lockDriver (cudaMu + pinned OS thread) for the entire
+		// operation. Module.Close additionally holds its ownership mutex.
+		"ptx_module.go": {"LoadPTXFunctions": true, "Close": true},
 	}
 	entries, err := os.ReadDir(".")
 	if err != nil {

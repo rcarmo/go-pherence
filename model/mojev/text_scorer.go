@@ -127,6 +127,10 @@ func LoadTextScorer(src weights.Source, configJSON []byte) (*TextScorer, error) 
 }
 
 func (s *TextScorer) encodeBranch(branch TextBranch) ([]float32, error) {
+	return s.encodeBranchWith(branch, nil)
+}
+
+func (s *TextScorer) encodeBranchWith(branch TextBranch, fast *qwen.Qwen35SIMDBranch) ([]float32, error) {
 	if s == nil || s.model == nil {
 		return nil, fmt.Errorf("mojev: uninitialised text scorer")
 	}
@@ -143,7 +147,13 @@ func (s *TextScorer) encodeBranch(branch TextBranch) ([]float32, error) {
 	for i := range positions {
 		positions[i] = i
 	}
-	hidden, err := s.model.ForwardTextBranch(rows, positions, branch.StateLen, branch.QuestionLen, s.rope, s.eps, s.meta)
+	var hidden [][]float32
+	var err error
+	if fast != nil {
+		hidden, err = fast.Forward(rows, branch.StateLen, branch.QuestionLen, s.rope, s.eps)
+	} else {
+		hidden, err = s.model.ForwardTextBranch(rows, positions, branch.StateLen, branch.QuestionLen, s.rope, s.eps, s.meta)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +187,10 @@ func (s *TextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 // question's prompt. Cross-question isolation still holds; raw candidate-only
 // isolation applies to ScoreEncoded with unchanged question tokens.
 func (s *TextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int) (*TextDecision, error) {
+	return s.scoreText(req, tok, stateLimit, questionLimit, s.ScoreEncoded)
+}
+
+func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int, score func(EncodedRow) ([][]float32, error)) (*TextDecision, error) {
 	if s == nil || s.model == nil {
 		return nil, fmt.Errorf("mojev: uninitialised text scorer")
 	}
@@ -219,7 +233,7 @@ func (s *TextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 			}
 		}
 	}
-	logits, err := s.ScoreEncoded(row)
+	logits, err := score(row)
 	if err != nil {
 		return nil, err
 	}
