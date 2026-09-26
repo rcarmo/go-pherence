@@ -16,9 +16,17 @@ type TwoFrameCPUResult struct {
 	Waveform     []float32 // 3840 mono F32 samples at 24 kHz
 }
 
+// MaxCappedCPUFrames is the hard limit of the bounded CustomVoice CPU probe.
+// It is not a streaming or arbitrary-length synthesis admission.
+const MaxCappedCPUFrames = 64
+
 // BoundedCPUResult owns a capped greedy reference output. Hidden and raw
 // logits are retained for each continuation, never aliased to KV storage.
 type BoundedCPUResult struct {
+	// StoppedAtEOS is true only after a continuation selected EOS, before the
+	// frame cap. False on success means cap exhaustion, not a prediction that
+	// speech could not end next. First-token EOS returns an error/zero result.
+	StoppedAtEOS       bool
 	Semantic           []uint32
 	Acoustic           []uint32 // 15 codes per frame, in frame order
 	ContinuationHidden [][]float32
@@ -73,7 +81,7 @@ func GenerateFourFramesCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predictor
 	return result, nil
 }
 
-// GenerateCappedGreedyCPU runs at most 32 CustomVoice frames. Greedy EOS
+// GenerateCappedGreedyCPU runs at most MaxCappedCPUFrames CustomVoice frames. Greedy EOS
 // stops before an acoustic frame is generated for that token. This reference
 // path does not implement stochastic sampling or streaming.
 func GenerateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU) (BoundedCPUResult, error) {
@@ -123,7 +131,7 @@ func generateBoundedFramesCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predic
 }
 
 func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU, selectToken func([]float32, uint32) (uint32, error)) (BoundedCPUResult, error) {
-	if talker == nil || predictor == nil || decoder == nil || selectToken == nil || plan.MaxFrames < 1 || plan.MaxFrames > 32 || talker.cfg.ModelType != CustomVoice || predictor.cfg.CPHiddenSize != talker.cfg.TalkerHiddenSize {
+	if talker == nil || predictor == nil || decoder == nil || selectToken == nil || plan.MaxFrames < 1 || plan.MaxFrames > MaxCappedCPUFrames || talker.cfg.ModelType != CustomVoice || predictor.cfg.CPHiddenSize != talker.cfg.TalkerHiddenSize {
 		return BoundedCPUResult{}, fmt.Errorf("invalid bounded Qwen3-TTS runtime")
 	}
 	first, err := talker.Prefill(plan) // validates the entire prefix and control tokens
@@ -189,6 +197,7 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	acoustic = append(acoustic, codes0...)
 	hiddenRows := make([][]float32, 0, plan.MaxFrames-1)
 	logitRows := make([][]float32, 0, plan.MaxFrames-1)
+	stoppedAtEOS := false
 	for frame := 0; frame < plan.MaxFrames-1; frame++ {
 		// The reference adds semantic + 15 acoustic embeddings + the next
 		// projected text token. After text exhaustion, it uses TTS EOS then PAD.
@@ -229,6 +238,7 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 			return BoundedCPUResult{}, err
 		}
 		if next == CodecEOS {
+			stoppedAtEOS = true
 			break // EOS has no acoustic frame; decode the complete preceding frames.
 		}
 		codes, _, err := predictor.firstAcousticFrameWithWorkspace(talker, normed, next, acousticWork)
@@ -244,5 +254,5 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	if err != nil {
 		return BoundedCPUResult{}, err
 	}
-	return BoundedCPUResult{Semantic: semantic, Acoustic: acoustic, ContinuationHidden: hiddenRows, ContinuationLogits: logitRows, Waveform: wave}, nil
+	return BoundedCPUResult{StoppedAtEOS: stoppedAtEOS, Semantic: semantic, Acoustic: acoustic, ContinuationHidden: hiddenRows, ContinuationLogits: logitRows, Waveform: wave}, nil
 }

@@ -10,7 +10,8 @@ import (
 )
 
 // This offline fixture records one natural EOS observation in the independent
-// Rust/Candle CPU oracle. Go generation remains capped at 32 frames.
+// Rust/Candle CPU oracle. Native reproduction is separately checked by the opt-in
+// TestCappedHiSeed42CPUReleasedNaturalEOS; waveform bytes remain outside Git.
 func TestPinnedHi64FrameEOSObservationFixture(t *testing.T) {
 	root := filepath.Join("testdata", "customvoice_0b6_ryan_hello")
 	data, err := os.ReadFile(filepath.Join(root, "reference.json"))

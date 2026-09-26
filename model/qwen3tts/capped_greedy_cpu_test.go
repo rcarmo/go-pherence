@@ -39,7 +39,7 @@ func TestCappedGreedyCPURejectsMalformed(t *testing.T) {
 		{"nil predictor", talker, nil, decoder, plan},
 		{"nil decoder", talker, predictor, nil, plan},
 		{"bad plan", talker, predictor, decoder, func() RuntimeRequestPlan { p := plan; p.MaxFrames = 0; return p }()},
-		{"over cap", talker, predictor, decoder, func() RuntimeRequestPlan { p := plan; p.MaxFrames = 33; return p }()},
+		{"over cap", talker, predictor, decoder, func() RuntimeRequestPlan { p := plan; p.MaxFrames = MaxCappedCPUFrames + 1; return p }()},
 		{"budget mismatch", talker, predictor, decoder, func() RuntimeRequestPlan { p := plan; p.MaxSamples--; return p }()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestCappedGreedyCPUFirstEOSRejectsWithoutOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := tinyTalkerPlan(t, cfg)
-	if got, err := GenerateCappedGreedyCPU(plan, talker, predictor, decoder); err == nil || !strings.Contains(err.Error(), "first semantic is EOS") || got.Waveform != nil {
+	if got, err := GenerateCappedGreedyCPU(plan, talker, predictor, decoder); err == nil || !strings.Contains(err.Error(), "first semantic is EOS") || !reflect.DeepEqual(got, BoundedCPUResult{}) {
 		t.Fatalf("accepted first EOS or wrong failure: %+v %v", got, err)
 	}
 }
@@ -106,7 +106,7 @@ func TestCappedGreedyCPUStopAfterCompleteFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 || len(result.Semantic) != 1 || len(result.Acoustic) != 15 || len(result.Waveform) != 1920 || len(result.ContinuationHidden) != 0 {
+	if !result.StoppedAtEOS || count != 2 || len(result.Semantic) != 1 || len(result.Acoustic) != 15 || len(result.Waveform) != 1920 || len(result.ContinuationHidden) != 0 {
 		t.Fatalf("EOS emitted partial frame: count=%d result=%+v", count, result)
 	}
 	// The cap can exceed the number of completed frames without a decoder
