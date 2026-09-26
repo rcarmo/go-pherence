@@ -19,6 +19,7 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Direct encoded segments for native scoring | `87406572` | Avoids masks/re-extraction, fewer request allocations; [report](mojev-direct-segments-20260926.md). |
 | Four-row SIMD recurrence | `ca406642`, merged as `649bf072` | Adopted with measured 31.73% local speedup, exact state/output transitions and unchanged independent model parity; full-request benefit remains uncertain. Details below. |
 | Owned weight transfer during loading | `661a3255` | About 3.01 GB less CPU-load allocation; measured SIMD peak RSS 5.78–5.90 → 4.76 GiB. [Ownership and load report](mojev-owned-load-20260926.md). |
+| Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
 
 ## Four-row recurrence
 
