@@ -8,6 +8,7 @@ import (
 )
 
 // Keep the original scalar reduction order as the oracle for indexed views.
+// Test the retained direct path separately from the Candle-order decoder path.
 func referenceDecoderConv1D(c decoderConv1D, input []float32, length int) []float32 {
 	out := make([]float32, c.outChannels*length)
 	groups := c.groups()
@@ -53,7 +54,7 @@ func TestDecoderConvIndexedMatchesScalarReduction(t *testing.T) {
 		}
 		original := slices.Clone(input)
 		want := referenceDecoderConv1D(c, input, shape.length)
-		got, n, err := c.forward(input, shape.length)
+		got, n, err := c.forwardDirect(input, shape.length)
 		if err != nil || n != shape.length || len(got) != len(want) {
 			t.Fatalf("shape=%+v len=%d/%d n=%d err=%v", shape, len(got), len(want), n, err)
 		}
@@ -65,10 +66,10 @@ func TestDecoderConvIndexedMatchesScalarReduction(t *testing.T) {
 		if !slices.Equal(input, original) {
 			t.Fatalf("shape=%+v input mutated", shape)
 		}
-		if _, _, err := c.forward(input[:len(input)-1], shape.length); err == nil {
+		if _, _, err := c.forwardDirect(input[:len(input)-1], shape.length); err == nil {
 			t.Fatalf("shape=%+v accepted short input", shape)
 		}
-		if _, _, err := c.forward(input, 0); err == nil {
+		if _, _, err := c.forwardDirect(input, 0); err == nil {
 			t.Fatalf("shape=%+v accepted zero length", shape)
 		}
 	}

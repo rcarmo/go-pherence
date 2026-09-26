@@ -56,7 +56,7 @@ func TestDecoderTransConvDirectMatchesTrimmedReference(t *testing.T) {
 		}
 		original := slices.Clone(input)
 		want := referenceDecoderTransConv(c, input, shape.length)
-		got, n, err := c.forward(input, shape.length)
+		got, n, err := c.forwardDirect(input, shape.length)
 		if err != nil || n != shape.length*shape.stride || len(got) != len(want) {
 			t.Fatalf("shape=%+v gotlen=%d wantlen=%d n=%d err=%v", shape, len(got), len(want), n, err)
 		}
@@ -68,10 +68,10 @@ func TestDecoderTransConvDirectMatchesTrimmedReference(t *testing.T) {
 		if !slices.Equal(original, input) {
 			t.Fatalf("shape=%+v input mutated", shape)
 		}
-		if _, _, err := c.forward(input[:len(input)-1], shape.length); err == nil {
+		if _, _, err := c.forwardDirect(input[:len(input)-1], shape.length); err == nil {
 			t.Fatalf("shape=%+v accepted short input", shape)
 		}
-		if _, _, err := c.forward(input, 0); err == nil {
+		if _, _, err := c.forwardDirect(input, 0); err == nil {
 			t.Fatalf("shape=%+v accepted zero length", shape)
 		}
 	}
@@ -87,11 +87,11 @@ func TestDecoderTransConvDirectMatchesTrimmedReference(t *testing.T) {
 	} {
 		c := valid
 		mutate(&c)
-		if _, _, err := c.forward([]float32{1}, 1); err == nil {
+		if _, _, err := c.forwardDirect([]float32{1}, 1); err == nil {
 			t.Fatalf("accepted malformed geometry %+v", c)
 		}
 	}
-	if _, _, err := valid.forward([]float32{1}, int(^uint(0)>>1)); err == nil {
+	if _, _, err := valid.forwardDirect([]float32{1}, int(^uint(0)>>1)); err == nil {
 		t.Fatal("accepted overflowing length")
 	}
 }

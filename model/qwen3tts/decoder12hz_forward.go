@@ -54,7 +54,7 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 				rest[i] += row[i]
 			}
 		}
-		if !simd.GemvRows(firstProjected, first, m.firstProjection, 2*c, c) || !simd.GemvRows(restProjected, rest, m.restProjection, 2*c, c) {
+		if !decoderProjectionRows(firstProjected, first, m.firstProjection, 2*c, c) || !decoderProjectionRows(restProjected, rest, m.restProjection, 2*c, c) {
 			return nil, fmt.Errorf("Qwen3-TTS Decoder12Hz codebook projection failed")
 		}
 		for channel := 0; channel < 2*c; channel++ {
@@ -68,7 +68,7 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 	timeMajor := channelToTime(hidden, m.cfg.LatentDim, length)
 	projected := make([]float32, length*m.cfg.HiddenSize)
 	for row := 0; row < length; row++ {
-		if err := m.inputProjection.forward(projected[row*m.cfg.HiddenSize:(row+1)*m.cfg.HiddenSize], timeMajor[row*m.cfg.LatentDim:(row+1)*m.cfg.LatentDim]); err != nil {
+		if err := decoderLinearForward(m.inputProjection, projected[row*m.cfg.HiddenSize:(row+1)*m.cfg.HiddenSize], timeMajor[row*m.cfg.LatentDim:(row+1)*m.cfg.LatentDim]); err != nil {
 			return nil, err
 		}
 	}
@@ -88,7 +88,7 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 	}
 	outTime := make([]float32, length*m.cfg.LatentDim)
 	for row := 0; row < length; row++ {
-		if err := m.outputProjection.forward(outTime[row*m.cfg.LatentDim:(row+1)*m.cfg.LatentDim], normed[row*m.cfg.HiddenSize:(row+1)*m.cfg.HiddenSize]); err != nil {
+		if err := decoderLinearForward(m.outputProjection, outTime[row*m.cfg.LatentDim:(row+1)*m.cfg.LatentDim], normed[row*m.cfg.HiddenSize:(row+1)*m.cfg.HiddenSize]); err != nil {
 			return nil, err
 		}
 	}
@@ -138,13 +138,13 @@ func (l decoderLayer) forward(input []float32, rows int, cfg Decoder12HzConfig, 
 		if !simd.RMSNormTo(norm[row*h:(row+1)*h], l.inputNorm, cfg.RMSNormEps) {
 			return nil, fmt.Errorf("input RMSNorm failed")
 		}
-		if err := l.q.forward(q[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
+		if err := decoderLinearForward(l.q, q[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if err := l.k.forward(k[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
+		if err := decoderLinearForward(l.k, k[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if err := l.v.forward(v[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
+		if err := decoderLinearForward(l.v, v[row*attentionWidth:(row+1)*attentionWidth], norm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
 		if !simd.ApplyRoPETo(q[row*attentionWidth:(row+1)*attentionWidth], rope, row, cfg.Heads, cfg.HeadDim) || !simd.ApplyRoPETo(k[row*attentionWidth:(row+1)*attentionWidth], rope, row, cfg.Heads, cfg.HeadDim) {
@@ -172,7 +172,7 @@ func (l decoderLayer) forward(input []float32, rows int, cfg Decoder12HzConfig, 
 	residual := make([]float32, len(input))
 	attnOut := make([]float32, h)
 	for row := 0; row < rows; row++ {
-		if err := l.out.forward(attnOut, attention[row*attentionWidth:(row+1)*attentionWidth]); err != nil {
+		if err := decoderLinearForward(l.out, attnOut, attention[row*attentionWidth:(row+1)*attentionWidth]); err != nil {
 			return nil, err
 		}
 		for i := 0; i < h; i++ {
@@ -188,16 +188,16 @@ func (l decoderLayer) forward(input []float32, rows int, cfg Decoder12HzConfig, 
 		if !simd.RMSNormTo(mlpNorm[row*h:(row+1)*h], l.postNorm, cfg.RMSNormEps) {
 			return nil, fmt.Errorf("post RMSNorm failed")
 		}
-		if err := l.gate.forward(gate, mlpNorm[row*h:(row+1)*h]); err != nil {
+		if err := decoderLinearForward(l.gate, gate, mlpNorm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
-		if err := l.up.forward(up, mlpNorm[row*h:(row+1)*h]); err != nil {
+		if err := decoderLinearForward(l.up, up, mlpNorm[row*h:(row+1)*h]); err != nil {
 			return nil, err
 		}
 		if !simd.SiLUMulTo(gate, gate, up) {
 			return nil, fmt.Errorf("SwiGLU failed")
 		}
-		if err := l.down.forward(down, gate); err != nil {
+		if err := decoderLinearForward(l.down, down, gate); err != nil {
 			return nil, err
 		}
 		for i := 0; i < h; i++ {
@@ -208,6 +208,17 @@ func (l decoderLayer) forward(input []float32, rows int, cfg Decoder12HzConfig, 
 }
 
 func (c decoderConv1D) forward(input []float32, length int) ([]float32, int, error) {
+	if decoderCandleOrder() {
+		groups := c.groups()
+		if length <= 0 || c.inChannels <= 0 || c.k <= 0 || c.dilation <= 0 || sizeProduct(c.inChannels, groups, length) != len(input) {
+			return nil, 0, fmt.Errorf("invalid causal conv input=%d length=%d", len(input), length)
+		}
+		return c.forwardCandleOrder(input, length, groups)
+	}
+	return c.forwardDirect(input, length)
+}
+
+func (c decoderConv1D) forwardDirect(input []float32, length int) ([]float32, int, error) {
 	groups := c.groups()
 	if length <= 0 || len(input) != c.inChannels*groups*length {
 		return nil, 0, fmt.Errorf("invalid causal conv input=%d length=%d", len(input), length)
@@ -258,6 +269,13 @@ func (c decoderConv1D) groups() int {
 }
 
 func (c decoderTransConv1D) forward(input []float32, length int) ([]float32, int, error) {
+	if decoderCandleOrder() {
+		return c.forwardCandleOrderValidated(input, length)
+	}
+	return c.forwardDirect(input, length)
+}
+
+func (c decoderTransConv1D) forwardDirect(input []float32, length int) ([]float32, int, error) {
 	if length <= 0 || c.inChannels <= 0 || c.outChannels <= 0 || c.stride <= 0 || c.k < c.stride || sizeProduct(c.inChannels, length) != len(input) || sizeProduct(c.inChannels, c.outChannels, c.k) != len(c.weight) || len(c.bias) != c.outChannels {
 		return nil, 0, fmt.Errorf("invalid transposed conv geometry input=%d length=%d channels=%d/%d kernel=%d stride=%d", len(input), length, c.inChannels, c.outChannels, c.k, c.stride)
 	}
@@ -301,11 +319,11 @@ func (b decoderConvNeXt) forward(input []float32, length int) ([]float32, error)
 	rowOut := make([]float32, channels)
 	out := append([]float32(nil), input...)
 	for row := 0; row < length; row++ {
-		if err := b.fc1.forward(wide, norm[row*channels:(row+1)*channels]); err != nil {
+		if err := decoderLinearForward(b.fc1, wide, norm[row*channels:(row+1)*channels]); err != nil {
 			return nil, err
 		}
-		simd.GELUExact(wide, wide)
-		if err := b.fc2.forward(rowOut, wide); err != nil {
+		decoderGELUExact(wide)
+		if err := decoderLinearForward(b.fc2, rowOut, wide); err != nil {
 			return nil, err
 		}
 		for ch := 0; ch < channels; ch++ {

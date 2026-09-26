@@ -16,8 +16,13 @@ First-token EOS remains an error with no partial output.
 The pinned “Hi”/Ryan/English/seed42 case now reproduces native natural EOS after
 46 frames, all736 codes exact versus Rust/Candle and waveform error below1.6e-6.
 See the [qualification report](../../docs/validation/qwen3-tts-natural-eos-20260926.md).
-This does not qualify arbitrary prompts, released64-frame exhaustion, streaming,
-NVIDIA,1.7B or general voice quality. The fixed2/3/4-frame APIs remain unchanged.
+A separate sentence exhausts all 64 frames with EOS enabled: native CPU matches
+all 1,024 codes and its 122,880-sample waveform within `1.6e-6` against the
+independent Rust/Candle reference. The [64-frame qualification](../../docs/validation/qwen3-tts-cap64-parity-20260926.md)
+records the numerical gate and same-instance recovery. This does not establish
+that the sentence finishes at the cap. Arbitrary prompts, streaming, NVIDIA,
+1.7B and general voice quality remain unqualified. The fixed 2/3/4-frame APIs
+remain unchanged.
 
 | Area | Files |
 |---|---|

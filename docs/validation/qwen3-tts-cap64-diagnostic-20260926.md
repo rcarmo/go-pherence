@@ -1,5 +1,8 @@
 # Qwen3-TTS 64-frame sentence: failing qualification checkpoint
 
+The [subsequent decoder correction](qwen3-tts-cap64-parity-20260926.md)
+passes the unchanged waveform gate. This record preserves the original failure.
+
 The released CPU sentence test fails waveform parity on production baseline
 `216cdd55`. Tokenisation and all 1,024 codec IDs match the independent Rust
 reference. Both implementations produce 64 frames and 122,880 samples without

@@ -92,17 +92,33 @@ func SgemmNTGebp(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, ld
 	if !HasSgemmAsm || !validGEBPArgs(m, n, k, aPtr, bPtr, cPtr, lda, ldb, ldc) {
 		return
 	}
-	a := unsafe.Slice((*float32)(aPtr), m*lda)
-	b := unsafe.Slice((*float32)(bPtr), n*ldb)
-	c := unsafe.Slice((*float32)(cPtr), m*ldc)
-	bp := makeGebpBuf(k * gebpNR)
+	SgemmNTGebpWithPack(m, n, k, alpha, aPtr, bPtr, cPtr, lda, ldb, ldc, makeGebpBuf(k*gebpNR))
+}
 
+// SgemmNTGebpWithPack reuses caller-owned packing space across independent
+// GEMM tiles. The packed data is overwritten before each use; it must not
+// overlap the input/output matrices or be shared by concurrent callers.
+// Invalid dimensions or short scratch are inert.
+func SgemmNTGebpWithPack(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, lda, ldb, ldc int, bp []float32) bool {
+	if !HasSgemmAsm || !validGEBPArgs(m, n, k, aPtr, bPtr, cPtr, lda, ldb, ldc) || len(bp) < k*gebpNR {
+		return false
+	}
+	// Pointers may start at a reduction-block offset within the last row.
+	// Only span the elements actually read/written; m*lda/n*ldb/m*ldc
+	// would extend past the backing allocation for such legal views.
+	a := unsafe.Slice((*float32)(aPtr), (m-1)*lda+k)
+	b := unsafe.Slice((*float32)(bPtr), (n-1)*ldb+k)
+	c := unsafe.Slice((*float32)(cPtr), (m-1)*ldc+n)
+	pack := bp[:k*gebpNR]
+	if !float32SlicesDisjoint(pack, a) || !float32SlicesDisjoint(pack, b) || !float32SlicesDisjoint(pack, c) {
+		return false
+	}
 	for jj := 0; jj < n; jj += gebpNR {
 		nr := gebpNR
 		if jj+nr > n {
 			nr = n - jj
 		}
-		packBNT(b, ldb, jj, nr, k, bp)
+		packBNT(b, ldb, jj, nr, k, pack)
 
 		for ii := 0; ii < m; ii += gebpMR {
 			mr := gebpMR
@@ -145,6 +161,7 @@ func SgemmNTGebp(m, n, k int, alpha float32, aPtr, bPtr, cPtr unsafe.Pointer, ld
 			}
 		}
 	}
+	return true
 }
 
 func validPackBNTArgs(b []float32, ldb, jj, nr, k int, bp []float32) bool {
