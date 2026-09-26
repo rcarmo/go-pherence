@@ -96,6 +96,12 @@ crash report.
 
 ## Changes and next safe investigation
 
+A separately gated [single-launch attention probe](mojev-attention-isolated-probe-20260926.md)
+is now available for the compact and tree kernels. Its default is three rows,
+with a CPU oracle and guarded output; no comparison GPU kernel is launched.
+Only model-free tests and compilation have run. This does not authorise GPU
+execution or close the device-loss investigation.
+
 The candidate test now passes the correct subtest `*testing.T`, logs actual
 kernel name/tree mode/rows/grid/block, and explicitly synchronizes each prepare
 and tested launch before downloading. This narrows future asynchronous-error
