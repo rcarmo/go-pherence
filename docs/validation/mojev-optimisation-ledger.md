@@ -62,14 +62,16 @@ geomeans −5.65% / −4.54%, with differing individual significance and no clai
 whole-request allocation or RSS improvement. Native foreign execution remains
 open. The original GEMM assembly and six-worker cap are unchanged.
 
-## Packed GEMM experiments not adopted
+## Packed GEMM combined optimization adopted
 
-[Two amd64 loop trials](mojev-gemm-trials-20260926.md) preserve exact arithmetic
-but do not establish a reproducible improvement. Four-step unrolling has mixed
-results; a shared A offset's initial gains disappear in interleaved measurements.
-Both patches and binaries remain in evidence. Production assembly is unchanged;
-only stronger native reduction-order/edge tests and projection benchmarks are
-retained. This is not a reversal of any qualified local optimization.
+[Two initial amd64 loop trials](mojev-gemm-trials-20260926.md) were initially
+left off main because their timings were inconclusive. Rui corrected that
+acceptance rule. The [combined four-step/shared-offset kernel](mojev-gemm-combined-cpu-20260926.md)
+is now adopted after bitwise FMA-order/IEEE tests,288 exact request responses,
+released grouped race and whole-tree CPU race. It reduces integer bookkeeping,
+with kernel text757→1184 bytes. Micro/request geomeans−4.75%/+1.21% are not
+statistically established timing changes; all adverse and favorable evidence
+is preserved. No new numeric, allocation, RSS or global-readiness claim.
 
 ## Four-row recurrence
 

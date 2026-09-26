@@ -1,8 +1,16 @@
 # MoJev packed GEMM loop trials
 
-## Result
+## Subsequent combined adoption
 
-Neither trial is adopted. Both preserve reduction order, but neither establishes
+After Rui clarified the cumulative-optimization acceptance rule, both changes
+were combined and correctness-qualified in the [combined CPU report](mojev-gemm-combined-cpu-20260926.md).
+That combined version is adopted with inconclusive timing and code-size tradeoffs
+explicit. The initial separate-trial decision and all measurements below remain
+historical evidence, not the current combined implementation status.
+
+## Initial separate-trial result
+
+Neither separate trial was adopted at this checkpoint. Both preserve reduction order, but neither establishes
 a reproducible speed improvement. The production amd64 GEBP kernel is restored
 byte-for-byte to baseline `1b333eb8`. Only regression tests and benchmarks are
 added to the repository. This does not undo the qualified convolution or earlier
