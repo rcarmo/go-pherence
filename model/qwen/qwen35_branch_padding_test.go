@@ -18,7 +18,7 @@ func TestSIMDBranchPaddingGeometry(t *testing.T) {
 	if simd.SgemmNTRowBlock != block {
 		t.Fatalf("row block=%d want %d", simd.SgemmNTRowBlock, block)
 	}
-	for rows := 1; rows <= 512; rows++ {
+	for rows := 1; rows <= Qwen35SIMDMaxTokens; rows++ {
 		padded := qwen35ProjectionPaddedRows(rows)
 		if padded < rows || padded-rows >= block || padded%block != 0 || padded > (rows+11)/12*12 {
 			t.Fatalf("rows=%d padded=%d", rows, padded)

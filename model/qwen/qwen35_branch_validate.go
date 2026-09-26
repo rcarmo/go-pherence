@@ -10,9 +10,23 @@ import (
 
 // ValidateQwen35F32Branch checks the fixed geometry and dense finite weights
 // consumed by the accelerated 0.8B branch executors, before packing or upload.
+// It preserves the original 3..512-token admission contract used by NVIDIA.
+// CPU callers admitting longer contexts should use ValidateQwen35SIMDBranch.
 // The caller must keep these weights immutable for the executor's lifetime.
 func ValidateQwen35F32Branch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens int) error {
-	if m == nil || len(m.Layers) != 24 || len(m.Layers) != meta.MainLayerCount() || meta.BF16Trajectory || meta.QuantBits != 0 || !meta.ZeroCenteredRMSNorm || meta.HiddenSize != 1024 || meta.IntermediateSize != 3584 || meta.NumAttentionHeads != 8 || meta.NumKeyValueHeads != 2 || meta.HeadDim != 256 || meta.LinearNumKeyHeads != 16 || meta.LinearNumValueHeads != 16 || meta.LinearKeyHeadDim != 128 || meta.LinearValueHeadDim != 128 || meta.LinearConvKernelDim != 4 || meta.PartialRotaryFactor != 0.25 || maxTokens < 3 || maxTokens > 512 {
+	// Keep the existing accelerated/GPU admission boundary. The CPU executor
+	// uses the same geometry/weight checks with its separately qualified cap.
+	return validateQwen35F32Branch(m, meta, maxTokens, 512)
+}
+
+// ValidateQwen35SIMDBranch checks the CPU executor's 3..4096-token capacity
+// and the same fixed geometry/finite-weight contract as the legacy validator.
+func ValidateQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens int) error {
+	return validateQwen35F32Branch(m, meta, maxTokens, Qwen35SIMDMaxTokens)
+}
+
+func validateQwen35F32Branch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens, limit int) error {
+	if m == nil || len(m.Layers) != 24 || len(m.Layers) != meta.MainLayerCount() || meta.BF16Trajectory || meta.QuantBits != 0 || !meta.ZeroCenteredRMSNorm || meta.HiddenSize != 1024 || meta.IntermediateSize != 3584 || meta.NumAttentionHeads != 8 || meta.NumKeyValueHeads != 2 || meta.HeadDim != 256 || meta.LinearNumKeyHeads != 16 || meta.LinearNumValueHeads != 16 || meta.LinearKeyHeadDim != 128 || meta.LinearValueHeadDim != 128 || meta.LinearConvKernelDim != 4 || meta.PartialRotaryFactor != 0.25 || maxTokens < 3 || maxTokens > limit {
 		return fmt.Errorf("qwen: unsupported accelerated branch configuration")
 	}
 	for i, layer := range m.Layers {

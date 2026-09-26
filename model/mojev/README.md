@@ -10,7 +10,12 @@ measured SIMD process peak RSS to about 4.76 GiB without changing live weights.
 `NewSIMDTextScorer(cpu, maxTokens)` uses prepacked assembly projections,
 SIMD attention and reusable scratch. `NewNVIDIATextScorer(cpu, maxTokens)` uses
 resident F32 PTX weights on compute capability 8.6 or later. Both are explicit
-opt-ins with 3–512 tokens per candidate path. Check the GPU scorer's `Close()`
+opt-ins: CPU SIMD accepts a configured capacity of 3–4096 tokens, while NVIDIA
+remains capped at 3–512. The capacity bounds each packed tree invocation;
+every individual candidate path must fit. The public request budget remains
+4096 total tokens, with at least two candidates per question, so its longest
+possible path is4095. See the [CPU context qualification](../../docs/validation/mojev-cpu-context-20260926.md).
+Choose the smallest sufficient capacity: scratch grows with it. Check the GPU scorer's `Close()`
 error and retry cleanup on failure. A constructor cleanup failure can return
 both an error and a non-nil closed scorer solely for retrying `Close`. The GPU
 scorer retains only host embeddings/head after upload, leaving the caller's CPU
@@ -42,14 +47,17 @@ drains submitted work; it cannot preempt a running kernel. The
 records 512-token paths, 4096-token grouped requests and eight serialized callers,
 including separate ordinary/race memory budgets. The
 [extended reuse follow-up](../../docs/validation/mojev-retention-followup-20260926.md)
-closes the earlier three-round SIMD race timeout and records completed 20-round
-SIMD and 60-round GPU reuse tests.
+closes the earlier three-round SIMD race timeout and records completed 60-round
+SIMD and GPU reuse tests. Those runs retain their original revisions/capacities;
+they are not hours-long soaks or qualification of every later change.
 The [512-token F32 reference](../../docs/validation/mojev-long-f32-normalisation-20260926.md)
 also checks sampled branch/tree hidden states and records the corrected Q/K
 normalisation epsilon placement; older scores may change slightly. The
 [4096-total-token grouped reference](../../docs/validation/mojev-grouped-reference-20260926.md)
 checks all64 candidate scores, sampled packed-group hidden rows, and two
-concurrent maximum-total requests at the unchanged per-path limit.
+concurrent maximum-total requests. The newer CPU context gate adds independent
+513/1024/4096-path hidden references and a single4096-token tree containing all64
+candidates, while leaving GPU admission unchanged.
 
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 

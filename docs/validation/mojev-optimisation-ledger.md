@@ -22,6 +22,15 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
 | Single-pass convolution multiply/add | See [qualification](mojev-muladd-20260926.md) | Removes product-row traffic while preserving both F32 roundings; another −25.46% on the convolution microbenchmark, zero allocations. Candidate grouped race passed363.16s; all576 timed/warmup responses exact. Two request matrices disagree (+16.39% / −3.18%); no whole-model speedup or retained-memory claim. |
 
+## CPU context capacity extended
+
+The [CPU context qualification](mojev-cpu-context-20260926.md) adds explicitly
+configured capacities through4096, with constructor-owned metadata/readout masks
+and unchanged GPU512 admission. Two independent reference runs match byte-for-byte;
+ordinary/race maximum-path gates and the64-candidate4096-tree race pass at
+unchanged tolerances. Smaller capacities remain supported. This is a bounded
+CPU capability extension, not checkpoint16384-context or quality qualification.
+
 ## JevBench v1.4.0 public comparison
 
 The [fresh MoJev / historical GSO comparison](mojev-jevbench140-vs-gso-20260926.md)

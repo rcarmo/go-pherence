@@ -37,8 +37,11 @@ func (s *SIMDTextScorer) scoreTree(ctx context.Context, row EncodedRow) ([][]flo
 	}
 	result := make([][]float32, len(row.Questions))
 	var ends [64]int
-	var state, question [512]bool
-	var candidate [64][512]bool
+	state, question := s.stateMask, s.questionMask
+	stride := len(s.rows)
+	if len(state) < stride || len(question) < stride || len(s.candidateMasks) < 64*stride {
+		return nil, fmt.Errorf("mojev: invalid SIMD mask capacity")
+	}
 	var masks [64][]bool
 	var enabled [64]bool
 	for f, q := range row.Questions {
@@ -68,8 +71,8 @@ func (s *SIMDTextScorer) scoreTree(ctx context.Context, row EncodedRow) ([][]flo
 				return nil, err
 			}
 			s.cpu.normaliseFinal(out)
-			clear(state[:])
-			clear(question[:])
+			clear(state[:count])
+			clear(question[:count])
 			for i := 0; i < prefix; i++ {
 				if i < len(row.State) {
 					state[i] = true
@@ -79,11 +82,12 @@ func (s *SIMDTextScorer) scoreTree(ctx context.Context, row EncodedRow) ([][]flo
 			}
 			start := prefix
 			for c, end := range ends[:len(candidates)] {
-				clear(candidate[c][:])
+				mask := s.candidateMasks[c*stride : c*stride+count]
+				clear(mask)
 				for i := start; i < end; i++ {
-					candidate[c][i] = true
+					mask[i] = true
 				}
-				masks[c] = candidate[c][:count]
+				masks[c] = mask
 				enabled[c] = true
 				start = end
 			}

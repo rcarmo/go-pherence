@@ -23,7 +23,7 @@ import (
 func TestReleasedGroupedTextScorer(t *testing.T) {
 	backend := os.Getenv("GO_PHERENCE_MOJEV_GROUPED_BACKEND")
 	if backend == "" {
-		t.Skip("set GO_PHERENCE_MOJEV_GROUPED_BACKEND=simd|nvidia and checkpoint path; optional CAPACITY=256|512")
+		t.Skip("set GO_PHERENCE_MOJEV_GROUPED_BACKEND=simd|nvidia and checkpoint path; optional CAPACITY=256|512 (CPU also4096)")
 	}
 	if backend != "simd" && backend != "nvidia" {
 		t.Fatal("unsupported grouped backend")
@@ -32,8 +32,8 @@ func TestReleasedGroupedTextScorer(t *testing.T) {
 	if v := os.Getenv("GO_PHERENCE_MOJEV_GROUPED_CAPACITY"); v != "" {
 		var err error
 		capacity, err = strconv.Atoi(v)
-		if err != nil || (capacity != 256 && capacity != 512) {
-			t.Fatal("grouped capacity must be256 or512")
+		if err != nil || (capacity != 256 && capacity != 512 && !(backend == "simd" && capacity == 4096)) {
+			t.Fatal("grouped capacity must be256 or512; simd also allows4096")
 		}
 	}
 	dir := os.Getenv("GO_PHERENCE_MOJEV_CHECKPOINT_DIR")

@@ -15,24 +15,28 @@ import (
 	"github.com/rcarmo/go-pherence/tensor"
 )
 
+// Qwen35SIMDMaxTokens bounds CPU branch/tree scratch independently of GPU admission.
+const Qwen35SIMDMaxTokens = 4096
+
 // Qwen35SIMDBranch is a bounded, prepacked dense-F32 branch executor. Shared
 // weights are immutable; one mutex serialises reusable scratch. The causal
 // generation APIs and scalar branch reference are unchanged.
 type Qwen35SIMDBranch struct {
-	mu         contextmutex.Mutex
-	model      *Qwen35BaseModel
-	meta       cfg.QwenNativeMTPMetadata
-	maxTokens  int
-	packed     map[*tensor.Tensor][]float32
-	packedOnly bool // constructor-owned projection handles contain no raw data
-	scratch    map[string][]float32
-	jobs       chan branchProjectionJob
-	jobWait    sync.WaitGroup
-	jobFailed  [6]bool
+	mu                                contextmutex.Mutex
+	model                             *Qwen35BaseModel
+	meta                              cfg.QwenNativeMTPMetadata
+	maxTokens                         int
+	packed                            map[*tensor.Tensor][]float32
+	packedOnly                        bool // constructor-owned projection handles contain no raw data
+	scratch                           map[string][]float32
+	jobs                              chan branchProjectionJob
+	jobWait                           sync.WaitGroup
+	jobFailed                         [6]bool
+	starts, stops, positions, parents []int // capacity-sized; protected by mu
 }
 
 func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens int) (*Qwen35SIMDBranch, error) {
-	if err := ValidateQwen35F32Branch(m, meta, maxTokens); err != nil {
+	if err := ValidateQwen35SIMDBranch(m, meta, maxTokens); err != nil {
 		return nil, err
 	}
 	// Copy layer metadata so replacing projection handles cannot mutate the
@@ -93,6 +97,10 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 			}
 		}
 	}
+	out.starts = make([]int, maxTokens)
+	out.stops = make([]int, maxTokens)
+	out.positions = make([]int, maxTokens)
+	out.parents = make([]int, maxTokens)
 	out.scratch["ssm"] = make([]float32, 16*128*128)
 	out.scratch["fork"] = make([]float32, 16*128*128)
 	out.scratch["scores"] = make([]float32, maxTokens)
@@ -107,7 +115,7 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 	return out, nil
 }
 
-// rows is an internally validated token count (1..512).
+// rows is an internally validated token count (1..Qwen35SIMDMaxTokens).
 func qwen35ProjectionPaddedRows(rows int) int {
 	return (rows + simd.SgemmNTRowBlock - 1) / simd.SgemmNTRowBlock * simd.SgemmNTRowBlock
 }
@@ -224,7 +232,7 @@ func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns
 // ForwardTreeIntoContext cancels before publication and at layer/token boundaries.
 // Running SIMD kernels finish and workers join before scratch is released.
 func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []float32, inputs [][]float32, ns, nq int, ends []int, rope []float32, eps float32) error {
-	if s == nil || s.model == nil || len(inputs) > 512 || len(dst) != len(inputs)*1024 {
+	if s == nil || s.model == nil || len(inputs) > Qwen35SIMDMaxTokens || len(dst) != len(inputs)*1024 {
 		return fmt.Errorf("qwen: invalid SIMD destination")
 	}
 	if err := s.mu.LockContext(ctx); err != nil {
@@ -239,7 +247,10 @@ func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []flo
 	if len(ends) < 1 || len(ends) > 64 {
 		return fmt.Errorf("qwen: invalid candidate boundaries")
 	}
-	var starts, stops, positions, parents [512]int
+	if len(s.starts) < n || len(s.stops) < n || len(s.positions) < n || len(s.parents) < n {
+		return fmt.Errorf("qwen: invalid SIMD metadata capacity")
+	}
+	starts, stops, positions, parents := s.starts[:n], s.stops[:n], s.positions[:n], s.parents[:n]
 	for t := 0; t < prefix; t++ {
 		parents[t] = t - 1
 		positions[t] = t

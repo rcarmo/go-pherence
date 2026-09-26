@@ -14,11 +14,13 @@ import (
 // branch through SIMD matrix operations. The CPU reference remains available.
 // Prepacked weights cost additional memory; scratch is bounded and serialised.
 type SIMDTextScorer struct {
-	cpu    *TextScorer
-	branch *qwen.Qwen35SIMDBranch
-	mu     contextmutex.Mutex
-	rows   [][]float32
-	hidden []float32
+	cpu                     *TextScorer
+	branch                  *qwen.Qwen35SIMDBranch
+	mu                      contextmutex.Mutex
+	rows                    [][]float32
+	hidden                  []float32
+	stateMask, questionMask []bool
+	candidateMasks          []bool // 64 capacity-sized rows, protected by mu
 }
 
 func NewSIMDTextScorer(cpu *TextScorer, maxTokens int) (*SIMDTextScorer, error) {
@@ -32,7 +34,7 @@ func NewSIMDTextScorer(cpu *TextScorer, maxTokens int) (*SIMDTextScorer, error) 
 	// The branch owns packed projection weights. Keep host readout data without
 	// retaining the original unpacked encoder or mutating the caller's scorer.
 	host := &TextScorer{head: cpu.head, embedding: cpu.embedding, norm: cpu.norm, rope: cpu.rope, meta: cpu.meta, eps: cpu.eps}
-	return &SIMDTextScorer{cpu: host, branch: b, rows: make([][]float32, maxTokens), hidden: make([]float32, maxTokens*1024)}, nil
+	return &SIMDTextScorer{cpu: host, branch: b, rows: make([][]float32, maxTokens), hidden: make([]float32, maxTokens*1024), stateMask: make([]bool, maxTokens), questionMask: make([]bool, maxTokens), candidateMasks: make([]bool, 64*maxTokens)}, nil
 }
 func (s *SIMDTextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 	return s.ScoreEncodedContext(context.Background(), row)
