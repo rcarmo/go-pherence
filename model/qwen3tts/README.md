@@ -27,8 +27,10 @@ short CPU checks passed on pinned mixed-input fixtures with one shared
 checkpoint. Nine or more callers and long-running concurrency are unqualified.
 `GenerateCappedSeededCPUContext` adds cooperative cancellation between stages
 with no partial output; [the bounded cancellation check](../../docs/validation/qwen3-tts-capped-cancellation-20260926.md)
-uses synthetic and released two-frame recovery. Kernels are non-interruptible,
-so cancellation latency and long-request cancellation are unqualified. The
+uses synthetic and released two-frame recovery. A [released peer check](../../docs/validation/qwen3-tts-cancel-peer-20260926.md)
+cancels after Prefill while another pinned request completes on the same model.
+Kernels are non-interruptible, so cancellation latency and long-request
+cancellation are unqualified. The
 fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |

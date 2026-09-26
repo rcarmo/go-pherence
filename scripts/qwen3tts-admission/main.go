@@ -7,6 +7,8 @@
 // and rechecking earlier outputs while later rounds run.
 // Append --four-mixed or --eight-mixed for simultaneous 16-frame requests
 // alternating the already pinned Hi/seed-42 and Hello world/seed-7 fixtures.
+// Append --cancel-peer to cancel Hi just after Prefill while a Hello world
+// request runs, then verify same-instance Hi recovery.
 // For ownership/race evidence, rerun with go run -race. Race instrumentation
 // changes memory use: only the ordinary run is used for RSS admission.
 package main
@@ -123,8 +125,8 @@ type fixture struct {
 }
 
 func main() {
-	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed" && os.Args[2] != "--eight-mixed")) {
-		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed|--eight-mixed]")
+	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed" && os.Args[2] != "--eight-mixed" && os.Args[2] != "--cancel-peer")) {
+		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed|--eight-mixed|--cancel-peer]")
 	}
 	dir := os.Args[1]
 	callers := 0
@@ -136,7 +138,8 @@ func main() {
 			callers = 8
 		}
 	}
-	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || callers > 0)
+	cancelPeer := len(os.Args) == 3 && os.Args[2] == "--cancel-peer"
+	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || callers > 0 || cancelPeer)
 	retain := len(os.Args) == 3 && os.Args[2] == "--retain-3"
 	for _, entry := range []struct {
 		path, sha string
@@ -316,6 +319,10 @@ func main() {
 	}
 	if callers > 0 {
 		probeMixedCallers(callers, plans, fixtures, t, p, d, tok, base)
+		return
+	}
+	if cancelPeer {
+		probeCancelledPeer(plans, fixtures, t, p, d, tok, base)
 		return
 	}
 	var results [2]qwen3tts.BoundedCPUResult
