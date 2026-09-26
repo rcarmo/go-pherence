@@ -145,8 +145,12 @@ func TestMoJevPTXTreeKernels(t *testing.T) {
 						t.Fatal("prepared variant needs tree")
 					}
 					prep := []unsafe.Pointer{unsafe.Pointer(&alpha.Ptr), unsafe.Pointer(&beta.Ptr), unsafe.Pointer(&dt.Ptr), unsafe.Pointer(&a.Ptr), unsafe.Pointer(&n)}
+					t.Logf("launch variant=%s kernel=mj_delta_params rows=%d blocks=%d threads=256", variant, len(ids), (len(ids)*16+255)/256)
 					if e = nvidia.LaunchKernel(module.Function("mj_delta_params"), uint32((len(ids)*16+255)/256), 1, 1, 256, 1, 1, 0, prep...); e != nil {
-						t.Fatal(e)
+						t.Fatalf("prepare launch variant=%s: %v", variant, e)
+					}
+					if e = nvidia.SyncErr(); e != nil {
+						t.Fatalf("prepare synchronize variant=%s rows=%d: %v", variant, len(ids), e)
 					}
 					kernel = "mj_tree_delta_prepared"
 				}
@@ -156,12 +160,19 @@ func TestMoJevPTXTreeKernels(t *testing.T) {
 					}
 					kernel, blocks = "mj_tree_attention_warp", len(ids)
 				}
+				// A subtest named for a candidate also launches compact reference
+				// kernels. Log and fence each actual entrypoint so a sticky async
+				// driver error is not misattributed to the outer test's name.
+				t.Logf("launch variant=%s kernel=%s tree=%t rows=%d blocks=%d threads=256", variant, kernel, tree, len(ids), blocks)
 				if e = nvidia.LaunchKernel(module.Function(kernel), uint32(blocks), 1, 1, 256, 1, 1, 0, args...); e != nil {
-					t.Fatal(e)
+					t.Fatalf("launch kernel=%s tree=%t rows=%d: %v", kernel, tree, len(ids), e)
+				}
+				if e = nvidia.SyncErr(); e != nil {
+					t.Fatalf("synchronize kernel=%s tree=%t rows=%d: %v", kernel, tree, len(ids), e)
 				}
 				got := make([]float32, len(ids)*outWidth)
 				if e = out.Download(got); e != nil {
-					t.Fatal(e)
+					t.Fatalf("download kernel=%s tree=%t rows=%d: %v", kernel, tree, len(ids), e)
 				}
 				return got
 			}

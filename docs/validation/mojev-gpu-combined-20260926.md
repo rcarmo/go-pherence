@@ -92,16 +92,38 @@ separate from the full-request timing table.
 
 The first expanded racecheck invocation was interrupted by the enclosing shell
 timeout after the released-race and memcheck stages had already passed. Its log
-is retained separately. A standalone rerun failed in the512-row warp-attention
-subtest with `cuMemcpyDtoH: error 719` after about60.7 seconds in that subtest
-(263.8 seconds for the test). Racecheck printed zero hazards but the target
-failed; this is **not a sanitizer pass**.
+is retained separately. A standalone rerun failed within the capacity512
+`warp_attention` subtest with `cuMemcpyDtoH: error 719` after about60.7 seconds
+in that subtest (263.8 seconds for the test). **The reported source line192 is
+the compact reference call `mj_attention`, not the new warp kernel launch.**
+That subtest first runs the new kernel, then launches multiple compact reference
+branches. The original helper used its parent's `*testing.T`, adding a misleading
+FailNow warning. The kernel responsible for the device failure cannot be inferred
+from the subtest name or the later asynchronous copy error. Racecheck printed
+zero hazards but the target failed; this is **not a sanitizer pass**.
 
-Afterward, `nvidia-smi` returned `Unknown Error` and `No devices were found`.
-Device nodes and the driver module were still present. The accessible host log
-did not establish a cause. An instrumentation-induced timeout is plausible,
-but kernel/device failure is not ruled out. GPU work stopped; no GPU reset,
-VM reboot or unrelated service change was attempted.
+Guest kernel journal at `2026-09-26T11:21:52+01:00` records Xid79, "GPU has
+fallen off the bus," followed by Xid154, "Node Reboot Required." Then
+`nvidia-smi` returned `Unknown Error` and `No devices were found`. This matches
+previously recorded evaluator failures that predate the new kernels. It does not
+exonerate application code as a trigger. CUDA719 is launch failure; the distinct
+CUDA timeout code is702. Instrumentation timeout is therefore a hypothesis,
+not a diagnosis. No incident-time temperature/power recording was captured;
+47–65°C readings came from the earlier benchmark matrix.
+
+A read-only audit found no concrete indexing, shuffle-mask, barrier or lifetime
+bug in the candidate under its validated launch geometry. Current copies and
+launches retain their OS-thread pin/context lock; the prior context fix is in
+ancestry and model-free regressions pass. Offline sm86 compilation shows48
+registers, no spills and no shared-memory barriers for warp attention. These
+checks cannot exclude an instrumentation/driver, PCIe/passthrough, power or
+application-triggered device failure.
+
+Test diagnostics now log the actual kernel, tree/reference mode, dimensions
+and launch geometry and synchronise each tested launch explicitly. These are
+model-free-checked diagnostic changes; no GPU rerun followed the fault. A bounded
+NVIDIA safe-mode diagnostic collection timed out and left a partial readable
+archive. No GPU reset, VM reboot or unrelated service change was attempted.
 
 Resume only after GPU access is restored through authorised infrastructure
 recovery. Recheck baseline and combined ordinary kernels, then investigate the
