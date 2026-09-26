@@ -348,13 +348,7 @@ func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []flo
 					decay := float32(math.Exp(float64(softplus(alpha[t*16+h]+l.DTBias.Data()[h]) * l.A.Data()[h])))
 					be := sigmoid(beta[t*16+h])
 					qh, kh := q[h*128:(h+1)*128], k[h*128:(h+1)*128]
-					for j := 0; j < 128; j++ {
-						row := state[(h*128+j)*128 : (h*128+j+1)*128]
-						simd.VecScale(row, row, decay)
-						memory := simd.Sdot(row, kh)
-						simd.Saxpy((v[h*128+j]-memory)*be, kh, row)
-						out[h*128+j] = simd.Sdot(row, qh) * float32(1/math.Sqrt(128))
-					}
+					qwen35BranchDeltaHead(state[h*128*128:(h+1)*128*128], out[h*128:(h+1)*128], qh, kh, v[h*128:(h+1)*128], decay, be)
 				}
 				if e := qwen35GatedRMSNormValueHeads(out, z[t*2048:(t+1)*2048], l.Norm.Data(), 16, 128, eps); e != nil {
 					return e
