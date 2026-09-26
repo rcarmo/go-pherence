@@ -53,7 +53,7 @@ func (m *Qwen35BaseModel) ForwardTextBranch(inputs [][]float32, positions []int,
 				return nil, err
 			}
 			for t := range cur {
-				cur[t], err = layer.Linear.forwardWithStateMutating(cur[t], &state, eps, meta)
+				cur[t], err = layer.Linear.forwardWithStateNormalization(cur[t], &state, eps, meta, true)
 				if err != nil {
 					return nil, fmt.Errorf("qwen: branch layer %d token %d: %w", i, t, err)
 				}

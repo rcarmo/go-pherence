@@ -1100,6 +1100,12 @@ func (l *Qwen35LinearAttentionLayer) ForwardWithState(input []float32, state Qwe
 }
 
 func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, state *Qwen35LinearAttentionState, eps float32, meta loaderconfig.QwenNativeMTPMetadata) ([]float32, error) {
+	return l.forwardWithStateNormalization(input, state, eps, meta, false)
+}
+
+// branchF32 selects the pinned Transformers delta-kernel normalisation without
+// altering the established causal/BF16 trajectory of the public state API.
+func (l *Qwen35LinearAttentionLayer) forwardWithStateNormalization(input []float32, state *Qwen35LinearAttentionState, eps float32, meta loaderconfig.QwenNativeMTPMetadata, branchF32 bool) ([]float32, error) {
 	if l == nil {
 		return nil, fmt.Errorf("nil Qwen3.5 linear-attention layer")
 	}
@@ -1151,10 +1157,14 @@ func (l *Qwen35LinearAttentionLayer) forwardWithStateMutating(input []float32, s
 	if err != nil {
 		return nil, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.Q, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	normalize := l2NormalizeHeadsInPlace
+	if branchF32 {
+		normalize = qwen35BranchL2Heads
+	}
+	if err := normalize(convParts.Q, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
 		return nil, err
 	}
-	if err := l2NormalizeHeadsInPlace(convParts.K, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
+	if err := normalize(convParts.K, meta.LinearNumKeyHeads, meta.LinearKeyHeadDim, eps); err != nil {
 		return nil, err
 	}
 	convParts.Q, convParts.K, err = repeatQwen35LinearQKToValueHeads(convParts.Q, convParts.K, meta)

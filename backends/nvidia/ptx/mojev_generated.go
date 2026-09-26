@@ -1923,7 +1923,7 @@ $L__BB4_10:
 )
 {
 	.reg .pred 	%p<17>;
-	.reg .f32 	%f<38>;
+	.reg .f32 	%f<37>;
 	.reg .b32 	%r<50>;
 	.reg .b64 	%rd<5>;
 
@@ -1941,13 +1941,13 @@ $L__BB4_10:
 	add.s32 	%r8, %r7, %r1;
 	mul.wide.u32 	%rd4, %r8, 4;
 	add.s64 	%rd1, %rd3, %rd4;
-	mov.f32 	%f35, 0f00000000;
+	mov.f32 	%f34, 0f00000000;
 	@%p1 bra 	$L__BB5_2;
 
-	ld.global.f32 	%f35, [%rd1];
+	ld.global.f32 	%f34, [%rd1];
 
 $L__BB5_2:
-	mul.rn.f32 	%f11, %f35, %f35;
+	mul.rn.f32 	%f11, %f34, %f34;
 	mov.b32 	%r9, %f11;
 	mov.u32 	%r10, 2;
 	mov.u32 	%r11, 31;
@@ -1988,26 +1988,26 @@ $L__BB5_2:
 $L__BB5_4:
 	bar.sync 	0;
 	setp.gt.u32 	%p8, %r1, 7;
-	mov.f32 	%f37, 0f00000000;
+	mov.f32 	%f36, 0f00000000;
 	@%p8 bra 	$L__BB5_6;
 
 	shl.b32 	%r30, %r1, 2;
 	mov.u32 	%r31, _ZZ10reduce_sumfE4sums;
 	add.s32 	%r32, %r31, %r30;
-	ld.shared.f32 	%f37, [%r32];
+	ld.shared.f32 	%f36, [%r32];
 
 $L__BB5_6:
 	setp.ne.s32 	%p9, %r2, 0;
 	@%p9 bra 	$L__BB5_8;
 
-	mov.b32 	%r33, %f37;
+	mov.b32 	%r33, %f36;
 	mov.u32 	%r34, 2;
 	mov.u32 	%r35, 31;
 	mov.u32 	%r36, 16;
 	mov.u32 	%r37, -1;
 	shfl.sync.down.b32 	%r38|%p10, %r33, %r36, %r35, %r37;
 	mov.b32 	%f22, %r38;
-	add.rn.f32 	%f23, %f37, %f22;
+	add.rn.f32 	%f23, %f36, %f22;
 	mov.b32 	%r39, %f23;
 	mov.u32 	%r40, 8;
 	shfl.sync.down.b32 	%r41|%p11, %r39, %r40, %r35, %r37;
@@ -2026,13 +2026,13 @@ $L__BB5_6:
 	mov.u32 	%r48, 1;
 	shfl.sync.down.b32 	%r49|%p14, %r47, %r48, %r35, %r37;
 	mov.b32 	%f30, %r49;
-	add.rn.f32 	%f37, %f29, %f30;
+	add.rn.f32 	%f36, %f29, %f30;
 
 $L__BB5_8:
 	setp.ne.s32 	%p15, %r1, 0;
 	@%p15 bra 	$L__BB5_10;
 
-	st.shared.f32 	[_ZZ10reduce_sumfE4sums], %f37;
+	st.shared.f32 	[_ZZ10reduce_sumfE4sums], %f36;
 
 $L__BB5_10:
 	bar.sync 	0;
@@ -2040,11 +2040,10 @@ $L__BB5_10:
 	bar.sync 	0;
 	@%p1 bra 	$L__BB5_12;
 
-	sqrt.rn.f32 	%f31, %f8;
-	add.rn.f32 	%f32, %f31, %f9;
-	rcp.rn.f32 	%f33, %f32;
-	mul.rn.f32 	%f34, %f35, %f33;
-	st.global.f32 	[%rd1], %f34;
+	add.rn.f32 	%f31, %f8, %f9;
+	rsqrt.approx.f32 	%f32, %f31;
+	mul.rn.f32 	%f33, %f34, %f32;
+	st.global.f32 	[%rd1], %f33;
 
 $L__BB5_12:
 	ret;

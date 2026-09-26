@@ -55,7 +55,7 @@ extern "C" __global__ void mj_conv(const float* x,const float* w,float* y,int ro
 }
 extern "C" __global__ void mj_l2(float* x,int rows,float eps){
  int t=blockIdx.x/32,h=blockIdx.x%32;int base=t*6144+h*128;float v=threadIdx.x<128?x[base+threadIdx.x]:0;
- float scale=1.f/(sqrtf(reduce_sum(v*v))+eps);
+ float scale=rsqrtf(reduce_sum(v*v)+eps);
  if(threadIdx.x<128)x[base+threadIdx.x]=v*scale;
 }
 // Each warp owns a single recurrent value row, four key elements per lane.

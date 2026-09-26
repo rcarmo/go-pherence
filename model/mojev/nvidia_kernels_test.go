@@ -17,13 +17,13 @@ func TestMoJevPTXKernels(t *testing.T) {
 	if !nvidia.Init() {
 		t.Fatal("CUDA unavailable")
 	}
-	module, e := nvidia.LoadPTXFunctions(ptx.MoJev, []string{"mj_gemm", "mj_norm", "mj_attention", "mj_delta"})
+	module, e := nvidia.LoadPTXFunctions(ptx.MoJev, []string{"mj_gemm", "mj_norm", "mj_attention", "mj_delta", "mj_l2"})
 	if e != nil {
 		t.Fatal(e)
 	}
 	defer module.Close()
 	g := &NVIDIATextScorer{cpu: &TextScorer{eps: 1e-6}, kernels: map[string]nvidia.CUfunction{}}
-	for _, name := range []string{"mj_gemm", "mj_norm", "mj_attention", "mj_delta"} {
+	for _, name := range []string{"mj_gemm", "mj_norm", "mj_attention", "mj_delta", "mj_l2"} {
 		g.kernels[name] = module.Function(name)
 	}
 	upload := func(x []float32) *nvidia.Buffer {
@@ -76,6 +76,36 @@ func TestMoJevPTXKernels(t *testing.T) {
 						t.Fatal("GEMM tail mismatch", shape, r, c)
 					}
 				}
+			}
+		}
+	}
+
+	// Near-zero vectors distinguish epsilon-inside-rsqrt from sqrt+epsilon.
+	for _, value := range []float32{0, 1e-5, 0.125} {
+		input := make([]float32, 6144)
+		for i := 0; i < 4096; i++ {
+			input[i] = value
+		}
+		for i := 4096; i < len(input); i++ {
+			input[i] = 7
+		}
+		b := upload(input)
+		rows, eps := int32(1), float32(1e-6)
+		if err := g.launch("mj_l2", 32, unsafe.Pointer(&b.Ptr), unsafe.Pointer(&rows), unsafe.Pointer(&eps)); err != nil {
+			t.Fatal(err)
+		}
+		out := make([]float32, len(input))
+		if err := b.Download(out); err != nil {
+			t.Fatal(err)
+		}
+		want := value / float32(math.Sqrt(float64(128*value*value+eps)))
+		for i, v := range out {
+			if i < 4096 {
+				if math.IsNaN(float64(v)) || math.Abs(float64(v-want)) > 1e-6 {
+					t.Fatal("L2 epsilon", value, i, v, want)
+				}
+			} else if v != 7 {
+				t.Fatal("L2 touched values")
 			}
 		}
 	}

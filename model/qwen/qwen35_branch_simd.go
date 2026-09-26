@@ -313,7 +313,7 @@ func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []flo
 				}
 				siluInPlace(row)
 				for h := 0; h < 32; h++ {
-					l2NormalizeInPlace(row[h*128:(h+1)*128], eps)
+					qwen35BranchL2Norm(row[h*128:(h+1)*128], eps)
 				}
 			}
 			state := s.scratch["ssm"]

@@ -19,6 +19,9 @@ drains submitted work; it cannot preempt a running kernel. The
 [bounded capacity and retention probe](../../docs/validation/mojev-accelerated-admission-20260926.md)
 records 512-token paths, 4096-token grouped requests and eight serialized callers,
 including separate ordinary/race memory budgets and the SIMD race timeout.
+The [512-token F32 reference](../../docs/validation/mojev-long-f32-normalisation-20260926.md)
+also checks sampled branch/tree hidden states and records the corrected Q/K
+normalisation epsilon placement; older scores may change slightly.
 
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 
