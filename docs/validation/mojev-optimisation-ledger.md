@@ -33,13 +33,17 @@ CPU capability extension, not checkpoint16384-context or quality qualification.
 
 ## JevBench v1.4.0 public comparison
 
-The [fresh MoJev / historical GSO comparison](mojev-jevbench140-vs-gso-20260926.md)
-reports103/231 correct for the current native CPU stack versus audited GSO196/231.
-MoJev refuses55 over-capacity branches and35 structured states; on the common141
-valid inputs it scores103 versus GSO136. This is a public, now-observed benchmark,
-not an official sealed score or intrinsic model-only comparison. No GPU was run;
-a fresh GSO GPU rerun awaits explicit hold clearance. Existing output-preserving
-optimizations remain adopted and `RuntimeReady=false` remains unchanged.
+The [complete input-parity comparison](mojev-jevbench140-full-parity-20260926.md)
+reports MoJev137/231 (59.31%) versus audited historical GSO196/231 (84.85%).
+Both have231 strict-valid responses and zero refusals. CPU4096 capacity and
+GSO-compatible structured-state decoding remove the earlier input blockers.
+All requests match except model ID; original200 records were retained unchanged
+across an interruption, then31 remaining items completed on the same binary.
+The earlier coverage-limited results are diagnostic only. This is a public,
+now-observed benchmark, not an official sealed score or controlled latency
+comparison. No GPU was run; fresh GSO GPU execution still requires clearance.
+Existing optimizations remain adopted and `RuntimeReady=false` remains unchanged.
+Rui directed moving on to speech models after this full benchmark closure.
 
 ## Bounded SIMD60 reuse completed
 

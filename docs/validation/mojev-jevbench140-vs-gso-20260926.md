@@ -1,6 +1,13 @@
 # MoJev on JevBench v1.4.0, compared with GSO
 
-## Result
+## Superseded diagnostic result
+
+This initial run lacked input parity and is retained as diagnostic evidence.
+The [complete input-parity run](mojev-jevbench140-full-parity-20260926.md) is the
+headline comparison: MoJev137/231 (59.31%), GSO196/231 (84.85%), both231
+strict-valid responses with zero refusals. Use that report for full accuracy.
+
+## Initial result
 
 The current native MoJev text stack scored **103/231 (44.59%)** on the JevBench
 v1.4.0 public set. The audited historical Go System One result is **196/231
