@@ -1,6 +1,7 @@
 package qwen
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"runtime"
@@ -8,6 +9,7 @@ import (
 	"unsafe"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/internal/contextmutex"
 	cfg "github.com/rcarmo/go-pherence/loader/config"
 	llmops "github.com/rcarmo/go-pherence/model/internal/ops"
 	"github.com/rcarmo/go-pherence/tensor"
@@ -17,7 +19,7 @@ import (
 // weights are immutable; one mutex serialises reusable scratch. The causal
 // generation APIs and scalar branch reference are unchanged.
 type Qwen35SIMDBranch struct {
-	mu        sync.Mutex
+	mu        contextmutex.Mutex
 	model     *Qwen35BaseModel
 	meta      cfg.QwenNativeMTPMetadata
 	maxTokens int
@@ -194,10 +196,18 @@ func (s *Qwen35SIMDBranch) ForwardInto(dst []float32, inputs [][]float32, ns, nq
 // Recurrence forks at the prefix and full attention excludes every sibling.
 // Positions restart at ns+nq for each candidate. Results are transactional.
 func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns, nq int, ends []int, rope []float32, eps float32) error {
+	return s.ForwardTreeIntoContext(context.Background(), dst, inputs, ns, nq, ends, rope, eps)
+}
+
+// ForwardTreeIntoContext cancels before publication and at layer/token boundaries.
+// Running SIMD kernels finish and workers join before scratch is released.
+func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []float32, inputs [][]float32, ns, nq int, ends []int, rope []float32, eps float32) error {
 	if s == nil || s.model == nil || len(inputs) > 512 || len(dst) != len(inputs)*1024 {
 		return fmt.Errorf("qwen: invalid SIMD destination")
 	}
-	s.mu.Lock()
+	if err := s.mu.LockContext(ctx); err != nil {
+		return err
+	}
 	defer s.mu.Unlock()
 	n := len(inputs)
 	if n < 3 || n > s.maxTokens || ns < 1 || ns >= n || nq < 1 || nq >= n-ns || eps <= 0 || math.IsNaN(float64(eps)) || math.IsInf(float64(eps), 0) || len(rope) < n*64 {
@@ -264,6 +274,9 @@ func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns
 		}
 	}
 	for _, layer := range s.model.Layers {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var post, ow, gatew, upw, downw *tensor.Tensor
 		attn := b("attn", 2048)
 		if layer.Kind == Qwen35LinearAttentionLayerKind {
@@ -306,6 +319,9 @@ func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns
 			state := s.scratch["ssm"]
 			clear(state)
 			for t := 0; t < n; t++ {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				if t == prefix {
 					copy(s.scratch["fork"], state)
 				} else if t > prefix && t == starts[t] {
@@ -357,6 +373,9 @@ func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns
 				llmops.ApplyRoPEPartial(k[t*512:(t+1)*512], rope, positions[t], 2, 256, 32)
 			}
 			for t := 0; t < n; t++ {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				start, end, ancestors := starts[t], stops[t], prefix
 				if t < prefix {
 					ancestors = 0
@@ -395,6 +414,9 @@ func (s *Qwen35SIMDBranch) ForwardTreeInto(dst []float32, inputs [][]float32, ns
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			return fmt.Errorf("qwen: nonfinite SIMD output")
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	copy(dst, x)
 	return nil

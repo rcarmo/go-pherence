@@ -1,8 +1,10 @@
 package mojev
 
 import (
+	"context"
 	"fmt"
-	"sync"
+
+	"github.com/rcarmo/go-pherence/internal/contextmutex"
 
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
@@ -14,7 +16,7 @@ import (
 type SIMDTextScorer struct {
 	cpu    *TextScorer
 	branch *qwen.Qwen35SIMDBranch
-	mu     sync.Mutex
+	mu     contextmutex.Mutex
 	rows   [][]float32
 	hidden []float32
 }
@@ -30,12 +32,19 @@ func NewSIMDTextScorer(cpu *TextScorer, maxTokens int) (*SIMDTextScorer, error) 
 	return &SIMDTextScorer{cpu: cpu, branch: b, rows: make([][]float32, maxTokens), hidden: make([]float32, maxTokens*1024)}, nil
 }
 func (s *SIMDTextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
+	return s.ScoreEncodedContext(context.Background(), row)
+}
+
+// ScoreEncodedContext cancels waiting and active execution without partial scores.
+func (s *SIMDTextScorer) ScoreEncodedContext(ctx context.Context, row EncodedRow) ([][]float32, error) {
 	if s == nil || s.cpu == nil || s.branch == nil {
 		return nil, fmt.Errorf("mojev: nil SIMD scorer")
 	}
-	s.mu.Lock()
+	if err := s.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer s.mu.Unlock()
-	return s.scoreTree(row)
+	return s.scoreTree(ctx, row)
 }
 
 // Internal borrowed output is consumed by the head while the scorer mutex is
@@ -60,8 +69,13 @@ func (s *SIMDTextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 }
 
 func (s *SIMDTextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, sl, ql int) (*TextDecision, error) {
+	return s.ScoreTextContext(context.Background(), req, tok, sl, ql)
+}
+
+// ScoreTextContext checks cancellation between tokenisation and scoring stages.
+func (s *SIMDTextScorer) ScoreTextContext(ctx context.Context, req TextRequest, tok *tokenizer.Tokenizer, sl, ql int) (*TextDecision, error) {
 	if s == nil || s.cpu == nil {
 		return nil, fmt.Errorf("mojev: nil SIMD scorer")
 	}
-	return s.cpu.scoreText(req, tok, sl, ql, s.ScoreEncoded)
+	return s.cpu.scoreTextContext(ctx, req, tok, sl, ql, func(row EncodedRow) ([][]float32, error) { return s.ScoreEncodedContext(ctx, row) })
 }

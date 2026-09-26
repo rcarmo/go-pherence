@@ -2,6 +2,7 @@ package mojev
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -208,6 +209,16 @@ func (s *TextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 }
 
 func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int, score func(EncodedRow) ([][]float32, error)) (*TextDecision, error) {
+	return s.scoreTextContext(context.Background(), req, tok, stateLimit, questionLimit, score)
+}
+
+func (s *TextScorer) scoreTextContext(ctx context.Context, req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int, score func(EncodedRow) ([][]float32, error)) (*TextDecision, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("mojev: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if s == nil || s.model == nil {
 		return nil, fmt.Errorf("mojev: uninitialised text scorer")
 	}
@@ -218,7 +229,16 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 	if err != nil {
 		return nil, err
 	}
-	encode := func(text string) ([]int, error) { return tok.Encode(text), nil }
+	encode := func(text string) ([]int, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		ids := tok.Encode(text)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return ids, nil
+	}
 	packed, err := prepared.pack(stateLimit, questionLimit, 0, encode)
 	if err != nil {
 		return nil, err
@@ -241,6 +261,9 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	logits, err := score(row)
 	if err != nil {
 		return nil, err
@@ -252,5 +275,15 @@ func (s *TextScorer) scoreText(req TextRequest, tok *tokenizer.Tokenizer, stateL
 			rows[f][n] = float64(v)
 		}
 	}
-	return prepared.assemble(rows, packed.PackedMask[0])
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	answer, err := prepared.assemble(rows, packed.PackedMask[0])
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return answer, nil
 }

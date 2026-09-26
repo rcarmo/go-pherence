@@ -1,14 +1,15 @@
 package mojev
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
-	"sync"
 	"unsafe"
 
 	"github.com/rcarmo/go-pherence/backends/nvidia/ptx"
 	nvidia "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/internal/contextmutex"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	"github.com/rcarmo/go-pherence/model/qwen"
 )
@@ -36,7 +37,7 @@ type gpuLayer struct {
 // no candidate KV/recurrent state survives a branch. Close waits for active work.
 // The CPU scorer supplies immutable embeddings and the F32 head readout.
 type NVIDIATextScorer struct {
-	mu                    sync.Mutex
+	mu                    contextmutex.Mutex
 	cpu                   *TextScorer
 	maxTokens             int
 	layers                []gpuLayer
@@ -257,6 +258,13 @@ func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
 }
 
 func (g *NVIDIATextScorer) encodeTree(b TextBranch, ends []int) ([]float32, error) {
+	return g.encodeTreeContext(context.Background(), b, ends)
+}
+
+func (g *NVIDIATextScorer) encodeTreeContext(ctx context.Context, b TextBranch, ends []int) ([]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	n := len(b.IDs)
 	if n > g.maxTokens {
 		return nil, fmt.Errorf("mojev: branch exceeds GPU token capacity %d", g.maxTokens)
@@ -375,10 +383,7 @@ func (g *NVIDIATextScorer) encodeTree(b TextBranch, ends []int) ([]float32, erro
 	if e := g.normRows(x, g.norm, norm, n, 1024, 1); e != nil {
 		return nil, e
 	}
-	if e := nvidia.LaunchBatch(g.commands[:g.commandCount]); e != nil {
-		return nil, e
-	}
-	if e := nvidia.SyncErr(); e != nil {
+	if e := g.launchContext(ctx); e != nil {
 		return nil, e
 	}
 	out := g.hostOutput[:n*1024]
@@ -390,10 +395,18 @@ func (g *NVIDIATextScorer) encodeTree(b TextBranch, ends []int) ([]float32, erro
 
 // ScoreEncoded executes repaired text inference on resident PTX weights.
 func (g *NVIDIATextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
+	return g.ScoreEncodedContext(context.Background(), row)
+}
+
+// ScoreEncodedContext cancels waits and drains any launched GPU work before
+// returning a context error. Already running kernels cannot be preempted.
+func (g *NVIDIATextScorer) ScoreEncodedContext(ctx context.Context, row EncodedRow) ([][]float32, error) {
 	if g == nil {
 		return nil, fmt.Errorf("mojev: nil GPU scorer")
 	}
-	g.mu.Lock()
+	if err := g.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
 	defer g.mu.Unlock()
 	if g.closed || g.cpu == nil || g.cpu.head == nil || g.module == nil {
 		return nil, fmt.Errorf("mojev: GPU scorer closed or uninitialized")
@@ -409,13 +422,18 @@ func (g *NVIDIATextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 			}
 		}
 	}
-	return g.scoreTree(row)
+	return g.scoreTree(ctx, row)
 }
 
 // ScoreText includes the same validation, tokenizer and public answer path as CPU.
 func (g *NVIDIATextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int) (*TextDecision, error) {
+	return g.ScoreTextContext(context.Background(), req, tok, stateLimit, questionLimit)
+}
+
+// ScoreTextContext is the cancellable tokenizer, scorer and answer path.
+func (g *NVIDIATextScorer) ScoreTextContext(ctx context.Context, req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int) (*TextDecision, error) {
 	if g == nil || g.cpu == nil {
 		return nil, fmt.Errorf("mojev: nil GPU scorer")
 	}
-	return g.cpu.scoreText(req, tok, stateLimit, questionLimit, g.ScoreEncoded)
+	return g.cpu.scoreTextContext(ctx, req, tok, stateLimit, questionLimit, func(row EncodedRow) ([][]float32, error) { return g.ScoreEncodedContext(ctx, row) })
 }

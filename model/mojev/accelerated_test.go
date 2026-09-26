@@ -1,7 +1,9 @@
 package mojev
 
 import (
+	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -55,7 +57,9 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 	src.Close()
 	type executor interface {
 		ScoreEncoded(EncodedRow) ([][]float32, error)
+		ScoreEncodedContext(context.Context, EncodedRow) ([][]float32, error)
 		ScoreText(TextRequest, *tokenizer.Tokenizer, int, int) (*TextDecision, error)
+		ScoreTextContext(context.Context, TextRequest, *tokenizer.Tokenizer, int, int) (*TextDecision, error)
 	}
 	type backend struct {
 		name   string
@@ -136,6 +140,18 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 						t.Fatal("partial Into output")
 					}
 				}
+				cancelCtx, cancel := context.WithCancel(context.Background())
+				probe := &pollCancelContext{Context: cancelCtx, cancel: cancel}
+				probe.remaining.Store(4)
+				if e = scorer.branch.ForwardTreeIntoContext(probe, dst, inputs, branch.StateLen, branch.QuestionLen, []int{len(inputs)}, cpu.rope, cpu.eps); !errors.Is(e, context.Canceled) {
+					t.Fatal("Into cancellation", e)
+				}
+				cancel()
+				for _, v := range dst {
+					if v != 123 {
+						t.Fatal("canceled Into published output")
+					}
+				}
 				if a := testing.AllocsPerRun(1, func() {
 					got, e := scorer.ScoreEncoded(repairedTextRow())
 					if e != nil || got == nil {
@@ -168,6 +184,7 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			if scorer, ok := b.scorer.(*NVIDIATextScorer); ok {
 				testNVIDIATreeBranches(t, scorer)
 			}
+			testReleasedCancellation(t, b.scorer)
 			base := outputs["base"]
 			for _, name := range []string{"sibling_token", "sibling_length", "question_length"} {
 				if !reflect.DeepEqual(base[1], outputs[name][1]) {
@@ -228,6 +245,19 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			answer, e := b.scorer.ScoreText(req, tok, 128, 128)
 			if e != nil {
 				t.Fatal(e)
+			}
+			textCtx, cancelText := context.WithCancel(context.Background())
+			textProbe := &pollCancelContext{Context: textCtx, cancel: cancelText}
+			textProbe.remaining.Store(4)
+			if out, err := b.scorer.ScoreTextContext(textProbe, req, tok, 128, 128); !errors.Is(err, context.Canceled) || out != nil {
+				t.Fatal("tokenization cancellation", err)
+			}
+			cancelText()
+			textCtx, cancelText = context.WithCancel(context.Background())
+			contextAnswer, err := b.scorer.ScoreTextContext(textCtx, req, tok, 128, 128)
+			cancelText()
+			if err != nil || !reflect.DeepEqual(contextAnswer, answer) {
+				t.Fatal("text cancel recovery", err)
 			}
 			req.Fields[0].Instructions = "A much longer unrelated first question."
 			changed, e := b.scorer.ScoreText(req, tok, 128, 128)

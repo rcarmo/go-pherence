@@ -1,6 +1,9 @@
 package mojev
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // fillGPUTree writes parent/local position/node-start/visible-end records. The
 // CUDA tree kernels receive only validated records; -1 is the root sentinel.
@@ -40,7 +43,7 @@ func fillGPUTree(dst []uint32, n, ns, nq int, ends []int) error {
 	return nil
 }
 
-func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
+func (g *NVIDIATextScorer) scoreTree(ctx context.Context, row EncodedRow) ([][]float32, error) {
 	if err := validateBranchLocalText(row, g.cpu.head); err != nil {
 		return nil, err
 	}
@@ -78,6 +81,9 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 	for f, q := range row.Questions {
 		result[f] = make([]float32, len(row.Candidates[f]))
 		for first := 0; first < len(row.Candidates[f]); {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			last := candidateTreeEnd(row.Candidates[f], first, len(row.State)+len(q), g.maxTokens)
 			candidates := row.Candidates[f][first:last]
 			n := copy(ids[:], row.State)
@@ -87,7 +93,7 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 				n += copy(ids[n:], values)
 				ends[c] = n
 			}
-			hidden, err := g.encodeTree(TextBranch{IDs: ids[:n], StateLen: len(row.State), QuestionLen: len(q)}, ends[:len(candidates)])
+			hidden, err := g.encodeTreeContext(ctx, TextBranch{IDs: ids[:n], StateLen: len(row.State), QuestionLen: len(q)}, ends[:len(candidates)])
 			if err != nil {
 				return nil, err
 			}
@@ -117,6 +123,9 @@ func (g *NVIDIATextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 			copy(result[f][first:last], logits[0])
 			first = last
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

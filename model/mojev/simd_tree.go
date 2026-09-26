@@ -1,10 +1,13 @@
 package mojev
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // scoreTree shares ancestors within bounded candidate groups of one question.
 // Oversized questions use multiple groups without increasing scratch capacity.
-func (s *SIMDTextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
+func (s *SIMDTextScorer) scoreTree(ctx context.Context, row EncodedRow) ([][]float32, error) {
 	if err := validateBranchLocalText(row, s.cpu.head); err != nil {
 		return nil, err
 	}
@@ -41,6 +44,9 @@ func (s *SIMDTextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 	for f, q := range row.Questions {
 		result[f] = make([]float32, len(row.Candidates[f]))
 		for first := 0; first < len(row.Candidates[f]); {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			last := candidateTreeEnd(row.Candidates[f], first, len(row.State)+len(q), len(s.rows))
 			candidates := row.Candidates[f][first:last]
 			count := 0
@@ -58,7 +64,7 @@ func (s *SIMDTextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 				ends[c] = count
 			}
 			out := s.hidden[:count*1024]
-			if err := s.branch.ForwardTreeInto(out, s.rows[:count], len(row.State), len(q), ends[:len(candidates)], s.cpu.rope, s.cpu.eps); err != nil {
+			if err := s.branch.ForwardTreeIntoContext(ctx, out, s.rows[:count], len(row.State), len(q), ends[:len(candidates)], s.cpu.rope, s.cpu.eps); err != nil {
 				return nil, err
 			}
 			s.cpu.normaliseFinal(out)
@@ -88,6 +94,9 @@ func (s *SIMDTextScorer) scoreTree(row EncodedRow) ([][]float32, error) {
 			copy(result[f][first:last], logits[0])
 			first = last
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
