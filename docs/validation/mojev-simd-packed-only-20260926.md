@@ -145,8 +145,13 @@ GOMAXPROCS=6 GO_PHERENCE_DISABLE_NVIDIA=1 \
 ```
 
 Raw probes, benchmark samples, benchstat, coverage and gate logs are under
-`/workspace/tmp/mojev-simd-host-20260926`. The previous 20-round SIMD retention
-run predates this storage change; the new path has ordinary/released/grouped
-race evidence, not that same extended-reuse qualification. Native ARM64/RISC-V,
-hours-long service retention and held-out quality/calibration remain open.
+`/workspace/tmp/mojev-simd-host-20260926`. A post-commit 20-round reuse run on
+`d99bd9d4` also passed in 814.33 seconds, including 512-path/4096-total requests,
+eight concurrent callers, retained-output ownership and cancellation recovery.
+Peak RSS was 6,094,556 KiB. Post-GC heap rose at most 124,104 bytes during retained
+rounds and ended 67,944 bytes above the warm baseline after output release, with
+two goroutines. The test intentionally retains the original CPU scorer. Logs and
+snapshots are `retention-20.log` and `retention-20.json` in that evidence directory.
+CI run `36229399479` passed. Native ARM64/RISC-V execution, hours-long service
+retention and held-out quality/calibration remain open.
 `RuntimeReady=false`.
