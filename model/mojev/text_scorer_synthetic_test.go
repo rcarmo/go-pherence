@@ -6,7 +6,9 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
+	"weak"
 )
 
 func TestTextScorerLoaderFailures(t *testing.T) {
@@ -44,6 +46,55 @@ func TestTextScorerLoaderFailures(t *testing.T) {
 	if got, err := (&TextScorer{}).ScoreEncoded(repairedTextRow()); err == nil || got != nil {
 		t.Fatal("empty scorer accepted")
 	}
+}
+
+// Observe the converted allocation without extending its lifetime. Closing
+// the source invalidates its own storage, not the conversion buffer it owns
+// and transfers to its caller via weights.Source.GetFloat32.
+type trackedTextSource struct {
+	*textTestSource
+	converted weak.Pointer[float32]
+}
+
+func (s *trackedTextSource) GetFloat32(name string) ([]float32, []int, error) {
+	data, shape, err := s.textTestSource.GetFloat32(name)
+	if len(data) > 0 {
+		s.converted = weak.Make(&data[0])
+	}
+	return data, shape, err
+}
+
+func (s *trackedTextSource) Close() error {
+	clear(s.data)
+	s.shape[0] = 0
+	return nil
+}
+
+func TestMoJevTextTensorOwnedTransfer(t *testing.T) {
+	src := &trackedTextSource{textTestSource: &textTestSource{dtype: "BF16", shape: []int{2}, data: []float32{1, 2}}}
+	shape := []int{2}
+	x, err := (mojevTextSource{src}).Get("model.norm.weight", shape)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src.converted.Value() != &x.Data()[0] {
+		t.Fatal("owned conversion buffer copied")
+	}
+	shape[0] = 0
+	if err := src.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runtime.GC()
+	if got := x.Data(); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatal("source close changed tensor", got)
+	}
+	if got := x.Shape(); len(got) != 1 || got[0] != 2 {
+		t.Fatal("shape aliases caller/source", got)
+	}
+	if src.converted.Value() != &x.Data()[0] {
+		t.Fatal("tensor lost converted backing")
+	}
+	runtime.KeepAlive(x)
 }
 
 type textTestSource struct {

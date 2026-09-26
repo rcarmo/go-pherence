@@ -18,6 +18,7 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Byte-symbol table and call-local BPE scratch | `060b62c0` | Tokenizer microbenchmarks 39–45% faster; full-request allocations down roughly 40–64%; [report](mojev-tokenizer-allocations-20260926.md). |
 | Direct encoded segments for native scoring | `87406572` | Avoids masks/re-extraction, fewer request allocations; [report](mojev-direct-segments-20260926.md). |
 | Four-row SIMD recurrence | `ca406642`, merged as `649bf072` | Adopted with measured 31.73% local speedup, exact state/output transitions and unchanged independent model parity; full-request benefit remains uncertain. Details below. |
+| Owned weight transfer during loading | After `6246a7cc` | About 3.01 GB less CPU-load allocation; measured SIMD peak RSS 5.78–5.90 → 4.76 GiB. [Ownership and load report](mojev-owned-load-20260926.md). |
 
 ## Four-row recurrence
 
@@ -83,7 +84,6 @@ before combining them. Do not reclassify older failures as passes.
 | Precomputed GPU recurrence parameters | Exact four-workload responses; marginal lower medians | Test alone and combined with warp attention, retaining exact operations. `mojev-gateup-20260926/{prepared.cu,nvidia-prepared.go,prepared.json}`. |
 | CPU padding/stride/prefetch/unroll/K-block variants | Mixed/no consistent request gains in prior tests | Preserve assembly and logs; revisit only as specified combinations or changed workloads. `/workspace/tmp/mojev-cpu-tiles-20260926`; prior [record](mojev-long-f32-normalisation-20260926.md). |
 | NVIDIA 16×64 and 32×128 GEMM tiles | Slower in the recorded experiment | Different geometry/device may change the result; current 32×64 remains selected. [GEMM record](mojev-gemm-events-20260926.md). |
-| Owned weight transfer during loading | Source contract returns owned F32; tensor constructor currently copies it | Unimplemented hypothesis. Measure constructor allocations and peak RSS; preserve caller/source ownership. |
 
 Workspace artifact paths above are evidence locations, not portable source
 checkouts. The four-row source is now in Git; older workspace-only prototypes

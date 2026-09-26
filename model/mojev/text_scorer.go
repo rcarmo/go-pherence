@@ -68,7 +68,10 @@ func (s mojevTextSource) Get(name string, shape []int) (*tensor.Tensor, error) {
 			return nil, fmt.Errorf("mojev: nonfinite tensor %s", name)
 		}
 	}
-	return tensor.FromFloat32(data, shape), nil
+	// Source.GetFloat32 transfers an owned conversion buffer. Move that buffer
+	// into the tensor after validation rather than duplicating the full weight.
+	// GetRaw remains borrowed and is used only for metadata checks above.
+	return tensor.FromOwnedFloat32(data, shape), nil
 }
 
 // LoadTextScorer validates the pinned topology and loads owned F32 text/head

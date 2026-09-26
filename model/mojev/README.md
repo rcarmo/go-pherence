@@ -3,7 +3,9 @@
 The [optimisation ledger](../../docs/validation/mojev-optimisation-ledger.md)
 tracks adopted changes and retained candidates for load-aware cumulative testing.
 Four-row SIMD recurrence is adopted for its measured local gain and exact
-state transitions; end-to-end timing remains noisy.
+state transitions; end-to-end timing remains noisy. [Owned weight transfer](../../docs/validation/mojev-owned-load-20260926.md)
+also removes about 3.01 GB of cumulative allocation while loading, reducing
+measured SIMD process peak RSS to about 4.76 GiB without changing live weights.
 
 `NewSIMDTextScorer(cpu, maxTokens)` uses prepacked assembly projections,
 SIMD attention and reusable scratch. `NewNVIDIATextScorer(cpu, maxTokens)` uses
