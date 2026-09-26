@@ -13,21 +13,23 @@ import (
 	"github.com/rcarmo/go-pherence/model/qwen3tts"
 )
 
-// probeFourMixed shares immutable weights across four capped requests. The
-// fixtures are independently pinned by main before this path is entered.
-func probeFourMixed(plans [2]qwen3tts.RuntimeRequestPlan, fixtures [2]fixture,
+// probeMixedCallers shares immutable weights across four or eight capped
+// requests. Main pins both independent fixtures before entering this path.
+func probeMixedCallers(callers int, plans [2]qwen3tts.RuntimeRequestPlan, fixtures [2]fixture,
 	t *qwen3tts.TalkerCPU, p *qwen3tts.CodePredictorCPU,
 	d *qwen3tts.Decoder12HzCPU, tok *tokenizer.Tokenizer, base uint64) {
-	const callers = 4
+	if callers != 4 && callers != 8 {
+		panic("invalid mixed caller count")
+	}
 	invalid := plans[0]
 	invalid.MaxFrames = qwen3tts.MaxCappedCPUFrames + 1
 	if partial, err := qwen3tts.GenerateCappedSeededCPU(invalid, t, p, d, fixtures[0].seed); err == nil || !reflect.DeepEqual(partial, qwen3tts.BoundedCPUResult{}) {
 		panic("invalid capped request returned partial output")
 	}
 	fmt.Println("invalid_request_rejected_without_partial=true")
-	var results [callers]qwen3tts.BoundedCPUResult
-	var errs [callers]error
-	var took [callers]time.Duration
+	results := make([]qwen3tts.BoundedCPUResult, callers)
+	errs := make([]error, callers)
+	took := make([]time.Duration, callers)
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := range results {
@@ -44,8 +46,8 @@ func probeFourMixed(plans [2]qwen3tts.RuntimeRequestPlan, fixtures [2]fixture,
 	begin := time.Now()
 	close(start)
 	wg.Wait()
-	fmt.Printf("four_returned wall=%s\n", time.Since(begin))
-	inspect("four_returned")
+	fmt.Printf("callers=%d mixed_returned wall=%s\n", callers, time.Since(begin))
+	inspect("mixed_returned")
 	for i, r := range results {
 		if errs[i] != nil {
 			panic(fmt.Sprintf("request_%d: %v", i, errs[i]))
@@ -66,9 +68,9 @@ func probeFourMixed(plans [2]qwen3tts.RuntimeRequestPlan, fixtures [2]fixture,
 		check(results[i], f.codes, f.wave, f.frames, f.threshold)
 	}
 	fmt.Println("independent_owned_results=true")
-	results = [callers]qwen3tts.BoundedCPUResult{}
+	clear(results)
 	runtime.GC()
-	after, peak := inspect("after_four_post_gc")
+	after, peak := inspect("after_mixed_post_gc")
 	if after > base+1048576 {
 		panic(fmt.Sprintf("retained heap grew by %d bytes", after-base))
 	}

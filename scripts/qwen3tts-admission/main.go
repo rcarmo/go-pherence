@@ -5,8 +5,8 @@
 // Append --mixed to test Hi/seed-42 against Hello world/seed-7 at 16 frames.
 // Append --retain-3 for three rounds of two 32-frame Hi requests, retaining
 // and rechecking earlier outputs while later rounds run.
-// Append --four-mixed for four simultaneous 16-frame requests using the
-// already pinned Hi/seed-42 and Hello world/seed-7 fixtures twice each.
+// Append --four-mixed or --eight-mixed for simultaneous 16-frame requests
+// alternating the already pinned Hi/seed-42 and Hello world/seed-7 fixtures.
 // For ownership/race evidence, rerun with go run -race. Race instrumentation
 // changes memory use: only the ordinary run is used for RSS admission.
 package main
@@ -123,12 +123,20 @@ type fixture struct {
 }
 
 func main() {
-	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed")) {
-		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed]")
+	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed" && os.Args[2] != "--eight-mixed")) {
+		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed|--eight-mixed]")
 	}
 	dir := os.Args[1]
-	four := len(os.Args) == 3 && os.Args[2] == "--four-mixed"
-	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || four)
+	callers := 0
+	if len(os.Args) == 3 {
+		switch os.Args[2] {
+		case "--four-mixed":
+			callers = 4
+		case "--eight-mixed":
+			callers = 8
+		}
+	}
+	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || callers > 0)
 	retain := len(os.Args) == 3 && os.Args[2] == "--retain-3"
 	for _, entry := range []struct {
 		path, sha string
@@ -306,8 +314,8 @@ func main() {
 		fmt.Printf("post_gc_delta_bytes=%d peak_rss_kib=%d\n", int64(after)-int64(base), peak)
 		return
 	}
-	if four {
-		probeFourMixed(plans, fixtures, t, p, d, tok, base)
+	if callers > 0 {
+		probeMixedCallers(callers, plans, fixtures, t, p, d, tok, base)
 		return
 	}
 	var results [2]qwen3tts.BoundedCPUResult
