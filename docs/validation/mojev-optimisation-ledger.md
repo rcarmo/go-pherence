@@ -20,6 +20,7 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Four-row SIMD recurrence | `ca406642`, merged as `649bf072` | Adopted with measured 31.73% local speedup, exact state/output transitions and unchanged independent model parity; full-request benefit remains uncertain. Details below. |
 | Owned weight transfer during loading | `661a3255` | About 3.01 GB less CPU-load allocation; measured SIMD peak RSS 5.78–5.90 → 4.76 GiB. [Ownership and load report](mojev-owned-load-20260926.md). |
 | Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
+| Single-pass convolution multiply/add | See [qualification](mojev-muladd-20260926.md) | Removes product-row traffic while preserving both F32 roundings; another −25.46% on the convolution microbenchmark, zero allocations. Candidate grouped race passed363.16s; all576 timed/warmup responses exact. Two request matrices disagree (+16.39% / −3.18%); no whole-model speedup or retained-memory claim. |
 
 ## Four-row recurrence
 

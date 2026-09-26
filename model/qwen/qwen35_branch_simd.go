@@ -310,12 +310,9 @@ func (s *Qwen35SIMDBranch) ForwardTreeIntoContext(ctx context.Context, dst []flo
 			}
 			conv := b("conv", 6144)
 			cw := l.Conv1D.Data()
-			// No projection jobs are pending after project returns. Its padding
-			// input is idle here and supplies a row of temporary products.
-			products := s.scratch["padIn"][:6144]
 			for t := 0; t < n; t++ {
 				row := conv[t*6144 : (t+1)*6144]
-				qwen35BranchConvRow(row, qkv, cw, products, parents[:n], t)
+				qwen35BranchConvRow(row, qkv, cw, parents[:n], t)
 				siluInPlace(row)
 				for h := 0; h < 32; h++ {
 					qwen35BranchL2Norm(row[h*128:(h+1)*128], eps)

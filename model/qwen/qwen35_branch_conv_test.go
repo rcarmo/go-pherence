@@ -46,13 +46,13 @@ func TestBranchConvRow(t *testing.T) {
 		simd.HasVecAsm = enabled
 		x, w, parents := branchConvFixture()
 		savedX, savedW := append([]float32(nil), x...), append([]float32(nil), w...)
-		dstStore, tmpStore := make([]float32, 6146), make([]float32, 6146)
-		dstStore[0], dstStore[6145], tmpStore[0], tmpStore[6145] = 17, -23, 29, -31
-		dst, tmp := dstStore[1:6145], tmpStore[1:6145]
+		dstStore := make([]float32, 6146)
+		dstStore[0], dstStore[6145] = 17, -23
+		dst := dstStore[1:6145]
 		want := make([]float32, 6144)
 		for token := range parents {
 			branchConvRowReference(want, x, w, parents, token)
-			qwen35BranchConvRow(dst, x, w, tmp, parents, token)
+			qwen35BranchConvRow(dst, x, w, parents, token)
 			for i, a := range want {
 				if math.Float32bits(a) != math.Float32bits(dst[i]) {
 					t.Fatalf("dispatch=%t token=%d channel=%d got=%x want=%x", enabled, token, i, math.Float32bits(dst[i]), math.Float32bits(a))
@@ -61,17 +61,17 @@ func TestBranchConvRow(t *testing.T) {
 		}
 		requireExactFloat32Slice(t, "x", x, savedX)
 		requireExactFloat32Slice(t, "w", w, savedW)
-		if dstStore[0] != 17 || dstStore[6145] != -23 || tmpStore[0] != 29 || tmpStore[6145] != -31 {
-			t.Fatal("output/product guard overwritten")
+		if dstStore[0] != 17 || dstStore[6145] != -23 {
+			t.Fatal("output guard overwritten")
 		}
 		// Token3 is a sibling of tokens4..8, never their ancestor.
-		qwen35BranchConvRow(want, x, w, tmp, parents, 8)
+		qwen35BranchConvRow(want, x, w, parents, 8)
 		for i := 3 * 6144; i < 4*6144; i++ {
 			x[i] += 1
 		}
-		qwen35BranchConvRow(dst, x, w, tmp, parents, 8)
+		qwen35BranchConvRow(dst, x, w, parents, 8)
 		requireExactFloat32Slice(t, "unrelated sibling", dst, want)
-		if n := testing.AllocsPerRun(20, func() { qwen35BranchConvRow(dst, x, w, tmp, parents, 8) }); n != 0 {
+		if n := testing.AllocsPerRun(20, func() { qwen35BranchConvRow(dst, x, w, parents, 8) }); n != 0 {
 			t.Fatalf("allocations=%g", n)
 		}
 	}
@@ -89,14 +89,14 @@ func BenchmarkBranchConvRow(b *testing.B) {
 					}
 				}
 			}
-			dst, tmp := make([]float32, 6144), make([]float32, 6144)
+			dst := make([]float32, 6144)
 			b.ReportAllocs()
 			b.ResetTimer()
 			for b.Loop() {
 				if name == "scalar" {
 					branchConvRowReference(dst, x, w, parents, 8)
 				} else {
-					qwen35BranchConvRow(dst, x, w, tmp, parents, 8)
+					qwen35BranchConvRow(dst, x, w, parents, 8)
 				}
 			}
 		})
