@@ -123,6 +123,13 @@ and tested launch before downloading. This narrows future asynchronous-error
 attribution. These diagnostic-only changes compile and pass model-free
 races/vet/docs checks; they have not been run on GPU since the fault.
 
+Post-maintenance, a [fail-closed GPU state guard](mojev-gpu-guard-20260926.md)
+now provides bounded health queries, journal-cursor/Xid tracking, identity checks,
+flushed evidence and supervised workload termination. CPU fault injection and
+monitor-only runs passed on proprietary driver610.57.04; no CUDA kernel was
+executed for guard acceptance. This addresses the observation gap, not the cause
+of bus loss or physical-host telemetry requirements.
+
 Before further GPU execution:
 
 1. Preserve guest and physical-host logs/crash state; authorised recovery is
