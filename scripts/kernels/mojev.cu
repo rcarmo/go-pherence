@@ -150,3 +150,64 @@ extern "C" __global__ void mj_tree_attention(const float* qg,const float* k,cons
  }
  out[t*2048+h*256+d]=(acc/denom)*sigmoid(qg[t*4096+h*512+256+d]);
 }
+// One warp per query/head. Reproduce the original 8x32 reduction tree without
+// block-wide shared-memory barriers; eight warps cover distinct queries.
+extern "C" __global__ void mj_tree_attention_warp(const float* qg,const float* k,const float* v,float* out,int rows,const int* tree,int prefix){
+ int item=blockIdx.x*8+(threadIdx.x>>5),lane=threadIdx.x&31;
+ if(item>=rows*8)return;
+ int t=item/8,h=item%8,kh=h/4;
+ int start=tree[t*4+2],end=tree[t*4+3],ancestors=start>0?prefix:0;
+ float q[8],acc[8]={},maxv=-INFINITY,denom=0;
+ #pragma unroll
+ for(int d=0;d<8;d++)q[d]=qg[t*4096+h*512+d*32+lane];
+ for(int i=0;i<ancestors+end-start;i++){
+  int j=i<ancestors?i:start+i-ancestors;
+  float sum=0;
+  #pragma unroll
+  for(int d=0;d<8;d++){
+   float part=q[d]*k[j*512+kh*256+d*32+lane];
+   #pragma unroll
+   for(int shift=16;shift;shift>>=1)part+=__shfl_down_sync(0xffffffff,part,shift);
+   float headSum=__shfl_sync(0xffffffff,part,0);
+   if(lane==d)sum=headSum;
+  }
+  #pragma unroll
+  for(int shift=16;shift;shift>>=1)sum+=__shfl_down_sync(0xffffffff,sum,shift);
+  float score=__shfl_sync(0xffffffff,sum,0)*0.0625f;
+  float next=fmaxf(maxv,score),old=expf(maxv-next),weight=expf(score-next);
+  denom=denom*old+weight;
+  #pragma unroll
+  for(int d=0;d<8;d++)acc[d]=acc[d]*old+weight*v[j*512+kh*256+d*32+lane];
+  maxv=next;
+ }
+ #pragma unroll
+ for(int d=0;d<8;d++)out[t*2048+h*256+d*32+lane]=(acc[d]/denom)*sigmoid(qg[t*4096+h*512+256+d*32+lane]);
+}
+
+// Once per token/head, using the exact scalar operations of mj_tree_delta.
+extern "C" __global__ void mj_delta_params(float* alpha,float* beta,const float* dt,const float* a,int rows){
+ int i=blockIdx.x*256+threadIdx.x;if(i>=rows*16)return;int h=i%16;
+ float av=alpha[i]+dt[h];float step=av>20?av:log1pf(expf(av));
+ alpha[i]=expf(step*a[h]);beta[i]=sigmoid(beta[i]);
+}
+extern "C" __global__ void mj_tree_delta_prepared(const float* qkv,const float* alpha,const float* beta,const float* dt,const float* a,float* out,int rows,const int* tree){
+ int h=blockIdx.x/16,v=(blockIdx.x%16)*8+(threadIdx.x>>5),lane=threadIdx.x&31;
+ float state[4]={0,0,0,0},fork[4]={0,0,0,0};bool saved=false;
+ for(int t=0;t<rows;t++){
+  if(tree[t*4+2]>0 && t==tree[t*4+2]){
+   if(!saved){for(int j=0;j<4;j++)fork[j]=state[j];saved=true;}
+   else {for(int j=0;j<4;j++)state[j]=fork[j];}
+  }
+  float b=beta[t*16+h],decay=alpha[t*16+h];
+  float k[4],q[4],pred=0;
+  #pragma unroll
+  for(int j=0;j<4;j++){int idx=h*128+lane+j*32;k[j]=qkv[t*6144+2048+idx];q[j]=qkv[t*6144+idx];state[j]*=decay;pred+=state[j]*k[j];}
+  for(int d=16;d;d>>=1)pred+=__shfl_down_sync(0xffffffff,pred,d);
+  pred=__shfl_sync(0xffffffff,pred,0);
+  float delta=(qkv[t*6144+4096+h*128+v]-pred)*b;float result=0;
+  #pragma unroll
+  for(int j=0;j<4;j++){state[j]+=k[j]*delta;result+=state[j]*q[j];}
+  for(int d=16;d;d>>=1)result+=__shfl_down_sync(0xffffffff,result,d);
+  if(lane==0)out[t*2048+h*128+v]=result*0.08838834764831845f;
+ }
+}

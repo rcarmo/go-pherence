@@ -90,7 +90,7 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScor
 			}
 		}
 	}()
-	names := []string{"mj_gemm", "mj_norm", "mj_add", "mj_silu_mul", "mj_conv", "mj_l2", "mj_delta", "mj_gated_norm", "mj_qk_norm_rope", "mj_attention", "mj_tree_conv", "mj_tree_delta", "mj_tree_qk_norm_rope", "mj_tree_attention"}
+	names := []string{"mj_gemm", "mj_norm", "mj_add", "mj_silu_mul", "mj_conv", "mj_l2", "mj_delta", "mj_gated_norm", "mj_qk_norm_rope", "mj_attention", "mj_tree_conv", "mj_tree_delta", "mj_tree_qk_norm_rope", "mj_tree_attention", "mj_delta_params", "mj_tree_delta_prepared", "mj_tree_attention_warp"}
 	module, err := nvidia.LoadPTXFunctions(ptx.MoJev, names)
 	if err != nil {
 		return nil, err
@@ -318,7 +318,7 @@ func (g *NVIDIATextScorer) encodeTreeContext(ctx context.Context, b TextBranch, 
 			qkv, conv, cw := s["qkv"], s["conv"], w["conv"]
 			convName, deltaName := "mj_conv", "mj_delta"
 			if ends != nil {
-				convName, deltaName = "mj_tree_conv", "mj_tree_delta"
+				convName, deltaName = "mj_tree_conv", "mj_tree_delta_prepared"
 			}
 			if e := g.queueTree(convName, (n*6144+255)/256, ends != nil, uint64(qkv.Ptr), uint64(cw.Ptr), uint64(conv.Ptr), r, uint64(g.tree.Ptr)); e != nil {
 				return nil, e
@@ -327,6 +327,12 @@ func (g *NVIDIATextScorer) encodeTreeContext(ctx context.Context, b TextBranch, 
 				return nil, e
 			}
 			a, dt, alpha, beta, out := w["a"], w["dt"], s["alpha"], s["beta"], s["attn"]
+			// Each head's scalar parameters are shared by all 128 value rows.
+			if ends != nil {
+				if e := g.queue("mj_delta_params", (n*16+255)/256, 1, uint64(alpha.Ptr), uint64(beta.Ptr), uint64(dt.Ptr), uint64(a.Ptr), r); e != nil {
+					return nil, e
+				}
+			}
 			if e := g.queueTree(deltaName, 256, ends != nil, uint64(conv.Ptr), uint64(alpha.Ptr), uint64(beta.Ptr), uint64(dt.Ptr), uint64(a.Ptr), uint64(out.Ptr), r, uint64(g.tree.Ptr)); e != nil {
 				return nil, e
 			}
@@ -358,10 +364,12 @@ func (g *NVIDIATextScorer) encodeTreeContext(ctx context.Context, b TextBranch, 
 			}
 			q, k, v, out := s["qg"], s["k"], s["v"], s["attn"]
 			attentionName, arg1, arg2 := "mj_attention", uint64(b.StateLen), uint64(b.QuestionLen)
+			blocks := n * 8
 			if ends != nil {
-				attentionName, arg1, arg2 = "mj_tree_attention", uint64(g.tree.Ptr), uint64(b.StateLen+b.QuestionLen)
+				attentionName, arg1, arg2 = "mj_tree_attention_warp", uint64(g.tree.Ptr), uint64(b.StateLen+b.QuestionLen)
+				blocks = n // eight query/head warps per block
 			}
-			if e := g.queue(attentionName, n*8, 1, uint64(q.Ptr), uint64(k.Ptr), uint64(v.Ptr), uint64(out.Ptr), r, arg1, arg2); e != nil {
+			if e := g.queue(attentionName, blocks, 1, uint64(q.Ptr), uint64(k.Ptr), uint64(v.Ptr), uint64(out.Ptr), r, arg1, arg2); e != nil {
 				return nil, e
 			}
 		}
