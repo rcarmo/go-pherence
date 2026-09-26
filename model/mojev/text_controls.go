@@ -20,6 +20,11 @@ func ValidateTextControls(req TextRequest, tok *tokenizer.Tokenizer) error {
 		}
 		return nil
 	}
+	if req.structuredState {
+		if err := validateStructuredState([]byte(req.State), tok.ValidateUserText); err != nil {
+			return fmt.Errorf("mojev: structured state: %w", err)
+		}
+	}
 	if err := check("state", req.State); err != nil {
 		return err
 	}

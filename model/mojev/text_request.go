@@ -14,8 +14,9 @@ import (
 // TextRequest is a bounded, text-state subset of MoJev's public request.
 // Field order and caller-order keys are retained for prompt and answer assembly.
 type TextRequest struct {
-	Model, State string
-	Fields       []TextRequestField
+	Model, State    string
+	Fields          []TextRequestField
+	structuredState bool // private: only the explicit SystemOne decoder enables it
 }
 type TextRequestField struct {
 	ID, Kind, Instructions       string
@@ -28,6 +29,10 @@ const maxTextRequestBytes = 1 << 20
 // DecodeTextRequest validates a text-only subset. It does not invoke a model,
 // accept image/structured state, or implement HTTP/SDK request validation.
 func DecodeTextRequest(reader io.Reader) (TextRequest, error) {
+	return decodeTextRequest(reader, false)
+}
+
+func decodeTextRequest(reader io.Reader, structured bool) (TextRequest, error) {
 	var zero TextRequest
 	if reader == nil {
 		return zero, fmt.Errorf("mojev: nil reader")
@@ -54,7 +59,11 @@ func DecodeTextRequest(reader io.Reader) (TextRequest, error) {
 		case "model":
 			out.Model, err = textValue(d)
 		case "state":
-			out.State, err = textValue(d)
+			if structured {
+				out.State, out.structuredState, err = readSystemOneState(d)
+			} else {
+				out.State, err = textValue(d)
+			}
 		case "questions":
 			out.Fields, err = readTextQuestions(d)
 		default:

@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "source_revision": "b18ee0d4748bac436999aa72c000e06406c3cce6",
+  "source_sha256": "1cd60986f1a3e37d07f7743e9e126d26a96f54047527836062b453e410b7fde8",
+  "cases": [
+    {
+      "name": "text",
+      "raw": "\"  café \u003cliteral\u003e  \"",
+      "text": "  café \u003cliteral\u003e  ",
+      "valid": true
+    },
+    {
+      "name": "object",
+      "raw": "{ \"z\": 1.2300e+02, \"a\": [true, null, {\"x\":\"café\"}] }",
+      "text": "{\"z\":1.2300e+02,\"a\":[true,null,{\"x\":\"café\"}]}",
+      "valid": true
+    },
+    {
+      "name": "array",
+      "raw": "[ \"x\", 9007199254740993, -0.0, {} ]",
+      "text": "[\"x\",9007199254740993,-0.0,{}]",
+      "valid": true
+    },
+    {
+      "name": "null",
+      "raw": "null",
+      "text": "null",
+      "valid": true
+    },
+    {
+      "name": "escapes",
+      "raw": "{\"\\u0062\":\"\\u003cmarker\\u003e\",\"line\":\"a\\nb\"}",
+      "text": "{\"\\u0062\":\"\\u003cmarker\\u003e\",\"line\":\"a\\nb\"}",
+      "valid": true
+    },
+    {
+      "name": "empty-object",
+      "raw": "{}",
+      "text": "{}",
+      "valid": true
+    },
+    {
+      "name": "empty-array",
+      "raw": "[]",
+      "text": "[]",
+      "valid": true
+    },
+    {
+      "name": "bool",
+      "raw": "true",
+      "text": "",
+      "valid": false
+    },
+    {
+      "name": "number",
+      "raw": "42",
+      "text": "",
+      "valid": false
+    },
+    {
+      "name": "two-values",
+      "raw": "{} []",
+      "text": "",
+      "valid": false
+    }
+  ]
+}
