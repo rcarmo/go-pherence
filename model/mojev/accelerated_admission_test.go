@@ -32,14 +32,15 @@ func TestMoJevAcceleratedAdmission(t *testing.T) {
 	if backend != "simd" && backend != "nvidia" {
 		t.Fatal("unsupported admission backend")
 	}
-	// Instrumented runs can select one retention round while preserving all
-	// shapes, eight callers and cancellation checks. Report this narrower scope.
+	// Instrumented runs can select one round; longer opt-in retention runs
+	// reuse the same bounded requests, ownership and cancellation checks.
+	// Keep the ordinary released/race gate at three rounds and report overrides.
 	rounds := 3
 	if value := os.Getenv("GO_PHERENCE_MOJEV_ADMISSION_ROUNDS"); value != "" {
 		var err error
 		rounds, err = strconv.Atoi(value)
-		if err != nil || rounds < 1 || rounds > 3 {
-			t.Fatal("admission rounds must be 1..3")
+		if err != nil || rounds < 1 || rounds > 60 {
+			t.Fatal("admission rounds must be 1..60")
 		}
 	}
 	t.Logf("ADMISSION_CONFIG backend=%s capacity=512 retention_rounds=%d callers=8", backend, rounds)

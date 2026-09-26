@@ -23,7 +23,10 @@ for cancellable waiting/execution with no partial outputs. GPU cancellation
 drains submitted work; it cannot preempt a running kernel. The
 [bounded capacity and retention probe](../../docs/validation/mojev-accelerated-admission-20260926.md)
 records 512-token paths, 4096-token grouped requests and eight serialized callers,
-including separate ordinary/race memory budgets and the SIMD race timeout.
+including separate ordinary/race memory budgets. The
+[extended reuse follow-up](../../docs/validation/mojev-retention-followup-20260926.md)
+closes the earlier three-round SIMD race timeout and records completed 20-round
+SIMD and 60-round GPU reuse tests.
 The [512-token F32 reference](../../docs/validation/mojev-long-f32-normalisation-20260926.md)
 also checks sampled branch/tree hidden states and records the corrected Q/K
 normalisation epsilon placement; older scores may change slightly. The
