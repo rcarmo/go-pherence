@@ -254,28 +254,12 @@ func scoreTextContextWith(ctx context.Context, req TextRequest, tok *tokenizer.T
 		}
 		return ids, nil
 	}
-	packed, err := prepared.pack(stateLimit, questionLimit, 0, encode)
+	encoded, err := encodeTextRows([]TextRow{{State: prepared.req.State, Menus: prepared.menus}}, prepared.fields, stateLimit, questionLimit, encode)
 	if err != nil {
 		return nil, err
 	}
-	selectIDs := func(span []bool) []int {
-		var ids []int
-		for i, on := range span {
-			if on {
-				ids = append(ids, packed.IDs[0][i])
-			}
-		}
-		return ids
-	}
-	row := EncodedRow{State: selectIDs(packed.State[0]), Questions: make([][]int, len(prepared.fields)), Candidates: make([][][]int, len(prepared.fields))}
-	for f := range prepared.fields {
-		row.Questions[f] = selectIDs(packed.Questions[0][f])
-		for n, on := range packed.OptionMask[0][f] {
-			if on {
-				row.Candidates[f] = append(row.Candidates[f], selectIDs(packed.Candidates[0][f][n]))
-			}
-		}
-	}
+	row := encoded[0]
+	tokens := encodedRowTokenCount(row)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -293,7 +277,7 @@ func scoreTextContextWith(ctx context.Context, req TextRequest, tok *tokenizer.T
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	answer, err := prepared.assemble(rows, packed.PackedMask[0])
+	answer, err := prepared.assembleTokens(rows, tokens)
 	if err != nil {
 		return nil, err
 	}

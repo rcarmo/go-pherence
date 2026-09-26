@@ -73,6 +73,16 @@ func (p *preparedTextDecision) pack(stateLimit, questionLimit, padID int, encode
 }
 
 func (p *preparedTextDecision) assemble(sortedLogits [][]float64, packedMask []bool) (*TextDecision, error) {
+	tokens := 0
+	for _, present := range packedMask {
+		if present {
+			tokens++
+		}
+	}
+	return p.assembleTokens(sortedLogits, tokens)
+}
+
+func (p *preparedTextDecision) assembleTokens(sortedLogits [][]float64, tokens int) (*TextDecision, error) {
 	if p == nil || len(sortedLogits) != len(p.req.Fields) {
 		return nil, fmt.Errorf("mojev: invalid text decision geometry")
 	}
@@ -87,11 +97,7 @@ func (p *preparedTextDecision) assemble(sortedLogits [][]float64, packedMask []b
 		}
 		out.Answers[field.ID] = answer
 	}
-	for _, present := range packedMask {
-		if present {
-			out.Usage.InputTokens++
-		}
-	}
+	out.Usage.InputTokens = tokens
 	return out, nil
 }
 

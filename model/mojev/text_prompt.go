@@ -49,8 +49,21 @@ func renderChoicePrompt(field TextField) (string, error) {
 // and delegates owned span packing to PackEncodedRows. It does not insert chat
 // templates, process images or execute the encoder. Limits apply per segment.
 func PackTextRows(rows []TextRow, fields []TextField, stateLimit, questionLimit, padID int, encode TextEncoder) (*PackedRows, error) {
+	if padID < 0 {
+		return nil, fmt.Errorf("mojev: invalid text-packing geometry")
+	}
+	encoded, err := encodeTextRows(rows, fields, stateLimit, questionLimit, encode)
+	if err != nil {
+		return nil, err
+	}
+	return PackEncodedRows(encoded, padID)
+}
+
+// encodeTextRows keeps validated token segments for branch-local inference;
+// public packed callers materialise their masks only after this shared stage.
+func encodeTextRows(rows []TextRow, fields []TextField, stateLimit, questionLimit int, encode TextEncoder) ([]EncodedRow, error) {
 	if encode == nil || len(fields) == 0 || len(fields) > 256 || len(rows) == 0 || len(rows) > 16 ||
-		padID < 0 || stateLimit <= 0 || stateLimit > 4096 || questionLimit <= 0 || questionLimit > 4096 {
+		stateLimit <= 0 || stateLimit > 4096 || questionLimit <= 0 || questionLimit > 4096 {
 		return nil, fmt.Errorf("mojev: invalid text-packing geometry")
 	}
 	prompts := make([][]int, len(fields))
@@ -113,6 +126,20 @@ func PackTextRows(rows []TextRow, fields []TextField, stateLimit, questionLimit,
 				}
 			}
 		}
+		if encodedRowTokenCount(encoded[r]) > 4096 {
+			return nil, fmt.Errorf("mojev: packed row exceeds reference limit")
+		}
 	}
-	return PackEncodedRows(encoded, padID)
+	return encoded, nil
+}
+
+func encodedRowTokenCount(row EncodedRow) int {
+	n := len(row.State)
+	for f, q := range row.Questions {
+		n += len(q)
+		for _, candidate := range row.Candidates[f] {
+			n += len(candidate)
+		}
+	}
+	return n
 }

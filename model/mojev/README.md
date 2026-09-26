@@ -17,7 +17,9 @@ This reduces retained memory without an established latency improvement.
 [Byte-level tokenisation scratch reuse](../../docs/validation/mojev-tokenizer-allocations-20260926.md)
 also cuts measured request allocations by about 40–64%, with unchanged token IDs
 and public responses. The tokenizer microbenchmarks improve; full-request
-latency has no established gain.
+latency has no established gain. Native scoring also [uses token segments directly](../../docs/validation/mojev-direct-segments-20260926.md)
+instead of constructing masks and extracting the same segments again; public
+packed-row APIs are unchanged.
 See the
 [allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
 for measurements, ownership rules and open qualification work. Both the
