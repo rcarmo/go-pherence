@@ -5,7 +5,12 @@ SIMD attention and reusable scratch. `NewNVIDIATextScorer(cpu, maxTokens)` uses
 resident F32 PTX weights on compute capability 8.6 or later. Both are explicit
 opt-ins with 3–512 tokens per candidate path. Check the GPU scorer's `Close()`
 error and retry cleanup on failure. A constructor cleanup failure can return
-both an error and a non-nil closed scorer solely for retrying `Close`. See the
+both an error and a non-nil closed scorer solely for retrying `Close`. The GPU
+scorer retains only host embeddings/head after upload, leaving the caller's CPU
+scorer usable. Dropping that CPU scorer releases about 1.99 GB of live heap;
+successful GPU close releases its host view too. Peak loading RSS is unchanged.
+See the [host lifetime measurements](../../docs/validation/mojev-gpu-host-lifetime-20260926.md).
+See the
 [allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
 for measurements, ownership rules and open qualification work. Both the
 [SIMD scorer](../../docs/validation/mojev-simd-tree-20260925.md) and

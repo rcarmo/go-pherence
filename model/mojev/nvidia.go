@@ -35,7 +35,8 @@ type gpuLayer struct {
 // NVIDIATextScorer is an explicitly selected, bounded resident PTX backend for
 // the repaired F32 text policy. Calls are serialised over reusable GPU scratch;
 // no candidate KV/recurrent state survives a branch. Close waits for active work.
-// The CPU scorer supplies immutable embeddings and the F32 head readout.
+// The CPU scorer supplies immutable embeddings and the F32 head readout; the
+// uploaded encoder is not retained. The caller's CPU scorer remains usable.
 type NVIDIATextScorer struct {
 	mu                    contextmutex.Mutex
 	cpu                   *TextScorer
@@ -76,7 +77,11 @@ func NewNVIDIATextScorer(cpu *TextScorer, maxTokens int) (result *NVIDIATextScor
 	if free < 4<<30 {
 		return nil, fmt.Errorf("mojev: insufficient free GPU memory (need 4 GiB headroom)")
 	}
-	g := &NVIDIATextScorer{cpu: cpu, maxTokens: maxTokens, scratch: map[string]*nvidia.Buffer{}, kernels: map[string]nvidia.CUfunction{}}
+	// Keep only immutable host data still used after upload. Retaining cpu
+	// itself would unnecessarily keep its ~2GB encoder layers alive. This view
+	// neither mutates the caller's scorer nor copies the embedding/head payload.
+	host := &TextScorer{head: cpu.head, embedding: cpu.embedding, meta: cpu.meta, eps: cpu.eps}
+	g := &NVIDIATextScorer{cpu: host, maxTokens: maxTokens, scratch: map[string]*nvidia.Buffer{}, kernels: map[string]nvidia.CUfunction{}}
 	ok := false
 	defer func() {
 		if !ok {
@@ -183,6 +188,7 @@ func (g *NVIDIATextScorer) ResidentBytes() int64 {
 // Close waits for active work and releases the module and device buffers. A
 // driver failure closes inference immediately but retains resources for a later
 // Close retry; callers must check its error before shutting down the runtime.
+// Successful close also drops the host embedding/head references.
 func (g *NVIDIATextScorer) Close() error {
 	if g == nil {
 		return nil
@@ -209,6 +215,7 @@ func (g *NVIDIATextScorer) Close() error {
 	g.commands = nil
 	g.hostInput, g.hostOutput = nil, nil
 	g.tree, g.treeRows = nil, nil
+	g.cpu = nil
 	g.resident = 0
 	return nil
 }
@@ -435,8 +442,18 @@ func (g *NVIDIATextScorer) ScoreText(req TextRequest, tok *tokenizer.Tokenizer, 
 
 // ScoreTextContext is the cancellable tokenizer, scorer and answer path.
 func (g *NVIDIATextScorer) ScoreTextContext(ctx context.Context, req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int) (*TextDecision, error) {
-	if g == nil || g.cpu == nil {
+	if g == nil {
 		return nil, fmt.Errorf("mojev: nil GPU scorer")
 	}
-	return g.cpu.scoreTextContext(ctx, req, tok, stateLimit, questionLimit, func(row EncodedRow) ([][]float32, error) { return g.ScoreEncodedContext(ctx, row) })
+	if err := g.mu.LockContext(ctx); err != nil {
+		return nil, err
+	}
+	ready := !g.closed && g.cpu != nil
+	g.mu.Unlock()
+	// Preprocessing needs no weights. If Close wins before inference, the
+	// locked ScoreEncodedContext callback rejects the request transactionally.
+	if !ready {
+		return nil, fmt.Errorf("mojev: GPU scorer closed or uninitialized")
+	}
+	return scoreTextContextWith(ctx, req, tok, stateLimit, questionLimit, func(row EncodedRow) ([][]float32, error) { return g.ScoreEncodedContext(ctx, row) })
 }

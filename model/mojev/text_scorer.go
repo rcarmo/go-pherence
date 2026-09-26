@@ -222,6 +222,21 @@ func (s *TextScorer) scoreTextContext(ctx context.Context, req TextRequest, tok 
 	if s == nil || s.model == nil {
 		return nil, fmt.Errorf("mojev: uninitialised text scorer")
 	}
+	return scoreTextContextWith(ctx, req, tok, stateLimit, questionLimit, score)
+}
+
+// Common tokenizer/answer orchestration has no dependency on CPU encoder
+// weights. Accelerators supply a scorer callback and retain only host readout.
+func scoreTextContextWith(ctx context.Context, req TextRequest, tok *tokenizer.Tokenizer, stateLimit, questionLimit int, score func(EncodedRow) ([][]float32, error)) (*TextDecision, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("mojev: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if score == nil {
+		return nil, fmt.Errorf("mojev: nil scoring callback")
+	}
 	if err := ValidateTextControls(req, tok); err != nil {
 		return nil, err
 	}
