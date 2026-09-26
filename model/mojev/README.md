@@ -14,6 +14,10 @@ The SIMD scorer likewise retains [packed projection weights only](../../docs/val
 releasing about 1.99 GB of original projections when the caller drops its CPU
 scorer. Its scalar fallback reads packed panels; numerical gates are unchanged.
 This reduces retained memory without an established latency improvement.
+[Byte-level tokenisation scratch reuse](../../docs/validation/mojev-tokenizer-allocations-20260926.md)
+also cuts measured request allocations by about 40–64%, with unchanged token IDs
+and public responses. The tokenizer microbenchmarks improve; full-request
+latency has no established gain.
 See the
 [allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
 for measurements, ownership rules and open qualification work. Both the

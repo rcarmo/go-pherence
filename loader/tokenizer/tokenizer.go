@@ -387,31 +387,33 @@ func (t *Tokenizer) byteLevelPattern() *regexp.Regexp {
 func (t *Tokenizer) encodeByteLevel(text string) []int {
 	t.initMergeRank()
 	mergeRank := t.mergeRank
-	byteEncoder := getByteEncoder()
+	getByteEncoder() // initialise the immutable byte-symbol table once
 
 	pieces := splitWhitespaceRuns(t.byteLevelPattern().FindAllString(text, -1))
 	var ids []int
+	var symbols []string // local scratch, reused across this call's pieces only
 	for _, piece := range pieces {
 		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
-		symbols := make([]string, 0, len(piece))
+		symbols = symbols[:0]
 		for i := 0; i < len(piece); i++ {
-			symbols = append(symbols, string(byteEncoder[piece[i]]))
+			symbols = append(symbols, byteEncoderSymbols[piece[i]])
 		}
 		if len(symbols) == 0 {
 			continue
 		}
-		ids = append(ids, t.bpeMerge(symbols, mergeRank)...)
+		ids = t.bpeMerge(symbols, mergeRank, ids)
 	}
 	return ids
 }
 
 // bpeMerge applies rank-ordered pair merges to a symbol list and resolves the
-// result to vocab IDs.
-func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []int {
+// result to vocab IDs appended to ids. symbols is caller-owned scratch and is
+// modified in place; no mutable state or input text is cached on the tokenizer.
+func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int, ids []int) []int {
 	// Direct lookup for the whole joined piece first.
 	if joined := strings.Join(symbols, ""); len(symbols) > 1 {
 		if id, ok := t.Vocab[joined]; ok {
-			return []int{id}
+			return append(ids, id)
 		}
 	}
 	for len(symbols) >= 2 {
@@ -426,14 +428,11 @@ func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []in
 		if bestIdx < 0 {
 			break
 		}
-		merged := symbols[bestIdx] + symbols[bestIdx+1]
-		newSyms := make([]string, 0, len(symbols)-1)
-		newSyms = append(newSyms, symbols[:bestIdx]...)
-		newSyms = append(newSyms, merged)
-		newSyms = append(newSyms, symbols[bestIdx+2:]...)
-		symbols = newSyms
+		symbols[bestIdx] += symbols[bestIdx+1]
+		copy(symbols[bestIdx+1:], symbols[bestIdx+2:])
+		symbols[len(symbols)-1] = ""
+		symbols = symbols[:len(symbols)-1]
 	}
-	ids := make([]int, 0, len(symbols))
 	for _, s := range symbols {
 		if id, ok := t.Vocab[s]; ok {
 			ids = append(ids, id)
@@ -521,8 +520,9 @@ func (t *Tokenizer) VocabSize() int {
 }
 
 var (
-	_byteEncoder     map[byte]rune
-	_byteEncoderOnce sync.Once
+	byteEncoderSymbols [256]string
+	_byteEncoder       map[byte]rune
+	_byteEncoderOnce   sync.Once
 )
 
 func getByteEncoder() map[byte]rune {
@@ -552,6 +552,9 @@ func getByteEncoder() map[byte]rune {
 				_byteEncoder[byte(i)] = rune(n)
 				n++
 			}
+		}
+		for b, r := range _byteEncoder {
+			byteEncoderSymbols[b] = string(r)
 		}
 	})
 	return _byteEncoder
