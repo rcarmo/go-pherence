@@ -19,31 +19,40 @@ import (
 // weights are immutable; one mutex serialises reusable scratch. The causal
 // generation APIs and scalar branch reference are unchanged.
 type Qwen35SIMDBranch struct {
-	mu        contextmutex.Mutex
-	model     *Qwen35BaseModel
-	meta      cfg.QwenNativeMTPMetadata
-	maxTokens int
-	packed    map[*tensor.Tensor][]float32
-	scratch   map[string][]float32
-	jobs      chan branchProjectionJob
-	jobWait   sync.WaitGroup
-	jobFailed [6]bool
+	mu         contextmutex.Mutex
+	model      *Qwen35BaseModel
+	meta       cfg.QwenNativeMTPMetadata
+	maxTokens  int
+	packed     map[*tensor.Tensor][]float32
+	packedOnly bool // constructor-owned projection handles contain no raw data
+	scratch    map[string][]float32
+	jobs       chan branchProjectionJob
+	jobWait    sync.WaitGroup
+	jobFailed  [6]bool
 }
 
 func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, maxTokens int) (*Qwen35SIMDBranch, error) {
 	if err := ValidateQwen35F32Branch(m, meta, maxTokens); err != nil {
 		return nil, err
 	}
-	out := &Qwen35SIMDBranch{model: m, meta: meta, maxTokens: maxTokens, packed: map[*tensor.Tensor][]float32{}, scratch: map[string][]float32{}}
-	pack := func(t *tensor.Tensor, in, n int) error {
-		if t == nil || len(t.Data()) != in*n {
+	// Copy layer metadata so replacing projection handles cannot mutate the
+	// caller's model. Non-projection norms/convolution weights stay shared.
+	model := &Qwen35BaseModel{Layers: make([]Qwen35BaseLayer, len(m.Layers))}
+	out := &Qwen35SIMDBranch{model: model, meta: meta, maxTokens: maxTokens, packedOnly: true, packed: map[*tensor.Tensor][]float32{}, scratch: map[string][]float32{}}
+	pack := func(dst **tensor.Tensor, in, n int) error {
+		t := *dst
+		if t == nil || len(t.Data()) != in*n || n%16 != 0 {
 			return fmt.Errorf("qwen: missing dense SIMD tensor")
 		}
 		p, e := simd.PackSgemmNTWeights(t.Data(), n, in, in)
 		if e != nil {
 			return e
 		}
-		out.packed[t] = p
+		// An identity-only handle keys the packed projection, without retaining
+		// the original tensor/data. It is never passed to a raw tensor operation.
+		handle := &tensor.Tensor{}
+		out.packed[handle] = p
+		*dst = handle
 		return nil
 	}
 	for idx, layer := range m.Layers {
@@ -55,7 +64,7 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 			return nil, fmt.Errorf("qwen: unexpected SIMD layer %d", idx)
 		}
 		type weight struct {
-			t     *tensor.Tensor
+			t     **tensor.Tensor
 			in, n int
 		}
 		var ws []weight
@@ -64,13 +73,17 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 			if e := ValidateQwen35LinearAttentionLayer(l, meta, "SIMD"); e != nil {
 				return nil, e
 			}
-			ws = []weight{{l.QKVW, 1024, 6144}, {l.GateW, 1024, 2048}, {l.AlphaW, 1024, 16}, {l.BetaW, 1024, 16}, {l.OutW, 2048, 1024}, {l.MLPGateW, 1024, 3584}, {l.MLPUpW, 1024, 3584}, {l.MLPDownW, 3584, 1024}}
+			l = &Qwen35LinearAttentionLayer{InputNorm: l.InputNorm, PostNorm: l.PostNorm, QKVW: l.QKVW, GateW: l.GateW, Conv1D: l.Conv1D, DTBias: l.DTBias, A: l.A, BetaW: l.BetaW, AlphaW: l.AlphaW, Norm: l.Norm, OutW: l.OutW, MLPGateW: l.MLPGateW, MLPUpW: l.MLPUpW, MLPDownW: l.MLPDownW}
+			model.Layers[idx] = Qwen35BaseLayer{Kind: layer.Kind, Linear: l}
+			ws = []weight{{&l.QKVW, 1024, 6144}, {&l.GateW, 1024, 2048}, {&l.AlphaW, 1024, 16}, {&l.BetaW, 1024, 16}, {&l.OutW, 2048, 1024}, {&l.MLPGateW, 1024, 3584}, {&l.MLPUpW, 1024, 3584}, {&l.MLPDownW, 3584, 1024}}
 		} else if layer.Kind == Qwen35FullAttentionLayerKind {
 			l := layer.Full
 			if e := ValidateQwen35FullAttentionLayer(l, meta, "SIMD"); e != nil {
 				return nil, e
 			}
-			ws = []weight{{l.QW, 1024, 4096}, {l.KW, 1024, 512}, {l.VW, 1024, 512}, {l.OW, 2048, 1024}, {l.GateW, 1024, 3584}, {l.UpW, 1024, 3584}, {l.DownW, 3584, 1024}}
+			l = &Qwen35FullAttentionLayer{InputNorm: l.InputNorm, PostNorm: l.PostNorm, QW: l.QW, KW: l.KW, VW: l.VW, OW: l.OW, QNorm: l.QNorm, KNorm: l.KNorm, GateW: l.GateW, UpW: l.UpW, DownW: l.DownW}
+			model.Layers[idx] = Qwen35BaseLayer{Kind: layer.Kind, Full: l}
+			ws = []weight{{&l.QW, 1024, 4096}, {&l.KW, 1024, 512}, {&l.VW, 1024, 512}, {&l.OW, 2048, 1024}, {&l.GateW, 1024, 3584}, {&l.UpW, 1024, 3584}, {&l.DownW, 3584, 1024}}
 		} else {
 			return nil, fmt.Errorf("qwen: invalid SIMD layer kind")
 		}
@@ -115,7 +128,8 @@ func (s *Qwen35SIMDBranch) projectRows(dst, x []float32, w *tensor.Tensor, rows,
 		workers = min(cap(s.jobs), fullCols/16)
 	}
 	if workers < 2 || out < 512 {
-		if !simd.SgemmNTPrepackedTo(dst, x, w.Data(), s.packed[w], rows, out, in, 1, in, in, out) {
+		job := s.projectionJob(0, dst, x, w, rows, in, out, 0, out)
+		if !job.run() {
 			return fmt.Errorf("qwen: SIMD projection failed")
 		}
 		return nil
@@ -126,7 +140,7 @@ func (s *Qwen35SIMDBranch) projectRows(dst, x []float32, w *tensor.Tensor, rows,
 		for worker := 0; worker < workers; worker++ {
 			start := (out / 16) * worker / workers * 16
 			end := (out / 16) * (worker + 1) / workers * 16
-			s.jobs <- branchProjectionJob{worker, dst[start:], x, w.Data()[start*in:], s.packed[w][start*in : end*in], rows, end - start, in, out}
+			s.jobs <- s.projectionJob(worker, dst[start:], x, w, rows, in, out, start, end)
 		}
 		s.jobWait.Wait()
 		for _, failed := range s.jobFailed[:workers] {
@@ -149,7 +163,8 @@ func (s *Qwen35SIMDBranch) projectRows(dst, x []float32, w *tensor.Tensor, rows,
 		wg.Add(1)
 		go func(i, start, end int) {
 			defer wg.Done()
-			if !simd.SgemmNTPrepackedTo(dst[start:], x, w.Data()[start*in:], s.packed[w][start*in:end*in], rows, end-start, in, 1, in, in, out) {
+			job := s.projectionJob(i, dst[start:], x, w, rows, in, out, start, end)
+			if !job.run() {
 				errs[i] = fmt.Errorf("qwen: SIMD projection failed")
 			}
 		}(worker, start, end)

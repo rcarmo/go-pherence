@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"github.com/rcarmo/go-pherence/tensor"
 )
 
 // Workers live for one locked Forward, not for every projection or the model
@@ -14,6 +15,24 @@ type branchProjectionJob struct {
 	index                  int
 	dst, x, w, packed      []float32
 	rows, cols, in, stride int
+	packedOnly             bool
+}
+
+func (j *branchProjectionJob) run() bool {
+	if j.packedOnly {
+		return simd.SgemmNTPackedOnlyTo(j.dst, j.x, j.packed, j.rows, j.cols, j.in, 1, j.in, j.stride)
+	}
+	return simd.SgemmNTPrepackedTo(j.dst, j.x, j.w, j.packed, j.rows, j.cols, j.in, 1, j.in, j.in, j.stride)
+}
+
+// start is always a full-panel boundary: zero or a worker partition multiple
+// of 16 from projectRows. Only the single raw fallback job may have an N tail.
+func (s *Qwen35SIMDBranch) projectionJob(index int, dst, x []float32, w *tensor.Tensor, rows, in, stride, start, end int) branchProjectionJob {
+	j := branchProjectionJob{index: index, dst: dst, x: x, packed: s.packed[w][start*in : (end/16)*16*in], rows: rows, cols: end - start, in: in, stride: stride, packedOnly: s.packedOnly}
+	if !s.packedOnly {
+		j.w = w.Data()[start*in:]
+	}
+	return j
 }
 
 func (s *Qwen35SIMDBranch) startProjectionWorkers() func() {
@@ -28,7 +47,7 @@ func (s *Qwen35SIMDBranch) startProjectionWorkers() func() {
 		go func() {
 			defer done.Done()
 			for j := range s.jobs {
-				s.jobFailed[j.index] = !simd.SgemmNTPrepackedTo(j.dst, j.x, j.w, j.packed, j.rows, j.cols, j.in, 1, j.in, j.in, j.stride)
+				s.jobFailed[j.index] = !j.run()
 				s.jobWait.Done()
 			}
 		}()

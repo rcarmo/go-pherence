@@ -29,7 +29,10 @@ func NewSIMDTextScorer(cpu *TextScorer, maxTokens int) (*SIMDTextScorer, error) 
 	if e != nil {
 		return nil, e
 	}
-	return &SIMDTextScorer{cpu: cpu, branch: b, rows: make([][]float32, maxTokens), hidden: make([]float32, maxTokens*1024)}, nil
+	// The branch owns packed projection weights. Keep host readout data without
+	// retaining the original unpacked encoder or mutating the caller's scorer.
+	host := &TextScorer{head: cpu.head, embedding: cpu.embedding, norm: cpu.norm, rope: cpu.rope, meta: cpu.meta, eps: cpu.eps}
+	return &SIMDTextScorer{cpu: host, branch: b, rows: make([][]float32, maxTokens), hidden: make([]float32, maxTokens*1024)}, nil
 }
 func (s *SIMDTextScorer) ScoreEncoded(row EncodedRow) ([][]float32, error) {
 	return s.ScoreEncodedContext(context.Background(), row)
@@ -77,5 +80,5 @@ func (s *SIMDTextScorer) ScoreTextContext(ctx context.Context, req TextRequest, 
 	if s == nil || s.cpu == nil {
 		return nil, fmt.Errorf("mojev: nil SIMD scorer")
 	}
-	return s.cpu.scoreTextContext(ctx, req, tok, sl, ql, func(row EncodedRow) ([][]float32, error) { return s.ScoreEncodedContext(ctx, row) })
+	return scoreTextContextWith(ctx, req, tok, sl, ql, func(row EncodedRow) ([][]float32, error) { return s.ScoreEncodedContext(ctx, row) })
 }

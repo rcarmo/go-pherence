@@ -10,6 +10,10 @@ scorer retains only host embeddings/head after upload, leaving the caller's CPU
 scorer usable. Dropping that CPU scorer releases about 1.99 GB of live heap;
 successful GPU close releases its host view too. Peak loading RSS is unchanged.
 See the [host lifetime measurements](../../docs/validation/mojev-gpu-host-lifetime-20260926.md).
+The SIMD scorer likewise retains [packed projection weights only](../../docs/validation/mojev-simd-packed-only-20260926.md),
+releasing about 1.99 GB of original projections when the caller drops its CPU
+scorer. Its scalar fallback reads packed panels; numerical gates are unchanged.
+This reduces retained memory without an established latency improvement.
 See the
 [allocation and validation record](../../docs/validation/mojev-accelerated-text-20260925.md)
 for measurements, ownership rules and open qualification work. Both the

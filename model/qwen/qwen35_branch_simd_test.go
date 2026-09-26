@@ -71,6 +71,11 @@ func runSIMDBranchProjectionCase(t *testing.T, rows, in, out int, withScratch bo
 		t.Fatal(err)
 	}
 	branch := &Qwen35SIMDBranch{packed: map[*tensor.Tensor][]float32{weight: packed}}
+	if out%16 == 0 {
+		// Fixed-topology constructor projections have no raw weight payload.
+		// Tail-column cases below keep exercising the legacy raw fallback.
+		branch.packedOnly = true
+	}
 	if withScratch {
 		padded := (rows + 11) / 12 * 12
 		branch.scratch = map[string][]float32{
@@ -129,6 +134,25 @@ func runSIMDBranchProjectionCase(t *testing.T, rows, in, out int, withScratch bo
 			}
 		}); allocs != 0 {
 			t.Fatalf("warm projection allocates: %g", allocs)
+		}
+	}
+}
+
+func TestSIMDBranchPackedOnlyProjection(t *testing.T) {
+	oldProcs := runtime.GOMAXPROCS(6)
+	defer runtime.GOMAXPROCS(oldProcs)
+	oldAsm := simd.HasSgemmAsm
+	defer func() { simd.HasSgemmAsm = oldAsm }()
+	for _, enabled := range []bool{false, oldAsm} {
+		simd.HasSgemmAsm = enabled
+		for _, rows := range []int{1, 5, 6, 7, 12, 13} {
+			for _, out := range []int{16, 512, 528} {
+				for _, scratch := range []bool{false, true} {
+					t.Run(fmt.Sprintf("asm%t/rows%d/out%d/scratch%t", enabled, rows, out, scratch), func(t *testing.T) {
+						runSIMDBranchProjectionCase(t, rows, 9, out, scratch)
+					})
+				}
+			}
 		}
 	}
 }

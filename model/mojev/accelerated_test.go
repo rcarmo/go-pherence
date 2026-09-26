@@ -111,7 +111,10 @@ func TestMoJevAcceleratedReleased(t *testing.T) {
 			var err error
 			switch scorer := b.scorer.(type) {
 			case *SIMDTextScorer:
-				hidden, err = scorer.cpu.encodeBranchWith(branch, scorer.branch)
+				hidden, err = scorer.encodeBranch(branch)
+				// encodeBranch is internal borrowed scratch; preserve the sample
+				// before the following ownership/error probes reuse that scratch.
+				hidden = append([]float32(nil), hidden...)
 				// Public Forward rows remain owned; Into failures are transactional.
 				inputs := make([][]float32, len(branch.IDs))
 				for i, id := range branch.IDs {
