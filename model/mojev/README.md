@@ -1,5 +1,10 @@
 # MoJev text scorer and multimodal boundaries
 
+The [optimisation ledger](../../docs/validation/mojev-optimisation-ledger.md)
+tracks adopted changes and retained candidates for load-aware cumulative testing.
+Four-row SIMD recurrence is adopted for its measured local gain and exact
+state transitions; end-to-end timing remains noisy.
+
 `NewSIMDTextScorer(cpu, maxTokens)` uses prepacked assembly projections,
 SIMD attention and reusable scratch. `NewNVIDIATextScorer(cpu, maxTokens)` uses
 resident F32 PTX weights on compute capability 8.6 or later. Both are explicit
