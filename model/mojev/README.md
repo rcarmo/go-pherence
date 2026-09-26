@@ -21,7 +21,10 @@ records 512-token paths, 4096-token grouped requests and eight serialized caller
 including separate ordinary/race memory budgets and the SIMD race timeout.
 The [512-token F32 reference](../../docs/validation/mojev-long-f32-normalisation-20260926.md)
 also checks sampled branch/tree hidden states and records the corrected Q/K
-normalisation epsilon placement; older scores may change slightly.
+normalisation epsilon placement; older scores may change slightly. The
+[4096-total-token grouped reference](../../docs/validation/mojev-grouped-reference-20260926.md)
+checks all64 candidate scores, sampled packed-group hidden rows, and two
+concurrent maximum-total requests at the unchanged per-path limit.
 
 `LoadTextScorer` loads and executes the released text weights in Go using F32 arithmetic, with fresh state and local positions per candidate. `ScoreEncoded` returns real encoder/head logits; `ScoreText` validates/tokenises a request and builds public answers. Real-weight tests verify exact cross-question isolation under substitutions, length changes and permutations, plus numerical agreement with an independent F32 reference. See the [native text validation](../../docs/validation/mojev-native-text-isolation-20260925.md) for limits and commands. Images and held-out quality are unqualified; broad `RuntimeReady` remains false.
 
