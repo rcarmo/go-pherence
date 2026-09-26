@@ -15,7 +15,7 @@ before module loading or device allocation.
 
 | Suffix after `GO_PHERENCE_MOJEV_ATTENTION_PROBE_` | Default | Accepted values |
 |---|---|---|
-| `KERNEL` | `compact` | `compact` (`mj_attention`) or `tree` (`mj_tree_attention`) on main |
+| `KERNEL` | `compact` | `compact` (`mj_attention`), `tree` (`mj_tree_attention`); this retained candidate branch also accepts `warp` (`mj_tree_attention_warp`) |
 | `ROWS` | `3` | 3–512; values above33 additionally require `LARGE=1` |
 | `STATE` | `1` | positive, less than rows |
 | `QUESTION` | `1` | positive; state+question must leave a nonempty candidate |
@@ -81,8 +81,11 @@ in the bus-loss audit. Keep guest/physical-host PCIe/Xid logs and GPU telemetry
 running throughout the process. Begin with the default three-row compact
 reference in one process, then the three-row tree case in another. Stop at the
 first CUDA error, failed device query or new Xid; do not jump to512 rows or rerun
-the broad sanitizer suite. The retained candidate branch can extend this same
-probe with its warp kernel, without running the compact reference in that process.
+the broad sanitizer suite. This retained candidate branch extends the same probe with its warp kernel,
+without running the compact reference in that process. Warp mode uses one
+256-thread block per row (eight head/query warps); the other modes use eight
+blocks per row. Model-free configuration tests check both mappings. Main does
+not contain the warp selector or new kernels; no hardware mode was executed.
 
 Evidence: `/workspace/tmp/mojev-attention-isolated-20260926`. This change adds no
 new inference optimisation or proven GPU-crash fix. `RuntimeReady=false`.

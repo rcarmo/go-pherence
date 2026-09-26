@@ -34,6 +34,9 @@ type moJevAttentionProbeConfig struct {
 }
 
 func (c moJevAttentionProbeConfig) actualKernel() string {
+	if c.kernel == "warp" {
+		return "mj_tree_attention_warp"
+	}
 	if c.kernel == "tree" {
 		return "mj_tree_attention"
 	}
@@ -42,6 +45,9 @@ func (c moJevAttentionProbeConfig) actualKernel() string {
 
 func (c moJevAttentionProbeConfig) prefix() int { return c.state + c.question }
 func (c moJevAttentionProbeConfig) gridX() uint32 {
+	if c.kernel == "warp" {
+		return uint32(c.rows)
+	} // eight head/query warps per block
 	return uint32(c.rows * moJevAttentionProbeHeads)
 }
 
@@ -56,10 +62,10 @@ func parseMoJevAttentionProbeConfig(lookup moJevAttentionProbeLookup) (moJevAtte
 	cfg := moJevAttentionProbeConfig{kernel: "compact", rows: 3, state: 1, question: 1}
 	if v, ok := lookup(moJevAttentionProbePrefix + "KERNEL"); ok {
 		switch v {
-		case "compact", "tree":
+		case "compact", "tree", "warp":
 			cfg.kernel = v
 		default:
-			return cfg, fmt.Errorf("%sKERNEL=%q: want compact or tree", moJevAttentionProbePrefix, v)
+			return cfg, fmt.Errorf("%sKERNEL=%q: want compact, tree or warp", moJevAttentionProbePrefix, v)
 		}
 	}
 	var err error
@@ -109,7 +115,7 @@ func parseMoJevAttentionProbeBool01(lookup moJevAttentionProbeLookup, key string
 }
 
 func validateMoJevAttentionProbeConfig(cfg moJevAttentionProbeConfig) error {
-	if cfg.kernel != "compact" && cfg.kernel != "tree" {
+	if cfg.kernel != "compact" && cfg.kernel != "tree" && cfg.kernel != "warp" {
 		return fmt.Errorf("invalid attention probe kernel %q", cfg.kernel)
 	}
 	if cfg.rows < 3 || cfg.rows > 512 {
@@ -256,7 +262,7 @@ func TestMoJevAttentionProbeConfig(t *testing.T) {
 		t.Fatal("ordinary GPU gate must not enable the isolated probe")
 	}
 	for _, rows := range []int{3, 10, 33, 34, 512} {
-		for _, kernel := range []string{"compact", "tree"} {
+		for _, kernel := range []string{"compact", "tree", "warp"} {
 			cfg, err := parseMoJevAttentionProbeConfig(moJevAttentionProbeLookupMap(map[string]string{
 				moJevAttentionProbePrefix + "ROWS":   strconv.Itoa(rows),
 				moJevAttentionProbePrefix + "KERNEL": kernel,
@@ -269,7 +275,11 @@ func TestMoJevAttentionProbeConfig(t *testing.T) {
 			if kernel == "tree" {
 				wantKernel = "mj_tree_attention"
 			}
-			if cfg.actualKernel() != wantKernel || cfg.gridX() != uint32(rows*8) {
+			wantGrid := uint32(rows * 8)
+			if kernel == "warp" {
+				wantKernel, wantGrid = "mj_tree_attention_warp", uint32(rows)
+			}
+			if cfg.actualKernel() != wantKernel || cfg.gridX() != wantGrid {
 				t.Fatal("wrong kernel dispatch", cfg)
 			}
 		}
@@ -278,7 +288,7 @@ func TestMoJevAttentionProbeConfig(t *testing.T) {
 
 func TestMoJevAttentionProbeConfigRejectsGeometry(t *testing.T) {
 	for name, env := range map[string]map[string]string{
-		"bad_kernel":                {moJevAttentionProbePrefix + "KERNEL": "warp"},
+		"bad_kernel":                {moJevAttentionProbePrefix + "KERNEL": "invalid"},
 		"rows_too_small":            {moJevAttentionProbePrefix + "ROWS": "2"},
 		"rows_too_large":            {moJevAttentionProbePrefix + "ROWS": "513", moJevAttentionProbePrefix + "LARGE": "1"},
 		"state_zero":                {moJevAttentionProbePrefix + "STATE": "0"},
@@ -419,7 +429,7 @@ func TestMoJevPTXAttentionIsolated(t *testing.T) {
 	}
 	actualKernel := cfg.actualKernel()
 	var treeRows []uint32
-	if cfg.kernel == "tree" {
+	if cfg.kernel != "compact" {
 		treeRows = make([]uint32, cfg.rows*4)
 		if err := fillGPUTree(treeRows, cfg.rows, cfg.state, cfg.question, []int{cfg.rows}); err != nil {
 			t.Fatal(err)
@@ -473,7 +483,7 @@ func TestMoJevPTXAttentionIsolated(t *testing.T) {
 		t.Fatal("output pointer offset failed")
 	}
 	var treeBuf *nvidia.Buffer
-	if cfg.kernel == "tree" {
+	if cfg.kernel != "compact" {
 		b, err := nvidia.Malloc(len(treeRows))
 		if err != nil {
 			t.Fatal(fmt.Errorf("%s alloc tree: %w", actualKernel, err))
@@ -493,7 +503,7 @@ func TestMoJevPTXAttentionIsolated(t *testing.T) {
 	case "compact":
 		err = nvidia.LaunchKernel(module.Function(actualKernel), cfg.gridX(), 1, 1, moJevAttentionProbeBlockSize, 1, 1, 0,
 			unsafe.Pointer(&qgBuf.Ptr), unsafe.Pointer(&kBuf.Ptr), unsafe.Pointer(&vBuf.Ptr), unsafe.Pointer(&outPtr), unsafe.Pointer(&rows), unsafe.Pointer(&state), unsafe.Pointer(&question))
-	case "tree":
+	case "tree", "warp":
 		err = nvidia.LaunchKernel(module.Function(actualKernel), cfg.gridX(), 1, 1, moJevAttentionProbeBlockSize, 1, 1, 0,
 			unsafe.Pointer(&qgBuf.Ptr), unsafe.Pointer(&kBuf.Ptr), unsafe.Pointer(&vBuf.Ptr), unsafe.Pointer(&outPtr), unsafe.Pointer(&rows), unsafe.Pointer(&treeBuf.Ptr), unsafe.Pointer(&prefix))
 	default:
