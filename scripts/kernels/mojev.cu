@@ -13,20 +13,20 @@ __device__ float reduce_sum(float v) {
     __syncthreads();float result=sums[0];__syncthreads();return result;
 }
 __device__ float sigmoid(float x){return 1.f/(1.f+expf(-x));}
-// 32x64 output tile, 32-wide K panels, eight F32 accumulators per thread.
+// 32x64 output tile, 32-wide K panels, sixteen F32 accumulators per thread (128 threads).
 extern "C" __global__ void mj_gemm(const float* a,const float* b,float* c,int m,int n,int k){
  __shared__ float sa[32][32];__shared__ float sb[32][64];
  int tx=threadIdx.x%16,ty=threadIdx.x/16;
- float acc[2][4]={};
+ float acc[4][4]={};
  for(int p=0;p<k;p+=32){
-  for(int i=threadIdx.x;i<1024;i+=256){int r=blockIdx.y*32+i/32,d=p+i%32;sa[i/32][i%32]=(r<m&&d<k)?a[r*k+d]:0;}
-  for(int i=threadIdx.x;i<2048;i+=256){int d=p+i/64,j=blockIdx.x*64+i%64;sb[i/64][i%64]=(d<k&&j<n)?b[d*n+j]:0;}
+  for(int i=threadIdx.x;i<1024;i+=128){int r=blockIdx.y*32+i/32,d=p+i%32;sa[i/32][i%32]=(r<m&&d<k)?a[r*k+d]:0;}
+  for(int i=threadIdx.x;i<2048;i+=128){int d=p+i/64,j=blockIdx.x*64+i%64;sb[i/64][i%64]=(d<k&&j<n)?b[d*n+j]:0;}
   __syncthreads();
   #pragma unroll
   for(int d=0;d<32;d++){
    #pragma unroll
-   for(int r=0;r<2;r++){
-    float v=sa[ty+r*16][d];
+   for(int r=0;r<4;r++){
+    float v=sa[ty+r*8][d];
     #pragma unroll
     for(int j=0;j<4;j++)acc[r][j]=fmaf(v,sb[d][tx+j*16],acc[r][j]);
    }
@@ -34,9 +34,9 @@ extern "C" __global__ void mj_gemm(const float* a,const float* b,float* c,int m,
   __syncthreads();
  }
  #pragma unroll
- for(int r=0;r<2;r++){
+ for(int r=0;r<4;r++){
   #pragma unroll
-  for(int j=0;j<4;j++){int row=blockIdx.y*32+ty+r*16,col=blockIdx.x*64+tx+j*16;if(row<m&&col<n)c[row*n+col]=acc[r][j];}
+  for(int j=0;j<4;j++){int row=blockIdx.y*32+ty+r*8,col=blockIdx.x*64+tx+j*16;if(row<m&&col<n)c[row*n+col]=acc[r][j];}
  }
 }
 extern "C" __global__ void mj_norm(const float* x,const float* w,float* y,int rows,int dim,float eps,int zero) {

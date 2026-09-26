@@ -43,7 +43,7 @@ func TestMoJevPTXKernels(t *testing.T) {
 		} else {
 			g.commands = nil
 		}
-		for _, shape := range [][3]int{{1, 17, 3}, {7, 65, 33}, {33, 67, 35}} {
+		for _, shape := range [][3]int{{1, 17, 3}, {7, 65, 33}, {33, 67, 35}, {31, 63, 31}, {32, 64, 32}, {63, 127, 65}, {65, 129, 63}, {512, 65, 33}} {
 			g.commandCount = 0
 			m, n, k := shape[0], shape[1], shape[2]
 			a, b := make([]float32, m*k), make([]float32, k*n)

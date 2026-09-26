@@ -206,6 +206,7 @@ func Init() bool {
 		regFn(&cuEventCreate, lib, "cuEventCreate")
 		regFn(&cuEventRecord, lib, "cuEventRecord")
 		regFn(&cuEventSynchronize, lib, "cuEventSynchronize")
+		regFn(&cuEventElapsedTime, lib, "cuEventElapsedTime")
 		regFn(&cuStreamWaitEvent, lib, "cuStreamWaitEvent")
 		regFn(&cuEventDestroy, lib, "cuEventDestroy_v2", "cuEventDestroy")
 		regFn(&cuStreamBeginCapture, lib, "cuStreamBeginCapture")

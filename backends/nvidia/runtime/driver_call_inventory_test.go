@@ -25,6 +25,7 @@ func TestRawCUDADriverCallsStayInReviewedScopes(t *testing.T) {
 		"ptx_module.go": {"LoadPTXFunctions": true, "Close": true},
 		// One lockDriver scope covers all launches and optional diagnostic sync.
 		"launch_batch.go": {"LaunchBatch": true},
+		"launch_timer.go": {"newLaunchTimerLocked": true, "Measure": true, "Close": true, "destroyEventsLocked": true},
 	}
 	entries, err := os.ReadDir(".")
 	if err != nil {

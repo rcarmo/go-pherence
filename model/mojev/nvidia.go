@@ -225,6 +225,9 @@ func (g *NVIDIATextScorer) queue(name string, gx, gy int, args ...uint64) error 
 	c.Function = g.kernels[name]
 	c.Grid = [3]uint32{uint32(gx), uint32(gy), 1}
 	c.Block = [3]uint32{256, 1, 1}
+	if name == "mj_gemm" {
+		c.Block[0] = 128
+	}
 	c.ArgCount = len(args)
 	copy(c.Args[:], args)
 	g.commandCount++
@@ -250,7 +253,7 @@ func (g *NVIDIATextScorer) project(x, w, y *nvidia.Buffer, rows, in, out int) er
 		return g.queue("mj_gemm", (out+63)/64, (rows+31)/32, uint64(x.Ptr), uint64(w.Ptr), uint64(y.Ptr), uint64(rows), uint64(out), uint64(in))
 	}
 	m, n, k := int32(rows), int32(out), int32(in)
-	return nvidia.LaunchKernel(g.kernels["mj_gemm"], uint32((out+63)/64), uint32((rows+31)/32), 1, 256, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&w.Ptr), unsafe.Pointer(&y.Ptr), unsafe.Pointer(&m), unsafe.Pointer(&n), unsafe.Pointer(&k))
+	return nvidia.LaunchKernel(g.kernels["mj_gemm"], uint32((out+63)/64), uint32((rows+31)/32), 1, 128, 1, 1, 0, unsafe.Pointer(&x.Ptr), unsafe.Pointer(&w.Ptr), unsafe.Pointer(&y.Ptr), unsafe.Pointer(&m), unsafe.Pointer(&n), unsafe.Pointer(&k))
 }
 
 func (g *NVIDIATextScorer) encodeBranch(b TextBranch) ([]float32, error) {
