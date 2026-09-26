@@ -22,6 +22,25 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
 | Single-pass convolution multiply/add | See [qualification](mojev-muladd-20260926.md) | Removes product-row traffic while preserving both F32 roundings; another −25.46% on the convolution microbenchmark, zero allocations. Candidate grouped race passed363.16s; all576 timed/warmup responses exact. Two request matrices disagree (+16.39% / −3.18%); no whole-model speedup or retained-memory claim. |
 
+## Bounded SIMD60 reuse completed
+
+The [retention follow-up](mojev-retention-followup-20260926.md) now includes a
+successful60-round ordinary CPU run on `0131934d`:2220.96s, retained outputs,
+eight callers and cancellation/recovery passed. Maximum live-heap increase over
+warm baseline174,288 bytes, two goroutines, zero swaps. This closes the prior
+interrupted SIMD60 gate, not hours-long operation or GPU qualification.
+
+## Convolution rechecked on the cumulative build
+
+The [isolated recheck](mojev-convolution-recheck-20260926.md) holds all other
+`0131934d` optimizations constant. Ten samples measure scalar17.147µs,
+two-pass3.823µs and single-pass2.151µs: single-pass is87.46% faster than scalar
+and43.75% faster than two-pass, still zero-allocation. Three real-request CPU
+profiles per variant attribute2.11/0.57/0.40s to convolution. All864 timed/warmup
+responses and216 profiled responses are exact. Twelve request processes per
+variant leave single-pass full-request differences statistically unresolved;
+**the demonstrated convolution optimization remains adopted**.
+
 ## Architecture-specific projection padding
 
 The [row-padding qualification](mojev-row-padding-20260926.md) replaces the

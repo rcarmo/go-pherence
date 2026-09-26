@@ -56,6 +56,43 @@ These runs cover bounded repeated reuse, not hours-long service operation,
 arbitrary request distributions or new native architectures. Times include
 loading, GC, hashing and instrumentation and are not latency benchmarks.
 
+## Cumulative SIMD60 closure
+
+On `0131934d`, the unchanged ordinary SIMD admission test completed all60 rounds
+in2220.96s (37m01.07s wall, exit0), closing the earlier round59 interruption.
+This includes512-token paths,4096-total-token requests, over-limit rejection,
+retained-output ownership, eight concurrent callers, canceled waiters, active
+cancellation and deterministic recovery. The three workload score rows remain
+exact throughout reuse. These stress sizes are not additional independent
+accuracy fixtures; the released base-logit gate remains unchanged.
+
+The same approved checkpoint's four asset hashes were verified. Go1.26.3,
+Linux amd64, GOMAXPROCS6, NVIDIA disabled, one checkpoint process. Warm heap was
+5,103,770,800 bytes; maximum retained-round heap5,103,945,088 (+174,288 bytes,
+below the unchanged32MiB allowance). After releasing held outputs, heap was
+5,103,838,272 (+67,472 bytes). Snapshot goroutines stayed at2, device bytes0,
+and swaps0. Snapshot maximum RSS/HWM was5,003,440KiB; `/usr/bin/time` reported
+5,002,880KiB. Both sources are preserved, not silently equated. The test keeps
+the caller CPU scorer live deliberately; these are not packed-only heap numbers.
+
+Evidence: `/workspace/tmp/mojev-simd60-20260926`. An initial invocation from the
+repository root failed before model loading because its relative fixture path
+was wrong; `wrong-cwd.log` is retained. The successful preserved test binary ran
+from `model/mojev`. No implementation, tolerance or test limit was changed.
+This37-minute ordinary run is **bounded reuse qualification**, not an hours-long
+soak,60-round race pass, arbitrary-distribution qualification or GPU clearance.
+
+```sh
+cd model/mojev
+GOMAXPROCS=6 GO_PHERENCE_DISABLE_NVIDIA=1 \
+  GO_PHERENCE_MOJEV_CHECKPOINT_DIR=/dev/shm/mojev-checkpoint \
+  GO_PHERENCE_MOJEV_ADMISSION_BACKEND=simd \
+  GO_PHERENCE_MOJEV_ADMISSION_ROUNDS=60 \
+  GO_PHERENCE_MOJEV_ADMISSION_REPORT=OUTPUT.json \
+  /path/to/preserved/mojev.test -test.run '^TestMoJevAcceleratedAdmission$' \
+  -test.v -test.count=1 -test.timeout=3000s
+```
+
 ## Reproduction
 
 ```sh
