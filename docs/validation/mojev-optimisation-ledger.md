@@ -22,6 +22,16 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
 | Single-pass convolution multiply/add | See [qualification](mojev-muladd-20260926.md) | Removes product-row traffic while preserving both F32 roundings; another −25.46% on the convolution microbenchmark, zero allocations. Candidate grouped race passed363.16s; all576 timed/warmup responses exact. Two request matrices disagree (+16.39% / −3.18%); no whole-model speedup or retained-memory claim. |
 
+## JevBench v1.4.0 public comparison
+
+The [fresh MoJev / historical GSO comparison](mojev-jevbench140-vs-gso-20260926.md)
+reports103/231 correct for the current native CPU stack versus audited GSO196/231.
+MoJev refuses55 over-capacity branches and35 structured states; on the common141
+valid inputs it scores103 versus GSO136. This is a public, now-observed benchmark,
+not an official sealed score or intrinsic model-only comparison. No GPU was run;
+a fresh GSO GPU rerun awaits explicit hold clearance. Existing output-preserving
+optimizations remain adopted and `RuntimeReady=false` remains unchanged.
+
 ## Bounded SIMD60 reuse completed
 
 The [retention follow-up](mojev-retention-followup-20260926.md) now includes a
