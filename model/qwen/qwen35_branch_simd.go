@@ -96,18 +96,25 @@ func NewQwen35SIMDBranch(m *Qwen35BaseModel, meta cfg.QwenNativeMTPMetadata, max
 	out.scratch["ssm"] = make([]float32, 16*128*128)
 	out.scratch["fork"] = make([]float32, 16*128*128)
 	out.scratch["scores"] = make([]float32, maxTokens)
-	// 12 is a common multiple of the 6-row amd64 and 4-row ARM64/RVV
-	// microtiles. Pad projections only, never attention or recurrent tokens.
-	out.scratch["padIn"] = make([]float32, ((maxTokens+11)/12)*12*3584)
-	out.scratch["padOut"] = make([]float32, ((maxTokens+11)/12)*12*6144)
+	// Pad only to this architecture's row tile, not the cross-platform LCM.
+	// Attention and recurrent tokens are never padded.
+	padded := qwen35ProjectionPaddedRows(maxTokens)
+	out.scratch["padIn"] = make([]float32, padded*3584)
+	out.scratch["padOut"] = make([]float32, padded*6144)
 	for name, width := range map[string]int{"x": 1024, "norm": 1024, "qkv": 6144, "conv": 6144, "z": 2048, "alpha": 16, "beta": 16, "attn": 2048, "qg": 4096, "q": 2048, "gateq": 2048, "k": 512, "v": 512, "proj": 1024, "gate": 3584, "up": 3584} {
 		out.scratch[name] = make([]float32, maxTokens*width)
 	}
 	return out, nil
 }
+
+// rows is an internally validated token count (1..512).
+func qwen35ProjectionPaddedRows(rows int) int {
+	return (rows + simd.SgemmNTRowBlock - 1) / simd.SgemmNTRowBlock * simd.SgemmNTRowBlock
+}
+
 func (s *Qwen35SIMDBranch) project(dst, x []float32, w *tensor.Tensor, rows, in, out int) error {
-	if rows%12 != 0 && s.scratch != nil {
-		padded := (rows + 11) / 12 * 12
+	padded := qwen35ProjectionPaddedRows(rows)
+	if padded != rows && s.scratch != nil {
 		input, output := s.scratch["padIn"][:padded*in], s.scratch["padOut"][:padded*out]
 		copy(input, x[:rows*in])
 		clear(input[rows*in:])

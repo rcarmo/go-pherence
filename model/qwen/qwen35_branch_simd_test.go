@@ -77,7 +77,7 @@ func runSIMDBranchProjectionCase(t *testing.T, rows, in, out int, withScratch bo
 		branch.packedOnly = true
 	}
 	if withScratch {
-		padded := (rows + 11) / 12 * 12
+		padded := qwen35ProjectionPaddedRows(rows)
 		branch.scratch = map[string][]float32{
 			"padIn":  make([]float32, padded*in),
 			"padOut": make([]float32, padded*out),
@@ -167,12 +167,12 @@ func fillSIMDBranchScratch(buf []float32, base float32) []float32 {
 func checkSIMDBranchScratch(t *testing.T, branch *Qwen35SIMDBranch, x, want []float32, rows, in, out int, padInBefore, padOutBefore []float32) {
 	t.Helper()
 	padIn, padOut := branch.scratch["padIn"], branch.scratch["padOut"]
-	if rows%12 == 0 {
+	if rows%simd.SgemmNTRowBlock == 0 {
 		requireExactFloat32Slice(t, "padIn", padIn, padInBefore)
 		requireExactFloat32Slice(t, "padOut", padOut, padOutBefore)
 		return
 	}
-	padded := (rows + 11) / 12 * 12
+	padded := qwen35ProjectionPaddedRows(rows)
 	requireExactFloat32Slice(t, "padIn used rows", padIn[:rows*in], x)
 	requireProjectionClose(t, padOut[:rows*out], want, rows, out)
 	for i, v := range padIn[rows*in : padded*in] {

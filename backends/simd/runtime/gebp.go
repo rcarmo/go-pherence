@@ -7,6 +7,11 @@ import (
 
 const gebpNR = 16
 
+// SgemmNTRowBlock is the architecture's complete NT GEMM row tile. Callers may
+// pad independent rows to this multiple to avoid scalar tail work. This is a
+// layout hint, not an ISA-availability guarantee; scalar dispatch accepts it too.
+const SgemmNTRowBlock = gebpMR
+
 func makeGebpBuf(size int) []float32 {
 	if size <= 0 {
 		return nil

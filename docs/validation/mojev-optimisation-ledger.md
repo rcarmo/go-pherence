@@ -22,6 +22,17 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Four-tap SIMD convolution | `afb61da5` | Exact separate multiply/add, no new scratch allocation; microbenchmark −80.73%. CPU grouped race interrupted by maintenance then passed on `298161d2`; [qualification](mojev-conv-simd-maintenance-20260926.md). Full-request improvement is inconclusive; retained for cumulative benefit. |
 | Single-pass convolution multiply/add | See [qualification](mojev-muladd-20260926.md) | Removes product-row traffic while preserving both F32 roundings; another −25.46% on the convolution microbenchmark, zero allocations. Candidate grouped race passed363.16s; all576 timed/warmup responses exact. Two request matrices disagree (+16.39% / −3.18%); no whole-model speedup or retained-memory claim. |
 
+## Architecture-specific projection padding
+
+The [row-padding qualification](mojev-row-padding-20260926.md) replaces the
+cross-platform 12-row multiple with the actual GEMM tile (6 on amd64, 4 on
+other targets). It removes dummy-row work and sometimes padding copies without
+changing real-token arithmetic. Old-12 bitwise comparisons and released grouped
+race pass; 576 request responses are exact. Two request matrices have latency
+geomeans −5.65% / −4.54%, with differing individual significance and no claimed
+whole-request allocation or RSS improvement. Native foreign execution remains
+open. The original GEMM assembly and six-worker cap are unchanged.
+
 ## Packed GEMM experiments not adopted
 
 [Two amd64 loop trials](mojev-gemm-trials-20260926.md) preserve exact arithmetic
