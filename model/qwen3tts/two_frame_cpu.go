@@ -1,6 +1,7 @@
 package qwen3tts
 
 import (
+	"context"
 	"fmt"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -121,6 +122,27 @@ func GenerateCappedSeededCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	return generateCappedGreedyCPU(plan, talker, predictor, decoder, choose)
 }
 
+// GenerateCappedSeededCPUContext is the separately named context-aware CPU
+// path. Cancellation returns no partial codes or waveform. Checks occur between
+// model stages and Talker layers, not inside a layer, CodePredictor frame or
+// waveform decoder; callers must not assume a hard cancellation latency.
+func GenerateCappedSeededCPUContext(ctx context.Context, plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU, seed uint64) (BoundedCPUResult, error) {
+	if ctx == nil {
+		return BoundedCPUResult{}, fmt.Errorf("nil Qwen3-TTS context")
+	}
+	sampler := NewReferenceCPUSampler(seed)
+	cfg := ReferenceSampleConfig{Temperature: 0.7, TopK: 50, TopP: 0.9, RepetitionPenalty: 1}
+	selected := 0
+	choose := func(logits []float32, eos uint32) (uint32, error) {
+		token, err := sampler.Select(logits, cfg, nil, true, selected >= 2)
+		if err == nil {
+			selected++
+		}
+		return token, err
+	}
+	return generateCappedGreedyCPUContext(ctx, plan, talker, predictor, decoder, choose)
+}
+
 // The first prefix is recomputed once to retain owned per-layer KV. Both the
 // prefix and continuation caches are local to this call.
 func generateBoundedFramesCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU) (BoundedCPUResult, error) {
@@ -131,6 +153,20 @@ func generateBoundedFramesCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predic
 }
 
 func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU, selectToken func([]float32, uint32) (uint32, error)) (BoundedCPUResult, error) {
+	return generateCappedGreedyCPUContext(nil, plan, talker, predictor, decoder, selectToken)
+}
+
+func checkCappedCPUContext(ctx context.Context) error {
+	if ctx != nil {
+		return ctx.Err()
+	}
+	return nil
+}
+
+func generateCappedGreedyCPUContext(ctx context.Context, plan RuntimeRequestPlan, talker *TalkerCPU, predictor *CodePredictorCPU, decoder *Decoder12HzCPU, selectToken func([]float32, uint32) (uint32, error)) (BoundedCPUResult, error) {
+	if err := checkCappedCPUContext(ctx); err != nil {
+		return BoundedCPUResult{}, err
+	}
 	if talker == nil || predictor == nil || decoder == nil || selectToken == nil || plan.MaxFrames < 1 || plan.MaxFrames > MaxCappedCPUFrames || talker.cfg.ModelType != CustomVoice || predictor.cfg.CPHiddenSize != talker.cfg.TalkerHiddenSize {
 		return BoundedCPUResult{}, fmt.Errorf("invalid bounded Qwen3-TTS runtime")
 	}
@@ -138,8 +174,14 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	if err != nil {
 		return BoundedCPUResult{}, err
 	}
+	if err := checkCappedCPUContext(ctx); err != nil {
+		return BoundedCPUResult{}, err
+	}
 	firstToken, err := selectToken(first.Logits, CodecEOS)
 	if err != nil {
+		return BoundedCPUResult{}, err
+	}
+	if err := checkCappedCPUContext(ctx); err != nil {
 		return BoundedCPUResult{}, err
 	}
 	if firstToken == CodecEOS {
@@ -148,6 +190,9 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	acousticWork := newCodePredictorWorkspace(predictor.cfg, len(predictor.layers))
 	codes0, _, err := predictor.firstAcousticFrameWithWorkspace(talker, first.Hidden, firstToken, acousticWork)
 	if err != nil {
+		return BoundedCPUResult{}, err
+	}
+	if err := checkCappedCPUContext(ctx); err != nil {
 		return BoundedCPUResult{}, err
 	}
 	const prefixLen = CustomVoiceFirstTextIndex + 1
@@ -185,6 +230,9 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	for pos := 0; pos < prefixLen; pos++ {
 		current = append(current[:0], inputs[pos*h:(pos+1)*h]...)
 		for layer := range talker.layers {
+			if err := checkCappedCPUContext(ctx); err != nil {
+				return BoundedCPUResult{}, err
+			}
 			current, keys[layer], values[layer], err = talker.layers[layer].forwardWithScratch(current, keys[layer], values[layer], pos, rope, talker.cfg, &work[layer])
 			if err != nil {
 				return BoundedCPUResult{}, fmt.Errorf("Qwen3-TTS prefill layer %d position %d: %w", layer, pos, err)
@@ -199,6 +247,9 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 	logitRows := make([][]float32, 0, plan.MaxFrames-1)
 	stoppedAtEOS := false
 	for frame := 0; frame < plan.MaxFrames-1; frame++ {
+		if err := checkCappedCPUContext(ctx); err != nil {
+			return BoundedCPUResult{}, err
+		}
 		// The reference adds semantic + 15 acoustic embeddings + the next
 		// projected text token. After text exhaustion, it uses TTS EOS then PAD.
 		textID := TTSPad
@@ -220,6 +271,9 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 			}
 		}
 		for layer := range talker.layers {
+			if err := checkCappedCPUContext(ctx); err != nil {
+				return BoundedCPUResult{}, err
+			}
 			step, keys[layer], values[layer], err = talker.layers[layer].forwardWithScratch(step, keys[layer], values[layer], prefixLen+frame, rope, talker.cfg, &work[layer])
 			if err != nil {
 				return BoundedCPUResult{}, fmt.Errorf("Qwen3-TTS continuation layer %d position %d: %w", layer, prefixLen+frame, err)
@@ -237,6 +291,9 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 		if err != nil {
 			return BoundedCPUResult{}, err
 		}
+		if err := checkCappedCPUContext(ctx); err != nil {
+			return BoundedCPUResult{}, err
+		}
 		if next == CodecEOS {
 			stoppedAtEOS = true
 			break // EOS has no acoustic frame; decode the complete preceding frames.
@@ -245,13 +302,22 @@ func generateCappedGreedyCPU(plan RuntimeRequestPlan, talker *TalkerCPU, predict
 		if err != nil {
 			return BoundedCPUResult{}, err
 		}
+		if err := checkCappedCPUContext(ctx); err != nil {
+			return BoundedCPUResult{}, err
+		}
 		semantic = append(semantic, next)
 		acoustic = append(acoustic, codes...)
 		hiddenRows = append(hiddenRows, normed)
 		logitRows = append(logitRows, logits)
 	}
+	if err := checkCappedCPUContext(ctx); err != nil {
+		return BoundedCPUResult{}, err
+	}
 	wave, err := decoder.DecodeWaveform(plan, semantic, acoustic)
 	if err != nil {
+		return BoundedCPUResult{}, err
+	}
+	if err := checkCappedCPUContext(ctx); err != nil {
 		return BoundedCPUResult{}, err
 	}
 	return BoundedCPUResult{StoppedAtEOS: stoppedAtEOS, Semantic: semantic, Acoustic: acoustic, ContinuationHidden: hiddenRows, ContinuationLogits: logitRows, Waveform: wave}, nil
