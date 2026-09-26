@@ -84,9 +84,21 @@ GPU temperatures47–65°C were sampled in the preceding benchmark matrix, not a
 the failure. No continuous GPU power/temperature/Xid collector covered the final
 sanitizer run. This gap prevents ruling out heat/power or correlating load at the
 incident. Later `nvidia_dev_put` warnings attributed to MiniBrowser occur after
-the Xid; they do not show that MiniBrowser caused it. Physical-host PCIe/VFIO,
-power and temperature evidence for this incident has not been collected in this
-audit. Earlier clean host logs must not be reused as evidence for this event.
+the Xid; they do not show that MiniBrowser caused it. A subsequent read-only Proxmox API check collected this incident's physical-host
+journal window, after verifying `Europe/Lisbon` timezone. The matching
+11:16–11:26 window contains no logged PCIe/AER fault, VFIO reset, thermal alarm
+or host restart. UPS polls immediately around11:21:52 report online mains,
+100% charge and no critical action. VM108 (`sandbox`) maps host PCI0000:01:00
+into the guest; the PCI inventory identifies the RTX3060 and its audio function.
+No VM/host state was changed. The API also captured the adjacent UTC-numbered
+window before timezone confirmation; it is not substituted for the matching
+local-time window.
+
+The logs do contain unrelated container AppArmor denials, so they are not an
+empty response. However, clean logs do not exclude unlogged PCIe/passthrough
+behaviour or a local PSU/connector transient, and UPS state does not establish
+GPU rail health. Physical GPU temperature/power at failure remains unrecorded.
+These are new incident-specific reads, not reused evidence from earlier faults.
 
 A bounded `nvidia-bug-report.sh --safe-mode` attempt timed out and left a partial,
 readable diagnostic archive. Remaining processes from that diagnostic collection
@@ -99,8 +111,11 @@ crash report.
 A separately gated [single-launch attention probe](mojev-attention-isolated-probe-20260926.md)
 is now available for the compact and tree kernels. Its default is three rows,
 with a CPU oracle and guarded output; no comparison GPU kernel is launched.
-Only model-free tests and compilation have run. This does not authorise GPU
-execution or close the device-loss investigation.
+Only model-free tests and compilation have run. Main probe commit `67001b48`
+passed CI36236727668. Candidate branch `dc10d7c8` adds separately selectable
+warp mode and passed CI36236785660; it never launches a compact reference kernel
+in the same probe process. This does not authorise GPU execution or close the
+device-loss investigation.
 
 The candidate test now passes the correct subtest `*testing.T`, logs actual
 kernel name/tree mode/rows/grid/block, and explicitly synchronizes each prepare
