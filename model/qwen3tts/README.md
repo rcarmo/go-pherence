@@ -21,8 +21,10 @@ all 1,024 codes and its 122,880-sample waveform within `1.6e-6` against the
 independent Rust/Candle reference. The [64-frame qualification](../../docs/validation/qwen3-tts-cap64-parity-20260926.md)
 records the numerical gate and same-instance recovery. This does not establish
 that the sentence finishes at the cap. Arbitrary prompts, streaming, NVIDIA,
-1.7B and general voice quality remain unqualified. The fixed 2/3/4-frame APIs
-remain unchanged.
+1.7B and general voice quality remain unqualified. A separate [four-caller
+short CPU check](../../docs/validation/qwen3-tts-four-caller-cpu-20260926.md)
+passed with one shared checkpoint; more callers and long-running concurrency
+are unqualified. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|

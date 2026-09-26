@@ -5,7 +5,10 @@ The approved 0.6B CustomVoice CPU checkpoint now passes the pinned independent
 122,880-sample waveform has maximum absolute error
 `1.2848759070038795e-6`, below the unchanged `1.6e-6` gate. The sentence hits
 its 64-frame cap without selecting EOS; completion and intelligibility are not
-established. The [failing checkpoint](qwen3-tts-cap64-diagnostic-20260926.md)
+established. After listening to the attached Go and Rust MP3 copies, one
+listener reported that they seem identical. This observation compares those
+two five-second clips; it does not establish what words were spoken or whether
+the sentence finished. The [failing checkpoint](qwen3-tts-cap64-diagnostic-20260926.md)
 records the earlier `2.7548521757125854e-6` failure and frozen evidence.
 
 ## Inputs and correction

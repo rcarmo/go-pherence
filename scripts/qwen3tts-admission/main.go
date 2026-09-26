@@ -5,6 +5,8 @@
 // Append --mixed to test Hi/seed-42 against Hello world/seed-7 at 16 frames.
 // Append --retain-3 for three rounds of two 32-frame Hi requests, retaining
 // and rechecking earlier outputs while later rounds run.
+// Append --four-mixed for four simultaneous 16-frame requests using the
+// already pinned Hi/seed-42 and Hello world/seed-7 fixtures twice each.
 // For ownership/race evidence, rerun with go run -race. Race instrumentation
 // changes memory use: only the ordinary run is used for RSS admission.
 package main
@@ -111,12 +113,22 @@ func check(r qwen3tts.BoundedCPUResult, codes, wave []byte, frames int, threshol
 	}
 	return max
 }
+
+type fixture struct {
+	text        string
+	seed        uint64
+	frames      int
+	codes, wave []byte
+	threshold   float64
+}
+
 func main() {
-	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3")) {
-		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3]")
+	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed")) {
+		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed]")
 	}
 	dir := os.Args[1]
-	mixed := len(os.Args) == 3 && os.Args[2] == "--mixed"
+	four := len(os.Args) == 3 && os.Args[2] == "--four-mixed"
+	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || four)
 	retain := len(os.Args) == 3 && os.Args[2] == "--retain-3"
 	for _, entry := range []struct {
 		path, sha string
@@ -147,13 +159,6 @@ func main() {
 	}
 	if ref.Oracle != "711ceee07cad92673f86de8997bdf54c30caa49f" || ref.Threshold32 != 1.6e-6 || ref.ThresholdHi != 1.6e-6 || ref.ThresholdSeed7 != 3.5e-6 {
 		panic("reference pin changed")
-	}
-	type fixture struct {
-		text        string
-		seed        uint64
-		frames      int
-		codes, wave []byte
-		threshold   float64
 	}
 	fixtures := [2]fixture{}
 	files := []struct {
@@ -299,6 +304,10 @@ func main() {
 		runtime.KeepAlive(tok)
 		runtime.KeepAlive(plans)
 		fmt.Printf("post_gc_delta_bytes=%d peak_rss_kib=%d\n", int64(after)-int64(base), peak)
+		return
+	}
+	if four {
+		probeFourMixed(plans, fixtures, t, p, d, tok, base)
 		return
 	}
 	var results [2]qwen3tts.BoundedCPUResult
