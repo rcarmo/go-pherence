@@ -18,7 +18,7 @@ remain acceptance gates. Statistical non-significance alone is not a rejection.
 | Byte-symbol table and call-local BPE scratch | `060b62c0` | Tokenizer microbenchmarks 39–45% faster; full-request allocations down roughly 40–64%; [report](mojev-tokenizer-allocations-20260926.md). |
 | Direct encoded segments for native scoring | `87406572` | Avoids masks/re-extraction, fewer request allocations; [report](mojev-direct-segments-20260926.md). |
 | Four-row SIMD recurrence | `ca406642`, merged as `649bf072` | Adopted with measured 31.73% local speedup, exact state/output transitions and unchanged independent model parity; full-request benefit remains uncertain. Details below. |
-| Owned weight transfer during loading | After `6246a7cc` | About 3.01 GB less CPU-load allocation; measured SIMD peak RSS 5.78–5.90 → 4.76 GiB. [Ownership and load report](mojev-owned-load-20260926.md). |
+| Owned weight transfer during loading | `661a3255` | About 3.01 GB less CPU-load allocation; measured SIMD peak RSS 5.78–5.90 → 4.76 GiB. [Ownership and load report](mojev-owned-load-20260926.md). |
 
 ## Four-row recurrence
 
@@ -80,13 +80,12 @@ before combining them. Do not reclassify older failures as passes.
 | Candidate | Existing evidence | Revisit condition / location |
 |---|---|---|
 | Paired GPU MLP gate/up projection | Exact four-workload responses; mixed timing, including slower workloads | Check interaction with launch/tiling changes. `mojev-gateup-20260926/{paired.cu,nvidia-paired.go,paired.json}` under `/workspace/tmp`. |
-| Warp-local GPU attention | Exact four-workload responses; small inconclusive gain | Independent long/grouped gates and load-aware paired timing before adoption. `mojev-gateup-20260926/{warp.cu,nvidia-warp.go,warp.json}`. |
-| Precomputed GPU recurrence parameters | Exact four-workload responses; marginal lower medians | Test alone and combined with warp attention, retaining exact operations. `mojev-gateup-20260926/{prepared.cu,nvidia-prepared.go,prepared.json}`. |
+| Warp-local GPU attention + precomputed recurrence | Tested separately and combined across24 load-monitored processes. Combined medians −1.16%/−1.16%/inconclusive/−2.75%; exact responses, independent long/grouped references and released races pass. | Preserved in Git as `a3fffac4`, branch `experiments/mojev-gpu-combined`. Expanded memcheck and small racecheck pass, but512-row racecheck failed with CUDA719 and device became inaccessible. Main dispatch held for device recovery/investigation, not for lack of gain. [Branch report](https://github.com/rcarmo/go-pherence/blob/a3fffac4/docs/validation/mojev-gpu-combined-20260926.md). |
 | CPU padding/stride/prefetch/unroll/K-block variants | Mixed/no consistent request gains in prior tests | Preserve assembly and logs; revisit only as specified combinations or changed workloads. `/workspace/tmp/mojev-cpu-tiles-20260926`; prior [record](mojev-long-f32-normalisation-20260926.md). |
 | NVIDIA 16×64 and 32×128 GEMM tiles | Slower in the recorded experiment | Different geometry/device may change the result; current 32×64 remains selected. [GEMM record](mojev-gemm-events-20260926.md). |
 
 Workspace artifact paths above are evidence locations, not portable source
-checkouts. The four-row source is now in Git; older workspace-only prototypes
+checkouts. Four-row recurrence and the combined GPU source are now in Git; older workspace-only prototypes
 need an audited patch before reuse. No trial replaces the numerical reference.
 
 ## Load-aware cumulative measurements
