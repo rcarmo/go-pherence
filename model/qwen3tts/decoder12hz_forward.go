@@ -44,6 +44,14 @@ func (m *Decoder12HzCPU) decodeCodesWithConvs(codes []uint32, frames int, preCon
 }
 
 func (m *Decoder12HzCPU) decodeCodesWithDiagnosticConvs(codes []uint32, frames int, preConv, initConv, finalConv decoderConvForward) ([]float32, error) {
+	return m.decodeCodesWithDiagnosticFC1(codes, frames, preConv, initConv, finalConv, nil)
+}
+
+// decoderFC1Forward is a test-only, request-local ConvNeXt projection seam.
+// A nil callback keeps every pre-upsample stage on the CPU.
+type decoderFC1Forward func(talkerLinear, []float32, int) ([]float32, error)
+
+func (m *Decoder12HzCPU) decodeCodesWithDiagnosticFC1(codes []uint32, frames int, preConv, initConv, finalConv decoderConvForward, upsample1FC1 decoderFC1Forward) ([]float32, error) {
 	if frames <= 0 || len(codes) != frames*m.cfg.Quantizers {
 		return nil, fmt.Errorf("invalid Qwen3-TTS Decoder12Hz codes=%d frames=%d", len(codes), frames)
 	}
@@ -115,7 +123,11 @@ func (m *Decoder12HzCPU) decodeCodesWithDiagnosticConvs(codes []uint32, frames i
 	}
 	hidden = timeToChannel(outTime, length, m.cfg.LatentDim)
 	for i := range m.preUpsample {
-		hidden, length, err = m.preUpsample[i].forward(hidden, length)
+		if i == 1 && upsample1FC1 != nil {
+			hidden, length, err = m.preUpsample[i].forwardWithFC1(hidden, length, upsample1FC1)
+		} else {
+			hidden, length, err = m.preUpsample[i].forward(hidden, length)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("Qwen3-TTS Decoder12Hz pre-upsample %d: %w", i, err)
 		}
@@ -326,6 +338,10 @@ func (c decoderTransConv1D) forwardDirect(input []float32, length int) ([]float3
 }
 
 func (b decoderConvNeXt) forward(input []float32, length int) ([]float32, error) {
+	return b.forwardWithFC1(input, length, nil)
+}
+
+func (b decoderConvNeXt) forwardWithFC1(input []float32, length int, fc1 decoderFC1Forward) ([]float32, error) {
 	hidden, _, err := b.depthwise.forward(input, length)
 	if err != nil {
 		return nil, err
@@ -339,9 +355,23 @@ func (b decoderConvNeXt) forward(input []float32, length int) ([]float32, error)
 	wide := make([]float32, b.fc1.outDim)
 	rowOut := make([]float32, channels)
 	out := append([]float32(nil), input...)
-	for row := 0; row < length; row++ {
-		if err := decoderLinearForward(b.fc1, wide, norm[row*channels:(row+1)*channels]); err != nil {
+	var batched []float32
+	if fc1 != nil {
+		batched, err = fc1(b.fc1, norm, length)
+		if err != nil {
 			return nil, err
+		}
+		if len(batched) != length*b.fc1.outDim {
+			return nil, fmt.Errorf("invalid Qwen3-TTS diagnostic FC1 output length=%d want=%d", len(batched), length*b.fc1.outDim)
+		}
+	}
+	for row := 0; row < length; row++ {
+		if fc1 == nil {
+			if err := decoderLinearForward(b.fc1, wide, norm[row*channels:(row+1)*channels]); err != nil {
+				return nil, err
+			}
+		} else {
+			copy(wide, batched[row*b.fc1.outDim:(row+1)*b.fc1.outDim])
 		}
 		decoderGELUExact(wide)
 		if err := decoderLinearForward(b.fc2, rowOut, wide); err != nil {
@@ -355,11 +385,15 @@ func (b decoderConvNeXt) forward(input []float32, length int) ([]float32, error)
 }
 
 func (s decoderUpsampleStage) forward(input []float32, length int) ([]float32, int, error) {
+	return s.forwardWithFC1(input, length, nil)
+}
+
+func (s decoderUpsampleStage) forwardWithFC1(input []float32, length int, fc1 decoderFC1Forward) ([]float32, int, error) {
 	out, outLen, err := s.trans.forward(input, length)
 	if err != nil {
 		return nil, 0, err
 	}
-	out, err = s.block.forward(out, outLen)
+	out, err = s.block.forwardWithFC1(out, outLen, fc1)
 	return out, outLen, err
 }
 

@@ -66,8 +66,10 @@ GPU admission still needs live chained parity, full-request performance and
 resource gates. An opt-in [batched ConvNeXt FC1 stage check](../../docs/validation/qwen3-tts-gpu-convnext-fc1-20260927.md)
 matches the independent Rust trace bitwise with two Candle-order 512-wide
 GPU reductions; a full-width SGEMM misses the fixed stage gate. It has no
-live decoder waveform or production dispatch. The fixed 2/3/4-frame APIs
-remain unchanged.
+live decoder waveform or production dispatch. A separate [live ConvNeXt FC1 waveform check](../../docs/validation/qwen3-tts-gpu-convnext-fc1-live-20260927.md)
+passes the unchanged 64-frame gate with bitwise GPU/live-CPU FC1 output but
+measurable Rust intermediate drift. It leaves the default CPU path and GPU
+admission hold unchanged. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
