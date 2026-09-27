@@ -32,8 +32,11 @@ cancels after Prefill while another pinned request completes on the same model.
 A separate [sentence check](../../docs/validation/qwen3-tts-long-cancellation-20260926.md)
 cancels after 32 complete frames and recovers a pinned 64-frame waveform on
 the same loaded models. Kernels remain non-interruptible; hard cancellation
-latency, concurrent long-request cancellation and long-term soak are
-unqualified. The fixed 2/3/4-frame APIs remain unchanged.
+latency and concurrent long-request cancellation are unqualified. A separate
+[two-hour retention run](../../docs/validation/qwen3-tts-two-hour-retention-20260927.md)
+kept 26 pinned 32-frame outputs across 13 rounds and released them without
+post-GC live-heap growth; days-long retention and broader inputs remain open.
+The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|

@@ -9,6 +9,8 @@
 // alternating the already pinned Hi/seed-42 and Hello world/seed-7 fixtures.
 // Append --cancel-peer to cancel Hi just after Prefill while a Hello world
 // request runs, then verify same-instance Hi recovery.
+// Append --retain-2h for 13 two-request rounds, retaining and rechecking all
+// outputs across a two-hour interval. This mode sleeps between rounds.
 // For ownership/race evidence, rerun with go run -race. Race instrumentation
 // changes memory use: only the ordinary run is used for RSS admission.
 package main
@@ -125,8 +127,8 @@ type fixture struct {
 }
 
 func main() {
-	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--four-mixed" && os.Args[2] != "--eight-mixed" && os.Args[2] != "--cancel-peer")) {
-		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--four-mixed|--eight-mixed|--cancel-peer]")
+	if len(os.Args) != 2 && (len(os.Args) != 3 || (os.Args[2] != "--mixed" && os.Args[2] != "--retain-3" && os.Args[2] != "--retain-2h" && os.Args[2] != "--four-mixed" && os.Args[2] != "--eight-mixed" && os.Args[2] != "--cancel-peer")) {
+		panic("usage: probe <pinned-checkpoint-dir> [--mixed|--retain-3|--retain-2h|--four-mixed|--eight-mixed|--cancel-peer]")
 	}
 	dir := os.Args[1]
 	callers := 0
@@ -141,6 +143,7 @@ func main() {
 	cancelPeer := len(os.Args) == 3 && os.Args[2] == "--cancel-peer"
 	mixed := len(os.Args) == 3 && (os.Args[2] == "--mixed" || callers > 0 || cancelPeer)
 	retain := len(os.Args) == 3 && os.Args[2] == "--retain-3"
+	soak := len(os.Args) == 3 && os.Args[2] == "--retain-2h"
 	for _, entry := range []struct {
 		path, sha string
 		size      int64
@@ -253,12 +256,24 @@ func main() {
 	}
 	runtime.GC()
 	base, _ := inspect("before_concurrent_post_gc")
-	if retain {
+	if retain || soak {
 		// Scope the retained results in a call, so the final GC observes
 		// released outputs, not compiler-dependent liveness of loop locals.
 		func() {
 			var held [][2]qwen3tts.BoundedCPUResult
-			for round := 0; round < 3; round++ {
+			rounds := 3
+			started := time.Now()
+			if soak {
+				rounds = 13
+				fmt.Println("soak_start rounds=13 interval=10m minimum_elapsed=2h")
+			}
+			for round := 0; round < rounds; round++ {
+				if soak && round > 0 {
+					wake := started.Add(time.Duration(round) * 10 * time.Minute)
+					if delay := time.Until(wake); delay > 0 {
+						time.Sleep(delay)
+					}
+				}
 				var results [2]qwen3tts.BoundedCPUResult
 				var errs [2]error
 				var wg sync.WaitGroup
@@ -274,7 +289,7 @@ func main() {
 				begin := time.Now()
 				close(start)
 				wg.Wait()
-				fmt.Printf("round=%d wall=%s\n", round, time.Since(begin))
+				fmt.Printf("round=%d elapsed=%s wall=%s\n", round, time.Since(started), time.Since(begin))
 				for i, r := range results {
 					if errs[i] != nil {
 						panic(errs[i])
@@ -301,6 +316,20 @@ func main() {
 				}
 				runtime.GC()
 				inspect(fmt.Sprintf("round_%d_retained_post_gc", round))
+				runtime.KeepAlive(held)
+			}
+			if soak {
+				wake := started.Add(2 * time.Hour)
+				if delay := time.Until(wake); delay > 0 {
+					time.Sleep(delay)
+				}
+				for _, pair := range held {
+					for i, r := range pair {
+						f := fixtures[i]
+						check(r, f.codes, f.wave, f.frames, f.threshold)
+					}
+				}
+				fmt.Printf("soak_end elapsed=%s held_outputs=%d\n", time.Since(started), len(held)*2)
 				runtime.KeepAlive(held)
 			}
 		}()
