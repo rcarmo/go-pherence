@@ -34,7 +34,7 @@ out, err := r.SystemOne(
 
 `Object` deliberately preserves JSON property order. Plain maps are accepted and deterministically encoded, but Go map order cannot express the caller's original JSON ordering. Questions, criteria, answers and wide-label construction use slices so semantic order is explicit.
 
-An optional `temperature_by_type` config map selects state-first softmax temperatures for `choice`, `noul` and `score`; absent types use scalar `temperature`. The pinned 0.8B config has no map and retains its original defaults. Each isolated Score level row uses the Score temperature. See the [model-free compatibility check](../../docs/validation/decider-temperature-by-type-20260927.md); it does not fit or approve calibration values.
+An optional `temperature_by_type` config map selects state-first softmax temperatures for `choice`, `noul` and `score`; absent types use scalar `temperature`. The pinned 0.8B config has no map and retains its original defaults. Each isolated Score level row uses the Score temperature. See the [model-free compatibility check](../../docs/validation/decider-temperature-by-type-20260927.md); it does not fit or approve calibration values. Current upstream v1.5 also [changes public confidence fields and Noul validation](../../docs/validation/decider-upstream-contract-gap-20260927.md); this Go port keeps its pinned answer contract until a separately versioned compatibility path is tested.
 
 ## Scope and limits
 
