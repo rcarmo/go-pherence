@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -155,6 +156,60 @@ func TestReleasedDirectPackedTwelveTokenParity(t *testing.T) {
 			t.Fatal(err)
 		}
 		compare(t, "released direct head", got, want, 2e-5, 5e-3)
+	}
+}
+
+// Opt-in released prompt parity against the earlier recorded twelve-token
+// continuation. This checks model/tokenizer integration, not answer quality.
+func TestReleasedDirectPackedPromptContinuation(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_NEEDLE_PACKED_MODEL")
+	if path == "" {
+		t.Skip("set GO_PHERENCE_NEEDLE_PACKED_MODEL to the pinned local archive")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38" {
+		t.Fatalf("archive hash mismatch: %s", got)
+	}
+	baseline, tok, err := LoadArchive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	direct, packedTok, err := LoadArchivePacked(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := "<|im_start|>user\nHello<|im_end|>\n<|im_start|>assistant\n"
+	ids, err := tok.Encode(prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotIDs, err := packedTok.Encode(prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ids, gotIDs) {
+		t.Fatal("tokenizer mismatch")
+	}
+	_, _, bos, eos := tok.SpecialIDs()
+	ids = append([]int{bos}, ids...)
+	wantTokens := []int{6, 38, 8141, 1515, 4047, 997, 598, 782, 326, 1118, 296, 1957}
+	for _, tc := range []struct {
+		name   string
+		model  *Model
+		packed bool
+	}{{"decoded", baseline, false}, {"direct", direct, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.model.GenerateCached(context.Background(), ids, len(wantTokens), eos, DecoderOptions{Execution: Options{Packed: tc.packed}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, wantTokens) {
+				t.Fatalf("continuation=%v want %v", got, wantTokens)
+			}
+		})
 	}
 }
 
