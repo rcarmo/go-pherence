@@ -2,8 +2,11 @@ package pockettts
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
+	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -294,6 +297,124 @@ func TestReleasedFourSessionTiming(t *testing.T) {
 			t.Logf("%s trial=%d total_requests=%d elapsed=%s", tc.name, trial, rounds*workers, time.Since(begin))
 		}
 	}
+}
+
+// Opt-in bounded shared-model reuse check. It measures request latency under
+// four concurrent workers, but is not a production soak or quality judgement.
+func TestReleasedFourSessionReuse(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_REUSE") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_REUSE and pinned released model/voice paths")
+	}
+	modelPath := releasedModel(t)
+	voicePath := releasedVoice(t)
+	gen, err := LoadGeneratorCPU(modelPath, releasedConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice, err := LoadVoiceState(voicePath, gen.FlowLM.Transformer, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const (
+		workers  = 4
+		requests = 40
+		frames   = 5
+	)
+	tokens := []uint32{2994, 578, 682}
+	type work struct {
+		session   *Session
+		pcm, want []float32
+		noise     NoiseSource
+		count     int
+		durations [requests]time.Duration
+		err       error
+	}
+	var jobs [workers]work
+	serial, err := NewSession(gen, voice, frames)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range jobs {
+		job := &jobs[i]
+		job.session, err = NewSession(gen, voice, frames)
+		if err != nil {
+			t.Fatal(err)
+		}
+		job.pcm = make([]float32, frames*SamplesPerFrame)
+		job.want = make([]float32, frames*SamplesPerFrame)
+		shift := i * 11
+		job.noise = func(_ int, dst []float32) error {
+			for j := range dst {
+				dst[j] = float32((j*7+shift)%19-9) / 16
+			}
+			return nil
+		}
+		job.count, err = serial.GenerateInto(job.want, tokens, frames, 3, 1, -4, job.noise)
+		if err != nil || job.count <= 0 {
+			t.Fatalf("serial worker=%d count=%d err=%v", i, job.count, err)
+		}
+		if _, err := job.session.GenerateInto(job.pcm, tokens, frames, 3, 1, -4, job.noise); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Retained heap is reported after a GC outside the measured request window.
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	begin := time.Now()
+	for i := range jobs {
+		wg.Add(1)
+		go func(job *work) {
+			defer wg.Done()
+			<-start
+			for run := 0; run < requests; run++ {
+				requestStart := time.Now()
+				count, err := job.session.GenerateInto(job.pcm, tokens, frames, 3, 1, -4, job.noise)
+				job.durations[run] = time.Since(requestStart)
+				if err != nil || count != job.count {
+					job.err = fmt.Errorf("request=%d count=%d want=%d: %v", run, count, job.count, err)
+					return
+				}
+				var maxAbs, sumError2, sumSignal2 float64
+				for j, got := range job.pcm {
+					want := job.want[j]
+					if !isFinitePCM(got) || !isFinitePCM(want) || (j >= count && (got != 0 || want != 0)) {
+						job.err = fmt.Errorf("request=%d invalid PCM[%d]", run, j)
+						return
+					}
+					if j >= count {
+						continue
+					}
+					diff := math.Abs(float64(got) - float64(want))
+					maxAbs = math.Max(maxAbs, diff)
+					sumError2 += diff * diff
+					sumSignal2 += float64(want) * float64(want)
+				}
+				if sumSignal2 == 0 || maxAbs > 4e-5 || math.Sqrt(sumError2/sumSignal2) > 5e-5 {
+					job.err = fmt.Errorf("request=%d max_abs=%.9g relative_rms=%.9g", run, maxAbs, math.Sqrt(sumError2/sumSignal2))
+					return
+				}
+			}
+		}(&jobs[i])
+	}
+	close(start)
+	wg.Wait()
+	elapsed := time.Since(begin)
+	for i := range jobs {
+		if jobs[i].err != nil {
+			t.Fatalf("worker=%d: %v", i, jobs[i].err)
+		}
+	}
+	runtime.GC()
+	runtime.ReadMemStats(&after)
+	latencies := make([]time.Duration, 0, workers*requests)
+	for i := range jobs {
+		latencies = append(latencies, jobs[i].durations[:]...)
+	}
+	slices.Sort(latencies)
+	t.Logf("four-worker reuse: requests=%d samples_each=%d elapsed=%s latency_min=%s p50=%s p95=%s p99=%s max=%s heap_after_GC_before=%d after=%d bytes", len(latencies), jobs[0].count, elapsed, latencies[0], latencies[len(latencies)/2], latencies[(len(latencies)*95+99)/100-1], latencies[(len(latencies)*99+99)/100-1], latencies[len(latencies)-1], before.HeapAlloc, after.HeapAlloc)
 }
 
 func isFinitePCM(v float32) bool {
