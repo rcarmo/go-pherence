@@ -32,6 +32,14 @@ func (m *Decoder12HzCPU) DecodeWaveform(plan RuntimeRequestPlan, semantic, acous
 }
 
 func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, error) {
+	return m.decodeCodesWithConvs(codes, frames, nil, nil)
+}
+
+// decoderConvForward is an internal diagnostic seam. Nil keeps the CPU path;
+// no public API or production dispatch selects a different implementation.
+type decoderConvForward func(decoderConv1D, []float32, int) ([]float32, int, error)
+
+func (m *Decoder12HzCPU) decodeCodesWithConvs(codes []uint32, frames int, preConv, initConv decoderConvForward) ([]float32, error) {
 	if frames <= 0 || len(codes) != frames*m.cfg.Quantizers {
 		return nil, fmt.Errorf("invalid Qwen3-TTS Decoder12Hz codes=%d frames=%d", len(codes), frames)
 	}
@@ -61,7 +69,13 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 			quantized[channel*frames+frame] = firstProjected[channel] + restProjected[channel]
 		}
 	}
-	hidden, length, err := m.preConv.forward(quantized, frames)
+	if preConv == nil {
+		preConv = decoderConv1D.forward
+	}
+	if initConv == nil {
+		initConv = decoderConv1D.forward
+	}
+	hidden, length, err := preConv(m.preConv, quantized, frames)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +113,7 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 			return nil, fmt.Errorf("Qwen3-TTS Decoder12Hz pre-upsample %d: %w", i, err)
 		}
 	}
-	hidden, length, err = m.decoderInit.forward(hidden, length)
+	hidden, length, err = initConv(m.decoderInit, hidden, length)
 	if err != nil {
 		return nil, err
 	}

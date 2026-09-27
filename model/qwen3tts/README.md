@@ -48,7 +48,10 @@ released 64-frame input. A separate [resident-buffer trial](../../docs/validatio
 measures an owned-output pre-convolution stage at about 2.59× CPU speed with
 prepared GPU weights and scratch. A [decoder-initial convolution resident-buffer trial](../../docs/validation/qwen3-tts-gpu-decoder-initconv-resident-20260927.md)
 measures its 7-tap stage at about 3.02× CPU speed for the fixed input. Neither
-measures full synthesis or qualifies production GPU dispatch. The fixed 2/3/4-frame APIs remain unchanged.
+measures full synthesis. An opt-in [two-convolution hybrid decoder check](../../docs/validation/qwen3-tts-gpu-decoder-hybrid-20260927.md)
+passes the unchanged 64-frame waveform gate while recording drift at the live
+second-stage Rust boundary. It does not qualify production GPU dispatch. The
+fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
