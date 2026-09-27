@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 func releasedWarmSession(tb testing.TB, frames int) (*Session, NoiseSource, []float32) {
@@ -215,6 +216,83 @@ func TestReleasedConcurrentIndependentSessions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Opt-in bounded four-request timing diagnostic. Preparation and serial
+// baselines are outside the timer; results are logged, not timing assertions.
+func TestReleasedFourSessionTiming(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_CONCURRENT_TIMING") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_CONCURRENT_TIMING and pinned released model/voice paths")
+	}
+	modelPath := releasedModel(t)
+	voicePath := releasedVoice(t)
+	gen, err := LoadGeneratorCPU(modelPath, releasedConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice, err := LoadVoiceState(voicePath, gen.FlowLM.Transformer, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const (
+		workers = 4
+		frames  = 5
+		rounds  = 5
+	)
+	tokens := []uint32{2994, 578, 682}
+	sessions := make([]*Session, workers)
+	outputs := make([][]float32, workers)
+	noise := func(_ int, dst []float32) error {
+		for j := range dst {
+			dst[j] = float32((j*7)%19-9) / 16
+		}
+		return nil
+	}
+	for i := range sessions {
+		sessions[i], err = NewSession(gen, voice, frames)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outputs[i] = make([]float32, frames*SamplesPerFrame)
+		if _, err := sessions[i].GenerateInto(outputs[i], tokens, frames, 3, 1, -4, noise); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Serial and parallel runs use the same warmed sessions and output buffers.
+	for _, tc := range []struct {
+		name     string
+		parallel bool
+	}{{"serial", false}, {"parallel", true}} {
+		for trial := 0; trial < 3; trial++ {
+			errs := make([]error, workers)
+			begin := time.Now()
+			for round := 0; round < rounds; round++ {
+				if !tc.parallel {
+					for i := range sessions {
+						if _, err := sessions[i].GenerateInto(outputs[i], tokens, frames, 3, 1, -4, noise); err != nil {
+							t.Fatal(err)
+						}
+					}
+					continue
+				}
+				var wg sync.WaitGroup
+				for i := range sessions {
+					wg.Add(1)
+					go func(i int) {
+						defer wg.Done()
+						_, errs[i] = sessions[i].GenerateInto(outputs[i], tokens, frames, 3, 1, -4, noise)
+					}(i)
+				}
+				wg.Wait()
+				for _, err := range errs {
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			t.Logf("%s trial=%d total_requests=%d elapsed=%s", tc.name, trial, rounds*workers, time.Since(begin))
+		}
 	}
 }
 
