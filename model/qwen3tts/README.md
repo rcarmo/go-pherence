@@ -40,8 +40,11 @@ Opt-in NVIDIA [input-projection](../../docs/validation/qwen3-tts-gpu-input-proje
 [output-projection](../../docs/validation/qwen3-tts-gpu-output-projection-20260927.md)
 and [causal pre-convolution](../../docs/validation/qwen3-tts-gpu-preconv-20260927.md)
 diagnostics compare three decoder stages against pinned Rust traces. They do
-not change the CPU synthesis path or qualify GPU waveform generation. The fixed 2/3/4-frame
-APIs remain unchanged.
+not change the CPU synthesis path or qualify GPU waveform generation. The
+[pre-convolution benchmark](../../docs/validation/qwen3-tts-gpu-preconv-benchmark-20260927.md)
+measures the blocked host-staged GPU diagnostic at 4.40× CPU stage time on one
+released 64-frame input; no speed improvement is established. The fixed
+2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
