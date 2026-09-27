@@ -63,7 +63,11 @@ found nearly equal five-sample medians on one fixed input, with many more
 Go allocations in the diagnostic GPU path. A [CPU decoder profile and GPU hold decision](../../docs/validation/qwen3-tts-gpu-admission-hold-20260927.md)
 identifies Candle-order projection reductions as the largest sampled CPU cost;
 GPU admission still needs live chained parity, full-request performance and
-resource gates. The fixed 2/3/4-frame APIs remain unchanged.
+resource gates. An opt-in [batched ConvNeXt FC1 stage check](../../docs/validation/qwen3-tts-gpu-convnext-fc1-20260927.md)
+matches the independent Rust trace bitwise with two Candle-order 512-wide
+GPU reductions; a full-width SGEMM misses the fixed stage gate. It has no
+live decoder waveform or production dispatch. The fixed 2/3/4-frame APIs
+remain unchanged.
 
 | Area | Files |
 |---|---|
