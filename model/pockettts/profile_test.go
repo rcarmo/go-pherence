@@ -113,7 +113,7 @@ func TestReleasedTwentyFiveFrameNumericalParity(t *testing.T) {
 	}
 }
 
-// Opt-in race/cross-talk check: two request-owned sessions share immutable
+// Opt-in race/cross-talk check: request-owned sessions share immutable
 // weights and voice state, but never share mutable generation buffers.
 func TestReleasedConcurrentIndependentSessions(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_POCKETTTS_CONCURRENT") == "" {
@@ -138,75 +138,83 @@ func TestReleasedConcurrentIndependentSessions(t *testing.T) {
 		want    []float32
 		count   int
 	}
-	workers := make([]worker, 2)
-	serial, err := NewSession(gen, voice, frames)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := range workers {
-		workers[i].session, err = NewSession(gen, voice, frames)
-		if err != nil {
-			t.Fatal(err)
-		}
-		workers[i].pcm = make([]float32, frames*SamplesPerFrame)
-		workers[i].want = make([]float32, frames*SamplesPerFrame)
-		shift := i * 11
-		workers[i].noise = func(_ int, dst []float32) error {
-			for j := range dst {
-				dst[j] = float32((j*7+shift)%19-9) / 16
+	for _, tc := range []struct {
+		name    string
+		workers int
+		runs    int
+	}{{"two_workers", 2, 3}, {"four_workers", 4, 6}} {
+		t.Run(tc.name, func(t *testing.T) {
+			workers := make([]worker, tc.workers)
+			serial, err := NewSession(gen, voice, frames)
+			if err != nil {
+				t.Fatal(err)
 			}
-			return nil
-		}
-		workers[i].count, err = serial.GenerateInto(workers[i].want, tokens, frames, 3, 1, -4, workers[i].noise)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	for run := 0; run < 3; run++ {
-		var wg sync.WaitGroup
-		errs := make([]error, len(workers))
-		counts := make([]int, len(workers))
-		start := make(chan struct{})
-		for i := range workers {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				<-start
-				counts[i], errs[i] = workers[i].session.GenerateInto(workers[i].pcm, tokens, frames, 3, 1, -4, workers[i].noise)
-			}(i)
-		}
-		close(start)
-		wg.Wait()
-		for i := range workers {
-			if errs[i] != nil || counts[i] != workers[i].count {
-				t.Fatalf("run=%d worker=%d generated=%d want=%d err=%v", run, i, counts[i], workers[i].count, errs[i])
-			}
-			var maxAbs, sumError2, sumSignal2 float64
-			for j, got := range workers[i].pcm {
-				want := workers[i].want[j]
-				if !isFinitePCM(got) || !isFinitePCM(want) {
-					t.Fatalf("run=%d worker=%d nonfinite PCM[%d]", run, i, j)
+			for i := range workers {
+				workers[i].session, err = NewSession(gen, voice, frames)
+				if err != nil {
+					t.Fatal(err)
 				}
-				if j >= counts[i] {
-					if got != 0 || want != 0 {
-						t.Fatalf("run=%d worker=%d nonzero tail at %d", run, i, j)
+				workers[i].pcm = make([]float32, frames*SamplesPerFrame)
+				workers[i].want = make([]float32, frames*SamplesPerFrame)
+				shift := i * 11
+				workers[i].noise = func(_ int, dst []float32) error {
+					for j := range dst {
+						dst[j] = float32((j*7+shift)%19-9) / 16
 					}
-					continue
+					return nil
 				}
-				diff := math.Abs(float64(got) - float64(want))
-				maxAbs = math.Max(maxAbs, diff)
-				sumError2 += diff * diff
-				sumSignal2 += float64(want) * float64(want)
+				workers[i].count, err = serial.GenerateInto(workers[i].want, tokens, frames, 3, 1, -4, workers[i].noise)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
-			if sumSignal2 == 0 {
-				t.Fatalf("run=%d worker=%d silent serial reference", run, i)
+			for run := 0; run < tc.runs; run++ {
+				var wg sync.WaitGroup
+				errs := make([]error, len(workers))
+				counts := make([]int, len(workers))
+				start := make(chan struct{})
+				for i := range workers {
+					wg.Add(1)
+					go func(i int) {
+						defer wg.Done()
+						<-start
+						counts[i], errs[i] = workers[i].session.GenerateInto(workers[i].pcm, tokens, frames, 3, 1, -4, workers[i].noise)
+					}(i)
+				}
+				close(start)
+				wg.Wait()
+				for i := range workers {
+					if errs[i] != nil || counts[i] != workers[i].count {
+						t.Fatalf("run=%d worker=%d generated=%d want=%d err=%v", run, i, counts[i], workers[i].count, errs[i])
+					}
+					var maxAbs, sumError2, sumSignal2 float64
+					for j, got := range workers[i].pcm {
+						want := workers[i].want[j]
+						if !isFinitePCM(got) || !isFinitePCM(want) {
+							t.Fatalf("run=%d worker=%d nonfinite PCM[%d]", run, i, j)
+						}
+						if j >= counts[i] {
+							if got != 0 || want != 0 {
+								t.Fatalf("run=%d worker=%d nonzero tail at %d", run, i, j)
+							}
+							continue
+						}
+						diff := math.Abs(float64(got) - float64(want))
+						maxAbs = math.Max(maxAbs, diff)
+						sumError2 += diff * diff
+						sumSignal2 += float64(want) * float64(want)
+					}
+					if sumSignal2 == 0 {
+						t.Fatalf("run=%d worker=%d silent serial reference", run, i)
+					}
+					relRMS := math.Sqrt(sumError2 / sumSignal2)
+					if maxAbs > 4e-5 || relRMS > 5e-5 {
+						t.Fatalf("run=%d worker=%d max_abs=%.9g relative_rms=%.9g", run, i, maxAbs, relRMS)
+					}
+					t.Logf("run=%d worker=%d generated=%d max_abs=%.9g relative_rms=%.9g", run, i, counts[i], maxAbs, relRMS)
+				}
 			}
-			relRMS := math.Sqrt(sumError2 / sumSignal2)
-			if maxAbs > 4e-5 || relRMS > 5e-5 {
-				t.Fatalf("run=%d worker=%d max_abs=%.9g relative_rms=%.9g", run, i, maxAbs, relRMS)
-			}
-			t.Logf("run=%d worker=%d generated=%d max_abs=%.9g relative_rms=%.9g", run, i, counts[i], maxAbs, relRMS)
-		}
+		})
 	}
 }
 
