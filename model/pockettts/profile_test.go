@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -110,6 +111,107 @@ func TestReleasedTwentyFiveFrameNumericalParity(t *testing.T) {
 	if maxAbs > 4e-5 || relRMS > 5e-5 {
 		t.Fatalf("25-frame PCM drift exceeds bounds: max_abs=%.9g (limit 4e-5), relative_rms=%.9g (limit 5e-5)", maxAbs, relRMS)
 	}
+}
+
+// Opt-in race/cross-talk check: two request-owned sessions share immutable
+// weights and voice state, but never share mutable generation buffers.
+func TestReleasedConcurrentIndependentSessions(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_CONCURRENT") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_CONCURRENT and pinned released model/voice paths")
+	}
+	modelPath := releasedModel(t)
+	voicePath := releasedVoice(t)
+	gen, err := LoadGeneratorCPU(modelPath, releasedConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice, err := LoadVoiceState(voicePath, gen.FlowLM.Transformer, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const frames = 5
+	tokens := []uint32{2994, 578, 682}
+	type worker struct {
+		session *Session
+		noise   NoiseSource
+		pcm     []float32
+		want    []float32
+		count   int
+	}
+	workers := make([]worker, 2)
+	serial, err := NewSession(gen, voice, frames)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range workers {
+		workers[i].session, err = NewSession(gen, voice, frames)
+		if err != nil {
+			t.Fatal(err)
+		}
+		workers[i].pcm = make([]float32, frames*SamplesPerFrame)
+		workers[i].want = make([]float32, frames*SamplesPerFrame)
+		shift := i * 11
+		workers[i].noise = func(_ int, dst []float32) error {
+			for j := range dst {
+				dst[j] = float32((j*7+shift)%19-9) / 16
+			}
+			return nil
+		}
+		workers[i].count, err = serial.GenerateInto(workers[i].want, tokens, frames, 3, 1, -4, workers[i].noise)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for run := 0; run < 3; run++ {
+		var wg sync.WaitGroup
+		errs := make([]error, len(workers))
+		counts := make([]int, len(workers))
+		start := make(chan struct{})
+		for i := range workers {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				<-start
+				counts[i], errs[i] = workers[i].session.GenerateInto(workers[i].pcm, tokens, frames, 3, 1, -4, workers[i].noise)
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+		for i := range workers {
+			if errs[i] != nil || counts[i] != workers[i].count {
+				t.Fatalf("run=%d worker=%d generated=%d want=%d err=%v", run, i, counts[i], workers[i].count, errs[i])
+			}
+			var maxAbs, sumError2, sumSignal2 float64
+			for j, got := range workers[i].pcm {
+				want := workers[i].want[j]
+				if !isFinitePCM(got) || !isFinitePCM(want) {
+					t.Fatalf("run=%d worker=%d nonfinite PCM[%d]", run, i, j)
+				}
+				if j >= counts[i] {
+					if got != 0 || want != 0 {
+						t.Fatalf("run=%d worker=%d nonzero tail at %d", run, i, j)
+					}
+					continue
+				}
+				diff := math.Abs(float64(got) - float64(want))
+				maxAbs = math.Max(maxAbs, diff)
+				sumError2 += diff * diff
+				sumSignal2 += float64(want) * float64(want)
+			}
+			if sumSignal2 == 0 {
+				t.Fatalf("run=%d worker=%d silent serial reference", run, i)
+			}
+			relRMS := math.Sqrt(sumError2 / sumSignal2)
+			if maxAbs > 4e-5 || relRMS > 5e-5 {
+				t.Fatalf("run=%d worker=%d max_abs=%.9g relative_rms=%.9g", run, i, maxAbs, relRMS)
+			}
+			t.Logf("run=%d worker=%d generated=%d max_abs=%.9g relative_rms=%.9g", run, i, counts[i], maxAbs, relRMS)
+		}
+	}
+}
+
+func isFinitePCM(v float32) bool {
+	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
 }
 
 func benchmarkReleasedFrames(b *testing.B, frames int) {
