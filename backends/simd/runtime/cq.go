@@ -126,6 +126,47 @@ func (m *CQMatrix) Bytes() int64 {
 	return m.bytes
 }
 
+// DecodeRow reconstructs one owned F32 row from an immutable CQ payload.
+// It is a bounded embedding-lookup prerequisite, not packed-only archive
+// loading. Invalid indices return an error without changing the destination.
+func (m *CQMatrix) DecodeRow(row int) ([]float32, error) {
+	if m == nil || row < 0 || row >= m.rows {
+		return nil, fmt.Errorf("simd: CQ row %d out of range", row)
+	}
+	out := make([]float32, m.cols)
+	var work [cqGroup128]float32
+	for g := 0; g < m.groups; g++ {
+		norm := half.F16ToF32(binary.LittleEndian.Uint16(m.norms[(row*m.groups+g)*2:]))
+		// Decode even zero-norm groups: inverse Walsh can retain signed zero
+		// bits that the archive's dense decoder also produces.
+		group := m.packed[row*m.packedPerRow+g*m.packedPerGroup:][:m.packedPerGroup]
+		switch m.bits {
+		case 1:
+			unpackCQBinary(&work, group)
+		case 2:
+			for i, b := range group {
+				copy(work[i*4:i*4+4], m.lookup[b][:])
+			}
+		case 3:
+			unpackCQCodebook(&work, group, 3, m.codebook[4:12])
+		case 4:
+			for i, b := range group {
+				pair := m.lookup[b]
+				work[2*i], work[2*i+1] = pair[0], pair[1]
+			}
+		case cqTernaryBits:
+			unpackCQTernary(&work, group)
+		}
+		for i := range work {
+			work[i] *= norm
+		}
+		cqWalsh128(work[:])
+		start := g * cqGroup128
+		copy(out[start:min(start+cqGroup128, m.cols)], work[:min(cqGroup128, m.cols-start)])
+	}
+	return out, nil
+}
+
 // Mul overwrites dst[batch,rows] with input[batch,cols] * CQ^T.
 func (m *CQMatrix) Mul(dst, input []float32, batch int) bool {
 	if m == nil || m.rows <= 0 || m.cols <= 0 || batch <= 0 {
