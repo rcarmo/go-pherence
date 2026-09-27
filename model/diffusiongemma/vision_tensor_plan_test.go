@@ -41,7 +41,7 @@ func TestLocalDiffusionGemmaVisionTensorPlanReady(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaVisionTensorPlanShapes(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)

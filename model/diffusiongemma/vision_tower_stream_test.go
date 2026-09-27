@@ -27,7 +27,7 @@ func TestRunVisionTowerF32StreamingEquivalentSynthetic(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaRunVisionTowerF32StreamingPrefixSeq1(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestLocalDiffusionGemmaRunVisionTowerF32StreamingPrefixSeq1(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaRunVisionTowerF32StreamingFullDepthSeq1(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -15,7 +15,7 @@ type gemma4Vision48Reference struct {
 }
 
 func TestLocalDiffusionGemmaVision48TransformersReference(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	data, err := os.ReadFile("testdata/gemma4_vision_48x48_transformers.json")
 	if err != nil {
 		t.Fatal(err)

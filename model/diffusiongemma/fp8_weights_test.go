@@ -11,6 +11,11 @@ func TestLocalFP8TextWeightsLoadsSelfConditioningProjections(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors.index.json")); err != nil {
 		t.Skip("local FP8 DiffusionGemma model not present")
 	}
+	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors")); os.IsNotExist(err) {
+		t.Skip("local FP8 DiffusionGemma weight payload absent; restore model.safetensors to run released weight tests")
+	} else if err != nil {
+		t.Fatal(err)
+	}
 	m, err := LoadMetadata(modelDir)
 	if err != nil {
 		t.Fatal(err)

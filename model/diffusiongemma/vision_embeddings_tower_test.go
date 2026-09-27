@@ -50,7 +50,7 @@ func TestComputeImageEmbeddingsWithFullStreamingTowerRequiresLayers(t *testing.T
 }
 
 func TestLocalDiffusionGemmaStreamingImageEmbeddingsZeroPrefixMatchesNoTower(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestLocalDiffusionGemmaStreamingImageEmbeddingsZeroPrefixMatchesNoTower(t *
 }
 
 func TestLocalDiffusionGemmaStreamingImageEmbeddingsOneLayerMatchesPreloaded(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +186,7 @@ func TestLocalDiffusionGemmaFullStreamingTowerGuardRejectsProcessorImageSeq(t *t
 }
 
 func TestLocalDiffusionGemmaFullStreamingImageEmbeddingsOnePatch(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -242,7 +242,7 @@ func TestApplyVisionTowerStreamingPrefixF32CountZeroNoop(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaStreamingTowerHookMatchesPreloadedPrefixSeq1(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
