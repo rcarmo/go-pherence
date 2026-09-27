@@ -23,7 +23,6 @@ make model-coverage-next-runtime-json
 # add -blocker-package model/qwen3tts, model/lfm2, or backends/nvidia, or -blocker-kind cpu/nvidia/streaming, to scope roadmap/next-runtime output
 # emits phase/kind-numbered, dependency-ordered runtime blocker checklists with package/fixture hints, short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
-make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 make model-coverage-references-pending
 make model-coverage-runtime-pending
 make model-coverage-execution-pending
@@ -63,38 +62,6 @@ It validates:
 - parity/readiness coverage has no pending manifest gates
 
 Whole-tree dry compiles are still useful, but currently fail in unrelated experimental Spacemit IME2 and `tmp/diarize` packages.
-
-## MiniCPM-V/O
-
-Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt placeholders, image preprocessing, slice planning, tensor inventory/shape validation, explicit safetensors inspection, and correctness-first CPU text, nested/fused-QKV SigLIP, perceiver-resampler, image/audio injection, and MiniCPM-O Whisper audio slices are implemented. Released-model parity and end-to-end generation are not implemented.
-
-Implemented package/command surface:
-
-- `loader/config/minicpmv*.go` — MiniCPM-V/O config, processor, tokenizer/chat-template, generation, and audio metadata sidecar parsing.
-- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, owned-F32 text/SigLIP/resampler/Whisper-audio CPU references, image/audio embedding injection, capability/runtime-status summary, readiness report, committed MiniCPM-O fixture helpers/expected summary, aggregate metadata loader, and local asset discovery/check tooling.
-- `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
-- `make minicpmv-fixture-path` / `make minicpmv-fixture-summary` — committed fixture discovery and expected-summary reporting.
-- `make minicpmv-fixture-check` — committed MiniCPM-O fixture validation, including audio feature-frame estimation.
-- `docs/models/minicpmv-runtime-roadmap.md` — ordered runtime implementation path from scaffold to full text/vision/resampler/audio generation.
-- `make minicpmv-check` — focused scaffold validation with synthetic MiniCPM-O sidecars plus a tiny explicit safetensors fixture.
-
-Useful commands:
-
-```bash
-make models-download-minicpmv
-make models-download-minicpmo
-make minicpmv-check
-make minicpmv-assets-check
-make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
-make minicpmv-coverage-pending
-make minicpmv-version
-make minicpmv-support-summary
-make minicpmv-fixture-path
-make minicpmv-fixture-summary
-bin/minicpmvinspect -capabilities
-bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -json
-bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/minicpm-v-2.6/model.safetensors -require-shapes-ready
-```
 
 ## Qwen3-TTS
 

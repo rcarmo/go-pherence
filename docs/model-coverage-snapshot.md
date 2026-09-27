@@ -3,7 +3,6 @@
 | family | status | covered | pending | coverage | references | runtime | execution | parity | readiness |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | lfm2_moe | metadata_schedule_inspector_coverage | 71 | 2 | 97.3% | 12/0 (100.0%) | 21/2 (91.3%) | 0/2 (0.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
-| minicpmv | metadata_prompt_tensor_inspector_coverage | 61 | 5 | 92.4% | 9/0 (100.0%) | 7/4 (63.6%) | 0/1 (0.0%) | 0/0 (100.0%) | 5/0 (100.0%) |
 | qwen3_tts | metadata_token_prompt_inspector_coverage | 73 | 4 | 94.8% | 9/0 (100.0%) | 23/4 (85.2%) | 1/4 (20.0%) | 2/0 (100.0%) | 5/0 (100.0%) |
 
 # Runtime roadmap
@@ -12,13 +11,6 @@
 
 - [ ] P10/cpu `cpu_generation_runtime` — implement the LFM2 CPU/reference generation path across embedding, conv, attention, and MoE stages _(package: `model/lfm2`)_ _(fixture: `model/lfm2/testdata/lfm25_8b_a1b_reference_placeholder.json`)_ _(validate: `cmd/models/lfm2inspect -require-ready`)_
 - [ ] P90/nvidia `nvidia_runtime` — add NVIDIA acceleration after CPU/reference parity is established _(package: `backends/nvidia`)_ _(after: CPU/reference parity)_ _(validate: `cmd/qwen/qwen3ttsinspect -require-runtime / cmd/models/lfm2inspect -require-runtime`)_
-
-## minicpmv runtime blockers
-
-- [ ] P50/runtime `audio_encoder_runtime` — implement this runtime/backend coverage gate
-- [ ] P50/runtime `cpu_text_runtime` — implement this runtime/backend coverage gate
-- [ ] P50/runtime `resampler_runtime` — implement this runtime/backend coverage gate
-- [ ] P50/runtime `vision_tower_runtime` — implement this runtime/backend coverage gate
 
 ## qwen3_tts runtime blockers
 

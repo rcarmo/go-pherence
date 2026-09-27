@@ -15,7 +15,7 @@ The comparison uses `jaredpalmer/kev` at commit `90990a5fac2995b9faa3190f7d437e8
 | Cache | Shared schema prompt and device-resident KV ownership | LRU cache of repeated state prefixes; four entries of at least 384 tokens by default |
 | Admission | One active request; strict bounded validation and cancellation | One active request; state plus question may use up to 8,192 tokens at inference |
 
-Kev's pointer head changes the learned model. It cannot be applied to the pinned Gemma 4 Go System One checkpoint as an inference-only optimisation. A separate Kev checkpoint port can reuse go-pherence's existing native Qwen3.5 DeltaNet runtime, LoRA loader and prefix-state machinery; the [Kev porting roadmap](../models/kev-porting-roadmap.md) defines that work.
+Kev's pointer head changes the learned model. It cannot be applied to the pinned Gemma 4 Go System One checkpoint as an inference-only optimisation. A separate Kev checkpoint port can reuse go-pherence's existing native Qwen3.5 DeltaNet runtime, LoRA loader and prefix-state machinery; the [Kev retirement record](../models/minicpm-kev-retirement-20260927.md) notes that this port is no longer planned.
 
 ## Kev techniques relevant to Go System One
 

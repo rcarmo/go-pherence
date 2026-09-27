@@ -5,18 +5,13 @@ PYTHON ?= python3
 CHECKPOINTS_DIR ?= $(if $(MODELS_DIR),$(MODELS_DIR),checkpoints)
 MODEL ?=
 MODEL_DOWNLOAD_FLAGS ?=
-MINICPMV_MODEL ?=
-MINICPMV_SAFETENSORS ?=
-MINICPMV_IMAGE ?=
-MINICPMV_AUDIO_DURATION_MS ?=
-MINICPMV_FLAGS ?=
 export TMPDIR GOTMPDIR
 
 SPACEMIT_PACKAGES := ./backends/spacemit/... ./cmd/spacemit/...
 
 .PHONY: host-build host-vet host-test host-check spacemit-hardware-test model-layout-check
 
-.PHONY: all build test docs-check docs-diagrams docs-diagrams-check test-cpu spacemit-host-check spacemit-cross-compile test-model-coverage gemma4-mtp-parity gemma4-mtp-strict-parity gemma4-mtp-native-parity gemma4-gpu-cpu-parity whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity whisper-turbo-check whisper-backend-compare whisper-backend-podcast-compare whisper-a100-compare whisper-a100-podcast-compare whisper-int8-compare whisper-int8-podcast-compare model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-minicpmv models-download-minicpmo models-download-gemma4 models-download-speaker models-download-one minicpmv-inspect minicpmv-version minicpmv-support-summary minicpmv-capabilities minicpmv-pending-runtime minicpmv-coverage-pending minicpmv-assets-check minicpmv-fixture-path minicpmv-fixture-summary minicpmv-fixture-ready minicpmv-inspect-model minicpmv-fixture-check minicpmv-check gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-check gguf-ci gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect whisper whisper-k3 speaker-weights
+.PHONY: all build test docs-check docs-diagrams docs-diagrams-check test-cpu spacemit-host-check spacemit-cross-compile test-model-coverage gemma4-mtp-parity gemma4-mtp-strict-parity gemma4-mtp-native-parity gemma4-gpu-cpu-parity whisper-turbo-parity whisper-simd-parity whisper-cuda-parity whisper-gpu-graph-parity whisper-turbo-check whisper-backend-compare whisper-backend-podcast-compare whisper-a100-compare whisper-a100-podcast-compare whisper-int8-compare whisper-int8-podcast-compare model-coverage-tmpdir model-coverage model-coverage-json model-coverage-markdown model-coverage-csv model-coverage-snapshot model-coverage-snapshot-file model-coverage-snapshot-check model-coverage-runtime-roadmap model-coverage-runtime-roadmap-json model-coverage-next-runtime model-coverage-next-runtime-json model-coverage-pending model-coverage-references-pending model-coverage-runtime-pending model-coverage-execution-pending model-coverage-parity-pending model-coverage-readiness-pending model-coverage-references-gate model-coverage-runtime-gate model-coverage-execution-gate model-coverage-parity-gate model-coverage-readiness-gate clean server chat gen vet models-list models-download models-download-small models-download-qwen models-download-qwen3tts models-download-lfm2 models-download-gemma4 models-download-speaker models-download-one gguf-inspect gguf-smoke gguf-bench gguf-turboquant-smoke gguf-validate gguf-check gguf-ci gguf-inspect-qwen36-reap gguf-smoke-qwen36-reap gguf-validate-qwen36-reap gguf-bench-qwen36-reap gguf-check-qwen36-reap gguf-ci-qwen36-reap qwen3tts-inspect qwen3tts-fixture-coverage lfm2-inspect lfm2-fixture-coverage hunyuan3d-fixture-env hunyuan3d-inventory hunyuan3d-inspect hunyuan3d-image-fixture hunyuan3d-conditioner-fixture hunyuan3d-denoiser-fixture hunyuan3d-lowstep-fixture hunyuan3d-mesh-fixture trellis2-fixture-env trellis2-inventory trellis2-lowstep-fixture trellis2-ovoxel-inspect whisper whisper-k3 speaker-weights
 
 all: build
 
@@ -343,48 +338,6 @@ server:
 chat:
 	go build -o bin/llmchat ./cmd/llm/llmchat
 
-minicpmv-inspect:
-	go build -o bin/minicpmvinspect ./cmd/minicpmvinspect
-
-minicpmv-version:
-	go run ./cmd/minicpmvinspect -version $(MINICPMV_FLAGS)
-
-minicpmv-support-summary:
-	go run ./cmd/minicpmvinspect -support-summary $(MINICPMV_FLAGS)
-
-minicpmv-capabilities:
-	go run ./cmd/minicpmvinspect -capabilities $(MINICPMV_FLAGS)
-
-minicpmv-pending-runtime:
-	go run ./cmd/minicpmvinspect -pending-runtime-steps $(MINICPMV_FLAGS)
-
-minicpmv-coverage-pending:
-	$(MAKE) model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
-
-minicpmv-assets-check:
-	$(PYTHON) scripts/minicpmv_assets_check.py --checkpoints-dir $(CHECKPOINTS_DIR) $(MINICPMV_FLAGS)
-
-minicpmv-fixture-path:
-	go run ./cmd/minicpmvinspect -fixture-path $(MINICPMV_FLAGS)
-
-minicpmv-fixture-summary:
-	go run ./cmd/minicpmvinspect -fixture-summary $(MINICPMV_FLAGS)
-
-minicpmv-fixture-ready:
-	go run ./cmd/minicpmvinspect -require-fixture-ready $(MINICPMV_FLAGS)
-
-minicpmv-inspect-model:
-	@if [ -z "$(MINICPMV_MODEL)" ]; then echo "usage: make minicpmv-inspect-model MINICPMV_MODEL=checkpoints/minicpm-v-2.6 [MINICPMV_SAFETENSORS=...] [MINICPMV_IMAGE=...] [MINICPMV_AUDIO_DURATION_MS=1234] [MINICPMV_FLAGS='-json']"; exit 2; fi
-	go run ./cmd/minicpmvinspect -model $(MINICPMV_MODEL) $(if $(MINICPMV_SAFETENSORS),-safetensors $(MINICPMV_SAFETENSORS),) $(if $(MINICPMV_IMAGE),-image $(MINICPMV_IMAGE),) $(if $(MINICPMV_AUDIO_DURATION_MS),-audio-duration-ms $(MINICPMV_AUDIO_DURATION_MS),) $(MINICPMV_FLAGS)
-
-minicpmv-fixture-check:
-	go test ./model/minicpmv -run TestMiniCPMOFixtureMetadata -count=1
-	go run ./cmd/minicpmvinspect -require-fixture-ready
-	go run ./cmd/minicpmvinspect -model model/minicpmv/testdata/minicpmo_fixture -require-metadata-ready -audio-duration-ms 1234
-
-minicpmv-check:
-	$(PYTHON) scripts/minicpmv_check.py
-
 # Whisper speech-to-text. The optimized RVV + SpaceMIT IME (int8) kernels are
 # gated by //go:build riscv64 and selected at runtime via CPU feature detection,
 # so a native riscv64 build picks them up automatically. See
@@ -694,12 +647,6 @@ models-download-qwen3tts:
 
 models-download-lfm2:
 	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group lfm2 $(MODEL_DOWNLOAD_FLAGS)
-
-models-download-minicpmv:
-	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group minicpmv --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
-
-models-download-minicpmo:
-	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group minicpmo $(MODEL_DOWNLOAD_FLAGS)
 
 models-download-gemma4:
 	$(PYTHON) scripts/download_models.py --checkpoints-dir $(CHECKPOINTS_DIR) --group gemma4 $(MODEL_DOWNLOAD_FLAGS)

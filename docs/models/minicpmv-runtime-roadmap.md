@@ -1,4 +1,6 @@
-# MiniCPM-V/O runtime roadmap
+# MiniCPM-V/O runtime roadmap (historical)
+
+The owner retired this port on 27 September 2026. The model package and related commands are absent from the current Go tree. The former implementation steps below are retained as a record, not active work. See [the retirement record](minicpm-kev-retirement-20260927.md).
 
 This roadmap starts from the `minicpmv-scaffold-v1` state. Metadata, prompt, preprocessing, tensor inventory, readiness, inspection, and correctness-first CPU text, vision, resampler, and MiniCPM-O audio slices are implemented and gated by `make minicpmv-check`; released-model parity and end-to-end multimodal generation remain pending.
 

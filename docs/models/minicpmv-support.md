@@ -1,4 +1,6 @@
-# MiniCPM-V / MiniCPM-O support
+# MiniCPM-V / MiniCPM-O support (historical)
+
+The owner retired this port on 27 September 2026. `model/minicpmv`, its inspector and config parsers are absent from the current Go tree. Commands below describe the removed implementation and are not current instructions. See [the retirement record](minicpm-kev-retirement-20260927.md).
 
 This note tracks support for OpenBMB MiniCPM-V and MiniCPM-O checkpoints from <https://github.com/openbmb/MiniCPM-V>. See [minicpmv-runtime-roadmap.md](minicpmv-runtime-roadmap.md) for the ordered path from scaffold coverage to full tensor execution.
 

@@ -170,10 +170,6 @@ func legacyLocalModelPath(file, token string) bool {
 	if strings.HasPrefix(file, "scripts/community1_") && (strings.HasPrefix(token, "models/segmentation/") || strings.HasPrefix(token, "models/blocks/") || strings.HasPrefix(token, "models/embedding/")) {
 		return false
 	}
-	// The inspector's roadmap path is relative to docs/, not the repository.
-	if file == "docs/model_coverage_manifest_test.go" && token == "models/minicpmv-runtime-roadmap.md" {
-		return false
-	}
 	// Existing prose uses slash-separated nouns, not filesystem paths. Scope
 	// these exceptions so a new models/window default elsewhere still fails.
 	prose := map[string]string{
