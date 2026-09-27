@@ -127,13 +127,23 @@ func (m *CQMatrix) Bytes() int64 {
 }
 
 // DecodeRow reconstructs one owned F32 row from an immutable CQ payload.
-// It is a bounded embedding-lookup prerequisite, not packed-only archive
-// loading. Invalid indices return an error without changing the destination.
 func (m *CQMatrix) DecodeRow(row int) ([]float32, error) {
 	if m == nil || row < 0 || row >= m.rows {
 		return nil, fmt.Errorf("simd: CQ row %d out of range", row)
 	}
 	out := make([]float32, m.cols)
+	if err := m.DecodeRowInto(out, row); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DecodeRowInto reconstructs into an exact-width caller-owned slice without
+// allocating a full dense matrix. Invalid row/length leaves dst unchanged.
+func (m *CQMatrix) DecodeRowInto(dst []float32, row int) error {
+	if m == nil || row < 0 || row >= m.rows || len(dst) != m.cols {
+		return fmt.Errorf("simd: invalid CQ row %d or destination length %d", row, len(dst))
+	}
 	var work [cqGroup128]float32
 	for g := 0; g < m.groups; g++ {
 		norm := half.F16ToF32(binary.LittleEndian.Uint16(m.norms[(row*m.groups+g)*2:]))
@@ -162,9 +172,9 @@ func (m *CQMatrix) DecodeRow(row int) ([]float32, error) {
 		}
 		cqWalsh128(work[:])
 		start := g * cqGroup128
-		copy(out[start:min(start+cqGroup128, m.cols)], work[:min(cqGroup128, m.cols-start)])
+		copy(dst[start:min(start+cqGroup128, m.cols)], work[:min(cqGroup128, m.cols-start)])
 	}
-	return out, nil
+	return nil
 }
 
 // Mul overwrites dst[batch,rows] with input[batch,cols] * CQ^T.

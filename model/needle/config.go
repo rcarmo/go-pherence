@@ -153,6 +153,8 @@ type Model struct {
 	deployed      bool
 	archiveWindow int
 	packed        map[packedKey]*simd.CQMatrix // archive hybrid path, immutable
+	compactPacked bool                         // opt-in derived model with only dense-required tensors
+	packedShapes  map[string][]int             // shape metadata for omitted CQ-covered tensors
 }
 
 func Load(path string) (*Model, error) {

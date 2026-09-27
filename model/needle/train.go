@@ -14,7 +14,11 @@ import (
 )
 
 // Checkpoint returns owned data; it can be saved with loader/needle.Save.
+// A compact packed view has no lossless decoded export; return nil for it.
 func (m *Model) Checkpoint() *checkpoint.Checkpoint {
+	if m == nil || m.compactPacked {
+		return nil
+	}
 	cp := &checkpoint.Checkpoint{FormatVersion: 2, Config: append(json.RawMessage(nil), m.rawConfig...), Tensors: map[string]checkpoint.Tensor{}}
 	for name, t := range m.tensors {
 		cp.Tensors[name] = checkpoint.Tensor{Shape: append([]int{}, t.Shape...), Data: append([]float32(nil), t.Data...)}
@@ -25,6 +29,9 @@ func (m *Model) Checkpoint() *checkpoint.Checkpoint {
 // checkpointView is private: unchanged immutable tensors can be shared when
 // constructing a derived model. Any writer must replace a tensor before editing.
 func (m *Model) checkpointView() *checkpoint.Checkpoint {
+	if m == nil || m.compactPacked {
+		return nil
+	}
 	cp := &checkpoint.Checkpoint{FormatVersion: 2, Config: append(json.RawMessage(nil), m.rawConfig...), Tensors: make(map[string]checkpoint.Tensor, len(m.tensors))}
 	for name, w := range m.tensors {
 		cp.Tensors[name] = w

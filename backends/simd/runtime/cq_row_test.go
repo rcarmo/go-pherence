@@ -48,6 +48,47 @@ func TestCQMatrixDecodeRowMatchesDenseOracle(t *testing.T) {
 	}
 }
 
+func TestCQMatrixDecodeRowIntoParityAndTransactionalErrors(t *testing.T) {
+	for _, bits := range []int{1, 2, 3, 4, 5} {
+		m, err := NewCQMatrix(3, 129, bits, makeRandomCQBlob(3, 129, bits, rand.New(rand.NewSource(int64(bits)))), testCQCodebook())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for row := 0; row < m.Rows(); row++ {
+			want, err := m.DecodeRow(row)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := make([]float32, m.Cols())
+			if err := m.DecodeRowInto(got, row); err != nil {
+				t.Fatal(err)
+			}
+			for i := range got {
+				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+					t.Fatalf("bits=%d row=%d col=%d", bits, row, i)
+				}
+			}
+		}
+		for _, bad := range []struct{ row, length int }{{-1, 129}, {3, 129}, {0, 128}, {0, 130}} {
+			dst := make([]float32, bad.length)
+			for i := range dst {
+				dst[i] = 17
+			}
+			if err := m.DecodeRowInto(dst, bad.row); err == nil {
+				t.Fatalf("accepted bits=%d bad=%+v", bits, bad)
+			}
+			for i, v := range dst {
+				if v != 17 {
+					t.Fatalf("modified dst[%d] on rejection", i)
+				}
+			}
+		}
+	}
+	if err := (*CQMatrix)(nil).DecodeRowInto([]float32{1}, 0); err == nil {
+		t.Fatal("nil matrix accepted")
+	}
+}
+
 func TestCQMatrixDecodeRowBoundsAndConcurrentOwnership(t *testing.T) {
 	if _, err := (*CQMatrix)(nil).DecodeRow(0); err == nil {
 		t.Fatal("nil matrix accepted")
