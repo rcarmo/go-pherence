@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -428,17 +429,23 @@ func TestReleasedFourSessionReuse(t *testing.T) {
 		t.Fatal(err)
 	}
 	const (
-		workers  = 4
-		requests = 40
-		frames   = 5
+		workers = 4
+		frames  = 5
 	)
+	requests := 40
+	if value := os.Getenv("GO_PHERENCE_POCKETTTS_REUSE_REQUESTS"); value != "" {
+		requests, err = strconv.Atoi(value)
+		if err != nil || requests < 1 || requests > 200 {
+			t.Fatalf("GO_PHERENCE_POCKETTTS_REUSE_REQUESTS must be 1..200: %q", value)
+		}
+	}
 	tokens := []uint32{2994, 578, 682}
 	type work struct {
 		session   *Session
 		pcm, want []float32
 		noise     NoiseSource
 		count     int
-		durations [requests]time.Duration
+		durations []time.Duration
 		err       error
 	}
 	var jobs [workers]work
@@ -454,6 +461,7 @@ func TestReleasedFourSessionReuse(t *testing.T) {
 		}
 		job.pcm = make([]float32, frames*SamplesPerFrame)
 		job.want = make([]float32, frames*SamplesPerFrame)
+		job.durations = make([]time.Duration, requests)
 		shift := i * 11
 		job.noise = func(_ int, dst []float32) error {
 			for j := range dst {
@@ -523,7 +531,7 @@ func TestReleasedFourSessionReuse(t *testing.T) {
 	runtime.ReadMemStats(&after)
 	latencies := make([]time.Duration, 0, workers*requests)
 	for i := range jobs {
-		latencies = append(latencies, jobs[i].durations[:]...)
+		latencies = append(latencies, jobs[i].durations...)
 	}
 	slices.Sort(latencies)
 	t.Logf("four-worker reuse: requests=%d samples_each=%d elapsed=%s latency_min=%s p50=%s p95=%s p99=%s max=%s heap_after_GC_before=%d after=%d bytes", len(latencies), jobs[0].count, elapsed, latencies[0], latencies[len(latencies)/2], latencies[(len(latencies)*95+99)/100-1], latencies[(len(latencies)*99+99)/100-1], latencies[len(latencies)-1], before.HeapAlloc, after.HeapAlloc)
