@@ -303,12 +303,20 @@ func isFinitePCM(v float32) bool {
 func benchmarkReleasedFrames(b *testing.B, frames int) {
 	session, noise, pcm := releasedWarmSession(b, frames)
 	tokens := []uint32{2994, 578, 682}
+	written, err := session.GenerateInto(pcm, tokens, frames, 3, 1, -4, noise)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if written <= 0 || written > len(pcm) {
+		b.Fatalf("invalid generated sample count %d", written)
+	}
 	b.ReportAllocs()
-	b.SetBytes(int64(frames * SamplesPerFrame * 4))
+	b.SetBytes(int64(written * 4))
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := session.GenerateInto(pcm, tokens, frames, 3, 1, -4, noise); err != nil {
-			b.Fatal(err)
+		count, err := session.GenerateInto(pcm, tokens, frames, 3, 1, -4, noise)
+		if err != nil || count != written {
+			b.Fatalf("generated %d samples, want %d: %v", count, written, err)
 		}
 	}
 }
