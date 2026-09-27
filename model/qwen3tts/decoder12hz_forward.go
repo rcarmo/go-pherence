@@ -40,6 +40,10 @@ func (m *Decoder12HzCPU) decodeCodes(codes []uint32, frames int) ([]float32, err
 type decoderConvForward func(decoderConv1D, []float32, int) ([]float32, int, error)
 
 func (m *Decoder12HzCPU) decodeCodesWithConvs(codes []uint32, frames int, preConv, initConv decoderConvForward) ([]float32, error) {
+	return m.decodeCodesWithDiagnosticConvs(codes, frames, preConv, initConv, nil)
+}
+
+func (m *Decoder12HzCPU) decodeCodesWithDiagnosticConvs(codes []uint32, frames int, preConv, initConv, finalConv decoderConvForward) ([]float32, error) {
 	if frames <= 0 || len(codes) != frames*m.cfg.Quantizers {
 		return nil, fmt.Errorf("invalid Qwen3-TTS Decoder12Hz codes=%d frames=%d", len(codes), frames)
 	}
@@ -74,6 +78,9 @@ func (m *Decoder12HzCPU) decodeCodesWithConvs(codes []uint32, frames int, preCon
 	}
 	if initConv == nil {
 		initConv = decoderConv1D.forward
+	}
+	if finalConv == nil {
+		finalConv = decoderConv1D.forward
 	}
 	hidden, length, err := preConv(m.preConv, quantized, frames)
 	if err != nil {
@@ -126,7 +133,7 @@ func (m *Decoder12HzCPU) decodeCodesWithConvs(codes []uint32, frames int, preCon
 	if err := m.finalSnake.forwardInPlace(hidden, length); err != nil {
 		return nil, err
 	}
-	hidden, length, err = m.finalConv.forward(hidden, length)
+	hidden, length, err = finalConv(m.finalConv, hidden, length)
 	if err != nil {
 		return nil, err
 	}
