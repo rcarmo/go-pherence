@@ -41,7 +41,7 @@ Training uses a frozen Mimi codec, aligned transcript/audio manifests, optional 
 ## Next inference slices
 
 1. Connect the released raw-audio Mimi encoder to a user-facing voice-cloning flow with prompt validation and end-to-end generated-audio parity.
-2. Run native ARM64 and RVV performance qualification; amd64 allocation and performance targets pass on the recorded i7-12700 host.
+2. Profile native ARM64 performance and qualify native RVV. The [CIX P1 ARM64 preset-voice check](../validation/pocket-tts-native-arm64-20260927.md) passes released correctness and zero warm allocations, but its two-second audio case takes about 5.07 seconds. The amd64 allocation and speed targets pass on the recorded i7-12700 host.
 
 ## Native training
 
