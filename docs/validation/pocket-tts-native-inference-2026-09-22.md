@@ -65,7 +65,9 @@ go test ./model/pockettts -run '^$' \
 |---|---:|---:|---:|---:|---:|
 | First chunk | 80 ms | 51–54 ms | 1.48–1.57× | 0 | 0 |
 | Five frames | 400 ms | 143–147 ms | 2.72–2.80× | 0 | 0 |
-| Twenty-five frames | 2.0 s | 398–427 ms | 4.68–5.02× | 0 | 0 |
+| Twenty-five-frame capacity | 1.2 s emitted before EOS | 398–427 ms | 2.81–3.02× | 0 | 0 |
+
+The 25-frame entry above requests room for 48,000 samples, but this fixed-token run stops after 15 frames (28,800 emitted samples). Its original real-time factor divided by the full capacity and was overstated; the corrected factor uses 1.2 s of audio without changing the measured timing range. At `1f71c8cb`, the benchmark began reporting `Bytes/op` from the returned sample count. A later five-sample Intel i7-12700 rerun with the pinned assets, `GOMAXPROCS=6`, `nice -n 10` and `-benchtime=3x -benchmem` measured 386.1–408.7 ms for the 25-frame-capacity run (1.2 s emitted), 0 B and 0 allocations per warm call. It reported 0.28–0.30 MB/s from 115,200 emitted F32 bytes. The later samples are not substituted for the original 398–427 ms range.
 
 Cold CLI execution was measured separately with a prebuilt binary. The initial path needed 1.30 seconds and about 589 MB maximum RSS for model load, voice load, five generated frames and WAV output. The final BF16-resident/session path takes 0.41 seconds and about 450 MB maximum RSS for the same workload. Warm generation results do not include model/tokenizer/voice loading.
 
@@ -86,5 +88,5 @@ A persistent two-worker BF16 GEMV pool was tested but removed: its first-chunk r
 
 - Raw-audio voice cloning needs the gated full model bundle and a pinned prompt fixture. The public path imports precomputed voice states.
 - The CLI currently processes one prepared text chunk per invocation. Long-text sentence chunking can be added without changing model arithmetic.
-- Native ARM64 and RVV execution benchmarks have not run. Cross-builds only establish source compatibility.
+- The [later ARM64 validation](pocket-tts-native-arm64-20260927.md) covers a bounded preset-voice workload; native RVV execution has not run. Cross-builds only establish source compatibility.
 - Training is a separate work item. No backward, optimizer or training-checkpoint claim follows from these inference results.
