@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	checkpoint "github.com/rcarmo/go-pherence/loader/needle"
@@ -83,7 +85,7 @@ func TestLoadArchivePackedTinyParity(t *testing.T) {
 }
 
 // Opt-in: the released archive is ignored by Git and must be pinned locally.
-func TestReleasedDirectPackedShortParity(t *testing.T) {
+func TestReleasedDirectPackedTwelveTokenParity(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_NEEDLE_PACKED_MODEL")
 	if path == "" {
 		t.Skip("set GO_PHERENCE_NEEDLE_PACKED_MODEL to the pinned local archive")
@@ -110,7 +112,7 @@ func TestReleasedDirectPackedShortParity(t *testing.T) {
 		t.Fatalf("decoded retained bytes baseline=%d direct=%d", baseline.DecodedBytes(), direct.DecodedBytes())
 	}
 	t.Logf("released logical decoded data baseline=%d direct=%d; packed direct=%d (not process RSS)", baseline.DecodedBytes(), direct.DecodedBytes(), direct.PackedBytes())
-	ids := []int{2, 7}
+	ids := []int{2, 7, 4, 9, 3, 6, 5, 8, 7, 3, 5, 2}
 	opts := Options{Packed: true}
 	want, err := baseline.Forward(ids, opts)
 	if err != nil {
@@ -154,6 +156,58 @@ func TestReleasedDirectPackedShortParity(t *testing.T) {
 		}
 		compare(t, "released direct head", got, want, 2e-5, 5e-3)
 	}
+}
+
+func TestDirectPackedTinyConcurrentCancellationAndOwnership(t *testing.T) {
+	m, _, err := LoadArchivePacked("../../loader/needle/testdata/needle3.cact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []int{2, 7, 4, 9}
+	want, err := m.Forward(ids, Options{Packed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.GC()
+	var wg sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				decoder, e := m.NewDecoder(DecoderOptions{Capacity: len(ids), Execution: Options{Packed: true}})
+				if e != nil {
+					t.Error(e)
+					return
+				}
+				cancelled, cancel := context.WithCancel(context.Background())
+				cancel()
+				if result, e := decoder.Step(cancelled, ids[0]); e != context.Canceled || result != nil || decoder.Position() != 0 {
+					t.Errorf("cancelled step result=%v err=%v position=%d", result, e, decoder.Position())
+					return
+				}
+				for _, id := range ids {
+					if _, e = decoder.Step(context.Background(), id); e != nil {
+						t.Error(e)
+						return
+					}
+				}
+				got, e := m.Forward(ids, Options{Packed: true})
+				if e != nil {
+					t.Error(e)
+					return
+				}
+				compare(t, "concurrent direct packed", got, want, 1e-4, 5e-3)
+				clear(got)
+			}
+		}()
+	}
+	wg.Wait()
+	got, err := m.Forward(ids, Options{Packed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compare(t, "direct caller mutation", got, want, 1e-4, 5e-3)
 }
 
 func TestDirectPackedRejectsIncompleteArchiveAndV2(t *testing.T) {
