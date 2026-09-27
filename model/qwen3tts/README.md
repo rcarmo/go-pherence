@@ -69,7 +69,10 @@ GPU reductions; a full-width SGEMM misses the fixed stage gate. It has no
 live decoder waveform or production dispatch. A separate [live ConvNeXt FC1 waveform check](../../docs/validation/qwen3-tts-gpu-convnext-fc1-live-20260927.md)
 passes the unchanged 64-frame gate with bitwise GPU/live-CPU FC1 output but
 measurable Rust intermediate drift. It leaves the default CPU path and GPU
-admission hold unchanged. The fixed 2/3/4-frame APIs remain unchanged.
+admission hold unchanged. A [four-stage live decoder check](../../docs/validation/qwen3-tts-gpu-fourstage-20260927.md)
+combines that FC1 with three GPU convolutions under the unchanged 64-frame
+waveform gate, but does not qualify full GPU synthesis, latency or peak VRAM.
+The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
