@@ -37,9 +37,10 @@ latency and concurrent long-request cancellation are unqualified. A separate
 kept 26 pinned 32-frame outputs across 13 rounds and released them without
 post-GC live-heap growth; days-long retention and broader inputs remain open.
 Opt-in NVIDIA [input-projection](../../docs/validation/qwen3-tts-gpu-input-projection-20260927.md),
-[output-projection](../../docs/validation/qwen3-tts-gpu-output-projection-20260927.md)
-and [causal pre-convolution](../../docs/validation/qwen3-tts-gpu-preconv-20260927.md)
-diagnostics compare three decoder stages against pinned Rust traces. They do
+[output-projection](../../docs/validation/qwen3-tts-gpu-output-projection-20260927.md),
+[causal pre-convolution](../../docs/validation/qwen3-tts-gpu-preconv-20260927.md)
+and [decoder-initial convolution](../../docs/validation/qwen3-tts-gpu-decoder-initconv-20260927.md)
+diagnostics compare four decoder stages against pinned Rust traces. They do
 not change the CPU synthesis path or qualify GPU waveform generation. The
 [pre-convolution benchmark](../../docs/validation/qwen3-tts-gpu-preconv-benchmark-20260927.md)
 measures the fully host-staged diagnostic at 4.40× CPU stage time on one
