@@ -55,8 +55,10 @@ passes a fixed stage-error bound against the saved Rust input, with differing
 GPU/CPU bits. A separate [live final-convolution waveform check](../../docs/validation/qwen3-tts-gpu-finalconv-live-20260927.md)
 passes the unchanged 64-frame waveform gate on the CPU decoder's live input;
 its upstream final-Snake tensor differs from the saved Rust trace. None of
-these checks qualifies production GPU dispatch. The fixed 2/3/4-frame APIs
-remain unchanged.
+these checks qualifies production GPU dispatch. A [three-convolution live decoder check](../../docs/validation/qwen3-tts-gpu-threeconv-20260927.md)
+passes the same 64-frame waveform gate with pre-convolution, decoder-initial
+and final convolutions on GPU; remaining stages and full-request admission
+are unqualified. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
