@@ -121,6 +121,49 @@ func TestReleasedGenerateIntoContextCancellation(t *testing.T) {
 	}
 }
 
+// Opt-in asynchronous cancellation diagnostic. The noise callback signals
+// another goroutine after the first decoded frame; the context is canceled
+// while generation continues. Latency is measured, not asserted.
+func TestReleasedGenerateIntoContextAsyncCancel(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_CANCEL_ASYNC") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_CANCEL_ASYNC and pinned released model/voice paths")
+	}
+	const frames = 5
+	session, _, pcm := releasedWarmSession(t, frames)
+	tokens := []uint32{2994, 578, 682}
+	for run := 0; run < 5; run++ {
+		clear(pcm)
+		ctx, cancel := context.WithCancel(context.Background())
+		requestCancel := make(chan struct{})
+		cancelTime := make(chan time.Time, 1)
+		go func() {
+			<-requestCancel
+			cancel()
+			cancelTime <- time.Now()
+		}()
+		noise := func(frame int, dst []float32) error {
+			if frame == 1 {
+				close(requestCancel)
+			}
+			for j := range dst {
+				dst[j] = float32((j*7)%19-9) / 16
+			}
+			return nil
+		}
+		count, err := session.GenerateIntoContext(ctx, pcm, tokens, frames, 3, 2, -4, noise)
+		if !errors.Is(err, context.Canceled) || count%SamplesPerFrame != 0 || count < SamplesPerFrame || count >= frames*SamplesPerFrame {
+			t.Fatalf("run=%d count=%d err=%v", run, count, err)
+		}
+		when := <-cancelTime
+		for i, sample := range pcm[count:] {
+			if sample != 0 {
+				t.Fatalf("run=%d wrote incomplete PCM at %d", run, count+i)
+			}
+		}
+		t.Logf("run=%d canceled_after_frame=1 completed_frames=%d signal_to_return=%s", run, count/SamplesPerFrame, time.Since(when))
+	}
+}
+
 // Opt-in 25-frame comparison against a separately captured, same-host
 // baseline. Reference PCM is raw little-endian F32; never hash-compare output.
 // Record the reference revision, model/voice pins, architecture, and command
