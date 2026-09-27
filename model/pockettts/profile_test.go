@@ -1,7 +1,9 @@
 package pockettts
 
 import (
+	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -49,6 +51,73 @@ func TestReleasedWarmGenerateZeroAlloc(t *testing.T) {
 		}
 	}); allocs != 0 {
 		t.Fatalf("warm allocations=%g", allocs)
+	}
+}
+
+// Opt-in released allocation check for the uncanceled context path.
+func TestReleasedWarmGenerateContextZeroAlloc(t *testing.T) {
+	session, noise, pcm := releasedWarmSession(t, 5)
+	tokens := []uint32{2994, 578, 682}
+	ctx := context.Background()
+	if _, err := session.GenerateIntoContext(ctx, pcm, tokens, 5, 3, 1, -4, noise); err != nil {
+		t.Fatal(err)
+	}
+	if allocs := testing.AllocsPerRun(10, func() {
+		if _, err := session.GenerateIntoContext(ctx, pcm, tokens, 5, 3, 1, -4, noise); err != nil {
+			panic(err)
+		}
+	}); allocs != 0 {
+		t.Fatalf("warm context allocations=%g", allocs)
+	}
+}
+
+// Opt-in released cancellation check. The noise callback triggers cancellation
+// at known frame/step boundaries, so the partial-output contract is testable.
+func TestReleasedGenerateIntoContextCancellation(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_CANCEL") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_CANCEL and pinned released model/voice paths")
+	}
+	const frames = 5
+	session, _, pcm := releasedWarmSession(t, frames)
+	tokens := []uint32{2994, 578, 682}
+	for _, tc := range []struct {
+		name    string
+		atFrame int
+		want    int
+	}{{"before_first_decode", 0, 0}, {"after_one_frame", 1, SamplesPerFrame}} {
+		t.Run(tc.name, func(t *testing.T) {
+			clear(pcm)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			noise := func(frame int, dst []float32) error {
+				if frame == tc.atFrame {
+					cancel()
+				}
+				for j := range dst {
+					dst[j] = float32((j*7)%19-9) / 16
+				}
+				return nil
+			}
+			count, err := session.GenerateIntoContext(ctx, pcm, tokens, frames, 3, 2, -4, noise)
+			if !errors.Is(err, context.Canceled) || count != tc.want {
+				t.Fatalf("count=%d want=%d err=%v", count, tc.want, err)
+			}
+			for _, v := range pcm[count:] {
+				if v != 0 {
+					t.Fatal("cancellation wrote past completed frames")
+				}
+			}
+			// A canceled session can be reset and reused with the legacy API.
+			written, err := session.GenerateInto(pcm, tokens, frames, 3, 1, -4, func(_ int, dst []float32) error {
+				for j := range dst {
+					dst[j] = float32((j*7)%19-9) / 16
+				}
+				return nil
+			})
+			if err != nil || written != frames*SamplesPerFrame {
+				t.Fatalf("reuse count=%d err=%v", written, err)
+			}
+		})
 	}
 }
 
