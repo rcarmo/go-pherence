@@ -35,6 +35,30 @@ type TextStateRequest struct {
 // upstream wire format. Existing DecodeRequest retains its separate contract.
 // Unsupported messages, media and structured content fail before inference.
 func DecodeTextStateRequest(reader io.Reader) (TextStateRequest, error) {
+	return decodeStateRequest(reader, false)
+}
+
+// StructuredStateRequest keeps the canonical JSON state distinct from text.
+// It does not render a prompt or feed a model; callers must choose an adapter
+// for structured state explicitly.
+type StructuredStateRequest struct {
+	Model     string
+	StateJSON string
+	Questions []TextStateQuestion
+	RawLogits bool
+}
+
+// DecodeStructuredStateRequest admits a bounded object/array state alongside
+// the existing text-only question subset. It does not broaden text requests.
+func DecodeStructuredStateRequest(reader io.Reader) (StructuredStateRequest, error) {
+	parsed, err := decodeStateRequest(reader, true)
+	if err != nil {
+		return StructuredStateRequest{}, err
+	}
+	return StructuredStateRequest{Model: parsed.Model, StateJSON: parsed.State, Questions: parsed.Questions, RawLogits: parsed.RawLogits}, nil
+}
+
+func decodeStateRequest(reader io.Reader, structured bool) (TextStateRequest, error) {
 	var empty TextStateRequest
 	if reader == nil {
 		return empty, fmt.Errorf("simplejev: nil reader")
@@ -61,7 +85,18 @@ func DecodeTextStateRequest(reader io.Reader) (TextStateRequest, error) {
 		case "model":
 			request.Model, err = requiredText(d)
 		case "state":
-			request.State, err = requiredText(d)
+			if structured {
+				var raw json.RawMessage
+				if err = d.Decode(&raw); err == nil {
+					if len(raw) == 0 || (raw[0] != '{' && raw[0] != '[') {
+						err = fmt.Errorf("structured state must be an object or array")
+					} else {
+						request.State, err = CanonicalStructuredState(bytes.NewReader(raw))
+					}
+				}
+			} else {
+				request.State, err = requiredText(d)
+			}
 		case "questions":
 			request.Questions, err = parseTextQuestions(d)
 		case "options":
