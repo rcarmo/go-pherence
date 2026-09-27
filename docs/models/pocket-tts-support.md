@@ -41,7 +41,7 @@ Training uses a frozen Mimi codec, aligned transcript/audio manifests, optional 
 ## Next inference slices
 
 1. Connect the released raw-audio Mimi encoder to a user-facing voice-cloning flow with prompt validation and end-to-end generated-audio parity.
-2. Qualify native RVV and broader ARM64 sustained/concurrent performance. A [single-pass NEON FMA kernel](../validation/pocket-tts-native-arm64-20260927.md) preserves the pinned ARM64 25-frame PCM and zero warm allocations; on the CIX P1 it cuts the measured two-second audio case from about 5.08 to 1.98 seconds. The amd64 allocation and speed targets pass on the recorded i7-12700 host. The narrow ARM64 real-time margin is not production admission.
+2. Qualify native RVV and broader ARM64 sustained/concurrent performance. On the CIX P1, a [single-pass NEON FMA kernel](../validation/pocket-tts-native-arm64-20260927.md) cuts the deterministic 25-frame-*capacity* case from about 5.08 to 1.98 seconds; a later fused BF16 four-row ARM64 pass reduces it further to about 1.55 seconds. The run emits 15 frames (1.2 seconds of audio) before EOS, so neither ARM64 result meets real time for this case. The fused candidate has zero measured drift against the separately captured ARM64 reference PCM and zero warm allocations. The amd64 allocation and speed targets pass on the recorded i7-12700 host. ARM64 sustained, concurrent and wider audio-quality admission remain open.
 
 ## Native training
 

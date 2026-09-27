@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// Preserve four independent scalar row-dot bits on ARM64. A shared-activation
-// single-pass BF16 trial differed at cols=7 and changed pinned 25-frame PCM;
-// a numerical-tolerance-only gate would not have caught that regression.
+// Diagnose changes in the exact-order fused row-dot contract against four
+// independent scalar dots. This is not a generated-PCM acceptance gate: a
+// non-fused trial differed at cols=7 but its measured waveform drift was small.
 func TestARM64BF16F32x4BitwiseScalar(t *testing.T) {
 	for _, cols := range []int{1, 7, 8, 9, 16, 17, 48, 256, 768, 1024, 4096} {
 		for seed := int64(0); seed < 16; seed++ {

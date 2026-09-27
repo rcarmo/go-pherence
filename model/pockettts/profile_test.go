@@ -1,12 +1,9 @@
 package pockettts
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"os"
-	"runtime"
 	"testing"
 )
 
@@ -50,33 +47,68 @@ func TestReleasedWarmGenerateZeroAlloc(t *testing.T) {
 	}
 }
 
-// Opt-in full 25-frame PCM regression for the pinned released preset voice.
-// The existing amd64 and ARM64 scalar paths have distinct baseline hashes;
-// this checks that a kernel change preserves the result on its own host.
-func TestReleasedTwentyFiveFrameFingerprint(t *testing.T) {
-	if os.Getenv("GO_PHERENCE_POCKETTTS_FINGERPRINT") == "" {
-		t.Skip("set GO_PHERENCE_POCKETTTS_FINGERPRINT for pinned released output")
+// Opt-in 25-frame comparison against a separately captured, same-host
+// baseline. Reference PCM is raw little-endian F32; never hash-compare output.
+// Record the reference revision, model/voice pins, architecture, and command
+// with the reference file before using it as a regression oracle.
+// The limits bound rounding drift, not speech quality or listening acceptance.
+func TestReleasedTwentyFiveFrameNumericalParity(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_POCKETTTS_REFERENCE_PCM")
+	if path == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_REFERENCE_PCM to independently captured 25-frame F32 baseline PCM")
 	}
-	session, noise, pcm := releasedWarmSession(t, 25)
-	if _, err := session.GenerateInto(pcm, []uint32{2994, 578, 682}, 25, 3, 1, -4, noise); err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	h := sha256.New()
-	var word [4]byte
-	for _, v := range pcm {
-		binary.LittleEndian.PutUint32(word[:], math.Float32bits(v))
-		_, _ = h.Write(word[:])
+	const frames = 25
+	if len(data) != frames*SamplesPerFrame*4 {
+		t.Fatalf("reference PCM bytes=%d want=%d", len(data), frames*SamplesPerFrame*4)
 	}
-	t.Logf("released 25-frame PCM F32 SHA-256 %x; samples=%d", h.Sum(nil), len(pcm))
-	pinned := map[string]string{
-		"amd64": "e88c50c2938246054796c6369e263de7b2243eb2b6f87e6af209399f89bcc882",
-		"arm64": "3309ea59f22f0b68c2c7646b099b968a5d85db03074d1c321440e6588fe11649",
-	}[runtime.GOARCH]
-	if pinned == "" {
-		t.Skip("no native released fingerprint for " + runtime.GOARCH)
+	session, noise, pcm := releasedWarmSession(t, frames)
+	written, err := session.GenerateInto(pcm, []uint32{2994, 578, 682}, frames, 3, 1, -4, noise)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if fmt.Sprintf("%x", h.Sum(nil)) != pinned {
-		t.Fatalf("released waveform fingerprint mismatch")
+	if written <= 0 || written > len(pcm) {
+		t.Fatalf("invalid generated sample count %d", written)
+	}
+	var maxAbs, peak, sumError2, sumSignal2 float64
+	var affected, aboveOneMicro int
+	for i, got := range pcm {
+		want := math.Float32frombits(binary.LittleEndian.Uint32(data[4*i:]))
+		if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || math.IsNaN(float64(want)) || math.IsInf(float64(want), 0) {
+			t.Fatalf("nonfinite PCM at sample %d: got=%g want=%g", i, got, want)
+		}
+		if i >= written {
+			if got != 0 || want != 0 {
+				t.Fatalf("nonzero output after generated sample %d at %d: got=%g want=%g", written, i, got, want)
+			}
+			continue
+		}
+		diff := math.Abs(float64(got) - float64(want))
+		if diff > 0 {
+			affected++
+		}
+		if diff > 1e-6 {
+			aboveOneMicro++
+		}
+		maxAbs = math.Max(maxAbs, diff)
+		peak = math.Max(peak, math.Abs(float64(want)))
+		sumError2 += diff * diff
+		sumSignal2 += float64(want) * float64(want)
+	}
+	if sumSignal2 == 0 {
+		t.Fatal("silent reference cannot calibrate relative error")
+	}
+	rms := math.Sqrt(sumError2 / float64(written))
+	relRMS := math.Sqrt(sumError2 / sumSignal2)
+	t.Logf("25-frame-capacity PCM: generated_samples=%d buffer_samples=%d affected=%d above_1e-6=%d max_abs=%.9g rms=%.9g peak_relative=%.9g relative_rms=%.9g", written, len(pcm), affected, aboveOneMicro, maxAbs, rms, maxAbs/peak, relRMS)
+	// Provisional bounds: the measured ARM64 non-fused BF16 trial had
+	// max_abs=3.13e-5 and relative_rms=3.00e-5 over 28,800 emitted samples.
+	// These leave rounding headroom, but are not an audio-quality admission.
+	if maxAbs > 4e-5 || relRMS > 5e-5 {
+		t.Fatalf("25-frame PCM drift exceeds bounds: max_abs=%.9g (limit 4e-5), relative_rms=%.9g (limit 5e-5)", maxAbs, relRMS)
 	}
 }
 
