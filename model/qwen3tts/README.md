@@ -42,9 +42,11 @@ and [causal pre-convolution](../../docs/validation/qwen3-tts-gpu-preconv-2026092
 diagnostics compare three decoder stages against pinned Rust traces. They do
 not change the CPU synthesis path or qualify GPU waveform generation. The
 [pre-convolution benchmark](../../docs/validation/qwen3-tts-gpu-preconv-benchmark-20260927.md)
-measures the blocked host-staged GPU diagnostic at 4.40× CPU stage time on one
-released 64-frame input; no speed improvement is established. The fixed
-2/3/4-frame APIs remain unchanged.
+measures the fully host-staged diagnostic at 4.40× CPU stage time on one
+released 64-frame input. A separate [resident-buffer trial](../../docs/validation/qwen3-tts-gpu-preconv-resident-20260927.md)
+measures an owned-output pre-convolution stage at about 2.59× CPU speed with
+prepared GPU weights and scratch. Neither measures full synthesis or qualifies
+production GPU dispatch. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
