@@ -3,6 +3,7 @@ package needle
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -211,6 +212,79 @@ func TestReleasedDirectPackedPromptContinuation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// One released model is shared by independent cached sessions. Cancellation
+// occurs after provisional layer work and must leave each session retryable.
+// Keep only a bounded two-token sequence under the race detector.
+func TestReleasedDirectPackedConcurrentRecovery(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_NEEDLE_PACKED_MODEL")
+	if path == "" {
+		t.Skip("set GO_PHERENCE_NEEDLE_PACKED_MODEL to the pinned local archive")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38" {
+		t.Fatalf("archive hash mismatch: %s", got)
+	}
+	baseline, _, err := LoadArchive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	direct, _, err := LoadArchivePacked(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []int{2, 7}
+	opts := Options{Packed: true}
+	want, err := baseline.Forward(ids, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = append([]float32(nil), want[len(want)-baseline.config.OutVocab:]...)
+	const workers = 4
+	var wg sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dec, e := direct.NewDecoder(DecoderOptions{Capacity: len(ids), Execution: opts})
+			if e != nil {
+				t.Error(e)
+				return
+			}
+			first, e := dec.Step(context.Background(), ids[0])
+			if e != nil {
+				t.Error(e)
+				return
+			}
+			ctx := &cancelAfterChecks{Context: context.Background(), cancelAt: 3}
+			if out, e := dec.Step(ctx, ids[1]); !errors.Is(e, context.Canceled) || out != nil || dec.Position() != 1 {
+				t.Errorf("cancel after work out=%d err=%v pos=%d", len(out), e, dec.Position())
+				return
+			}
+			got, e := dec.Step(context.Background(), ids[1])
+			if e != nil {
+				t.Error(e)
+				return
+			}
+			compare(t, "released concurrent retry", got, want, 1e-4, 5e-3)
+			clear(got)
+			dec.Reset()
+			if dec.Position() != 0 {
+				t.Error("reset retained position")
+				return
+			}
+			if got, e = dec.Step(context.Background(), ids[0]); e != nil {
+				t.Error(e)
+				return
+			}
+			compare(t, "released concurrent reset", got, first, 1e-4, 5e-3)
+		}()
+	}
+	wg.Wait()
 }
 
 func TestDirectPackedTinyConcurrentCancellationAndOwnership(t *testing.T) {
