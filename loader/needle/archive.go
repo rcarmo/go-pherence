@@ -107,6 +107,17 @@ type archiveRecordSpec struct {
 
 // LoadArchive reads and parses a Needle2/3 .cact archive.
 func LoadArchive(path string) (*Archive, error) {
+	return loadArchive(path, false)
+}
+
+// LoadArchivePacked validates CQ records without retaining their decoded F32
+// matrices. Non-CQ records keep their existing decoded representation. The
+// caller must provide an execution policy for the retained CQ records.
+func LoadArchivePacked(path string) (*Archive, error) {
+	return loadArchive(path, true)
+}
+
+func loadArchive(path string, packedOnly bool) (*Archive, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("needle: open %s: %w", path, err)
@@ -132,12 +143,23 @@ func LoadArchive(path string) (*Archive, error) {
 	if _, err := io.ReadFull(f, buf); err != nil {
 		return nil, fmt.Errorf("needle: read %s: %w", path, err)
 	}
-	return ParseArchive(buf)
+	return parseArchive(buf, packedOnly)
 }
 
 // ParseArchive parses a Needle2/3 .cact archive from memory. Needle2 has only
 // the first five header fields; architecture recovery belongs to the model layer.
 func ParseArchive(data []byte) (*Archive, error) {
+	return parseArchive(data, false)
+}
+
+// ParseArchivePacked validates CQ records without their full F32 expansion.
+// A returned CQ record owns its blob and leaves Data nil. All other records
+// retain their existing decoded representation and caller-ownership rules.
+func ParseArchivePacked(data []byte) (*Archive, error) {
+	return parseArchive(data, true)
+}
+
+func parseArchive(data []byte, packedOnly bool) (*Archive, error) {
 	if len(data) < archiveV2HeaderBytes {
 		return nil, fmt.Errorf("needle: archive too short: %d", len(data))
 	}
@@ -211,6 +233,9 @@ func ParseArchive(data []byte) (*Archive, error) {
 		var ok bool
 		charge := spec.decodedBytes
 		if spec.dtype == archiveDTypeCQ {
+			if packedOnly {
+				charge = 0
+			}
 			charge += spec.nbytes
 		}
 		decodedTotal, ok = checkedAddInt64(decodedTotal, charge)
@@ -228,7 +253,7 @@ func ParseArchive(data []byte) (*Archive, error) {
 
 	a.Records = make([]ArchiveRecord, numRecords)
 	for i, spec := range specs {
-		rec, err := decodeArchiveRecord(spec, data[spec.offset:spec.offset+spec.nbytes], a.Codebook)
+		rec, err := decodeArchiveRecord(spec, data[spec.offset:spec.offset+spec.nbytes], a.Codebook, packedOnly)
 		if err != nil {
 			return nil, err
 		}
@@ -490,9 +515,11 @@ func parseArchiveRecordSpec(index int, raw []byte, decodedTotal int64) (archiveR
 		if spec.nbytes != want {
 			return archiveRecordSpec{}, fmt.Errorf("needle: archive record %d CQ byte size %d want %d", index, spec.nbytes, want)
 		}
-		if decodedTotal > archiveMaxDecodedBytes-decoded {
-			return archiveRecordSpec{}, fmt.Errorf("needle: decoded tensor bytes %d exceed %d", decodedTotal+decoded, archiveMaxDecodedBytes)
+		if decoded > archiveMaxDecodedBytes {
+			return archiveRecordSpec{}, fmt.Errorf("needle: archive record %d decoded geometry exceeds %d", index, archiveMaxDecodedBytes)
 		}
+		// The enclosing parser applies the retained-byte budget for its
+		// decoded or packed representation after validating each spec.
 		spec.decodedBytes = decoded
 	case archiveDTypeRAW:
 		if ndim != 0 {
@@ -599,7 +626,7 @@ func validateArchiveRecordLayout(specs []archiveRecordSpec, metadataEnd, fileSiz
 	return nil
 }
 
-func decodeArchiveRecord(spec archiveRecordSpec, blob []byte, codebook []float32) (ArchiveRecord, error) {
+func decodeArchiveRecord(spec archiveRecordSpec, blob []byte, codebook []float32, packedOnly bool) (ArchiveRecord, error) {
 	rec := ArchiveRecord{
 		DType: spec.dtype,
 		Shape: append([]int(nil), spec.shape...),
@@ -626,7 +653,7 @@ func decodeArchiveRecord(spec archiveRecordSpec, blob []byte, codebook []float32
 		return rec, nil
 	case archiveDTypeCQ:
 		rec.CQBlob = append([]byte(nil), blob...)
-		data, err := decodeArchiveCQ(spec.index, spec.shape[0], spec.shape[1], spec.bits, blob, codebook)
+		data, err := decodeArchiveCQMode(spec.index, spec.shape[0], spec.shape[1], spec.bits, blob, codebook, !packedOnly)
 		if err != nil {
 			return ArchiveRecord{}, err
 		}
@@ -670,6 +697,26 @@ func decodeArchiveFP32(index int, blob []byte) ([]float32, error) {
 }
 
 func decodeArchiveCQ(index, rows, cols, bits int, blob []byte, codebook []float32) ([]float32, error) {
+	return decodeArchiveCQMode(index, rows, cols, bits, blob, codebook, true)
+}
+
+// DecodeCQRecord reconstructs an owned dense record when an archive consumer
+// has no packed execution path. It validates the payload again; callers may
+// have modified a returned ArchiveRecord after parsing.
+func DecodeCQRecord(index int, record ArchiveRecord, codebook []float32) ([]float32, error) {
+	if record.DType != archiveDTypeCQ || len(record.Shape) != 2 {
+		return nil, fmt.Errorf("needle: archive record %d is not a CQ matrix", index)
+	}
+	if record.Group != archiveCQGroup || (record.Bits != 1 && record.Bits != 2 && record.Bits != 3 && record.Bits != 4 && record.Bits != archiveTernaryBits) {
+		return nil, fmt.Errorf("needle: archive record %d has invalid CQ group/bits", index)
+	}
+	if err := validateArchiveCodebook(codebook); err != nil {
+		return nil, err
+	}
+	return decodeArchiveCQ(index, record.Shape[0], record.Shape[1], record.Bits, record.CQBlob, codebook)
+}
+
+func decodeArchiveCQMode(index, rows, cols, bits int, blob []byte, codebook []float32, keepDecoded bool) ([]float32, error) {
 	want, _, err := archiveCQSizes(index, rows, cols, bits)
 	if err != nil {
 		return nil, err
@@ -692,12 +739,18 @@ func decodeArchiveCQ(index, rows, cols, bits int, blob []byte, codebook []float3
 	}
 	packedPerRow := packedPerGroup * groups
 	packedBytes := rows * packedPerRow
-	out := make([]float32, rows*cols)
+	var out []float32
+	if keepDecoded {
+		out = make([]float32, rows*cols)
+	}
 	var work [archiveCQGroup]float32
 	for r := 0; r < rows; r++ {
 		rowPacked := blob[r*packedPerRow : (r+1)*packedPerRow]
 		rowNorms := blob[packedBytes+r*groups*2 : packedBytes+(r+1)*groups*2]
-		rowOut := out[r*cols : (r+1)*cols]
+		var rowOut []float32
+		if keepDecoded {
+			rowOut = out[r*cols : (r+1)*cols]
+		}
 		for g := 0; g < groups; g++ {
 			norm := half.F16ToF32(binary.LittleEndian.Uint16(rowNorms[g*2:]))
 			if !isFinite32(norm) || norm < 0 {
@@ -721,7 +774,9 @@ func decodeArchiveCQ(index, rows, cols, bits int, blob []byte, codebook []float3
 				if !isFinite32(work[i]) {
 					return nil, fmt.Errorf("needle: archive record %d decoded non-finite CQ value", index)
 				}
-				rowOut[start+i] = work[i]
+				if keepDecoded {
+					rowOut[start+i] = work[i]
+				}
 			}
 		}
 	}

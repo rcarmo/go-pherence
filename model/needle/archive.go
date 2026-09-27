@@ -26,6 +26,17 @@ func mapArchive(a *checkpoint.Archive, takeOwnership bool) (*Model, *checkpoint.
 	return mapArchiveConfig(a, takeOwnership, nil)
 }
 
+// LoadArchivePacked builds an opt-in compact Needle3 inference model directly
+// from CQ blobs. The decoded LoadArchive path remains the default. It rejects
+// partial CQ coverage rather than retaining incomplete layered weights.
+func LoadArchivePacked(path string) (*Model, *checkpoint.Tokenizer, error) {
+	a, err := checkpoint.LoadArchivePacked(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mapArchiveConfigMode(a, true, nil, true)
+}
+
 // LoadArchiveWithConfig loads Needle2 with an explicit architecture JSON sidecar.
 // Needle3 archives already encode geometry and reject sidecars.
 func LoadArchiveWithConfig(path string, config json.RawMessage) (*Model, *checkpoint.Tokenizer, error) {
@@ -36,6 +47,9 @@ func LoadArchiveWithConfig(path string, config json.RawMessage) (*Model, *checkp
 	return mapArchiveConfig(a, true, config)
 }
 func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.RawMessage) (*Model, *checkpoint.Tokenizer, error) {
+	return mapArchiveConfigMode(a, takeOwnership, config, false)
+}
+func mapArchiveConfigMode(a *checkpoint.Archive, takeOwnership bool, config json.RawMessage, packedOnly bool) (*Model, *checkpoint.Tokenizer, error) {
 	if a == nil {
 		return nil, nil, fmt.Errorf("needle: nil archive")
 	}
@@ -43,6 +57,9 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 	v2 := h[0] == 0x05E12A82
 	if h[0] != 0x05E12A84 && !v2 {
 		return nil, nil, fmt.Errorf("needle: unknown archive generation")
+	}
+	if packedOnly && v2 {
+		return nil, nil, fmt.Errorf("needle: direct packed archive loading requires Needle3")
 	}
 	if v2 && len(config) == 0 {
 		return nil, nil, fmt.Errorf("needle: Needle2 archive requires explicit architecture JSON (-archive-config)")
@@ -99,23 +116,29 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 			return nil, nil, fmt.Errorf("needle: expanded archive exceeds 512 MiB")
 		}
 	}
-	// Account all source records (including optional heads), output restacking,
-	// transposes, final owned copies and later destruction conservatively. This
-	// is a logical admission limit, not a process RSS promise. A caller can
-	// still hold unrelated models; no hidden unbounded copy plan is admitted.
-	var decoded int64
+	// Account source records and restacking/transposes conservatively. This
+	// logical admission limit is not a process RSS promise. In packed mode
+	// decoded CQ output is omitted, but non-CQ output may still restack.
+	var decoded, rawCQ int64
 	for _, r := range a.Records {
 		decoded += int64(len(r.Data))*4 + int64(len(r.Raw)) + int64(len(r.CQBlob))
+		if r.DType == 3 {
+			rawCQ += int64(len(r.CQBlob))
+		}
 	}
-	// Fresh file loads transfer private buffers into the model, so retained
-	// decoded records plus restacking/transposes/packed copies are sufficient.
-	// Caller-provided archives retain the more conservative copy plan.
 	peak := decoded*4 + expanded*3
 	if takeOwnership {
 		peak = decoded*2 + 16<<20
 	}
+	if packedOnly {
+		// Parser records, input file and owned CQ matrices overlap. Charge
+		// four record/blob sets, one fully materialised tensor set (which
+		// also bounds intermediate transposes), and fixed mapper headroom.
+		// Unlike the decoded path, CQ expansion is not repeated three times.
+		peak = (decoded+rawCQ)*4 + expanded + 16<<20
+	}
 	if peak > 1<<30 {
-		return nil, nil, fmt.Errorf("needle: archive materialization exceeds 1 GiB logical peak budget")
+		return nil, nil, fmt.Errorf("needle: archive materialization %d bytes (records %d, CQ blobs %d, expanded bound %d) exceeds 1 GiB logical peak budget", peak, decoded, rawCQ, expanded)
 	}
 	if !v2 && (int(h[14]) != padded(c.DModel) || h[23] != 4 || int(h[24]) != slices.Max(c.EngramOrders)) {
 		return nil, nil, fmt.Errorf("needle: unsupported archive Hadamard/engram geometry")
@@ -123,6 +146,20 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 	cp := &checkpoint.Checkpoint{FormatVersion: 2, Tensors: map[string]checkpoint.Tensor{}}
 	cursor := 0
 	packed := map[packedKey]*simd.CQMatrix{}
+	packedShapes := map[string][]int{}
+	omittedLayers := map[string]int{}
+	decodeCQ := func(index int) error {
+		record := &a.Records[index]
+		if record.DType != 3 || len(record.Data) != 0 {
+			return nil
+		}
+		data, err := checkpoint.DecodeCQRecord(index, *record, a.Codebook)
+		if err != nil {
+			return err
+		}
+		record.Data = data
+		return nil
+	}
 	take := func(shape []int) (checkpoint.Tensor, error) {
 		if cursor >= len(a.Records) {
 			return checkpoint.Tensor{}, fmt.Errorf("needle: missing archive tensor %d", cursor)
@@ -135,6 +172,12 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 		n := 1
 		for _, s := range shape {
 			n *= s
+		}
+		if packedOnly && r.DType == 3 && len(r.Data) == 0 {
+			if err := decodeCQ(cursor - 1); err != nil {
+				return checkpoint.Tensor{}, err
+			}
+			r = a.Records[cursor-1]
 		}
 		if n != len(r.Data) {
 			return checkpoint.Tensor{}, fmt.Errorf("needle: archive tensor length mismatch")
@@ -152,6 +195,28 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 		return out
 	}
 	put := func(name string, shape []int, trans bool, layer int) error {
+		if packedOnly && cursor < len(a.Records) && a.Records[cursor].DType == 3 && (trans || name == "embedding/embedding") && !isPackedPlanHead(name) {
+			raw := a.Records[cursor]
+			cursor++
+			if !slices.Equal(raw.Shape, shape) || len(raw.CQBlob) == 0 || len(raw.Data) != 0 {
+				return fmt.Errorf("needle: invalid direct CQ tensor %s", name)
+			}
+			matrix, err := simd.NewCQMatrix(shape[0], shape[1], raw.Bits, raw.CQBlob, a.Codebook)
+			if err != nil {
+				return fmt.Errorf("%s packed: %w", name, err)
+			}
+			packed[packedKey{name, layer}] = matrix
+			if layer >= 0 {
+				if _, exists := packedShapes[name]; !exists {
+					final := []int{c.Layers, shape[1], shape[0]}
+					packedShapes[name] = final
+				}
+				omittedLayers[name]++
+			} else {
+				packedShapes[name] = append([]int(nil), shape...)
+			}
+			return nil
+		}
 		record, err := take(shape)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
@@ -406,6 +471,18 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 	if cursor != len(a.Records) {
 		return nil, nil, fmt.Errorf("needle: unexpected trailing archive records")
 	}
+	if packedOnly {
+		for name, count := range omittedLayers {
+			if count != c.Layers {
+				return nil, nil, fmt.Errorf("needle: partial direct CQ coverage for %s: %d of %d layers", name, count, c.Layers)
+			}
+		}
+		for name := range packedShapes {
+			if _, exists := cp.Tensors[name]; exists {
+				return nil, nil, fmt.Errorf("needle: mixed packed/decoded tensor %s", name)
+			}
+		}
+	}
 	c.ArchiveDecoded = true
 	c.ArchiveKVWindow = int(h[3])
 	if v2 {
@@ -417,7 +494,13 @@ func mapArchiveConfig(a *checkpoint.Archive, takeOwnership bool, config json.Raw
 		return nil, nil, fmt.Errorf("needle: unknown archive Hadamard permutation")
 	}
 	cp.Config, _ = json.Marshal(c)
-	m, err := newModel(cp, takeOwnership)
+	var err error
+	var m *Model
+	if packedOnly {
+		m, err = newPackedArchiveModel(cp, packedShapes, packed)
+	} else {
+		m, err = newModel(cp, takeOwnership)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
