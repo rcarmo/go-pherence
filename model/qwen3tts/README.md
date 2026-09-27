@@ -46,8 +46,9 @@ not change the CPU synthesis path or qualify GPU waveform generation. The
 measures the fully host-staged diagnostic at 4.40× CPU stage time on one
 released 64-frame input. A separate [resident-buffer trial](../../docs/validation/qwen3-tts-gpu-preconv-resident-20260927.md)
 measures an owned-output pre-convolution stage at about 2.59× CPU speed with
-prepared GPU weights and scratch. Neither measures full synthesis or qualifies
-production GPU dispatch. The fixed 2/3/4-frame APIs remain unchanged.
+prepared GPU weights and scratch. A [decoder-initial convolution resident-buffer trial](../../docs/validation/qwen3-tts-gpu-decoder-initconv-resident-20260927.md)
+measures its 7-tap stage at about 3.02× CPU speed for the fixed input. Neither
+measures full synthesis or qualifies production GPU dispatch. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
