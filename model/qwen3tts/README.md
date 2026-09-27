@@ -58,7 +58,10 @@ its upstream final-Snake tensor differs from the saved Rust trace. None of
 these checks qualifies production GPU dispatch. A [three-convolution live decoder check](../../docs/validation/qwen3-tts-gpu-threeconv-20260927.md)
 passes the same 64-frame waveform gate with pre-convolution, decoder-initial
 and final convolutions on GPU; remaining stages and full-request admission
-are unqualified. The fixed 2/3/4-frame APIs remain unchanged.
+are unqualified. A [decoder-only timing comparison](../../docs/validation/qwen3-tts-gpu-threeconv-decoder-benchmark-20260927.md)
+found nearly equal five-sample medians on one fixed input, with many more
+Go allocations in the diagnostic GPU path. The fixed 2/3/4-frame APIs remain
+unchanged.
 
 | Area | Files |
 |---|---|

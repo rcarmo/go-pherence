@@ -19,7 +19,7 @@ type liveFinalConvGPU struct {
 	devA, devB, devC [2]*nvidia.Buffer
 }
 
-func newLiveFinalConvGPU(t *testing.T, c decoderConv1D) *liveFinalConvGPU {
+func newLiveFinalConvGPU(t testing.TB, c decoderConv1D) *liveFinalConvGPU {
 	t.Helper()
 	const tile, block = 128, 336
 	if c.inChannels != 96 || c.outChannels != 1 || c.k != 7 || c.dilation != 1 || c.groups() != 1 || len(c.weight) != 2*block || len(c.bias) != 1 {

@@ -24,7 +24,7 @@ type testDecoderGPUConv struct {
 	sums, owned           []float32
 }
 
-func newTestDecoderGPUConv(t *testing.T, c decoderConv1D, length int, name, inputName, outputName string) *testDecoderGPUConv {
+func newTestDecoderGPUConv(t testing.TB, c decoderConv1D, length int, name, inputName, outputName string) *testDecoderGPUConv {
 	t.Helper()
 	if c.inChannels <= 0 || c.outChannels <= 0 || c.k <= 0 || c.dilation != 1 || c.groups() != 1 || c.inChannels*c.k%512 != 0 || length <= 0 || len(c.weight) != c.inChannels*c.k*c.outChannels || len(c.bias) != c.outChannels {
 		t.Fatal("unsupported diagnostic decoder convolution geometry")
