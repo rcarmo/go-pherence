@@ -1,4 +1,6 @@
-# MoJev hybrid encoder contract
+# MoJev hybrid encoder contract (historical)
+
+The owner retired `model/mojev` on 27 September 2026. The package is absent from the current Go tree, and this contract records the abandoned isolation investigation. See [the retirement record](mojev-retirement-20260927.md).
 
 The pinned released MoJev packed forward leaks between questions: a candidate change reaches another question in the first Qwen3.5 linear-attention block. The new Go F32 `TextScorer` avoids shared histories and uses branch-local positions; its [native text tests](../validation/mojev-native-text-isolation-20260925.md) verify independent scores with real weights. The broader multimodal/quality `RuntimeReady` gate remains false.
 
