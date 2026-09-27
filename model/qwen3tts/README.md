@@ -36,7 +36,10 @@ latency and concurrent long-request cancellation are unqualified. A separate
 [two-hour retention run](../../docs/validation/qwen3-tts-two-hour-retention-20260927.md)
 kept 26 pinned 32-frame outputs across 13 rounds and released them without
 post-GC live-heap growth; days-long retention and broader inputs remain open.
-The fixed 2/3/4-frame APIs remain unchanged.
+An [opt-in NVIDIA input-projection diagnostic](../../docs/validation/qwen3-tts-gpu-input-projection-20260927.md)
+compares one decoder stage against pinned Rust traces. It does not change the
+CPU synthesis path or qualify GPU waveform generation. The fixed 2/3/4-frame
+APIs remain unchanged.
 
 | Area | Files |
 |---|---|
