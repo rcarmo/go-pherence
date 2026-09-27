@@ -60,8 +60,10 @@ passes the same 64-frame waveform gate with pre-convolution, decoder-initial
 and final convolutions on GPU; remaining stages and full-request admission
 are unqualified. A [decoder-only timing comparison](../../docs/validation/qwen3-tts-gpu-threeconv-decoder-benchmark-20260927.md)
 found nearly equal five-sample medians on one fixed input, with many more
-Go allocations in the diagnostic GPU path. The fixed 2/3/4-frame APIs remain
-unchanged.
+Go allocations in the diagnostic GPU path. A [CPU decoder profile and GPU hold decision](../../docs/validation/qwen3-tts-gpu-admission-hold-20260927.md)
+identifies Candle-order projection reductions as the largest sampled CPU cost;
+GPU admission still needs live chained parity, full-request performance and
+resource gates. The fixed 2/3/4-frame APIs remain unchanged.
 
 | Area | Files |
 |---|---|
