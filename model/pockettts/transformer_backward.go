@@ -214,7 +214,9 @@ func transformerNormForward(rows, width int, input, weight, bias []float32, epsi
 }
 
 func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutput []float32, gradients *TransformerGradients) []float32 {
-	dHidden := append([]float32(nil), dOutput...)
+	// Final norm and each layer only read their incoming gradient and return
+	// owned storage; the caller's dOutput never needs an entry copy.
+	dHidden := dOutput
 	if m.FinalWeight != nil {
 		dHidden = transformerNormBackward(rows, m.Width, tape.final, dHidden, m.FinalWeight, gradients.FinalWeight, gradients.FinalBias)
 	}
@@ -225,6 +227,12 @@ func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutp
 }
 
 func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, context int, maxPeriod float64, tape transformerLayerTape, dOutput []float32, gradient *TransformerLayerGradient) []float32 {
+	// Calls run sequentially; retain only the largest transposed output row
+	// needed by the weight-gradient GEMMs in this layer.
+	var transpose []float32
+	if rows >= 16 {
+		transpose = make([]float32, rows*max(width, l.FC1.Out, l.InProjection.Out))
+	}
 	dAfter := append([]float32(nil), dOutput...)
 	dDown := make([]float32, rows*width)
 	for row := 0; row < rows; row++ {
@@ -237,11 +245,11 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 			dDown[row*width+i] = g
 		}
 	}
-	dFC1 := linearBackwardRowsTraining(l.FC2, tape.fc1, dDown, rows, &gradient.FC2)
+	dFC1 := linearBackwardRowsTrainingScratch(l.FC2, tape.fc1, dDown, rows, &gradient.FC2, transpose)
 	for i := range dFC1 {
 		dFC1[i] *= geluTanhDerivative(tape.fc1Pre[i])
 	}
-	dNorm2 := linearBackwardRowsTraining(l.FC1, tape.norm2.normalized, dFC1, rows, &gradient.FC1)
+	dNorm2 := linearBackwardRowsTrainingScratch(l.FC1, tape.norm2.normalized, dFC1, rows, &gradient.FC1, transpose)
 	addInPlace(dAfter, transformerNormBackward(rows, width, tape.norm2, dNorm2, l.Norm2Weight, gradient.Norm2Weight, gradient.Norm2Bias))
 	// dAfter is owned and is only read to form dProjected below. The residual
 	// gradient can accumulate into that same buffer after those reads finish.
@@ -257,7 +265,7 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 			dProjected[row*width+i] = g
 		}
 	}
-	dAttention := linearBackwardRowsTraining(l.OutProjection, tape.attention, dProjected, rows, &gradient.OutProjection)
+	dAttention := linearBackwardRowsTrainingScratch(l.OutProjection, tape.attention, dProjected, rows, &gradient.OutProjection, transpose)
 	dQ, dK, dV := make([]float32, rows*width), make([]float32, rows*width), make([]float32, rows*width)
 	scale := float32(1 / math.Sqrt(float64(headDim)))
 	// Each query/head consumes dProb before the next one starts. Reuse one
@@ -298,7 +306,7 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 		copy(packed[row*3*width+width:row*3*width+2*width], dK[row*width:(row+1)*width])
 		copy(packed[row*3*width+2*width:(row+1)*3*width], dV[row*width:(row+1)*width])
 	}
-	dNorm1 := linearBackwardRowsTraining(l.InProjection, tape.norm1.normalized, packed, rows, &gradient.InProjection)
+	dNorm1 := linearBackwardRowsTrainingScratch(l.InProjection, tape.norm1.normalized, packed, rows, &gradient.InProjection, transpose)
 	addInPlace(dInput, transformerNormBackward(rows, width, tape.norm1, dNorm1, l.Norm1Weight, gradient.Norm1Weight, gradient.Norm1Bias))
 	return dInput
 }

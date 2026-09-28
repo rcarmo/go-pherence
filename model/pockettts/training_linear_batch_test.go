@@ -43,3 +43,43 @@ func TestTrainingLinearRowsMatchesRowReference(t *testing.T) {
 	assertSliceClose(t, "batched training dWeight", gotGradient.Weight, wantGradient.Weight, 3e-6)
 	assertSliceClose(t, "batched training dBias", gotGradient.Bias, wantGradient.Bias, 0)
 }
+
+func TestTrainingLinearRowsTransposeScratch(t *testing.T) {
+	for _, rows := range []int{3, 17} { // scalar fallback and batched GEMM
+		const in, out = 7, 11
+		linear := LinearF32{Weight: make([]float32, in*out), In: in, Out: out}
+		input, dOutput := make([]float32, rows*in), make([]float32, rows*out)
+		for i := range linear.Weight {
+			linear.Weight[i] = float32((i%19)-9) / 23
+		}
+		for i := range input {
+			input[i] = float32((i%13)-6) / 11
+		}
+		for i := range dOutput {
+			dOutput[i] = float32((i%17)-8) / 19
+		}
+		originalOutput := append([]float32(nil), dOutput...)
+		wantGradient := newLinearGradient(linear)
+		wantInput := linearBackwardRowsTraining(linear, input, dOutput, rows, &wantGradient)
+		originalInput := append([]float32(nil), wantInput...)
+		gotGradient := newLinearGradient(linear)
+		scratch := make([]float32, rows*out+2)
+		scratch[0], scratch[len(scratch)-1] = 123, -456
+		gotInput := linearBackwardRowsTrainingScratch(linear, input, dOutput, rows, &gotGradient, scratch[1:len(scratch)-1])
+		assertSliceClose(t, "scratch batched dInput", gotInput, wantInput, 0)
+		assertSliceClose(t, "scratch batched dWeight", gotGradient.Weight, wantGradient.Weight, 0)
+		assertSliceClose(t, "scratch batched caller dOutput", dOutput, originalOutput, 0)
+		if scratch[0] != 123 || scratch[len(scratch)-1] != -456 {
+			t.Fatal("transpose scratch overwrote sentinels")
+		}
+		clear(scratch[1 : len(scratch)-1])
+		assertSliceClose(t, "scratch result stays owned", gotInput, originalInput, 0)
+		// The helper also accepts an undersized scratch slice without changing
+		// the standalone call's owned-result contract.
+		undersized := make([]float32, 1)
+		fallbackGradient := newLinearGradient(linear)
+		fallbackInput := linearBackwardRowsTrainingScratch(linear, input, dOutput, rows, &fallbackGradient, undersized)
+		assertSliceClose(t, "undersized scratch dInput", fallbackInput, wantInput, 0)
+		assertSliceClose(t, "undersized scratch dWeight", fallbackGradient.Weight, wantGradient.Weight, 0)
+	}
+}

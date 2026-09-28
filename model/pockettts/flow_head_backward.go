@@ -413,6 +413,12 @@ func linearBackwardTrainingScratch(linear LinearF32, input, dOutput []float32, g
 }
 
 func linearBackwardRowsTraining(linear LinearF32, input, dOutput []float32, rows int, gradient *LinearF32Gradient) []float32 {
+	return linearBackwardRowsTrainingScratch(linear, input, dOutput, rows, gradient, nil)
+}
+
+// transposed is temporary storage for the weight-gradient GEMM. Neither the
+// returned input gradient nor the parameter gradient retains it.
+func linearBackwardRowsTrainingScratch(linear LinearF32, input, dOutput []float32, rows int, gradient *LinearF32Gradient, transposed []float32) []float32 {
 	if rows <= 0 || len(input) != rows*linear.In || len(dOutput) != rows*linear.Out {
 		return nil
 	}
@@ -423,7 +429,11 @@ func linearBackwardRowsTraining(linear LinearF32, input, dOutput []float32, rows
 		}
 		return dInput
 	}
-	transposed := make([]float32, linear.Out*rows)
+	if len(transposed) < linear.Out*rows {
+		transposed = make([]float32, linear.Out*rows)
+	} else {
+		transposed = transposed[:linear.Out*rows]
+	}
 	for row := 0; row < rows; row++ {
 		for out := 0; out < linear.Out; out++ {
 			transposed[out*rows+row] = dOutput[row*linear.Out+out]
