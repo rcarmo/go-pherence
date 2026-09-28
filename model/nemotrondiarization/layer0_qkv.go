@@ -8,18 +8,19 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
-// Layer0QKV owns released first-layer pre-attention weights. Its outputs are
-// pre-RoPE Q, K and V; attention, residuals and speaker decoding are separate.
+// Layer0QKV owns the input and first-layer normalisations plus pre-attention
+// weights. Its outputs are pre-RoPE Q, K and V; attention and decoding are separate.
 type Layer0QKV struct {
-	gamma, beta []float32
-	q, k, v     []float32
+	inputGamma, inputBeta []float32
+	gamma, beta           []float32
+	q, k, v               []float32
 }
 
 func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
 	if file == nil {
 		return nil, fmt.Errorf("nil Nemotron diarization checkpoint")
 	}
-	prefix := "model.audio_tower.layers.0."
+	prefix := "model.audio_tower."
 	load := func(name string, shape ...int) ([]float32, error) {
 		values, got, err := file.GetFloat32(prefix + name)
 		if err != nil {
@@ -47,19 +48,25 @@ func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
 	}
 	m := &Layer0QKV{}
 	var err error
-	if m.gamma, err = load("layer_norm1.weight", projectedWidth); err != nil {
+	if m.inputGamma, err = load("input_layer_norm.weight", projectedWidth); err != nil {
 		return nil, err
 	}
-	if m.beta, err = load("layer_norm1.bias", projectedWidth); err != nil {
+	if m.inputBeta, err = load("input_layer_norm.bias", projectedWidth); err != nil {
 		return nil, err
 	}
-	if m.q, err = load("self_attn.q_proj.weight", projectedWidth, projectedWidth); err != nil {
+	if m.gamma, err = load("layers.0.layer_norm1.weight", projectedWidth); err != nil {
 		return nil, err
 	}
-	if m.k, err = load("self_attn.k_proj.weight", projectedWidth, projectedWidth); err != nil {
+	if m.beta, err = load("layers.0.layer_norm1.bias", projectedWidth); err != nil {
 		return nil, err
 	}
-	if m.v, err = load("self_attn.v_proj.weight", projectedWidth, projectedWidth); err != nil {
+	if m.q, err = load("layers.0.self_attn.q_proj.weight", projectedWidth, projectedWidth); err != nil {
+		return nil, err
+	}
+	if m.k, err = load("layers.0.self_attn.k_proj.weight", projectedWidth, projectedWidth); err != nil {
+		return nil, err
+	}
+	if m.v, err = load("layers.0.self_attn.v_proj.weight", projectedWidth, projectedWidth); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -68,7 +75,7 @@ func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
 // Project accepts owned-or-caller [rows,512] stacking embeddings and returns
 // independent, owned, row-major pre-RoPE [rows,512] Q/K/V buffers.
 func (m *Layer0QKV) Project(input []float32, rows int) (q, k, v []float32, err error) {
-	if m == nil || len(m.gamma) != projectedWidth || len(m.beta) != projectedWidth || len(m.q) != projectedWidth*projectedWidth || len(m.k) != projectedWidth*projectedWidth || len(m.v) != projectedWidth*projectedWidth {
+	if m == nil || len(m.inputGamma) != projectedWidth || len(m.inputBeta) != projectedWidth || len(m.gamma) != projectedWidth || len(m.beta) != projectedWidth || len(m.q) != projectedWidth*projectedWidth || len(m.k) != projectedWidth*projectedWidth || len(m.v) != projectedWidth*projectedWidth {
 		return nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-0 weights")
 	}
 	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
@@ -79,8 +86,12 @@ func (m *Layer0QKV) Project(input []float32, rows int) (q, k, v []float32, err e
 			return nil, nil, nil, fmt.Errorf("non-finite Nemotron diarization layer-0 input")
 		}
 	}
+	inputNormal := make([]float32, len(input))
+	if !simd.LayerNormLastAxisTo(inputNormal, input, rows, projectedWidth, m.inputGamma, m.inputBeta, 1e-5) {
+		return nil, nil, nil, fmt.Errorf("Nemotron diarization input normalisation rejected shape")
+	}
 	normal := make([]float32, len(input))
-	if !simd.LayerNormLastAxisTo(normal, input, rows, projectedWidth, m.gamma, m.beta, 1e-5) {
+	if !simd.LayerNormLastAxisTo(normal, inputNormal, rows, projectedWidth, m.gamma, m.beta, 1e-5) {
 		return nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 normalisation rejected shape")
 	}
 	q, k, v = make([]float32, len(input)), make([]float32, len(input)), make([]float32, len(input))

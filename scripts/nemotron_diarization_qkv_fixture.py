@@ -37,7 +37,9 @@ def main():
     layer = model.model.audio_tower.layers[0]
     with torch.inference_mode():
         inputs = torch.from_numpy(stacked[:16 * 512].copy().reshape(16, 512))
-        normal = layer.layer_norm1(inputs)
+        input_normal = model.model.audio_tower.input_layer_norm(inputs)
+        save(args.out / "jfk_input_normal.f32.gz", input_normal)
+        normal = layer.layer_norm1(input_normal)
         save(args.out / "jfk_layer0_normal.f32.gz", normal)
         for name in ("q", "k", "v"):
             save(args.out / f"jfk_layer0_{name}.f32.gz", getattr(layer.self_attn, f"{name}_proj")(normal))

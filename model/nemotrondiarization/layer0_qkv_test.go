@@ -28,8 +28,13 @@ func TestReleasedLayer0QKVParity(t *testing.T) {
 	full := readStackingFixture(t, "testdata/jfk_stacking_transformers_5_18.f32.gz", 138*512)
 	input := full[:16*512]
 	original := append([]float32(nil), input...)
+	inputNormal := make([]float32, len(input))
+	if !simd.LayerNormLastAxisTo(inputNormal, input, 16, 512, m.inputGamma, m.inputBeta, 1e-5) {
+		t.Fatal("input normalisation rejected released shape")
+	}
+	compareLayer0Fixture(t, "input_normal", inputNormal)
 	normal := make([]float32, len(input))
-	if !simd.LayerNormLastAxisTo(normal, input, 16, 512, m.gamma, m.beta, 1e-5) {
+	if !simd.LayerNormLastAxisTo(normal, inputNormal, 16, 512, m.gamma, m.beta, 1e-5) {
 		t.Fatal("layer normalisation rejected released shape")
 	}
 	compareLayer0Fixture(t, "normal", normal)
@@ -68,7 +73,11 @@ func TestReleasedLayer0QKVParity(t *testing.T) {
 
 func compareLayer0Fixture(t *testing.T, name string, got []float32) {
 	t.Helper()
-	ref := readStackingFixture(t, "testdata/jfk_layer0_"+name+".f32.gz", 16*512)
+	fixture := "testdata/jfk_layer0_" + name + ".f32.gz"
+	if name == "input_normal" {
+		fixture = "testdata/jfk_input_normal.f32.gz"
+	}
+	ref := readStackingFixture(t, fixture, 16*512)
 	var maxAbs, sumAbs float64
 	var outside int
 	for i, actual := range got {
@@ -89,7 +98,7 @@ func compareLayer0Fixture(t *testing.T, name string, got []float32) {
 }
 
 func TestLayer0QKVRejectsMalformed(t *testing.T) {
-	m := &Layer0QKV{gamma: make([]float32, 512), beta: make([]float32, 512), q: make([]float32, 512*512), k: make([]float32, 512*512), v: make([]float32, 512*512)}
+	m := &Layer0QKV{inputGamma: make([]float32, 512), inputBeta: make([]float32, 512), gamma: make([]float32, 512), beta: make([]float32, 512), q: make([]float32, 512*512), k: make([]float32, 512*512), v: make([]float32, 512*512)}
 	for _, rows := range []int{0, 377} {
 		if _, _, _, err := m.Project(make([]float32, rows*512), rows); err == nil {
 			t.Fatalf("accepted rows=%d", rows)

@@ -48,12 +48,13 @@ The processor's default `low_latency` mode lists `[9,4]`; `very_low_latency` and
    model metadata or synthetic operator tests.
 
 The released checkpoint ran once through the pinned Transformers CPU reference.
-The bounded 16-row `model/nemotrondiarization/Layer0QKV` path matches independent
-PyTorch layer-normalisation and Q/K/V fixtures: maximum absolute error was
-0.00000382 for Q, 0.00000238 for K and 0.000000954 for V on AVX2/FMA, with
+The bounded 16-row `model/nemotrondiarization/Layer0QKV` path applies both
+`audio_tower.input_layer_norm` and the first layer's `layer_norm1` before Q/K/V.
+It matches independent PyTorch fixtures: maximum absolute error was
+0.00000382 for Q, 0.00000286 for K and 0.000000834 for V on AVX2/FMA, with
 zero values outside the documented absolute/relative tolerance. A one-CPU
-microbenchmark of the 16-row operation took 0.410–0.485 ms, 131,072 B and
-four allocations across five 20-iteration runs. Loading, frontend, stacking,
+microbenchmark of the 16-row operation took 0.396–0.490 ms, 163,840 B and
+five allocations across five 20-iteration runs. Loading, frontend, stacking,
 RoPE, attention and transfer costs are excluded. The 31-layer encoder, cache,
 upsampler and speaker head have no native parity. Labelled diarisation quality,
 production latency and readiness promotion remain open.
