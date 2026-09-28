@@ -136,7 +136,7 @@ func TestRecoverInterruptedOnly(t *testing.T) {
 	}
 }
 
-func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
+func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *testing.T) {
 	const token = "internal-token-that-is-long-enough-for-tests"
 	var actions []string
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +163,8 @@ func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
 	want := []string{
 		"POST /v1/jobs/" + strings.Repeat("a", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("a", 32) + "/queue",
-		"DELETE /v1/jobs/" + strings.Repeat("b", 32),
+		"POST /v1/jobs/" + strings.Repeat("b", 32) + "/release-media",
+		"DELETE /v1/jobs/" + strings.Repeat("b", 32) + "/queue",
 	}
 	if strings.Join(actions, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("actions=%q", actions)
@@ -197,12 +198,15 @@ func TestBrowserUsesRecordingLibraryAndHumanExports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{`id="active-section"`, `id="library"`, `id="rename"`, "Technical details", "Export options"} {
+	for _, required := range []string{`id="active-section"`, `id="library"`, `id="rename"`, "Recording details", "Other exports", `id="detail-progress"`} {
 		if !strings.Contains(string(html), required) {
 			t.Fatal("missing recording library surface", required)
 		}
 	}
-	for _, required := range []string{"friendlyState", "renderRow", "primaryArtifact", "crypto.subtle.digest('SHA-256'", "link.download=a.filename", "'/title'"} {
+	if strings.Contains(string(html), "<details") || strings.Contains(string(html), "<summary") || strings.Contains(string(html), `id="active-count"`) || strings.Contains(string(html), `id="library-count"`) {
+		t.Fatal("redundant or collapsed status surface")
+	}
+	for _, required := range []string{"friendlyState", "renderRow", "primaryArtifact", "crypto.subtle.digest('SHA-256'", "link.download=a.filename", "'/title'", "pollProgress"} {
 		if !strings.Contains(string(js), required) {
 			t.Fatal("missing recording library behavior", required)
 		}

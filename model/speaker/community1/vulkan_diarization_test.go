@@ -176,6 +176,56 @@ func TestVulkanDiarizationFinalCancellationReturnsNoPartialOutput(t *testing.T) 
 	}
 }
 
+func TestVulkanDiarizationObservedWindowsAndFailure(t *testing.T) {
+	model, cfg, _ := diarizationFixture(t, false)
+	grid, err := model.segmentation.checkpoint.Grid(cfg.WindowSamples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, dim := model.segmentation.checkpoint.cfg.Head.Speakers, model.embedding.model.cfg.EmbedDim
+	scores := make([]float32, grid.Frames*7)
+	for frame := 0; frame < grid.Frames; frame++ {
+		for class := 1; class < 7; class++ {
+			scores[frame*7+class] = -1
+		}
+	}
+	seg := &fakeVulkanDiarizationSegmentation{grid: grid, stats: VulkanSegmentationStats{Frames: grid.Frames, Classes: 7, MaxActive: 2}, result: &SegmentationPCMResult{Grid: grid, Classes: 7, LogProbabilities: scores}}
+	emb := &fakeVulkanDiarizationEmbedding{result: &WeSpeakerEmbeddingResult{Embeddings: make([]float32, local*dim), WeightSum: make([]float32, local), NonzeroFrames: make([]int, local)}}
+	owner, err := newVulkanDiarization(context.Background(), model.segmentation.checkpoint, model.segmentation.frontend.filters, model.embedding.model, nil, cfg.WindowSamples, vulkanDiarizationFactories{
+		segmentation: func(context.Context, *SegmentationCheckpoint, []float32, int) (vulkanDiarizationSegmentation, error) {
+			return seg, nil
+		},
+		embedding: func(context.Context, *WeSpeakerResNet34, int) (vulkanDiarizationEmbedding, error) { return emb, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	pcm := sliceDiarizationPCM(make([]float32, cfg.WindowSamples+cfg.StepSamples))
+	var stages []string
+	result, err := owner.RunPCMObserved(context.Background(), pcm, int64(len(pcm)), cfg, SincNetScalarFMA, HeadScalar, func(stage string, index int) error {
+		stages = append(stages, stage)
+		if stage == "embedding" && (index < 0 || index >= 2) {
+			t.Fatal("window index", index)
+		}
+		return nil
+	})
+	if err != nil || result == nil || !reflect.DeepEqual(stages, []string{"embedding", "embedding", "postprocess"}) || seg.calls != 2 || emb.calls != 2 {
+		t.Fatal("observation changed inference", err, stages, seg.calls, emb.calls)
+	}
+	stop := errors.New("stop after first window")
+	seg.calls, emb.calls = 0, 0
+	result, err = owner.RunPCMObserved(context.Background(), pcm, int64(len(pcm)), cfg, SincNetScalarFMA, HeadScalar, func(stage string, index int) error {
+		if stage == "embedding" && index == 0 {
+			return stop
+		}
+		return nil
+	})
+	if result != nil || !errors.Is(err, stop) || seg.calls != 1 || emb.calls != 1 {
+		t.Fatal("observer failure returned partial result", result, err, seg.calls, emb.calls)
+	}
+}
+
 func TestVulkanDiarizationLateCancellationReturnsNilAfterRollback(t *testing.T) {
 	model, _, _ := diarizationFixture(t, false)
 	grid, err := model.segmentation.checkpoint.Grid(2960)

@@ -151,6 +151,12 @@ func (m *VulkanDiarization) Stats() VulkanDiarizationStats {
 // ExperimentalDiarization, with explicit CPU SincNet/head modes and no CPU or
 // automatic fallback for the resident recurrent/CNN operators.
 func (m *VulkanDiarization) RunPCM(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, sincMode SincNetMode, headMode HeadMode) (*DiarizationPCMResult, error) {
+	return m.RunPCMObserved(ctx, reader, samples, cfg, sincMode, headMode, nil)
+}
+
+// RunPCMObserved reports each fully processed window and the postprocess phase.
+// Observer failures abort inference without publishing a partial result.
+func (m *VulkanDiarization) RunPCMObserved(ctx context.Context, reader DiarizationPCMReader, samples int64, cfg DiarizationPCMConfig, sincMode SincNetMode, headMode HeadMode, observe DiarizationPCMObserver) (*DiarizationPCMResult, error) {
 	s, err := m.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -240,6 +246,16 @@ func (m *VulkanDiarization) RunPCM(ctx context.Context, reader DiarizationPCMRea
 		copy(result.Embeddings[index*local*dim:], embedded.Embeddings)
 		copy(result.WeightSum[index*local:], embedded.WeightSum)
 		copy(result.NonzeroFrames[index*local:], embedded.NonzeroFrames)
+		if observe != nil {
+			if err := observe("embedding", index); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if observe != nil {
+		if err := observe("postprocess", -1); err != nil {
+			return nil, err
+		}
 	}
 	result.Postprocess, err = PostprocessCommunity1(ctx, result.Segmentations, result.Embeddings, s.plda, post)
 	if err != nil {

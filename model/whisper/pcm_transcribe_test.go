@@ -112,6 +112,28 @@ func TestPCMGenerationLimitSplitMappingAndFailures(t *testing.T) {
 	if err != nil || calls != 2 || len(segments) != 2 || len(words) != 2 || segments[0].Start != 0 || segments[1].Start != 400.0/16000 || segments[1].End != 801.0/16000 || words[0].TokenStart != 0 || words[0].TokenEnd != 2 || words[1].TokenStart != 2 || words[1].TokenEnd != 4 {
 		t.Fatal("split mapping", calls, segments, words, err)
 	}
+	// Only the failing first half is subdivided; the successful sibling is
+	// decoded once, and all three leaves retain absolute time and word indices.
+	calls = 0
+	segments, words, err = splitPCMGenerationLimit(context.Background(), samples, 801, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
+		calls++
+		if padded[0] == 1 && valid == 400 {
+			return nil, nil, ErrGenerationLimit
+		}
+		return []Segment{{Start: 0, End: float64(valid) / 16000, Tokens: []int{calls}}}, []WordTiming{{Word: "part", Start: 0, End: float64(valid) / 16000, TokenStart: 0, TokenEnd: 1}}, nil
+	})
+	if err != nil || calls != 4 || len(segments) != 3 || len(words) != 3 || segments[0].Start != 0 || segments[1].Start != 200.0/16000 || segments[2].Start != 400.0/16000 || words[2].TokenStart != 2 {
+		t.Fatal("adaptive split", calls, segments, words, err)
+	}
+	calls = 0
+	large := make([]float32, 480000)
+	segments, words, err = splitPCMGenerationLimit(context.Background(), large, len(large), func([]float32, int) ([]Segment, []WordTiming, error) {
+		calls++
+		return nil, nil, ErrGenerationLimit
+	})
+	if !errors.Is(err, ErrGenerationLimit) || calls != maxPCMSplitDepth || segments != nil || words != nil {
+		t.Fatal("unbounded split", calls, segments, words, err)
+	}
 	failure := errors.New("half failed")
 	calls = 0
 	segments, words, err = splitPCMGenerationLimit(context.Background(), samples, 801, func([]float32, int) ([]Segment, []WordTiming, error) {

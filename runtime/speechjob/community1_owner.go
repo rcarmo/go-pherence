@@ -40,10 +40,11 @@ func NewOwnedCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1St
 		return nil, ErrConfiguration
 	}
 	s := newCommunity1Owner(func(ctx context.Context, r c1.DiarizationPCMReader, total int64) (*c1.DiarizationPCMResult, error) {
+		observe := diarizationWindowObserver(ctx, total, cfg.PCM)
 		if cfg.OverlapBranches {
-			return model.RunPCMOverlapped(ctx, r, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
+			return model.RunPCMOverlappedObserved(ctx, r, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode, observe)
 		}
-		return model.RunPCM(ctx, r, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
+		return model.RunPCMObserved(ctx, r, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode, observe)
 	}, model.ReleaseOwnedModels)
 	if e := validateCommunityConfig(cfg); e != nil {
 		return nil, e

@@ -80,6 +80,7 @@ type Handler struct {
 	uploadLimit        int64
 	slots              chan struct{}
 	control            chan struct{}
+	progressStreams    chan struct{} // keep SSE from exhausting ordinary request slots.
 	mutation           chan struct{}
 	ctx                context.Context
 	cancel             context.CancelFunc
@@ -91,7 +92,8 @@ type Handler struct {
 	runningCancel      context.CancelFunc
 	queue              *speechjob.Queue
 	runAdmission       speechjob.Admission
-	admissionUncertain bool // panic: refuse mutation until owner inspects/restarts.
+	admissionUncertain bool                              // panic: refuse mutation until owner inspects/restarts.
+	workProgress       map[string]speechjob.WorkProgress // bounded by one admitted store run; never persisted.
 }
 
 // New validates configuration without modifying the media store or loading
@@ -107,7 +109,7 @@ func New(cfg Config) (*Handler, error) {
 			return nil, fmt.Errorf("invalid bearer token encoding")
 		}
 	}
-	h := &Handler{store: cfg.Store, token: sha256.Sum256([]byte(cfg.Token)), hosts: map[string]bool{}, origin: cfg.Origin, enableUI: cfg.EnableUI, profiles: map[string]boundProfile{}, byConfig: map[string]boundProfile{}, uploadLimit: cfg.MaxUploadBytes, slots: make(chan struct{}, cfg.MaxConcurrentRequests), control: make(chan struct{}, 1), mutation: make(chan struct{}, 1), drained: make(chan struct{})}
+	h := &Handler{store: cfg.Store, token: sha256.Sum256([]byte(cfg.Token)), hosts: map[string]bool{}, origin: cfg.Origin, enableUI: cfg.EnableUI, profiles: map[string]boundProfile{}, byConfig: map[string]boundProfile{}, workProgress: make(map[string]speechjob.WorkProgress), uploadLimit: cfg.MaxUploadBytes, slots: make(chan struct{}, cfg.MaxConcurrentRequests), control: make(chan struct{}, 1), progressStreams: make(chan struct{}, 1), mutation: make(chan struct{}, 1), drained: make(chan struct{})}
 	for _, host := range cfg.Hosts {
 		u, e := url.Parse("http://" + host)
 		if e != nil || host == "" || strings.ContainsAny(host, " /\\?#@\t\r\n") || u.Host != host || u.Hostname() == "" || h.hosts[host] {
@@ -200,6 +202,7 @@ func New(cfg Config) (*Handler, error) {
 			}
 			select {
 			case h.mutation <- struct{}{}:
+				h.clearWorkProgress()
 				// Keep mutations blocked if release panics: the queue poisons
 				// itself and resource ownership is uncertain until inspected restart.
 				return func() { release(); <-h.mutation }, nil
@@ -208,7 +211,7 @@ func New(cfg Config) (*Handler, error) {
 				return nil, ctx.Err()
 			}
 		}
-		queue, e := speechjob.OpenQueue(h.store, speechjob.QueueConfig{Directory: q.Directory, MaxEntries: q.MaxEntries, MaxBytes: q.MaxBytes, JobTimeout: q.JobTimeout, Resolve: resolve, Admission: admit})
+		queue, e := speechjob.OpenQueue(h.store, speechjob.QueueConfig{Directory: q.Directory, MaxEntries: q.MaxEntries, MaxBytes: q.MaxBytes, JobTimeout: q.JobTimeout, Resolve: resolve, Admission: admit, Progress: h.recordWorkProgress})
 		if e != nil {
 			h.cancel()
 			return nil, e
@@ -457,6 +460,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(path) == 4 {
 		switch path[3] {
+		case "progress":
+			if r.Method != http.MethodGet {
+				method(w, "GET")
+				return
+			}
+			h.serveProgress(w, r, id)
+			return
 		case "title":
 			if r.Method != http.MethodPut {
 				method(w, "PUT")
@@ -709,6 +719,8 @@ func (h *Handler) run(w http.ResponseWriter, r *http.Request, id string) {
 			}
 		}()
 	}
+	h.clearWorkProgress()
+	ctx = speechjob.WithWorkProgress(ctx, func(progress speechjob.WorkProgress) { h.recordWorkProgress(id, progress) })
 	_, e = h.store.Run(ctx, id, p.configuration, p.stages, nil)
 	// Return only a fresh persisted snapshot, never the possibly uncertain proposed
 	// manifest returned with ErrPersistence. Do not echo callbacks' raw errors.
