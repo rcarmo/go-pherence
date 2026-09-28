@@ -136,7 +136,7 @@ func TestRecoverInterruptedOnly(t *testing.T) {
 	}
 }
 
-func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *testing.T) {
+func TestReconcileTerminalPreservesCancelledMediaAndArtifacts(t *testing.T) {
 	const token = "internal-token-that-is-long-enough-for-tests"
 	var actions []string
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +177,6 @@ func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *test
 		"POST /v1/jobs/" + strings.Repeat("a", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("a", 32) + "/queue",
 		"GET /v1/jobs/" + strings.Repeat("b", 32),
-		"POST /v1/jobs/" + strings.Repeat("b", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("b", 32) + "/queue",
 		"GET /v1/jobs/" + strings.Repeat("d", 32),
 		"DELETE /v1/jobs/" + strings.Repeat("d", 32) + "/queue",

@@ -349,9 +349,10 @@ func reconcileTerminal(ctx context.Context, backend *url.URL, token string) erro
 		case "succeeded":
 			actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 		case "cancelled":
-			// A cancelled queue entry may be a withdrawn pending upload, a
-			// withdrawn retry, or a drained run. Inspect the persisted job before
-			// cleanup; never release retryable failed media or delete checkpoints.
+			// Cancellation is a pause, not deletion. Do not release original
+			// media or verified checkpoints; the user may explicitly retry or
+			// delete the recording later. Inspect the persisted job to ensure
+			// a running callback has drained before forgetting its queue ticket.
 			job, err := terminalJob(ctx, client, backend, token, entry.JobID)
 			if err != nil {
 				return err
@@ -362,7 +363,7 @@ func reconcileTerminal(ctx context.Context, backend *url.URL, token string) erro
 				// ticket the user may explicitly start it later.
 				actions = [][2]string{{http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 			case job.Status == "cancelled":
-				actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
+				actions = [][2]string{{http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 			case job.Status == "failed":
 				// Pending retry withdrawn before admission: keep failed media and
 				// any verified checkpoints for another explicit retry.
