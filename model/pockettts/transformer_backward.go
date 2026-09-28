@@ -26,10 +26,10 @@ type transformerNormTape struct {
 }
 
 type transformerLayerTape struct {
-	input, q, k, v, attention, projected, afterAttention []float32
-	probabilities                                        []float32
-	norm1, norm2                                         transformerNormTape
-	fc1Pre, fc1, down, output                            []float32
+	q, k, v, attention, projected, afterAttention []float32
+	probabilities                                 []float32
+	norm1, norm2                                  transformerNormTape
+	fc1Pre, fc1, down, output                     []float32
 }
 
 type transformerTape struct {
@@ -119,7 +119,7 @@ func (m *TransformerCPU) forwardTraining(rows int, sequence []float32) (*transfo
 }
 
 func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, context int, maxPeriod float64, input []float32) (transformerLayerTape, []float32) {
-	tape := transformerLayerTape{input: append([]float32(nil), input...)}
+	var tape transformerLayerTape
 	tape.norm1, _ = transformerNormForward(rows, width, input, l.Norm1Weight, l.Norm1Bias, 1e-5)
 	tape.q, tape.k, tape.v = make([]float32, rows*width), make([]float32, rows*width), make([]float32, rows*width)
 	qkv := linearForwardRowsTraining(l.InProjection, tape.norm1.normalized, rows)

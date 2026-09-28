@@ -297,6 +297,12 @@ A bounded `-memprofilerate=1` attribution pass paired a setup-and-warm-only temp
 
 Evidence: `/workspace/tmp/pockettts-training-setup-only-alloc.pprof`, `pockettts-training-one-step-paired-alloc.pprof`, `pockettts-training-warm-onecpu-complete.log`, `pockettts-training-alloc-five-complete.log` and `pockettts-training-optimizer-onecpu.log` (not committed), plus earlier `/dev/shm/pockettts-production-profile/transformer-tape-outputs-bench.txt`, `transformer-tape-outputs-soak10.txt` and `ecd5dc1b-soak100.txt` paths from the prior validation environment.
 
+### Unused transformer layer tape input — bounded allocation slice
+
+Each transformer training layer copied its input into `transformerLayerTape.input`, but backward reads the separate norm tape's owned input, not this layer field. Removing only that unused copy preserves output ownership and the norm tape's lifetime. The tiny finite-difference, pinned PyTorch transformer/FlowLM/step parity and released owned-versus-scratch all-gradient differential passed without tolerance changes. On the local i7-12700 at `GOMAXPROCS=1`, three warm released 470-row forward/backward samples allocated 703,504,136 B in 12,061 objects per step, down 11,550,720 B and six objects from the prior 715,054,856 B / 12,067-object baseline. Elapsed samples were 23.39–27.16 s versus prior 21.88–26.22 s; they overlap, so no speed change is accepted. Model loading, optimizer and checkpoint I/O are outside the timed loop. Recorded-speech quality, long-run retained memory and broader training admission remain open.
+
+Evidence: `/workspace/tmp/pockettts-unused-tape-onecpu.log` and `pockettts-unused-tape-released.log` (not committed).
+
 ### Maximum admitted text length — repeated synthetic updates
 
 The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.
