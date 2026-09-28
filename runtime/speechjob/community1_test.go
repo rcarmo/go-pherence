@@ -125,7 +125,7 @@ func TestCommunityStageAdmissionCancelAndFailures(t *testing.T) {
 			}
 			samples := 3361
 			if kind == "too-long" {
-				samples = cfg.PCM.WindowSamples + 4096*cfg.PCM.StepSamples
+				samples = cfg.PCM.WindowSamples + 8192*cfg.PCM.StepSamples
 				s.limits.MaxArtifactBytes = 32 << 20
 				s.limits.MaxBytes = 64 << 20
 			}

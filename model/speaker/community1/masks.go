@@ -109,7 +109,7 @@ func SelectEmbeddingMasks(ctx context.Context, segmentations []float32, cfg Embe
 }
 
 // ClusteringFilterConfig describes embeddings [Chunks,Speakers,Dimension] and
-// binary segmentations [Chunks,Frames,Speakers]. Bounds: chunks/frames1..4096,
+// binary segmentations [Chunks,Frames,Speakers]. Bounds: chunks1..8192, frames1..4096,
 // speakers1..8, dimension1..512; each input has at most 2^24 elements.
 // MinActiveRatio is explicit, finite and in [0,1]; the upstream default is 0.2.
 // Zero deliberately allows zero clean support, just as upstream. Production
@@ -143,7 +143,7 @@ func FilterClusteringEmbeddings(ctx context.Context, embeddings, segmentations [
 		return nil, err
 	}
 	c := cfg
-	if c.Chunks < 1 || c.Chunks > 4096 || c.Frames < 1 || c.Frames > 4096 || c.Speakers < 1 || c.Speakers > 8 || c.Dimension < 1 || c.Dimension > 512 || math.IsNaN(c.MinActiveRatio) || math.IsInf(c.MinActiveRatio, 0) || c.MinActiveRatio < 0 || c.MinActiveRatio > 1 {
+	if c.Chunks < 1 || c.Chunks > maxDiarizationWindows || c.Frames < 1 || c.Frames > 4096 || c.Speakers < 1 || c.Speakers > 8 || c.Dimension < 1 || c.Dimension > 512 || math.IsNaN(c.MinActiveRatio) || math.IsInf(c.MinActiveRatio, 0) || c.MinActiveRatio < 0 || c.MinActiveRatio > 1 {
 		return nil, fmt.Errorf("invalid clustering filter geometry/policy")
 	}
 	rows := c.Chunks * c.Speakers

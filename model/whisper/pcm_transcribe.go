@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -11,8 +12,9 @@ import (
 // PCMTranscribeOptions configures the opt-in checked path. Language is an
 // explicit tokenizer language code (e.g. "pt") or "auto" for checked
 // per-window language detection. This path transcribes rather than translates.
-// Temperature fallback and cross-window text reconciliation are not implemented
-// here. Word alignment is explicit.
+// A generation-limit failure gets one deterministic retry as two padded half
+// windows. Temperature fallback and cross-window text reconciliation are not
+// implemented here. Word alignment is explicit.
 type PCMTranscribeOptions struct {
 	Language                 string
 	OverlapSamples           int64
@@ -165,43 +167,15 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, nil
 			}
 		}
-		mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
+		output, frames, err := w.encodePCMWindow(ctx, samples, opts.VulkanEncoder)
 		if err != nil {
 			return nil, nil, err
-		}
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		var output []float32
-		if opts.VulkanEncoder != nil {
-			output, err = opts.VulkanEncoder.Forward(ctx, mel)
-		} else {
-			output, err = w.Encoder.ForwardContext(ctx, mel, frames)
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		if len(output) != ((frames+1)/2)*w.Config.EncoderDModel {
-			return nil, nil, fmt.Errorf("invalid encoder output shape")
-		}
-		for index, value := range output {
-			if index%16384 == 0 {
-				if err := ctx.Err(); err != nil {
-					return nil, nil, err
-				}
-			}
-			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-				return nil, nil, fmt.Errorf("non-finite encoder output")
-			}
 		}
 		windowOpts := opts
 		windowV := v
 		windowSuppress, windowBeginSuppress := suppress, beginSuppress
 		if auto {
-			detected, err := detectLanguageChecked(ctx, w.Config, w.Decoder, output, (frames+1)/2, baseOpts.Generation)
+			detected, err := detectLanguageChecked(ctx, w.Config, w.Decoder, output, frames, baseOpts.Generation)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -217,37 +191,132 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, err
 			}
 		}
-		state, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
+		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress)
+		if !errors.Is(err, ErrGenerationLimit) || validSamples < 2*int(MinWindowSamples) {
+			return segments, words, err
+		}
+		return w.decodePCMWindowHalves(ctx, samples, validSamples, tokenizer, windowV, windowOpts, windowSuppress, windowBeginSuppress)
+	})
+}
+
+func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encoder *VulkanEncoder) ([]float32, int, error) {
+	mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
+	var output []float32
+	if encoder != nil {
+		output, err = encoder.Forward(ctx, mel)
+	} else {
+		output, err = w.Encoder.ForwardContext(ctx, mel, frames)
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
+	if len(output) != ((frames+1)/2)*w.Config.EncoderDModel {
+		return nil, 0, fmt.Errorf("invalid encoder output shape")
+	}
+	for index, value := range output {
+		if index%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, err
+			}
+		}
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, 0, fmt.Errorf("non-finite encoder output")
+		}
+	}
+	return output, (frames + 1) / 2, nil
+}
+
+func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, output []float32, frames, validSamples int, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int) ([]Segment, []WordTiming, error) {
+	state, err := NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
+	if err != nil {
+		return nil, nil, err
+	}
+	segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
+		if state.Pos >= w.Config.MaxDecoderLength {
+			return nil, ErrGenerationLimit
+		}
+		return w.Decoder.ForwardToken(token, state), nil
+	})
+	if err != nil || !opts.WordTimestamps {
+		return segments, nil, err
+	}
+	allTokens := make([]int, 0)
+	for _, segment := range segments {
+		allTokens = append(allTokens, segment.Tokens...)
+	}
+	if len(allTokens) == 0 {
+		return segments, nil, nil
+	}
+	alignmentState, err := NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
+	if err != nil {
+		return nil, nil, err
+	}
+	audioFrames := (validSamples + 159) / 160
+	words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, opts.Generation, opts.Language, allTokens, audioFrames)
+	if err != nil {
+		return nil, nil, fmt.Errorf("align window: %w", err)
+	}
+	return segments, words, nil
+}
+
+// decodePCMWindowHalves is the single bounded recovery for a full-window
+// generation limit. Each half is right-padded to the model's fixed input size,
+// decoded with the already resolved language, and mapped back to the original
+// 30-second window. A failing half is returned as an error; there is no recursion.
+func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, validSamples int, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int) ([]Segment, []WordTiming, error) {
+	return splitPCMGenerationLimit(ctx, samples, validSamples, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
+		output, frames, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder)
 		if err != nil {
 			return nil, nil, err
 		}
-		segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, windowV, windowOpts, windowSuppress, windowBeginSuppress, func(token int) ([]float32, error) {
-			if state.Pos >= w.Config.MaxDecoderLength {
-				return nil, ErrGenerationLimit
-			}
-			return w.Decoder.ForwardToken(token, state), nil
-		})
-		if err != nil || !windowOpts.WordTimestamps {
-			return segments, nil, err
-		}
-		allTokens := make([]int, 0)
-		for _, segment := range segments {
-			allTokens = append(allTokens, segment.Tokens...)
-		}
-		if len(allTokens) > 0 {
-			alignmentState, err := NewDecoderStateContext(ctx, w.Config, output, (frames+1)/2, w.Decoder)
-			if err != nil {
-				return nil, nil, err
-			}
-			audioFrames := (validSamples + 159) / 160
-			words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, windowOpts.Generation, windowOpts.Language, allTokens, audioFrames)
-			if err != nil {
-				return nil, nil, fmt.Errorf("align window: %w", err)
-			}
-			return segments, words, nil
-		}
-		return segments, nil, nil
+		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress)
 	})
+}
+
+func splitPCMGenerationLimit(ctx context.Context, samples []float32, validSamples int, infer func([]float32, int) ([]Segment, []WordTiming, error)) ([]Segment, []WordTiming, error) {
+	if ctx == nil || infer == nil || validSamples < 2*int(MinWindowSamples) || validSamples > len(samples) {
+		return nil, nil, ErrGenerationLimit
+	}
+	split := validSamples / 2
+	parts := [][2]int{{0, split}, {split, validSamples}}
+	var segments []Segment
+	var words []WordTiming
+	tokenOffset := 0
+	for _, part := range parts {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+		padded := make([]float32, len(samples))
+		copy(padded, samples[part[0]:part[1]])
+		partSegments, partWords, err := infer(padded, part[1]-part[0])
+		if err != nil {
+			return nil, nil, fmt.Errorf("split PCM offset %d: %w", part[0], err)
+		}
+		window := Window{Start: int64(part[0]), End: int64(part[1]), InputSamples: int64(len(samples)), PadSamples: int64(len(samples) - (part[1] - part[0]))}
+		partSegments, partWords, err = canonicalWindowOutput(window, partSegments, partWords)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i := range partWords {
+			partWords[i].TokenStart += tokenOffset
+			partWords[i].TokenEnd += tokenOffset
+		}
+		for _, segment := range partSegments {
+			tokenOffset += len(segment.Tokens)
+		}
+		segments = append(segments, partSegments...)
+		words = append(words, partWords...)
+	}
+	return segments, words, nil
 }
 
 func detectLanguageChecked(ctx context.Context, cfg Config, dec *Decoder, output []float32, frames int, generation *CheckedGenerationConfig) (string, error) {

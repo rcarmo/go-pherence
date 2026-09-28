@@ -45,7 +45,7 @@ type Community1StageConfig struct {
 // Clustering depends on all windows; it is never restarted on an isolated suffix.
 // Callers own immutable checkpoints/PCM and exclude competing model/backend use. This
 // does not load weights, launch a neural subprocess, relax a gate or start service.
-// The experimental 4096-window limit is enforced before inference; postprocessing
+// The experimental 8192-window limit is enforced before inference; postprocessing
 // deterministically bounds its clustering-training subset to 512 rows.
 func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageConfig) (Stage, error) {
 	if model == nil {

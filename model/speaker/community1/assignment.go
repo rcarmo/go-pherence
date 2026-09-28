@@ -10,7 +10,7 @@ import (
 )
 
 // AssignmentConfig describes scores [Chunks,Speakers,Clusters]. Bounds:
-// chunks1..4096, speakers1..8, clusters1..64. -2 means unassigned when there are
+// chunks1..8192, speakers1..8, clusters1..64. -2 means unassigned when there are
 // fewer clusters than local speakers. No persistent speaker name is assigned.
 type AssignmentConfig struct{ Chunks, Speakers, Clusters int }
 
@@ -66,7 +66,7 @@ func ConstrainedSpeakerAssignment(ctx context.Context, scores []float64, cfg Ass
 	return labels, nil
 }
 func validAssignmentConfig(c AssignmentConfig) bool {
-	return c.Chunks >= 1 && c.Chunks <= 4096 && c.Speakers >= 1 && c.Speakers <= 8 && c.Clusters >= 1 && c.Clusters <= 64
+	return c.Chunks >= 1 && c.Chunks <= maxDiarizationWindows && c.Speakers >= 1 && c.Speakers <= 8 && c.Clusters >= 1 && c.Clusters <= 64
 }
 
 // CosineAssignmentConfig uses original embeddings [Chunks,Speakers,Dimension],

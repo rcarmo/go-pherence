@@ -167,15 +167,15 @@ func (m *VulkanDiarization) RunPCM(ctx context.Context, reader DiarizationPCMRea
 		return nil, err
 	}
 	grid := s.segmentation.Grid()
-	if grid.Frames < 2 || grid.Frames > MaxPowersetFrames || len(windows)*grid.Frames > (1<<24)/8 || grid.Frames != s.stats.SegmentationFrames {
+	if grid.Frames < 2 || grid.Frames > MaxPowersetFrames || grid.Frames != s.stats.SegmentationFrames {
 		return nil, fmt.Errorf("diarization segmentation frame bound")
 	}
 	if cfg.MinimumEmbeddingSamples < 1 || cfg.MinimumEmbeddingSamples > cfg.WindowSamples {
 		return nil, fmt.Errorf("invalid embedding sample policy")
 	}
 	local, dim := s.stats.LocalSpeakers, s.stats.EmbeddingDimension
-	if local < 1 || local > 8 || dim < 1 || dim > 512 {
-		return nil, fmt.Errorf("invalid diarization model dimensions")
+	if local < 1 || local > 8 || dim < 1 || dim > 512 || int64(len(windows))*int64(grid.Frames)*int64(local) > 1<<24 {
+		return nil, fmt.Errorf("invalid diarization model dimensions/element bound")
 	}
 	if cfg.MinSpeakers < 1 || cfg.MaxSpeakers < cfg.MinSpeakers || cfg.MaxSpeakers > 64 || cfg.NumSpeakers < 0 || cfg.NumSpeakers > 64 || cfg.AHCThreshold < 0 || cfg.Fa <= 0 || cfg.Fb <= 0 || cfg.MinDurationOff < 0 || cfg.MinDurationOff > 30 {
 		return nil, fmt.Errorf("invalid diarization postprocess policy")
