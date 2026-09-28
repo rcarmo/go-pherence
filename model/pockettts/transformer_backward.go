@@ -241,7 +241,9 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 	}
 	dNorm2 := linearBackwardRowsTraining(l.FC1, tape.norm2.normalized, dFC1, rows, &gradient.FC1)
 	addInPlace(dAfter, transformerNormBackward(rows, width, tape.norm2, dNorm2, l.Norm2Weight, gradient.Norm2Weight, gradient.Norm2Bias))
-	dInput := append([]float32(nil), dAfter...)
+	// dAfter is owned and is only read to form dProjected below. The residual
+	// gradient can accumulate into that same buffer after those reads finish.
+	dInput := dAfter
 	dProjected := make([]float32, rows*width)
 	for row := 0; row < rows; row++ {
 		for i := 0; i < width; i++ {
