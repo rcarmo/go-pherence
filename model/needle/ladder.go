@@ -195,6 +195,9 @@ func (m *Model) SliceDepth(depth int) (*Model, error) {
 	if m.config.Generation != 3 {
 		return nil, fmt.Errorf("needle: SliceDepth is only supported for Needle3 checkpoints")
 	}
+	if m.compactPacked {
+		return nil, fmt.Errorf("needle: SliceDepth requires decoded tensors")
+	}
 	selected, order, err := ladderLayerIndices(m.config, depth)
 	if err != nil {
 		return nil, err

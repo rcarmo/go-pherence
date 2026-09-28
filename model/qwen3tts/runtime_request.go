@@ -17,6 +17,7 @@ type RuntimeRequest struct {
 
 type RuntimeRequestPlan struct {
 	Conditioning ConditioningValidation `json:"conditioning"`
+	Prompt       PromptIDs              `json:"prompt"`
 	PromptLayout PromptRuntimeLayout    `json:"prompt_layout"`
 	DecoderInput DecoderInputLayout     `json:"decoder_input"`
 	Waveform     WaveformLayout         `json:"waveform"`
@@ -54,11 +55,10 @@ func NewRuntimeRequestPlan(cfg ParsedConfig, req RuntimeRequest) (RuntimeRequest
 	}
 	maxFrames := req.MaxFrames
 	if maxFrames == 0 && req.MaxSeconds > 0 {
-		frames := req.MaxSeconds * float64(decoderInput.FrameRateHz)
-		if frames >= float64(int(^uint(0)>>1)) {
-			return RuntimeRequestPlan{}, fmt.Errorf("Qwen3-TTS max seconds overflows frame count")
+		maxFrames, err = waveform.FramesForSeconds(req.MaxSeconds)
+		if err != nil {
+			return RuntimeRequestPlan{}, err
 		}
-		maxFrames = int(frames)
 	}
 	if maxFrames <= 0 {
 		return RuntimeRequestPlan{}, fmt.Errorf("invalid Qwen3-TTS max frames=%d max_seconds=%g", req.MaxFrames, req.MaxSeconds)
@@ -67,11 +67,12 @@ func NewRuntimeRequestPlan(cfg ParsedConfig, req RuntimeRequest) (RuntimeRequest
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
-	maxCodes, err := decoderInput.CodesForFrames(maxFrames)
+	maxCodes, err := decoderInput.AcousticCodesForFrames(maxFrames)
 	if err != nil {
 		return RuntimeRequestPlan{}, err
 	}
-	plan := RuntimeRequestPlan{Conditioning: conditioning, PromptLayout: promptLayout, DecoderInput: decoderInput, Waveform: waveform, MaxFrames: maxFrames, MaxSamples: maxSamples, MaxCodes: maxCodes}
+	prompt := PromptIDs{Text: append([]uint32(nil), req.Prompt.Text...), Codec: append([]uint32(nil), req.Prompt.Codec...)}
+	plan := RuntimeRequestPlan{Conditioning: conditioning, Prompt: prompt, PromptLayout: promptLayout, DecoderInput: decoderInput, Waveform: waveform, MaxFrames: maxFrames, MaxSamples: maxSamples, MaxCodes: maxCodes}
 	return plan, plan.Validate()
 }
 
@@ -81,6 +82,9 @@ func (p RuntimeRequestPlan) Validate() error {
 	}
 	if err := p.PromptLayout.Validate(); err != nil {
 		return err
+	}
+	if len(p.Prompt.Text) != p.PromptLayout.Prefill.TextTokens || len(p.Prompt.Codec) != p.PromptLayout.Prefill.CodecTokens {
+		return fmt.Errorf("invalid Qwen3-TTS request prompt lengths text/codec=%d/%d want %d/%d", len(p.Prompt.Text), len(p.Prompt.Codec), p.PromptLayout.Prefill.TextTokens, p.PromptLayout.Prefill.CodecTokens)
 	}
 	if err := p.DecoderInput.Validate(); err != nil {
 		return err
@@ -98,7 +102,7 @@ func (p RuntimeRequestPlan) Validate() error {
 	if p.MaxSamples != wantSamples {
 		return fmt.Errorf("invalid Qwen3-TTS request samples=%d want=%d", p.MaxSamples, wantSamples)
 	}
-	wantCodes, err := p.DecoderInput.CodesForFrames(p.MaxFrames)
+	wantCodes, err := p.DecoderInput.AcousticCodesForFrames(p.MaxFrames)
 	if err != nil {
 		return err
 	}

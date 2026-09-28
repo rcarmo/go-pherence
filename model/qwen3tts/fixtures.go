@@ -3,6 +3,7 @@ package qwen3tts
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/rcarmo/go-pherence/model/inspect"
@@ -149,8 +150,11 @@ func (fx ReferenceFixture) Validate() error {
 	if fx.CodePredictor != nil && len(fx.CodePredictor.AcousticFrame) != 0 && len(fx.CodePredictor.AcousticFrame) != 15 {
 		return fmt.Errorf("qwen3tts fixture %q acoustic frame length=%d, want 15", fx.Name, len(fx.CodePredictor.AcousticFrame))
 	}
-	if fx.Decoder12Hz != nil && (fx.Decoder12Hz.SampleRate <= 0 || fx.Decoder12Hz.Samples <= 0 || fx.Decoder12Hz.DurationS <= 0) {
-		return fmt.Errorf("qwen3tts fixture %q has invalid decoder summary: %+v", fx.Name, fx.Decoder12Hz)
+	if fx.Decoder12Hz != nil {
+		wantDuration := float64(fx.Decoder12Hz.Samples) / decoder12HzSampleRate
+		if fx.Decoder12Hz.SampleRate != decoder12HzSampleRate || fx.Decoder12Hz.Samples <= 0 || fx.Decoder12Hz.Samples%decoder12HzSamplesPerFrame != 0 || math.IsNaN(fx.Decoder12Hz.DurationS) || math.IsInf(fx.Decoder12Hz.DurationS, 0) || math.Abs(fx.Decoder12Hz.DurationS-wantDuration) > 1e-9 {
+			return fmt.Errorf("qwen3tts fixture %q has invalid decoder summary: %+v", fx.Name, fx.Decoder12Hz)
+		}
 	}
 	if fx.Runtime != nil {
 		if fx.Runtime.MaxFrames <= 0 || fx.Runtime.MaxSamples <= 0 || fx.Runtime.MaxCodes <= 0 {

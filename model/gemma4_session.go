@@ -140,6 +140,18 @@ func (s *Gemma4DecodeSession) Backend() InferenceBackend {
 }
 
 func (s *Gemma4DecodeSession) BeginPrefill(tokens []int) error {
+	return s.beginPrefill(tokens, false)
+}
+
+// BeginPreparedPrefill accepts an already chat-templated token sequence. It is
+// intended for orchestrators that split a canonical prompt into cacheable and
+// request-specific parts; unlike BeginPrefill it does not add BOS or a chat
+// template a second time.
+func (s *Gemma4DecodeSession) BeginPreparedPrefill(tokens []int) error {
+	return s.beginPrefill(tokens, true)
+}
+
+func (s *Gemma4DecodeSession) beginPrefill(tokens []int, preparedInput bool) error {
 	if err := s.usable(); err != nil {
 		return err
 	}
@@ -154,7 +166,10 @@ func (s *Gemma4DecodeSession) BeginPrefill(tokens []int) error {
 			return fmt.Errorf("prompt token[%d]=%d outside vocab=%d", i, tok, s.model.Config.VocabSize)
 		}
 	}
-	prepared := s.model.prepareGenerateTokens(tokens)
+	prepared := append([]int(nil), tokens...)
+	if !preparedInput {
+		prepared = s.model.prepareGenerateTokens(tokens)
+	}
 	stateMaxTokens := s.opts.MaxTokens
 	if stateMaxTokens == 0 {
 		stateMaxTokens = 1
@@ -347,14 +362,8 @@ func (s *Gemma4DecodeSession) PrefillChunk(tokens []int) (PrefillResult, error) 
 }
 
 func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
-	if err := s.usable(); err != nil {
+	if err := s.readyToDecode(); err != nil {
 		return DecodeResult{}, err
-	}
-	if !s.prefilled {
-		if s.prefillStarted {
-			return DecodeResult{}, fmt.Errorf("Gemma4 session prompt prefill is incomplete")
-		}
-		return DecodeResult{}, fmt.Errorf("Gemma4 session prompt is not prefilled")
 	}
 	if s.finished {
 		return DecodeResult{Position: len(s.output), Generated: s.generated, Finished: true, FinishReason: s.finish}, nil
@@ -382,6 +391,67 @@ func (s *Gemma4DecodeSession) DecodeStep() (DecodeResult, error) {
 	return s.commitDecodeStep(tok, logits), nil
 }
 
+// AppendToken appends a caller-selected token and returns the logits after that
+// token. It is the request-owned branch primitive used by constrained decoders:
+// callers checkpoint a prefilled trunk, append one candidate path, inspect only
+// its allowed logits, then restore the trunk. It never samples or substitutes a
+// greedy token. Pending prompt-boundary logits are discarded because the caller
+// has explicitly selected the token at that boundary.
+func (s *Gemma4DecodeSession) AppendToken(token int) (DecodeResult, error) {
+	if err := s.readyToDecode(); err != nil {
+		return DecodeResult{}, err
+	}
+	if s.finished {
+		return DecodeResult{}, fmt.Errorf("Gemma4 session is finished")
+	}
+	if token < 0 || token >= s.model.Config.VocabSize {
+		return DecodeResult{}, fmt.Errorf("token=%d outside vocab=%d", token, s.model.Config.VocabSize)
+	}
+	if s.state.compressedKV != nil {
+		return DecodeResult{}, fmt.Errorf("Gemma4 forced-token branches require float KV")
+	}
+	s.pendingLogits = nil
+	s.pendingToken = 0
+	pos := len(s.output)
+	kvBefore := kv.CheckpointFloatKV(s.state.kvCacheK, s.state.kvCacheV)
+	s.output = append(s.output, token)
+	s.state.output = s.output
+	_, logits, emit, err := s.model.runLegacyCPUToken(s.state, token, pos, nil)
+	if err != nil || !emit {
+		s.output = s.output[:len(s.output)-1]
+		s.state.output = s.output
+		s.state.position = pos
+		if restoreErr := kvBefore.Restore(s.state.kvCacheK, s.state.kvCacheV); restoreErr != nil {
+			return DecodeResult{}, fmt.Errorf("Gemma4 session append token %d rollback: %w", token, restoreErr)
+		}
+		if err != nil {
+			return DecodeResult{}, fmt.Errorf("Gemma4 session append token %d at position %d: %w", token, pos, err)
+		}
+		return DecodeResult{}, fmt.Errorf("Gemma4 session append token %d at position %d did not emit", token, pos)
+	}
+	s.state.position = pos + 1
+	s.generated++
+	if _, stop := s.stopTokens[token]; stop {
+		s.finished, s.finish = true, FinishReasonStopToken
+	} else if s.generated >= s.opts.MaxTokens {
+		s.finished, s.finish = true, FinishReasonLength
+	}
+	return DecodeResult{Token: token, Logits: append([]float32(nil), logits...), Position: len(s.output), Generated: s.generated, Finished: s.finished, FinishReason: s.finish}, nil
+}
+
+func (s *Gemma4DecodeSession) readyToDecode() error {
+	if err := s.usable(); err != nil {
+		return err
+	}
+	if !s.prefilled {
+		if s.prefillStarted {
+			return fmt.Errorf("Gemma4 session prompt prefill is incomplete")
+		}
+		return fmt.Errorf("Gemma4 session prompt is not prefilled")
+	}
+	return nil
+}
+
 func (s *Gemma4DecodeSession) commitDecodeStep(tok int, logits []float32) DecodeResult {
 	s.output = append(s.output, tok)
 	s.state.output = s.output
@@ -392,6 +462,26 @@ func (s *Gemma4DecodeSession) commitDecodeStep(tok int, logits []float32) Decode
 		s.finished, s.finish = true, FinishReasonLength
 	}
 	return DecodeResult{Token: tok, Logits: append([]float32(nil), logits...), Position: len(s.output), Generated: s.generated, Finished: s.finished, FinishReason: s.finish}
+}
+
+// PromptContext returns a defensive copy of the prefilled trunk needed by an
+// independent branch executor. It never exposes session-owned slice capacity.
+func (s *Gemma4DecodeSession) PromptContext() (MTPPromptContext, error) {
+	if err := s.readyToDecode(); err != nil {
+		return MTPPromptContext{}, err
+	}
+	if s.state == nil || s.state.compressedKV != nil {
+		return MTPPromptContext{}, fmt.Errorf("Gemma4 prompt context requires float KV")
+	}
+	tokens := append([]int(nil), s.prompt...)
+	return MTPPromptContext{
+		Tokens:        tokens,
+		PreviousToken: tokens[len(tokens)-1],
+		KVCacheK:      cloneFloat32Matrix(s.state.kvCacheK),
+		KVCacheV:      cloneFloat32Matrix(s.state.kvCacheV),
+		SeqLen:        len(tokens),
+		FinalToken:    -1,
+	}, nil
 }
 
 func (s *Gemma4DecodeSession) Checkpoint() (SessionCheckpoint, error) {
@@ -420,6 +510,7 @@ func (s *Gemma4DecodeSession) Restore(checkpoint SessionCheckpoint) error {
 	}
 	s.output = s.output[:cp.outputLen]
 	s.state.output = s.output
+	s.state.position = cp.outputLen
 	s.generated, s.finished, s.finish = cp.generated, cp.finished, cp.finish
 	s.pendingLogits = append(s.pendingLogits[:0], cp.pendingLogits...)
 	s.pendingToken = cp.pendingToken

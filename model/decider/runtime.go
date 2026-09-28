@@ -28,21 +28,23 @@ type Runtime struct {
 	labels            []int
 	maxInput          int
 	Temperature       float32
+	temperatureByType map[QuestionType]float32
 	SchemaTemperature float32
 	Version           string
 	modelDir          string
 }
 
 type diskConfig struct {
-	Temperature        float32 `json:"temperature"`
-	SchemaTemperature  float32 `json:"temperature_schema_first"`
-	Version            string  `json:"version"`
-	Base               string  `json:"base"`
-	MaxOptions         int     `json:"max_options"`
-	MaxStateTokens     int     `json:"max_state_tokens"`
-	SchemaFirst        bool    `json:"schema_first"`
-	SchemaFirstTrained bool    `json:"schema_first_trained"`
-	IsolatedLevels     bool    `json:"isolated_levels"`
+	Temperature        float32                  `json:"temperature"`
+	TemperatureByType  map[QuestionType]float32 `json:"temperature_by_type"`
+	SchemaTemperature  float32                  `json:"temperature_schema_first"`
+	Version            string                   `json:"version"`
+	Base               string                   `json:"base"`
+	MaxOptions         int                      `json:"max_options"`
+	MaxStateTokens     int                      `json:"max_state_tokens"`
+	SchemaFirst        bool                     `json:"schema_first"`
+	SchemaFirstTrained bool                     `json:"schema_first_trained"`
+	IsolatedLevels     bool                     `json:"isolated_levels"`
 }
 
 func Load(dir string, maxInput int) (*Runtime, error) {
@@ -70,6 +72,9 @@ func load(dir string, maxInput int, released bool) (*Runtime, error) {
 	}
 	if cfg.Temperature <= 0 || !isFinite(cfg.Temperature) || cfg.MaxOptions != MaxChoice || cfg.Base != "Qwen/Qwen3.5-0.8B-Base" || !cfg.IsolatedLevels {
 		return nil, fmt.Errorf("decider: unsupported release contract")
+	}
+	if err := validateTemperaturesByType(cfg.TemperatureByType); err != nil {
+		return nil, err
 	}
 	bundle, err := qwen.LoadQwen35NativeMTPBundleFromDir(dir)
 	if err != nil {
@@ -119,7 +124,7 @@ func load(dir string, maxInput int, released bool) (*Runtime, error) {
 	if cfg.SchemaTemperature <= 0 {
 		cfg.SchemaTemperature = cfg.Temperature
 	}
-	return &Runtime{Bundle: bundle, Tokenizer: tok, embedding: emb, norm: norm.Data(), rope: qwen.NewQwen35RoPEFreqs(bundle.Meta, ropeMax), labels: labels, maxInput: maxInput, Temperature: cfg.Temperature, SchemaTemperature: cfg.SchemaTemperature, Version: cfg.Version, modelDir: dir}, nil
+	return &Runtime{Bundle: bundle, Tokenizer: tok, embedding: emb, norm: norm.Data(), rope: qwen.NewQwen35RoPEFreqs(bundle.Meta, ropeMax), labels: labels, maxInput: maxInput, Temperature: cfg.Temperature, temperatureByType: cfg.TemperatureByType, SchemaTemperature: cfg.SchemaTemperature, Version: cfg.Version, modelDir: dir}, nil
 }
 
 func labelIDs(tok *tokenizer.Tokenizer) ([]int, error) {

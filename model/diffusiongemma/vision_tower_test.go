@@ -26,7 +26,7 @@ func TestRunVisionTowerF32RejectsEmptyLayers(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaRunVisionTowerF32OneLayerSeq1(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)

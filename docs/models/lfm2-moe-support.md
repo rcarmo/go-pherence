@@ -4,8 +4,9 @@ This note tracks initial support planning for Liquid AI's `LiquidAI/LFM2.5-8B-A1
 
 ## Source reviewed
 
-- Hugging Face checkpoint: <https://huggingface.co/LiquidAI/LFM2.5-8B-A1B>
-- `config.json` was inspected from Hugging Face on 2026-05-28.
+- Hugging Face checkpoint: <https://huggingface.co/LiquidAI/LFM2.5-8B-A1B/tree/5dd22602c2e9f6a097b1de4c4efe0658b605015c> (`5dd22602c2e9f6a097b1de4c4efe0658b605015c`)
+- `config.json` SHA-256: `9c0255c2d5c744c99b760a12edca2572935348dae340e79e2e6625af975d2d68`.
+- The CPU architecture audit used Transformers `modeling_lfm2_moe.py` at `a12a224f759d4457e1a2fd4ba7ced46f9a6cc430`.
 
 ## Checkpoint summary
 
@@ -60,10 +61,9 @@ That makes this a hybrid recurrent/convolutional + attention MoE decoder, not a 
 
 ### Missing or uncertain
 
-- `model/lfm2` now exists for strict config parsing and tensor-name inventory; runtime block implementations are still pending.
-- No native LFM2 convolution/recurrent block implementation exists.
-- Tensor names and exact block math need inventory against the checkpoint and, ideally, a Transformers reference trace.
-- MoE routing details need parity checks: normalized top-k probabilities, expert bias behavior, routed scaling, and dense-layer exceptions.
+- `model/lfm2` provides strict config parsing, tensor inventory, owned F32 embedding/final-head execution, cached short convolution, full attention, dense/MoE FFNs, and stateful greedy decode.
+- Tensor names and operator math are pinned to the checkpoint config and Transformers source, but released-model numeric fixtures are not yet available.
+- MoE routing implements normalized selected sigmoid weights, selection-only expert bias, routed scaling, and dense-layer exceptions; the pinned Transformers trace must still confirm numeric parity.
 - Long-context behavior needs explicit state/cache accounting because the model advertises 128k positions and mixes `conv_L_cache=3` with full-attention layers.
 
 ## Proposed package layout
@@ -112,10 +112,15 @@ Acceptance:
 
 ### Phase L2 — CPU reference path
 
-- [ ] Implement embeddings, RMSNorm, full-attention layers, and tied LM head.
-- [ ] Implement LFM convolution/state block with `conv_L_cache=3` semantics.
-- [ ] Implement MoE router/top-k/expert FFN with expert-bias and normalized-top-k behavior.
-- [ ] Add greedy first-token and short decode parity tests.
+- [x] Implement owned F32 embeddings, final RMSNorm, and tied-or-untied LM head with synthetic shape, ownership, and logits tests.
+- [x] Implement the stateful full-attention operator with per-head Q/K RMSNorm, RoPE, GQA, and caller-owned KV.
+- [ ] Integrate per-layer RMSNorm, attention state, and residual execution into the full decoder.
+- [x] Implement the caller-owned single-token short-convolution state transition with `conv_L_cache` semantics and exact `in_proj → B/C/x → depthwise conv → out_proj` ordering.
+- [ ] Integrate batched prompt convolution, per-layer state, residual/norm execution, and cache reset into the full decoder.
+- [x] Implement the per-token MoE sigmoid router/top-k/expert FFN with selection-only expert bias, normalized selected weights, and routed scaling.
+- [ ] Bind and orchestrate dense and routed FFNs across all decoder layers.
+- [x] Add deterministic synthetic greedy first-token and short decode tests with caller-owned state.
+- [ ] Add released-model first-token and short-decode parity after the pinned checkpoint/oracle is approved.
 
 Acceptance:
 
@@ -134,4 +139,4 @@ Acceptance:
 
 ## Immediate next action
 
-Treat LFM2.5 as a separate roadmap track. After Qwen3-TTS T0/T1 is started, the first concrete LFM task should be `model/lfm2/config.go` plus `cmd/models/lfm2inspect`, not runtime generation.
+Capture the pinned Transformers token/logit/conv/attention/router/expert fixtures after checkpoint execution is approved. Keep runtime readiness false until those fixtures pass against the CPU decoder.

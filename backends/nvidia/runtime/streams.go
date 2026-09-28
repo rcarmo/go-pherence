@@ -40,6 +40,7 @@ var (
 	cuEventCreate      func(*CUevent, uint32) CUresult
 	cuEventRecord      func(CUevent, CUstream) CUresult
 	cuEventSynchronize func(CUevent) CUresult
+	cuEventElapsedTime func(*float32, CUevent, CUevent) CUresult
 	cuStreamWaitEvent  func(CUstream, CUevent, uint32) CUresult
 	cuEventDestroy     func(CUevent) CUresult
 

@@ -13,8 +13,8 @@ func (m *LlamaModel) legacyCPUPrefillBatchEligible(st *cpuTokenState, batch int)
 	}
 	for l := 0; l < m.Config.NumLayers; l++ {
 		layer := &m.Layers[l]
-		// runLegacyCPUToken does not execute GGUF-only PLI gates. Dense PLI and
-		// MoE retain the authoritative sequential implementation.
+		// Dense PLI and MoE retain the authoritative sequential implementation.
+		// GGUF PLI is supported by both the sequential and layer-batched paths.
 		if layer.IsMoE || layer.PLIGate != nil {
 			return false
 		}

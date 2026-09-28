@@ -66,7 +66,7 @@ func (r *Runtime) SystemOne(state any, questions []NamedQuestion) (Response, err
 			return Response{}, err
 		}
 		usage += len(ids)
-		rowProb[i], err = softmax(logits, r.Temperature)
+		rowProb[i], err = softmax(logits, r.temperatureForType(rendered[row.owner].typeName))
 		if err != nil {
 			return Response{}, err
 		}

@@ -40,4 +40,4 @@ Report every candidate, admission rejection and failure. A resource failure is a
 
 ## Publication boundary
 
-Publish the frozen selection and adapter source before candidate scoring. Preserve raw logits or probabilities, selected stable IDs, timings, model/checkpoint identities and resource measurements. A later model or prompt change requires another experiment and another untouched cohort. Simple-JEV is excluded until its upstream repository has a compatible licence or explicit permission.
+Publish the frozen selection and adapter source before candidate scoring. Preserve raw logits or probabilities, selected stable IDs, timings, model/checkpoint identities and resource measurements. A later model or prompt change requires another experiment and another untouched cohort. This frozen comparison excluded Simple-JEV because the upstream repository lacked a root licence when the policy was set. Apache-2.0 was added later in `b02aa81c`; adding a Simple-JEV candidate requires a new predeclared evaluation and untouched cohort.

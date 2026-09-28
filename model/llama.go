@@ -1372,13 +1372,21 @@ func (m *LlamaModel) runLegacyCPUToken(st *cpuTokenState, tokID, pos int, embedd
 			debugOpHook("cpu", pos, l, "hidden_post_ffn", hidden)
 		}
 
-		// Per-layer input gating (Gemma4)
-		if layer.PLIGate != nil && perLayerInputs != nil && l < len(perLayerInputs) {
+		// Per-layer input gating (Gemma4). GGUF-loaded models retain these
+		// projections in quantized form, so forced-token/session execution must
+		// not silently omit them.
+		if (layer.PLIGate != nil || layer.PLIGateGGUF != nil) && perLayerInputs != nil && l < len(perLayerInputs) {
 			hpl := cfg.HiddenPerLayer
 			pli := perLayerInputs[l]
 			// gate = gelu(per_layer_input_gate(h)) * per_layer_input → [hiddenPerLayer]
 			gate2 := scratchPLIGate[:hpl]
-			gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
+			if layer.PLIGateGGUF != nil {
+				if !gemvGGUFTo(gate2, hidden, layer.PLIGateGGUF, h, hpl) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF PLI gate projection failed", pos, l)
+				}
+			} else {
+				gemvNT(gate2, hidden, layer.PLIGate, h, hpl)
+			}
 			if cfg.ModelType == "gemma4_text" {
 				ggmlGELUMulInPlace(gate2, pli)
 			} else {
@@ -1386,7 +1394,13 @@ func (m *LlamaModel) runLegacyCPUToken(st *cpuTokenState, tokID, pos int, embedd
 			}
 			// proj = per_layer_projection(gate) → [hidden]
 			proj2 := scratchPLIProj
-			gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
+			if layer.PLIProjGGUF != nil {
+				if !gemvGGUFTo(proj2, gate2, layer.PLIProjGGUF, hpl, h) {
+					return 0, nil, false, fmt.Errorf("legacy CPU token pos %d layer %d: GGUF PLI projection failed", pos, l)
+				}
+			} else {
+				gemvNT(proj2, gate2, layer.PLIProj, hpl, h)
+			}
 			// norm
 			rmsNormInPlace(proj2, layer.PLIPostNorm, float32(cfg.RMSNormEps))
 			// residual add

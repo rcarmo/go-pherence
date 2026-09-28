@@ -40,6 +40,11 @@ func (m *Model) execution(train bool, opts Options) *execution {
 	return &execution{t: t, m: m, q: opts.Quant, packedEnabled: opts.Packed}
 }
 func (e *execution) param(name string, layer int) *value {
+	if e.m.compactPacked {
+		if _, omitted := e.m.packedShapes[name]; omitted {
+			panic(workLimit{fmt.Errorf("needle: decoded parameter %s omitted from compact model", name)})
+		}
+	}
 	if !e.t.train && e.parameterViews == nil {
 		tensor, ok := e.m.tensors[name]
 		if !ok {
@@ -81,7 +86,7 @@ func (e *execution) param(name string, layer int) *value {
 		if !ok {
 			panic("needle: missing prepared parameter " + name)
 		}
-		shape := e.m.tensors[name].Shape
+		shape := e.m.parameterShape(name)
 		start := 0
 		if layer >= 0 {
 			start = layer * len(p.x) / shape[0]
@@ -472,14 +477,29 @@ func (e *execution) forward(ids []int) *value {
 }
 func (e *execution) trunk(ids []int, collect bool) *value {
 	c, t := e.m.config, e.t
-	embedding := e.param("embedding/embedding", -1)
-	indices := t.ints(len(ids) * c.DModel)
-	for i, id := range ids {
-		for j := 0; j < c.DModel; j++ {
-			indices[i*c.DModel+j] = id*c.DModel + j
+	var gathered *value
+	if e.m.compactPacked {
+		p := e.m.packed[packedKey{"embedding/embedding", -1}]
+		if p == nil {
+			panic(workLimit{fmt.Errorf("needle: missing packed embedding")})
 		}
+		gathered = t.alloc(len(ids), c.DModel)
+		for i, id := range ids {
+			if err := p.DecodeRowInto(gathered.x[i*c.DModel:(i+1)*c.DModel], id); err != nil {
+				panic(workLimit{err})
+			}
+		}
+	} else {
+		embedding := e.param("embedding/embedding", -1)
+		indices := t.ints(len(ids) * c.DModel)
+		for i, id := range ids {
+			for j := 0; j < c.DModel; j++ {
+				indices[i*c.DModel+j] = id*c.DModel + j
+			}
+		}
+		gathered = t.gather(embedding, len(ids), c.DModel, indices)
 	}
-	x := t.scale(t.gather(embedding, len(ids), c.DModel, indices), float32(math.Sqrt(float64(c.DModel))))
+	x := t.scale(gathered, float32(math.Sqrt(float64(c.DModel))))
 	if collect {
 		e.cells = append(e.cells, x)
 	}
@@ -581,6 +601,9 @@ func recoverWork(err *error) {
 	}
 }
 func (m *Model) resolveOptions(opts Options) (Options, error) {
+	if m.compactPacked && !opts.Packed {
+		return opts, fmt.Errorf("needle: compact model requires packed execution")
+	}
 	if opts.Packed && (!m.deployed || len(m.packed) == 0) {
 		return opts, fmt.Errorf("needle: packed projections require original .cact weights")
 	}

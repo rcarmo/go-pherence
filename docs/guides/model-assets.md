@@ -12,9 +12,6 @@ make models-download-small
 make models-download-qwen
 make models-download-qwen3tts
 make models-download-lfm2
-make models-download-minicpmv
-make models-download-minicpmo
-make minicpmv-assets-check
 make models-download-gemma4
 make models-download-speaker
 make models-download-one MODEL=qwen3.6-27b-mlx4-mtp
@@ -29,13 +26,9 @@ make models-download-one MODEL=qwen3.6-27b-mlx4-mtp MODEL_DOWNLOAD_FLAGS='--forc
 make models-list MODEL_DOWNLOAD_FLAGS='--group qwen'
 make models-list MODEL_DOWNLOAD_FLAGS='--group qwen3tts'
 make models-list MODEL_DOWNLOAD_FLAGS='--group lfm2'
-make models-list MODEL_DOWNLOAD_FLAGS='--group minicpmv'
-make models-list MODEL_DOWNLOAD_FLAGS='--group minicpmo'
 python3 scripts/download_models.py --dry-run --group gemma4
 python3 scripts/download_models.py --dry-run --group speaker
 ```
-
-MiniCPM-V/O checkpoints are gated on some Hugging Face mirrors. `make models-download-minicpmv` fetches the combined MiniCPM-V/O group, while `make models-download-minicpmo` fetches only MiniCPM-O.
 
 The downloader uses `huggingface_hub.snapshot_download`; install it with:
 

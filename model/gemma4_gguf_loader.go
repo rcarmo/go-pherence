@@ -215,37 +215,39 @@ func LoadGemma4GGUFAsLlama(path string) (*LlamaModel, error) {
 			}
 		}
 	}
-	totalPerLayerDim, ok := checkedProduct(cfg.NumLayers, cfg.HiddenPerLayer)
-	if !ok || totalPerLayerDim <= 0 {
-		return nil, fmt.Errorf("Gemma4 per-layer input dimension overflow layers=%d hiddenPerLayer=%d", cfg.NumLayers, cfg.HiddenPerLayer)
+	if cfg.HiddenPerLayer > 0 {
+		totalPerLayerDim, ok := checkedProduct(cfg.NumLayers, cfg.HiddenPerLayer)
+		if !ok || totalPerLayerDim <= 0 {
+			return nil, fmt.Errorf("Gemma4 per-layer input dimension overflow layers=%d hiddenPerLayer=%d", cfg.NumLayers, cfg.HiddenPerLayer)
+		}
+		if t, ok := g.TensorByName("per_layer_model_proj.weight"); !ok {
+			return nil, fmt.Errorf("tensor %q not found", "per_layer_model_proj.weight")
+		} else if err := validateShape(t, cfg.HiddenSize, totalPerLayerDim); err != nil {
+			return nil, err
+		}
+		if m.PerLayerModelProj, err = loadTyped("per_layer_model_proj.weight", gguf.QuantF16); err != nil {
+			return nil, err
+		}
+		if t, ok := g.TensorByName("per_layer_proj_norm.weight"); !ok {
+			return nil, fmt.Errorf("tensor %q not found", "per_layer_proj_norm.weight")
+		} else if err := validateShape(t, cfg.HiddenPerLayer); err != nil {
+			return nil, err
+		}
+		if m.PerLayerProjNorm, err = loadTyped("per_layer_proj_norm.weight", gguf.QuantF32); err != nil {
+			return nil, err
+		}
+		if t, ok := g.TensorByName("per_layer_token_embd.weight"); !ok {
+			return nil, fmt.Errorf("tensor %q not found", "per_layer_token_embd.weight")
+		} else if err := validateShape(t, totalPerLayerDim, cfg.VocabPerLayer); err != nil {
+			return nil, err
+		}
+		if m.EmbedPerLayerGGUF, err = loadQMatrix("per_layer_token_embd.weight"); err != nil {
+			return nil, err
+		}
+		m.PerLayerInputScale = float32(1 / math.Sqrt(2))
+		m.PerLayerProjScale = float32(1 / math.Sqrt(float64(cfg.HiddenSize)))
+		m.EmbedPerLayerScale = float32(math.Sqrt(float64(cfg.HiddenPerLayer)))
 	}
-	if t, ok := g.TensorByName("per_layer_model_proj.weight"); !ok {
-		return nil, fmt.Errorf("tensor %q not found", "per_layer_model_proj.weight")
-	} else if err := validateShape(t, cfg.HiddenSize, totalPerLayerDim); err != nil {
-		return nil, err
-	}
-	if m.PerLayerModelProj, err = loadTyped("per_layer_model_proj.weight", gguf.QuantF16); err != nil {
-		return nil, err
-	}
-	if t, ok := g.TensorByName("per_layer_proj_norm.weight"); !ok {
-		return nil, fmt.Errorf("tensor %q not found", "per_layer_proj_norm.weight")
-	} else if err := validateShape(t, cfg.HiddenPerLayer); err != nil {
-		return nil, err
-	}
-	if m.PerLayerProjNorm, err = loadTyped("per_layer_proj_norm.weight", gguf.QuantF32); err != nil {
-		return nil, err
-	}
-	if t, ok := g.TensorByName("per_layer_token_embd.weight"); !ok {
-		return nil, fmt.Errorf("tensor %q not found", "per_layer_token_embd.weight")
-	} else if err := validateShape(t, totalPerLayerDim, cfg.VocabPerLayer); err != nil {
-		return nil, err
-	}
-	if m.EmbedPerLayerGGUF, err = loadQMatrix("per_layer_token_embd.weight"); err != nil {
-		return nil, err
-	}
-	m.PerLayerInputScale = float32(1 / math.Sqrt(2))
-	m.PerLayerProjScale = float32(1 / math.Sqrt(float64(cfg.HiddenSize)))
-	m.EmbedPerLayerScale = float32(math.Sqrt(float64(cfg.HiddenPerLayer)))
 	m.precomputeRoPE()
 	var fullRoPEFactors []float32
 	if t, ok := g.TensorByName("rope_freqs.weight"); ok {
@@ -284,9 +286,23 @@ func gemma4GGUFConfig(g *gguf.GGUF) (common.Config, error) {
 	if err != nil {
 		return common.Config{}, err
 	}
-	kvHeads, err := req("gemma4.attention.head_count_kv")
-	if err != nil {
-		return common.Config{}, err
+	kvHeads := 0
+	var kvHeadsPerLayer []int
+	if scalar, ok := g.MetaUint32("gemma4.attention.head_count_kv"); ok {
+		kvHeads = int(scalar)
+	} else {
+		kvHeadsPerLayer = ggufIntArray(g.Meta["gemma4.attention.head_count_kv"])
+		if len(kvHeadsPerLayer) != layers {
+			return common.Config{}, fmt.Errorf("gemma4 attention KV heads has %d entries, want %d", len(kvHeadsPerLayer), layers)
+		}
+		for i, heads := range kvHeadsPerLayer {
+			if heads <= 0 {
+				return common.Config{}, fmt.Errorf("gemma4 attention KV heads layer %d=%d must be positive", i, heads)
+			}
+			if kvHeads == 0 || heads > kvHeads {
+				kvHeads = heads
+			}
+		}
 	}
 	inter, err := req("gemma4.feed_forward_length")
 	if err != nil {
@@ -343,7 +359,20 @@ func gemma4GGUFConfig(g *gguf.GGUF) (common.Config, error) {
 	if v, ok := g.MetaFloat32("gemma4.final_logit_softcapping"); ok {
 		softcap = v
 	}
-	return common.Config{VocabSize: vocab, HiddenSize: h, Intermediate: inter, NumLayers: layers, NumHeads: heads, NumKVHeads: kvHeads, NumGlobalKVHeads: kvHeads, MaxSeqLen: ctx, RopeTheta: ropeTheta, RMSNormEps: eps, ModelType: "gemma4_text", HeadDim: keyLen, GlobalHeadDim: globalKeyLen, SlidingWindow: sliding, BOSTokenID: bos, LayerTypes: lt, NumKVSharedLayers: shared, HiddenPerLayer: hpl, VocabPerLayer: vocab, HiddenAct: "gelu_pytorch_tanh", AttentionKEqV: false, FinalLogitSoftcapping: float64(softcap)}, nil
+	globalKVHeads := kvHeads
+	if len(kvHeadsPerLayer) == layers {
+		globalKVHeads = 0
+		for i, heads := range kvHeadsPerLayer {
+			if i < len(lt) && lt[i] == "full_attention" {
+				globalKVHeads = heads
+				break
+			}
+		}
+		if globalKVHeads == 0 {
+			globalKVHeads = kvHeads
+		}
+	}
+	return common.Config{VocabSize: vocab, HiddenSize: h, Intermediate: inter, NumLayers: layers, NumHeads: heads, NumKVHeads: kvHeads, NumGlobalKVHeads: globalKVHeads, KVHeadsPerLayer: kvHeadsPerLayer, MaxSeqLen: ctx, RopeTheta: ropeTheta, RMSNormEps: eps, ModelType: "gemma4_text", HeadDim: keyLen, GlobalHeadDim: globalKeyLen, SlidingWindow: sliding, BOSTokenID: bos, LayerTypes: lt, NumKVSharedLayers: shared, HiddenPerLayer: hpl, VocabPerLayer: vocab, HiddenAct: "gelu_pytorch_tanh", AttentionKEqV: false, FinalLogitSoftcapping: float64(softcap)}, nil
 }
 
 func ggufIntArray(v any) []int {

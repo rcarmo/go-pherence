@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "model": "Tongyi-MAI/Z-Image-Turbo",
+  "model_revision": "f332072aa78be7aecdf3ee76d5c247082da564a6",
+  "scheduler_config_sha256": "3b979ab0956e4f5e8d02ec409ac6a4ece1555191d15bd10788fdc85fea5d13fc",
+  "reference_source": "huggingface/diffusers@0377f0c1b34e3ff313d41edad1bd79c2ed8bb5ec",
+  "generator": "NumPy: raw=np.linspace(1,1/n,n).astype(np.float32); sig=(3*raw/(1+2*raw)).astype(np.float32); timesteps=sig*np.float32(1000); first_step=sample+(sig[1]-sig[0])*velocity; hashes use little-endian float32 bytes (sigmas include terminal 0)",
+  "reference_precision": "numpy.float32; torch.linspace bitwise parity for all step counts is unverified",
+  "numpy_1000_sigma_sha256": "bee9ee4f1168794d0e2274bf35202771dc4079b7f08602dc077d6db14cc92919",
+  "numpy_1000_timestep_sha256": "58f68fb3820d9dfb51c5320b278fbc9dc8213d227c63abd8e9ca22fe7821bda6",
+  "scheduler_source_sha256": "1af27be5b2f92b7d139d3c50239be5ce3eafc4a7eddf59c2d30689f8ec31e93d",
+  "pipeline_source_sha256": "2e31dfe83498a963895952053dbe939840f67a30c747b11ed5ab6f71751d6a92",
+  "config": {"_class_name": "FlowMatchEulerDiscreteScheduler", "num_train_timesteps": 1000, "shift": 3.0},
+  "steps": 4,
+  "sigmas": [1.0, 0.8999999761581421, 0.75, 0.5, 0.0],
+  "timesteps": [1000.0, 900.0, 750.0, 500.0],
+  "sample": [0.5, -1.0, 2.0],
+  "velocity": [2.0, -3.0, 4.0],
+  "first_step": [0.2999999523162842, -0.6999999284744263, 1.5999999046325684]
+}

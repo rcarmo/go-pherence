@@ -18,10 +18,10 @@ func TestConvProjectionLayoutFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if layout.HiddenSize != 2048 || layout.ConvLCache != 3 || layout.ConvLayers != 21 || layout.HasBias {
+	if layout.HiddenSize != 2048 || layout.ConvLCache != 3 || layout.ConvLayers != 18 || layout.HasBias {
 		t.Fatalf("layout=%+v", layout)
 	}
-	if layout.KernelFloats != 6144 || layout.BiasFloats != 0 || layout.FloatsPerLayer != 6144 || layout.TotalConvFloats != 129024 {
+	if layout.KernelFloats != 6144 || layout.BiasFloats != 0 || layout.FloatsPerLayer != 6144 || layout.TotalConvFloats != 110592 {
 		t.Fatalf("floats=%+v", layout)
 	}
 }

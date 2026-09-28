@@ -50,12 +50,6 @@ MODELS: tuple[ModelSpec, ...] = (
     # LFM2 hybrid conv/full-attention MoE checkpoint for metadata and future CPU parity work.
     ModelSpec("lfm2.5-8b-a1b", "LiquidAI/LFM2.5-8B-A1B", "lfm2", "LFM2.5 hybrid conv/full-attention MoE"),
 
-    # OpenBMB MiniCPM-V/MiniCPM-O vision-language checkpoints. Some upstream
-    # repos are gated and require HUGGINGFACE_TOKEN/HF_TOKEN; keep downloads opt-in.
-    ModelSpec("minicpm-v-2.6", "openbmb/MiniCPM-V-2_6", "minicpmv", "MiniCPM-V 2.6 vision-language checkpoint"),
-    ModelSpec("minicpm-v-2.0", "openbmb/MiniCPM-V-2", "minicpmv", "MiniCPM-V 2.0 OmniLMM checkpoint"),
-    ModelSpec("minicpm-o-2.6", "openbmb/MiniCPM-o-2_6", "minicpmo", "MiniCPM-O 2.6 omni vision-language checkpoint"),
-
     # Speaker embedding assets for diarization conversion. These are source
     # checkpoints; run scripts/convert_speechbrain_ecapa.py before using them
     # with cmd/diarize-vtt -speaker-model.
@@ -154,7 +148,7 @@ def main(argv: list[str]) -> int:
             )
         except Exception as exc:
             print(f"error: failed to download {s.name} from {s.repo}: {exc}", file=sys.stderr)
-            print("hint: some OpenBMB MiniCPM repositories are gated; set HF_TOKEN/HUGGINGFACE_HUB_TOKEN or use --local-files-only with a populated HF cache", file=sys.stderr)
+            print("hint: verify repository access; use HF_TOKEN/HUGGINGFACE_HUB_TOKEN or --local-files-only with a populated HF cache", file=sys.stderr)
             return 1
         marker.write_text(s.repo + "\n", encoding="utf-8")
     return 0

@@ -121,6 +121,11 @@ func (m *Model) NewDecoder(opts DecoderOptions) (decoder *Decoder, err error) {
 	names := make([]string, 0)
 	var largestQuant int64
 	for name := range expectedShapes(c) {
+		if m.compactPacked {
+			if _, omitted := m.packedShapes[name]; omitted {
+				continue
+			}
+		}
 		names = append(names, name)
 		retained += int64(len(name)) + 256
 		if !m.deployed && exec.Quant != nil && exec.Quant.WeightBits > 0 && isCQ(name) && len(m.tensors[name].Shape) >= 2 {

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "model_revision": "f332072aa78be7aecdf3ee76d5c247082da564a6",
+  "pipeline_revision": "0377f0c1b34e3ff313d41edad1bd79c2ed8bb5ec",
+  "pipeline_source_sha256": "2e31dfe83498a963895952053dbe939840f67a30c747b11ed5ab6f71751d6a92",
+  "vae_config_sha256": "e80af1e64a71883a9d10c3159d2e493e5934508da57852f6a180ae6ae63b14bd",
+  "reference": "NumPy float32; x=np.array([0,.3611,-.3611,.1],dtype=np.float32); y=(x/np.float32(.3611))+np.float32(.1159); pipeline checks image multiples of 2*2**(len(block_out_channels)-1)",
+  "vae_scale_factor": 8,
+  "image_height": 32,
+  "image_width": 48,
+  "batch": 1,
+  "latent_shape_nchw": [1,16,4,6],
+  "decode_input": [0,0.3610999882221222,-0.3610999882221222,0.10000000149011612],
+  "decode_output": [0.11590000241994858,1.1159000396728516,-0.8841000199317932,0.39283162355422974]
+}

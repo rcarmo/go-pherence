@@ -33,6 +33,9 @@ func NormalizeTextConfig(data []byte, fallback common.Config) (common.Config, bo
 // LayerKVHeads returns the K/V head count for a Gemma layer. Gemma4 31B uses
 // fewer K/V heads for full-attention layers than for sliding-attention layers.
 func LayerKVHeads(cfg common.Config, layerIdx int) int {
+	if layerIdx >= 0 && layerIdx < len(cfg.KVHeadsPerLayer) && cfg.KVHeadsPerLayer[layerIdx] > 0 {
+		return cfg.KVHeadsPerLayer[layerIdx]
+	}
 	if cfg.NumGlobalKVHeads > 0 && layerIdx >= 0 && layerIdx < len(cfg.LayerTypes) && cfg.LayerTypes[layerIdx] == "full_attention" {
 		return cfg.NumGlobalKVHeads
 	}

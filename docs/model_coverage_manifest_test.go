@@ -24,7 +24,7 @@ func TestModelCoverageManifest(t *testing.T) {
 	if m.Version != 1 {
 		t.Fatalf("version=%d", m.Version)
 	}
-	for _, name := range []string{"qwen3_tts", "lfm2_moe", "minicpmv"} {
+	for _, name := range []string{"qwen3_tts", "lfm2_moe"} {
 		fam, ok := m.Families[name]
 		if !ok {
 			t.Fatalf("missing family %s", name)
@@ -45,7 +45,7 @@ func TestModelCoverageManifest(t *testing.T) {
 		}
 	}
 	qwen := m.Families["qwen3_tts"].Coverage
-	if !qwen["pipeline_plan"] || qwen["cpu_talker_runtime"] {
+	if !qwen["pipeline_plan"] || qwen["cpu_talker_runtime"] || qwen["cpu_code_predictor_runtime"] || !qwen["decoder12hz_runtime"] {
 		t.Fatalf("unexpected qwen3_tts coverage: %+v", qwen)
 	}
 	for key, path := range map[string]string{
@@ -113,73 +113,10 @@ func TestModelCoverageManifest(t *testing.T) {
 		"code_predictor_execution_contract": "../model/qwen3tts/code_predictor_contract.go",
 		"prompt_runtime_layout":             "../model/qwen3tts/prompt_runtime.go",
 		"embedding_layout":                  "../model/qwen3tts/embedding_layout.go",
+		"decoder12hz_runtime":               "../model/qwen3tts/decoder12hz_cpu.go",
 	} {
 		assertCoverageFile(t, "qwen3_tts", qwen, key, path)
 	}
-	minicpmv := m.Families["minicpmv"].Coverage
-	if !minicpmv["multimodal_prompt_builder"] || minicpmv["end_to_end_generation"] {
-		t.Fatalf("unexpected minicpmv coverage: %+v", minicpmv)
-	}
-	for key, path := range map[string]string{
-		"config_parsing":                        "../loader/config/minicpmv.go",
-		"processor_metadata":                    "../loader/config/minicpmv_processor.go",
-		"tokenizer_metadata":                    "../loader/config/minicpmv_tokenizer.go",
-		"generation_metadata":                   "../loader/config/minicpmv_generation.go",
-		"image_prompt_builder":                  "../model/minicpmv/prompt_text.go",
-		"image_token_span_planning":             "../model/minicpmv/prompt.go",
-		"audio_prompt_builder":                  "../model/minicpmv/audio_prompt.go",
-		"audio_token_span_planning":             "../model/minicpmv/audio_prompt_plan.go",
-		"multimodal_prompt_builder":             "../model/minicpmv/multimodal_prompt.go",
-		"image_preprocessing":                   "../model/minicpmv/image_processor.go",
-		"image_file_inspection":                 "../model/minicpmv/image_io.go",
-		"slice_mode_plan":                       "../model/minicpmv/slice_plan.go",
-		"tensor_group_readiness":                "../model/minicpmv/tensors.go",
-		"tensor_shape_validation":               "../model/minicpmv/tensor_shape_validation.go",
-		"tensor_info_summary":                   "../model/minicpmv/tensor_info_summary.go",
-		"tensor_header_byte_summary":            "../model/minicpmv/tensor_info_summary.go",
-		"text_execution_plan":                   "../model/minicpmv/text_plan.go",
-		"vision_execution_plan":                 "../model/minicpmv/vision_plan.go",
-		"resampler_tensor_plan":                 "../model/minicpmv/resampler_plan.go",
-		"audio_execution_plan":                  "../model/minicpmv/audio_plan.go",
-		"audio_feature_plan":                    "../model/minicpmv/audio_features.go",
-		"audio_feature_frame_estimate":          "../model/minicpmv/audio_features.go",
-		"inspect_audio_duration_make_target":    "../Makefile",
-		"runtime_stage_interfaces":              "../model/minicpmv/runtime_interfaces.go",
-		"runtime_readiness_report":              "../model/minicpmv/readiness.go",
-		"capability_summary":                    "../model/minicpmv/capabilities.go",
-		"support_summary_api":                   "../model/minicpmv/support_summary.go",
-		"support_summary_roadmap_path":          "../model/minicpmv/support_summary.go",
-		"support_summary_validation":            "../model/minicpmv/support_validation.go",
-		"support_summary_inspect_mode":          "../cmd/minicpmvinspect/main.go",
-		"support_summary_make_target":           "../Makefile",
-		"runtime_status_constant":               "../model/minicpmv/capabilities.go",
-		"support_version_output":                "../model/minicpmv/version.go",
-		"version_make_target":                   "../Makefile",
-		"pending_runtime_steps":                 "../model/minicpmv/runtime_status.go",
-		"runtime_roadmap_doc":                   "models/minicpmv-runtime-roadmap.md",
-		"pending_runtime_make_target":           "../Makefile",
-		"coverage_pending_make_target":          "../Makefile",
-		"metadata_fixture":                      "../model/minicpmv/testdata/minicpmo_fixture/config.json",
-		"metadata_expected_summary":             "../model/minicpmv/testdata/minicpmo_fixture/expected_summary.json",
-		"fixture_expected_summary_helper":       "../model/minicpmv/fixture_summary.go",
-		"fixture_summary_make_target":           "../Makefile",
-		"fixture_path_constant":                 "../model/minicpmv/fixtures.go",
-		"fixture_metadata_helper":               "../model/minicpmv/fixtures.go",
-		"fixture_path_make_target":              "../Makefile",
-		"fixture_check_make_target":             "../Makefile",
-		"fixture_readiness_gate":                "../cmd/minicpmvinspect/main.go",
-		"fixture_ready_make_target":             "../Makefile",
-		"embedding_injection_boundary":          "../model/minicpmv/embedding_injection.go",
-		"audio_embedding_injection_boundary":    "../model/minicpmv/audio_embedding_injection.go",
-		"multimodal_embedding_replacement_plan": "../model/minicpmv/multimodal_embedding.go",
-		"local_asset_discovery":                 "../scripts/minicpmv_assets_check.py",
-		"asset_check_make_target":               "../Makefile",
-		"make_inspect_target":                   "../Makefile",
-		"scaffold_check_make_target":            "../Makefile",
-	} {
-		assertCoverageFile(t, "minicpmv", minicpmv, key, path)
-	}
-
 	lfm2 := m.Families["lfm2_moe"].Coverage
 	if !lfm2["execution_role_plan"] || lfm2["cpu_generation_runtime"] {
 		t.Fatalf("unexpected lfm2_moe coverage: %+v", lfm2)

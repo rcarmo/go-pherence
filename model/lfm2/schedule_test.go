@@ -14,16 +14,16 @@ func TestLayerScheduleFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Steps) != 24 || len(s.ConvIndices) != 21 || len(s.FullAttentionIndices) != 3 {
+	if len(s.Steps) != 24 || len(s.ConvIndices) != 18 || len(s.FullAttentionIndices) != 6 {
 		t.Fatalf("schedule=%+v", s)
 	}
-	wantAttn := []int{7, 15, 23}
+	wantAttn := []int{2, 6, 10, 14, 18, 21}
 	for i, want := range wantAttn {
 		if s.FullAttentionIndices[i] != want || !s.IsFullAttentionLayer(want) || s.IsConvLayer(want) {
 			t.Fatalf("attention indices=%v", s.FullAttentionIndices)
 		}
 	}
-	for _, idx := range []int{0, 1, 22} {
+	for _, idx := range []int{0, 1, 23} {
 		if !s.IsConvLayer(idx) || s.IsFullAttentionLayer(idx) {
 			t.Fatalf("conv membership failed for %d", idx)
 		}

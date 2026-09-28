@@ -39,7 +39,7 @@ func TestRuntimePlanSizing(t *testing.T) {
 	if plan.CodePredictor.KVFloatsPerToken != 5120 {
 		t.Fatalf("cp kv floats/token=%d", plan.CodePredictor.KVFloatsPerToken)
 	}
-	if plan.Decoder12Hz.CodeGroups != 15 || plan.Decoder12Hz.FrameRateHz != 12 {
+	if plan.Decoder12Hz.CodeGroups != 16 || plan.Decoder12Hz.CodesPerFrame != 16 || plan.Decoder12Hz.FrameRateHz != 12 || plan.WaveformLayout.SamplesPerFrame != 1920 {
 		t.Fatalf("decoder plan=%+v", plan.Decoder12Hz)
 	}
 	bytes, err := plan.Talker.KVBytes(128, 4)

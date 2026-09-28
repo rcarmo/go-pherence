@@ -8,7 +8,7 @@ func TestRuntimeReadinessReportBlockers(t *testing.T) {
 	if report.ReadyForExecution || report.RuntimeReady || report.NumericParityReady {
 		t.Fatalf("report=%+v", report)
 	}
-	want := map[string]bool{"cpu_talker_runtime": true, "cpu_code_predictor_runtime": true, "decoder12hz_runtime": true, "placeholder:talker.logit_checksum": true}
+	want := map[string]bool{"cpu_talker_runtime": true, "cpu_code_predictor_runtime": true, "placeholder:talker.logit_checksum": true}
 	for _, blocker := range report.Blockers {
 		delete(want, blocker)
 	}

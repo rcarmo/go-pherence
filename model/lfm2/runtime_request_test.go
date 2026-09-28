@@ -14,7 +14,7 @@ func TestRuntimeRequestPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.PromptTokens != 3 || plan.MaxSequence != 8 || plan.KVBytes != 49152 || plan.ConvStateBytes != 258048 || plan.RouterScratch != 320 || plan.EmbeddingBytes != 524288000 {
+	if plan.PromptTokens != 3 || plan.MaxSequence != 8 || plan.KVBytes != 98304 || plan.ConvStateBytes != 221184 || plan.RouterScratch != 320 || plan.EmbeddingBytes != 524288000 {
 		t.Fatalf("plan=%+v", plan)
 	}
 }

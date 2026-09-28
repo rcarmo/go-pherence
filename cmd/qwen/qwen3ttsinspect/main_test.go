@@ -16,7 +16,7 @@ func TestInspectTokenizedPromptSmoke(t *testing.T) {
 	testexec.WriteFile(t, filepath.Join(dir, "merges.txt"), "#version: 0.2\n")
 
 	out := testexec.RunInspect(t, "-model", dir, "-text", "Hello world", "-json")
-	for _, want := range []string{`"label": "0.6B CustomVoice"`, `"first_text_id": 9707`, `"runtime_plan"`, `"runtime_status"`, `"readiness"`, `"ready_for_execution": false`, `"runtime_implemented": false`, `"cpu_talker_runtime"`, `"codec_stream"`} {
+	for _, want := range []string{`"label": "0.6B CustomVoice"`, `"first_text_id": 9707`, `"runtime_plan"`, `"runtime_status"`, `"readiness"`, `"ready_for_execution": false`, `"runtime_implemented": false`, `"cpu_talker_runtime"`, `"cpu_code_predictor_runtime"`, `"decoder12hz_cpu": true`, `"codec_stream"`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %s:\n%s", want, out)
 		}
@@ -27,7 +27,7 @@ func TestInspectReferenceCoverageFixture(t *testing.T) {
 	dir := t.TempDir()
 	testexec.WriteFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"vocab_size":2048,"num_code_groups":16}}}`)
 	fixture := filepath.Join(dir, "fixture.json")
-	testexec.WriteFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]},"runtime":{"max_frames":2,"max_samples":4000,"max_codes":30}}`)
+	testexec.WriteFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]},"runtime":{"max_frames":2,"max_samples":3840,"max_codes":30}}`)
 
 	out := testexec.RunInspect(t, "-model", dir, "-fixture", fixture, "-json")
 	for _, want := range []string{`"reference_coverage"`, `"prompt": true`, `"complete_runtime_trace": false`, `"semantic_token"`, `"runtime_request_plan"`, `"max_frames": 2`, `"max_codes": 30`} {
@@ -57,7 +57,7 @@ func TestRequireNumericParityFailsForPlaceholderFixture(t *testing.T) {
 	dir := t.TempDir()
 	testexec.WriteFile(t, filepath.Join(dir, "config.json"), `{"tts_model_type":"custom_voice","tts_model_size":"0b6","talker_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"code_predictor_config":{"hidden_size":1024,"num_attention_heads":16,"num_key_value_heads":8,"head_dim":64,"vocab_size":2048,"num_code_groups":16}}}`)
 	fixture := filepath.Join(dir, "fixture.json")
-	testexec.WriteFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]},"talker":{"first_semantic_token":0,"logit_checksum":"pending-qwen3-tts-rs"},"code_predictor":{"acoustic_frame":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"decoder12hz":{"sample_rate":24000,"samples":2000,"duration_s":0.08333333333333333,"sha256":"pending-qwen3-tts-rs"},"runtime":{"max_frames":1,"max_samples":2000,"max_codes":15}}`)
+	testexec.WriteFile(t, fixture, `{"name":"probe","variant":"custom_voice","model_size":"0b6","text":"Hello","speaker":"ryan","language":"en","prompt":{"text":[151644,77091,198,151859,151859,151859,151859,151859,151860,9707],"codec":[151860,151861,2050,151862,3061,151859,151860]},"talker":{"first_semantic_token":0,"logit_checksum":"pending-qwen3-tts-rs"},"code_predictor":{"acoustic_frame":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"decoder12hz":{"sample_rate":24000,"samples":1920,"duration_s":0.08,"sha256":"pending-qwen3-tts-rs"},"runtime":{"max_frames":1,"max_samples":1920,"max_codes":15}}`)
 	if out, err := testexec.RunInspectRaw("-model", dir, "-fixture", fixture, "-require-numeric-parity"); err == nil {
 		t.Fatalf("expected numeric parity requirement failure, output:\n%s", out)
 	}

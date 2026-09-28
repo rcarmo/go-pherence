@@ -83,7 +83,15 @@ func InspectOpen(path string, g *GGUF) Inspection {
 			in.HeadDim = in.HiddenSize / in.Heads
 		}
 		if in.KVHeads == 0 {
-			in.KVHeads, _ = g.MetaUint32(p + ".attention.head_count_kv")
+			if scalar, ok := g.MetaUint32(p + ".attention.head_count_kv"); ok {
+				in.KVHeads = scalar
+			} else {
+				for _, heads := range metaNonNegativeInts(g.Meta[p+".attention.head_count_kv"]) {
+					if uint32(heads) > in.KVHeads {
+						in.KVHeads = uint32(heads)
+					}
+				}
+			}
 		}
 		if in.MaxSeqLen == 0 {
 			in.MaxSeqLen, _ = g.MetaUint32(p + ".context_length")
@@ -171,7 +179,12 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 	// Qwen3.5/Qwen3.6 MoE GGUF files use fused attn_qkv plus SSM/hybrid blocks;
 	// report that explicitly instead of claiming generation readiness from quant
 	// metadata alone.
-	required := []string{"token_embd.weight", "output_norm.weight", "output.weight"}
+	required := []string{"token_embd.weight", "output_norm.weight"}
+	if _, tied := g.TensorByName("output.weight"); !tied {
+		if arch != "gemma4" {
+			required = append(required, "output.weight")
+		}
+	}
 	if isQwenNextHybridGGUF(g, arch) {
 		required = append(required,
 			"blk.0.attn_qkv.weight", "blk.0.attn_gate.weight", "blk.0.post_attention_norm.weight",
@@ -193,6 +206,49 @@ func missingRuntimeTensors(g *GGUF, arch string, hasMoE bool) []string {
 		)
 	}
 	return missingTensorNames(g, required)
+}
+
+func metaNonNegativeInts(value any) []int {
+	var out []int
+	appendValue := func(v int64) {
+		if v >= 0 && uint64(v) <= uint64(^uint(0)>>1) {
+			out = append(out, int(v))
+		}
+	}
+	switch values := value.(type) {
+	case []any:
+		for _, value := range values {
+			switch v := value.(type) {
+			case uint32:
+				out = append(out, int(v))
+			case uint64:
+				if v <= uint64(^uint(0)>>1) {
+					out = append(out, int(v))
+				}
+			case int:
+				appendValue(int64(v))
+			case int32:
+				appendValue(int64(v))
+			case int64:
+				appendValue(v)
+			}
+		}
+	case []uint32:
+		for _, v := range values {
+			out = append(out, int(v))
+		}
+	case []uint64:
+		for _, v := range values {
+			if v <= uint64(^uint(0)>>1) {
+				out = append(out, int(v))
+			}
+		}
+	case []int:
+		for _, v := range values {
+			appendValue(int64(v))
+		}
+	}
+	return out
 }
 
 func missingTensorNames(g *GGUF, required []string) []string {

@@ -172,7 +172,7 @@ func TestAddVisionPatchXYPositionEmbeddingRejectsOutOfBounds(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaLoadVisionLayerF32(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestLocalDiffusionGemmaLoadVisionLayerF32(t *testing.T) {
 }
 
 func TestLocalDiffusionGemmaOpenVisionWeights(t *testing.T) {
-	dir := localDiffusionGemmaModelDir(t)
+	dir := localDiffusionGemmaWeightsDir(t)
 	meta, err := LoadMetadata(dir)
 	if err != nil {
 		t.Fatal(err)

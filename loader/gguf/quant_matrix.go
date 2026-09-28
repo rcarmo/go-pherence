@@ -96,6 +96,8 @@ func dequantRowTo(dst []float32, raw []byte, qt QuantType, n int) error {
 		return dequantRowQ3KTo(dst, raw, n)
 	case QuantQ4_K:
 		return dequantRowQ4KTo(dst, raw, n)
+	case QuantQ5_K:
+		return dequantRowQ5KTo(dst, raw, n)
 	case QuantQ6_K:
 		return dequantRowQ6KTo(dst, raw, n)
 	case QuantQ8_0:
@@ -321,6 +323,61 @@ func dequantRowQ4KTo(dst []float32, raw []byte, n int) error {
 				dst[base+group*32+i] = scales[group]*float32(q0) - mins[group]
 				dst[base+group*32+16+i] = scales[group]*float32(q1) - mins[group]
 			}
+		}
+	}
+	return nil
+}
+
+func dequantRowQ5KTo(dst []float32, raw []byte, n int) error {
+	const blockElems = 256
+	const blockSize = 176
+	if n%blockElems != 0 {
+		return fmt.Errorf("Q5_K row n=%d not multiple of 256", n)
+	}
+	nBlocks := n / blockElems
+	if len(raw) < nBlocks*blockSize {
+		return fmt.Errorf("Q5_K row raw short")
+	}
+	for b := 0; b < nBlocks; b++ {
+		blk := raw[b*blockSize:]
+		d := half.F16ToF32(binary.LittleEndian.Uint16(blk[0:2]))
+		dmin := half.F16ToF32(binary.LittleEndian.Uint16(blk[2:4]))
+		sc := blk[4:16]
+		qh := blk[16:48]
+		ql := blk[48:176]
+		var scales [8]float32
+		var mins [8]float32
+		for j := 0; j < 4; j++ {
+			scales[j] = float32(sc[j]&63) * d
+			mins[j] = float32(sc[j+4]&63) * dmin
+		}
+		for j := 4; j < 8; j++ {
+			k := j - 4
+			scales[j] = float32((sc[j+4]&0x0f)|((sc[k]>>6)<<4)) * d
+			mins[j] = float32((sc[j+4]>>4)|((sc[k+4]>>6)<<4)) * dmin
+		}
+		base := b * blockElems
+		is := 0
+		u1, u2 := byte(1), byte(2)
+		for group := 0; group < 4; group++ {
+			d1, m1 := scales[is], mins[is]
+			d2, m2 := scales[is+1], mins[is+1]
+			for i := 0; i < 32; i++ {
+				q1 := int(ql[i] & 0x0f)
+				if qh[i]&u1 != 0 {
+					q1 += 16
+				}
+				q2 := int(ql[i] >> 4)
+				if qh[i]&u2 != 0 {
+					q2 += 16
+				}
+				dst[base+group*64+i] = d1*float32(q1) - m1
+				dst[base+group*64+32+i] = d2*float32(q2) - m2
+			}
+			ql = ql[32:]
+			is += 2
+			u1 <<= 2
+			u2 <<= 2
 		}
 	}
 	return nil

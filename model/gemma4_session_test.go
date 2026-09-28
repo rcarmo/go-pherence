@@ -21,6 +21,26 @@ func TestGemma4DecodeSessionValidation(t *testing.T) {
 	}
 }
 
+func TestGemma4DecodeSessionPreparedPrefillDoesNotWrapAgain(t *testing.T) {
+	m := newZeroLayerVerifierModel()
+	m.Config.ModelType = "gemma4_text"
+	m.Config.BOSTokenID = 2
+	s, err := NewGemma4DecodeSession(m, SessionOptions{Backend: InferenceBackendSIMD, MaxTokens: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared := []int{2, 1}
+	if err := s.BeginPreparedPrefill(prepared); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PrefillNext(s.RemainingPrefill()); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.OutputTokens(); !sameInts(got, prepared) {
+		t.Fatalf("prepared output=%v want %v", got, prepared)
+	}
+}
+
 func TestGemma4DecodeSessionLifecycleAndCheckpoint(t *testing.T) {
 	m := newZeroLayerVerifierModel()
 	m.Config.ModelType = "gemma4_text"
@@ -70,6 +90,49 @@ func TestGemma4DecodeSessionLifecycleAndCheckpoint(t *testing.T) {
 	}
 	if _, err := s.DecodeStep(); err == nil {
 		t.Fatal("decoded after close")
+	}
+}
+
+func TestGemma4DecodeSessionAppendTokenCheckpointRestore(t *testing.T) {
+	m := newGemma4SingleLayerDecodeSessionTestModel()
+	s, err := NewGemma4DecodeSession(m, SessionOptions{Backend: InferenceBackendSIMD, MaxTokens: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PrefillChunk([]int{1}); err != nil {
+		t.Fatal(err)
+	}
+	cp, err := s.Checkpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := s.AppendToken(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Token != 0 || first.Generated != 1 || len(first.Logits) != m.Config.VocabSize {
+		t.Fatalf("first=%+v", first)
+	}
+	if got := s.OutputTokens(); got[len(got)-1] != 0 {
+		t.Fatalf("forced output=%v", got)
+	}
+	if err := s.Restore(cp); err != nil {
+		t.Fatal(err)
+	}
+	again, err := s.AppendToken(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Token != again.Token || len(first.Logits) != len(again.Logits) {
+		t.Fatalf("restored append first=%+v again=%+v", first, again)
+	}
+	for i := range first.Logits {
+		if first.Logits[i] != again.Logits[i] {
+			t.Fatalf("restored logits[%d]=%g want %g", i, again.Logits[i], first.Logits[i])
+		}
+	}
+	if _, err := s.AppendToken(-1); err == nil {
+		t.Fatal("accepted negative forced token")
 	}
 }
 

@@ -32,6 +32,8 @@ func dequantToF32(raw []byte, qt QuantType, n int) ([]float32, error) {
 		return dequantQ3K(raw, n)
 	case QuantQ4_K:
 		return dequantQ4K(raw, n)
+	case QuantQ5_K:
+		return dequantQ5K(raw, n)
 	case QuantQ6_K:
 		return dequantQ6K(raw, n)
 	case QuantQ5_0:
@@ -320,6 +322,18 @@ func dequantQ4K(raw []byte, n int) ([]float32, error) {
 				out[base+group*32+16+i] = scales[group]*float32(q1) - mins[group]
 			}
 		}
+	}
+	return out, nil
+}
+
+// ── Q5_K ──────────────────────────────────────────────────────────────────────
+// Block: 176 bytes per 256 elements (QK_K=256)
+//   d, dmin f16; scales[12]; qh[32] high bits; qs[128] low nibbles.
+
+func dequantQ5K(raw []byte, n int) ([]float32, error) {
+	out := make([]float32, n)
+	if err := dequantRowQ5KTo(out, raw, n); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

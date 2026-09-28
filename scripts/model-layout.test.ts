@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -67,20 +67,6 @@ test("Python asset helpers use checkpoints by default and preserve path override
     expect(readFileSync(join(dir, "checkpoints/qwen3-0.6b-mlx4/.huggingface_model"), "utf8")).toContain("mlx-community/");
     expect(download("--models-dir", "legacy")).toContain("MOCK_DEST=legacy/qwen3-0.6b-mlx4");
     expect(download("--checkpoints-dir", "custom")).toContain("MOCK_DEST=custom/qwen3-0.6b-mlx4");
-    // Run discovery in a disposable repository, with a fake Go executable.
-    mkdirSync(join(dir, "scripts"));
-    writeFileSync(join(dir, "scripts/minicpmv_assets_check.py"), readFileSync(join(root, "scripts/minicpmv_assets_check.py")));
-    mkdirSync(join(dir, "bin"));
-    writeFileSync(join(dir, "bin/go"), "#!/bin/sh\nexit 0\n");
-    chmodSync(join(dir, "bin/go"), 0o755);
-    for (const name of ["checkpoints", "legacy", "custom"]) {
-      mkdirSync(join(dir, name, "minicpm-v-fixture"), { recursive: true });
-      writeFileSync(join(dir, name, "minicpm-v-fixture/config.json"), "{}");
-    }
-    const inspect = (...args: string[]) => run(["python3", join(dir, "scripts/minicpmv_assets_check.py"), ...args], dir, { ...env, PATH: join(dir, "bin") + ":" + env.PATH });
-    expect(inspect()).toContain("checkpoints/minicpm-v-fixture");
-    expect(inspect("--models-dir", "legacy")).toContain("legacy/minicpm-v-fixture");
-    expect(inspect("--checkpoints-dir", "custom")).toContain("custom/minicpm-v-fixture");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -64,8 +64,8 @@ func TestReferenceFixtureCoverageComplete(t *testing.T) {
 		Prompt:        PromptIDs{Text: []uint32{1}, Codec: []uint32{2}},
 		Talker:        &TalkerReference{FirstSemanticToken: 42},
 		CodePredictor: &CodePredictorReference{AcousticFrame: make([]uint32, 15)},
-		Decoder12Hz:   &Decoder12HzReference{SampleRate: 24000, Samples: 2000, DurationS: 1.0 / 12.0},
-		Runtime:       &RuntimeRequestReference{MaxFrames: 1, MaxSamples: 2000, MaxCodes: 15},
+		Decoder12Hz:   &Decoder12HzReference{SampleRate: 24000, Samples: 1920, DurationS: .08},
+		Runtime:       &RuntimeRequestReference{MaxFrames: 1, MaxSamples: 1920, MaxCodes: 15},
 	}
 	if err := fx.Validate(); err != nil {
 		t.Fatal(err)
@@ -90,6 +90,24 @@ func TestReferenceFixtureRejectsBadAcousticFrame(t *testing.T) {
 	}
 	if err := fx.Validate(); err == nil {
 		t.Fatal("expected bad acoustic frame length error")
+	}
+}
+
+func TestReferenceFixtureRejectsBadDecoderSummary(t *testing.T) {
+	base := ReferenceFixture{
+		Name: "bad_decoder", Variant: CustomVoice, ModelSize: "0b6", Speaker: Ryan, Language: English,
+		Prompt: PromptIDs{Text: []uint32{1}, Codec: []uint32{2}},
+	}
+	for _, summary := range []Decoder12HzReference{
+		{SampleRate: 16000, Samples: 1920, DurationS: .12},
+		{SampleRate: 24000, Samples: 2000, DurationS: float64(2000) / 24000},
+		{SampleRate: 24000, Samples: 1920, DurationS: .09},
+	} {
+		fx := base
+		fx.Decoder12Hz = &summary
+		if err := fx.Validate(); err == nil {
+			t.Fatalf("accepted decoder summary %+v", summary)
+		}
 	}
 }
 

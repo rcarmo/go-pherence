@@ -1,0 +1,448 @@
+{
+  "schema": 1,
+  "oracle_repo": "featherless-ai/simple-jev",
+  "oracle_revision": "b02aa81c915a8193759b3cd33fef74721d6e005b",
+  "request_schema_sha256": "6fa1c1215e8fc9de7aedbee77db6520bbb811922df9c45858bf78c4e4a02ceac",
+  "cases": [
+    {
+      "name": "empty_state_and_null",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": true,
+      "model": "fixture",
+      "state": "",
+      "raw_logits": true,
+      "questions": [
+        {
+          "id": "pick",
+          "type": "choice",
+          "instructions": "",
+          "criteria": {
+            "first": null,
+            "second": "text"
+          }
+        },
+        {
+          "id": "level",
+          "type": "score",
+          "instructions": null,
+          "criteria": [
+            "low",
+            null,
+            "high"
+          ]
+        },
+        {
+          "id": "truth",
+          "type": "noul",
+          "instructions": "Is it true?",
+          "criteria": {
+            "false": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "ordinary_text",
+      "request": {
+        "model": "fixture",
+        "state": "plain text",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": true,
+      "model": "fixture",
+      "state": "plain text",
+      "raw_logits": true,
+      "questions": [
+        {
+          "id": "pick",
+          "type": "choice",
+          "instructions": "",
+          "criteria": {
+            "first": null,
+            "second": "text"
+          }
+        },
+        {
+          "id": "level",
+          "type": "score",
+          "instructions": null,
+          "criteria": [
+            "low",
+            null,
+            "high"
+          ]
+        },
+        {
+          "id": "truth",
+          "type": "noul",
+          "instructions": "Is it true?",
+          "criteria": {
+            "false": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "unknown_top",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        },
+        "unrelated": 7
+      },
+      "accepted": true,
+      "model": "fixture",
+      "state": "",
+      "raw_logits": true,
+      "questions": [
+        {
+          "id": "pick",
+          "type": "choice",
+          "instructions": "",
+          "criteria": {
+            "first": null,
+            "second": "text"
+          }
+        },
+        {
+          "id": "level",
+          "type": "score",
+          "instructions": null,
+          "criteria": [
+            "low",
+            null,
+            "high"
+          ]
+        },
+        {
+          "id": "truth",
+          "type": "noul",
+          "instructions": "Is it true?",
+          "criteria": {
+            "false": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "both_contexts",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      },
+      "accepted": false
+    },
+    {
+      "name": "no_context",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "unknown_question",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            },
+            "unknown": 1
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "unknown_options",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "first": null,
+              "second": "text"
+            }
+          },
+          "level": {
+            "type": "score",
+            "instructions": null,
+            "criteria": [
+              "low",
+              null,
+              "high"
+            ]
+          },
+          "truth": {
+            "type": "noul",
+            "instructions": "Is it true?",
+            "criteria": {
+              "false": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true,
+          "unknown": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "one_choice",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "choice",
+            "instructions": "",
+            "criteria": {
+              "one": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "one_score",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "score": {
+            "type": "score",
+            "instructions": "",
+            "criteria": [
+              "one"
+            ]
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "empty_questions",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {},
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "noul_wrong_key",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "truth": {
+            "type": "noul",
+            "instructions": "",
+            "criteria": {
+              "perhaps": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    },
+    {
+      "name": "bad_type",
+      "request": {
+        "model": "fixture",
+        "state": "",
+        "questions": {
+          "pick": {
+            "type": "unknown",
+            "instructions": "",
+            "criteria": {
+              "one": null,
+              "two": null
+            }
+          }
+        },
+        "options": {
+          "raw_logits": true
+        }
+      },
+      "accepted": false
+    }
+  ]
+}

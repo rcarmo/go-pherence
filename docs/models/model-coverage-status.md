@@ -23,7 +23,6 @@ make model-coverage-next-runtime-json
 # add -blocker-package model/qwen3tts, model/lfm2, or backends/nvidia, or -blocker-kind cpu/nvidia/streaming, to scope roadmap/next-runtime output
 # emits phase/kind-numbered, dependency-ordered runtime blocker checklists with package/fixture hints, short descriptions, prerequisites, and validation hints
 make model-coverage-pending MODEL_COVERAGE_FAMILY=qwen3_tts
-make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
 make model-coverage-references-pending
 make model-coverage-runtime-pending
 make model-coverage-execution-pending
@@ -64,41 +63,9 @@ It validates:
 
 Whole-tree dry compiles are still useful, but currently fail in unrelated experimental Spacemit IME2 and `tmp/diarize` packages.
 
-## MiniCPM-V/O
-
-Status: metadata, tokenizer/processor/generation sidecars, image/audio prompt placeholders, image preprocessing, slice planning, tensor inventory/shape validation, text/vision/resampler/audio execution planning, explicit safetensors inspection, and inspector readiness gates are implemented. Full tensor execution is not implemented.
-
-Implemented package/command surface:
-
-- `loader/config/minicpmv*.go` — MiniCPM-V/O config, processor, tokenizer/chat-template, generation, and audio metadata sidecar parsing.
-- `model/minicpmv` — image/audio/multimodal prompt planning, image preprocessing and image-file decode, slice plan, special-token resolution, tensor inventory/header summaries/shape validation, text/vision/resampler/audio plans, resampler tensor binding, capability/runtime-status summary, readiness report, committed MiniCPM-O fixture helpers/expected summary, embedding injection boundary, aggregate metadata loader, and local asset discovery/check tooling.
-- `cmd/minicpmvinspect` — metadata/prompt/tensor/image inspector with `-require-config-ready`, `-require-metadata-ready`, `-require-tensors-ready`, `-require-shapes-ready`, and expected-failing `-require-runtime-ready` gates.
-- `make minicpmv-fixture-path` / `make minicpmv-fixture-summary` — committed fixture discovery and expected-summary reporting.
-- `make minicpmv-fixture-check` — committed MiniCPM-O fixture validation, including audio feature-frame estimation.
-- `docs/models/minicpmv-runtime-roadmap.md` — ordered runtime implementation path from scaffold to full text/vision/resampler/audio generation.
-- `make minicpmv-check` — focused scaffold validation with synthetic MiniCPM-O sidecars plus a tiny explicit safetensors fixture.
-
-Useful commands:
-
-```bash
-make models-download-minicpmv
-make models-download-minicpmo
-make minicpmv-check
-make minicpmv-assets-check
-make model-coverage-pending MODEL_COVERAGE_FAMILY=minicpmv
-make minicpmv-coverage-pending
-make minicpmv-version
-make minicpmv-support-summary
-make minicpmv-fixture-path
-make minicpmv-fixture-summary
-bin/minicpmvinspect -capabilities
-bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -json
-bin/minicpmvinspect -model checkpoints/minicpm-v-2.6 -safetensors checkpoints/minicpm-v-2.6/model.safetensors -require-shapes-ready
-```
-
 ## Qwen3-TTS
 
-Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, and inspector coverage are implemented. Audio generation is not implemented.
+Status: metadata, tokenizer/prompt, fixture scaffold, reference-coverage reporting, tensor readiness, shape validation, runtime request fixture coverage, runtime sizing, inspector coverage, the dense F32 CustomVoice Talker first-token path, and an owned-F32 Decoder12Hz/24 kHz WAV slice are implemented. Multi-frame semantic generation and CodePredictor acoustic generation remain pending; released decoder parity is not claimed.
 
 Implemented package/command surface:
 
@@ -107,7 +74,8 @@ Implemented package/command surface:
 - `model/qwen3tts/prompt.go` — tokenizer loading plus tokenized CustomVoice prompt builder.
 - `model/qwen3tts/prefill.go` — Talker prefill stream/embedding sizing contract.
 - `model/qwen3tts/talker_input.go` — text projection plus codec-control embedding fusion layout.
-- `model/qwen3tts/talker_contract.go` — validation-only CPU/reference Talker output contract tied to runtime request limits and semantic token ranges.
+- `model/qwen3tts/talker_contract.go` — CPU/reference Talker output contract tied to runtime request limits and semantic token ranges.
+- `model/qwen3tts/talker_cpu.go` — owned F32 Talker weight binding, CustomVoice prefill, GQA/RoPE transformer execution, codec-token suppression, and greedy first-token generation.
 - `model/qwen3tts/code_predictor_contract.go` — validation-only CPU/reference CodePredictor contract tying semantic input to bounded acoustic frame output.
 - `model/qwen3tts/prompt_runtime.go` — prompt-specific prefill plus Talker input-fusion contract.
 - `model/qwen3tts/embedding_layout.go` — text embedding, projection, codec-head, and codec-embedding matrix sizing.
@@ -125,8 +93,9 @@ Implemented package/command surface:
 - `model/qwen3tts/frame.go` — semantic-group plus 15-code acoustic frame layout validation.
 - `model/qwen3tts/code_predictor_heads.go` — 15 acoustic-head logits layout and validation contract.
 - `model/qwen3tts/decoder_input.go` — acoustic-codebook tensor contract passed into Decoder12Hz.
-- `model/qwen3tts/decoder_contract.go` — validation-only Decoder12Hz input/output contract for acoustic codes and mono PCM sample counts.
-- `model/qwen3tts/waveform.go` — Decoder12Hz mono 24kHz waveform/WAV sizing contract.
+- `model/qwen3tts/decoder_contract.go` — Decoder12Hz contract that explicitly joins semantic group 0 with 15 CodePredictor acoustic groups.
+- `model/qwen3tts/decoder12hz_cpu.go`, `decoder12hz_forward.go` — owned-F32 normalized codebooks, causal pre-transformer, ConvNeXt/BigVGAN upsampling, SnakeBeta, and exact 1920-sample/frame CPU decoding.
+- `model/qwen3tts/waveform.go`, `wav.go` — exact topology sizing plus exclusive 24 kHz mono PCM16 WAV output.
 - `model/qwen3tts/shapes.go` — Talker, CodePredictor, and 12Hz decoder runtime sizing plan.
 - `model/qwen3tts/runtime_request.go` — validation-only synthesis request plan tying conditioning, prompt runtime layout, decoder input, waveform sizing, and output limits.
 - `model/qwen3tts/runtime_interfaces.go` — Talker, CodePredictor, Decoder12Hz, and pipeline runtime boundaries with explicit not-implemented sentinel.
@@ -164,14 +133,13 @@ Remaining coverage before runtime implementation:
 
 Runtime work still pending:
 
-- CPU Talker path.
-- CPU CodePredictor path with short KV cache.
-- Decoder12Hz and WAV output.
+- Pinned independent Talker and Decoder12Hz released-checkpoint parity.
+- CPU CodePredictor path with short KV cache and multi-frame Talker continuation.
 - NVIDIA acceleration and streaming after CPU/reference parity.
 
 ## LFM2.5-8B-A1B
 
-Status: metadata, tensor readiness, shape validation, layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, download registration, and inspector coverage are implemented. Generation is not implemented.
+Status: metadata, tensor readiness, shape validation, exact pinned layer schedule, runtime state sizing, runtime request fixture coverage, fixture scaffold, reference-coverage reporting, inspector coverage, and the stateful F32 CPU decoder with greedy generation are implemented. Released-model numeric parity is not established, so execution readiness remains false.
 
 Implemented package/command surface:
 
@@ -183,20 +151,25 @@ Implemented package/command surface:
 - `model/lfm2/execution.go` — per-layer dense-vs-routed-MoE execution role plan.
 - `model/lfm2/routing.go` — expert count, active top-k, normalization, bias, and routed-scaling contract.
 - `model/lfm2/router_layout.go` — router projection/logits/top-k scratch sizing contract.
-- `model/lfm2/moe_contract.go` — validation-only MoE-stage contract tying hidden activations, router scratch, and top-k expert counts.
+- `model/lfm2/moe_contract.go` — MoE-stage contract tying hidden activations, router scratch, and top-k expert counts.
+- `model/lfm2/moe_cpu.go` — sigmoid routing, selection-only expert bias, normalized top-k weights, routed scaling, and selected SwiGLU expert execution.
 - `model/lfm2/ffn_layout.go` — dense and routed expert FFN dimension/parameter contract.
 - `model/lfm2/norm.go` — RMSNorm epsilon, vector count, and scratch sizing contract.
 - `model/lfm2/embedding_layout.go` — token embedding, tied/untied LM-head, and byte sizing contract.
-- `model/lfm2/embedding_contract.go` — validation-only embedding-stage contract tying prompt tokens to hidden activation shape.
+- `model/lfm2/embedding_contract.go` — embedding-stage contract tying prompt tokens to hidden activation shape.
+- `model/lfm2/embedding_cpu.go` — owned F32 token embeddings, final RMSNorm, and tied-or-untied LM-head logits.
 - `model/lfm2/conv_state.go` — per-conv-layer cache layout and byte sizing contract.
+- `model/lfm2/conv_cpu.go` — caller-owned single-token `in_proj → B/C/x → depthwise causal convolution → out_proj` transition.
 - `model/lfm2/conv_contract.go` — validation-only convolution-stage contract tying hidden activations and conv state to exact float counts.
 - `model/lfm2/conv_projection.go` — per-conv-layer short-convolution kernel/bias sizing contract.
 - `model/lfm2/attention_kv.go` — full-attention layer KV-cache layout and byte sizing contract.
+- `model/lfm2/attention_cpu.go` — caller-owned K/V, Q/K RMSNorm, RoPE, GQA, and output projection for one full-attention layer.
 - `model/lfm2/attention_contract.go` — validation-only full-attention contract tying hidden activations and KV cache to exact float counts.
 - `model/lfm2/attention_projection.go` — full-attention Q/K/V/O projection and GQA sizing contract.
 - `model/lfm2/context.go` — vocabulary, max-context, tied-embedding, and RoPE context contract.
 - `model/lfm2/rope.go` — RoPE theta/head-dim/full-attention position contract.
 - `model/lfm2/state.go` — conv state, full-attention KV, and MoE sizing plan.
+- `model/lfm2/decoder_cpu.go` — per-layer norms/residuals, dense/routed FFNs, explicit conv/KV state, final logits, and deterministic greedy decode.
 - `model/lfm2/generation_contract.go` — validation-only generation contract tying prompt/output tokens to request limits and context vocabulary bounds.
 - `model/lfm2/pipeline_contract.go` — validation-only pipeline contract ensuring embedding, conv, attention, MoE, and output contracts agree on shapes.
 - `model/lfm2/runtime_request.go` — validation-only generation request plan tying prompt tokens, context, KV/cache bytes, router scratch, and embedding residency sizing.

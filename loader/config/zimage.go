@@ -37,12 +37,14 @@ type ZImageTransformerConfig struct {
 }
 
 type ZImageVAEConfig struct {
-	ClassName      string  `json:"_class_name"`
-	InChannels     int     `json:"in_channels"`
-	OutChannels    int     `json:"out_channels"`
-	LatentChannels int     `json:"latent_channels"`
-	SampleSize     int     `json:"sample_size"`
-	ScalingFactor  float64 `json:"scaling_factor"`
+	ClassName        string  `json:"_class_name"`
+	InChannels       int     `json:"in_channels"`
+	OutChannels      int     `json:"out_channels"`
+	LatentChannels   int     `json:"latent_channels"`
+	SampleSize       int     `json:"sample_size"`
+	BlockOutChannels []int   `json:"block_out_channels"`
+	ScalingFactor    float64 `json:"scaling_factor"`
+	ShiftFactor      float64 `json:"shift_factor"`
 }
 
 type ZImageTextEncoderConfig struct {
@@ -56,9 +58,10 @@ type ZImageTextEncoderConfig struct {
 }
 
 type ZImageSchedulerConfig struct {
-	ClassName         string  `json:"_class_name"`
-	NumTrainTimesteps int     `json:"num_train_timesteps"`
-	Shift             float64 `json:"shift"`
+	ClassName          string  `json:"_class_name"`
+	NumTrainTimesteps  int     `json:"num_train_timesteps"`
+	Shift              float64 `json:"shift"`
+	UseDynamicShifting bool    `json:"use_dynamic_shifting"`
 }
 
 type ZImageConfig struct {
@@ -163,7 +166,7 @@ func SummarizeZImageConfig(cfg ZImageConfig) ZImageSummary {
 		CapFeatDim: cfg.Transformer.CapFeatDim, AxesDims: append([]int(nil), cfg.Transformer.AxesDims...), AxesLens: append([]int(nil), cfg.Transformer.AxesLens...),
 		TextHidden: cfg.TextEncoder.HiddenSize, TextLayers: cfg.TextEncoder.NumHiddenLayers, VocabSize: cfg.TextEncoder.VocabSize,
 		RuntimeReady: false,
-		RuntimeNote:  "inspection only: S3-DiT flow-matching transformer, AutoencoderKL decode, and image scheduler runtime are not implemented yet",
+		RuntimeNote:  "weight-free FlowMatch Euler schedule/step implemented; Qwen3 conditioning, S3-DiT, AutoencoderKL decode, and end-to-end parity are not implemented",
 	}
 }
 

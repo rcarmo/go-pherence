@@ -7,7 +7,7 @@ Run commands from the repository root. Each command's `-h` output is the source 
 | Download checkpoint assets | `scripts/download_models.py`, `make models-list` | [Model assets](model-assets.md) |
 | Generate text, chat or serve an OpenAI-compatible API | `cmd/llm/llmgen`, `cmd/llm/llmchat`, `cmd/llm/llmserver` | [LLM commands](llm-commands.md) |
 | Inspect GGUF and validate cache accounting | `cmd/models/ggufinspect`, `cmd/models/ggufsmoke` | [GGUF validation](gguf-validation.md) |
-| Inspect incomplete model families without claiming inference support | `cmd/minicpmvinspect`, `cmd/qwen/qwen3ttsinspect`, `cmd/models/lfm2inspect` | [Model inspection](model-inspection.md) |
+| Inspect incomplete model families without claiming inference support | `cmd/qwen/qwen3ttsinspect`, `cmd/models/lfm2inspect` | [Model inspection](model-inspection.md) |
 | Transcribe, translate or add speaker labels | `cmd/audio/whisper`, `cmd/audio/diarize-vtt`, `cmd/audio/moss-transcribe` | [Speech commands](speech-commands.md) |
 | Score variable choices and compare native decision models | `cmd/jevlike`, `cmd/jevcompare` | [Jevlike](../../model/jevlike/README.md), [native-port bake-off](../experiments/jev-port-bakeoff-report-20260921.md) |
 | Run/train Needle 3/2; Needle 3 archive text/head inference | `cmd/needle` | [Needle limits and validation](../../model/needle/README.md); [head training and width slicing](needle-head-training.md); [bounded tool calls](needle-tool-calls.md) |

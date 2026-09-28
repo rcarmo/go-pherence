@@ -183,7 +183,7 @@ func TestRequestSecondsRejectNonfiniteAndOverflow(t *testing.T) {
 		}
 	}
 	req.MaxSeconds = .5
-	if p, err := NewRuntimeRequestPlan(c, req); err != nil || p.MaxFrames != 6 || p.MaxSamples != 12000 {
+	if p, err := NewRuntimeRequestPlan(c, req); err != nil || p.MaxFrames != 7 || p.MaxSamples != 13440 {
 		t.Fatal(p, err)
 	}
 }

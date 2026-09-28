@@ -14,7 +14,7 @@ type RuntimeStatus struct {
 }
 
 func CurrentRuntimeStatus() RuntimeStatus {
-	st := RuntimeStatus{}
+	st := RuntimeStatus{Decoder12HzCPU: true}
 	if !st.TalkerCPU {
 		st.Pending = append(st.Pending, "cpu_talker_runtime")
 	}

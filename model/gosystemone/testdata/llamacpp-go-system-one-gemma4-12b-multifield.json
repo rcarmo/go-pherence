@@ -1,0 +1,247 @@
+{
+  "contexts": [
+    {
+      "rendered": "Every customer is unable to use the production service. Page the incident team now.\u003cturn|\u003e\n\u003c|turn\u003emodel\n\u003c|channel\u003ethought\n\u003cchannel|\u003e{\n",
+      "sha256": "01a5e3f7f4193e83c1a21786b694951ec7ddf2b346dd20330e35f1b09bcaacb0",
+      "text": "Every customer is unable to use the production service. Page the incident team now.",
+      "tokens": [
+        13111,
+        5602,
+        563,
+        13327,
+        531,
+        1161,
+        506,
+        3719,
+        2509,
+        236761,
+        11338,
+        506,
+        10530,
+        2434,
+        1492,
+        236761,
+        106,
+        107,
+        105,
+        4368,
+        107,
+        100,
+        45518,
+        107,
+        101,
+        236782,
+        107
+      ]
+    },
+    {
+      "rendered": "The scheduled maintenance completed successfully and no action is required.\u003cturn|\u003e\n\u003c|turn\u003emodel\n\u003c|channel\u003ethought\n\u003cchannel|\u003e{\n",
+      "sha256": "9a06caf3aa7bb3b44cb4251b3333eedf32f8fad3cc7c8fd1e9056be87a3d3cdb",
+      "text": "The scheduled maintenance completed successfully and no action is required.",
+      "tokens": [
+        818,
+        14812,
+        9626,
+        7723,
+        10428,
+        532,
+        951,
+        2970,
+        563,
+        3149,
+        236761,
+        106,
+        107,
+        105,
+        4368,
+        107,
+        100,
+        45518,
+        107,
+        101,
+        236782,
+        107
+      ]
+    }
+  ],
+  "instructions": "Answer from the context.",
+  "oracle": {
+    "binary": "llama-parallel-decision",
+    "environment": {
+      "DECIDE_NSEQ": "12",
+      "DECIDE_TREE": "1"
+    },
+    "model_sha256": "90fd944d227e9d9b68e7e2c7d5b57b79d4c66ed521b0919fbbd932cf834f6f8e",
+    "repository": "https://github.com/thecodacus/llama.cpp",
+    "results": [
+      {
+        "context_tokens": 27,
+        "decision_rounds": 1,
+        "fields": [
+          {
+            "candidate_index": 0,
+            "field_index": 0,
+            "path_score": 1,
+            "probs": [
+              1,
+              3.41135e-9,
+              2.26256e-9
+            ],
+            "scored_nodes": 1,
+            "tree": 1
+          },
+          {
+            "candidate_index": 0,
+            "field_index": 1,
+            "path_score": 1,
+            "probs": [
+              1,
+              1.93585e-9
+            ],
+            "scored_nodes": 1,
+            "tree": 1
+          }
+        ],
+        "fused": 0,
+        "mode": "tree",
+        "prefix_cache_hit": 0,
+        "rows": 9,
+        "shared_tokens": 79
+      },
+      {
+        "context_tokens": 22,
+        "decision_rounds": 1,
+        "fields": [
+          {
+            "candidate_index": 1,
+            "field_index": 0,
+            "path_score": 1,
+            "probs": [
+              2.69049e-10,
+              1,
+              9.92095e-9
+            ],
+            "scored_nodes": 1,
+            "tree": 1
+          },
+          {
+            "candidate_index": 1,
+            "field_index": 1,
+            "path_score": 1,
+            "probs": [
+              6.08047e-8,
+              1
+            ],
+            "scored_nodes": 1,
+            "tree": 1
+          }
+        ],
+        "fused": 0,
+        "mode": "tree",
+        "prefix_cache_hit": 0,
+        "rows": 9,
+        "shared_tokens": 79
+      }
+    ],
+    "revision": "14d04e755fa28653e87b9a07072892265bdc0fad"
+  },
+  "schema": "go-pherence-go-system-one-llamacpp-parity-v2",
+  "schema_json": {
+    "priority": {
+      "choices": [
+        "critical incident",
+        "routine maintenance",
+        "customer follow-up"
+      ],
+      "description": "Priority level",
+      "type": "enum"
+    },
+    "urgent": {
+      "description": "Needs urgent handling?",
+      "type": "boolean"
+    }
+  },
+  "shared_sha256": "8e4fe3107d3e985de681cbdbf3d32934e04ba1d85204d12215c349fccc670379",
+  "shared_text": "\u003c|turn\u003esystem\nSelect the requested field value from its allowed values, based on the context. Respond with the JSON value only.\n\nFields:\n\"priority\": Priority level\nAllowed values: \"critical incident\", \"routine maintenance\", \"customer follow-up\"\n\"urgent\": Needs urgent handling?\nAllowed values: true, false\nAnswer from the context.\u003cturn|\u003e\n\u003c|turn\u003euser\n",
+  "shared_tokens": [
+    2,
+    105,
+    9731,
+    107,
+    11323,
+    506,
+    15633,
+    2135,
+    1550,
+    699,
+    1061,
+    6208,
+    2979,
+    236764,
+    2721,
+    580,
+    506,
+    4403,
+    236761,
+    58025,
+    607,
+    506,
+    10434,
+    1550,
+    1186,
+    236761,
+    108,
+    24204,
+    236787,
+    107,
+    236775,
+    47384,
+    1083,
+    59193,
+    1984,
+    107,
+    70242,
+    2979,
+    236787,
+    623,
+    39633,
+    10530,
+    827,
+    623,
+    60013,
+    9626,
+    827,
+    623,
+    25016,
+    1500,
+    236772,
+    1048,
+    236775,
+    107,
+    236775,
+    148436,
+    1083,
+    59017,
+    32034,
+    12804,
+    236881,
+    107,
+    70242,
+    2979,
+    236787,
+    1847,
+    236764,
+    2416,
+    107,
+    7925,
+    699,
+    506,
+    4403,
+    236761,
+    106,
+    107,
+    105,
+    2364,
+    107
+  ]
+}

@@ -2,7 +2,7 @@
 
 The authoritative source is [`NandhaKishorM/laya`](https://github.com/NandhaKishorM/laya) at commit `42626c348753fbb17572a813127df2278a1ec527` (2026-09-20). It is Apache-2.0 licensed. The package version is 0.3.4, matching simple-jev's optional dependency pin. The public model repository is `convaiinnovations/laya` at revision `1c5edc17a7acd8701df6fc341c0d179f1c62c982`, also tagged Apache-2.0 and neither private nor gated.
 
-This is an implementation plan, not a port or qualification claim. No model weights were downloaded and no GPU was used during the review.
+This is the **2026-09-20 review snapshot**, not the current implementation status. No model weights were downloaded and no GPU was used during that review. The later [native Laya validation](laya-native-20260920.md) covers the published English root port; keep its support and limitations separate from this earlier plan.
 
 ## Model contract
 
@@ -62,6 +62,6 @@ A reusable `model/modernbert` encoder is therefore the prerequisite. It should s
 
 ## Current status
 
-Source and model licensing are compatible, but no native Go ModernBERT implementation or local Laya checkpoint exists in go-pherence. Laya is therefore **scoped and unblocked legally, but not implemented**. The next engineering milestone is ModernBERT tensor/config inventory plus a small upstream hidden-state fixture. simple-jev remains separately blocked on its missing repository licence even though it can call Laya as a backend.
+At the time of this review, source and model licensing were compatible, but go-pherence had no native Go ModernBERT implementation or local Laya checkpoint. Those statements are historical: the English-root native Go port and released parity were later published and are documented in [native Laya validation](laya-native-20260920.md). Typed Decisions and multilingual variants, released ARM64/RISC-V execution and broader quality remain separate work. simple-jev can call Laya as a backend; its repository gained an Apache-2.0 root licence in `b02aa81c` after this review. An MIT-only reimplementation would still need an independent design and fresh fixtures.
 
 No frozen evaluation artifact, service or GPU state was changed.

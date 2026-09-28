@@ -27,8 +27,8 @@ func TestExecutionPlanFromFixture(t *testing.T) {
 			t.Fatalf("moe membership failed for %d: %+v", idx, plan)
 		}
 	}
-	if plan.Steps[7].Kind != LayerFullAttention || plan.Steps[7].FFN != FFNMoE {
-		t.Fatalf("layer 7=%+v", plan.Steps[7])
+	if plan.Steps[2].Kind != LayerFullAttention || plan.Steps[2].FFN != FFNMoE {
+		t.Fatalf("layer 2=%+v", plan.Steps[2])
 	}
 }
 

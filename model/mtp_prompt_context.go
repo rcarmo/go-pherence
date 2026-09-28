@@ -33,7 +33,21 @@ func (m *LlamaModel) BuildMTPPromptContext(tokenIDs []int) (MTPPromptContext, er
 	if m == nil {
 		return MTPPromptContext{}, fmt.Errorf("nil model")
 	}
-	prepared := m.prepareGenerateTokens(tokenIDs)
+	return m.buildMTPPromptContext(m.prepareGenerateTokens(tokenIDs))
+}
+
+// BuildPreparedMTPPromptContext accepts a complete, already chat-templated
+// token sequence. It is used by constrained decoders that must preserve an
+// independently rendered prompt byte-for-byte without adding BOS or wrapping it
+// a second time.
+func (m *LlamaModel) BuildPreparedMTPPromptContext(prepared []int) (MTPPromptContext, error) {
+	if m == nil {
+		return MTPPromptContext{}, fmt.Errorf("nil model")
+	}
+	return m.buildMTPPromptContext(append([]int(nil), prepared...))
+}
+
+func (m *LlamaModel) buildMTPPromptContext(prepared []int) (MTPPromptContext, error) {
 	if len(prepared) == 0 {
 		return MTPPromptContext{}, fmt.Errorf("empty prompt")
 	}

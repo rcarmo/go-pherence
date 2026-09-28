@@ -15,7 +15,7 @@ func TestRuntimeRequestPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.MaxSamples != 24000 || plan.MaxCodes != 180 || plan.PromptLayout.Prefill.TextTokens != len(text) {
+	if plan.MaxSamples != 23040 || plan.MaxCodes != 180 || plan.PromptLayout.Prefill.TextTokens != len(text) {
 		t.Fatalf("plan=%+v", plan)
 	}
 }
@@ -33,7 +33,7 @@ func TestRuntimeRequestPlanFromSeconds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.MaxFrames != 12 {
+	if plan.MaxFrames != 13 || plan.MaxSamples != 24960 {
 		t.Fatalf("frames=%d", plan.MaxFrames)
 	}
 }

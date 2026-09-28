@@ -1,0 +1,9 @@
+# Needle 3 CQ embedding-row prerequisite
+
+`CQMatrix.DecodeRow` reconstructs one owned F32 row from an immutable, validated `.cact` CQ matrix. It is a bounded prerequisite for a future packed-only embedding lookup. The Needle archive loader and default decoded execution path are unchanged; this change neither drops decoded weights nor reduces process RSS.
+
+The accessor accepts only an in-range row and returns a new slice, leaving the matrix and caller data untouched. It uses the existing 128-element group unpacking and inverse Walsh transform with F16 norms. It decodes zero-norm groups too: the dense archive decoder can produce negative-zero bits after the transform, so skipping those groups would break bitwise row parity. Matrix construction continues to validate CQ geometry, blobs, codebooks, norms and ternary crumbs before any row is requested.
+
+Synthetic tests compare **every row and element bitwise** against the existing independent dense-oracle decoder for 1-, 2-, 3-, 4-bit and ternary CQ, including dimensions below, at and across the 128-column boundary. They check caller blob/codebook mutation, returned-slice mutation, invalid rows and eight concurrent readers. The tiny upstream-derived Needle 3 `.cact` fixture independently matches every reconstructed embedding row against its existing decoded F32 table, including signed zeros. Focused tests and ten race repetitions passed for the CQ accessor and archive embedding lookup.
+
+Packed-only archive loading still needs a separate model representation, shape metadata without decoded buffers, decoder parameter preparation that skips packed-covered tensors, and explicit depth-slicing/checkpoint policy. A production-size archive, actual RSS/peak budget, CQ2/CQ4 throughput and native architecture performance remain separate gates. No service or GPU state changed.

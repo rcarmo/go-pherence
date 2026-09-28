@@ -17,6 +17,18 @@ func localDiffusionGemmaModelDir(t *testing.T) string {
 	return dir
 }
 
+func localDiffusionGemmaWeightsDir(t *testing.T) string {
+	t.Helper()
+	dir := localDiffusionGemmaModelDir(t)
+	shard := filepath.Join(dir, "model.safetensors")
+	if _, err := os.Stat(shard); os.IsNotExist(err) {
+		t.Skip("local FP8 DiffusionGemma weight payload absent; restore model.safetensors to run released weight tests")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func TestLocalDiffusionGemmaProcessorSpecialTokenIDs(t *testing.T) {
 	dir := localDiffusionGemmaModelDir(t)
 	meta, err := LoadMetadata(dir)

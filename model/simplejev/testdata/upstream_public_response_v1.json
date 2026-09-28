@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "oracle_repo": "featherless-ai/simple-jev",
+  "oracle_revision": "b02aa81c915a8193759b3cd33fef74721d6e005b",
+  "scorer_sha256": "b1b1303ace5218fb40904e7aaf5a1ad01aa3d072c30678d45e921bb0e8613dfa",
+  "request": {
+    "model": "fixture",
+    "state": "synthetic text",
+    "questions": {
+      "pick": {
+        "type": "choice",
+        "instructions": "Select",
+        "criteria": {
+          "alpha": null,
+          "beta": "second",
+          "gamma": "third"
+        }
+      },
+      "rating": {
+        "type": "score",
+        "instructions": "Rank",
+        "criteria": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "truth": {
+        "type": "noul",
+        "instructions": "Is it true?"
+      }
+    }
+  },
+  "branches": [
+    {
+      "branch": "0",
+      "question": "pick",
+      "labels": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "branch": "1",
+      "question": "rating",
+      "labels": [
+        "0",
+        "1",
+        "2"
+      ]
+    },
+    {
+      "branch": "2",
+      "question": "truth",
+      "labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "name": "tie",
+      "logits": [
+        [
+          2,
+          2,
+          -1
+        ],
+        [
+          -1,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      ],
+      "response": {
+        "model": "fixture",
+        "answers": {
+          "pick": {
+            "type": "choice",
+            "confidence": 0.48785555362701416,
+            "probabilities": {
+              "alpha": 0.48785555362701416,
+              "beta": 0.48785555362701416,
+              "gamma": 0.024288896471261978
+            },
+            "choice": "alpha"
+          },
+          "rating": {
+            "type": "score",
+            "confidence": 0.7053845524787903,
+            "probabilities": {
+              "0": 0.03511902689933777,
+              "1": 0.25949645042419434,
+              "2": 0.7053845524787903
+            },
+            "score": 1.670265555381775,
+            "legend": {
+              "0": "low",
+              "1": "mid",
+              "2": "high"
+            }
+          },
+          "truth": {
+            "type": "noul",
+            "noul": 0.9188438153266906
+          }
+        },
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "extreme",
+      "logits": [
+        [
+          1000,
+          -1000,
+          0
+        ],
+        [
+          0,
+          1000,
+          -1000
+        ],
+        [
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          -1000,
+          1000
+        ]
+      ],
+      "response": {
+        "model": "fixture",
+        "answers": {
+          "pick": {
+            "type": "choice",
+            "confidence": 1.0,
+            "probabilities": {
+              "alpha": 1.0,
+              "beta": 0.0,
+              "gamma": 0.0
+            },
+            "choice": "alpha"
+          },
+          "rating": {
+            "type": "score",
+            "confidence": 1.0,
+            "probabilities": {
+              "0": 0.0,
+              "1": 1.0,
+              "2": 0.0
+            },
+            "score": 1.0,
+            "legend": {
+              "0": "low",
+              "1": "mid",
+              "2": "high"
+            }
+          },
+          "truth": {
+            "type": "noul",
+            "noul": 0.99
+          }
+        },
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 0
+        }
+      }
+    }
+  ]
+}

@@ -34,6 +34,8 @@ out, err := r.SystemOne(
 
 `Object` deliberately preserves JSON property order. Plain maps are accepted and deterministically encoded, but Go map order cannot express the caller's original JSON ordering. Questions, criteria, answers and wide-label construction use slices so semantic order is explicit.
 
+An optional `temperature_by_type` config map selects state-first softmax temperatures for `choice`, `noul` and `score`; absent types use scalar `temperature`. The pinned 0.8B config has no map and retains its original defaults. Each isolated Score level row uses the Score temperature. See the [model-free compatibility check](../../docs/validation/decider-temperature-by-type-20260927.md); it does not fit or approve calibration values. Current upstream v1.5 also [changes public confidence fields and Noul validation](../../docs/validation/decider-upstream-contract-gap-20260927.md). The model-free [v1.5 answer formatter](../../docs/validation/decider-answer-v15-20260927.md) accepts supplied probabilities through `FormatAnswerV15`; the separate [Noul fallback renderer](../../docs/validation/decider-noul-v15-20260927.md) is `NoulQuestionV15`. `SystemOne` keeps its pinned request/response contract, and no service endpoint selects either new shape.
+
 ## Scope and limits
 
 - State-first independent scoring is the correctness path. The upstream schema-first cache, packed dependent questions, CUDA graphs, FP8, vision, training and RL are not implemented.

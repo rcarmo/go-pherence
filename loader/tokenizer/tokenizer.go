@@ -303,6 +303,21 @@ func (t *Tokenizer) Encode(text string) []int {
 	return ids
 }
 
+// ValidateUserText rejects caller-controlled text that would be recognized as
+// a configured special token. Trusted prompt renderers may then insert those
+// control tokens separately with Encode.
+func (t *Tokenizer) ValidateUserText(text string) error {
+	if t == nil {
+		return fmt.Errorf("nil tokenizer")
+	}
+	for token := range t.AddedSpecial {
+		if token != "" && strings.Contains(text, token) {
+			return fmt.Errorf("text contains reserved tokenizer token")
+		}
+	}
+	return nil
+}
+
 func (t *Tokenizer) encodeOrdinary(text string) []int {
 	if text == "" {
 		return nil
@@ -372,31 +387,33 @@ func (t *Tokenizer) byteLevelPattern() *regexp.Regexp {
 func (t *Tokenizer) encodeByteLevel(text string) []int {
 	t.initMergeRank()
 	mergeRank := t.mergeRank
-	byteEncoder := getByteEncoder()
+	getByteEncoder() // initialise the immutable byte-symbol table once
 
 	pieces := splitWhitespaceRuns(t.byteLevelPattern().FindAllString(text, -1))
 	var ids []int
+	var symbols []string // local scratch, reused across this call's pieces only
 	for _, piece := range pieces {
 		// Map each raw UTF-8 byte (not rune) through the GPT-2 byte encoder.
-		symbols := make([]string, 0, len(piece))
+		symbols = symbols[:0]
 		for i := 0; i < len(piece); i++ {
-			symbols = append(symbols, string(byteEncoder[piece[i]]))
+			symbols = append(symbols, byteEncoderSymbols[piece[i]])
 		}
 		if len(symbols) == 0 {
 			continue
 		}
-		ids = append(ids, t.bpeMerge(symbols, mergeRank)...)
+		ids = t.bpeMerge(symbols, mergeRank, ids)
 	}
 	return ids
 }
 
 // bpeMerge applies rank-ordered pair merges to a symbol list and resolves the
-// result to vocab IDs.
-func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []int {
+// result to vocab IDs appended to ids. symbols is caller-owned scratch and is
+// modified in place; no mutable state or input text is cached on the tokenizer.
+func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int, ids []int) []int {
 	// Direct lookup for the whole joined piece first.
 	if joined := strings.Join(symbols, ""); len(symbols) > 1 {
 		if id, ok := t.Vocab[joined]; ok {
-			return []int{id}
+			return append(ids, id)
 		}
 	}
 	for len(symbols) >= 2 {
@@ -411,14 +428,11 @@ func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []in
 		if bestIdx < 0 {
 			break
 		}
-		merged := symbols[bestIdx] + symbols[bestIdx+1]
-		newSyms := make([]string, 0, len(symbols)-1)
-		newSyms = append(newSyms, symbols[:bestIdx]...)
-		newSyms = append(newSyms, merged)
-		newSyms = append(newSyms, symbols[bestIdx+2:]...)
-		symbols = newSyms
+		symbols[bestIdx] += symbols[bestIdx+1]
+		copy(symbols[bestIdx+1:], symbols[bestIdx+2:])
+		symbols[len(symbols)-1] = ""
+		symbols = symbols[:len(symbols)-1]
 	}
-	ids := make([]int, 0, len(symbols))
 	for _, s := range symbols {
 		if id, ok := t.Vocab[s]; ok {
 			ids = append(ids, id)
@@ -427,63 +441,43 @@ func (t *Tokenizer) bpeMerge(symbols []string, mergeRank map[[2]string]int) []in
 	return ids
 }
 
-// encodeSentencePiece is the legacy whitespace-prefix path used for
-// SentencePiece-family vocabularies (Gemma).
+// encodeSentencePiece implements the Gemma tokenizer.json contract: replace
+// literal spaces with the SentencePiece marker, then run BPE over the intact
+// rune stream. Splitting with strings.Fields is incorrect because it discards
+// leading/repeated spaces, newlines and tabs before tokenization.
 func (t *Tokenizer) encodeSentencePiece(text string) []int {
-	spacePrefix := "\u2581"
-	words := strings.Fields(text)
-	var pieces []string
-	for i, w := range words {
-		if i > 0 {
-			w = spacePrefix + w
-		}
-		pieces = append(pieces, w)
+	text = strings.ReplaceAll(text, " ", "\u2581")
+	if text == "" {
+		return nil
 	}
-
-	// For each piece, try direct vocab lookup first, then BPE
+	if id, ok := t.Vocab[text]; ok {
+		return []int{id}
+	}
 	t.initMergeRank()
-	mergeRank := t.mergeRank
-
-	var ids []int
-	for _, piece := range pieces {
-		// Direct lookup
-		if id, ok := t.Vocab[piece]; ok {
+	chars := make([]string, 0, len(text))
+	for _, r := range text {
+		chars = append(chars, string(r))
+	}
+	for len(chars) >= 2 {
+		bestRank := len(t.Merges)
+		bestIdx := -1
+		for i := 0; i < len(chars)-1; i++ {
+			if rank, ok := t.mergeRank[[2]string{chars[i], chars[i+1]}]; ok && rank < bestRank {
+				bestRank = rank
+				bestIdx = i
+			}
+		}
+		if bestIdx < 0 {
+			break
+		}
+		chars[bestIdx] += chars[bestIdx+1]
+		copy(chars[bestIdx+1:], chars[bestIdx+2:])
+		chars = chars[:len(chars)-1]
+	}
+	ids := make([]int, 0, len(chars))
+	for _, symbol := range chars {
+		if id, ok := t.Vocab[symbol]; ok {
 			ids = append(ids, id)
-			continue
-		}
-
-		// BPE: split into characters
-		chars := make([]string, 0, len(piece))
-		for _, r := range piece {
-			chars = append(chars, string(r))
-		}
-
-		// Apply BPE merges
-		for len(chars) >= 2 {
-			bestRank := len(t.Merges)
-			bestIdx := -1
-			for i := 0; i < len(chars)-1; i++ {
-				pair := [2]string{chars[i], chars[i+1]}
-				if rank, ok := mergeRank[pair]; ok && rank < bestRank {
-					bestRank = rank
-					bestIdx = i
-				}
-			}
-			if bestIdx < 0 {
-				break
-			}
-			merged := chars[bestIdx] + chars[bestIdx+1]
-			newChars := make([]string, 0, len(chars)-1)
-			newChars = append(newChars, chars[:bestIdx]...)
-			newChars = append(newChars, merged)
-			newChars = append(newChars, chars[bestIdx+2:]...)
-			chars = newChars
-		}
-
-		for _, ch := range chars {
-			if id, ok := t.Vocab[ch]; ok {
-				ids = append(ids, id)
-			}
 		}
 	}
 	return ids
@@ -526,8 +520,9 @@ func (t *Tokenizer) VocabSize() int {
 }
 
 var (
-	_byteEncoder     map[byte]rune
-	_byteEncoderOnce sync.Once
+	byteEncoderSymbols [256]string
+	_byteEncoder       map[byte]rune
+	_byteEncoderOnce   sync.Once
 )
 
 func getByteEncoder() map[byte]rune {
@@ -557,6 +552,9 @@ func getByteEncoder() map[byte]rune {
 				_byteEncoder[byte(i)] = rune(n)
 				n++
 			}
+		}
+		for b, r := range _byteEncoder {
+			byteEncoderSymbols[b] = string(r)
 		}
 	})
 	return _byteEncoder

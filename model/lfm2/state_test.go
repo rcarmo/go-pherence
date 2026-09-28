@@ -14,27 +14,27 @@ func TestRuntimePlanSizing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.ConvLayers != 21 || plan.FullAttentionLayers != 3 {
+	if plan.ConvLayers != 18 || plan.FullAttentionLayers != 6 {
 		t.Fatalf("layer plan=%+v", plan)
 	}
-	if plan.ConvStateFloats != 129024 {
+	if plan.ConvStateFloats != 110592 {
 		t.Fatalf("conv state floats=%d", plan.ConvStateFloats)
 	}
-	if plan.KVFloatsPerToken != 3072 {
+	if plan.KVFloatsPerToken != 6144 {
 		t.Fatalf("kv floats/token=%d", plan.KVFloatsPerToken)
 	}
 	kvBytes, err := plan.KVBytes(128, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if kvBytes != 786432 {
+	if kvBytes != 1572864 {
 		t.Fatalf("kv bytes=%d", kvBytes)
 	}
 	convBytes, err := plan.ConvStateBytes(2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if convBytes != 258048 {
+	if convBytes != 221184 {
 		t.Fatalf("conv bytes=%d", convBytes)
 	}
 }

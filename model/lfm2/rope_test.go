@@ -18,7 +18,7 @@ func TestRoPELayoutFromFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if layout.Theta != 5000000 || layout.HeadDim != 64 || layout.MaxPositionEmbeddings != 128000 || layout.FullAttentionLayers != 3 {
+	if layout.Theta != 5000000 || layout.HeadDim != 64 || layout.MaxPositionEmbeddings != 128000 || layout.FullAttentionLayers != 6 {
 		t.Fatalf("layout=%+v", layout)
 	}
 	if err := layout.ValidatePosition(127999); err != nil {

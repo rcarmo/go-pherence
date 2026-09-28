@@ -1,0 +1,176 @@
+{
+  "conditioner_count": 727,
+  "config_sha256": "cabcba7f6115752c8fe5b370e12bf714936f70377a8a80f151872f76c2d64609",
+  "layers": 40,
+  "repository": "tencent/Hunyuan3D-2mini",
+  "revision": "f90a0f7df7d5e6f71109cf333f6a95a0ae3194a6",
+  "safetensors_header_sha256": "dd8b61f43325eb7f58717bcfe0e4fafc3932cfef3bf4dee96272d52a757427b4",
+  "schema": 1,
+  "subfolder": "hunyuan3d-dit-v2-mini",
+  "tensors": {
+    "embeddings.cls_token": {
+      "dtype": "F16",
+      "shape": [
+        1,
+        1,
+        1536
+      ]
+    },
+    "embeddings.mask_token": {
+      "dtype": "F16",
+      "shape": [
+        1,
+        1536
+      ]
+    },
+    "embeddings.patch_embeddings.projection.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "embeddings.patch_embeddings.projection.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        3,
+        14,
+        14
+      ]
+    },
+    "embeddings.position_embeddings": {
+      "dtype": "F16",
+      "shape": [
+        1,
+        1370,
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.key.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.key.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.query.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.query.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.value.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.attention.value.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.output.dense.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.attention.output.dense.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        1536
+      ]
+    },
+    "encoder.layer.0.layer_scale1.lambda1": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.layer_scale2.lambda1": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.mlp.weights_in.bias": {
+      "dtype": "F16",
+      "shape": [
+        8192
+      ]
+    },
+    "encoder.layer.0.mlp.weights_in.weight": {
+      "dtype": "F16",
+      "shape": [
+        8192,
+        1536
+      ]
+    },
+    "encoder.layer.0.mlp.weights_out.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.mlp.weights_out.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536,
+        4096
+      ]
+    },
+    "encoder.layer.0.norm1.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.norm1.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.norm2.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "encoder.layer.0.norm2.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "layernorm.bias": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    },
+    "layernorm.weight": {
+      "dtype": "F16",
+      "shape": [
+        1536
+      ]
+    }
+  }
+}

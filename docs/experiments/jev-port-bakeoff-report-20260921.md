@@ -98,7 +98,7 @@ Neither change is shipped. The baseline arithmetic remains in the tree. The reta
 
 Decider is the best current native JEV equivalent for this prepared mixed-task choice workload. It has the strongest accuracy, probability diagnostics and runtime among admitted candidates. OpenJEV remains preferable when exact candidate-order invariance is mandatory and the 12.43-point accuracy loss is acceptable.
 
-The conclusion is bounded to the existing prepared tasks and released native checkpoints. It does not establish broad human preference judgement, production calibration, full-intent CLINC accuracy, vision support or arbitrary-schema behaviour. Simple-JEV was excluded because its upstream repository still lacks a compatible root licence or explicit permission.
+The conclusion is bounded to the existing prepared tasks and released native checkpoints. It does not establish broad human preference judgement, production calibration, full-intent CLINC accuracy, vision support or arbitrary-schema behaviour. Simple-JEV was excluded under the frozen policy because its upstream repository lacked a root licence at selection time. Upstream added Apache-2.0 in `b02aa81c` after this evaluation; it did not participate in these cohorts.
 
 Further model or prompt changes require another experiment and another untouched cohort. The spent 1,440-row Jevlike final set and these screening/finalist cohorts cannot become tuning data for this comparison.
 

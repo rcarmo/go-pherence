@@ -78,7 +78,7 @@ The compact support matrix is in [Supported models](docs/models/supported-models
 * [Jevlike](model/jevlike/README.md) provides tiny/frozen choice scoring, training, evaluation and reusable visual/action adapters. Game environments, recordings and demo orchestration are outside the port.
 * [GLiNER 2.5](model/gliner2/README.md) runs native entity, classification, relation, record and mixed-schema inference against the published checkpoint. Its guide distinguishes the supported API from broader upstream compatibility.
 * DiffusionGemma and Ideogram 4 have runnable native slices with explicit model-specific limits.
-* MiniCPM-V/O, Qwen3-TTS, LFM2, Hunyuan3D, Trellis2 and Z-Image vary from metadata/processor support to partial runtime execution; their support pages state the exact boundary.
+* Qwen3-TTS, LFM2, Hunyuan3D, Trellis2 and Z-Image vary from metadata/processor support to partial runtime execution; their support pages state the exact boundary.
 
 Backend selection is automatic where it is safe. `-gpu` selects NVIDIA for the general LLM commands; model-specific commands document their own switches and CPU override. See [Backend selection](docs/backends/backend-selection.md) and [Tuning](docs/guides/tuning.md) before changing cache, placement or worker settings.
 

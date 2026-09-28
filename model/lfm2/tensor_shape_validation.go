@@ -23,10 +23,36 @@ func ValidateTensorShapes(cfg Config, infos map[string]safetensors.TensorInfo) T
 		lower := strings.ToLower(name)
 		switch {
 		case strings.Contains(lower, "embed_tokens"):
-			if len(shape) != 2 || shape[1] != cfg.HiddenSize {
-				v.Add(fmt.Sprintf("%s shape=%v want [*,%d]", name, shape, cfg.HiddenSize))
+			vocab := cfg.VocabSize
+			if vocab == 0 {
+				vocab = 128000
 			}
-		case strings.Contains(lower, "q_proj") || strings.Contains(lower, "o_proj"):
+			if len(shape) != 2 || shape[0] != vocab || shape[1] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, vocab, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, "embedding_norm") || strings.Contains(lower, "operator_norm") || strings.Contains(lower, "ffn_norm"):
+			if len(shape) != 1 || shape[0] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, ".conv.in_proj.weight"):
+			projected := sizeProduct(3, cfg.HiddenSize)
+			if projected <= 0 || len(shape) != 2 || shape[0] != projected || shape[1] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, projected, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, ".conv.in_proj.bias"):
+			projected := sizeProduct(3, cfg.HiddenSize)
+			if projected <= 0 || len(shape) != 1 || shape[0] != projected {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, projected))
+			}
+		case strings.Contains(lower, ".conv.out_proj.weight"):
+			if len(shape) != 2 || shape[0] != cfg.HiddenSize || shape[1] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, cfg.HiddenSize, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, ".conv.out_proj.bias"):
+			if len(shape) != 1 || shape[0] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, "q_proj") || strings.Contains(lower, "out_proj"):
 			if cfg.HiddenSize > 0 && !inspect.MatrixMatches(shape, cfg.HiddenSize, cfg.HiddenSize) {
 				v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d", name, shape, cfg.HiddenSize))
 			}
@@ -39,26 +65,47 @@ func ValidateTensorShapes(cfg Config, infos map[string]safetensors.TensorInfo) T
 			if cfg.HiddenSize > 0 && kvWidth > 0 && !inspect.MatrixMatches(shape, cfg.HiddenSize, kvWidth) {
 				v.Add(fmt.Sprintf("%s shape=%v want matrix using hidden=%d and kv_width=%d", name, shape, cfg.HiddenSize, kvWidth))
 			}
-		case strings.Contains(lower, "conv") && strings.Contains(lower, "weight"):
+		case strings.Contains(lower, ".conv.conv.weight"):
 			want, ok := checked.MulInt(cfg.HiddenSize, cfg.ConvLCache)
 			if !ok {
 				v.Add("conv size overflows")
 				continue
 			}
-			if cfg.HiddenSize > 0 && cfg.ConvLCache > 0 && tensorElements(shape) != want {
-				v.Add(fmt.Sprintf("%s shape=%v want %d conv kernel elements", name, shape, want))
+			if cfg.HiddenSize > 0 && cfg.ConvLCache > 0 && (tensorElements(shape) != want || len(shape) != 3 || shape[0] != cfg.HiddenSize || shape[1] != 1 || shape[2] != cfg.ConvLCache) {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,1,%d]", name, shape, cfg.HiddenSize, cfg.ConvLCache))
 			}
-		case strings.Contains(lower, "router") || strings.Contains(lower, ".gate") || strings.HasSuffix(lower, "gate.weight"):
+		case strings.Contains(lower, ".conv.conv.bias"):
+			if len(shape) != 1 || shape[0] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, "q_layernorm") || strings.Contains(lower, "k_layernorm"):
+			if len(shape) != 1 || shape[0] != cfg.HeadDim {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, cfg.HeadDim))
+			}
+		case strings.Contains(lower, ".experts.gate_up_proj"):
+			width := sizeProduct(2, cfg.MoEIntermediateSize)
+			if width <= 0 || len(shape) != 3 || shape[0] != cfg.NumExperts || shape[1] != width || shape[2] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d,%d]", name, shape, cfg.NumExperts, width, cfg.HiddenSize))
+			}
+		case strings.Contains(lower, ".experts.down_proj"):
+			if len(shape) != 3 || shape[0] != cfg.NumExperts || shape[1] != cfg.HiddenSize || shape[2] != cfg.MoEIntermediateSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d,%d]", name, shape, cfg.NumExperts, cfg.HiddenSize, cfg.MoEIntermediateSize))
+			}
+		case strings.Contains(lower, ".feed_forward.gate.weight") || strings.Contains(lower, ".router.weight"):
 			if len(shape) != 2 || shape[0] != cfg.NumExperts || shape[1] != cfg.HiddenSize {
 				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, cfg.NumExperts, cfg.HiddenSize))
 			}
-		case strings.Contains(lower, "experts"):
-			if len(shape) == 2 && shape[1] != cfg.HiddenSize && shape[0] != cfg.HiddenSize && shape[0] != cfg.MoEIntermediateSize && shape[1] != cfg.MoEIntermediateSize {
-				v.Add(fmt.Sprintf("%s shape=%v does not reference hidden=%d or moe_intermediate=%d", name, shape, cfg.HiddenSize, cfg.MoEIntermediateSize))
+		case strings.Contains(lower, ".expert_bias"):
+			if len(shape) != 1 || shape[0] != cfg.NumExperts {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d]", name, shape, cfg.NumExperts))
 			}
 		case strings.Contains(lower, "lm_head"):
-			if len(shape) != 2 || shape[1] != cfg.HiddenSize {
-				v.Add(fmt.Sprintf("%s shape=%v want [*,%d]", name, shape, cfg.HiddenSize))
+			vocab := cfg.VocabSize
+			if vocab == 0 {
+				vocab = 128000
+			}
+			if len(shape) != 2 || shape[0] != vocab || shape[1] != cfg.HiddenSize {
+				v.Add(fmt.Sprintf("%s shape=%v want [%d,%d]", name, shape, vocab, cfg.HiddenSize))
 			}
 		}
 	}

@@ -2,16 +2,32 @@ package nvidia
 
 import "testing"
 
-func TestVecAddF32BufferRejectsBadInputs(t *testing.T) {
-	valid := &Buffer{Ptr: 1, Size: 4}
-	short := &Buffer{Ptr: 1, Size: 2}
-	if err := VecAddF32Buffer(valid, valid, short, 1); err == nil {
-		t.Fatal("accepted short output buffer")
+func TestVecScaleF32BufferPTXParameterOrder(t *testing.T) {
+	if !SgemmReady() {
+		if Available() {
+			t.Fatal("CUDA device available but PTX runtime not ready")
+		}
+		t.Skip("CUDA unavailable")
 	}
-	if err := VecAddF32Buffer(nil, valid, valid, 1); err == nil {
-		t.Fatal("accepted nil input buffer")
+	buf, err := Malloc(4)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := VecAddF32Buffer(valid, valid, valid, 0); err != nil {
-		t.Fatalf("zero-length add returned error: %v", err)
+	defer buf.Free()
+	if err := buf.Upload([]float32{11, -22, 33, -44}); err != nil {
+		t.Fatal(err)
+	}
+	if err := VecScaleF32Buffer(buf, buf, 4, 0.5); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]float32, 4)
+	if err := buf.Download(got); err != nil {
+		t.Fatal(err)
+	}
+	want := []float32{5.5, -11, 16.5, -22}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d]=%g want %g", i, got[i], want[i])
+		}
 	}
 }

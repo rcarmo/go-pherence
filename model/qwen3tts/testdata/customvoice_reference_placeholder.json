@@ -22,14 +22,14 @@
   },
   "decoder12hz": {
     "sample_rate": 24000,
-    "samples": 2000,
-    "duration_s": 0.08333333333333333,
+    "samples": 1920,
+    "duration_s": 0.08,
     "sha256": "pending-qwen3-tts-rs",
     "rms": 0
   },
   "runtime": {
     "max_frames": 12,
-    "max_samples": 24000,
+    "max_samples": 23040,
     "max_codes": 180
   }
 }

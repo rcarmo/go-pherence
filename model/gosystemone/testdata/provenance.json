@@ -1,0 +1,51 @@
+{
+  "schema": "go-pherence-go-system-one-provenance-v1",
+  "model": {
+    "repository": "unsloth/gemma-4-12b-it-GGUF",
+    "revision": "fc034cfff751157913579611efad8462ac1be606",
+    "file": "gemma-4-12b-it-UD-Q4_K_XL.gguf",
+    "bytes": 7366423360,
+    "sha256": "90fd944d227e9d9b68e7e2c7d5b57b79d4c66ed521b0919fbbd932cf834f6f8e",
+    "license": "Apache-2.0",
+    "base_model": "google/gemma-4-12B-it"
+  },
+  "tokenizer": {
+    "repository": "google/gemma-4-12b-it",
+    "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+    "files": {
+      "tokenizer.json": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+      "tokenizer_config.json": "a62f4e85a47c0c136edaaa3a4f591fd6783717299a9def47e5ad03a49f6a5eb9",
+      "chat_template.jinja": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4"
+    }
+  },
+  "references": [
+    {
+      "repository": "https://github.com/thecodacus/llama.cpp",
+      "revision": "14d04e755fa28653e87b9a07072892265bdc0fad",
+      "license": "MIT",
+      "role": "response and numerical parity oracle only"
+    },
+    {
+      "repository": "https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD",
+      "revision": "2af86848be75847ccb3553b0941cc51d6ef7e4e9",
+      "license": "Apache-2.0",
+      "role": "design reference only"
+    },
+    {
+      "repository": "https://github.com/thecodacus/decision-playground",
+      "revision": "843f72e61f5ebaa1c2225c4902849bd42af44c05",
+      "license": null,
+      "role": "behavior reference only; no code or assets copied"
+    }
+  ],
+  "runtime_bounds": {
+    "decision_sequences": 12,
+    "context_tokens": 32768,
+    "ubatch_tokens": 512,
+    "max_contexts": 256,
+    "max_fields": 32,
+    "max_candidates_per_field": 255,
+    "schema_types": ["boolean", "enum"],
+    "modes": ["auto", "tree"]
+  }
+}
