@@ -44,4 +44,6 @@ An opt-in released test, `TestReleasedCLISeed0PromptBoundaries` (`GO_PHERENCE_PO
 
 The CLI now includes `capacity_reached` in its JSON result. It is set before slicing PCM to the emitted count and is `true` when generation fills `-max-frames`. The pinned released CLI smoke test covers a one-frame cap (`true`) and the same seed/prompt at 64 frames (`false`). A `true` result flags possible truncation for caller review; it does not disclose whether EOS would have fired at the cap, and `false` does not prove sentence completeness or intelligibility. This diagnostic avoids silently presenting a hard-cap clip as verified speech.
 
+Two further CLI-noise seeds were sampled for the “numbers” prompt with the same pinned assets and 64-frame cap. Seed 1 returned 30 frames (2.40 s, emitted F32 RMS 0.0671); seed 2 returned 33 frames (2.64 s, RMS 0.0606). Both stopped below capacity, and EOS-trimmed individual MP3s were attached for listening. These levels exclude the earlier near-silent failure mode for these two seeds, but human intelligibility and sentence-completion results are pending.
+
 Raw logs, profiles and transferred SHA manifests remain under `/home/agent/pockettts-native-20260927/` on the board.
