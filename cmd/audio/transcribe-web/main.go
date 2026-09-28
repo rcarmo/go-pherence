@@ -327,7 +327,9 @@ func reconcileTerminal(ctx context.Context, backend *url.URL, token string) erro
 		case "succeeded":
 			actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 		case "cancelled":
-			actions = [][2]string{{http.MethodDelete, "/v1/jobs/" + entry.JobID}}
+			// Cancellation stops compute and releases retry-only media; verified
+			// transcript/VTT checkpoints remain available until explicit Delete.
+			actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 		default:
 			continue
 		}

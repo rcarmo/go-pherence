@@ -136,7 +136,7 @@ func TestRecoverInterruptedOnly(t *testing.T) {
 	}
 }
 
-func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
+func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *testing.T) {
 	const token = "internal-token-that-is-long-enough-for-tests"
 	var actions []string
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +163,8 @@ func TestReconcileTerminalReleasesSuccessAndDeletesCancellation(t *testing.T) {
 	want := []string{
 		"POST /v1/jobs/" + strings.Repeat("a", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("a", 32) + "/queue",
-		"DELETE /v1/jobs/" + strings.Repeat("b", 32),
+		"POST /v1/jobs/" + strings.Repeat("b", 32) + "/release-media",
+		"DELETE /v1/jobs/" + strings.Repeat("b", 32) + "/queue",
 	}
 	if strings.Join(actions, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("actions=%q", actions)

@@ -70,6 +70,50 @@ func TestReleaseCompletedMediaPreservesPublishedArtifacts(t *testing.T) {
 	reader.Close()
 }
 
+func TestReleaseCancelledMediaPreservesPublishedTranscript(t *testing.T) {
+	store, root := openTest(t)
+	job := createTest(t, store)
+	ctx, cancel := context.WithCancel(context.Background())
+	stages := []Stage{
+		stage("decode", func(context.Context, *Input, io.Writer) error { return nil }),
+		stage("transcript", func(_ context.Context, _ *Input, out io.Writer) error {
+			_, err := io.WriteString(out, "transcript before cancel")
+			return err
+		}),
+		stage("diarization", func(context.Context, *Input, io.Writer) error { cancel(); return context.Canceled }),
+	}
+	job, err := store.Run(ctx, job.ID, config, stages, nil)
+	cancel()
+	if !errors.Is(err, context.Canceled) || job.Status != Cancelled || len(job.Checkpoints) != 2 {
+		t.Fatal("cancel checkpoint prefix", job, err)
+	}
+	if err = store.ReleaseMedia(context.Background(), job.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.ReleaseMedia(context.Background(), job.ID); err != nil {
+		t.Fatal("release not idempotent", err)
+	}
+	if _, err = os.Stat(filepath.Join(root, job.ID, "input")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("cancelled input retained", err)
+	}
+	if _, err = os.Stat(filepath.Join(root, job.ID, job.Checkpoints[0].Blob.File)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("cancelled decode retained", err)
+	}
+	reader, err := store.OpenCheckpoint(context.Background(), job.ID, "transcript")
+	if err != nil {
+		t.Fatal("cancelled transcript missing", err)
+	}
+	data, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil || string(data) != "transcript before cancel" {
+		t.Fatal(string(data), readErr, closeErr)
+	}
+	stored, err := store.Get(job.ID)
+	if err != nil || stored.Status != Cancelled || !stored.MediaReleased || len(stored.Checkpoints) != 2 {
+		t.Fatal("cancelled manifest changed", stored, err)
+	}
+}
+
 func TestReleaseMediaRejectsRetryableFailure(t *testing.T) {
 	store, root := openTest(t)
 	job := createTest(t, store)
