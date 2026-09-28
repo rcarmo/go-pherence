@@ -202,6 +202,72 @@ func TestQueueCancelPendingAdmissionAndOwnedDrain(t *testing.T) {
 	q2.Shutdown(context.Background())
 	<-released
 }
+func TestQueueCancelAfterCheckpointRetainsMediaAndResumes(t *testing.T) {
+	s, root := openTest(t)
+	job := createTest(t, s)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var decodeCalls, transcriptCalls atomic.Int32
+	stages := []Stage{
+		stage("decode", func(_ context.Context, _ *Input, out io.Writer) error {
+			decodeCalls.Add(1)
+			_, err := io.WriteString(out, "verified decoded checkpoint")
+			return err
+		}),
+		stage("transcript", func(ctx context.Context, _ *Input, out io.Writer) error {
+			if transcriptCalls.Add(1) == 1 {
+				close(entered)
+				<-ctx.Done()
+				<-release
+				return ctx.Err()
+			}
+			_, err := io.WriteString(out, "verified transcript")
+			return err
+		}),
+	}
+	q := openQueueTest(t, s, filepath.Join(t.TempDir(), "queue"), SerialAdmission(), func(Manifest) ([]Stage, error) { return stages, nil })
+	if _, err := q.Enqueue(context.Background(), job.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	if entry, err := q.Cancel(context.Background(), job.ID); err != nil || entry.Status != QueueRunning {
+		t.Fatal("cancel signal", entry, err)
+	}
+	close(release)
+	queueWait(t, q, job.ID, QueueCancelled)
+	stored, err := s.Get(job.ID)
+	if err != nil || stored.Status != Cancelled || stored.MediaReleased || len(stored.Checkpoints) != 1 || stored.Checkpoints[0].Stage != "decode" {
+		t.Fatal("cancelled checkpoint prefix", stored, err)
+	}
+	for _, file := range []string{"input", stored.Checkpoints[0].Blob.File} {
+		if _, err := os.Stat(filepath.Join(root, job.ID, file)); err != nil {
+			t.Fatal("cancelled media lost", file, err)
+		}
+	}
+	if err := q.Forget(context.Background(), job.ID); err != nil {
+		t.Fatal("forget queue ticket", err)
+	}
+	if _, err := q.Enqueue(context.Background(), job.ID, true); err != nil {
+		t.Fatal("explicit retry", err)
+	}
+	queueWait(t, q, job.ID, QueueSucceeded)
+	stored, err = s.Get(job.ID)
+	if err != nil || stored.Status != Complete || len(stored.Checkpoints) != 2 || decodeCalls.Load() != 1 || transcriptCalls.Load() != 2 {
+		t.Fatal("retry did not reuse prefix", stored, decodeCalls.Load(), transcriptCalls.Load(), err)
+	}
+	reader, err := s.OpenCheckpoint(context.Background(), job.ID, "transcript")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, readErr := io.ReadAll(reader)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil || string(data) != "verified transcript" {
+		t.Fatal("transcript lost", string(data), readErr, closeErr)
+	}
+}
+
 func TestQueueProfileChangeAndQuotaPoison(t *testing.T) {
 	s, _ := openTest(t)
 	job := createTest(t, s)
