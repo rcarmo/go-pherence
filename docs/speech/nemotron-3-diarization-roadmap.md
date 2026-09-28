@@ -1,8 +1,9 @@
 # Nemotron 3 Diarization roadmap
 
 NVIDIA's `nvidia/Nemotron-3-Diarization` is a candidate for a separate native
-speaker-diarisation backend. No checkpoint has been downloaded or run for this
-roadmap, and go-pherence has no Nemotron inference implementation.
+speaker-diarisation backend. An approved checkpoint has now run as an isolated
+CPU reference on one 11-second fixture; go-pherence has no Nemotron inference
+implementation. See [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
 
 ## Pinned source and scope
 
@@ -18,17 +19,17 @@ speech job.
 
 ## Pinned metadata inspection
 
-At revision `a435e9867d79e789e90053f9b6d6834053af564a`, the public file list includes `config.json`, `processor_config.json`, `README.md`, an ASR integration guide, `.nemo` and safetensor checkpoints. Only metadata/text files were inspected; no checkpoint bytes were fetched. The processor uses 16 kHz mono input, pre-emphasis 0.97, 512-point FFT, 400-sample window and 160-sample hop with 128 mel features. A factor-eight subsampler yields a nominal 80 ms model step; the card describes `(batch, frames, 8)` logits every 10 ms for its exposed frame classification, so timestamp alignment must be verified against an oracle rather than inferred from the subsampling factor alone.
+At revision `a435e9867d79e789e90053f9b6d6834053af564a`, the public file list includes `config.json`, `processor_config.json`, `README.md`, an ASR integration guide, `.nemo` and safetensor checkpoints. The safetensors checkpoint was later fetched and integrity-checked after user approval; the isolated CPU reference run is recorded separately. The processor uses 16 kHz mono input, pre-emphasis 0.97, 512-point FFT, 400-sample window and 160-sample hop with 128 mel features. A factor-eight subsampler yields a nominal 80 ms model step; the card describes `(batch, frames, 8)` logits every 10 ms for its exposed frame classification, so timestamp alignment must be verified against an oracle rather than inferred from the subsampling factor alone.
 
 The processor's default `low_latency` mode lists `[9,4]`; `very_low_latency` and `ultra_low_latency` list `[6,2]` and `[3,1]`. Model config has 31 attention layers of width 512, an eight-speaker head, `chunk_length: 340` and `chunk_right_context: 40`. It also distinguishes top-level FIFO/cache settings from a separate `streaming_config` (`fifo_length: 264`, `speaker_cache_length: 264`, update period 222). The card's Transformers streaming example passes `speaker_cache` between chunks and marks the last chunk explicitly. The exact units, mode-dependent lookahead and cache ownership require independent fixtures before a native streaming implementation.
 
 ## Proposed gates
 
 1. Freeze the pinned configuration, processor contract, asset inventory,
-   licences and file hashes without fetching model weights. Check sample rate,
-   feature framing, channel order, timestamp origin and maximum-speaker rules.
-2. Obtain explicit approval before downloading/executing the checkpoint.
-   Produce independently generated small fixtures for the frontend, subsampling,
+   licences and file hashes. Check sample rate, feature framing, channel order,
+   timestamp origin and maximum-speaker rules.
+2. User approval now covers downloading needed Nemotron weights. Produce
+   independently generated small fixtures for the frontend, subsampling,
    transformer/head, arrival-order speaker cache, streaming state and offline
    frame-to-turn decoding. Record the oracle software version, input hashes,
    output hashes, units and numerical tolerances.
@@ -45,5 +46,6 @@ The processor's default `low_latency` mode lists `[9,4]`; `very_low_latency` and
    Record speaker-count and recording-length limits. Do not infer accuracy from
    model metadata or synthetic operator tests.
 
-This is a planning item. There is no native execution, released-model parity,
-trained-quality result, production latency measurement or readiness promotion.
+The released checkpoint ran once through the pinned Transformers CPU reference.
+Native Go execution, cross-implementation parity, labelled diarisation quality,
+production latency and readiness promotion remain open.

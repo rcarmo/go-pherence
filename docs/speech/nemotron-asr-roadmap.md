@@ -1,6 +1,6 @@
 # NVIDIA Nemotron ASR roadmap
 
-NVIDIA's Nemotron streaming ASR checkpoints are candidates for a separate native transcription provider. Go-pherence has no Nemotron ASR implementation. No checkpoint weights were downloaded or executed for this roadmap.
+NVIDIA's Nemotron streaming ASR checkpoints are candidates for a separate native transcription provider. Go-pherence has no Nemotron ASR implementation. The approved 3.5 ASR checkpoint has since run as an isolated CPU reference on one recording; see [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
 
 ## Pinned candidates
 
@@ -11,9 +11,9 @@ These are distinct checkpoints and licences. Their cards use Parakeet-related ar
 
 ## Gates
 
-1. Choose one checkpoint and source revision for an implementation slice. Inspect processor, tokenizer, config, model-header inventory, frontend and chunk/cache contract without fetching tensor payloads. Freeze exact language/locale IDs, prompt and timestamp conventions and size limits.
-2. Obtain explicit approval before downloading or running weights. Generate independent NeMo/Transformers fixtures for frontend, subsampling, cached attention/convolution state, RNN-T predictor/joiner and decoding. Test cold and warm chunks, different lookaheads, silence, language selection, cancellation and restart. Pin input audio hashes, token/text outputs, units and numerical tolerances.
+1. The 3.5 ASR revision is selected for this slice, with processor, tokenizer and safetensors payload staged after user approval. Inspect the model-header inventory, frontend and chunk/cache contract. Freeze exact language/locale IDs, prompt and timestamp conventions and size limits.
+2. Generate independent NeMo/Transformers fixtures for frontend, subsampling, cached attention/convolution state, RNN-T predictor/joiner and decoding. Test cold and warm chunks, different lookaheads, silence, language selection, cancellation and restart. Pin input audio hashes, token/text outputs, units and numerical tolerances.
 3. Implement a scalar Go reference with owned bounded stream state, offline and incremental paths, deterministic overlap/timestamp handling and memory admission. Qualify parity before moving measured kernels to checked SIMD or NVIDIA backends.
 4. Add explicit ASR provider selection to the [speech workflow](speech-integration.md). Compare accuracy on held-out labelled speech, language-specific word error rate, latency, throughput and recovery after cancellation. Preserve the existing Whisper/MOSS and optional speaker-provider contracts.
 
-Published accuracy and latency claims belong to NVIDIA's evaluations. No native model execution, released-checkpoint parity, transcription quality or production readiness has been established here.
+Published accuracy and latency claims belong to NVIDIA's evaluations. The pinned checkpoint ran through a Transformers CPU reference once; native Go model execution, cross-implementation parity, transcription quality and production readiness have not been established.
