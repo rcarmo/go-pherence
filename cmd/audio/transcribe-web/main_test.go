@@ -149,7 +149,20 @@ func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *test
 				{"job_id": strings.Repeat("a", 32), "status": "succeeded"},
 				{"job_id": strings.Repeat("b", 32), "status": "cancelled"},
 				{"job_id": strings.Repeat("c", 32), "status": "failed"},
+				{"job_id": strings.Repeat("d", 32), "status": "cancelled"},
+				{"job_id": strings.Repeat("e", 32), "status": "cancelled"},
 			}})
+			return
+		}
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/jobs/") {
+			actions = append(actions, r.Method+" "+r.URL.Path)
+			id := strings.Split(r.URL.Path, "/")[3]
+			job := map[string]terminalJobState{
+				strings.Repeat("b", 32): {Status: "cancelled", Attempts: 1},
+				strings.Repeat("d", 32): {Status: "queued", Attempts: 0},
+				strings.Repeat("e", 32): {Status: "failed", Attempts: 2},
+			}[id]
+			_ = json.NewEncoder(w).Encode(job)
 			return
 		}
 		actions = append(actions, r.Method+" "+r.URL.Path)
@@ -163,8 +176,13 @@ func TestReconcileTerminalReleasesMediaAndPreservesCancellationArtifacts(t *test
 	want := []string{
 		"POST /v1/jobs/" + strings.Repeat("a", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("a", 32) + "/queue",
+		"GET /v1/jobs/" + strings.Repeat("b", 32),
 		"POST /v1/jobs/" + strings.Repeat("b", 32) + "/release-media",
 		"DELETE /v1/jobs/" + strings.Repeat("b", 32) + "/queue",
+		"GET /v1/jobs/" + strings.Repeat("d", 32),
+		"DELETE /v1/jobs/" + strings.Repeat("d", 32) + "/queue",
+		"GET /v1/jobs/" + strings.Repeat("e", 32),
+		"DELETE /v1/jobs/" + strings.Repeat("e", 32) + "/queue",
 	}
 	if strings.Join(actions, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("actions=%q", actions)
@@ -177,7 +195,7 @@ func TestBrowserRejectsMislabeledMediaAndExplainsFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := string(js)
-	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "detail-error", "!permanent&&(!e||terminal)"} {
+	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "detail-error", "!permanent&&!j.media_released&&(!e||terminal)"} {
 		if !strings.Contains(source, required) {
 			t.Fatal("missing browser failure UX", required)
 		}

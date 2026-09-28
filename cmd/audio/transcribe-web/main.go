@@ -298,6 +298,28 @@ func reconcileLoop(ctx context.Context, backend *url.URL, token string, diagnost
 	}
 }
 
+type terminalJobState struct {
+	Status   string `json:"status"`
+	Attempts int    `json:"attempts"`
+}
+
+func terminalJob(ctx context.Context, client *http.Client, backend *url.URL, token, id string) (terminalJobState, error) {
+	var job terminalJobState
+	response, err := backendRequest(ctx, client, backend, token, http.MethodGet, "/v1/jobs/"+id)
+	if err != nil {
+		return job, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/json" {
+		return job, fmt.Errorf("terminal job HTTP %d", response.StatusCode)
+	}
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 64<<10))
+	if err = decoder.Decode(&job); err != nil || decoder.Decode(new(any)) != io.EOF || job.Attempts < 0 {
+		return job, fmt.Errorf("invalid terminal job")
+	}
+	return job, nil
+}
+
 func reconcileTerminal(ctx context.Context, backend *url.URL, token string) error {
 	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{Proxy: nil, DisableCompression: true}}
 	response, err := backendRequest(ctx, client, backend, token, http.MethodGet, "/v1/queue")
@@ -327,9 +349,29 @@ func reconcileTerminal(ctx context.Context, backend *url.URL, token string) erro
 		case "succeeded":
 			actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
 		case "cancelled":
-			// Cancellation stops compute and releases retry-only media; verified
-			// transcript/VTT checkpoints remain available until explicit Delete.
-			actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
+			// A cancelled queue entry may be a withdrawn pending upload, a
+			// withdrawn retry, or a drained run. Inspect the persisted job before
+			// cleanup; never release retryable failed media or delete checkpoints.
+			job, err := terminalJob(ctx, client, backend, token, entry.JobID)
+			if err != nil {
+				return err
+			}
+			switch {
+			case job.Status == "queued" && job.Attempts == 0:
+				// Cancel processing, not the uploaded recording. Without a queue
+				// ticket the user may explicitly start it later.
+				actions = [][2]string{{http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
+			case job.Status == "cancelled":
+				actions = [][2]string{{http.MethodPost, "/v1/jobs/" + entry.JobID + "/release-media"}, {http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
+			case job.Status == "failed":
+				// Pending retry withdrawn before admission: keep failed media and
+				// any verified checkpoints for another explicit retry.
+				actions = [][2]string{{http.MethodDelete, "/v1/jobs/" + entry.JobID + "/queue"}}
+			default:
+				// A running manifest may not have drained yet. An unexpected
+				// state should never trigger destructive cleanup.
+				continue
+			}
 		default:
 			continue
 		}
