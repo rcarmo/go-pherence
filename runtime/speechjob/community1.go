@@ -55,11 +55,25 @@ func NewCommunity1Stage(model *c1.ExperimentalDiarization, cfg Community1StageCo
 		return Stage{}, e
 	}
 	return community1Stage(cfg, func(ctx context.Context, reader c1.DiarizationPCMReader, total int64) (*c1.DiarizationPCMResult, error) {
+		observe := diarizationWindowObserver(ctx, total, cfg.PCM)
 		if cfg.OverlapBranches {
-			return model.RunPCMOverlapped(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
+			return model.RunPCMOverlappedObserved(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode, observe)
 		}
-		return model.RunPCM(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode)
+		return model.RunPCMObserved(ctx, reader, total, cfg.PCM, cfg.SegmentationModes, cfg.EmbeddingMode, observe)
 	}), nil
+}
+
+func diarizationWindowObserver(ctx context.Context, total int64, cfg c1.DiarizationPCMConfig) c1.DiarizationPCMObserver {
+	windows, err := c1.PlanDiarizationWindows(total, cfg.WindowSamples, cfg.StepSamples)
+	if err != nil {
+		return nil // The model and stage reject this before running inference.
+	}
+	return func(stage string, index int) error {
+		if stage == "embedding" && index >= 0 {
+			ReportDiarizationProgress(ctx, int64(index+1), int64(len(windows)), "windows")
+		}
+		return ctx.Err()
+	}
 }
 
 // ValidateCommunity1Config validates model-independent execution policy without
@@ -179,7 +193,8 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 		defer func() { err = errors.Join(err, pcm.Close()) }()
 		total := int64(pcm.Timeline().Samples)
 		sourceTiming := pcm.SourceTiming()
-		if _, e = c1.PlanDiarizationWindows(total, cfg.PCM.WindowSamples, cfg.PCM.StepSamples); e != nil {
+		windows, e := c1.PlanDiarizationWindows(total, cfg.PCM.WindowSamples, cfg.PCM.StepSamples)
+		if e != nil {
 			return e
 		}
 		used, _, e := in.store.usage()
@@ -189,6 +204,10 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 		if cfg.MaxResultBytes > in.store.limits.MaxArtifactBytes || cfg.MaxResultBytes+maxManifest > in.store.limits.MaxBytes-used {
 			return ErrLimit
 		}
+		reportDiarization := func(completed int64, phase string) {
+			reportWorkProgress(ctx, "diarization", completed, int64(len(windows)), phase)
+		}
+		reportDiarization(0, "windows")
 		result, e := infer(ctx, pcm, total)
 		if e != nil {
 			return e
@@ -196,6 +215,7 @@ func community1Stage(cfg Community1StageConfig, infer communityInfer) Stage {
 		if e = ctx.Err(); e != nil {
 			return e
 		}
+		reportDiarization(int64(len(windows)), "postprocess")
 		key := checkpointKey(in.job, Stage{Name: "diarization", Version: version})
 		document, e := diarizationDocument(ctx, result, cfg.PCM, total, key)
 		if e != nil {

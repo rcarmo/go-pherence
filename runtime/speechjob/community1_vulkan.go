@@ -72,7 +72,7 @@ func NewVulkanCommunity1Stage(model *c1.VulkanDiarization, cfg VulkanCommunity1S
 	stageCfg := cfg.Community
 	stageCfg.ExecutionBackendSHA256 = hash(identity)
 	s := newVulkanCommunity1Owner(cfg.DrainPoll, func(ctx context.Context, r c1.DiarizationPCMReader, total int64) (*c1.DiarizationPCMResult, error) {
-		return model.RunPCM(ctx, r, total, stageCfg.PCM, stageCfg.SegmentationModes.SincNet, stageCfg.SegmentationModes.Head)
+		return model.RunPCMObserved(ctx, r, total, stageCfg.PCM, stageCfg.SegmentationModes.SincNet, stageCfg.SegmentationModes.Head, diarizationWindowObserver(ctx, total, stageCfg.PCM))
 	}, vk.VulkanDrain, model.Close)
 	return &VulkanCommunity1Stage{s: s, stage: community1Stage(stageCfg, s.infer)}, nil
 }

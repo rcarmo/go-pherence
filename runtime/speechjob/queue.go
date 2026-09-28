@@ -53,6 +53,8 @@ type QueueConfig struct {
 	JobTimeout time.Duration
 	Resolve    func(Manifest) ([]Stage, error)
 	Admission  Admission
+	// Progress is best-effort and in-memory; it must not re-enter the queue.
+	Progress func(string, WorkProgress)
 }
 type QueueStatus string
 
@@ -644,6 +646,9 @@ func (q *Queue) execute(ctx context.Context, entry QueueEntry) {
 		plan, e := queuePlan(stages)
 		if e != nil || plan != entry.PlanSHA256 {
 			return ErrConfiguration
+		}
+		if q.cfg.Progress != nil {
+			ctx = WithWorkProgress(ctx, func(p WorkProgress) { q.cfg.Progress(m.ID, p) })
 		}
 		_, e = q.store.Run(ctx, m.ID, []byte(m.Configuration), stages, nil)
 		if e == nil {

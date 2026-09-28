@@ -197,12 +197,15 @@ func TestBrowserUsesRecordingLibraryAndHumanExports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{`id="active-section"`, `id="library"`, `id="rename"`, "Technical details", "Export options"} {
+	for _, required := range []string{`id="active-section"`, `id="library"`, `id="rename"`, "Recording details", "Other exports", `id="detail-progress"`} {
 		if !strings.Contains(string(html), required) {
 			t.Fatal("missing recording library surface", required)
 		}
 	}
-	for _, required := range []string{"friendlyState", "renderRow", "primaryArtifact", "crypto.subtle.digest('SHA-256'", "link.download=a.filename", "'/title'"} {
+	if strings.Contains(string(html), "<details") || strings.Contains(string(html), "<summary") || strings.Contains(string(html), `id="active-count"`) || strings.Contains(string(html), `id="library-count"`) {
+		t.Fatal("redundant or collapsed status surface")
+	}
+	for _, required := range []string{"friendlyState", "renderRow", "primaryArtifact", "crypto.subtle.digest('SHA-256'", "link.download=a.filename", "'/title'", "pollProgress"} {
 		if !strings.Contains(string(js), required) {
 			t.Fatal("missing recording library behavior", required)
 		}

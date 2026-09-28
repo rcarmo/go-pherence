@@ -227,6 +227,7 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 		if int64(len(acks)) != next {
 			return fmt.Errorf("%w: non-prefix window journal", ErrCorrupt)
 		}
+		reportWorkProgress(ctx, "asr-windows", next, plan.Count(), "windows")
 		publish := func(result whisper.WindowTranscript) error {
 			if e := ctx.Err(); e != nil {
 				return e
@@ -249,7 +250,11 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 				return e
 			}
 			next++
-			return emitStored(data)
+			if e = emitStored(data); e != nil {
+				return e
+			}
+			reportWorkProgress(ctx, "asr-windows", next, plan.Count(), "windows")
+			return nil
 		}
 		var callbackErr error
 		e = infer(ctx, pcm, total, next, func(result whisper.WindowTranscript) error {

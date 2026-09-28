@@ -12,8 +12,8 @@ import (
 // PCMTranscribeOptions configures the opt-in checked path. Language is an
 // explicit tokenizer language code (e.g. "pt") or "auto" for checked
 // per-window language detection. This path transcribes rather than translates.
-// A generation-limit failure gets one deterministic retry as two padded half
-// windows. Temperature fallback and cross-window text reconciliation are not
+// A generation-limit failure retries only the failing portion using bounded
+// padded subdivisions. Temperature fallback and cross-window text reconciliation are not
 // implemented here. Word alignment is explicit.
 type PCMTranscribeOptions struct {
 	Language                 string
@@ -268,10 +268,9 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 	return segments, words, nil
 }
 
-// decodePCMWindowHalves is the single bounded recovery for a full-window
-// generation limit. Each half is right-padded to the model's fixed input size,
-// decoded with the already resolved language, and mapped back to the original
-// 30-second window. A failing half is returned as an error; there is no recursion.
+// decodePCMWindowHalves recovers only a full-window generation limit. Failing
+// halves may be subdivided a bounded number of times; successful halves are
+// never decoded twice. The detected language is shared across the whole window.
 func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, validSamples int, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int) ([]Segment, []WordTiming, error) {
 	return splitPCMGenerationLimit(ctx, samples, validSamples, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
 		output, frames, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder)
@@ -282,41 +281,49 @@ func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, 
 	})
 }
 
+const maxPCMSplitDepth = 4 // at most 16 leaves, each independently bounded by the decoder
+
 func splitPCMGenerationLimit(ctx context.Context, samples []float32, validSamples int, infer func([]float32, int) ([]Segment, []WordTiming, error)) ([]Segment, []WordTiming, error) {
 	if ctx == nil || infer == nil || validSamples < 2*int(MinWindowSamples) || validSamples > len(samples) {
 		return nil, nil, ErrGenerationLimit
 	}
-	split := validSamples / 2
-	parts := [][2]int{{0, split}, {split, validSamples}}
-	var segments []Segment
-	var words []WordTiming
-	tokenOffset := 0
-	for _, part := range parts {
+	var decode func(start, end, depth int) ([]Segment, []WordTiming, error)
+	decode = func(start, end, depth int) ([]Segment, []WordTiming, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		padded := make([]float32, len(samples))
-		copy(padded, samples[part[0]:part[1]])
-		partSegments, partWords, err := infer(padded, part[1]-part[0])
-		if err != nil {
-			return nil, nil, fmt.Errorf("split PCM offset %d: %w", part[0], err)
+		if depth > 0 {
+			padded := make([]float32, len(samples))
+			copy(padded, samples[start:end])
+			segments, words, err := infer(padded, end-start)
+			if err == nil {
+				window := Window{Start: int64(start), End: int64(end), InputSamples: int64(len(samples)), PadSamples: int64(len(samples) - (end - start))}
+				return canonicalWindowOutput(window, segments, words)
+			}
+			if !errors.Is(err, ErrGenerationLimit) || depth == maxPCMSplitDepth || end-start < 2*int(MinWindowSamples) {
+				return nil, nil, fmt.Errorf("split PCM offset %d depth %d: %w", start, depth, err)
+			}
 		}
-		window := Window{Start: int64(part[0]), End: int64(part[1]), InputSamples: int64(len(samples)), PadSamples: int64(len(samples) - (part[1] - part[0]))}
-		partSegments, partWords, err = canonicalWindowOutput(window, partSegments, partWords)
+		mid := start + (end-start)/2
+		left, leftWords, err := decode(start, mid, depth+1)
 		if err != nil {
 			return nil, nil, err
 		}
-		for i := range partWords {
-			partWords[i].TokenStart += tokenOffset
-			partWords[i].TokenEnd += tokenOffset
+		right, rightWords, err := decode(mid, end, depth+1)
+		if err != nil {
+			return nil, nil, err
 		}
-		for _, segment := range partSegments {
+		tokenOffset := 0
+		for _, segment := range left {
 			tokenOffset += len(segment.Tokens)
 		}
-		segments = append(segments, partSegments...)
-		words = append(words, partWords...)
+		for i := range rightWords {
+			rightWords[i].TokenStart += tokenOffset
+			rightWords[i].TokenEnd += tokenOffset
+		}
+		return append(left, right...), append(leftWords, rightWords...), nil
 	}
-	return segments, words, nil
+	return decode(0, validSamples, 0)
 }
 
 func detectLanguageChecked(ctx context.Context, cfg Config, dec *Decoder, output []float32, frames int, generation *CheckedGenerationConfig) (string, error) {
