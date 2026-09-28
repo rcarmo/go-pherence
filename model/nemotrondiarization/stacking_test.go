@@ -168,7 +168,7 @@ func TestReleasedStackingPyTorchParity(t *testing.T) {
 	compareStacking(t, model, features, frames, "composed Go frontend")
 }
 
-func readStackingFixture(t *testing.T, path string, elements int) []float32 {
+func readStackingFixture(t testing.TB, path string, elements int) []float32 {
 	t.Helper()
 	file, err := os.Open(path)
 	if err != nil {

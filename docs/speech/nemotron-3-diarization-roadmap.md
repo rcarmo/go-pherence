@@ -2,8 +2,9 @@
 
 NVIDIA's `nvidia/Nemotron-3-Diarization` is a candidate for a separate native
 speaker-diarisation backend. An approved checkpoint has now run as an isolated
-CPU reference on one 11-second fixture; go-pherence has no Nemotron inference
-implementation. See [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
+CPU reference on one 11-second fixture. Go-pherence has a bounded native frontend,
+feature-stack projection and first-layer pre-attention projection, but no complete
+Nemotron inference runtime. See [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
 
 ## Pinned source and scope
 
@@ -47,5 +48,12 @@ The processor's default `low_latency` mode lists `[9,4]`; `very_low_latency` and
    model metadata or synthetic operator tests.
 
 The released checkpoint ran once through the pinned Transformers CPU reference.
-Native Go execution, cross-implementation parity, labelled diarisation quality,
+The bounded 16-row `model/nemotrondiarization/Layer0QKV` path matches independent
+PyTorch layer-normalisation and Q/K/V fixtures: maximum absolute error was
+0.00000382 for Q, 0.00000238 for K and 0.000000954 for V on AVX2/FMA, with
+zero values outside the documented absolute/relative tolerance. A one-CPU
+microbenchmark of the 16-row operation took 0.410–0.485 ms, 131,072 B and
+four allocations across five 20-iteration runs. Loading, frontend, stacking,
+RoPE, attention and transfer costs are excluded. The 31-layer encoder, cache,
+upsampler and speaker head have no native parity. Labelled diarisation quality,
 production latency and readiness promotion remain open.
