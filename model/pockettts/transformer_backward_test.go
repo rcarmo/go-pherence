@@ -77,6 +77,27 @@ func TestTransformerTrainingOutputStaysOwned(t *testing.T) {
 	}
 }
 
+func TestTransformerTrainingNorm2KeepsPreFeedForwardInput(t *testing.T) {
+	model := tinyTrainableTransformer()
+	model.FinalWeight, model.FinalBias = nil, nil
+	sequence := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2}
+	tape, output := model.forwardTraining(2, sequence)
+	layer := &tape.layers[0]
+	if &output[0] != &layer.output[0] || &output[0] == &sequence[0] || &output[0] == &layer.norm2.input[0] {
+		t.Fatal("layer output does not own a distinct buffer from input and norm tape")
+	}
+	for i, value := range output {
+		want := layer.norm2.input[i] + layer.down[i]*model.Layers[0].LayerScale2[i%model.Width]
+		if value != want {
+			t.Fatalf("output[%d] = %g, want residual plus feed-forward update %g", i, value, want)
+		}
+	}
+	originalNormInput := append([]float32(nil), layer.norm2.input...)
+	output[0] += 1
+	sequence[1] += 1
+	assertSliceClose(t, "norm2 backward input remains owned", layer.norm2.input, originalNormInput, 0)
+}
+
 func TestTransformerNormBackwardWithZeroAffineWeight(t *testing.T) {
 	const rows, width = 3, 4
 	input := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2, .8, -.1, .4, -.5}

@@ -303,6 +303,16 @@ Each transformer training layer copied its input into `transformerLayerTape.inpu
 
 Evidence: `/workspace/tmp/pockettts-unused-tape-onecpu.log` and `pockettts-unused-tape-released.log` (not committed).
 
+### Attention residual buffer reuse — bounded allocation slice
+
+Layer training forward now builds its attention residual directly in the owned layer output. `transformerNormForward` first copies that residual into the second norm tape's owned input; the feed-forward residual update then changes only the layer output. Backward still reads the unchanged pre-feed-forward norm input. A two-row test checks the storage separation and residual reconstruction, while the existing two-layer test checks returned-output retention across calls. Tiny finite differences, pinned transformer/FlowLM/step oracle parity and the released 470-row owned-versus-scratch all-gradient differential passed without changing tolerances.
+
+On the local i7-12700 with Go 1.26.3, Linux/amd64, CPU-only mode, `GOMAXPROCS=1` and the same pinned six-layer checkpoint and deterministic 470-row synthetic batch, five warm forward/backward samples at committed baseline `e0d4d1ed` allocated 703,504,136 B / 12,061 objects per step. Five samples with the buffer reuse allocated 691,953,416 B / 12,055 objects: 11,550,720 B and six objects fewer per step. Baseline elapsed times ranged from 22.25 to 27.16 s; changed elapsed times ranged from 21.93 to 24.22 s. These overlapping ranges establish no speed gain. Model loading, warm-up, optimiser and checkpoint I/O are outside the timed loop. The separate setup-inclusive sampled allocation profile still includes model loading, so its flat site totals are not per-step costs; transformer forward, linear backward and per-frame flow tape allocations remain hotspots.
+
+A ten-update, six-CPU synthetic 470-row released-topology soak passed in 3m22.516s with final loss `0.1108239`, finite parameters/moments/EMA and zero flow-scratch spills at every update. Post-GC `HeapAlloc` was 1,833,115,248 bytes after update ten and 378,712 bytes after release; external process peak RSS was 4,219,840 KiB. The longer 100-update gates belong to earlier source revisions. This slice has no recorded-speech quality result, controlled production checkpoint cadence, 24-layer teacher test or long-run retained-memory result. Independent code review has not been recorded.
+
+Evidence: `/workspace/tmp/pockettts-after-attention-{baseline-five,five}.log`, `pockettts-after-attention-released.log`, `pockettts-after-attention-soak10.log` and `pockettts-after-attention-alloc.pprof` (not committed). The five-sample logs join three earlier same-CPU samples and two further isolated samples per revision.
+
 ### Maximum admitted text length — repeated synthetic updates
 
 The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.

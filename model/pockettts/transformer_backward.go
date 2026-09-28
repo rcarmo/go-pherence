@@ -26,10 +26,10 @@ type transformerNormTape struct {
 }
 
 type transformerLayerTape struct {
-	q, k, v, attention, projected, afterAttention []float32
-	probabilities                                 []float32
-	norm1, norm2                                  transformerNormTape
-	fc1Pre, fc1, down, output                     []float32
+	q, k, v, attention, projected []float32
+	probabilities                 []float32
+	norm1, norm2                  transformerNormTape
+	fc1Pre, fc1, down, output     []float32
 }
 
 type transformerTape struct {
@@ -164,7 +164,9 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 		}
 	}
 	tape.projected = linearForwardRowsTraining(l.OutProjection, tape.attention, rows)
-	tape.afterAttention = make([]float32, rows*width)
+	// Norm2 owns its input copy for backward, so the residual buffer can become
+	// this layer's output after Norm2 has captured it.
+	tape.output = make([]float32, rows*width)
 	for row := 0; row < rows; row++ {
 		projected := tape.projected[row*width : (row+1)*width]
 		for i := 0; i < width; i++ {
@@ -172,17 +174,16 @@ func (l TransformerLayerCPU) forwardTraining(rows, width, heads, headDim, contex
 			if l.LayerScale1 != nil {
 				update *= l.LayerScale1[i]
 			}
-			tape.afterAttention[row*width+i] = input[row*width+i] + update
+			tape.output[row*width+i] = input[row*width+i] + update
 		}
 	}
-	tape.norm2, _ = transformerNormForward(rows, width, tape.afterAttention, l.Norm2Weight, l.Norm2Bias, 1e-5)
+	tape.norm2, _ = transformerNormForward(rows, width, tape.output, l.Norm2Weight, l.Norm2Bias, 1e-5)
 	tape.fc1Pre = linearForwardRowsTraining(l.FC1, tape.norm2.normalized, rows)
 	tape.fc1 = make([]float32, len(tape.fc1Pre))
 	for i, value := range tape.fc1Pre {
 		tape.fc1[i] = geluTanh(value)
 	}
 	tape.down = linearForwardRowsTraining(l.FC2, tape.fc1, rows)
-	tape.output = append([]float32(nil), tape.afterAttention...)
 	for row := 0; row < rows; row++ {
 		down := tape.down[row*width : (row+1)*width]
 		for i := 0; i < width; i++ {
