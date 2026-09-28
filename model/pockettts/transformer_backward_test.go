@@ -77,6 +77,30 @@ func TestTransformerTrainingOutputStaysOwned(t *testing.T) {
 	}
 }
 
+func TestTransformerTrainingInputGradientStaysOwned(t *testing.T) {
+	model := tinyTrainableTransformer()
+	model.Layers = append(model.Layers, model.Layers[0])
+	model.FinalWeight, model.FinalBias = nil, nil
+	sequence := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2}
+	seed := []float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8}
+	originalSeed := append([]float32(nil), seed...)
+	_, _, dSequence, err := model.ForwardBackward(sequence, seed, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertSliceClose(t, "caller output gradient unchanged", seed, originalSeed, 0)
+	original := append([]float32(nil), dSequence...)
+	seed[0] += 1
+	sequence[1] += 1
+	if _, _, _, err = model.ForwardBackward(sequence, seed, 2); err != nil {
+		t.Fatal(err)
+	}
+	assertSliceClose(t, "owned transformer input gradient", dSequence, original, 0)
+	if &dSequence[0] == &seed[0] || &dSequence[0] == &sequence[0] {
+		t.Fatal("transformer input gradient aliases caller buffer")
+	}
+}
+
 func TestTransformerTrainingNorm2KeepsPreFeedForwardInput(t *testing.T) {
 	model := tinyTrainableTransformer()
 	model.FinalWeight, model.FinalBias = nil, nil
