@@ -82,6 +82,14 @@ Three native RTX 3060 runs per backend passed `3e-5 + 2e-5*abs(reference)` per v
 
 Run the opt-in probes with `GO_PHERENCE_NEMOTRON_STEM_FIXTURE_DIR=/workspace/tmp/nemotron-asr-stem-device`, `-timeout=2m`, and respectively `GO_PHERENCE_TEST_NEMOTRON_VULKAN_STEM=1` or `GO_PHERENCE_TEST_NEMOTRON_PTX_STEM=1`. Regenerate patch inputs with `scripts/nemotron_asr_stem_device_fixture.py --out /workspace/tmp/nemotron-asr-stem-device`. Raw logs: `/workspace/tmp/nemotron-asr-stem-{vulkan,ptx}-independent-3.log` (not committed).
 
+## Diarisation first-layer Q/K/V: bounded Vulkan and PTX probes
+
+The released first audio-transformer layer applies `LayerNorm(512)` before bias-free Q/K/V projections. The 16-row CPU SIMD path at `model/nemotrondiarization/Layer0QKV` passed independent PyTorch normalised-input and pre-RoPE Q/K/V fixtures. `scripts/nemotron_diarization_qkv_device_fixture.py` exports that same normalised input `[16,512]` and a released combined `[1536,512]` Q/K/V weight. The opt-in Vulkan `VkLinearF32` and PTX/CUDA SGEMM probes compare output with each independent reference, then with CPU SIMD. Normalisation, RoPE, attention, residuals, cache and speaker head do not run on the GPU here.
+
+On an RTX 3060, three runs per backend had maximum absolute error `7.63e-6`, mean absolute error `2.38e-7`, zero values outside `3e-4 + 2e-5*abs(reference)`, and maximum CPU/GPU drift `6.68e-6`. Across the three Vulkan runs, upload took 381–480 µs, first dispatch 492–781 µs, download 6–36 µs, and fifteen resident dispatches 341–375 µs. PTX's host weight transpose took 1.60–2.70 ms, upload 158–299 µs, first dispatch plus sync 102–114 µs, download 24–53 µs, and fifteen resident dispatch-and-sync samples 53–61 µs. The weight transpose is a preparation cost, while the upload includes the normalised input and weights. Timings are isolated samples, not full-request latency. CPU SIMD GEMM samples spanned 343–505 µs in the Vulkan runs and 352–440 µs in the PTX runs; the whole CPU layer-normalisation/QKV operation is separately measured at 410–485 µs per 16 rows. No GPU default or full-model throughput claim follows.
+
+Reproduce with `scripts/nemotron_diarization_qkv_device_fixture.py --out /workspace/tmp/nemotron-qkv-device`, `GO_PHERENCE_NEMOTRON_QKV_FIXTURE_DIR=/workspace/tmp/nemotron-qkv-device`, `-timeout=2m`, and respectively `GO_PHERENCE_TEST_NEMOTRON_VULKAN_QKV=1` or `GO_PHERENCE_TEST_NEMOTRON_PTX_QKV=1`. The generated raw F32 inputs are outside Git; the independent compressed Q/K/V references are in `model/nemotrondiarization/testdata/`.
+
 ## Next gates
 
 1. Pin independent remaining ASR subsampling and subsequent model-boundary fixtures with calibrated tolerances; independently label a multi-speaker/overlap cohort for turn and timestamp scoring. Keep model-output hashes out of acceptance tests.
