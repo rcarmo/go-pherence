@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,24 @@ func TestReleasedCLISmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Size() != 44+2*1920 || !strings.Contains(stdout.String(), `"samples":1920`) {
+	if info.Size() != 44+2*1920 || !strings.Contains(stdout.String(), `"samples":1920`) || !strings.Contains(stdout.String(), `"capacity_reached":true`) {
 		t.Fatalf("size=%d output=%s", info.Size(), stdout.String())
+	}
+	// The same pinned prompt and seed has room to finish below this cap.
+	out2 := filepath.Join(t.TempDir(), "longer.wav")
+	stdout.Reset()
+	err = run([]string{"-config", "../../../model/pockettts/testdata/english-upstream.yaml", "-model", model, "-tokenizer", tokenizer, "-voice", voice, "-text", "Hello world!", "-max-frames", "64", "-seed", "42", "-out", out2}, &stdout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Samples         int  `json:"samples"`
+		CapacityReached bool `json:"capacity_reached"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Samples <= 0 || result.Samples >= 64*1920 || result.CapacityReached {
+		t.Fatalf("longer generation samples=%d output=%s", result.Samples, stdout.String())
 	}
 }

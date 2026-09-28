@@ -93,9 +93,10 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	capacityReached := samples == len(pcm)
 	pcm = pcm[:samples]
 	if err := pockettts.WritePCM16Mono24k(*out, pcm); err != nil {
 		return err
 	}
-	return json.NewEncoder(stdout).Encode(map[string]any{"output": *out, "text": prepared, "tokens": len(ids), "frames": samples / pockettts.SamplesPerFrame, "samples": samples, "sample_rate": pockettts.SampleRate, "seed": *seed})
+	return json.NewEncoder(stdout).Encode(map[string]any{"output": *out, "text": prepared, "tokens": len(ids), "frames": samples / pockettts.SamplesPerFrame, "samples": samples, "sample_rate": pockettts.SampleRate, "seed": *seed, "capacity_reached": capacityReached})
 }
