@@ -91,6 +91,62 @@ func TestPCMTranscribePlanAllWindowsAndFailures(t *testing.T) {
 	}
 }
 
+func TestPCMGenerationLimitSplitMappingAndFailures(t *testing.T) {
+	samples := make([]float32, 1000)
+	for i := range samples {
+		samples[i] = float32(i + 1)
+	}
+	calls := 0
+	segments, words, err := splitPCMGenerationLimit(context.Background(), samples, 801, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
+		calls++
+		wantValid := 400
+		wantFirst := float32(1)
+		if calls == 2 {
+			wantValid, wantFirst = 401, 401
+		}
+		if valid != wantValid || padded[0] != wantFirst || padded[valid-1] == 0 || padded[valid] != 0 || len(padded) != len(samples) {
+			t.Fatalf("split %d valid=%d first=%g tail=%g pad=%g", calls, valid, padded[0], padded[valid-1], padded[valid])
+		}
+		return []Segment{{Start: 0, End: float64(valid) / 16000, Text: "part", Tokens: []int{calls, calls + 10}}}, []WordTiming{{Word: "part", Start: 0, End: float64(valid) / 16000, TokenStart: 0, TokenEnd: 2}}, nil
+	})
+	if err != nil || calls != 2 || len(segments) != 2 || len(words) != 2 || segments[0].Start != 0 || segments[1].Start != 400.0/16000 || segments[1].End != 801.0/16000 || words[0].TokenStart != 0 || words[0].TokenEnd != 2 || words[1].TokenStart != 2 || words[1].TokenEnd != 4 {
+		t.Fatal("split mapping", calls, segments, words, err)
+	}
+	failure := errors.New("half failed")
+	calls = 0
+	segments, words, err = splitPCMGenerationLimit(context.Background(), samples, 801, func([]float32, int) ([]Segment, []WordTiming, error) {
+		calls++
+		if calls == 2 {
+			return nil, nil, failure
+		}
+		return []Segment{{Start: 0, End: .01, Tokens: []int{1}}}, nil, nil
+	})
+	if !errors.Is(err, failure) || segments != nil || words != nil || calls != 2 {
+		t.Fatal("partial split escaped", calls, segments, words, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	calls = 0
+	segments, words, err = splitPCMGenerationLimit(ctx, samples, 801, func([]float32, int) ([]Segment, []WordTiming, error) {
+		calls++
+		cancel()
+		return nil, nil, nil
+	})
+	cancel()
+	if !errors.Is(err, context.Canceled) || segments != nil || words != nil || calls != 1 {
+		t.Fatal("split cancellation", calls, segments, words, err)
+	}
+	for _, tc := range []struct {
+		ctx     context.Context
+		samples []float32
+		valid   int
+		infer   func([]float32, int) ([]Segment, []WordTiming, error)
+	}{{nil, samples, 801, func([]float32, int) ([]Segment, []WordTiming, error) { return nil, nil, nil }}, {context.Background(), samples, 319, func([]float32, int) ([]Segment, []WordTiming, error) { return nil, nil, nil }}, {context.Background(), samples, 1001, func([]float32, int) ([]Segment, []WordTiming, error) { return nil, nil, nil }}, {context.Background(), samples, 801, nil}} {
+		if out, worded, err := splitPCMGenerationLimit(tc.ctx, tc.samples, tc.valid, tc.infer); !errors.Is(err, ErrGenerationLimit) || out != nil || worded != nil {
+			t.Fatal("invalid split accepted", tc.valid, err)
+		}
+	}
+}
+
 func TestPCMTranscribeTimestampMapping(t *testing.T) {
 	p, _ := NewWindowPlan(480001, 480000, 16000)
 	w, _ := p.At(1)

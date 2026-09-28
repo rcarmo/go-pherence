@@ -25,7 +25,7 @@ const (
 // the canonical PCM timeline; no source-container PTS/edit-list mapping here.
 // FrameStart is deliberately absent: upstream aggregation resets it to Start.
 // Hamming/warmup disabled, matching Community-1 apply's (0,0) warmup.
-// Bounds: chunks1..4096, frames1..4096, speakers1..8, start0..14400,
+// Bounds: chunks1..8192, frames1..4096, speakers1..8, start0..14400,
 // chunk duration/step in(0,30], frame duration/step in[1e-6,1], duration>=step,
 // whole extent<=14430s, <=1e6 output frames, <=2^24 input/output elements,
 // and outputFrames*classes*classes<=2^28 bounds the per-frame sorting work.
@@ -235,7 +235,7 @@ func reconstructActivity(ctx context.Context, segmentations []float32, effective
 	return result, nil
 }
 func reconstructionGrid(c ReconstructionConfig) ([]int, int, error) {
-	if c.Chunks < 1 || c.Chunks > 4096 || c.Frames < 1 || c.Frames > 4096 || c.Speakers < 1 || c.Speakers > 8 || int64(c.Chunks)*int64(c.Frames)*int64(c.Speakers) > 1<<24 || c.MaxSpeakers < 1 || c.MaxSpeakers > 64 || (c.TiePolicy != RejectAmbiguousTies && c.TiePolicy != LowestIndexTies) {
+	if c.Chunks < 1 || c.Chunks > maxDiarizationWindows || c.Frames < 1 || c.Frames > 4096 || c.Speakers < 1 || c.Speakers > 8 || int64(c.Chunks)*int64(c.Frames)*int64(c.Speakers) > 1<<24 || c.MaxSpeakers < 1 || c.MaxSpeakers > 64 || (c.TiePolicy != RejectAmbiguousTies && c.TiePolicy != LowestIndexTies) {
 		return nil, 0, fmt.Errorf("invalid reconstruction geometry/policy")
 	}
 	for _, v := range []float64{c.Start, c.ChunkDuration, c.ChunkStep, c.FrameDuration, c.FrameStep} {

@@ -28,7 +28,9 @@ type DiarizationWindow struct {
 	Samples, Padding int
 }
 
-// PlanDiarizationWindows is bounded to 4096 windows and four hours of canonical
+const maxDiarizationWindows = 8192
+
+// PlanDiarizationWindows is bounded to 8192 windows and four hours of canonical
 // input. Empty input is rejected explicitly. Window<=160000, step<=window.
 // This bounds retained results; it is not a production long-file scheduler.
 func PlanDiarizationWindows(samples int64, window, step int) ([]DiarizationWindow, error) {
@@ -44,8 +46,8 @@ func PlanDiarizationWindows(samples int64, window, step int) ([]DiarizationWindo
 	if orphan {
 		count++
 	}
-	if count > 4096 {
-		return nil, fmt.Errorf("experimental diarization exceeds 4096 windows")
+	if count > maxDiarizationWindows {
+		return nil, fmt.Errorf("experimental diarization exceeds 8192 windows")
 	}
 	windows := make([]DiarizationWindow, 0, int(count))
 	for i := int64(0); i < count; i++ {
@@ -235,7 +237,7 @@ func (m *ExperimentalDiarization) runPCMObserved(ctx context.Context, reader Dia
 	if err != nil {
 		return nil, err
 	}
-	if grid.Frames < 2 || grid.Frames > MaxPowersetFrames || len(windows)*grid.Frames > (1<<24)/8 {
+	if grid.Frames < 2 || grid.Frames > MaxPowersetFrames {
 		return nil, fmt.Errorf("diarization segmentation frame bound")
 	}
 	if cfg.WindowSamples < audio.WeSpeakerWindowSamples || cfg.MinimumEmbeddingSamples < 1 || cfg.MinimumEmbeddingSamples > cfg.WindowSamples {
@@ -246,8 +248,8 @@ func (m *ExperimentalDiarization) runPCMObserved(ctx context.Context, reader Dia
 	}
 	local := m.segmentation.checkpoint.cfg.Head.Speakers
 	dim := m.embedding.model.cfg.EmbedDim
-	if local < 1 || local > 8 || dim < 1 || dim > 512 {
-		return nil, fmt.Errorf("invalid diarization model dimensions")
+	if local < 1 || local > 8 || dim < 1 || dim > 512 || int64(len(windows))*int64(grid.Frames)*int64(local) > 1<<24 {
+		return nil, fmt.Errorf("invalid diarization model dimensions/element bound")
 	}
 	if cfg.MinSpeakers < 1 || cfg.MaxSpeakers < cfg.MinSpeakers || cfg.MaxSpeakers > 64 || cfg.NumSpeakers < 0 || cfg.NumSpeakers > 64 || cfg.AHCThreshold < 0 || cfg.Fa <= 0 || cfg.Fb <= 0 || cfg.MinDurationOff < 0 || cfg.MinDurationOff > 30 {
 		return nil, fmt.Errorf("invalid diarization postprocess policy")
