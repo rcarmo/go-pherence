@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -316,6 +317,83 @@ func TestReleasedMultiUtteranceNumericalParity(t *testing.T) {
 			t.Logf("emitted=%d reference_rms=%.9g affected=%d max_abs=%.9g relative_rms=%.9g", written, math.Sqrt(sumSignal2/float64(written)), affected, maxAbs, relRMS)
 			if maxAbs > 4e-5 || relRMS > 5e-5 {
 				t.Fatalf("PCM drift max_abs=%.9g relative_rms=%.9g", maxAbs, relRMS)
+			}
+		})
+	}
+}
+
+// Opt-in seeded-CLI-noise check for the five prompts used in listening review.
+// A finite, audible-level result below capacity is necessary but cannot prove
+// intelligibility or sentence completion. Keep the human listening gate open.
+func TestReleasedCLISeed0PromptBoundaries(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_POCKETTTS_CLI_PROMPTS") == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_CLI_PROMPTS and pinned released model/tokenizer/voice paths")
+	}
+	modelPath := releasedModel(t)
+	voicePath := releasedVoice(t)
+	tok := releasedTokenizer(t)
+	gen, err := LoadGeneratorCPU(modelPath, releasedConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const capacity = 64
+	voice, err := LoadVoiceState(voicePath, gen.FlowLM.Transformer, capacity+64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := NewSession(gen, voice, capacity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, text string
+		frames     int
+	}{
+		{"hello", "Hello world!", 14},
+		{"harbor", "A calm breeze crosses the harbor at dawn.", 30},
+		{"portuguese", "Português é uma língua bonita.", 34},
+		{"question", "Can you read this aloud?", 19},
+		{"numbers", "The train arrives at seven thirty five.", 32},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prepared, after, err := PrepareText(tc.text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids, err := tok.Encode(prepared)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rng := rand.New(rand.NewPCG(0, 0x9e3779b97f4a7c15))
+			noise := func(_ int, dst []float32) error {
+				for i := range dst {
+					dst[i] = float32(rng.NormFloat64() * math.Sqrt(.3))
+				}
+				return nil
+			}
+			pcm := make([]float32, capacity*SamplesPerFrame)
+			written, err := session.GenerateInto(pcm, ids, capacity, after, 1, -4, noise)
+			if err != nil || written != tc.frames*SamplesPerFrame {
+				t.Fatalf("generated %d samples, recorded %d: %v", written, tc.frames*SamplesPerFrame, err)
+			}
+			if written == len(pcm) {
+				t.Fatal("hit frame capacity before EOS")
+			}
+			var energy float64
+			for i, sample := range pcm {
+				if !isFinitePCM(sample) || (i >= written && sample != 0) {
+					t.Fatalf("invalid PCM[%d]=%g", i, sample)
+				}
+				if i < written {
+					energy += float64(sample) * float64(sample)
+				}
+			}
+			rms := math.Sqrt(energy / float64(written))
+			t.Logf("emitted_frames=%d pcm_rms=%.9g", written/SamplesPerFrame, rms)
+			// The reviewed fixed-pattern noise failure was ~0.00027 RMS;
+			// this coarse floor catches near-silence, not speech quality.
+			if rms < 0.005 {
+				t.Fatalf("near-silent emitted PCM rms=%.9g", rms)
 			}
 		})
 	}
