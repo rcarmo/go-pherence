@@ -345,6 +345,16 @@ The first ten-update six-CPU released-topology synthetic soak was interrupted af
 
 Evidence: `/workspace/tmp/pockettts-backward-entry-{baseline-five,onecpu-five,released,soak10-retry,tree-race}.log` (not committed).
 
+### Batched linear-backward transpose reuse — bounded allocation slice
+
+The four batched weight-gradient calls in each transformer layer had allocated a separate transposed output-gradient buffer. A layer-local buffer now serves those sequential calls; the standalone `linearBackwardRowsTraining` retains its owned-result API and accepts nil scratch through a private helper. The helper sizes undersized scratch itself. Three-row scalar and 17-row batched tests check input and weight gradients against the original path, output-gradient preservation, buffer sentinels and returned-gradient ownership after scratch reuse. Ten repeated tiny tests and the pinned released owned-versus-scratch all-gradient differential pass without changed tolerances.
+
+On the local i7-12700, Linux/amd64, Go 1.26.3, CPU-only `GOMAXPROCS=1` and the pinned six-layer synthetic 470-row batch, five warm samples at committed `8b2777de` allocated 676,552,456 B / 12,047 objects per forward/backward step. Five changed-tree samples allocated 618,798,856 B / 12,029 objects: 57,753,600 B and 18 objects fewer. Baseline elapsed times ranged from 21.49 to 22.49 s; changed times from 21.82 to 26.02 s, with overlapping ranges. No speed gain is established. Loading, warm-up, optimiser and checkpoint I/O are outside the timed loop.
+
+A separate ten-update six-CPU released-topology synthetic soak passed in 3m18.072s with final loss `0.1108239`, finite parameters/moments/EMA and zero scratch spills at every update. Post-GC `HeapAlloc` was 1,833,128,528 bytes after update ten and 392,104 bytes after release; process peak RSS was 4,229,952 KiB. This is not a long-run retained-memory gate. Independent review, recorded-speech quality, teacher execution and durable checkpoint cadence remain open.
+
+Evidence: `/workspace/tmp/pockettts-linear-transpose-{baseline-five,onecpu-trial,onecpu-extra,released,soak10,tree-race}.log` (not committed; the trial file is named `onecpu-trial.log`).
+
 ### Maximum admitted text length — repeated synthetic updates
 
 The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.
