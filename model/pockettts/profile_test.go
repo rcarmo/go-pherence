@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
@@ -227,6 +228,96 @@ func TestReleasedTwentyFiveFrameNumericalParity(t *testing.T) {
 	// These leave rounding headroom, but are not an audio-quality admission.
 	if maxAbs > 4e-5 || relRMS > 5e-5 {
 		t.Fatalf("25-frame PCM drift exceeds bounds: max_abs=%.9g (limit 4e-5), relative_rms=%.9g (limit 5e-5)", maxAbs, relRMS)
+	}
+}
+
+// Opt-in five-prompt numerical comparison against same-architecture baseline
+// F32 files. This is a regression check, not an independent speech-quality oracle.
+func TestReleasedMultiUtteranceNumericalParity(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_POCKETTTS_REFERENCE_DIR")
+	if dir == "" {
+		t.Skip("set GO_PHERENCE_POCKETTTS_REFERENCE_DIR to a documented ARM64 baseline F32 directory")
+	}
+	modelPath := releasedModel(t)
+	voicePath := releasedVoice(t)
+	tok := releasedTokenizer(t)
+	gen, err := LoadGeneratorCPU(modelPath, releasedConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voice, err := LoadVoiceState(voicePath, gen.FlowLM.Transformer, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const capacity = 25
+	session, err := NewSession(gen, voice, capacity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, text string
+		emitted    int
+	}{
+		{"hello", "Hello world!", 28800},
+		{"long", "A calm breeze crosses the harbor at dawn.", 48000},
+		{"accent", "Português é uma língua bonita.", 48000},
+		{"question", "Can you read this aloud?", 36480},
+		{"numbers", "The train arrives at seven thirty five.", 48000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join(dir, tc.name+".f32"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(data) != capacity*SamplesPerFrame*4 {
+				t.Fatalf("reference bytes=%d want=%d", len(data), capacity*SamplesPerFrame*4)
+			}
+			prepared, after, err := PrepareText(tc.text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids, err := tok.Encode(prepared)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pcm := make([]float32, capacity*SamplesPerFrame)
+			noise := func(_ int, dst []float32) error {
+				for j := range dst {
+					dst[j] = float32((j*7)%19-9) / 16
+				}
+				return nil
+			}
+			written, err := session.GenerateInto(pcm, ids, capacity, after, 1, -4, noise)
+			if err != nil || written != tc.emitted {
+				t.Fatalf("generated %d samples, baseline emitted %d: %v", written, tc.emitted, err)
+			}
+			var affected int
+			var maxAbs, sumError2, sumSignal2 float64
+			for i, got := range pcm {
+				want := math.Float32frombits(binary.LittleEndian.Uint32(data[4*i:]))
+				if !isFinitePCM(got) || !isFinitePCM(want) || (i >= written && (got != 0 || want != 0)) {
+					t.Fatalf("invalid PCM at sample %d", i)
+				}
+				if i >= written {
+					continue
+				}
+				diff := math.Abs(float64(got) - float64(want))
+				if diff > 0 {
+					affected++
+				}
+				maxAbs = math.Max(maxAbs, diff)
+				sumError2 += diff * diff
+				sumSignal2 += float64(want) * float64(want)
+			}
+			if sumSignal2 == 0 {
+				t.Fatal("silent reference")
+			}
+			relRMS := math.Sqrt(sumError2 / sumSignal2)
+			t.Logf("emitted=%d reference_rms=%.9g affected=%d max_abs=%.9g relative_rms=%.9g", written, math.Sqrt(sumSignal2/float64(written)), affected, maxAbs, relRMS)
+			if maxAbs > 4e-5 || relRMS > 5e-5 {
+				t.Fatalf("PCM drift max_abs=%.9g relative_rms=%.9g", maxAbs, relRMS)
+			}
+		})
 	}
 }
 
