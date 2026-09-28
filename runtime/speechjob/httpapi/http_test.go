@@ -190,6 +190,52 @@ func TestFailedRunKeepsDownloadsAndRedactsErrors(t *testing.T) {
 	}
 }
 
+func TestCancelledRunRetainsTranscriptDownloadAndRetry(t *testing.T) {
+	entered := make(chan struct{})
+	stages := []speechjob.Stage{
+		textStage("transcript", "verified transcript before diarization"),
+		testStage("diarization", func(ctx context.Context, _ *speechjob.Input, _ io.Writer) error {
+			close(entered)
+			<-ctx.Done()
+			return ctx.Err()
+		}),
+	}
+	h, s, root := fixture(t, stages, 4)
+	job := upload(t, h)
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() { done <- request(h, http.MethodPost, "/v1/jobs/"+job.ID+"/run", nil) }()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("diarization did not start")
+	}
+	if w := request(h, http.MethodPost, "/v1/jobs/"+job.ID+"/cancel", nil); w.Code != http.StatusAccepted {
+		t.Fatal("cancel signal", w.Code, w.Body.String())
+	}
+	select {
+	case w := <-done:
+		if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"status":"cancelled"`) {
+			t.Fatal("cancel drain", w.Code, w.Body.String())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelled run did not drain")
+	}
+	stored := decodeJob(t, request(h, http.MethodGet, "/v1/jobs/"+job.ID, nil), http.StatusOK)
+	if stored.Status != speechjob.Cancelled || stored.MediaReleased || len(stored.Artifacts) != 1 || stored.Artifacts[0].Name != "transcript" {
+		t.Fatal("cancelled artifact metadata", stored)
+	}
+	if w := request(h, http.MethodGet, "/v1/jobs/"+job.ID+"/artifacts/transcript", nil); w.Code != http.StatusOK || w.Body.String() != "verified transcript before diarization" {
+		t.Fatal("cancelled artifact download", w.Code, w.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, job.ID, "input")); err != nil {
+		t.Fatal("cancelled upload removed", err)
+	}
+	manifest, err := s.Get(job.ID)
+	if err != nil || len(manifest.Checkpoints) != 1 || manifest.Checkpoints[0].Stage != "transcript" {
+		t.Fatal("cancelled checkpoint", manifest, err)
+	}
+}
+
 type countingBody struct {
 	reads  int
 	closed bool
