@@ -323,6 +323,18 @@ A separate ten-update six-CPU released-topology synthetic soak passed in 3m35.76
 
 Evidence: `/workspace/tmp/pockettts-dafter-{baseline-five,onecpu-five,released,soak10,tree-race}.log` and `pockettts-dafter-alloc.pprof` (not committed).
 
+### Transformer entry-copy removal — bounded allocation slice
+
+The transformer training entry had copied the caller's sequence before entering its first layer. Every layer reads its input, creates an owned output and gives its first norm tape a separate owned input for backward. Removing the entry copy leaves the caller's sequence unchanged, including with two layers and with or without final norm. Tests repeated ten times check output ownership, caller-input preservation, finite differences and pinned upstream transformer gradients; the released owned-versus-scratch all-gradient differential also passed.
+
+On the local i7-12700, Linux/amd64, Go 1.26.3, CPU-only `GOMAXPROCS=1` and the pinned six-layer deterministic 470-row batch, five warm samples at baseline `58eb460f` allocated 680,402,696 B / 12,049 objects per forward/backward step. Five changed-tree samples allocated 678,477,576 B / 12,048 objects, saving 1,925,120 B and one allocation. Baseline elapsed times ranged from 21.66 to 22.45 s; changed samples from 21.65 to 22.87 s. These ranges overlap; no speed gain is established. Model load, warm-up, optimiser and checkpoint I/O are excluded.
+
+A paired `-memprofilerate=1` setup-and-warm-only versus setup-plus-one-step profile was taken on committed `58eb460f` before the edit. Whole-process allocated space rose from 1,572,804.63 to 2,237,261.03 KiB and objects from 15,386 to 25,939; these totals contain setup and are not the per-step benchmark figures. Flat site differences include transformer layer forward +184,368 KiB, batched linear backward +180,480 KiB and `flowTapeScratch.take` +6,406 objects. These are next attribution targets, not proof that all site allocations can be eliminated. The temporary profiling benchmark source was removed; profiling elapsed time is diagnostic only.
+
+A separate ten-update six-CPU synthetic 470-row soak passed with final loss `0.1108239`, finite parameters/moments/EMA and zero scratch spills at each update. Post-GC `HeapAlloc` was 1,833,119,232 bytes after update ten and 382,680 bytes after release; process peak RSS was 4,219,136 KiB. Earlier long soaks do not cover this revision. Recorded-speech quality, teacher execution, sustained durable checkpoint cadence and independent review remain open.
+
+Evidence: `/workspace/tmp/pockettts-entrycopy-{baseline-five,onecpu-five,released,soak10,tree-race}.log` and `/workspace/tmp/pockettts-58eb460f-setup-{only,plus-step}-alloc.pprof` (not committed).
+
 ### Maximum admitted text length — repeated synthetic updates
 
 The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.

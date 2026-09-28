@@ -108,7 +108,9 @@ func newTransformerGradients(m *TransformerCPU) *TransformerGradients {
 
 func (m *TransformerCPU) forwardTraining(rows int, sequence []float32) (*transformerTape, []float32) {
 	tape := &transformerTape{layers: make([]transformerLayerTape, len(m.Layers))}
-	hidden := append([]float32(nil), sequence...)
+	// Each layer reads its input and creates an owned output; Norm1 separately
+	// retains its own input copy for backward, so the caller needs no copy here.
+	hidden := sequence
 	for i := range m.Layers {
 		tape.layers[i], hidden = m.Layers[i].forwardTraining(rows, m.Width, m.Heads, m.HeadDim, m.Context, m.MaxPeriod, hidden)
 	}

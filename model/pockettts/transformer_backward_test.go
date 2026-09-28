@@ -77,6 +77,27 @@ func TestTransformerTrainingOutputStaysOwned(t *testing.T) {
 	}
 }
 
+func TestTransformerTrainingDoesNotMutateCallerSequence(t *testing.T) {
+	for _, finalNorm := range []bool{false, true} {
+		model := tinyTrainableTransformer()
+		model.Layers = append(model.Layers, model.Layers[0])
+		if !finalNorm {
+			model.FinalWeight, model.FinalBias = nil, nil
+		}
+		sequence := []float32{.2, -.4, .1, .5, -.3, .7, .6, -.2}
+		seed := []float32{.1, -.2, .3, -.4, .5, -.6, .7, -.8}
+		original := append([]float32(nil), sequence...)
+		output, _, _, err := model.ForwardBackward(sequence, seed, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertSliceClose(t, "caller transformer sequence unchanged", sequence, original, 0)
+		if &output[0] == &sequence[0] {
+			t.Fatal("returned transformer output aliases caller sequence")
+		}
+	}
+}
+
 func TestTransformerTrainingInputGradientStaysOwned(t *testing.T) {
 	model := tinyTrainableTransformer()
 	model.Layers = append(model.Layers, model.Layers[0])
