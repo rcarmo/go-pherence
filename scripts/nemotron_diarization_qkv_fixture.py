@@ -43,6 +43,11 @@ def main():
         save(args.out / "jfk_layer0_normal.f32.gz", normal)
         for name in ("q", "k", "v"):
             save(args.out / f"jfk_layer0_{name}.f32.gz", getattr(layer.self_attn, f"{name}_proj")(normal))
+        positions = torch.arange(16)[None, :]
+        rotary = model.model.audio_tower.rotary_emb(input_normal[None], positions)
+        attention, _ = layer.self_attn(normal[None], position_embeddings=rotary, attention_mask=None)
+        save(args.out / "jfk_layer0_attention.f32.gz", attention[0])
+        save(args.out / "jfk_layer0_residual.f32.gz", input_normal + attention[0])
 
 
 if __name__ == "__main__":

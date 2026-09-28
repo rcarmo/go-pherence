@@ -56,5 +56,11 @@ zero values outside the documented absolute/relative tolerance. A one-CPU
 microbenchmark of the 16-row operation took 0.396–0.490 ms, 163,840 B and
 five allocations across five 20-iteration runs. Loading, frontend, stacking,
 RoPE, attention and transfer costs are excluded. The 31-layer encoder, cache,
-upsampler and speaker head have no native parity. Labelled diarisation quality,
-production latency and readiness promotion remain open.
+upsampler and speaker head have no native parity. `Layer0Attention.ForwardOffline`
+passes PyTorch parity for an isolated unmasked 16-row bidirectional window:
+maximum absolute error `5.72e-6` for the attention projection and `7.63e-6`
+for its residual. Its one-CPU, five-by-20-iteration microbenchmark used
+294,976 B/10 allocations and 0.877–2.306 ms per window; timings are noisy.
+The window does not reproduce the first 16 rows of the full 138-row recording.
+Later MLP, encoder layers, cache, upsampler and speaker head remain unqualified.
+Labelled diarisation quality, production latency and readiness promotion remain open.
