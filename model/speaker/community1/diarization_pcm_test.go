@@ -83,6 +83,44 @@ func TestDiarizationWindowPlan(t *testing.T) {
 		t.Fatal("8193")
 	}
 }
+
+// This is only a model-free geometry preflight for the 81m TEF recording.
+// It does not qualify speaker accuracy, run neural inference, or predict time.
+func TestTEFLongDiarizationGeometryPreflight(t *testing.T) {
+	const samples int64 = 78059864 // retained decoded PCM extent before cancellation
+	windows, err := PlanDiarizationWindows(samples, 160000, 16000)
+	if err != nil || len(windows) != 4870 {
+		t.Fatal("window plan", len(windows), err)
+	}
+	grid, err := sincNetGrid(160000, 10) // pinned Community-1 SincNet stride
+	if err != nil || grid.Frames != 589 || grid.Step != 270 {
+		t.Fatal("segmentation grid", grid, err)
+	}
+	const local, dim = 3, 256
+	if int64(len(windows))*int64(grid.Frames)*local > 1<<24 || len(windows)*local*dim > 1<<24 {
+		t.Fatal("segmentation/embedding element bound")
+	}
+	cfg := ReconstructionConfig{
+		Chunks: len(windows), Frames: grid.Frames, Speakers: local,
+		Start: 0, ChunkDuration: 10, ChunkStep: 1,
+		FrameDuration: float64(grid.ReceptiveField) / 16000,
+		FrameStep:     float64(grid.Step) / 16000,
+		MaxSpeakers:   64, TiePolicy: LowestIndexTies,
+	}
+	starts, frames, err := reconstructionGrid(cfg)
+	if err != nil || frames < 280000 || frames > 300000 || len(starts) != len(windows) {
+		t.Fatal("reconstruction grid", frames, err)
+	}
+	if int64(frames)*local > 1<<24 || int64(frames)*local*local > 1<<28 || frames*local > 1<<24 {
+		t.Fatal("reconstruction/turn element bound")
+	}
+	if _, err := BinaryActivityToTurns(context.Background(), make([]uint8, frames*local), BinaryTurnConfig{
+		Frames: frames, Speakers: local, FrameDuration: cfg.FrameDuration, FrameStep: cfg.FrameStep,
+	}); err != nil {
+		t.Fatal("turn geometry", err)
+	}
+}
+
 func diarizationFixture(t *testing.T, speech bool) (*ExperimentalDiarization, DiarizationPCMConfig, SegmentationModes) {
 	t.Helper()
 	seg, _ := experimentalFixture(t)
