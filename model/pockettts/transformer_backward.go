@@ -214,7 +214,9 @@ func transformerNormForward(rows, width int, input, weight, bias []float32, epsi
 }
 
 func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutput []float32, gradients *TransformerGradients) []float32 {
-	dHidden := append([]float32(nil), dOutput...)
+	// Final norm and each layer only read their incoming gradient and return
+	// owned storage; the caller's dOutput never needs an entry copy.
+	dHidden := dOutput
 	if m.FinalWeight != nil {
 		dHidden = transformerNormBackward(rows, m.Width, tape.final, dHidden, m.FinalWeight, gradients.FinalWeight, gradients.FinalBias)
 	}

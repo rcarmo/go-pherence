@@ -335,6 +335,16 @@ A separate ten-update six-CPU synthetic 470-row soak passed with final loss `0.1
 
 Evidence: `/workspace/tmp/pockettts-entrycopy-{baseline-five,onecpu-five,released,soak10,tree-race}.log` and `/workspace/tmp/pockettts-58eb460f-setup-{only,plus-step}-alloc.pprof` (not committed).
 
+### Transformer backward entry-copy removal — bounded allocation slice
+
+`TransformerCPU.backwardTraining` copied caller `dOutput` before the optional final norm and reverse layer traversal. The final norm reads its input and returns new storage; each layer copies its incoming gradient into an owned residual buffer before accumulation. Passing caller `dOutput` directly into this read-only boundary removes the entry copy. A two-layer repeat-call test checks that caller gradients stay unchanged, returned input gradients remain owned, and both cases with and without final norm behave the same. Ten repeated tiny tests, pinned transformer/FlowLM/step parity and released 470-row owned-versus-scratch all-gradient differential passed without changing tolerances.
+
+On the local i7-12700, Linux/amd64, Go 1.26.3, CPU-only `GOMAXPROCS=1` and the pinned six-layer deterministic 470-row batch, five warm baseline samples at committed `23596274` allocated 678,477,576 B / 12,048 objects per step. Five changed-tree samples allocated 676,552,456 B / 12,047 objects, saving 1,925,120 B and one allocation. Baseline elapsed times ranged from 21.91 to 28.35 s; changed samples from 22.19 to 26.09 s. Ranges overlap and neither a speed gain nor a speed regression is established. Both sets have a long tail; no timing admission follows from this slice. The timed loop excludes loading, warm-up, optimiser and checkpoint I/O.
+
+The first ten-update six-CPU released-topology synthetic soak was interrupted after it logged its starting shape; it supplied no pass. A fresh run passed in 3m20.709s with final loss `0.1108239`, finite parameters/moments/EMA and zero flow-scratch spills at each update. Post-GC `HeapAlloc` was 1,833,118,048 bytes after update ten and 381,512 bytes after release; external peak RSS was 4,200,576 KiB. Current-revision 100-update retention, recorded-speech quality, teacher execution, sustained durable checkpoint cadence and independent review remain open.
+
+Evidence: `/workspace/tmp/pockettts-backward-entry-{baseline-five,onecpu-five,released,soak10-retry,tree-race}.log` (not committed).
+
 ### Maximum admitted text length — repeated synthetic updates
 
 The released opt-in soak accepts `GO_PHERENCE_POCKETTTS_RELEASED_TRAINING_TEXT_TOKENS` from 1 to 512 (default 32), leaving ordinary CI unchanged. With 512 deterministic text tokens, the admitted row contains 950 sequence positions (`1 + 62 + 512 + 375`). An initial one-update CPU check passed with loss `0.5955415`, finite parameters/Adam moments/EMA, zero flow scratch spills and 2,686,080 KiB external peak RSS; the concurrent 32-token long soak makes its 53.451-second step unsuitable for a latency comparison.
