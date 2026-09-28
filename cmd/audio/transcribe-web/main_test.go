@@ -195,7 +195,7 @@ func TestBrowserRejectsMislabeledMediaAndExplainsFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := string(js)
-	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "detail-error", "!permanent&&!j.media_released&&(!e||terminal)"} {
+	for _, required := range []string{"file.slice(0,12)", "This file contains MP3 audio but is named .wav.", "media_type_mismatch", "detail-error", "!permanent&&!j.media_released&&(!e||terminal)", "const retry=j.status==='failed'||j.status==='cancelled'||!!terminal"} {
 		if !strings.Contains(source, required) {
 			t.Fatal("missing browser failure UX", required)
 		}
