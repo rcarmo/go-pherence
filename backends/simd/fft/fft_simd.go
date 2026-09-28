@@ -1,13 +1,13 @@
 package fft
 
-import "math"
+import (
+	"math"
+	"unsafe"
+)
 
-// ForwardRealSIMD computes a real-input FFT using SIMD-optimized butterfly stages
-// when available, falling back to scalar otherwise.
-// This is the dispatch entry point.
+// ForwardRealSIMD computes a real-input FFT using the optimized pure-Go
+// butterfly stages. It does not dispatch to assembly.
 func ForwardRealSIMD(input []float32) []float32 {
-	// On amd64 with AVX2, the assembly kernel handles the butterfly stages.
-	// For now, all platforms use the optimized Go implementation below.
 	return forwardRealOpt(input)
 }
 
@@ -19,12 +19,40 @@ func forwardRealOpt(input []float32) []float32 {
 		return nil
 	}
 
-	re := make([]float64, n)
-	im := make([]float64, n)
+	re, im := make([]float64, n), make([]float64, n)
+	out := make([]float32, (n/2+1)*2)
+	if !ForwardRealInto(out, input, re, im) {
+		return nil
+	}
+	return out
+}
+
+// ForwardRealInto writes the real FFT to caller-owned buffers. It rejects
+// overlapping buffers; the caller may reuse the buffers across rows.
+func ForwardRealInto(out, input []float32, re, im []float64) bool {
+	n := len(input)
+	if n == 0 || n&(n-1) != 0 || len(re) < n || len(im) < n || len(out) < (n/2+1)*2 {
+		return false
+	}
+	re, im = re[:n], im[:n]
+	out = out[:(n/2+1)*2]
+	inputStart := uintptr(unsafe.Pointer(unsafe.SliceData(input)))
+	outStart := uintptr(unsafe.Pointer(unsafe.SliceData(out)))
+	reStart := uintptr(unsafe.Pointer(unsafe.SliceData(re)))
+	imStart := uintptr(unsafe.Pointer(unsafe.SliceData(im)))
+	overlaps := func(a, sizeA, b, sizeB uintptr) bool { return a < b+sizeB && b < a+sizeA }
+	if overlaps(inputStart, uintptr(n)*4, outStart, uintptr(len(out))*4) ||
+		overlaps(inputStart, uintptr(n)*4, reStart, uintptr(n)*8) ||
+		overlaps(inputStart, uintptr(n)*4, imStart, uintptr(n)*8) ||
+		overlaps(outStart, uintptr(len(out))*4, reStart, uintptr(n)*8) ||
+		overlaps(outStart, uintptr(len(out))*4, imStart, uintptr(n)*8) ||
+		overlaps(reStart, uintptr(n)*8, imStart, uintptr(n)*8) {
+		return false
+	}
 	for i, v := range input {
 		re[i] = float64(v)
 	}
-
+	clear(im)
 	bitReverse(re, im, n)
 
 	// Butterfly stages
@@ -57,12 +85,11 @@ func forwardRealOpt(input []float32) []float32 {
 	}
 
 	bins := n/2 + 1
-	out := make([]float32, bins*2)
 	for i := 0; i < bins; i++ {
 		out[2*i] = float32(re[i])
 		out[2*i+1] = float32(im[i])
 	}
-	return out
+	return true
 }
 
 // PowerSpectrumSIMD computes |FFT(input)|² using the optimized path.

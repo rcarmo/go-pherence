@@ -3,6 +3,7 @@ package fft
 import (
 	"math"
 	"testing"
+	"unsafe"
 )
 
 func TestForwardRealDC(t *testing.T) {
@@ -70,6 +71,56 @@ func TestPowerSpectrum(t *testing.T) {
 	}
 	if maxBin != 2 {
 		t.Fatalf("max power at bin %d want 2", maxBin)
+	}
+}
+
+func TestForwardRealIntoScratchAndBounds(t *testing.T) {
+	for _, n := range []int{1, 16, 32, 512} {
+		input := make([]float32, n)
+		for i := range input {
+			input[i] = float32(math.Sin(float64(i) * .13))
+		}
+		original := append([]float32(nil), input...)
+		re, im := make([]float64, n+2), make([]float64, n+2)
+		out := make([]float32, (n/2+1)*2+2)
+		re[n], im[n], out[len(out)-1] = 11, 12, 13
+		for pass := 0; pass < 2; pass++ {
+			for i := 0; i < n; i++ {
+				re[i], im[i] = 42, 99
+			}
+			if !ForwardRealInto(out, input, re, im) {
+				t.Fatalf("n=%d valid buffers rejected", n)
+			}
+			want := ForwardReal(input)
+			for i := range want {
+				if math.Abs(float64(want[i]-out[i])) > 2e-5 {
+					t.Fatalf("n=%d pass=%d bin=%d got=%g want=%g", n, pass, i, out[i], want[i])
+				}
+			}
+			if re[n] != 11 || im[n] != 12 || out[len(out)-1] != 13 {
+				t.Fatalf("n=%d scratch overrun", n)
+			}
+		}
+		for i := range input {
+			if input[i] != original[i] {
+				t.Fatalf("n=%d input mutated", n)
+			}
+		}
+		if ForwardRealInto(out[:len(out)-3], input, re, im) || ForwardRealInto(out, input, re[:n-1], im) || ForwardRealInto(out, input, re, im[:n-1]) {
+			t.Fatalf("n=%d accepted undersized buffers", n)
+		}
+		if ForwardRealInto(out, input, re, re) {
+			t.Fatalf("n=%d accepted overlapping FFT scratch", n)
+		}
+		if n >= 4 {
+			alias := unsafe.Slice((*float32)(unsafe.Pointer(&re[0])), n*2)
+			if ForwardRealInto(out, alias[:n], re, im) {
+				t.Fatalf("n=%d accepted input/scratch overlap", n)
+			}
+		}
+	}
+	if ForwardRealInto(make([]float32, 10), make([]float32, 7), make([]float64, 7), make([]float64, 7)) {
+		t.Fatal("accepted non-power-of-two FFT")
 	}
 }
 
