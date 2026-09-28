@@ -10,6 +10,7 @@
 * [MiniCPM-V/O and Kev retirement](minicpm-kev-retirement-20260927.md)
 * [Model coverage status](model-coverage-status.md)
 * [MTP (Multi-Token Prediction) Speculative Decoding](mtp-speculative.md)
+* [Qwen-Image (original) roadmap](qwen-image-1-roadmap.md)
 * [Qwen3-TTS support roadmap](qwen3-tts-support.md)
 * [Qwen3.6 27B Native MTP roadmap](qwen36-mtp.md)
 * [Supported models and formats](supported-models.md)
