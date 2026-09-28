@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // This opt-in gate checks released-shape in-memory resume. An explicit
@@ -50,18 +51,21 @@ func TestReleasedTrainingInMemoryResume(t *testing.T) {
 		}
 		defer os.RemoveAll(tempDir)
 		checkpoint = filepath.Join(tempDir, "training.bin")
+		start := time.Now()
 		if err = SaveFullTrainingStateBinary(checkpoint, state); err != nil {
 			t.Fatal(err)
 		}
+		saveDuration := time.Since(start)
 		info, statErr := os.Stat(checkpoint)
 		if statErr != nil {
 			t.Fatal(statErr)
 		}
-		t.Logf("released binary checkpoint bytes=%d", info.Size())
+		start = time.Now()
 		loaded, loadErr := LoadFullTrainingStateBinary(checkpoint, 2<<30)
 		if loadErr != nil {
 			t.Fatal(loadErr)
 		}
+		t.Logf("released binary checkpoint first: bytes=%d save=%s load=%s", info.Size(), saveDuration, time.Since(start))
 		if !reflect.DeepEqual(state, loaded) {
 			t.Fatal("released binary checkpoint differs from in-memory state")
 		}
@@ -110,13 +114,17 @@ func TestReleasedTrainingInMemoryResume(t *testing.T) {
 	}
 	// Replace the same released-size checkpoint after a resumed update, then
 	// resume again into fresh models and compare the next complete update.
+	start := time.Now()
 	if err = SaveFullTrainingStateBinary(checkpoint, got); err != nil {
 		t.Fatal(err)
 	}
+	saveDuration := time.Since(start)
+	start = time.Now()
 	loaded, err := LoadFullTrainingStateBinary(checkpoint, 2<<30)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("released binary checkpoint replacement: save=%s load=%s", saveDuration, time.Since(start))
 	if !reflect.DeepEqual(want, loaded) {
 		t.Fatal("second released binary checkpoint differs from continuous state")
 	}
