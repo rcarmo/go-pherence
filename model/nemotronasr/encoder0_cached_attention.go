@@ -8,8 +8,8 @@ import (
 )
 
 // ForwardCachedChunk projects an already-normalised [rows,1024] query chunk
-// within a five-row window and updates one stream's layer-0 key/value cache. It returns owned attention
-// output. This bounded path checks cached relative scores and the chunk mask;
+// and updates one stream's layer-0 key/value cache. It returns owned attention
+// output. This path checks cached relative scores and the chunk mask;
 // it does not advance the rest of the encoder or convolution padding cache.
 // Cache state belongs to one stream and must not be shared concurrently.
 func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead int, cache *Encoder0KVCache) ([]float32, error) {
@@ -18,9 +18,6 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 	}
 	if cache == nil || rows < 1 || rows > 5 || len(input) != rows*encoderWidth || (lookahead != 0 && lookahead != 3) {
 		return nil, fmt.Errorf("invalid Nemotron ASR cached attention window")
-	}
-	if cache.seen < 0 || cache.seen > 5-rows {
-		return nil, fmt.Errorf("Nemotron ASR cached attention exceeds qualified five-row window")
 	}
 	for _, value := range input {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
@@ -52,8 +49,10 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 		return nil, fmt.Errorf("invalid Nemotron ASR cached attention state")
 	}
 	keyRows := retained + rows
-	encoded := encoder0RelativePositions(keyRows)
-	positions := 2*keyRows - 1
+	// The reference encodes relative positions over cumulative sequence
+	// length even after the K/V cache has begun sliding.
+	encoded := encoder0RelativePositions(seen + rows)
+	positions := 2*(seen+rows) - 1
 	relative := make([]float32, len(encoded))
 	if !simd.DenseNTTo(relative, encoded, m.relativeWeight, positions, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
 		return nil, fmt.Errorf("Nemotron ASR cached relative projection rejected shape")
@@ -82,7 +81,9 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 				}
 				scores[source] = (content + positional) * scaling
 				globalSource := seen - retained + source
-				if globalSource/(lookahead+1) > globalRow/(lookahead+1) {
+				chunk := lookahead + 1
+				distance := globalRow/chunk - globalSource/chunk
+				if distance < 0 || distance > (asrKVWindow-1)/chunk || globalSource > globalRow && lookahead == 0 {
 					scores[source] = float32(math.Inf(-1))
 				}
 			}

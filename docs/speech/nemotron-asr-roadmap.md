@@ -29,3 +29,17 @@ errors span `4.71e-5–5.00e-5`; scalar means span `5.90e-5–7.10e-5`. This
 qualifies full-valid subsampling cache transitions only. Terminal masked
 chunks, 24-layer encoder-cache scheduling, incremental RNNT state, complete
 transcription, and transfer-inclusive GPU request timing remain open.
+
+`Encoder0Attention.ForwardCachedChunk` now uses cumulative sequence length for
+relative positions after the 57-frame K/V window starts sliding, and applies
+the reference's chunk-distance mask. A 72-row PyTorch fixture reuses
+released-weight JFK projected rows, then normalises them with released
+layer-0 weights; it scores eighteen four-row chunks at lookahead 0 and 3.
+The Go path matches those outputs on SIMD (maximum `1.91e-4`, mean
+`1.42e-5–1.46e-5`) and scalar (maximum `2.90e-4`, mean
+`2.19e-5–2.21e-5`) with zero per-value outliers under
+`3e-4 + 2e-5*abs(reference)`. A synthetic high-amplitude probe did exceed
+that gate, so this evidence is bounded to released-audio-derived inputs.
+The existing five-row attention and cached-block tests still pass. This
+qualifies layer-0 attention cache transitions only; it does not advance
+convolution state across 24 layers or decode long audio.
