@@ -162,7 +162,11 @@ of nine current and four lookahead encoder frames: returned input lengths
 not retained. The released streaming cache uses a 264-frame FIFO and moves
 at least 222 frames into a speaker cache on overflow; the separate offline
 configuration uses a 40-frame FIFO and 300-frame update period. The Go
-pre-compression slice rejects overflow without changing state. Prepared
-embeddings and synthetic logits do not qualify probability scoring,
-compression, model inference, speaker-cache streaming, other input lengths,
-transfer-inclusive GPU latency or production readiness.
+pre-compression slice rejects overflow without changing state. `PoolSpeakerProbabilities` also matches the reference's sigmoid and
+8-logit average pool for all three prepared steps, with one masked final
+encoder row: maximum absolute error `5.97e-8`, mean below `1.3e-8` and
+zero values outside `2e-6`. It rejects non-finite logits even on masked
+rows and preserves caller input. Prepared embeddings and synthetic logits
+do not qualify speaker-cache scoring/compression, model inference,
+streaming, other input lengths, transfer-inclusive GPU latency or
+production readiness.
