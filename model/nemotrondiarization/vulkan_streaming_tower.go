@@ -6,10 +6,10 @@ import (
 	"sync"
 )
 
-// VulkanStreamingTower owns at most one fixed-row resident tower. Streaming
-// windows change row count as the speaker cache grows; a row change closes
-// the old plan before admitting a new one. There is no silent CPU fallback.
-// One instance belongs to one stream. Call Close, including after errors.
+// VulkanStreamingTower owns one maximum-row resident tower. Exact prefix
+// views and checked plan rebinding preserve the live attention key count when
+// the streaming cache grows. There is no silent CPU fallback. One instance
+// belongs to one stream. Call Close, including after errors.
 type VulkanStreamingTower struct {
 	model  *OfflineAudioTower
 	mu     sync.Mutex
@@ -54,23 +54,17 @@ func (s *VulkanStreamingTower) Forward(ctx context.Context, input []float32, row
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if s.tower != nil && s.rows != rows {
-		if err := s.tower.Close(); err != nil {
-			return nil, err
-		}
-		s.tower = nil
-	}
 	if s.tower == nil {
-		candidate, err := NewVulkanAudioTower(ctx, s.model, rows)
+		candidate, err := NewVulkanAudioTower(ctx, s.model, maxPreparedDiarizationRows)
 		if err != nil {
 			if candidate != nil {
-				s.tower, s.rows = candidate, rows // constructor cleanup failed; preserve owner
+				s.tower, s.rows = candidate, maxPreparedDiarizationRows // constructor cleanup failed; preserve owner
 			}
 			return nil, err
 		}
-		s.tower, s.rows = candidate, rows
+		s.tower, s.rows = candidate, maxPreparedDiarizationRows
 	}
-	return s.tower.Forward(ctx, input)
+	return s.tower.ForwardRows(ctx, input, rows)
 }
 
 // EnableVulkanTower opts one stream into resident Vulkan encoder execution.

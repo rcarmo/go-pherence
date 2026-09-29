@@ -19,28 +19,37 @@ type VulkanAudioLayer struct {
 	resources     []interface{ Close() error }
 	rows          int
 	closed        bool
+	activations   [10]*vk.VkTensorF32 // normal, Q, K, V, mixed, attention, residual, MLP norm, intermediate, fc2
+	weights       [14]*vk.VkTensorF32 // zero bias, norm1, Q/K/V, output, norm2, fc1/fc2
+	frequency     *vk.VkTensorF32
+	norm          *vk.VkLayerNormF32
+	linear        *vk.VkLinearF32
+	rope          *vk.VkRoPESequenceF32
+	attn          *vk.VkAttentionF32
+	add           *vk.VkAddF32
+	gelu          *vk.VkGELUErfF32
 }
 
 func (l *VulkanAudioLayer) Close() error {
 	if l == nil || l.closed {
 		return nil
 	}
-	var err error
+	// Plans and stages can reference earlier resources. Stop at the first
+	// failed close and retain it plus all upstream owners for VulkanDrain retry.
 	for i := len(l.resources) - 1; i >= 0; i-- {
-		if l.resources[i] != nil {
-			if closeErr := l.resources[i].Close(); closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else {
-				l.resources[i] = nil
-			}
+		if l.resources[i] == nil {
+			continue
 		}
-	}
-	if err != nil {
-		return err // retry after VulkanDrain; keep failed owners reachable
+		if err := l.resources[i].Close(); err != nil {
+			return err
+		}
+		l.resources[i] = nil
 	}
 	l.closed = true
 	l.resources = nil
 	l.plan, l.input, l.output = nil, nil, nil
+	l.activations, l.weights = [10]*vk.VkTensorF32{}, [14]*vk.VkTensorF32{}
+	l.norm, l.linear, l.rope, l.attn, l.add, l.gelu, l.frequency = nil, nil, nil, nil, nil, nil, nil
 	return nil
 }
 
@@ -256,6 +265,10 @@ func newVulkanAudioLayerFromTensor(ctx context.Context, source *Layer1Complete, 
 		return nil, err
 	}
 	layer.resources = append(layer.resources, gelu)
+	layer.activations = [10]*vk.VkTensorF32{normal, q, k, v, mixed, attention, residual, mlpNormal, intermediate, fc2}
+	layer.weights = [14]*vk.VkTensorF32{zeroBias, norm1Weight, norm1Bias, qWeight, kWeight, vWeight, outWeight, outBias, norm2Weight, norm2Bias, fc1Weight, fc1Bias, fc2Weight, fc2Bias}
+	layer.frequency = frequency
+	layer.norm, layer.linear, layer.rope, layer.attn, layer.add, layer.gelu = norm, linear, rope, attn, add, gelu
 	stages := make([]vk.VkF32Stage, 0, 15)
 	appendStage := func(stage vk.VkF32Stage, e error) error {
 		if e != nil {
@@ -312,6 +325,97 @@ func newVulkanAudioLayerFromTensor(ctx context.Context, source *Layer1Complete, 
 	}
 	layer.resources = append(layer.resources, layer.plan)
 	return layer, nil
+}
+
+// rebindRows stages the exact prefix of each maximum-row activation; weight
+// bindings and kernels remain resident. RoPE and attention see the live row
+// count, including the exact softmax key count. Caller serializes plan use.
+func (l *VulkanAudioLayer) rebindRows(ctx context.Context, rows int, previous *vk.VkTensorF32) error {
+	if l == nil || l.closed || l.plan == nil || ctx == nil || rows < 1 || rows > l.rows || l.input == nil || l.output == nil || l.frequency == nil || l.norm == nil || l.linear == nil || l.rope == nil || l.attn == nil || l.add == nil || l.gelu == nil {
+		return fmt.Errorf("invalid Nemotron Vulkan layer rebind")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	prefix := func(t *vk.VkTensorF32) (*vk.VkTensorF32, error) { return t.PrefixRows(ctx, rows) }
+	input := l.input
+	if previous != nil {
+		input = previous
+	} else {
+		var err error
+		input, err = prefix(input)
+		if err != nil {
+			return err
+		}
+	}
+	shape := input.Shape()
+	if len(shape) != 2 || shape[0] != rows || shape[1] != projectedWidth {
+		return fmt.Errorf("invalid Nemotron Vulkan previous layer rows")
+	}
+	var activation [10]*vk.VkTensorF32
+	for i, t := range l.activations {
+		var err error
+		activation[i], err = prefix(t)
+		if err != nil {
+			return err
+		}
+	}
+	output, err := prefix(l.output)
+	if err != nil {
+		return err
+	}
+	frequency, err := prefix(l.frequency)
+	if err != nil {
+		return err
+	}
+	w := l.weights
+	stages := make([]vk.VkF32Stage, 0, 14)
+	appendStage := func(stage vk.VkF32Stage, stageErr error) error {
+		if stageErr != nil {
+			return stageErr
+		}
+		stages = append(stages, stage)
+		return nil
+	}
+	if err = appendStage(l.norm.Stage(ctx, activation[0], input, w[1], w[2], 1e-5)); err != nil {
+		return err
+	}
+	for i := 0; i < 3; i++ {
+		if err = appendStage(l.linear.Stage(ctx, activation[1+i], activation[0], w[3+i], w[0])); err != nil {
+			return err
+		}
+	}
+	if err = appendStage(l.rope.Stage(ctx, activation[1], frequency, diarizationHeads)); err != nil {
+		return err
+	}
+	if err = appendStage(l.rope.Stage(ctx, activation[2], frequency, diarizationHeads)); err != nil {
+		return err
+	}
+	if err = appendStage(l.attn.Stage(ctx, activation[4], activation[1], activation[2], activation[3], diarizationHeads)); err != nil {
+		return err
+	}
+	if err = appendStage(l.linear.Stage(ctx, activation[5], activation[4], w[6], w[7])); err != nil {
+		return err
+	}
+	if err = appendStage(l.add.Stage(ctx, activation[6], input, activation[5])); err != nil {
+		return err
+	}
+	if err = appendStage(l.norm.Stage(ctx, activation[7], activation[6], w[8], w[9], 1e-5)); err != nil {
+		return err
+	}
+	if err = appendStage(l.linear.Stage(ctx, activation[8], activation[7], w[10], w[11])); err != nil {
+		return err
+	}
+	if err = appendStage(l.gelu.Stage(ctx, activation[8], activation[8])); err != nil {
+		return err
+	}
+	if err = appendStage(l.linear.Stage(ctx, activation[9], activation[8], w[12], w[13])); err != nil {
+		return err
+	}
+	if err = appendStage(l.add.Stage(ctx, output, activation[6], activation[9])); err != nil {
+		return err
+	}
+	return l.plan.Rebind(ctx, stages)
 }
 
 func (l *VulkanAudioLayer) Forward(ctx context.Context, input []float32) ([]float32, error) {

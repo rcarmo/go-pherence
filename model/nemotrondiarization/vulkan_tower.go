@@ -16,14 +16,16 @@ import (
 // the host/device boundary. Plans still fence between layers. This does not
 // include the streaming speaker cache, upsampler or classifier. Call Close.
 type VulkanAudioTower struct {
-	first  *Layer0Complete
-	layers []*VulkanAudioLayer
-	final  *vk.VkF32Plan
-	output *vk.VkTensorF32
-	owners []interface{ Close() error }
-	rows   int
-	mu     sync.Mutex // serializes plan use and teardown
-	closed bool
+	first                  *Layer0Complete
+	layers                 []*VulkanAudioLayer
+	final                  *vk.VkF32Plan
+	output                 *vk.VkTensorF32
+	finalNorm              *vk.VkLayerNormF32
+	finalWeight, finalBias *vk.VkTensorF32
+	owners                 []interface{ Close() error }
+	rows                   int
+	mu                     sync.Mutex // serializes plan use and teardown
+	closed                 bool
 }
 
 func (t *VulkanAudioTower) Close() error {
@@ -49,6 +51,7 @@ func (t *VulkanAudioTower) Close() error {
 	}
 	t.closed = true
 	t.owners, t.layers, t.final, t.output, t.first = nil, nil, nil, nil, nil
+	t.finalNorm, t.finalWeight, t.finalBias = nil, nil, nil
 	return nil
 }
 
@@ -124,6 +127,7 @@ func NewVulkanAudioTower(ctx context.Context, source *OfflineAudioTower, rows in
 		return nil, err
 	}
 	t.owners = append(t.owners, norm)
+	t.finalNorm, t.finalWeight, t.finalBias = norm, weight, bias
 	stage, err := norm.Stage(ctx, t.output, t.layers[29].output, weight, bias, 1e-5)
 	if err != nil {
 		return nil, err
@@ -140,6 +144,82 @@ func NewVulkanAudioTower(ctx context.Context, source *OfflineAudioTower, rows in
 // independent final-normalised tower output. No input is retained or mutated.
 func (t *VulkanAudioTower) Forward(ctx context.Context, stacked []float32) ([]float32, error) {
 	return t.forward(ctx, stacked, nil)
+}
+
+// ForwardRows runs an exact prefix of a maximum-row resident tower. Plans are
+// rebound before execution; the attention stage receives precisely rows keys
+// and RoPE starts at position zero. The caller's input and output are owned.
+func (t *VulkanAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows int) ([]float32, error) {
+	if t == nil {
+		return nil, fmt.Errorf("nil Nemotron Vulkan tower")
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed || t.first == nil || t.final == nil || t.finalNorm == nil || ctx == nil || rows < 1 || rows > t.rows || len(stacked) != rows*projectedWidth || len(t.layers) != 30 {
+		return nil, fmt.Errorf("invalid Nemotron Vulkan tower prefix input")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for _, value := range stacked {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, fmt.Errorf("non-finite Nemotron Vulkan tower prefix input")
+		}
+	}
+	first, err := t.first.ForwardOffline(stacked, rows)
+	if err != nil {
+		return nil, err
+	}
+	input, err := t.layers[0].input.PrefixRows(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	if err := input.Upload(ctx, first); err != nil {
+		return nil, err
+	}
+	for index, layer := range t.layers {
+		var upstream *vk.VkTensorF32
+		if index != 0 {
+			upstream, err = t.layers[index-1].output.PrefixRows(ctx, rows)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err := layer.rebindRows(ctx, rows, upstream); err != nil {
+			return nil, fmt.Errorf("Nemotron Vulkan tower rebind layer %d: %w", index+1, err)
+		}
+		if err := layer.runResident(ctx); err != nil {
+			return nil, fmt.Errorf("Nemotron Vulkan tower layer %d: %w", index+1, err)
+		}
+	}
+	output, err := t.output.PrefixRows(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	hidden, err := t.layers[29].output.PrefixRows(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	stage, err := t.finalNorm.Stage(ctx, output, hidden, t.finalWeight, t.finalBias, 1e-5)
+	if err != nil {
+		return nil, err
+	}
+	if err := t.final.Rebind(ctx, []vk.VkF32Stage{stage}); err != nil {
+		return nil, err
+	}
+	if err := t.final.Run(ctx); err != nil {
+		return nil, err
+	}
+	result := make([]float32, rows*projectedWidth)
+	if err := output.Download(ctx, result); err != nil {
+		return nil, err
+	}
+	for _, value := range result {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, fmt.Errorf("non-finite Nemotron Vulkan tower prefix output")
+		}
+	}
+	return result, nil
 }
 
 // observe is for pinned intermediate fixture checks. Production calls do not

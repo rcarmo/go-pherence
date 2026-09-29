@@ -110,11 +110,27 @@ while changing the exact live row count. An RTX 3060 test rebound RoPE and
 non-causal eight-head attention at 17, 5 and 11 rows using one plan and
 arena; independent float64 attention estimates had maximum errors
 `4.21e-8` or lower, with no padded key entering softmax. Offline rollback,
-cancellation, owner-close, resource and `-race` checks passed. The 30-layer
-streaming tower has not yet adopted these primitives; its request timings
-above are unchanged. The request figures include the CPU frontend, first
-layer, head and cache; they do not qualify a complete GPU request or
-labelled diarization quality.
+cancellation, owner-close, resource and `-race` checks passed. The 30-layer streaming tower now reuses one maximum-row allocation, all 30
+sets of weights/kernels and their plan descriptors per request, rebinding
+exact prefix rows for each streaming window. On the i7-12700/RTX 3060 at `GOMAXPROCS=4`, the 11-second JFK request
+with Vulkan stacking took `2.41 s` and `1.70 s` in two samples (versus
+`1.89 s` SIMD on the same revision); the 100-second tiled JFK request
+took `35.74 s` and `30.31 s` (versus `75.13 s` SIMD on the same revision).
+The previous Vulkan tower rebuilt each shape and took `9.32 s`/`108.31 s`
+for those requests. All timings exclude model/WAV loading and include
+setup, transfers and teardown. These bounded samples show a 100-second
+request-level hybrid GPU speedup on this host; 11-second timing overlaps
+SIMD, and sustained throughput or other hardware is untested.
+Both matched all 1,099/9,999 independent PyTorch logit rows with zero
+outliers and the same three/29 model-assigned spans. The synthetic 31-second
+JFK→podcast request took `6.10 s` on this Vulkan hybrid versus `12.25 s`
+on SIMD on the same revision, matching all 3,099 pinned logit rows and four
+spans (including the model-assigned second speaker); one sample each.
+The 11-window pinned
+fixtures, native `-race`, cancelled-run, repeated-run and cleanup tests pass.
+The request still runs the frontend, first layer, head and speaker cache
+on CPU. Labelled diarization quality and complete GPU-request performance
+are open.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;

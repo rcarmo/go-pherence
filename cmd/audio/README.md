@@ -29,8 +29,11 @@ stay on CPU in that mode. An experimental `-task diarization -backend vulkan
 on Vulkan with intermediate activations resident. The frontend, first audio
 layer, speaker cache and head remain on CPU. GPU errors fail the request
 without a CPU fallback. On an i7-12700/RTX 3060 with `GOMAXPROCS=4`, this
-opt-in path took 9.45 s on an 11-second JFK WAV versus 2.03 s on SIMD;
-it is a parity path, not a request-level speedup. The reported timer excludes
+opt-in path now uses exact-row plan rebinding: 11-second JFK took
+1.70–2.41 s versus 1.89 s on SIMD, while 100-second tiled JFK took
+30.31–35.74 s versus 75.13 s on SIMD (bounded single-host samples).
+It is still a hybrid request; labelled quality and sustained throughput
+need separate checks. The reported timer excludes
 WAV/checkpoint loading but includes GPU preparation, transfers and teardown. Input must be mono 16-kHz WAV; ASR
 uses `tokenizer.json` beside the checkpoint unless `-tokenizer` is set.
 See the [ASR](../../docs/speech/nemotron-asr-roadmap.md) and

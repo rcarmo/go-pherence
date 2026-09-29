@@ -56,10 +56,14 @@ func TestReleasedVulkanStreamingWindowPyTorchParity(t *testing.T) {
 		t.Fatal("cancelled window mutated cache or allocated Vulkan tower")
 	}
 	for step := 0; step <= 10; step++ {
+		previous := device.tower
 		chunk := stacked[step*9*projectedWidth : (step*9+13)*projectedWidth]
 		_, logits, err := window.ForwardPreparedContext(context.Background(), chunk, 9, 4)
 		if err != nil {
 			t.Fatalf("step %d: %v", step, err)
+		}
+		if device.tower == nil || device.rows != maxPreparedDiarizationRows || (previous != nil && device.tower != previous) {
+			t.Fatalf("step=%d rebuilt resident tower or changed bounded capacity", step)
 		}
 		if step > 2 && step != 5 && step != 10 {
 			continue
