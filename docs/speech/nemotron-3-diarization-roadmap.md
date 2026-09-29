@@ -130,8 +130,15 @@ The shared `loader/audio/NemotronMelStream` frontend processes 100 seconds of
 tiled JFK PCM in five-second calls with fixed state and owned feature chunks.
 Against full-duration pinned Transformers features, its 10,001 rows have a
 maximum error of `3.67e-4`, mean `1.15e-6` and zero tolerance outliers.
-Streaming stacking, speaker-cache scheduling and masks have not been connected;
-the offline model still rejects windows above 376 rows.
+`PCMStackingStream` now composes that frontend with the released stacking
+projection, emitting owned embeddings from at most five seconds of PCM per
+call with at most seven pending mel rows. On the same 100-second audio, its
+1,251 embeddings match independent PyTorch output: SIMD maximum error
+`2.68e-4`, mean `9.25e-6`; CPU-features-disabled maximum `2.90e-4`, mean
+`1.06e-5`, with zero per-value outliers under `3e-4 + 2e-5*abs(reference)`.
+Prepared-feature chunk-boundary tests also pass two chunk patterns. The 31-layer
+model still rejects offline windows above 376 rows; streaming model scheduling,
+speaker-cache policy and masks have not been connected to the PCM stream.
 
 `OfflineRequest.ForwardPCM` now composes the native 16-kHz log-mel frontend, stack projection, 31-layer
 tower and head on the pinned 176,000-sample JFK waveform. The owned 1101×8
