@@ -98,12 +98,36 @@ produce 12 blank decisions at frames 0–11, agreeing with pinned
 `generate()` after its initial BOS blank. `DecodeRNNTText` uses the released
 Parakeet vocabulary, removes blanks and special IDs, preserves repeated
 RNN-T tokens (no CTC collapse), and yields an empty string on this prefix.
-Long-recording nonblank tokens and native transcription accuracy have not
-been checked; this short all-blank fixture does not establish WER.
+The 11-second JFK recording now passes an independent pinned Transformers
+streaming `generate()` comparison at lookahead three. `AppendPCM` calls of
+397, 4,040 and 5,520 samples each produce 185 matching decisions after
+removing the reference's BOS blank, including 45 nonblank emissions, at
+identical encoder frames. `DecodeRNNTText` returns the same text:
+“And so my fellow Americans ask not what your country can do for you.  Ask
+what you can do for your country”. The processor's 25/32 unmasked mel
+schedule yields 140 encoder rows. SIMD subsampling output over these rows
+has maximum absolute error `0.00238`, mean `1.26e-4`, zero outliers under
+`3e-3 + 4e-5*abs(reference)`; the full 24-layer output has maximum
+`3.16e-6`, mean `1.83e-8`, zero outliers under
+`3e-4 + 2e-5*abs(reference)`. The original step-15 run failed: native
+attention differed by up to 16.22 and the token loop first differed at
+frame 72. Correcting sliding relative positions to the visible K/V length
+removed that error. A CPU-features-disabled full-JFK run exceeded the
+five-minute command limit after reaching chunk 21; scalar full-recording
+parity is unverified. This is one recording's transcript parity against
+a model oracle, not measured WER on labelled speech, a quality comparison
+across accents or production latency.
 
-`Encoder0Attention.ForwardCachedChunk` now uses cumulative sequence length for
-relative positions after the 57-frame K/V window starts sliding, and applies
-the reference's chunk-distance mask. A 72-row PyTorch fixture reuses
+`Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
+relative positions after the 57-frame window starts sliding, and applies
+the reference's chunk-distance mask. The prior prepared-row fixtures passed
+cumulative `get_seq_length()` to the positional encoder and therefore missed
+a live `encoder.forward` divergence at chunk 15. Regenerated independent
+attention and 24-layer tower fixtures use `get_mask_sizes(chunk, 0)[0] - chunk`
+as `cached_frames`. Both 72-row lookahead modes pass again with zero outliers;
+layer-0 attention maximum error on SIMD is `1.91e-4` and the prepared tower
+maximum step error in the regenerated run is `2.85e-6`. The old fixture
+contract is superseded. A 72-row PyTorch fixture reuses
 released-weight JFK projected rows, then normalises them with released
 layer-0 weights; it scores eighteen four-row chunks at lookahead 0 and 3.
 The Go path matches those outputs on SIMD (maximum `1.91e-4`, mean
@@ -111,9 +135,9 @@ The Go path matches those outputs on SIMD (maximum `1.91e-4`, mean
 `2.19e-5–2.21e-5`) with zero per-value outliers under
 `3e-4 + 2e-5*abs(reference)`. A synthetic high-amplitude probe did exceed
 that gate, so this evidence is bounded to released-audio-derived inputs.
-The existing five-row attention and cached-block tests still pass. This
-qualifies layer-0 attention cache transitions only; it does not advance
-convolution state across 24 layers or decode long audio.
+The existing five-row attention and cached-block tests still pass. The
+standalone 72-row attention test qualifies released-audio-derived cache
+transitions; the full-generation check below covers the 24-layer composition.
 
 `CachedEncoderTower` now advances 24 per-layer attention and convolution
 caches together for one to five **prepared**, fully valid projected rows.
@@ -125,8 +149,9 @@ observed was `8.26e-6` on SIMD and `6.62e-6` on scalar. A rejected input
 or missing final layer leaves prior cache state unchanged. These repeated
 prepared rows qualify the 24-layer cache transition and 57-frame sliding
 boundary, not varied full-recording PCM or native RNN-T transcription.
-Terminal masks, PCM chunk scheduling, text/WER and full-request GPU timing
-still need validation.
+An 11-second full JFK streaming-generation fixture now checks this cache
+boundary on native PCM. Labelled WER and full-request GPU timing still need
+validation.
 
 `GreedyRNNTStream.Append` now carries the released two-layer predictor and
 joint scratch between fully valid, prompt-projected encoder chunks. It returns
@@ -135,6 +160,5 @@ existing independently generated 139-row PyTorch JFK encoder fixture, chunk
 sizes 1, 4, 17, 56 and 139 all select the same 187 decisions and 48
 nonblank emissions at the same frames. Malformed inputs and frame-count
 overflow leave predictor state unchanged; a mid-chunk model failure closes
-the stream. This tests incremental RNN-T on **PyTorch-produced encoder
-rows**. Native complete PCM→encoder→RNN-T transcription, text and WER are
-still unqualified.
+the stream. This test isolates incremental RNN-T on **PyTorch-produced encoder rows**.
+The separate native full-JFK result below checks PCM-to-text.

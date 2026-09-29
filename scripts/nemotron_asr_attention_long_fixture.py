@@ -70,7 +70,7 @@ def main():
                     past_key_values=cache, position_ids=torch.arange(start, end)[None, :],
                     and_mask_function=chunked_limited_mask_function(left, right),
                 )
-                pos = model.encoder.encode_positions(chunk, cached_frames=cache.get_seq_length())
+                pos = model.encoder.encode_positions(chunk, cached_frames=cache.get_mask_sizes(chunk.shape[1], 0)[0] - chunk.shape[1])
                 result, _ = layer.self_attn(chunk, position_embeddings=pos,
                                             attention_mask=mask, past_key_values=cache)
                 outputs.append(result[0])

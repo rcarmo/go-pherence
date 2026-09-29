@@ -67,7 +67,7 @@ def main():
                     past_key_values=kv, position_ids=torch.arange(start,start+4)[None,:],
                     and_mask_function=chunked_limited_mask_function(left,right),
                 )
-                pos = model.encoder.encode_positions(chunk, cached_frames=kv.get_seq_length())
+                pos = model.encoder.encode_positions(chunk, cached_frames=kv.get_mask_sizes(chunk.shape[1], 0)[0] - chunk.shape[1])
                 hidden = chunk
                 for layer in model.encoder.layers:
                     hidden = layer(hidden, attention_mask=mask, position_embeddings=pos,

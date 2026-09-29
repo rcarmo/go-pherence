@@ -52,6 +52,7 @@ type PCMGenerationStream struct {
 	tower    CachedEncoderTower
 	greedy   GreedyRNNTStream
 	closed   bool
+	onStage  func(string, []float32) // test-only observer; do not retain borrowed values
 }
 
 // AppendPCM consumes 1–80,000 mono 16-kHz finite samples and returns owned
@@ -137,11 +138,17 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 			s.closed = true
 			return nil, nil, err
 		}
+		if s.onStage != nil {
+			s.onStage("subsampling", projected)
+		}
 		s.tower.Tower = s.Model.Tower
 		hidden, err := s.tower.ForwardChunk(projected, 4, 3)
 		if err != nil {
 			s.closed = true
 			return nil, nil, err
+		}
+		if s.onStage != nil {
+			s.onStage("tower", hidden)
 		}
 		_, _, encoded, err := s.Model.Projection.Project(hidden, 4, 101)
 		if err != nil {

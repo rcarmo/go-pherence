@@ -49,10 +49,12 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 		return nil, fmt.Errorf("invalid Nemotron ASR cached attention state")
 	}
 	keyRows := retained + rows
-	// The reference encodes relative positions over cumulative sequence
-	// length even after the K/V cache has begun sliding.
-	encoded := encoder0RelativePositions(seen + rows)
-	positions := 2*(seen+rows) - 1
+	// Encoder.forward passes the visible K/V length as cached_frames +
+	// current rows. Once the sliding cache is full this is retained+rows,
+	// not the cumulative seen count. The prepared-row fixture previously
+	// passed cumulative get_seq_length() directly; regenerate that fixture.
+	encoded := encoder0RelativePositions(keyRows)
+	positions := 2*keyRows - 1
 	relative := make([]float32, len(encoded))
 	if !simd.DenseNTTo(relative, encoded, m.relativeWeight, positions, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
 		return nil, fmt.Errorf("Nemotron ASR cached relative projection rejected shape")
