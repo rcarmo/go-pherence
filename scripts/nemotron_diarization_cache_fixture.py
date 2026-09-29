@@ -55,6 +55,21 @@ def main():
         # At the first overflow, 222 oldest FIFO frames move into the
         # uncompressed speaker cache. A following chunk checks that the
         # retained speaker/FIFO state is prepended in the reference order.
+        # Isolate score policy before top-k compression: deterministic,
+        # non-tied probabilities exercise speech, silence and mask branches.
+        score_rows = torch.arange(300, dtype=torch.float32)[:, None]
+        score_speakers = torch.arange(8, dtype=torch.float32)[None, :]
+        score_probs = 0.05 + 0.9 * ((score_rows * 19 + score_speakers * 37) % 299) / 299
+        score_probs[0] = 0.1
+        score_probs[1] = 0.51
+        score_probs[2] = 0.9
+        save(args.out / "cache_score_probs.f32.gz", score_probs)
+        save(args.out / "cache_score_output.f32.gz", cache._get_frame_scores(score_probs[None])[0])
+        speech_probs = torch.full((300, 8), 0.05)
+        speech_probs[::3, 0] = 0.95
+        speech_probs[::5, 1] = 0.92
+        save(args.out / "cache_score_speech_probs.f32.gz", speech_probs)
+        save(args.out / "cache_score_speech_output.f32.gz", cache._get_frame_scores(speech_probs[None])[0])
         for index, frames in enumerate((237, 9), start=3):
             lookahead = 4
             chunk = torch.arange(index * 241, index * 241 + frames + lookahead, dtype=torch.float32)

@@ -173,6 +173,11 @@ speaker cache and leaves 51 in FIFO. `SpeakerCacheUncompressed` matches
 prepared input order, FIFO state and speaker embeddings; pooled speaker
 probabilities differ by at most `5.97e-8`. Lookahead frames are excluded,
 and an update requiring score-based compression rejects without changing
-state. These deterministic prepared embeddings and synthetic logits do not
-qualify cache scoring/compression, model inference, streaming outputs,
-other input lengths, transfer-inclusive GPU latency or production readiness.
+state. `SpeakerFrameScores` now matches the released pre-compression scoring rule
+on two deterministic 300-row probability fixtures, including speech
+probabilities above 0.5, a positive-score branch, and conditional `-Inf`
+masking. Finite score maximum absolute error is `9.54e-7`; both fixtures
+match every masked position. These prepared embeddings and synthetic
+probabilities do not qualify recency boosts, top-k cache compression,
+model-level streaming outputs, other input lengths, transfer-inclusive
+GPU latency or production readiness.
