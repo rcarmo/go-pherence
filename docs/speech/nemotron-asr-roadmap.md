@@ -84,6 +84,23 @@ because its 2D chunk mask did not include cached history. No masked 24-layer
 claim follows from that probe. Long audio, independent token/text accuracy,
 WER, and transfer-inclusive GPU timings still need validation.
 
+`PCMGenerationStream` now composes the default lookahead-three generation
+schedule, unmasked cached subsampling, 24-layer cached tower, prompt 101
+projection and incremental greedy RNN-T in one per-stream state. It accepts
+arbitrary finite PCM calls up to 80,000 samples, checks cancellation between
+model chunks, and returns owned raw decisions with absolute encoder frame
+indices. Frontend, convolution, attention and predictor state stay bounded
+independently of recording duration; the caller must consume returned
+per-call decisions to avoid accumulating an unbounded recording in memory.
+Invalid PCM leaves the stream unchanged; cancellation or a model failure
+closes it. Three different PCM call sizes on the first 13,000 JFK samples
+produce 12 blank decisions at frames 0–11, agreeing with pinned
+`generate()` after its initial BOS blank. `DecodeRNNTText` uses the released
+Parakeet vocabulary, removes blanks and special IDs, preserves repeated
+RNN-T tokens (no CTC collapse), and yields an empty string on this prefix.
+Long-recording nonblank tokens and native transcription accuracy have not
+been checked; this short all-blank fixture does not establish WER.
+
 `Encoder0Attention.ForwardCachedChunk` now uses cumulative sequence length for
 relative positions after the 57-frame K/V window starts sliding, and applies
 the reference's chunk-distance mask. A 72-row PyTorch fixture reuses

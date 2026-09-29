@@ -7,7 +7,7 @@ import (
 )
 
 // ASRMelChunk is an owned processor-style [Frames,128] feature chunk.
-// Only the first Valid rows are passed to the encoder's output mask.
+// Valid counts complete mel rows; the masked operator uses this count.
 type ASRMelChunk struct {
 	Features []float32
 	Frames   int
@@ -18,10 +18,12 @@ type ASRMelChunk struct {
 // processor-style schedule: 25 valid rows + one masked row first, followed
 // by 32-row chunks. It omits the temporary first-chunk mel row from its
 // state; the next real frame is computed when its PCM context is complete.
-// Its terminal chunk right-pads mel rows to 26 or 32; downstream code must
-// use Valid as the encoder attention mask, not treat padding as speech. It retains at most 31 valid mel rows between
-// calls, independent of recording length. One stream must not be used
-// concurrently. Consumers should release returned chunks after processing.
+// Its terminal chunk right-pads mel rows to 26 or 32. Streaming generate
+// uses the first 25 rows then all 32 rows per later chunk, without passing
+// a 2D attention mask, even on the padded terminal chunk. The separate
+// masked-operator tests pass Valid explicitly. It retains at most 31 valid
+// mel rows between calls, independent of recording length. One stream must
+// not be used concurrently. Consumers should release returned chunks.
 type ASRMelChunkStream struct {
 	mel     audio.NemotronMelStream
 	pending []float32
