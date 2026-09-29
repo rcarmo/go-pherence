@@ -215,6 +215,60 @@ func mustPlan(t *testing.T, stages ...VkF32Stage) *VkF32Plan {
 	return p
 }
 
+func TestVulkanOfflinePlanRebindAtomic(t *testing.T) {
+	m, k, a, x := newPlanMock(t)
+	y := mustTensor(t, a, 4, 2)
+	prefix, err := y.PrefixRows(context.Background(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k.pushSize = 4
+	first, second := onePlanStage(k, x), onePlanStage(k, x)
+	first.PushWords, second.PushWords = []uint32{3}, []uint32{5}
+	p := mustPlan(t, first, second)
+	before := a.Stats()
+	original := len(m.events)
+	replacement := onePlanStage(k, prefix)
+	replacement.PushWords = []uint32{7}
+	bad := onePlanStage(k, prefix)
+	bad.PushWords = []uint32{9}
+	bad.Groups[0] = 0
+	if err := p.Rebind(context.Background(), []VkF32Stage{replacement, bad}); err == nil || len(m.events) != original || a.Stats() != before {
+		t.Fatal("partial/driver mutation on rejected rebind", err, m.events[original:])
+	}
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(m.pushes, []uint32{3, 5}) || m.sets[400][0].size != 4 || m.sets[401][0].size != 4 {
+		t.Fatal("rejected rebind changed runnable plan")
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := p.Rebind(cancelled, []VkF32Stage{replacement, replacement}); err != context.Canceled {
+		t.Fatalf("cancelled rebind=%v", err)
+	}
+	if err := p.Rebind(context.Background(), []VkF32Stage{replacement, replacement}); err != nil {
+		t.Fatal(err)
+	}
+	replacement.Tensors[0] = nil
+	replacement.PushWords[0] = 99
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(m.pushes, []uint32{3, 5, 7, 7}) || m.sets[400][0].size != 16 || m.sets[401][0].size != 16 || a.Stats() != before {
+		t.Fatal("rebound plan did not retain independent copied prefix stage")
+	}
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Rebind(context.Background(), []VkF32Stage{first, second}); err != ErrVulkanClosed {
+		t.Fatalf("rebound closed plan: %v", err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVulkanOfflinePlanRecordAndOwnership(t *testing.T) {
 	m, k, a, x := newPlanMock(t)
 	y := mustTensor(t, a, 2)

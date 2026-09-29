@@ -107,6 +107,54 @@ func TestVulkanOfflineArenaPackingAndTransfer(t *testing.T) {
 	}
 	assertMemory(t, 0, 0)
 }
+func TestVulkanOfflineArenaPrefixRows(t *testing.T) {
+	offlineVK(t)
+	m := mockMemory(t)
+	a := mustArena(t, 64)
+	parent := mustTensor(t, a, 4, 3)
+	before := a.Stats()
+	if err := parent.Upload(context.Background(), []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}); err != nil {
+		t.Fatal(err)
+	}
+	view, err := parent.PrefixRows(context.Background(), 2)
+	if err != nil || !reflect.DeepEqual(view.Shape(), []int{2, 3}) || view.Elements() != 6 || view.offset != parent.offset || view.size != 24 || a.Stats() != before || m.allocates != 1 {
+		t.Fatalf("prefix view=%+v err=%v stats=%+v", view, err, a.Stats())
+	}
+	got := make([]float32, 6)
+	if err := view.Download(context.Background(), got); err != nil || !reflect.DeepEqual(got, []float32{1, 2, 3, 4, 5, 6}) {
+		t.Fatal(got, err)
+	}
+	if err := view.Upload(context.Background(), []float32{9, 9, 9, 9, 9, 9}); err != nil {
+		t.Fatal(err)
+	}
+	full := make([]float32, 12)
+	if err := parent.Download(context.Background(), full); err != nil || !reflect.DeepEqual(full, []float32{9, 9, 9, 9, 9, 9, 7, 8, 9, 10, 11, 12}) {
+		t.Fatal(full, err)
+	}
+	for _, n := range []int{-1, 0, 5} {
+		if v, err := parent.PrefixRows(context.Background(), n); v != nil || err == nil || a.Stats() != before {
+			t.Fatalf("admitted prefix rows=%d", n)
+		}
+	}
+	if v, err := mustTensor(t, a, 2).PrefixRows(context.Background(), 1); v != nil || err == nil {
+		t.Fatal("accepted rank-one prefix")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if v, err := parent.PrefixRows(ctx, 2); v != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled prefix view=%v err=%v", v, err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := view.PrefixRows(context.Background(), 1); !errors.Is(err, ErrVulkanClosed) {
+		t.Fatalf("view retained after owner close: %v", err)
+	}
+	if m.frees != 1 {
+		t.Fatal("prefix view owns native storage")
+	}
+}
+
 func TestVulkanOfflineArenaAdmission(t *testing.T) {
 	offlineVK(t)
 	m := mockMemory(t)

@@ -104,7 +104,15 @@ measured `79–84 ms` per 138-row Vulkan run versus `143–198 ms` on SIMD
 (two samples per backend). Each Vulkan setup took `0.43 s` and teardown
 about `0.11 s`. Prepared streaming row counts change as cache grows, so
 repeated plan construction costs more than the resident-layer gain in these
-complete requests. The request figures include the CPU frontend, first
+complete requests. A Vulkan prefix-row view and atomic plan `Rebind` now
+provide a bounded way to keep arena storage, kernels and plan descriptors
+while changing the exact live row count. An RTX 3060 test rebound RoPE and
+non-causal eight-head attention at 17, 5 and 11 rows using one plan and
+arena; independent float64 attention estimates had maximum errors
+`4.21e-8` or lower, with no padded key entering softmax. Offline rollback,
+cancellation, owner-close, resource and `-race` checks passed. The 30-layer
+streaming tower has not yet adopted these primitives; its request timings
+above are unchanged. The request figures include the CPU frontend, first
 layer, head and cache; they do not qualify a complete GPU request or
 labelled diarization quality.
 

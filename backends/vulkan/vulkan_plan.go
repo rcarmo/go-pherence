@@ -183,6 +183,69 @@ func NewVkF32Plan(ctx context.Context, stages []VkF32Stage) (*VkF32Plan, error) 
 	return &VkF32Plan{state: p}, nil
 }
 
+// Rebind replaces stage shapes, ranges, workgroups and push constants without
+// allocating native plan resources. The caller must obtain stages through the
+// checked operators and keep their kernels and tensors alive. Kernel identity
+// and descriptor count remain fixed because the existing sets use their
+// original layouts. All stages are preflighted before changing plan state;
+// failure or cancellation leaves the previous plan runnable.
+func (p *VkF32Plan) Rebind(ctx context.Context, stages []VkF32Stage) error {
+	if err := vkAcquire(ctx); err != nil {
+		return err
+	}
+	defer vkRelease()
+	if err := vkStatusLocked(); err != nil {
+		return err
+	}
+	if p == nil || p.state == nil || p.state.closed {
+		return ErrVulkanClosed
+	}
+	s := p.state
+	if s.device != vkDevice || s.queue != vkQueue || s.pool != vkCmdPool || len(stages) != len(s.stages) {
+		return fmt.Errorf("invalid Vulkan plan rebind owner or stage count")
+	}
+	replacements := make([]vkF32PlanStage, len(stages))
+	for i, in := range stages {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		old := &s.stages[i]
+		if in.Kernel == nil || in.Kernel != old.kernel || len(in.bindings) != 0 && len(in.Tensors) != 0 || len(in.PushWords) > 32 || len(in.PushWords)*4 != old.kernel.pushSize {
+			return fmt.Errorf("invalid Vulkan plan rebind stage %d", i)
+		}
+		count := len(in.Tensors)
+		if len(in.bindings) != 0 {
+			count = len(in.bindings)
+		}
+		if count != len(old.bindings) {
+			return fmt.Errorf("Vulkan plan rebind stage %d binding count", i)
+		}
+		next := &replacements[i]
+		next.kernel, next.groups, next.set = old.kernel, in.Groups, old.set
+		next.push = append([]uint32(nil), in.PushWords...)
+		if len(in.bindings) != 0 {
+			next.bindings = append([]vkBufferBinding(nil), in.bindings...)
+		} else {
+			next.bindings = make([]vkBufferBinding, count)
+			for j, tensor := range in.Tensors {
+				binding, err := tensor.bindingLocked()
+				if err != nil {
+					return err
+				}
+				next.bindings[j] = binding
+			}
+		}
+		if err := next.kernel.validateBindingsLocked(next.groups[0], next.groups[1], next.groups[2], next.bindings, next.pushPointer()); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.stages = replacements
+	return nil
+}
+
 func (p *VkF32Plan) Run(ctx context.Context) error {
 	if err := vkAcquire(ctx); err != nil {
 		return err

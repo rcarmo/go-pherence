@@ -152,6 +152,27 @@ func (t *VkTensorF32) Elements() int {
 	return int(t.size / 4)
 }
 
+// PrefixRows returns a non-owning [rows,width] view over the first rows of a
+// rank-two tensor. It does not allocate storage or alter the parent. The
+// arena owner must outlive all uses of the view; transfers and stages still
+// check closure and in-flight state against that owner.
+func (t *VkTensorF32) PrefixRows(ctx context.Context, rows int) (*VkTensorF32, error) {
+	if err := vkAcquire(ctx); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	if t == nil || t.rank != 2 || rows < 1 || rows > t.shape[0] {
+		return nil, fmt.Errorf("invalid Vulkan F32 prefix rows")
+	}
+	if _, err := t.bindingLocked(); err != nil {
+		return nil, err
+	}
+	view := *t
+	view.shape[0] = rows
+	view.size = uint64(rows) * uint64(t.shape[1]) * 4
+	return &view, nil
+}
+
 // Upload/Download require the exact tensor length, so an undersized transfer
 // cannot silently leave a tensor partially updated. Cancellation is checked at
 // lane admission and before the copy; the single bounded copy is not preempted.

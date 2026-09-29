@@ -25,6 +25,177 @@ func TestVulkanRoPESequenceShaderContract(t *testing.T) {
 	}
 }
 
+// A bounded maximum-row allocation can be rebound to exact prefix views.
+// The attention shader sees only the live keys; no padded row enters softmax.
+func TestVulkanRoPEAttentionExactPrefixPlan(t *testing.T) {
+	if !VulkanInit() {
+		t.Skip("Vulkan unavailable")
+	}
+	ctx := context.Background()
+	before := VulkanMemoryStats()
+	arena, err := NewVkTensorArena(ctx, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alloc := func(rows, width int) *VkTensorF32 {
+		v, e := arena.AllocF32(ctx, rows, width)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return v
+	}
+	q, k, v, out := alloc(17, 512), alloc(17, 512), alloc(17, 512), alloc(17, 512)
+	freq := alloc(17, 64)
+	rope, err := NewVkRoPESequenceF32(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attention, err := NewVkAttentionF32(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage := func(rows int) []VkF32Stage {
+		t.Helper()
+		prefix := func(tensor *VkTensorF32) *VkTensorF32 {
+			p, e := tensor.PrefixRows(ctx, rows)
+			if e != nil {
+				t.Fatal(e)
+			}
+			return p
+		}
+		pq, pk, pv, po, pf := prefix(q), prefix(k), prefix(v), prefix(out), prefix(freq)
+		rq, e := rope.Stage(ctx, pq, pf, 8)
+		if e != nil {
+			t.Fatal(e)
+		}
+		rk, e := rope.Stage(ctx, pk, pf, 8)
+		if e != nil {
+			t.Fatal(e)
+		}
+		a, e := attention.Stage(ctx, po, pq, pk, pv, 8)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return []VkF32Stage{rq, rk, a}
+	}
+	plan, err := NewVkF32Plan(ctx, stage(17))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputQ, inputK, inputV := make([]float32, 17*512), make([]float32, 17*512), make([]float32, 17*512)
+	frequencies := make([]float32, 17*64)
+	for row := 0; row < 17; row++ {
+		for head := 0; head < 8; head++ {
+			for dim := 0; dim < 64; dim++ {
+				i := row*512 + head*64 + dim
+				inputQ[i] = float32(((i*7)%101)-50) / 193
+				inputK[i] = float32(((i*11)%109)-54) / 211
+				inputV[i] = float32(((i*13)%113)-56) / 173
+			}
+		}
+		for dim := 0; dim < 32; dim++ {
+			angle := float64(float32(row) * float32(1/math.Pow(10000, float64(2*dim)/64)))
+			frequencies[row*64+2*dim] = float32(math.Cos(angle))
+			frequencies[row*64+2*dim+1] = float32(math.Sin(angle))
+		}
+	}
+	for _, rows := range []int{17, 5, 11} {
+		if err := plan.Rebind(ctx, stage(rows)); err != nil {
+			t.Fatal(err)
+		}
+		prefix := func(tensor *VkTensorF32) *VkTensorF32 {
+			view, err := tensor.PrefixRows(ctx, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return view
+		}
+		pq, pk, pv, po, pf := prefix(q), prefix(k), prefix(v), prefix(out), prefix(freq)
+		for _, item := range []struct {
+			tensor *VkTensorF32
+			data   []float32
+		}{{pq, inputQ[:rows*512]}, {pk, inputK[:rows*512]}, {pv, inputV[:rows*512]}, {pf, frequencies[:rows*64]}} {
+			if err := item.tensor.Upload(ctx, item.data); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := plan.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		got := make([]float32, rows*512)
+		if err := po.Download(ctx, got); err != nil {
+			t.Fatal(err)
+		}
+		wantQ, wantK := append([]float32(nil), inputQ[:rows*512]...), append([]float32(nil), inputK[:rows*512]...)
+		for row := 0; row < rows; row++ {
+			for head := 0; head < 8; head++ {
+				base := row*512 + head*64
+				for dim := 0; dim < 32; dim++ {
+					c, s := frequencies[row*64+2*dim], frequencies[row*64+2*dim+1]
+					a, b := wantQ[base+dim], wantQ[base+dim+32]
+					wantQ[base+dim], wantQ[base+dim+32] = a*c-b*s, b*c+a*s
+					a, b = wantK[base+dim], wantK[base+dim+32]
+					wantK[base+dim], wantK[base+dim+32] = a*c-b*s, b*c+a*s
+				}
+			}
+		}
+		var maxErr, sumErr float64
+		for row := 0; row < rows; row++ {
+			for head := 0; head < 8; head++ {
+				base := row*512 + head*64
+				scores := make([]float64, rows)
+				for key := 0; key < rows; key++ {
+					kb := key*512 + head*64
+					var dot float64
+					for dim := 0; dim < 64; dim++ {
+						dot += float64(wantQ[base+dim]) * float64(wantK[kb+dim])
+					}
+					scores[key] = dot / 8
+				}
+				largest := scores[0]
+				for _, score := range scores[1:] {
+					largest = math.Max(largest, score)
+				}
+				var denom float64
+				for key := range scores {
+					scores[key] = math.Exp(scores[key] - largest)
+					denom += scores[key]
+				}
+				for dim := 0; dim < 64; dim++ {
+					var sum float64
+					for key, weight := range scores {
+						sum += weight * float64(inputV[key*512+head*64+dim])
+					}
+					i := base + dim
+					delta := math.Abs(float64(got[i]) - sum/denom)
+					maxErr = math.Max(maxErr, delta)
+					sumErr += delta
+					if delta > 3e-4+2e-5*math.Abs(sum/denom) {
+						t.Fatalf("rows=%d row=%d head=%d dim=%d delta=%g", rows, row, head, dim, delta)
+					}
+				}
+			}
+		}
+		t.Logf("rows=%d max_abs=%g mean_abs=%g", rows, maxErr, sumErr/float64(len(got)))
+	}
+	if err := plan.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := rope.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := attention.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := arena.Close(); err != nil {
+		t.Fatal(err)
+	}
+	after := VulkanMemoryStats()
+	if before.Bytes != after.Bytes || before.Allocations != after.Allocations || after.InFlight || after.Uncertain {
+		t.Fatalf("Vulkan resources before=%+v after=%+v", before, after)
+	}
+}
+
 func TestVulkanRoPESequencePreparedRows(t *testing.T) {
 	if !VulkanInit() {
 		t.Skip("Vulkan unavailable")
