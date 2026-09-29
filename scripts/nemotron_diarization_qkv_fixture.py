@@ -44,7 +44,8 @@ def main():
     if rate != 16000 or audio.ndim != 1 or len(audio) != 176000:
         raise ValueError("unexpected audio geometry")
     processor = AutoProcessor.from_pretrained(MODEL, local_files_only=True)
-    mask = processor(audio, sampling_rate=rate, return_tensors="pt").attention_mask
+    processed = processor(audio, sampling_rate=rate, return_tensors="pt")
+    mask = processed.attention_mask
     if mask.shape != (1, 1101) or int(mask.sum()) != 1100 or not bool(mask[:, ::8].all()):
         raise ValueError("full attention window has an unexpected padding mask")
     model = AutoModelForAudioFrameClassification.from_pretrained(MODEL, local_files_only=True).eval()
@@ -112,6 +113,8 @@ def main():
         save(args.out / "jfk_full_head_upsampled.f32.gz", upsampled[0])
         logits = model.classifier(upsampled)
         save(args.out / "jfk_full_head_logits.f32.gz", logits[0])
+        request = model(input_features=processed.input_features, attention_mask=mask)
+        save(args.out / "jfk_request_logits.f32.gz", request.logits[0])
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)

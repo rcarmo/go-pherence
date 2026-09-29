@@ -124,7 +124,14 @@ scalar maximum `1.91e-5`, mean `1.45e-6`, with zero per-value outliers.
 Composing the Go tower and head yields 1104×8 logits before trimming to
 valid input frames: AVX2/FMA maximum error `1.91e-5`, mean `3.41e-6`;
 scalar maximum `2.67e-5`, mean `3.67e-6`, with zero outliers. These
-prepared-stacking windows do not cover the native frontend, the 1100-frame
-mask/trim, speaker-cache updates, thresholded segments, or a labelled DER
-gate. Transfer-inclusive GPU request latency and production readiness
-promotion remain open.
+prepared-stacking windows isolate model numerics. `OfflineRequest.ForwardPCM`
+now composes the native 16-kHz log-mel frontend, stack projection, 31-layer
+tower and head on the pinned 176,000-sample JFK waveform. The owned 1101×8
+raw logits match the independent PyTorch request: AVX2/FMA maximum absolute
+error `3.25e-5`, mean `2.84e-6`; CPU-features-disabled maximum `6.11e-5`,
+mean `5.87e-6`, with zero values outside `3e-4 + 2e-5*abs(reference)`.
+The last masked feature row is retained and logits are trimmed from 1104 to
+1101 frames, matching the reference request shape. This one-recording test
+has no labelled DER gate or thresholded-segment parity. Speaker-cache updates,
+streaming, other input lengths, transfer-inclusive GPU request latency and
+production readiness promotion remain open.
