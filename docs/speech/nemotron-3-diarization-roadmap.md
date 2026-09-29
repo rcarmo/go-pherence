@@ -212,6 +212,16 @@ FIFO state match pinned PyTorch fixtures. AVX2/FMA logit maximum error is
 `4.58e-5`, scalar `5.73e-5`, mean below `6.7e-6`, with zero per-value
 outliers; speaker-probability maximum error is below `1.7e-10`. These are
 prepared inputs and do not cover score-based compression during model
-inference. Streaming frontend/chunk scheduling, padding masks, model
-outputs after speaker-cache compression, complete recording, labelled DER,
-transfer-inclusive GPU latency and production readiness remain unqualified.
+inference. A separate test seeds the independently checked synthetic
+step-5 compressed cache (264 speaker + 51 FIFO frames), then runs two
+prepared 9+4 JFK windows with 328 and 337 total model rows. Full-context
+logits, input order, stored speaker embeddings/probabilities, FIFO state
+and compressed flag match pinned PyTorch. SIMD maximum logit error is
+`1.91e-5`, scalar `4.01e-5`, with zero per-value outliers and mean below
+`7.9e-6`. This is post-compression inference on a seeded cache, **not**
+a continuous model run through the compression transition: with the
+current 376-row model limit that transition would require an oversized
+speaker+FIFO+chunk window. Streaming frontend/chunk scheduling, padding
+masks, continuous compression-boundary model output, complete recording,
+labelled DER, transfer-inclusive GPU latency and production readiness
+remain unqualified.

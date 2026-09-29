@@ -171,6 +171,34 @@ def main():
             save(args.out / f"jfk_boundary_step{index}_speaker.f32.gz", boundary_cache.embeds[0, :boundary_cache.num_cache_frames])
             save(args.out / f"jfk_boundary_step{index}_speaker_probs.f32.gz", boundary_cache.probs[0, :boundary_cache.num_cache_frames])
             print("JFK boundary step", index, "rows", combined.shape[1], "speaker", boundary_cache.num_cache_frames, "fifo", boundary_cache.num_fifo_frames, "compressed", boundary_cache.is_compressed)
+        # Seed from the independently checked synthetic step-5 compressed
+        # state. A 9+4 JFK chunk gives 264+51+13=328 model rows; this
+        # qualifies model inference after compression, not the preceding
+        # oversized model window or a real continuous recording.
+        post_cache = Nemotron3DiarizationSpeakerCache(model.config.streaming_config)
+        post_cache.get_embeds(stacked[:, :13])
+        for name, width, dest in (("speaker", 512, "embeds"), ("speaker_probs", 8, "probs"), ("fifo", 512, "fifo")):
+            with gzip.open(args.out / f"cache_step5_{name}.f32.gz", "rb") as source:
+                values = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1, -1, width))
+            getattr(post_cache, dest)[:, :values.shape[1]].copy_(values)
+        post_cache.num_cache_frames = 264
+        post_cache.num_fifo_frames = 51
+        post_cache.is_compressed = True
+        for index, start in enumerate((0, 9)):
+            chunk = stacked[:, start:start+13]
+            cached = post_cache.get_embeds(chunk)
+            combined = torch.cat([cached, chunk], dim=1)
+            mask = torch.ones(1, combined.shape[1], dtype=torch.bool)
+            position_ids = torch.arange(combined.shape[1])[None, :]
+            outputs = model.model(inputs_embeds=combined, attention_mask=mask, position_ids=position_ids)
+            logits = model.classifier(outputs.last_hidden_state)
+            save(args.out / f"jfk_postcompress_step{index}_input.f32.gz", combined[0])
+            save(args.out / f"jfk_postcompress_step{index}_logits.f32.gz", logits[0])
+            post_cache.update(combined, logits, model.silence_embeds, 9, mask=mask)
+            save(args.out / f"jfk_postcompress_step{index}_fifo.f32.gz", post_cache.fifo[0, :post_cache.num_fifo_frames])
+            save(args.out / f"jfk_postcompress_step{index}_speaker.f32.gz", post_cache.embeds[0, :post_cache.num_cache_frames])
+            save(args.out / f"jfk_postcompress_step{index}_speaker_probs.f32.gz", post_cache.probs[0, :post_cache.num_cache_frames])
+            print("JFK post-compression step", index, "rows", combined.shape[1], "speaker", post_cache.num_cache_frames, "fifo", post_cache.num_fifo_frames, "compressed", post_cache.is_compressed)
 
 if __name__ == "__main__":
     main()
