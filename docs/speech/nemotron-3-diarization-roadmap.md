@@ -134,7 +134,9 @@ attention fixtures, 138-row tower and 11-second stream still pass under
 their existing numeric gates. Timing samples remain noisy and supply no
 speed claim. The independent
 100-second reference accepted all 9,999 logits rows and 29 spans after
-Q reuse (single `GOMAXPROCS=4` request: `74.83 s`, zero logit outliers). An isolated packed/parallel head GEMM
+Q reuse (single `GOMAXPROCS=4` request: `74.83 s`, zero logit outliers).
+It passed again after the head-tile reuse (`76.20 s`, 9,999 rows, 29
+spans, zero logit outliers; one request sample). An isolated packed/parallel head GEMM
 trial looked faster at fixed shapes but failed to improve the complete
 30-second request, so that dispatch change was reverted.
 
