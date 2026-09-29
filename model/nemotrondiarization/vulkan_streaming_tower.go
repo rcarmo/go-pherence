@@ -71,7 +71,7 @@ func (s *VulkanStreamingTower) Forward(ctx context.Context, input []float32, row
 // No GPU work is done until a prepared window is ready. Errors never fall
 // back silently to the CPU path.
 func (s *PCMStreamingRequest) EnableVulkanTower() error {
-	if s == nil || s.closed || s.window == nil || s.window.Tower == nil || s.window.VulkanTower != nil {
+	if s == nil || s.closed || s.window == nil || s.window.Tower == nil || s.window.VulkanTower != nil || s.window.PTXTower != nil {
 		return fmt.Errorf("invalid Nemotron Vulkan streaming request")
 	}
 	var err error

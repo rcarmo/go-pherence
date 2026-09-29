@@ -23,6 +23,72 @@ func TestWhisperAttentionFullOnlineLiveParity(t *testing.T) {
 	}
 }
 
+// The 103-key shape previously raced when one warp reused reduce_shared[0]
+// before another had read the shared maximum. Reuse identical resident buffers
+// across launches and compare every value with an independent F64 softmax.
+func TestWhisperAttentionFullOnlineRepeated103Keys(t *testing.T) {
+	requireWhisperAttentionFullKernels(t)
+	const seq, heads, dim = 103, 8, 64
+	q, k, v := makeWhisperAttentionInputs(seq, heads, dim)
+	qBuf := uploadWhisperAttentionTensor(t, "q", q)
+	kBuf := uploadWhisperAttentionTensor(t, "k", k)
+	vBuf := uploadWhisperAttentionTensor(t, "v", v)
+	out := allocWhisperAttentionTensor(t, "out", len(q))
+	scale := float32(1 / math.Sqrt(dim))
+	want := make([]float32, len(q))
+	for row := 0; row < seq; row++ {
+		for head := 0; head < heads; head++ {
+			scores := make([]float64, seq)
+			maxScore := math.Inf(-1)
+			for key := 0; key < seq; key++ {
+				var dot float64
+				for col := 0; col < dim; col++ {
+					dot += float64(q[(row*heads+head)*dim+col]) * float64(k[(key*heads+head)*dim+col])
+				}
+				scores[key] = dot * float64(scale)
+				maxScore = math.Max(maxScore, scores[key])
+			}
+			var sum float64
+			for key := range scores {
+				scores[key] = math.Exp(scores[key] - maxScore)
+				sum += scores[key]
+			}
+			for col := 0; col < dim; col++ {
+				var value float64
+				for key := 0; key < seq; key++ {
+					value += scores[key] * float64(v[(key*heads+head)*dim+col])
+				}
+				want[(row*heads+head)*dim+col] = float32(value / sum)
+			}
+		}
+	}
+	got := make([]float32, len(q))
+	for trial := 0; trial < 20; trial++ {
+		if err := WhisperAttentionFullOnlineBuffer(out, qBuf, kBuf, vBuf, seq, seq, heads, dim, scale); err != nil {
+			t.Fatal(err)
+		}
+		if err := SyncErr(); err != nil {
+			t.Fatal(err)
+		}
+		if err := out.Download(got); err != nil {
+			t.Fatal(err)
+		}
+		var maxAbs float64
+		var outside int
+		for i, value := range got {
+			delta := math.Abs(float64(value - want[i]))
+			maxAbs = math.Max(maxAbs, delta)
+			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || delta > 2e-5 {
+				outside++
+			}
+		}
+		t.Logf("trial=%d max_abs=%g outside=%d", trial, maxAbs, outside)
+		if outside != 0 {
+			t.Fatal("online attention differs from F64 softmax")
+		}
+	}
+}
+
 func BenchmarkWhisperAttentionFullCandidates(b *testing.B) {
 	requireWhisperAttentionFullKernels(b)
 	const (

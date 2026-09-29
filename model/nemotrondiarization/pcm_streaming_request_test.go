@@ -49,6 +49,16 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_PTX_REQUEST") == "1" {
+		if err := s.EnablePTXTower(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := s.ClosePTXTower(); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
 	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_VULKAN_REQUEST") == "1" {
 		if err := s.EnableVulkanTower(); err != nil {
 			t.Fatal(err)

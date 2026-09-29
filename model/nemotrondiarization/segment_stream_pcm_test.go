@@ -84,6 +84,16 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 	}
 	var spans SegmentStream
 	var got []Segment
+	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_PTX_REQUEST") == "1" {
+		if err := request.EnablePTXTower(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := request.ClosePTXTower(); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
 	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_VULKAN_REQUEST") == "1" {
 		if err := request.EnableVulkanTower(); err != nil {
 			t.Fatal(err)
@@ -155,6 +165,11 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 	logits, err := request.Finish()
 	if request.window.VulkanTower != nil {
 		if closeErr := request.CloseVulkanTower(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
+	if request.window.PTXTower != nil {
+		if closeErr := request.ClosePTXTower(); closeErr != nil {
 			t.Fatal(closeErr)
 		}
 	}

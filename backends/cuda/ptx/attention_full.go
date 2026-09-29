@@ -305,6 +305,9 @@ MAX_SKIP:
     bra MAX_REDUCE;
 MAX_READY:
     ld.shared.f32 %f2, [%r19];
+    // Every warp must read the shared maximum before the sum pass reuses
+    // reduce_shared[0]; otherwise a delayed warp can observe the new sum.
+    bar.sync 0;
 
     // Pass 2: recompute scores, exponentiate, and reduce their sum.
     mov.f32 %f7, 0f00000000;

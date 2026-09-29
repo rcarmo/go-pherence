@@ -34,6 +34,10 @@ func TestRunRejectsInvalidFlagsAndNonMonoWAV(t *testing.T) {
 		{"-task", "asr", "-backend", "vulkan", "-vulkan-tower", "-input", "in.wav", "-model", "model.safetensors"},
 		{"-task", "diarization", "-backend", "ptx", "-vulkan-tower", "-input", "in.wav", "-model", "model.safetensors"},
 		{"-task", "diarization", "-backend", "simd", "-vulkan-tower", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "asr", "-backend", "ptx", "-ptx-tower", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "diarization", "-backend", "simd", "-ptx-tower", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "diarization", "-backend", "vulkan", "-ptx-tower", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "diarization", "-backend", "ptx", "-ptx-tower", "-vulkan-tower", "-input", "in.wav", "-model", "model.safetensors"},
 	} {
 		stdout.Reset()
 		stderr.Reset()

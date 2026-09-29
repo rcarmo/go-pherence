@@ -11,6 +11,7 @@ import (
 type StreamingWindow struct {
 	Tower       *OfflineAudioTower
 	VulkanTower *VulkanStreamingTower // optional; caller owns Close
+	PTXTower    *PTXStreamingTower    // optional; caller owns Close
 	Head        *OfflineHead
 	Cache       *SpeakerCache
 }
@@ -43,8 +44,13 @@ func (m *StreamingWindow) ForwardPreparedContext(ctx context.Context, chunk []fl
 		return nil, nil, fmt.Errorf("Nemotron diarization streaming window exceeds qualified prepared row bound")
 	}
 	var hidden []float32
+	if m.VulkanTower != nil && m.PTXTower != nil {
+		return nil, nil, fmt.Errorf("multiple Nemotron diarization resident towers selected")
+	}
 	if m.VulkanTower != nil {
 		hidden, err = m.VulkanTower.Forward(ctx, input, rows)
+	} else if m.PTXTower != nil {
+		hidden, err = m.PTXTower.Forward(ctx, input, rows)
 	} else {
 		hidden, err = m.Tower.ForwardOffline(input, rows)
 	}

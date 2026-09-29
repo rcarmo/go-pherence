@@ -181,7 +181,8 @@ returns errors without CPU fallback. On RTX 3060 its output matched the
 independent complete-layer PyTorch fixtures at 16 and 138 rows (maximum
 absolute error `2.67e-5` and `2.29e-5`, mean `5.73e-7` and `5.11e-7`, zero
 outliers). Repeated 16-row, input-ownership, malformed-input, shared-instance
-concurrency and direct-buffer no-transfer/scratch-balance gates passed. The
+concurrency and direct-buffer no-transfer/scratch-balance gates passed.
+
 The opt-in `PTXAudioTower` now retains all 30 remaining layers and final
 normalisation weights on CUDA. Layer 0 and the request frontend/head/cache
 stay on CPU. `ForwardRows` executes exact unmasked prefixes against one
@@ -192,9 +193,19 @@ composition within `5.25e-6` and `4.77e-6` maximum error respectively; those
 short-row comparisons are not independent PyTorch final-norm fixtures. Direct
 stats count one host-to-device input and one device-to-host output transfer per
 tower call with balanced scratch allocations. Repeated race, shared-instance,
-cancellation-before-run and close gates pass. The streaming request is not
-wired to PTX tower yet, so transfer-inclusive request speed and logits/spans
-parity remain open.
+cancellation-before-run and close gates pass. Streaming integration uses one
+per-request tower and the same exact row count through its speaker-cache
+windows. A missing shared-memory barrier in the online attention kernel had
+caused intermittent drift at 103 keys on repeated identical Q/K/V inputs;
+a regression probe and repeated 103-row streaming windows now pass after the
+barrier, without changing numerical tolerances. Pinned 100-second PTX-tower
+PCM→logits→segments on i7-12700/RTX 3060 at `GOMAXPROCS=4` took `82.57 s`
+inside the complete-request test, returned 9,999 logit rows and the same 29
+model-assigned spans, with maximum/mean logit error `6.48e-5`/`5.26e-6` and
+zero outliers. This sample is slower than the earlier 75.69-second PTX
+projection-only request. The CLI exposes `-backend ptx -ptx-tower` as an
+explicit hybrid; repeat CLI timing, cancellation soak, labelled quality and
+sustained throughput remain open.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
