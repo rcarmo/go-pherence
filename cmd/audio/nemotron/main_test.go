@@ -7,7 +7,23 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rcarmo/go-pherence/model/nemotrondiarization"
 )
+
+func TestSortSegmentsOverlappingSpeakers(t *testing.T) {
+	segments := []nemotrondiarization.Segment{
+		{Start: 1, End: 2, Speaker: 1},
+		{Start: 1, End: 3, Speaker: 0},
+		{Start: .5, End: 4, Speaker: 2},
+	}
+	sortSegments(segments)
+	for i, want := range []int{2, 0, 1} {
+		if segments[i].Speaker != want {
+			t.Fatalf("speaker at %d=%d want=%d", i, segments[i].Speaker, want)
+		}
+	}
+}
 
 func TestRunRejectsInvalidFlagsAndNonMonoWAV(t *testing.T) {
 	var stdout, stderr bytes.Buffer

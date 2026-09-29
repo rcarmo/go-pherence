@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -225,6 +226,18 @@ func diarize(ctx context.Context, request *nemotrondiarization.PCMStreamingReque
 		return err
 	}
 	segments = append(segments, part...)
+	sortSegments(segments)
 	err = json.NewEncoder(stdout).Encode(segments)
 	return err
+}
+
+// Streaming closure order can differ from global start order for overlapping
+// speakers. Match the processor's start-then-speaker ordering at export.
+func sortSegments(segments []nemotrondiarization.Segment) {
+	sort.Slice(segments, func(i, j int) bool {
+		if segments[i].Start != segments[j].Start {
+			return segments[i].Start < segments[j].Start
+		}
+		return segments[i].Speaker < segments[j].Speaker
+	})
 }
