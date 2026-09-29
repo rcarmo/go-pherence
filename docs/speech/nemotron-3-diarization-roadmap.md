@@ -166,8 +166,14 @@ point that reports errors without CPU fallback. Its 20,001-value `[-10,10]`
 probe on RTX 3060 differed from an independent F64 `math.Erf` reference by at
 most `4.77e-7`, with mean absolute error `4.67e-8` and zero values outside
 the existing `3e-6` operator gate. Malformed buffer and dimension tests pass.
-The composed layer-1 MLP and resident PTX tower still need their own fixture
-and request checks.
+A fixture-gated resident layer-1 MLP probe keeps the second affine norm,
+transposed fc1/fc2 weights, row biases, erf-GELU and residual addition on PTX
+until final download. Its CPU-composed attention residual feeds the probe.
+The 16/138-row complete-layer outputs match independent PyTorch fixtures with
+maximum absolute error `2.29e-5` at both lengths, mean errors `5.65e-7` and
+`5.14e-7`, and zero outliers at the existing gate. The model-owned residual
+and GPU copy remain unchanged. The complete attention-to-MLP resident layer,
+30-layer tower, and transfer-inclusive request still need qualification.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
