@@ -85,17 +85,29 @@ func DevRoPEPartial(x *DevBuf, cosSin *DevBuf, pos, nHeads, headDim, rotHalf int
 	return false
 }
 
-// RoPEPartialRowsBuffer applies the same absolute position to every row in a
-// packed F32 batch without downloading the projected Q/K values.
+// RoPEPartialSequenceBuffer applies successive absolute positions to packed
+// F32 rows without downloading Q/K. The launch uses u32 element indexing.
 func RoPEPartialSequenceBuffer(x, cosSin *Buffer, rows, pos0, nHeads, headDim, rotHalf int) error {
-	initRoPEAttn()
+	if rows <= 0 || pos0 < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 ||
+		x == nil || cosSin == nil || x.Ptr == 0 || cosSin.Ptr == 0 {
+		return fmt.Errorf("invalid sequence partial RoPE")
+	}
+	end, okEnd := checked.AddInt(pos0, rows)
 	rowElems, okRow := checked.MulInt(nHeads, headDim)
 	pairs, okPairs := checked.MulInt(nHeads, rotHalf)
 	total, okTotal := checked.MulInt(rows, pairs)
-	posPairs, okPos := checked.MulInt(pos0+rows, rotHalf)
+	xNeed, okX := checked.MulInt(rows, rowElems)
+	posPairs, okPos := checked.MulInt(end, rotHalf)
 	cosNeed, okCos := checked.MulInt(posPairs, 2)
-	if !ropePartialReady || ropePartialSequenceFn == 0 || rows <= 0 || pos0 < 0 || nHeads <= 0 || headDim <= 0 || rotHalf <= 0 || rotHalf > headDim/2 || !okRow || !okPairs || !okTotal || !okPos || !okCos || x == nil || cosSin == nil || x.Ptr == 0 || cosSin.Ptr == 0 || x.Size < rows*rowElems*4 || cosSin.Size < cosNeed*4 {
+	if !okEnd || !okRow || !okPairs || !okTotal || !okX || !okPos || !okCos ||
+		!fitsUint32(end) || !fitsUint32(rows) || !fitsUint32(nHeads) || !fitsUint32(headDim) ||
+		!fitsUint32(rotHalf) || !fitsUint32(xNeed) || !fitsUint32(cosNeed) ||
+		!whisperF32Extent(x, xNeed) || !whisperF32Extent(cosSin, cosNeed) {
 		return fmt.Errorf("invalid sequence partial RoPE")
+	}
+	initRoPEAttn()
+	if !ropePartialReady || ropePartialSequenceFn == 0 {
+		return fmt.Errorf("sequence partial RoPE kernel unavailable")
 	}
 	grid, ok := grid1DFor(total, 256)
 	if !ok {

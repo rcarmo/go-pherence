@@ -149,6 +149,18 @@ operator tests on RTX 3060. The PTX diarization request still runs its tower
 on CPU: exact-erf GELU, long-context attention and safe resident layer/tower
 lifetime need qualification before any transfer-inclusive PTX speed claim.
 
+A separate exact-key operator check now composes the existing PTX sequence
+RoPE and `attention_full_online` kernels with the released layer-1 Q/K/V and
+a CPU output projection. At 16 and 138 rows on RTX 3060, attention matched
+the independent PyTorch fixture with maximum absolute errors `3.67e-5` and
+`2.86e-5`, mean errors `2.47e-7` and `1.72e-7`, and zero outliers at the
+existing gate; three repeat runs passed. The online kernel was selected
+explicitly for this test. The default shared-score `attention_full` gave
+variable errors at 138 rows on the same inputs, including outliers, and is
+not qualified for this tower. Sequence RoPE now checks position addition,
+u32 element indices and buffer byte extents before launching. This checks an
+isolated attention operator, not a resident PTX layer or complete request.
+
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
 pinned intermediate tests retain both diagnostic stages. A 138-row released
