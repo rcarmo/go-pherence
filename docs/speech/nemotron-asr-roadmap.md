@@ -156,6 +156,20 @@ subsampling maximum/mean errors were `0.00238`/`1.37e-4`, and tower
 three-call-size scalar run exceeded five minutes; that timeout was not a
 numerical failure.
 
+A `GOMAXPROCS=4` i7-12700 profile of the complete 11-second JFK PCM→token
+benchmark measured `7.79 s/op` over two requests and `1.53 GB/op` after
+loading. The sampled CPU time was dominated by the SIMD FMA SGEMM tile
+(`19.15 s` flat of `26.92 s` sampled across benchmark and setup); the
+allocation profile also includes model loading, so its `GetFloat32` share
+is not a request-allocation estimate. Bounded five-row ASR matrix trials
+found prepacking alone slower than the existing blocked path: FF1 4096×1024
+`2.81–3.15 ms` versus `0.96–1.00 ms`, FF2 1024×4096 `2.53–2.92 ms`
+versus `0.98–1.01 ms` (`GOMAXPROCS=4`, two 15-iteration samples).
+A four-worker pooled panel run overlapped the blocked timings, so no
+ASR runtime dispatch change or request speedup follows from these isolated
+trials. Results from longer-row diarization GEMMs do not transfer to the
+five-row ASR encoder contract.
+
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
 `AppendPCM` calls, model/WAV loading excluded) identified relative-position
 encoding and projection in the cached encoder as repeat costs. Computing

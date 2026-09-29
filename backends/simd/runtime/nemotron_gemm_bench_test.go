@@ -12,6 +12,7 @@ func BenchmarkNemotronBoundedNTPaths(b *testing.B) {
 		label   string
 		m, n, k int
 	}{
+		{"asr-qkv-5", 5, 1024, 1024}, {"asr-ff1-5", 5, 4096, 1024}, {"asr-ff2-5", 5, 1024, 4096},
 		{"qkv-320", 320, 512, 512}, {"qkv-541", 541, 512, 512},
 		{"mlp1-320", 320, 2048, 512}, {"mlp1-541", 541, 2048, 512},
 		{"mlp2-320", 320, 512, 2048}, {"mlp2-541", 541, 512, 2048},
