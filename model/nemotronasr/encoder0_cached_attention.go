@@ -68,14 +68,12 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 	// current rows. Once the sliding cache is full this is retained+rows,
 	// not the cumulative seen count. The prepared-row fixture previously
 	// passed cumulative get_seq_length() directly; regenerate that fixture.
-	encoded := cachedRelativePositions(keyRows)
-	// _rel_shift indexes [rows-1+source-row], so the largest position
-	// consumed is keyRows+rows-2. The remaining generated positions need
-	// no 1024x1024 projection. Keep the full encoding's position origin.
-	positions := keyRows + rows - 1
-	relative := make([]float32, positions*encoderWidth)
-	if !simd.DenseNTTo(relative, encoded[:len(relative)], m.relativeWeight, positions, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
-		return nil, fmt.Errorf("Nemotron ASR cached relative projection rejected shape")
+	// _rel_shift consumes keyRows+rows-1 positions. Reuse each four-row
+	// projection once per visible K/V length. Other query sizes keep their
+	// original exact projection length and position origin.
+	relative, err := m.projectedCachedRelative(keyRows, rows)
+	if err != nil {
+		return nil, err
 	}
 	prepared := *cache // Update replaces its slices; it never changes their backing arrays.
 	visibleK, visibleV, err := prepared.Update(toHeads(k), toHeads(v), rows)

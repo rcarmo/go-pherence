@@ -170,6 +170,19 @@ ASR runtime dispatch change or request speedup follows from these isolated
 trials. Results from longer-row diarization GEMMs do not transfer to the
 five-row ASR encoder contract.
 
+The cached encoder now retains each four-query-row relative-position
+projection once per model and visible K/V length; other chunk sizes keep
+their original exact-length projection. Each cached tensor is immutable
+after `sync.Once` publication, so independent streams can share the model.
+On the same i7-12700 at `GOMAXPROCS=4`, three complete JFK benchmark samples
+fell from `7.55–7.70 s/op`, `1.529 GB/op`, 28,884 allocations to
+`6.29–6.41 s/op`, `1.368 GB/op`, 28,164 allocations (three requests per
+sample, model/WAV load excluded). The 72-row cached tower (lookaheads zero
+and three), 11-second PCM→text (three chunk sizes), and 100-second tiled JFK
+passed their independent reference gates with zero token mismatches and
+zero tower outliers. A shared-model two-stream `-race` run passed.
+These are single-host samples; labelled WER and broader quality are open.
+
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
 `AppendPCM` calls, model/WAV loading excluded) identified relative-position
 encoding and projection in the cached encoder as repeat costs. Computing

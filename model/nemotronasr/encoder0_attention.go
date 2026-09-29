@@ -3,6 +3,7 @@ package nemotronasr
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
@@ -19,6 +20,13 @@ type Encoder0Attention struct {
 	relativeWeight []float32
 	biasU, biasV   []float32
 	outputWeight   []float32
+	// A streaming request uses four-row chunks. Cache only those bounded
+	// projections; unusual chunk sizes keep the exact uncached path.
+	cachedRelative [asrKVWindow + 4]struct {
+		once      sync.Once
+		projected []float32
+		err       error
+	}
 }
 
 func LoadEncoder0Attention(file *safetensors.File) (*Encoder0Attention, error) {
@@ -69,6 +77,24 @@ func LoadEncoder0Attention(file *safetensors.File) (*Encoder0Attention, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (m *Encoder0Attention) projectedCachedRelative(keyRows, queryRows int) ([]float32, error) {
+	positions := keyRows + queryRows - 1
+	encoded := cachedRelativePositions(keyRows)
+	project := func() ([]float32, error) {
+		out := make([]float32, positions*encoderWidth)
+		if !simd.DenseNTTo(out, encoded[:len(out)], m.relativeWeight, positions, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
+			return nil, fmt.Errorf("Nemotron ASR cached relative projection rejected shape")
+		}
+		return out, nil
+	}
+	if queryRows != 4 {
+		return project()
+	}
+	entry := &m.cachedRelative[keyRows]
+	entry.once.Do(func() { entry.projected, entry.err = project() })
+	return entry.projected, entry.err
 }
 
 // ForwardOffline returns independent owned attention and residual arrays for
