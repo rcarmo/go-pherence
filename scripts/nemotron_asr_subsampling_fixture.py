@@ -95,7 +95,19 @@ def main():
                 save(args.out / "encoder0_conv_activated.f32.gz", activated_depth[0])
                 conv_output = layer.conv.pointwise_conv2(activated_depth).transpose(1, 2)
                 save(args.out / "encoder0_conv_output.f32.gz", conv_output[0])
-                save(args.out / "encoder0_conv_residual.f32.gz", (attention_residual + conv_output)[0])
+                conv_residual = attention_residual + conv_output
+                save(args.out / "encoder0_conv_residual.f32.gz", conv_residual[0])
+                ff2_normal = layer.norm_feed_forward2(conv_residual)
+                save(args.out / "encoder0_ff2_normal.f32.gz", ff2_normal[0])
+                ff2_first = layer.feed_forward2.linear1(ff2_normal)
+                save(args.out / "encoder0_ff2_linear1.f32.gz", ff2_first[0])
+                ff2_activated = layer.feed_forward2.activation(ff2_first)
+                save(args.out / "encoder0_ff2_activated.f32.gz", ff2_activated[0])
+                ff2_output = layer.feed_forward2.linear2(ff2_activated)
+                save(args.out / "encoder0_ff2_output.f32.gz", ff2_output[0])
+                ff2_residual = conv_residual + 0.5 * ff2_output
+                save(args.out / "encoder0_ff2_residual.f32.gz", ff2_residual[0])
+                save(args.out / "encoder0_block_output.f32.gz", layer.norm_out(ff2_residual)[0])
             print("input valid", valid, "final valid length", int(lengths[0]))
 
 
