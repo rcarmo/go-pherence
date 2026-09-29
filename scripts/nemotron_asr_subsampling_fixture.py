@@ -12,6 +12,7 @@ import soundfile as sf
 import torch
 from transformers import AutoModelForRNNT, AutoProcessor
 from transformers.masking_utils import create_bidirectional_mask
+from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import NemotronAsrStreamingEncoderCausalConvPaddingCache
 from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import chunked_limited_mask_function
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,6 +107,18 @@ def main():
                 save(args.out / "encoder0_conv_point1.f32.gz", point1[0])
                 glu = torch.nn.functional.glu(point1, dim=1)
                 save(args.out / "encoder0_conv_glu.f32.gz", glu[0])
+                cache = NemotronAsrStreamingEncoderCausalConvPaddingCache()
+                for index, chunk in enumerate(glu.split((1, 2, 2), dim=2)):
+                    padded = cache.update(chunk, layer.conv.depthwise_conv.cache_key, layer.conv.depthwise_conv)
+                    save(args.out / f"encoder0_conv_cache_padded{index}.f32.gz", padded[0])
+                    save(args.out / f"encoder0_conv_cache_state{index}.f32.gz", cache.layers[layer.conv.depthwise_conv.cache_key].cache[0])
+                    chunk_depth = torch.nn.functional.conv1d(
+                        padded,
+                        layer.conv.depthwise_conv.weight,
+                        layer.conv.depthwise_conv.bias,
+                        groups=1024,
+                    )
+                    save(args.out / f"encoder0_conv_cache_depth{index}.f32.gz", chunk_depth[0])
                 depth = layer.conv.depthwise_conv(glu)
                 save(args.out / "encoder0_conv_depth.f32.gz", depth[0])
                 normalized_depth = layer.conv.norm(depth.transpose(1, 2))
