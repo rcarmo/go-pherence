@@ -94,7 +94,12 @@ def main():
                     save(args.out / f"encoder0_attn_mask_look{lookahead}.f32.gz", chunk_mask[0, 0].float())
                     masked_attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=chunk_mask)
                     save(args.out / f"encoder0_attn_output_look{lookahead}.f32.gz", masked_attention[0])
-                    save(args.out / f"encoder0_attn_residual_look{lookahead}.f32.gz", (ff1_residual + masked_attention)[0])
+                    masked_residual = ff1_residual + masked_attention
+                    save(args.out / f"encoder0_attn_residual_look{lookahead}.f32.gz", masked_residual[0])
+                    masked_conv = layer.conv(layer.norm_conv(masked_residual))
+                    masked_conv_residual = masked_residual + masked_conv
+                    masked_ff2 = layer.feed_forward2(layer.norm_feed_forward2(masked_conv_residual))
+                    save(args.out / f"encoder0_block_output_look{lookahead}.f32.gz", layer.norm_out(masked_conv_residual + 0.5 * masked_ff2)[0])
                 conv_normal = layer.norm_conv(attention_residual)
                 save(args.out / "encoder0_conv_normal.f32.gz", conv_normal[0])
                 point1 = layer.conv.pointwise_conv1(conv_normal.transpose(1, 2))
