@@ -171,6 +171,15 @@ def main():
                         position_embeddings=positions,
                     )
                     save(args.out / f"encoder1_block_output_look{lookahead}.f32.gz", second_output[0])
+                    tower_hidden = second_output
+                    for layer_index, tower_layer in enumerate(model.encoder.layers[2:], start=2):
+                        tower_hidden = tower_layer(
+                            tower_hidden,
+                            attention_mask=chunk_mask,
+                            position_embeddings=positions,
+                        )
+                        if layer_index in (7, 15, 23):
+                            save(args.out / f"encoder{layer_index}_block_output_look{lookahead}.f32.gz", tower_hidden[0])
                 conv_normal = layer.norm_conv(attention_residual)
                 save(args.out / "encoder0_conv_normal.f32.gz", conv_normal[0])
                 point1 = layer.conv.pointwise_conv1(conv_normal.transpose(1, 2))
