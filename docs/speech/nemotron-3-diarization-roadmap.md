@@ -172,8 +172,17 @@ until final download. Its CPU-composed attention residual feeds the probe.
 The 16/138-row complete-layer outputs match independent PyTorch fixtures with
 maximum absolute error `2.29e-5` at both lengths, mean errors `5.65e-7` and
 `5.14e-7`, and zero outliers at the existing gate. The model-owned residual
-and GPU copy remain unchanged. The complete attention-to-MLP resident layer,
-30-layer tower, and transfer-inclusive request still need qualification.
+and GPU copy remain unchanged. The production `PTXAudioLayer` now composes
+Q/K/V projection, sequence RoPE, explicitly selected online attention,
+output projection, both affine norms and the complete MLP without downloading
+intermediate activations. It retains transposed weights and frequencies,
+accepts exact 16/138-row unmasked windows, serialises forward and close, and
+returns errors without CPU fallback. On RTX 3060 its output matched the
+independent complete-layer PyTorch fixtures at 16 and 138 rows (maximum
+absolute error `2.67e-5` and `2.29e-5`, mean `5.73e-7` and `5.11e-7`, zero
+outliers). Repeated 16-row, input-ownership, malformed-input, shared-instance
+concurrency and direct-buffer no-transfer/scratch-balance gates passed. The
+30-layer tower and transfer-inclusive request still need qualification.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
