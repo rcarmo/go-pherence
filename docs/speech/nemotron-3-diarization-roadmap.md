@@ -90,6 +90,14 @@ stacking and the other 30 layers. The composed 138-row layer-0 output also passe
 pre-attention normalisation and Q/K/V fixture checks. On AVX2/FMA, maximum
 absolute errors are `9.54e-7` for normalisation, `3.34e-6` for Q,
 `2.86e-6` for K and `9.54e-7` for V, with zero values outside tolerance.
-Layer-1 attention/MLP, later layers, cache, upsampler and speaker head remain
-unqualified.
-Labelled diarisation quality, production latency and readiness promotion remain open.
+The second layer's full-window attention and residual now pass separate
+16- and 138-row PyTorch fixtures via `Layer1Attention.ForwardOffline`. Both
+checked SGEMM and scalar paths have zero values outside
+`3e-4 + 2e-5*abs(reference)` and mean error below `2e-6`. The largest
+residual error is `3.05e-5` on AVX2/FMA and `6.10e-5` with CPU features
+disabled; 16-row and 138-row windows have different
+bidirectional contexts. These tests include the composed first layer and
+exclude loading, frontend, stacking, layer-1 MLP and later layers. Layer-1
+MLP, later layers, cache, upsampler and speaker head have no native parity
+or full-request latency evidence. Labelled diarisation quality and production
+readiness promotion remain open.
