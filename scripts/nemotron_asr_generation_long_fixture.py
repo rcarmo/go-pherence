@@ -47,6 +47,12 @@ def main():
     valid = len(pcm) // 160
     if tuple(features.input_features.shape) != (1, valid + 1, 128) or int(features.attention_mask.sum()) != valid:
         raise ValueError("unexpected feature geometry")
+    if args.podcast:
+        mel = features.input_features[0, :valid].contiguous().numpy().astype("<f4", copy=False)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        with (args.out.parent / f"{args.out.stem}.mel.f32.gz").open("wb") as file:
+            with gzip.GzipFile(filename="", fileobj=file, mode="wb", mtime=0) as compressed:
+                compressed.write(mel.tobytes())
     chunks = [features.input_features[:, :25]]
     for start in range(25, valid, 32):
         chunk = features.input_features[:, start:min(start + 32, valid)]

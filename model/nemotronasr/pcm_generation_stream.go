@@ -132,6 +132,9 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 			s.closed = true
 			return nil, nil, fmt.Errorf("invalid Nemotron ASR subsequent generation mel chunk")
 		}
+		if s.onStage != nil {
+			s.onStage("mel", features)
+		}
 		s.sub.Model = s.Model.Subsampling
 		projected, err := s.sub.ForwardUnmaskedChunk(features, rows)
 		if err != nil {

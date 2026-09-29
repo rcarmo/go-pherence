@@ -167,9 +167,18 @@ maximum/mean absolute error `4.25e-6`/`1.49e-8`, zero values outside
 `3e-3 + 4e-5*abs(reference)` gate, both in chunk 36 (maximum overall
 `0.00458`, mean `9.13e-5`). Those failures remain recorded; matching
 downstream tokens does not qualify the subsampling stage or measured WER.
-The source WAV digest guards fixture provenance, not generated-output
-acceptance. Transcript agreement on this clip is still model-oracle parity,
-not a human-labelled accuracy result.
+An isolated operator check now feeds the pinned 2,000 podcast mel rows
+into native unmasked subsampling, retaining its convolution caches. Its
+258,048 projected values have maximum/mean absolute error
+`5.49e-4`/`4.11e-5` and **zero outliers under the same projection gate**.
+The native PCM→mel stage has maximum/mean error `3.54e-4`/`8.40e-7`,
+zero outliers under its separate `5e-4 + 1e-5*abs(reference)` gate.
+Together these locate the two composed-stage outliers in frontend error
+propagation, without attributing them to a failed isolated subsampling
+operator or widening either threshold. They remain unqualified at the
+composed stage. The source WAV digest guards fixture provenance, not
+generated-output acceptance. Transcript agreement on this clip is still
+model-oracle parity, not a human-labelled accuracy result.
 
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
 relative positions after the 57-frame window starts sliding, and applies

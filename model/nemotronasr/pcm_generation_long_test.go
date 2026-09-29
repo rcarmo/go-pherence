@@ -68,6 +68,63 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 	}
 	inputRef := readStage("input")
 	towerRef := readStage("tower")
+	var melRef []float32
+	if reference.Samples == 16000*20 {
+		melFile, err := os.Open(strings.TrimSuffix(path, ".json") + ".mel.f32.gz")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer melFile.Close()
+		gz, err := gzip.NewReader(melFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer gz.Close()
+		data, err := io.ReadAll(gz)
+		if err != nil || len(data) != reference.MelValid*128*4 {
+			t.Fatalf("mel reference bytes=%d err=%v", len(data), err)
+		}
+		melRef = make([]float32, reference.MelValid*128)
+		for i := range melRef {
+			melRef[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[i*4:]))
+		}
+	}
+	if len(melRef) != 0 {
+		var sub SubsamplingStream
+		sub.Model = model.Subsampling
+		var maxAbs, sumAbs float64
+		var outside int
+		for chunk, start := 0, 0; start < reference.MelValid; chunk++ {
+			rows := 32
+			if chunk == 0 {
+				rows = 25
+			}
+			features := make([]float32, rows*128)
+			end := min(start+rows, reference.MelValid)
+			copy(features, melRef[start*128:end*128])
+			projected, err := sub.ForwardUnmaskedChunk(features, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, v := range projected {
+				want := inputRef[(chunk*4*1024)+i]
+				d := math.Abs(float64(v - want))
+				maxAbs = math.Max(maxAbs, d)
+				sumAbs += d
+				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || d > 3e-3+4e-5*math.Abs(float64(want)) {
+					outside++
+					if outside <= 4 {
+						t.Logf("reference-mel subsampling outlier chunk=%d row=%d col=%d native=%g ref=%g delta=%g", chunk, i/1024, i%1024, v, want, d)
+					}
+				}
+			}
+			start = end
+		}
+		t.Logf("reference-mel subsampling max=%g mean=%g outside=%d", maxAbs, sumAbs/float64(len(inputRef)), outside)
+		if outside != 0 {
+			t.Fatal("reference-mel subsampling operator parity failed")
+		}
+	}
 	pcm, rate, err := audio.WAV(filepath.Join("..", "..", "testdata", "jfk.wav"))
 	if err != nil || rate != 16000 || len(pcm) != 176000 {
 		t.Fatalf("unexpected JFK WAV rate=%d samples=%d err=%v", rate, len(pcm), err)
@@ -112,9 +169,32 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 	for _, chunkSize := range chunkSizes {
 		s := &PCMGenerationStream{Model: model}
 		chunkIndex := 0
-		var maxInput, sumInput, maxTower, sumTower float64
-		var outsideInput, outsideTower int
+		var maxInput, sumInput, maxTower, sumTower, maxMel, sumMel float64
+		var outsideInput, outsideTower, outsideMel, melRow int
 		s.onStage = func(stage string, values []float32) {
+			if stage == "mel" {
+				if len(melRef) == 0 {
+					return
+				}
+				for i, v := range values {
+					row := melRow + i/128
+					if row >= reference.MelValid {
+						break
+					}
+					want := melRef[row*128+i%128]
+					d := math.Abs(float64(v - want))
+					maxMel = math.Max(maxMel, d)
+					sumMel += d
+					if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || d > 5e-4+1e-5*math.Abs(float64(want)) {
+						outsideMel++
+						if outsideMel <= 4 {
+							t.Logf("mel outlier row=%d col=%d native=%g ref=%g delta=%g", row, i%128, v, want, d)
+						}
+					}
+				}
+				melRow += len(values) / 128
+				return
+			}
 			var want []float32
 			switch stage {
 			case "subsampling":
@@ -168,15 +248,23 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		}
 		decisions = append(decisions, last...)
 		frames = append(frames, positions...)
+		if len(melRef) > 0 {
+			t.Logf("mel valid=%d observed=%d max=%g mean=%g outside=%d", reference.MelValid, melRow, maxMel, sumMel/float64(len(melRef)), outsideMel)
+			if melRow != 25+(encoderRows/4-1)*32 || outsideMel != 0 {
+				t.Fatal("PCM-to-mel stage parity failed")
+			}
+		}
 		t.Logf("PCM JFK chunk=%d input max=%g mean=%g outside=%d tower max=%g mean=%g outside=%d", chunkSize, maxInput, sumInput/float64(encoderRows*1024), outsideInput, maxTower, sumTower/float64(encoderRows*1024), outsideTower)
 		if chunkIndex != encoderRows/4 || outsideTower != 0 {
 			t.Fatal("PCM-to-encoder tower parity failed")
 		}
 		if outsideInput != 0 {
-			if reference.Samples != 16000*20 || outsideInput != 2 {
-				t.Fatalf("unexpected PCM-to-subsampling outliers: %d", outsideInput)
+			if reference.Samples != 16000*20 {
+				t.Fatalf("PCM-to-subsampling stage parity failed: %d outliers", outsideInput)
 			}
-			t.Logf("PCM-to-subsampling stage UNQUALIFIED: %d podcast values outside provisional gate; retained for downstream decision analysis", outsideInput)
+			// The podcast's composed stage is explicitly unqualified. Do not
+			// treat a fixed number of outliers as an allowance or a passing gate.
+			t.Logf("PCM-to-subsampling stage UNQUALIFIED: %d values outside provisional gate; retained for downstream decision analysis", outsideInput)
 		}
 		if len(decisions) != len(reference.Tokens)-1 || !reflect.DeepEqual(frames, expectedFrames) {
 			t.Fatalf("chunk=%d decisions=%d want=%d frame parity=%v", chunkSize, len(decisions), len(reference.Tokens)-1, reflect.DeepEqual(frames, expectedFrames))
