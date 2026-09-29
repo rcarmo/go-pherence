@@ -43,3 +43,16 @@ that gate, so this evidence is bounded to released-audio-derived inputs.
 The existing five-row attention and cached-block tests still pass. This
 qualifies layer-0 attention cache transitions only; it does not advance
 convolution state across 24 layers or decode long audio.
+
+`CachedEncoderTower` now advances 24 per-layer attention and convolution
+caches together for one to five **prepared**, fully valid projected rows.
+The pinned PyTorch fixture replays four JFK-derived subsampling rows through
+eighteen four-row steps (72 rows), using the released model and lookahead 0
+or 3. All 36 SIMD and scalar steps match PyTorch under
+`3e-4 + 2e-5*abs(reference)` with zero outliers; the largest step error
+observed was `8.26e-6` on SIMD and `6.62e-6` on scalar. A rejected input
+or missing final layer leaves prior cache state unchanged. These repeated
+prepared rows qualify the 24-layer cache transition and 57-frame sliding
+boundary, not varied full-recording PCM or native RNN-T transcription.
+Terminal masks, PCM chunk scheduling, text/WER and full-request GPU timing
+still need validation.

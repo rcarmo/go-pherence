@@ -62,7 +62,7 @@ type Encoder0ChunkState struct {
 }
 
 // ForwardCachedChunk composes FF1, cached attention, causal convolution and
-// FF2 over at most five cumulative rows. The two caches commit together only
+// FF2 over one to five current rows. The two caches commit together only
 // after a finite output has been produced. This is not an integrated encoder.
 func (m *Encoder0Block) ForwardCachedChunk(input []float32, rows, lookahead int, state *Encoder0ChunkState) ([]float32, error) {
 	if m == nil || m.FF1 == nil || m.Attention == nil || m.Conv == nil || m.FF2 == nil || state == nil {
