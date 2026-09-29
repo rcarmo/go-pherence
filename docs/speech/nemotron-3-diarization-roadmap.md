@@ -79,6 +79,10 @@ sine/cosine across eight heads kept fixture parity; subsequent five
 10-iteration runs took 41.8–43.9 ms for the full layer and 21.6–22.5 ms
 for attention alone, with unchanged allocations. Timing samples overlap, so
 this does not establish a speedup. These calls exclude loading, frontend,
-stacking and the other 30 layers. Later encoder layers, cache, upsampler and
-speaker head remain unqualified.
+stacking and the other 30 layers. The composed 138-row layer-0 output also passes the second layer's
+pre-attention normalisation and Q/K/V fixture checks. On AVX2/FMA, maximum
+absolute errors are `9.54e-7` for normalisation, `3.34e-6` for Q,
+`2.86e-6` for K and `9.54e-7` for V, with zero values outside tolerance.
+Layer-1 attention/MLP, later layers, cache, upsampler and speaker head remain
+unqualified.
 Labelled diarisation quality, production latency and readiness promotion remain open.

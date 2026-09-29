@@ -74,7 +74,13 @@ def main():
         save(args.out / "jfk_full_layer0_attention.f32.gz", all_attention[0])
         full_residual = all_normal + all_attention
         save(args.out / "jfk_full_layer0_residual.f32.gz", full_residual[0])
-        save(args.out / "jfk_full_layer0_complete.f32.gz", (full_residual + layer.mlp(layer.layer_norm2(full_residual)))[0])
+        full_layer0 = full_residual + layer.mlp(layer.layer_norm2(full_residual))
+        save(args.out / "jfk_full_layer0_complete.f32.gz", full_layer0[0])
+        layer1 = model.model.audio_tower.layers[1]
+        full_layer1_normal = layer1.layer_norm1(full_layer0)
+        save(args.out / "jfk_full_layer1_normal.f32.gz", full_layer1_normal[0])
+        for name in ("q", "k", "v"):
+            save(args.out / f"jfk_full_layer1_{name}.f32.gz", getattr(layer1.self_attn, f"{name}_proj")(full_layer1_normal)[0])
 
 
 if __name__ == "__main__":
