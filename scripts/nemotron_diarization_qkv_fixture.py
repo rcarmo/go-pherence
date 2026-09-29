@@ -95,6 +95,14 @@ def main():
         full_layer2_residual = full_layer1_complete + full_layer2_attention
         save(args.out / "jfk_full_layer2_residual.f32.gz", full_layer2_residual[0])
         save(args.out / "jfk_full_layer2_complete.f32.gz", (full_layer2_residual + layer2.mlp(layer2.layer_norm2(full_layer2_residual)))[0])
+        # The 31-layer offline tower is bidirectional over all 138 rows.
+        # Save sparse intermediate checkpoints to detect accumulated drift.
+        tower_hidden = all_normal
+        for layer_index, tower_layer in enumerate(model.model.audio_tower.layers):
+            tower_hidden = tower_layer(tower_hidden, position_embeddings=all_rotary, attention_mask=None)
+            if layer_index in (7, 15, 23, 30):
+                save(args.out / f"jfk_full_layer{layer_index}_complete.f32.gz", tower_hidden[0])
+        save(args.out / "jfk_full_tower_normal.f32.gz", model.model.audio_tower.layer_norm(tower_hidden)[0])
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)

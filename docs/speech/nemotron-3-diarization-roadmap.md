@@ -105,7 +105,16 @@ audio tower. A separately generated full-context 138-row PyTorch fixture
 checks the composed first three layers through layer-2 normalisation,
 attention, residual and complete GELU MLP: AVX2/FMA maximum output error
 `2.29e-5`, scalar fallback `5.34e-5`, mean below `2e-6`, with zero
-per-value outliers. Indexed weight loading alone does not qualify layers
-3–30. Those layers, cache, upsampler and speaker head have no native parity
-or full-request latency evidence. Labelled diarisation quality and production
-readiness promotion remain open.
+per-value outliers. `OfflineAudioTower.ForwardOffline` now composes all 31 released audio layers
+and the tower's final LayerNorm over the same unmasked 138-row window. Pinned
+PyTorch checkpoints after layers 7, 15, 23 and 30, plus the final norm,
+pass AVX2/FMA and CPU-features-disabled checks with zero values outside
+`3e-4 + 2e-5*abs(reference)`. The raw layer-30 output has AVX2/FMA maximum
+error `8.55e-4`, mean `2.08e-5` (scalar maximum `1.10e-3`, mean `2.40e-5`);
+its measured mean gate is `3e-5`. The final-normalised output has AVX2/FMA
+maximum error `4.77e-6`, mean `5.66e-7` (scalar maximum `1.24e-5`, mean
+`6.51e-7`), with a `2e-5` mean gate. These are one-recording, full-context
+encoder measurements; they do not qualify arbitrary lengths, masks, chunking,
+or concurrent serving. Frontend composition, cache, upsampler and speaker head
+have no native end-to-end parity or full-request latency evidence. Labelled
+diarisation quality and production readiness promotion remain open.
