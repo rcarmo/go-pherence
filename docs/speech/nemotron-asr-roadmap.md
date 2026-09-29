@@ -26,9 +26,38 @@ first 128 mel rows through 8-, 16-, 32- and 64-row chunks. All 16 projected
 rows match the released-weight reference on SIMD and `GODEBUG=cpu.all=off`
 with zero values outside `3e-4 + 2e-5*abs(reference)`. SIMD mean absolute
 errors span `4.71e-5–5.00e-5`; scalar means span `5.90e-5–7.10e-5`. This
-qualifies full-valid subsampling cache transitions only. Terminal masked
-chunks, 24-layer encoder-cache scheduling, incremental RNNT state, complete
-transcription, and transfer-inclusive GPU request timing remain open.
+qualifies full-valid subsampling cache transitions only.
+
+`SubsamplingStream.ForwardMaskedChunk` now returns projected rows and their
+valid count. It copies caller input, zeros masked mel tails and masks output
+after each Conv2D stride (`floor(valid/2)` per stage). A 13,000-sample JFK
+prefix supplies a 26-row first processor chunk (25 valid), a 32-row next
+chunk, and a terminal 32-row chunk (24 valid, eight right-masked). The next
+chunk repeats first-chunk row 25 as a valid mel row; the first chunk's row 25
+is masked. The pinned processor independently produces the features using
+`center=True` on the first 4,040 samples and `center=False` on subsequent
+overlapping PCM windows. Its released-weight streaming subsampler produces
+three four-row outputs, with valid counts 3/4/3. Native SIMD matches all
+12,288 values with maximum absolute error `6.11e-4`, mean `4.18e-5`, zero
+values outside `3e-4 + 2e-5*abs(reference)`; CPU features disabled matches
+with maximum `1.22e-3`, mean `5.66e-5` and zero outliers. The last output
+row after the first and terminal chunks is projected but masked for the
+encoder; a later chunk may make its underlying mel frame valid. These are
+subsampling-only checks. `ASRMelChunkStream` now schedules arbitrary PCM
+calls into these first/subsequent/terminal shapes, holding fewer than 32
+pending mel rows. An 11-second JFK check produces 35 owned chunks and 1,100
+valid features with maximum error `3.66e-4` against the pinned frontend;
+a 100-second synthetic check produces 313 chunks and 10,000 valid rows
+without growing pending mel state. The composed 13,000-sample PCM→masked
+subsampling comparison has 44 of 12,288 projected values outside
+`8e-4 + 3e-5*abs(reference)` (maximum `0.00238`, mean `1.65e-4`). Pinned
+PyTorch subsampling on the native mel rows has zero outliers under the
+operator gate (maximum `6.11e-4`, mean `4.28e-5`), identifying frontend
+rounding amplified by the released subsampler. This failed composed gate
+is retained; it needs downstream decision/error analysis, not a tolerance
+change alone. Encoder attention masks, 24-layer integration,
+whole-recording tokens and text, WER, and GPU timings still need independent
+checks.
 
 `Encoder0Attention.ForwardCachedChunk` now uses cumulative sequence length for
 relative positions after the 57-frame K/V window starts sliding, and applies
