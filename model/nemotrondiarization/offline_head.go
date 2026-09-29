@@ -15,10 +15,10 @@ const diarizationUpsample = 8
 // OfflineHead projects final-normalised audio-tower frames, performs the
 // subpixel convolution, and classifies frames without speaker-cache updates.
 type OfflineHead struct {
-	projectionWeight, projectionBias []float32
-	convWeight, convBias             []float32
-	denseWeight, denseBias           []float32
-	outputWeight, outputBias         []float32
+	projectionWeight, projectionBias      []float32
+	convWeight, convDenseWeight, convBias []float32
+	denseWeight, denseBias                []float32
+	outputWeight, outputBias              []float32
 }
 
 func LoadOfflineHead(file *safetensors.File) (*OfflineHead, error) {
@@ -64,6 +64,16 @@ func LoadOfflineHead(file *safetensors.File) (*OfflineHead, error) {
 	if m.convBias, err = load("model.upsampler.conv.bias", diarizationHeadWidthProjection*diarizationUpsample); err != nil {
 		return nil, err
 	}
+	// Conv1d stores [channel, feature, tap]. The dense window is
+	// [tap, feature]; prepare weights once while loading the checkpoint.
+	m.convDenseWeight = make([]float32, len(m.convWeight))
+	for channel := 0; channel < diarizationHeadWidthProjection*diarizationUpsample; channel++ {
+		for feature := 0; feature < diarizationHeadWidthProjection; feature++ {
+			for tap := 0; tap < 3; tap++ {
+				m.convDenseWeight[(channel*3+tap)*diarizationHeadWidthProjection+feature] = m.convWeight[(channel*diarizationHeadWidthProjection+feature)*3+tap]
+			}
+		}
+	}
 	if m.denseWeight, err = load("classifier.dense.weight", diarizationHeadWidthProjection, diarizationHeadWidthProjection); err != nil {
 		return nil, err
 	}
@@ -87,7 +97,7 @@ func (m *OfflineHead) ForwardOffline(input []float32, rows int) ([]float32, erro
 }
 
 func (m *OfflineHead) forwardStages(input []float32, rows int) (projected, convolved, upsampled, logits []float32, err error) {
-	if m == nil || len(m.projectionWeight) != diarizationHeadWidthProjection*projectedWidth || len(m.projectionBias) != diarizationHeadWidthProjection || len(m.convWeight) != diarizationHeadWidthProjection*diarizationUpsample*diarizationHeadWidthProjection*3 || len(m.convBias) != diarizationHeadWidthProjection*diarizationUpsample || len(m.denseWeight) != diarizationHeadWidthProjection*diarizationHeadWidthProjection || len(m.denseBias) != diarizationHeadWidthProjection || len(m.outputWeight) != diarizationSpeakers*diarizationHeadWidthProjection || len(m.outputBias) != diarizationSpeakers {
+	if m == nil || len(m.projectionWeight) != diarizationHeadWidthProjection*projectedWidth || len(m.projectionBias) != diarizationHeadWidthProjection || len(m.convDenseWeight) != diarizationHeadWidthProjection*diarizationUpsample*diarizationHeadWidthProjection*3 || len(m.convBias) != diarizationHeadWidthProjection*diarizationUpsample || len(m.denseWeight) != diarizationHeadWidthProjection*diarizationHeadWidthProjection || len(m.denseBias) != diarizationHeadWidthProjection || len(m.outputWeight) != diarizationSpeakers*diarizationHeadWidthProjection || len(m.outputBias) != diarizationSpeakers {
 		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization head weights")
 	}
 	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
@@ -105,28 +115,33 @@ func (m *OfflineHead) forwardStages(input []float32, rows int) (projected, convo
 	for i := range projected {
 		projected[i] += m.projectionBias[i%diarizationHeadWidthProjection]
 	}
-	// Convolution weights are [out,in,kernel]; convolved is [channel,time]
-	// to match the reference Conv1d stage before its subpixel transpose.
+	// Pack [row, tap, feature] so the checked dense kernel can consume
+	// [channel, feature, tap] convolution weights after a one-time reorder.
 	channels := diarizationHeadWidthProjection * diarizationUpsample
-	convolved = make([]float32, channels*rows)
-	for channel := 0; channel < channels; channel++ {
-		for row := 0; row < rows; row++ {
-			sum := m.convBias[channel]
-			for feature := 0; feature < diarizationHeadWidthProjection; feature++ {
-				for tap := -1; tap <= 1; tap++ {
-					position := row + tap
-					if position >= 0 && position < rows {
-						sum += projected[position*diarizationHeadWidthProjection+feature] * m.convWeight[(channel*diarizationHeadWidthProjection+feature)*3+tap+1]
-					}
-				}
+	windowWidth := diarizationHeadWidthProjection * 3
+	windows := make([]float32, rows*windowWidth)
+	for row := 0; row < rows; row++ {
+		for tap := -1; tap <= 1; tap++ {
+			position := row + tap
+			if position >= 0 && position < rows {
+				copy(windows[row*windowWidth+(tap+1)*diarizationHeadWidthProjection:row*windowWidth+(tap+2)*diarizationHeadWidthProjection], projected[position*diarizationHeadWidthProjection:(position+1)*diarizationHeadWidthProjection])
 			}
-			convolved[channel*rows+row] = sum
 		}
 	}
-	upsampled = make([]float32, len(convolved))
+	upsampled = make([]float32, channels*rows)
+	if !simd.DenseNTTo(upsampled, windows, m.convDenseWeight, rows, channels, windowWidth, 1, windowWidth, windowWidth, channels) {
+		return nil, nil, nil, nil, fmt.Errorf("Nemotron diarization subpixel convolution rejected")
+	}
 	for row := 0; row < rows; row++ {
 		for channel := 0; channel < channels; channel++ {
-			upsampled[row*channels+channel] = convolved[channel*rows+row]
+			upsampled[row*channels+channel] += m.convBias[channel]
+		}
+	}
+	// Keep the reference Conv1d [channel,time] stage as an owned diagnostic.
+	convolved = make([]float32, len(upsampled))
+	for row := 0; row < rows; row++ {
+		for channel := 0; channel < channels; channel++ {
+			convolved[channel*rows+row] = upsampled[row*channels+channel]
 		}
 	}
 	frames := rows * diarizationUpsample

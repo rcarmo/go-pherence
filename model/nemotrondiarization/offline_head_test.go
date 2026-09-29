@@ -118,6 +118,32 @@ func TestReleasedOfflineTowerHeadComposedPyTorchParity(t *testing.T) {
 	}
 }
 
+func BenchmarkReleasedOfflineHead138(b *testing.B) {
+	path := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL")
+	if path == "" {
+		b.Skip("set GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL")
+	}
+	file, err := safetensors.Open(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+	head, err := LoadOfflineHead(file)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		b.Fatal(err)
+	}
+	input := readStackingFixture(b, "testdata/jfk_full_tower_normal.f32.gz", 138*projectedWidth)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if _, err := head.ForwardOffline(input, 138); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestOfflineHeadRejectsMalformed(t *testing.T) {
 	if _, err := LoadOfflineHead(nil); err == nil {
 		t.Fatal("accepted nil checkpoint")

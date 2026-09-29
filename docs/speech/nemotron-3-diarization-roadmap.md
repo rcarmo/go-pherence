@@ -136,5 +136,16 @@ threshold, 1100-valid-frame mask and two-decimal timestamps on this request:
 speaker 0 spans `[0.28, 2.28]`, `[3.27, 4.56]`, and `[5.36, 10.63]`
 seconds. A synthetic overlap/masked-frame check covers ordering and ownership.
 This is processor-output parity for one recording, without labelled DER.
-Speaker-cache updates, streaming, other input lengths, transfer-inclusive GPU
-request latency and production readiness promotion remain open.
+The head's subpixel convolution now packs three adjacent projected frames
+into checked dense rows, with Conv1d weights reordered once at load time.
+On the same i7-12700 with `GOMAXPROCS=1`, five 10-iteration isolated
+138-row head samples fell from `133.09–134.77 ms` to `6.36–6.76 ms` per
+call. Owned scratch increased from `3,555,328 B/6 allocations` to
+`3,874,816 B/7 allocations`. PyTorch stage, composed-logit and PCM-request
+fixtures pass SIMD and CPU-features-disabled gates with zero per-value
+outliers; the changed reduction order raises the isolated convolution
+maximum to `3.63e-5` on AVX2/FMA. These timings exclude loading, frontend,
+tower, speaker extraction and transfers; no whole-request speedup has been
+measured. Speaker-cache updates, streaming, other input lengths,
+transfer-inclusive GPU request latency and production readiness promotion
+remain open.
