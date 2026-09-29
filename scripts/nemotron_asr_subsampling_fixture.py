@@ -90,6 +90,32 @@ def main():
                     for kind, tensor in (("returned_k", keys), ("returned_v", values),
                                          ("state_k", kv_cache.layers[0].keys), ("state_v", kv_cache.layers[0].values)):
                         save(args.out / f"encoder0_attn_cache_{kind}{index}.f32.gz", tensor[0])
+                # Run attention with a fresh cache per mode. The positions span
+                # cached+current keys; query offsets remain global across chunks.
+                for lookahead in (0, 3):
+                    stream_cache = DynamicCache(config=model.encoder.config)
+                    for index, bounds in enumerate(((0, 1), (1, 3), (3, 5))):
+                        start, end = bounds
+                        chunk = attn_normal[:, start:end]
+                        chunk_positions = model.encoder.encode_positions(chunk, cached_frames=start)
+                        save(args.out / f"encoder0_attn_chunk_positions_look{lookahead}_{index}.f32.gz", chunk_positions[0])
+                        left_ctx, right_ctx = model.encoder._resolve_attn_context(lookahead)
+                        chunk_mask = create_bidirectional_mask(
+                            config=model.encoder.config,
+                            inputs_embeds=chunk,
+                            attention_mask=torch.ones((1, end), dtype=torch.bool),
+                            past_key_values=stream_cache,
+                            position_ids=torch.arange(start, end)[None, :],
+                            and_mask_function=chunked_limited_mask_function(left_ctx, right_ctx),
+                        )
+                        if chunk_mask is None:
+                            chunk_mask = torch.ones((1, 1, end-start, end), dtype=torch.bool)
+                        save(args.out / f"encoder0_attn_chunk_mask_look{lookahead}_{index}.f32.gz", chunk_mask[0, 0].float())
+                        chunk_output, _ = layer.self_attn(
+                            chunk, position_embeddings=chunk_positions,
+                            attention_mask=chunk_mask, past_key_values=stream_cache,
+                        )
+                        save(args.out / f"encoder0_attn_chunk_output_look{lookahead}_{index}.f32.gz", chunk_output[0])
                 positions = model.encoder.encode_positions(ff1_residual)
                 save(args.out / "encoder0_attn_positions.f32.gz", positions[0])
                 attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=None)
