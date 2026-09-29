@@ -83,13 +83,17 @@ def main():
             save(args.out / f"jfk_full_layer1_{name}.f32.gz", getattr(layer1.self_attn, f"{name}_proj")(full_layer1_normal)[0])
         full_layer1_attention, _ = layer1.self_attn(full_layer1_normal, position_embeddings=all_rotary, attention_mask=None)
         save(args.out / "jfk_full_layer1_attention.f32.gz", full_layer1_attention[0])
-        save(args.out / "jfk_full_layer1_residual.f32.gz", (full_layer0 + full_layer1_attention)[0])
+        full_layer1_residual = full_layer0 + full_layer1_attention
+        save(args.out / "jfk_full_layer1_residual.f32.gz", full_layer1_residual[0])
+        save(args.out / "jfk_full_layer1_complete.f32.gz", (full_layer1_residual + layer1.mlp(layer1.layer_norm2(full_layer1_residual)))[0])
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)
         short_layer1_attention, _ = layer1.self_attn(short_layer1_normal, position_embeddings=rotary, attention_mask=None)
         save(args.out / "jfk_layer1_attention.f32.gz", short_layer1_attention[0])
-        save(args.out / "jfk_layer1_residual.f32.gz", (short_layer0 + short_layer1_attention)[0])
+        short_layer1_residual = short_layer0 + short_layer1_attention
+        save(args.out / "jfk_layer1_residual.f32.gz", short_layer1_residual[0])
+        save(args.out / "jfk_layer1_complete.f32.gz", (short_layer1_residual + layer1.mlp(layer1.layer_norm2(short_layer1_residual)))[0])
 
 
 if __name__ == "__main__":

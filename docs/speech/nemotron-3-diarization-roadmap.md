@@ -96,8 +96,11 @@ checked SGEMM and scalar paths have zero values outside
 `3e-4 + 2e-5*abs(reference)` and mean error below `2e-6`. The largest
 residual error is `3.05e-5` on AVX2/FMA and `6.10e-5` with CPU features
 disabled; 16-row and 138-row windows have different
-bidirectional contexts. These tests include the composed first layer and
-exclude loading, frontend, stacking, layer-1 MLP and later layers. Layer-1
-MLP, later layers, cache, upsampler and speaker head have no native parity
-or full-request latency evidence. Labelled diarisation quality and production
+bidirectional contexts. These tests include the composed first layer and exclude loading, frontend
+and stacking. `Layer1Complete.ForwardOffline` also composes the second
+layer's normalised GELU MLP and passes independent 16- and 138-row output
+fixtures: AVX2/FMA maximum absolute error `2.29e-5`, scalar fallback
+`3.81e-5`, mean below `1e-6`, and zero per-value outliers. The remaining
+encoder layers, cache, upsampler and speaker head have no native parity or
+full-request latency evidence. Labelled diarisation quality and production
 readiness promotion remain open.
