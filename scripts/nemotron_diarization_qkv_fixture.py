@@ -7,6 +7,7 @@ no later encoder layers, upsampling or speaker head run here.
 import argparse
 import gzip
 import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
@@ -115,6 +116,8 @@ def main():
         save(args.out / "jfk_full_head_logits.f32.gz", logits[0])
         request = model(input_features=processed.input_features, attention_mask=mask)
         save(args.out / "jfk_request_logits.f32.gz", request.logits[0])
+        segments = processor.extract_speaker_dict(request.logits, mask)[0]
+        (args.out / "jfk_request_segments.json").write_text(json.dumps(segments, indent=2) + "\n")
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)

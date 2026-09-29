@@ -131,7 +131,10 @@ raw logits match the independent PyTorch request: AVX2/FMA maximum absolute
 error `3.25e-5`, mean `2.84e-6`; CPU-features-disabled maximum `6.11e-5`,
 mean `5.87e-6`, with zero values outside `3e-4 + 2e-5*abs(reference)`.
 The last masked feature row is retained and logits are trimmed from 1104 to
-1101 frames, matching the reference request shape. This one-recording test
-has no labelled DER gate or thresholded-segment parity. Speaker-cache updates,
-streaming, other input lengths, transfer-inclusive GPU request latency and
-production readiness promotion remain open.
+1101 frames, matching the reference request shape. `ExtractSegments` also matches the released processor's default 0.5 activity
+threshold, 1100-valid-frame mask and two-decimal timestamps on this request:
+speaker 0 spans `[0.28, 2.28]`, `[3.27, 4.56]`, and `[5.36, 10.63]`
+seconds. A synthetic overlap/masked-frame check covers ordering and ownership.
+This is processor-output parity for one recording, without labelled DER.
+Speaker-cache updates, streaming, other input lengths, transfer-inclusive GPU
+request latency and production readiness promotion remain open.
