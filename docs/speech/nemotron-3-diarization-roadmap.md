@@ -128,9 +128,12 @@ on SIMD on the same revision, matching all 3,099 pinned logit rows and four
 spans (including the model-assigned second speaker); one sample each.
 The 11-window pinned
 fixtures, native `-race`, cancelled-run, repeated-run and cleanup tests pass.
-The request still runs the frontend, first layer, head and speaker cache
-on CPU. Labelled diarization quality and complete GPU-request performance
-are open.
+A same-revision 100-second PTX stacking-projection hybrid took `75.69 s`
+with 9,999 pinned logits rows, 29 matching spans and zero outliers. SIMD
+on that revision took `75.13 s`; PTX still runs all 31 audio layers, head
+and cache on CPU. The Vulkan request still runs its frontend, first layer,
+head and speaker cache on CPU. Labelled diarization quality and complete
+GPU-request performance are open.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
