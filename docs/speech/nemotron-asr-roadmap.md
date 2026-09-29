@@ -225,8 +225,13 @@ failed at the sliding boundary on both the unchanged code and this trial;
 they were superseded only after regenerating with the pinned processor's
 `get_mask_sizes(chunk, 0)[0] - chunk` visible cache length. The two
 podcast PCM→subsampling outliers remain unqualified. These are small
-single-host samples, not sustained speed or GPU timings. Labelled WER
-and full-request GPU timing still need
+single-host samples, not sustained speed or GPU timings. An opt-in
+shared-model `-race` test runs two independent five-second JFK PCM streams
+concurrently with 4,040- and 80,000-sample calls. Both reproduce their
+serial 80-decision outputs and absolute frames, and previously returned
+decisions remain unchanged. It checks shared immutable weights and the
+relative-position table, not sustained multi-request throughput or a
+cancellation soak. Labelled WER and full-request GPU timing still need
 validation.
 
 `GreedyRNNTStream.Append` now carries the released two-layer predictor and

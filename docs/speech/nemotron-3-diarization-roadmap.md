@@ -392,3 +392,12 @@ checks that its 72 emitted frames are withheld, and rejects any retry or
 finish. Model kernels in progress cannot be interrupted; cancellation
 granularity is one window. This is a functional cancellation check, not a
 concurrent soak or service deadline guarantee.
+
+An opt-in `-race` check loads the released model once, then shares its
+immutable tower, head, frontend projection and compressor between two
+independent two-second JFK streams. With 7,979- and 32,000-sample PCM
+calls, both concurrent requests reproduce their serial 199-row logits;
+previously returned logits stay unchanged. Separate mel, pending-window,
+and speaker-cache state is retained for each request. This bounds
+shared-model concurrency safety, not sustained throughput or cancellation
+under concurrent load.
