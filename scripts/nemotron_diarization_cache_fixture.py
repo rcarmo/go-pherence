@@ -52,6 +52,25 @@ def main():
             save(args.out / f"cache_step{index}_fifo.f32.gz", cache.fifo[0, :cache.num_fifo_frames])
             save(args.out / f"cache_step{index}_pooled.f32.gz", cache._pool_probs(logits, mask)[0])
             print("step", index, "cache", cache.num_cache_frames, "fifo", cache.num_fifo_frames)
+        # At the first overflow, 222 oldest FIFO frames move into the
+        # uncompressed speaker cache. A following chunk checks that the
+        # retained speaker/FIFO state is prepended in the reference order.
+        for index, frames in enumerate((237, 9), start=3):
+            lookahead = 4
+            chunk = torch.arange(index * 241, index * 241 + frames + lookahead, dtype=torch.float32)
+            embeds = ((chunk[:, None] * 7 + torch.arange(512)[None, :]) % 251 - 125) / 127
+            embeds = embeds[None]
+            cached = cache.get_embeds(embeds)
+            full = torch.cat([cached, embeds], dim=1)
+            save(args.out / f"cache_step{index}_input.f32.gz", full[0])
+            logits = torch.arange(full.shape[1] * 8 * 8, dtype=torch.float32).reshape(1, full.shape[1] * 8, 8)
+            logits = ((logits % 53) - 26) / 11
+            mask = torch.ones(1, full.shape[1], dtype=torch.bool)
+            cache.update(full, logits, model.silence_embeds, frames, mask=mask)
+            save(args.out / f"cache_step{index}_fifo.f32.gz", cache.fifo[0, :cache.num_fifo_frames])
+            save(args.out / f"cache_step{index}_speaker.f32.gz", cache.embeds[0, :cache.num_cache_frames])
+            save(args.out / f"cache_step{index}_speaker_probs.f32.gz", cache.probs[0, :cache.num_cache_frames])
+            print("step", index, "cache", cache.num_cache_frames, "fifo", cache.num_fifo_frames, "compressed", cache.is_compressed)
 
 
 if __name__ == "__main__":

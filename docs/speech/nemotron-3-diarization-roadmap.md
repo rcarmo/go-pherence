@@ -166,7 +166,13 @@ pre-compression slice rejects overflow without changing state. `PoolSpeakerProba
 8-logit average pool for all three prepared steps, with one masked final
 encoder row: maximum absolute error `5.97e-8`, mean below `1.3e-8` and
 zero values outside `2e-6`. It rejects non-finite logits even on masked
-rows and preserves caller input. Prepared embeddings and synthetic logits
-do not qualify speaker-cache scoring/compression, model inference,
-streaming, other input lengths, transfer-inclusive GPU latency or
-production readiness.
+rows and preserves caller input. A separate uncompressed speaker-cache transition now passes pinned steps
+at the 264-frame FIFO boundary: the 237-frame append reaches capacity
+without a move; the next nine-frame append moves 222 oldest frames into
+speaker cache and leaves 51 in FIFO. `SpeakerCacheUncompressed` matches
+prepared input order, FIFO state and speaker embeddings; pooled speaker
+probabilities differ by at most `5.97e-8`. Lookahead frames are excluded,
+and an update requiring score-based compression rejects without changing
+state. These deterministic prepared embeddings and synthetic logits do not
+qualify cache scoring/compression, model inference, streaming outputs,
+other input lengths, transfer-inclusive GPU latency or production readiness.
