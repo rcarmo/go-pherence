@@ -191,6 +191,14 @@ frames. Pinned PyTorch embeddings and FIFO state agree, with speaker
 probability maximum error `8.95e-8`. Repeating modulo logits originally
 created equal-score top-k cutoff ties; the compression fixture now gives
 frames distinct scores because PyTorch does not specify which tied frame
-survives. This is prepared cache-state parity, not model-level streaming
-inference. Streaming outputs, other input lengths, transfer-inclusive GPU
-latency and production readiness remain unqualified.
+survives. `StreamingWindow.ForwardPrepared` now composes the released 31-layer tower,
+upsampler/head and owned speaker cache for two consecutive 9+4 prepared
+JFK stacking chunks. The second window prepends nine cached frames; both
+full-context logit tensors and FIFO states match pinned PyTorch fixtures.
+AVX2/FMA maximum logit error is `1.15e-5`, mean below `1.7e-6`;
+CPU-features-disabled maximum is `1.91e-5`, with zero values outside
+`3e-4 + 2e-5*abs(reference)`. This path admits only fully valid prepared
+embeddings and at most 376 total rows. Streaming frontend/chunk scheduling,
+padding masks, later compressed-cache model outputs, complete recording,
+labelled DER, transfer-inclusive GPU latency and production readiness
+remain unqualified.

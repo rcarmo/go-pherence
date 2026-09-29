@@ -13,6 +13,7 @@ from transformers.models.nemotron3_diarization.modeling_nemotron3_diarization im
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "checkpoints/nemotron/diarization"
+STACKED = ROOT / "model/nemotrondiarization/testdata/jfk_stacking_transformers_5_18.f32.gz"
 
 
 def save(path, tensor):
@@ -123,6 +124,27 @@ def main():
             save(args.out / f"cache_step{index}_speaker.f32.gz", cache.embeds[0, :cache.num_cache_frames])
             save(args.out / f"cache_step{index}_speaker_probs.f32.gz", cache.probs[0, :cache.num_cache_frames])
             print("step", index, "cache", cache.num_cache_frames, "fifo", cache.num_fifo_frames, "compressed", cache.is_compressed)
+        # Use the independently pinned 138-row JFK stacking embeddings for
+        # two low-latency 9+4 chunks. This probes model-level context only;
+        # later cache compression and complete recording are separate.
+        import numpy as np
+        with gzip.open(STACKED, "rb") as source:
+            stacked = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1, 138, 512))
+        stream_cache = Nemotron3DiarizationSpeakerCache(model.config.streaming_config)
+        for index, start in enumerate((0, 9)):
+            end = start + 9
+            context = stacked[:, start:end+4]
+            cached = stream_cache.get_embeds(context)
+            combined = torch.cat([cached, context], dim=1)
+            mask = torch.ones(1, combined.shape[1], dtype=torch.bool)
+            position_ids = torch.arange(combined.shape[1])[None, :]
+            outputs = model.model(inputs_embeds=combined, attention_mask=mask, position_ids=position_ids)
+            logits = model.classifier(outputs.last_hidden_state)
+            save(args.out / f"jfk_stream_step{index}_input.f32.gz", combined[0])
+            save(args.out / f"jfk_stream_step{index}_logits.f32.gz", logits[0])
+            stream_cache.update(combined, logits, model.silence_embeds, 9, mask=mask)
+            save(args.out / f"jfk_stream_step{index}_fifo.f32.gz", stream_cache.fifo[0, :stream_cache.num_fifo_frames])
+            print("JFK stream step", index, "cached", cached.shape[1], "rows", combined.shape[1], "fifo", stream_cache.num_fifo_frames)
 
 if __name__ == "__main__":
     main()
