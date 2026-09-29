@@ -243,8 +243,11 @@ reproduces the two composed outliers at chunk 36, row 1, columns 466 and
 `-0.003515` and `+0.003374` relative to pinned mel. Chunk-36 mel has
 maximum/mean absolute differences `3.54e-4`/`4.86e-6`, with its maximum
 at row 9, column 10. This isolates frontend error propagation without
-identifying a safe numerical fix or changing the acceptance gate. The source
-WAV digest guards fixture provenance, not generated-output acceptance. Transcript agreement on this clip is still
+identifying a safe numerical fix or changing the acceptance gate. Two
+bounded frontend power trials—direct `re²+im²` and a float64 squared sum
+before the magnitude cast—still produced two composed-stage outliers and
+were reverted. The source WAV digest guards fixture provenance, not
+generated-output acceptance. Transcript agreement on this clip is still
 model-oracle parity, not a human-labelled accuracy result.
 
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
