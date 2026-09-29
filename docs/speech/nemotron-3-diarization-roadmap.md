@@ -100,7 +100,12 @@ bidirectional contexts. These tests include the composed first layer and exclude
 and stacking. `Layer1Complete.ForwardOffline` also composes the second
 layer's normalised GELU MLP and passes independent 16- and 138-row output
 fixtures: AVX2/FMA maximum absolute error `2.29e-5`, scalar fallback
-`3.81e-5`, mean below `1e-6`, and zero per-value outliers. The remaining
-encoder layers, cache, upsampler and speaker head have no native parity or
-full-request latency evidence. Labelled diarisation quality and production
+`3.81e-5`, mean below `1e-6`, and zero per-value outliers. The layer-1 math also loads an indexed layer from the released 31-layer
+audio tower. A separately generated full-context 138-row PyTorch fixture
+checks the composed first three layers through layer-2 normalisation,
+attention, residual and complete GELU MLP: AVX2/FMA maximum output error
+`2.29e-5`, scalar fallback `5.34e-5`, mean below `2e-6`, with zero
+per-value outliers. Indexed weight loading alone does not qualify layers
+3–30. Those layers, cache, upsampler and speaker head have no native parity
+or full-request latency evidence. Labelled diarisation quality and production
 readiness promotion remain open.

@@ -85,7 +85,16 @@ def main():
         save(args.out / "jfk_full_layer1_attention.f32.gz", full_layer1_attention[0])
         full_layer1_residual = full_layer0 + full_layer1_attention
         save(args.out / "jfk_full_layer1_residual.f32.gz", full_layer1_residual[0])
-        save(args.out / "jfk_full_layer1_complete.f32.gz", (full_layer1_residual + layer1.mlp(layer1.layer_norm2(full_layer1_residual)))[0])
+        full_layer1_complete = full_layer1_residual + layer1.mlp(layer1.layer_norm2(full_layer1_residual))
+        save(args.out / "jfk_full_layer1_complete.f32.gz", full_layer1_complete[0])
+        layer2 = model.model.audio_tower.layers[2]
+        full_layer2_normal = layer2.layer_norm1(full_layer1_complete)
+        save(args.out / "jfk_full_layer2_normal.f32.gz", full_layer2_normal[0])
+        full_layer2_attention, _ = layer2.self_attn(full_layer2_normal, position_embeddings=all_rotary, attention_mask=None)
+        save(args.out / "jfk_full_layer2_attention.f32.gz", full_layer2_attention[0])
+        full_layer2_residual = full_layer1_complete + full_layer2_attention
+        save(args.out / "jfk_full_layer2_residual.f32.gz", full_layer2_residual[0])
+        save(args.out / "jfk_full_layer2_complete.f32.gz", (full_layer2_residual + layer2.mlp(layer2.layer_norm2(full_layer2_residual)))[0])
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)

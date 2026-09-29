@@ -19,14 +19,20 @@ type Layer1Complete struct {
 }
 
 func LoadLayer1Complete(file *safetensors.File) (*Layer1Complete, error) {
-	if file == nil {
-		return nil, fmt.Errorf("nil Nemotron diarization checkpoint")
+	return LoadIndexedAudioLayer(file, 1)
+}
+
+// LoadIndexedAudioLayer loads one offline audio-transformer layer after layer 0.
+// Loading does not qualify its outputs; test a full-context reference window.
+func LoadIndexedAudioLayer(file *safetensors.File, layer int) (*Layer1Complete, error) {
+	if file == nil || layer < 1 || layer >= 31 {
+		return nil, fmt.Errorf("invalid Nemotron diarization layer or checkpoint")
 	}
-	attention, err := LoadLayer1Attention(file)
+	attention, err := loadIndexedAttention(file, layer)
 	if err != nil {
 		return nil, err
 	}
-	prefix := "model.audio_tower.layers.1."
+	prefix := fmt.Sprintf("model.audio_tower.layers.%d.", layer)
 	load := func(name string, dims ...int) ([]float32, error) {
 		values, shape, err := file.GetFloat32(prefix + name)
 		if err != nil {

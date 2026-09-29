@@ -17,10 +17,14 @@ type Layer1QKV struct {
 }
 
 func LoadLayer1QKV(file *safetensors.File) (*Layer1QKV, error) {
-	if file == nil {
-		return nil, fmt.Errorf("nil Nemotron diarization checkpoint")
+	return loadIndexedQKV(file, 1)
+}
+
+func loadIndexedQKV(file *safetensors.File, layer int) (*Layer1QKV, error) {
+	if file == nil || layer < 1 || layer >= 31 {
+		return nil, fmt.Errorf("invalid Nemotron diarization layer or checkpoint")
 	}
-	prefix := "model.audio_tower.layers.1."
+	prefix := fmt.Sprintf("model.audio_tower.layers.%d.", layer)
 	load := func(name string, dims ...int) ([]float32, error) {
 		values, shape, err := file.GetFloat32(prefix + name)
 		if err != nil {

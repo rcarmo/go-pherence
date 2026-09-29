@@ -16,14 +16,18 @@ type Layer1Attention struct {
 }
 
 func LoadLayer1Attention(file *safetensors.File) (*Layer1Attention, error) {
-	if file == nil {
-		return nil, fmt.Errorf("nil Nemotron diarization checkpoint")
+	return loadIndexedAttention(file, 1)
+}
+
+func loadIndexedAttention(file *safetensors.File, layer int) (*Layer1Attention, error) {
+	if file == nil || layer < 1 || layer >= 31 {
+		return nil, fmt.Errorf("invalid Nemotron diarization layer or checkpoint")
 	}
-	qkv, err := LoadLayer1QKV(file)
+	qkv, err := loadIndexedQKV(file, layer)
 	if err != nil {
 		return nil, err
 	}
-	prefix := "model.audio_tower.layers.1.self_attn.o_proj."
+	prefix := fmt.Sprintf("model.audio_tower.layers.%d.self_attn.o_proj.", layer)
 	weight, shape, err := file.GetFloat32(prefix + "weight")
 	if err != nil {
 		return nil, err
