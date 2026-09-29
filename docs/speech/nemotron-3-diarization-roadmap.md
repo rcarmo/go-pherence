@@ -344,3 +344,14 @@ logits rows and 29 exact streaming spans. Maximum/mean logit errors stayed
 `6.87e-5`/`4.93e-6`, with zero outliers under the existing gate. This is
 one host and recording; concurrency throughput, labelled DER and full GPU
 requests still require measurement.
+
+`PCMStreamingRequest.AppendPCMContext` and `FinishContext` accept a Go
+context without changing the existing methods. They check cancellation
+before consuming PCM and between bounded 13-row encoder windows; a
+cancelled request closes and returns no partial logits from that call.
+Nil contexts and malformed PCM are rejected without advancing state. A
+deterministic test cancels after the first window of a five-second call,
+checks that its 72 emitted frames are withheld, and rejects any retry or
+finish. Model kernels in progress cannot be interrupted; cancellation
+granularity is one window. This is a functional cancellation check, not a
+concurrent soak or service deadline guarantee.

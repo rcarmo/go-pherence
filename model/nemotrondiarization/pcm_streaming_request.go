@@ -1,6 +1,7 @@
 package nemotrondiarization
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -56,6 +57,13 @@ func LoadPCMStreamingRequest(file *safetensors.File) (*PCMStreamingRequest, erro
 // before model inference, prior state remains intact. A model error closes
 // the request: the frontend may already have consumed the input chunk.
 func (s *PCMStreamingRequest) AppendPCM(pcm []float32) ([]float32, error) {
+	return s.AppendPCMContext(context.Background(), pcm)
+}
+
+// AppendPCMContext checks cancellation before accepting PCM and between
+// bounded encoder windows. Cancellation closes this per-stream request;
+// already emitted output from previous calls remains owned by the caller.
+func (s *PCMStreamingRequest) AppendPCMContext(ctx context.Context, pcm []float32) ([]float32, error) {
 	if s == nil || s.closed || s.frontend == nil || s.window == nil || len(pcm) == 0 || len(pcm) > 16000*5 || s.samples > math.MaxInt64-200-int64(len(pcm)) {
 		return nil, fmt.Errorf("invalid Nemotron diarization PCM stream")
 	}
@@ -63,6 +71,13 @@ func (s *PCMStreamingRequest) AppendPCM(pcm []float32) ([]float32, error) {
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			return nil, fmt.Errorf("non-finite Nemotron diarization PCM stream")
 		}
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("nil Nemotron diarization context")
+	}
+	if err := ctx.Err(); err != nil {
+		s.closed = true
+		return nil, err
 	}
 	// Delay the last stack group until the final chunk's attention mask is
 	// known. This bounds retained PCM independently of recording duration.
@@ -79,7 +94,7 @@ func (s *PCMStreamingRequest) AppendPCM(pcm []float32) ([]float32, error) {
 		copy(s.pcmTail, s.pcmTail[feed:])
 		s.pcmTail = s.pcmTail[:pcmTailReserve]
 	}
-	out, err := s.runReady()
+	out, err := s.runReady(ctx)
 	if err != nil {
 		s.closed = true
 		return nil, err
@@ -87,11 +102,14 @@ func (s *PCMStreamingRequest) AppendPCM(pcm []float32) ([]float32, error) {
 	return out, nil
 }
 
-func (s *PCMStreamingRequest) runReady() ([]float32, error) {
+func (s *PCMStreamingRequest) runReady(ctx context.Context) ([]float32, error) {
 	var out []float32
 	// A complete 13-row window is always non-final. The reference then
 	// processes any residual four rows as a separate final chunk.
 	for len(s.pending)/projectedWidth >= lowLatencyFrames+lowLatencyLookahead {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		chunk := s.pending[:(lowLatencyFrames+lowLatencyLookahead)*projectedWidth]
 		cached := len(s.window.Cache.speaker)/projectedWidth + len(s.window.Cache.fifo)/projectedWidth
 		_, all, err := s.window.ForwardPrepared(chunk, lowLatencyFrames, lowLatencyLookahead)
@@ -111,8 +129,21 @@ func (s *PCMStreamingRequest) runReady() ([]float32, error) {
 // Finish scores the final window without lookahead and trims its logits to
 // the processor's uncentred last-chunk frame count.
 func (s *PCMStreamingRequest) Finish() ([]float32, error) {
+	return s.FinishContext(context.Background())
+}
+
+// FinishContext checks cancellation before finalisation and between any
+// complete windows. Once finalisation begins, errors close the request.
+func (s *PCMStreamingRequest) FinishContext(ctx context.Context) ([]float32, error) {
 	if s == nil || s.closed || s.frontend == nil || s.window == nil || s.samples == 0 {
 		return nil, fmt.Errorf("invalid Nemotron diarization PCM stream finish")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("nil Nemotron diarization context")
+	}
+	if err := ctx.Err(); err != nil {
+		s.closed = true
+		return nil, err
 	}
 	s.closed = true
 	processed := s.samples - int64(len(s.pcmTail))
@@ -179,7 +210,7 @@ func (s *PCMStreamingRequest) Finish() ([]float32, error) {
 	}
 	s.pending = append(s.pending, embeds...)
 	s.pending = append(s.pending, last...)
-	out, err := s.runReady()
+	out, err := s.runReady(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +231,9 @@ func (s *PCMStreamingRequest) Finish() ([]float32, error) {
 	}
 	remaining := len(s.pending) / projectedWidth
 	if remaining > 0 {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		cached := len(s.window.Cache.speaker)/projectedWidth + len(s.window.Cache.fifo)/projectedWidth
 		_, all, err := s.window.ForwardPrepared(s.pending, remaining, 0)
 		if err != nil {
