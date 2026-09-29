@@ -47,7 +47,13 @@ func (l *VulkanAudioLayer) Close() error {
 // NewVulkanAudioLayer prepares one reusable plan and uploaded layer-1..30
 // weights. It never modifies or retains the source weight slices. A failed
 // constructor releases every resource acquired so far.
-func NewVulkanAudioLayer(ctx context.Context, source *Layer1Complete, rows int) (result *VulkanAudioLayer, err error) {
+func NewVulkanAudioLayer(ctx context.Context, source *Layer1Complete, rows int) (*VulkanAudioLayer, error) {
+	return newVulkanAudioLayerFromTensor(ctx, source, rows, nil)
+}
+
+// newVulkanAudioLayerFromTensor binds the previous layer's resident output
+// as this layer's input. Its owner must outlive this layer and close afterward.
+func newVulkanAudioLayerFromTensor(ctx context.Context, source *Layer1Complete, rows int, previous *vk.VkTensorF32) (result *VulkanAudioLayer, err error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("nil Nemotron Vulkan layer context")
 	}
@@ -94,9 +100,17 @@ func NewVulkanAudioLayer(ctx context.Context, source *Layer1Complete, rows int) 
 		return t, t.Upload(ctx, values)
 	}
 	width := projectedWidth
-	layer.input, err = alloc(rows, width)
-	if err != nil {
-		return nil, err
+	if previous != nil {
+		shape := previous.Shape()
+		if len(shape) != 2 || shape[0] != rows || shape[1] != width {
+			return nil, fmt.Errorf("invalid Nemotron Vulkan upstream layer tensor")
+		}
+		layer.input = previous
+	} else {
+		layer.input, err = alloc(rows, width)
+		if err != nil {
+			return nil, err
+		}
 	}
 	normal, err := alloc(rows, width)
 	if err != nil {
@@ -315,7 +329,7 @@ func (l *VulkanAudioLayer) Forward(ctx context.Context, input []float32) ([]floa
 	if err := l.input.Upload(ctx, input); err != nil {
 		return nil, err
 	}
-	if err := l.plan.Run(ctx); err != nil {
+	if err := l.runResident(ctx); err != nil {
 		return nil, err
 	}
 	output := make([]float32, len(input))
@@ -328,4 +342,14 @@ func (l *VulkanAudioLayer) Forward(ctx context.Context, input []float32) ([]floa
 		}
 	}
 	return output, nil
+}
+
+func (l *VulkanAudioLayer) runResident(ctx context.Context) error {
+	if l == nil || l.closed || l.plan == nil || ctx == nil {
+		return fmt.Errorf("invalid resident Nemotron Vulkan layer")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return l.plan.Run(ctx)
 }

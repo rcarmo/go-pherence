@@ -26,6 +26,7 @@ const chunkSamples = 16000 * 5
 
 type options struct {
 	task, backend, input, model, vocab string
+	vulkanTower                        bool
 }
 
 func main() {
@@ -44,6 +45,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&opts.input, "input", "", "mono 16-kHz PCM WAV")
 	fs.StringVar(&opts.model, "model", "", "matching released model.safetensors")
 	fs.StringVar(&opts.vocab, "tokenizer", "", "ASR tokenizer.json (defaults beside model)")
+	fs.BoolVar(&opts.vulkanTower, "vulkan-tower", false, "opt-in resident Vulkan diarization tower (hybrid; requires -backend vulkan)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -52,6 +54,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 	if opts.task == "diarization" && opts.vocab != "" {
 		return fmt.Errorf("-tokenizer only applies to ASR")
+	}
+	if opts.vulkanTower && (opts.task != "diarization" || opts.backend != "vulkan") {
+		return fmt.Errorf("-vulkan-tower requires -task diarization -backend vulkan")
 	}
 	if strings.ToLower(filepath.Ext(opts.input)) != ".wav" {
 		return fmt.Errorf("input must be a WAV file")
@@ -90,7 +95,11 @@ func run(args []string, stdout, stderr io.Writer) error {
 		if opts.task == "asr" {
 			projection = "subsampling"
 		}
-		fmt.Fprintf(stderr, "backend=%s: hybrid request; only the %s projection runs on GPU; other model stages run on CPU\n", opts.backend, projection)
+		if opts.vulkanTower {
+			fmt.Fprintln(stderr, "backend=vulkan: hybrid request; stacking projection and 30 resident audio layers/final norm run on GPU; frontend, audio layer 0, head and speaker cache run on CPU")
+		} else {
+			fmt.Fprintf(stderr, "backend=%s: hybrid request; only the %s projection runs on GPU; other model stages run on CPU\n", opts.backend, projection)
+		}
 	}
 	started := time.Now()
 	if opts.task == "asr" {
@@ -186,6 +195,12 @@ func transcribe(ctx context.Context, model *nemotronasr.PCMGenerationModel, opts
 }
 
 func diarize(ctx context.Context, request *nemotrondiarization.PCMStreamingRequest, opts options, pcm []float32, stdout io.Writer) (err error) {
+	if opts.vulkanTower {
+		if err := request.EnableVulkanTower(); err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, request.CloseVulkanTower()) }()
+	}
 	if opts.backend != "simd" {
 		projector := &nemotrondiarization.DeviceStackingProjector{Backend: opts.backend}
 		defer func() { err = errors.Join(err, projector.Close()) }()

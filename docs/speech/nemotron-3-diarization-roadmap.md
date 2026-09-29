@@ -76,8 +76,37 @@ matched independent PyTorch layer-1 fixtures with maximum/mean absolute
 errors `2.67e-5`/`5.83e-7` and `2.29e-5`/`5.12e-7`, respectively,
 with zero values outside `3e-4 + 2e-5*abs(reference)`. Device memory
 usage returned to baseline after `Close`. This tests an unmasked layer
-starting at position zero. It does not yet execute the 31-layer tower,
-streaming speaker cache, head or a complete GPU PCM request.
+starting at position zero; it does not exercise the streaming cache or head.
+
+An opt-in 31-layer hybrid now runs the first audio layer on CPU, the other
+30 layers and final normalisation in fixed-row Vulkan plans, and the head
+and speaker cache on CPU. Intermediate layer activations stay on Vulkan;
+each plan fences before the next layer, while a change in prepared row count
+closes and rebuilds the resident tower. A 138-row pinned PyTorch fixture
+passed at layers 2, 7, 15, 23 and 30 and the final norm. Layer 30 had
+maximum/mean absolute error `6.71e-4`/`1.49e-5`; after final norm the
+errors were `5.72e-6`/`3.74e-7`. No values exceeded
+`3e-4 + 2e-5*abs(reference)`. Eleven streaming windows passed pinned
+logits at steps 0, 1, 2, 5 and 10. The opt-in CLI uses `-task diarization
+-backend vulkan -vulkan-tower`, with explicit device failure and teardown.
+
+On the i7-12700/RTX 3060 with `GOMAXPROCS=4`, the opt-in 11-second JFK
+request took `9.45 s` versus `2.03 s` on SIMD (one CLI sample each;
+excludes WAV/checkpoint load, includes setup, transfers and teardown).
+The 100-second tiled JFK segment test took `108.31 s` with Vulkan stacking
+and the resident tower versus `86.79 s` on SIMD (one test sample each).
+The independent PyTorch references accepted 1,099 and 9,999 logits rows,
+respectively, with zero outliers and the same model-assigned spans. A
+separate 100-second tower-only projection-disabled run passed all 9,999
+rows; the original fixed 1 MiB final-norm arena failed as the cache grew
+and was replaced with a row-bounded allocation. A five-iteration fixed-row tower benchmark, including layer 0 and transfers,
+measured `79–84 ms` per 138-row Vulkan run versus `143–198 ms` on SIMD
+(two samples per backend). Each Vulkan setup took `0.43 s` and teardown
+about `0.11 s`. Prepared streaming row counts change as cache grows, so
+repeated plan construction costs more than the resident-layer gain in these
+complete requests. The request figures include the CPU frontend, first
+layer, head and cache; they do not qualify a complete GPU request or
+labelled diarization quality.
 
 ## Pinned source and scope
 

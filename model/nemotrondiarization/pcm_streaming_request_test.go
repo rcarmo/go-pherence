@@ -49,6 +49,16 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_VULKAN_REQUEST") == "1" {
+		if err := s.EnableVulkanTower(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := s.CloseVulkanTower(); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
 	backend := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR")
 	var projector *DeviceStackingProjector
 	if backend != "" {
@@ -135,6 +145,11 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 		offset = end
 	}
 	got, err := s.Finish()
+	if s.window.VulkanTower != nil {
+		if closeErr := s.CloseVulkanTower(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
 	if projector != nil {
 		if projector.Dispatches == 0 {
 			t.Fatal("device projection was not dispatched")

@@ -84,6 +84,16 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 	}
 	var spans SegmentStream
 	var got []Segment
+	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_VULKAN_REQUEST") == "1" {
+		if err := request.EnableVulkanTower(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := request.CloseVulkanTower(); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
 	backend := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR")
 	if backend != "" && backend != "ptx" && backend != "vulkan" {
 		t.Fatalf("unsupported projection backend %q", backend)
@@ -143,6 +153,11 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 		offset = end
 	}
 	logits, err := request.Finish()
+	if request.window.VulkanTower != nil {
+		if closeErr := request.CloseVulkanTower(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
 	if projector != nil {
 		if projector.Dispatches < 2 {
 			t.Fatalf("backend=%s dispatched only %d stack groups", backend, projector.Dispatches)

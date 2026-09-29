@@ -115,7 +115,7 @@ func (s *PCMStreamingRequest) runReady(ctx context.Context) ([]float32, error) {
 		}
 		chunk := s.pending[:(lowLatencyFrames+lowLatencyLookahead)*projectedWidth]
 		cached := len(s.window.Cache.speaker)/projectedWidth + len(s.window.Cache.fifo)/projectedWidth
-		_, all, err := s.window.ForwardPrepared(chunk, lowLatencyFrames, lowLatencyLookahead)
+		_, all, err := s.window.ForwardPreparedContext(ctx, chunk, lowLatencyFrames, lowLatencyLookahead)
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +245,7 @@ func (s *PCMStreamingRequest) FinishContext(ctx context.Context) ([]float32, err
 			return nil, err
 		}
 		cached := len(s.window.Cache.speaker)/projectedWidth + len(s.window.Cache.fifo)/projectedWidth
-		_, all, err := s.window.ForwardPrepared(s.pending, remaining, 0)
+		_, all, err := s.window.ForwardPreparedContext(ctx, s.pending, remaining, 0)
 		if err != nil {
 			return nil, err
 		}
