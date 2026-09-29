@@ -155,5 +155,14 @@ from `856–864 ms` before the GELU change to `565–629 ms` after it, with
 `479 allocations` and about `130.37 MB` per request; loading is excluded.
 The two sample ranges do not overlap, but a longer controlled latency run
 and independent quality evidence are needed before a production speed claim.
-Speaker-cache updates, streaming, other input lengths, transfer-inclusive
-GPU request latency and production readiness promotion remain open.
+A separate `SpeakerFIFO` now matches the pinned streaming cache's
+pre-compression embedding transitions for three prepared low-latency chunks
+of nine current and four lookahead encoder frames: returned input lengths
+13, 22 and 31; retained FIFO lengths 9, 18 and 27. Lookahead frames are
+not retained. The released streaming cache uses a 264-frame FIFO and moves
+at least 222 frames into a speaker cache on overflow; the separate offline
+configuration uses a 40-frame FIFO and 300-frame update period. The Go
+pre-compression slice rejects overflow without changing state. Prepared
+embeddings and synthetic logits do not qualify probability scoring,
+compression, model inference, speaker-cache streaming, other input lengths,
+transfer-inclusive GPU latency or production readiness.
