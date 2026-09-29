@@ -20,6 +20,7 @@ type Layer0Attention struct {
 	qkv       *Layer0QKV
 	outWeight []float32
 	outBias   []float32
+	outPacked []float32
 }
 
 func LoadLayer0Attention(file *safetensors.File) (*Layer0Attention, error) {
@@ -51,7 +52,14 @@ func LoadLayer0Attention(file *safetensors.File) (*Layer0Attention, error) {
 			}
 		}
 	}
-	return &Layer0Attention{qkv: qkv, outWeight: weight, outBias: bias}, nil
+	m := &Layer0Attention{qkv: qkv, outWeight: weight, outBias: bias}
+	if simd.HasSgemmAsm {
+		m.outPacked, err = simd.PackSgemmNTWeights(weight, projectedWidth, projectedWidth, projectedWidth)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
 }
 
 // ForwardOffline returns independent owned attention and residual outputs.
@@ -119,7 +127,7 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 				copy(vHead[to:to+diarizationHeadWidth], v[from:from+diarizationHeadWidth])
 			}
 			clear(scores)
-			if !simd.SgemmNTTo(scores, qHead, kHead, rows, rows, diarizationHeadWidth, scaling, diarizationHeadWidth, diarizationHeadWidth, rows) {
+			if !simd.DenseNTTo(scores, qHead, kHead, rows, rows, diarizationHeadWidth, scaling, diarizationHeadWidth, diarizationHeadWidth, rows) {
 				return nil, nil, fmt.Errorf("Nemotron diarization attention score shape rejected")
 			}
 			if !simd.SoftmaxRowsInPlace(scores, rows, rows) {
@@ -159,7 +167,7 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 		}
 	}
 	attention = make([]float32, len(input))
-	if !simd.DenseNTTo(attention, mixed, m.outWeight, rows, projectedWidth, projectedWidth, 1, projectedWidth, projectedWidth, projectedWidth) {
+	if !diarizationDenseMLP(attention, mixed, m.outWeight, m.outPacked, rows, projectedWidth, projectedWidth) {
 		return nil, nil, fmt.Errorf("Nemotron diarization attention output rejected shape")
 	}
 	residual = make([]float32, len(input))

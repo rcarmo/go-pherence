@@ -299,7 +299,21 @@ mean `4.66e-6`, and zero values outside
 from 45.02 seconds/7.742 GB to 36.49 seconds/7.742 GB; these single samples
 do not establish sustained speed. The 100-second end-to-end path now
 finishes, but 246 seconds is slower than real time and remains an
-optimisation target. The full 100-second scalar run, labelled DER, masked
-intermediate encoder rows, transfer-inclusive Vulkan/PTX latency,
-cancellation and production readiness still need validation. The offline
+optimisation target. Immutable Q/K/V, attention-output and two MLP weight
+matrices in all 31 layers now use model-load-time 16-column SIMD packing;
+scalar execution keeps the original released weights. Eight bounded GEMM
+shapes showed prepacked multiplication faster than blocked multiplication
+in two diagnostic samples apiece, with zero timed allocations. Two
+single-iteration 30-second full-request samples fell from `36.49 s` on
+the blocked path to `23.62–23.71 s` with prepacking (both still around
+7.742 GB/request); the sample size is small. The native 100-second
+PCM→logits→segments run then completed in **161.56 seconds** with all 9,999
+logits rows and 29 spans matching the pinned streaming reference, maximum
+absolute logit error `6.48e-5`, mean `4.79e-6`, and zero calibrated
+outliers. The 11-second scalar path also passes after this change
+(79.64 seconds, max `5.34e-5`, mean `6.44e-6`, zero outliers). The
+100-second SIMD request is still slower than real time. The full 100-second
+scalar run, labelled DER, masked intermediate encoder rows,
+transfer-inclusive Vulkan/PTX latency, cancellation and production
+readiness still need validation. The offline
 PCM request retains its separate 376-row limit.

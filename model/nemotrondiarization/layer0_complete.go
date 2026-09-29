@@ -18,6 +18,7 @@ type Layer0Complete struct {
 	normWeight, normBias []float32
 	fc1Weight, fc1Bias   []float32
 	fc2Weight, fc2Bias   []float32
+	fc1Packed, fc2Packed []float32
 }
 
 func LoadLayer0Complete(file *safetensors.File) (*Layer0Complete, error) {
@@ -73,6 +74,14 @@ func LoadLayer0Complete(file *safetensors.File) (*Layer0Complete, error) {
 	if m.fc2Bias, err = load("mlp.fc2.bias", projectedWidth); err != nil {
 		return nil, err
 	}
+	if simd.HasSgemmAsm {
+		if m.fc1Packed, err = simd.PackSgemmNTWeights(m.fc1Weight, diarizationIntermediate, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+		if m.fc2Packed, err = simd.PackSgemmNTWeights(m.fc2Weight, projectedWidth, diarizationIntermediate, diarizationIntermediate); err != nil {
+			return nil, err
+		}
+	}
 	return m, nil
 }
 
@@ -91,7 +100,7 @@ func (m *Layer0Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 		return nil, fmt.Errorf("Nemotron diarization layer-0 MLP normalisation rejected shape")
 	}
 	intermediate := make([]float32, rows*diarizationIntermediate)
-	if !simd.DenseNTTo(intermediate, normal, m.fc1Weight, rows, diarizationIntermediate, projectedWidth, 1, projectedWidth, projectedWidth, diarizationIntermediate) {
+	if !diarizationDenseMLP(intermediate, normal, m.fc1Weight, m.fc1Packed, rows, diarizationIntermediate, projectedWidth) {
 		return nil, fmt.Errorf("Nemotron diarization layer-0 fc1 rejected shape")
 	}
 	for i, value := range intermediate {
@@ -101,7 +110,7 @@ func (m *Layer0Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 		return nil, fmt.Errorf("Nemotron diarization layer-0 GELU rejected shape")
 	}
 	output := make([]float32, len(residual))
-	if !simd.DenseNTTo(output, intermediate, m.fc2Weight, rows, projectedWidth, diarizationIntermediate, 1, diarizationIntermediate, diarizationIntermediate, projectedWidth) {
+	if !diarizationDenseMLP(output, intermediate, m.fc2Weight, m.fc2Packed, rows, projectedWidth, diarizationIntermediate) {
 		return nil, fmt.Errorf("Nemotron diarization layer-0 fc2 rejected shape")
 	}
 	for i, value := range output {

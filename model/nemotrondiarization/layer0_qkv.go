@@ -11,9 +11,10 @@ import (
 // Layer0QKV owns the input and first-layer normalisations plus pre-attention
 // weights. Its outputs are pre-RoPE Q, K and V; attention and decoding are separate.
 type Layer0QKV struct {
-	inputGamma, inputBeta []float32
-	gamma, beta           []float32
-	q, k, v               []float32
+	inputGamma, inputBeta     []float32
+	gamma, beta               []float32
+	q, k, v                   []float32
+	qPacked, kPacked, vPacked []float32
 }
 
 func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
@@ -69,6 +70,17 @@ func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
 	if m.v, err = load("layers.0.self_attn.v_proj.weight", projectedWidth, projectedWidth); err != nil {
 		return nil, err
 	}
+	if simd.HasSgemmAsm {
+		if m.qPacked, err = simd.PackSgemmNTWeights(m.q, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+		if m.kPacked, err = simd.PackSgemmNTWeights(m.k, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+		if m.vPacked, err = simd.PackSgemmNTWeights(m.v, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+	}
 	return m, nil
 }
 
@@ -103,9 +115,9 @@ func (m *Layer0QKV) projectWithInputNormal(input []float32, rows int) (inputNorm
 	}
 	q, k, v = make([]float32, len(input)), make([]float32, len(input)), make([]float32, len(input))
 	for _, item := range []struct {
-		out, weight []float32
-	}{{q, m.q}, {k, m.k}, {v, m.v}} {
-		if !simd.DenseNTTo(item.out, normal, item.weight, rows, projectedWidth, projectedWidth, 1, projectedWidth, projectedWidth, projectedWidth) {
+		out, weight, packed []float32
+	}{{q, m.q, m.qPacked}, {k, m.k, m.kPacked}, {v, m.v, m.vPacked}} {
+		if !diarizationDenseMLP(item.out, normal, item.weight, item.packed, rows, projectedWidth, projectedWidth) {
 			return nil, nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 projection rejected shape")
 		}
 	}

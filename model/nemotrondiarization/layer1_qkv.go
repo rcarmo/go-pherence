@@ -12,8 +12,9 @@ import (
 // bias-free Q/K/V projections. Its input must be the complete first layer's
 // output; this slice does not implement layer-1 attention or streaming.
 type Layer1QKV struct {
-	gamma, beta []float32
-	q, k, v     []float32
+	gamma, beta               []float32
+	q, k, v                   []float32
+	qPacked, kPacked, vPacked []float32
 }
 
 func LoadLayer1QKV(file *safetensors.File) (*Layer1QKV, error) {
@@ -67,6 +68,17 @@ func loadIndexedQKV(file *safetensors.File, layer int) (*Layer1QKV, error) {
 	if m.v, err = load("self_attn.v_proj.weight", projectedWidth, projectedWidth); err != nil {
 		return nil, err
 	}
+	if simd.HasSgemmAsm {
+		if m.qPacked, err = simd.PackSgemmNTWeights(m.q, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+		if m.kPacked, err = simd.PackSgemmNTWeights(m.k, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+		if m.vPacked, err = simd.PackSgemmNTWeights(m.v, projectedWidth, projectedWidth, projectedWidth); err != nil {
+			return nil, err
+		}
+	}
 	return m, nil
 }
 
@@ -88,8 +100,8 @@ func (m *Layer1QKV) Project(input []float32, rows int) (q, k, v []float32, err e
 		return nil, nil, nil, fmt.Errorf("Nemotron diarization layer-1 normalisation rejected shape")
 	}
 	q, k, v = make([]float32, len(input)), make([]float32, len(input)), make([]float32, len(input))
-	for _, item := range []struct{ out, weight []float32 }{{q, m.q}, {k, m.k}, {v, m.v}} {
-		if !simd.DenseNTTo(item.out, normal, item.weight, rows, projectedWidth, projectedWidth, 1, projectedWidth, projectedWidth, projectedWidth) {
+	for _, item := range []struct{ out, weight, packed []float32 }{{q, m.q, m.qPacked}, {k, m.k, m.kPacked}, {v, m.v, m.vPacked}} {
+		if !diarizationDenseMLP(item.out, normal, item.weight, item.packed, rows, projectedWidth, projectedWidth) {
 			return nil, nil, nil, fmt.Errorf("Nemotron diarization layer-1 projection rejected shape")
 		}
 	}

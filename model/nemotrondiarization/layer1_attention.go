@@ -13,6 +13,7 @@ import (
 type Layer1Attention struct {
 	qkv                *Layer1QKV
 	outWeight, outBias []float32
+	outPacked          []float32
 }
 
 func LoadLayer1Attention(file *safetensors.File) (*Layer1Attention, error) {
@@ -49,7 +50,14 @@ func loadIndexedAttention(file *safetensors.File, layer int) (*Layer1Attention, 
 			}
 		}
 	}
-	return &Layer1Attention{qkv: qkv, outWeight: weight, outBias: bias}, nil
+	m := &Layer1Attention{qkv: qkv, outWeight: weight, outBias: bias}
+	if simd.HasSgemmAsm {
+		m.outPacked, err = simd.PackSgemmNTWeights(weight, projectedWidth, projectedWidth, projectedWidth)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
 }
 
 // ForwardOffline returns owned attention and residual arrays from a complete
@@ -147,7 +155,7 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector bool)
 		}
 	}
 	attention = make([]float32, len(input))
-	if !simd.DenseNTTo(attention, mixed, m.outWeight, rows, projectedWidth, projectedWidth, 1, projectedWidth, projectedWidth, projectedWidth) {
+	if !diarizationDenseMLP(attention, mixed, m.outWeight, m.outPacked, rows, projectedWidth, projectedWidth) {
 		return nil, nil, fmt.Errorf("Nemotron diarization layer-1 output rejected shape")
 	}
 	residual = make([]float32, len(input))
