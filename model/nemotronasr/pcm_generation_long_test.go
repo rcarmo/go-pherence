@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -75,7 +76,15 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		expectedFrames = append(expectedFrames, frame)
 		frame += int64(duration)
 	}
-	for _, chunkSize := range []int{397, 4040, 5520} {
+	chunkSizes := []int{397, 4040, 5520}
+	if selected := os.Getenv("GO_PHERENCE_NEMOTRON_ASR_GENERATION_PCM_CHUNK_SIZE"); selected != "" {
+		size, err := strconv.Atoi(selected)
+		if err != nil || size != 397 && size != 4040 && size != 5520 {
+			t.Fatal("invalid reference PCM chunk size")
+		}
+		chunkSizes = []int{size}
+	}
+	for _, chunkSize := range chunkSizes {
 		s := &PCMGenerationStream{Model: model}
 		chunkIndex := 0
 		var maxInput, sumInput, maxTower, sumTower float64

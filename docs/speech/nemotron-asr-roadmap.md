@@ -116,7 +116,28 @@ removed that error. A CPU-features-disabled full-JFK run exceeded the
 five-minute command limit after reaching chunk 21; scalar full-recording
 parity is unverified. This is one recording's transcript parity against
 a model oracle, not measured WER on labelled speech, a quality comparison
-across accents or production latency.
+across accents or production latency. A single CPU-features-disabled run
+with 5,520-sample PCM calls subsequently completed in 80.13 seconds:
+185 decisions, 45 nonblank emissions, frames and text matched PyTorch;
+subsampling maximum/mean errors were `0.00238`/`1.37e-4`, and tower
+`4.08e-6`/`2.82e-8`, with zero calibrated outliers. The earlier
+three-call-size scalar run exceeded five minutes; that timeout was not a
+numerical failure.
+
+A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
+`AppendPCM` calls, model/WAV loading excluded) identified relative-position
+encoding and projection in the cached encoder as repeat costs. Computing
+the 512 inverse frequencies once per encoding and projecting only the
+`keyRows + rows - 1` positions consumed by `_rel_shift` preserved pinned
+11-second PCM→text, regenerated 72-row cached tower/attention, and shorter
+operator parity. Three two-iteration samples before narrowing the projection
+measured `10.12–10.50 s/op`, about `2.011 GB/op` and 29,724 allocations;
+three matching samples after measured `8.38–8.94 s/op`, about
+`1.859 GB/op` and 29,724 allocations. These small samples indicate a local
+CPU reduction, not sustained or GPU speed. A one-iteration scalar full
+request measured 104.02 seconds and 2.010 GB; it is not paired with a
+scalar baseline. Returned token/logit slices and all model state retain
+their existing ownership and bounded-memory contracts.
 
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
 relative positions after the 57-frame window starts sliding, and applies

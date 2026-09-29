@@ -153,10 +153,13 @@ func (m *Encoder0Attention) forwardOffline(input []float32, rows, lookahead int)
 func encoder0RelativePositions(rows int) []float32 {
 	positions := 2*rows - 1
 	encoded := make([]float32, positions*encoderWidth)
+	var invFreq [encoderWidth / 2]float32
+	for freq := range invFreq {
+		invFreq[freq] = float32(1 / math.Pow(10000, float64(2*freq)/encoderWidth))
+	}
 	for pos := 0; pos < positions; pos++ {
 		p := float32(rows - 1 - pos)
-		for freq := 0; freq < encoderWidth/2; freq++ {
-			inv := float32(1 / math.Pow(10000, float64(2*freq)/encoderWidth))
+		for freq, inv := range invFreq {
 			angle := float64(p * inv)
 			encoded[pos*encoderWidth+2*freq] = float32(math.Sin(angle))
 			encoded[pos*encoderWidth+2*freq+1] = float32(math.Cos(angle))
