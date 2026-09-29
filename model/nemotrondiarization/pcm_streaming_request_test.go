@@ -63,12 +63,16 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 		for i := range pcm {
 			pcm[i] = original[i%len(original)]
 		}
-	case "podcast20":
-		pcm, rate, err = audio.WAV(filepath.Join("..", "..", "testdata", "podcast.wav"))
-		if err != nil || rate != 16000 || len(pcm) < 320*rate {
-			t.Fatalf("podcast PCM rate=%d samples=%d err=%v", rate, len(pcm), err)
+	case "podcast20", "mixed31":
+		podcast, podcastRate, err := audio.WAV(filepath.Join("..", "..", "testdata", "podcast.wav"))
+		if err != nil || podcastRate != 16000 || len(podcast) < 320*podcastRate {
+			t.Fatalf("podcast PCM rate=%d samples=%d err=%v", podcastRate, len(podcast), err)
 		}
-		pcm = pcm[300*rate : 320*rate]
+		if duration == "mixed31" {
+			pcm = append(pcm, podcast[300*rate:320*rate]...)
+		} else {
+			pcm = podcast[300*rate : 320*rate]
+		}
 	case "160", "200", "11520", "16639", "16640", "16680", "17040", "28000":
 		n, err := strconv.Atoi(duration)
 		if err != nil {

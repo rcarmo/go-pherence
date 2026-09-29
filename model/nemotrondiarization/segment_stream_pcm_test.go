@@ -46,13 +46,18 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 			pcm[i] = original[i%len(original)]
 		}
 		expectedRows = 9999
-	case "podcast20":
-		pcm, rate, err = audio.WAV(filepath.Join("..", "..", "testdata", "podcast.wav"))
-		if err != nil || rate != 16000 || len(pcm) < 320*rate {
-			t.Fatalf("podcast input rate=%d samples=%d err=%v", rate, len(pcm), err)
+	case "podcast20", "mixed31":
+		podcast, podcastRate, err := audio.WAV(filepath.Join("..", "..", "testdata", "podcast.wav"))
+		if err != nil || podcastRate != 16000 || len(podcast) < 320*podcastRate {
+			t.Fatalf("podcast input rate=%d samples=%d err=%v", podcastRate, len(podcast), err)
 		}
-		pcm = pcm[300*rate : 320*rate]
-		expectedRows = 1999
+		if duration == "mixed31" {
+			pcm = append(pcm, podcast[300*rate:320*rate]...)
+			expectedRows = 3099
+		} else {
+			pcm = podcast[300*rate : 320*rate]
+			expectedRows = 1999
+		}
 	default:
 		t.Fatalf("unsupported streaming reference duration %q", duration)
 	}

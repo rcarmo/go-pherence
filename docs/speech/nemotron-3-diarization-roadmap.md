@@ -356,6 +356,17 @@ itself marks this clip as single-speaker: matching it is model-oracle
 parity, not labelled multi-speaker DER. The WAV digest verifies input
 provenance only; it is not a generated-output acceptance gate.
 
+To exercise a speaker-cache transition, a synthetic **31-second mixed
+recording** concatenates the tracked 11-second JFK WAV with that podcast
+crop, without resetting streaming state. The pinned low-latency processor
+assigns speaker 0 to three JFK spans (`0.31–2.25`, `3.29–4.53`,
+`5.40–10.61 s`) and speaker 1 to `10.98–30.99 s`. Native five-second
+PCM calls match all four spans and all 3,099 pinned logit rows
+(maximum/mean absolute error `2.67e-5`/`2.96e-6`, zero outliers under
+the existing gate). This establishes parity through a model-assigned
+speaker change, not labelled DER or natural multi-speaker conversation
+quality.
+
 `PCMStreamingRequest.AppendPCMContext` and `FinishContext` accept a Go
 context without changing the existing methods. They check cancellation
 before consuming PCM and between bounded 13-row encoder windows; a

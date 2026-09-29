@@ -26,22 +26,35 @@ def main():
     parser.add_argument("--seconds", type=int, choices=(11, 100))
     parser.add_argument("--samples", type=int)
     parser.add_argument("--podcast", action="store_true", help="real 20-second podcast crop at 300 seconds")
+    parser.add_argument("--mixed", action="store_true", help="JFK followed by the podcast crop (31 seconds)")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--segments-out", type=Path, help="processor segments on the same streaming logits")
     args = parser.parse_args()
     torch.set_num_threads(4)
+    if args.podcast and args.mixed:
+        raise ValueError("select only one audio source")
     source = ROOT / "testdata/podcast.wav" if args.podcast else WAV
     if hashlib.sha256(source.read_bytes()).hexdigest() != (PODCAST_SHA if args.podcast else INPUT_SHA):
         raise ValueError("audio fixture provenance changed")
     audio, rate = sf.read(source, dtype="float32")
     if rate != 16000 or audio.ndim != 1 or not args.podcast and len(audio) != 176000:
         raise ValueError("unexpected audio geometry")
-    if args.podcast:
+    if args.podcast or args.mixed:
         if args.samples is not None or args.seconds is not None:
-            raise ValueError("podcast crop selects its own duration")
-        audio = audio[300*rate:320*rate]
-        if len(audio) != 20*rate:
-            raise ValueError("unexpected podcast crop")
+            raise ValueError("mixed/podcast audio selects its own duration")
+        if args.mixed:
+            source = ROOT / "testdata/podcast.wav"
+            if hashlib.sha256(source.read_bytes()).hexdigest() != PODCAST_SHA:
+                raise ValueError("podcast fixture provenance changed")
+            podcast, podcast_rate = sf.read(source, dtype="float32", start=300*rate, stop=320*rate)
+            if podcast_rate != rate or len(podcast) != 20*rate:
+                raise ValueError("unexpected podcast crop")
+            import numpy as np
+            audio = np.concatenate((audio, podcast))
+        else:
+            audio = audio[300*rate:320*rate]
+            if len(audio) != 20*rate:
+                raise ValueError("unexpected podcast crop")
     else:
         if (args.seconds is None) == (args.samples is None):
             raise ValueError("specify one duration")
