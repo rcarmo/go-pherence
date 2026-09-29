@@ -56,3 +56,14 @@ prepared rows qualify the 24-layer cache transition and 57-frame sliding
 boundary, not varied full-recording PCM or native RNN-T transcription.
 Terminal masks, PCM chunk scheduling, text/WER and full-request GPU timing
 still need validation.
+
+`GreedyRNNTStream.Append` now carries the released two-layer predictor and
+joint scratch between fully valid, prompt-projected encoder chunks. It returns
+raw token IDs, including blanks, with absolute frame indices. Against the
+existing independently generated 139-row PyTorch JFK encoder fixture, chunk
+sizes 1, 4, 17, 56 and 139 all select the same 187 decisions and 48
+nonblank emissions at the same frames. Malformed inputs and frame-count
+overflow leave predictor state unchanged; a mid-chunk model failure closes
+the stream. This tests incremental RNN-T on **PyTorch-produced encoder
+rows**. Native complete PCM→encoder→RNN-T transcription, text and WER are
+still unqualified.
