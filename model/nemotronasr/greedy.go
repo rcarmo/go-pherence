@@ -32,6 +32,8 @@ func (m *GreedyRNNT) decode(encoder []float32, rows int, observe func(int, []flo
 		}
 	}
 	var state DecoderState
+	logitsScratch := make([]float32, rnntVocabulary)
+	activatedScratch := make([]float32, rnntHidden)
 	frame, token, symbols := 0, rnntBlank, 0
 	for frame < rows {
 		// A frame can emit at most ten symbols; at the bound the reference
@@ -43,18 +45,19 @@ func (m *GreedyRNNT) decode(encoder []float32, rows int, observe func(int, []flo
 		if err != nil {
 			return nil, nil, err
 		}
-		logits, err := m.Projection.Joint(encoder[frame*rnntHidden:(frame+1)*rnntHidden], decoded, 1)
-		if err != nil {
+		if err := m.Projection.jointTo(logitsScratch, activatedScratch, encoder[frame*rnntHidden:(frame+1)*rnntHidden], decoded, 1); err != nil {
 			return nil, nil, err
 		}
 		if observe != nil {
-			if err := observe(len(tokens), logits); err != nil {
+			// Preserve the observer's owned per-step logits while Decode
+			// reuses its scratch for the next decision.
+			if err := observe(len(tokens), append([]float32(nil), logitsScratch...)); err != nil {
 				return nil, nil, err
 			}
 		}
 		selected := 0
-		for i := 1; i < len(logits); i++ {
-			if logits[i] > logits[selected] {
+		for i := 1; i < len(logitsScratch); i++ {
+			if logitsScratch[i] > logitsScratch[selected] {
 				selected = i
 			}
 		}

@@ -102,6 +102,15 @@ func TestReleasedRNNTProjectionPyTorchParity(t *testing.T) {
 	if &joint[0] == &encoded[0] || &joint[0] == &decoder[0] {
 		t.Fatal("joint output aliases input")
 	}
+	before := append([]float32(nil), joint...)
+	if _, err := model.Joint(encoded, decoder, 5); err != nil {
+		t.Fatal(err)
+	}
+	for i := range before {
+		if joint[i] != before[i] {
+			t.Fatal("joint output changed after another call")
+		}
+	}
 }
 
 func TestRNNTProjectionRejectsMalformed(t *testing.T) {
@@ -128,5 +137,14 @@ func TestRNNTProjectionRejectsMalformed(t *testing.T) {
 	}
 	if _, err := m.Joint(make([]float32, rnntHidden), make([]float32, rnntHidden-1), 1); err == nil {
 		t.Fatal("accepted short decoder")
+	}
+	if _, err := m.Joint(nil, nil, -1); err == nil {
+		t.Fatal("accepted negative rows")
+	}
+	if _, err := m.Joint(nil, nil, 6); err == nil {
+		t.Fatal("accepted unqualified rows")
+	}
+	if err := m.jointTo(make([]float32, rnntVocabulary-1), make([]float32, rnntHidden), make([]float32, rnntHidden), make([]float32, rnntHidden), 1); err == nil {
+		t.Fatal("accepted undersized joint scratch")
 	}
 }

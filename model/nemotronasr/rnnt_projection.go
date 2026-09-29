@@ -144,17 +144,31 @@ func (m *RNNTProjection) Project(input []float32, rows, prompt int) (first, fuse
 // Joint applies the released ReLU and vocabulary projection to one supplied
 // decoder vector. The caller may use an independently generated LSTM state.
 func (m *RNNTProjection) Joint(encoder, decoder []float32, rows int) ([]float32, error) {
-	if m == nil || len(m.jointWeight) != rnntVocabulary*rnntHidden || len(m.jointBias) != rnntVocabulary || rows < 1 || rows > 5 || len(encoder) != rows*rnntHidden || len(decoder) != rnntHidden {
+	if rows < 1 || rows > 5 {
 		return nil, fmt.Errorf("invalid Nemotron ASR RNNT joint input")
 	}
+	out := make([]float32, rows*rnntVocabulary)
+	if err := m.jointTo(out, make([]float32, rows*rnntHidden), encoder, decoder, rows); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// jointTo writes into per-call scratch. Its output must not be retained after
+// the caller reuses out; Joint is the owned-output public entry point.
+func (m *RNNTProjection) jointTo(out, activated, encoder, decoder []float32, rows int) error {
+	if m == nil || len(m.jointWeight) != rnntVocabulary*rnntHidden || len(m.jointBias) != rnntVocabulary || rows < 1 || rows > 5 || len(encoder) != rows*rnntHidden || len(decoder) != rnntHidden || len(out) != rows*rnntVocabulary || len(activated) != rows*rnntHidden {
+		return fmt.Errorf("invalid Nemotron ASR RNNT joint input")
+	}
+	clear(activated)
+	clear(out)
 	for _, values := range [][]float32{encoder, decoder} {
 		for _, value := range values {
 			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-				return nil, fmt.Errorf("non-finite Nemotron ASR RNNT joint input")
+				return fmt.Errorf("non-finite Nemotron ASR RNNT joint input")
 			}
 		}
 	}
-	activated := make([]float32, len(encoder))
 	for row := 0; row < rows; row++ {
 		for dim := 0; dim < rnntHidden; dim++ {
 			value := encoder[row*rnntHidden+dim] + decoder[dim]
@@ -163,15 +177,14 @@ func (m *RNNTProjection) Joint(encoder, decoder []float32, rows int) ([]float32,
 			}
 		}
 	}
-	out := make([]float32, rows*rnntVocabulary)
 	if !simd.DenseNTTo(out, activated, m.jointWeight, rows, rnntVocabulary, rnntHidden, 1, rnntHidden, rnntHidden, rnntVocabulary) {
-		return nil, fmt.Errorf("Nemotron ASR RNNT joint projection rejected")
+		return fmt.Errorf("Nemotron ASR RNNT joint projection rejected")
 	}
 	for i := range out {
 		out[i] += m.jointBias[i%rnntVocabulary]
 		if math.IsNaN(float64(out[i])) || math.IsInf(float64(out[i]), 0) {
-			return nil, fmt.Errorf("non-finite Nemotron ASR RNNT joint output")
+			return fmt.Errorf("non-finite Nemotron ASR RNNT joint output")
 		}
 	}
-	return out, nil
+	return nil
 }

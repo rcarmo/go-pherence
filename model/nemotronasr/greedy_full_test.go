@@ -57,6 +57,8 @@ func TestReleasedGreedyRNNTJFKFullProjectedDecodePyTorchParity(t *testing.T) {
 	encoder := readStemFixture(t, "asr_jfk_full_encoder", want.EncoderRows*rnntHidden)
 	original := append([]float32(nil), encoder...)
 	var steps, logitOutliers, unstable int
+	var retainedFirst []float32
+	var firstValue float32
 	var maxLogitError, maxRunnerError, minMargin float64
 	minMargin = math.Inf(1)
 	tokens, frames, err := (&GreedyRNNT{Decoder: decoder, Projection: projection}).decode(encoder, want.EncoderRows, func(step int, logits []float32) error {
@@ -64,6 +66,11 @@ func TestReleasedGreedyRNNTJFKFullProjectedDecodePyTorchParity(t *testing.T) {
 			return fmt.Errorf("unexpected extra RNNT step")
 		}
 		steps++
+		if step == 0 {
+			retainedFirst, firstValue = logits, logits[0]
+		} else if step == 1 && (len(retainedFirst) != rnntVocabulary || retainedFirst[0] != firstValue || &retainedFirst[0] == &logits[0]) {
+			return fmt.Errorf("observer logits aliased across steps")
+		}
 		selected := 0
 		runner := 1
 		if logits[runner] > logits[selected] {
@@ -102,7 +109,7 @@ func TestReleasedGreedyRNNTJFKFullProjectedDecodePyTorchParity(t *testing.T) {
 		}
 	}
 	t.Logf("steps=%d nonblank=%d max_selected_logit_error=%g max_runner_logit_error=%g min_reference_margin=%g sensitive_steps=%d outliers=%d", steps, nonblank, maxLogitError, maxRunnerError, minMargin, unstable, logitOutliers)
-	if steps != len(want.Tokens) || unstable != 0 || logitOutliers != 0 || !reflect.DeepEqual(tokens, want.Tokens) || !reflect.DeepEqual(frames, want.Frames) || nonblank < 2 || !reflect.DeepEqual(encoder, original) {
+	if steps != len(want.Tokens) || retainedFirst[0] != firstValue || unstable != 0 || logitOutliers != 0 || !reflect.DeepEqual(tokens, want.Tokens) || !reflect.DeepEqual(frames, want.Frames) || nonblank < 2 || !reflect.DeepEqual(encoder, original) {
 		t.Fatal("full JFK RNNT decode differs from PyTorch")
 	}
 }
