@@ -75,6 +75,11 @@ def main():
                 save(args.out / "encoder0_attn_normal.f32.gz", attn_normal[0])
                 for name in ("q", "k", "v"):
                     save(args.out / f"encoder0_attn_{name}.f32.gz", getattr(layer.self_attn, f"{name}_proj")(attn_normal)[0])
+                positions = model.encoder.encode_positions(ff1_residual)
+                save(args.out / "encoder0_attn_positions.f32.gz", positions[0])
+                attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=None)
+                save(args.out / "encoder0_attn_output.f32.gz", attention[0])
+                save(args.out / "encoder0_attn_residual.f32.gz", (ff1_residual + attention)[0])
             print("input valid", valid, "final valid length", int(lengths[0]))
 
 
