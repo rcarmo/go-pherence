@@ -8,8 +8,9 @@ import gzip
 from pathlib import Path
 
 import numpy as np
+import soundfile as sf
 import torch
-from transformers import AutoModelForRNNT
+from transformers import AutoModelForRNNT, AutoProcessor
 from transformers.models.nemotron3_5_asr.generation_nemotron3_5_asr import Nemotron3_5AsrRNNTDecoderCache
 from transformers.masking_utils import create_bidirectional_mask
 from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import chunked_limited_mask_function
@@ -35,6 +36,13 @@ def main():
     with gzip.open(FEATURES, "rb") as f:
         features = torch.from_numpy(np.frombuffer(f.read(), dtype="<f4").copy().reshape(1, 32, 128))
     model = AutoModelForRNNT.from_pretrained(MODEL, local_files_only=True).eval()
+    processor = AutoProcessor.from_pretrained(MODEL, local_files_only=True)
+    audio, rate = sf.read(ROOT / "testdata/jfk.wav", dtype="float32")
+    if rate != 16000 or len(audio) != 176000:
+        raise ValueError("unexpected JFK audio")
+    processed = processor(audio, sampling_rate=rate, return_tensors="pt")
+    if not torch.equal(processed.input_features[:, :32], features):
+        raise ValueError("processor crop differs from pinned features")
     with torch.inference_mode():
         for lookahead in (0, 3):
             projected = model.encoder.subsampling(features, torch.ones(1, 32, dtype=torch.bool)) * model.encoder.input_scale
