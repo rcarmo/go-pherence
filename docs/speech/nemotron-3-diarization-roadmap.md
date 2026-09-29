@@ -38,6 +38,18 @@ Run the opt-in segment parity test with
 `GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR=ptx` or `vulkan`
 and matching model, logits and segments references.
 
+A further PTX trial moved the 30 remaining audio layers' MLP GEMMs onto
+resident model-owned weights while leaving attention, layer normalisation,
+cache and head on CPU. On the same i7-12700/RTX 3060, the mixed JFK→podcast
+request still matched 3,099 reference logits rows and four spans, but took
+`14.27 s` versus a `12.71 s` CPU sample. A fused variant retained the
+2,048-wide intermediate across fc1, GPU row bias, exact-erf GELU and fc2;
+it also matched pinned output yet took `22.18 s`. Both changes were
+reverted. Per-layer activation uploads and downloads defeat those hybrids.
+A useful tower GPU implementation must keep activations resident across
+attention, MLP, normalisation and the cache/head boundary; the isolated
+MLP timings supply no speedup claim.
+
 ## Pinned source and scope
 
 - Model: [NVIDIA Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization/tree/a435e9867d79e789e90053f9b6d6834053af564a), revision `a435e9867d79e789e90053f9b6d6834053af564a`.
