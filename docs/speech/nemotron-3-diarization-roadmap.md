@@ -183,6 +183,14 @@ and sentinel fallback on two independent 486-frame probability fixtures.
 Prepared pattern and sweep cases match PyTorch selected embeddings and
 probabilities with zero per-value differences; the pattern has 70 silence
 or sentinel slots and the sweep has eight. The operator leaves inputs
-unchanged and does not mutate streaming state. Compression integration into
-cache updates, model-level streaming outputs, other input lengths,
-transfer-inclusive GPU latency and production readiness remain unqualified.
+unchanged and does not mutate streaming state. `SpeakerCache.Update` now composes FIFO transfer, stored-versus-reestimated
+probabilities and top-k compression on seven deterministic prepared steps.
+At step 5 the speaker cache compresses from 444 to 264 frames, retaining 51
+FIFO frames; step 6 prepends that compressed order and retains 60 FIFO
+frames. Pinned PyTorch embeddings and FIFO state agree, with speaker
+probability maximum error `8.95e-8`. Repeating modulo logits originally
+created equal-score top-k cutoff ties; the compression fixture now gives
+frames distinct scores because PyTorch does not specify which tied frame
+survives. This is prepared cache-state parity, not model-level streaming
+inference. Streaming outputs, other input lengths, transfer-inclusive GPU
+latency and production readiness remain unqualified.

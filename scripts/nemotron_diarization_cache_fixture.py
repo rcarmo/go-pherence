@@ -100,7 +100,29 @@ def main():
             save(args.out / f"cache_step{index}_speaker.f32.gz", cache.embeds[0, :cache.num_cache_frames])
             save(args.out / f"cache_step{index}_speaker_probs.f32.gz", cache.probs[0, :cache.num_cache_frames])
             print("step", index, "cache", cache.num_cache_frames, "fifo", cache.num_fifo_frames, "compressed", cache.is_compressed)
-
+        # Step 5 first exceeds the 264-frame speaker cache. Its 222-frame
+        # transfer invokes score-based compression. Step 6 checks the
+        # subsequent prepared input uses the compressed cache order.
+        for index, frames in enumerate((222, 9), start=5):
+            lookahead = 4
+            chunk = torch.arange(index * 241, index * 241 + frames + lookahead, dtype=torch.float32)
+            embeds = ((chunk[:, None] * 7 + torch.arange(512)[None, :]) % 251 - 125) / 127
+            embeds = embeds[None]
+            cached = cache.get_embeds(embeds)
+            full = torch.cat([cached, embeds], dim=1)
+            save(args.out / f"cache_step{index}_input.f32.gz", full[0])
+            logits = torch.arange(full.shape[1] * 8 * 8, dtype=torch.float32).reshape(1, full.shape[1] * 8, 8)
+            logits = ((logits % 53) - 26) / 11
+            # Avoid the modulo pattern's top-k cutoff ties: PyTorch does not
+            # promise which equal-score frame survives the selection.
+            logits += torch.arange(full.shape[1], dtype=torch.float32)[None, :, None].repeat_interleave(8, dim=1) * 0.00017
+            logits += torch.arange(8, dtype=torch.float32)[None, None, :] * 0.000037
+            mask = torch.ones(1, full.shape[1], dtype=torch.bool)
+            cache.update(full, logits, model.silence_embeds, frames, mask=mask)
+            save(args.out / f"cache_step{index}_fifo.f32.gz", cache.fifo[0, :cache.num_fifo_frames])
+            save(args.out / f"cache_step{index}_speaker.f32.gz", cache.embeds[0, :cache.num_cache_frames])
+            save(args.out / f"cache_step{index}_speaker_probs.f32.gz", cache.probs[0, :cache.num_cache_frames])
+            print("step", index, "cache", cache.num_cache_frames, "fifo", cache.num_fifo_frames, "compressed", cache.is_compressed)
 
 if __name__ == "__main__":
     main()

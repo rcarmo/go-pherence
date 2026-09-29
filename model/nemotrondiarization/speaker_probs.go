@@ -10,7 +10,9 @@ import (
 // [rows,8] slice is owned. It does not score or compress speaker frames.
 func PoolSpeakerProbabilities(logits []float32, mask []bool) ([]float32, error) {
 	rows := len(mask)
-	if rows < 1 || rows > 376 || len(logits) != rows*diarizationUpsample*diarizationSpeakers {
+	// A streaming step may include 264 speaker-cache and 264 FIFO frames,
+	// followed by its current chunk and lookahead before compression.
+	if rows < 1 || rows > 792 || len(logits) != rows*diarizationUpsample*diarizationSpeakers {
 		return nil, fmt.Errorf("invalid Nemotron diarization pooled logits")
 	}
 	for _, value := range logits {
