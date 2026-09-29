@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from transformers import AutoModelForRNNT
+from transformers.models.nemotron3_5_asr.generation_nemotron3_5_asr import Nemotron3_5AsrRNNTDecoderCache
 from transformers.masking_utils import create_bidirectional_mask
 from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import chunked_limited_mask_function
 
@@ -54,6 +55,23 @@ def main():
             encoded = model.encoder_projector(fused)
             save(args.out / f"asr_composed_prompt_look{lookahead}.f32.gz", fused[0])
             save(args.out / f"asr_composed_encoder_look{lookahead}.f32.gz", encoded[0])
+            decoder_cache = Nemotron3_5AsrRNNTDecoderCache(model.config)
+            frame, token, symbols = 0, model.config.blank_token_id, 0
+            step_logits, tokens, frames = [], [], []
+            while frame < encoded.shape[1]:
+                decoder_state = model.decoder(torch.tensor([[token]]), cache=decoder_cache)
+                logits = model.joint(encoded[:, frame:frame+1, None, :], decoder_state[:, None, :, :]).reshape(-1)
+                step_logits.append(logits)
+                frames.append(frame)
+                token = int(logits.argmax())
+                tokens.append(token)
+                symbols = 0 if token == model.config.blank_token_id else symbols + 1
+                if token == model.config.blank_token_id or symbols >= model.max_symbols_per_step:
+                    frame, symbols = frame + 1, 0
+                if len(tokens) > encoded.shape[1] * model.max_symbols_per_step:
+                    raise ValueError("unbounded fixture decode")
+            save(args.out / f"asr_composed_greedy_logits_look{lookahead}.f32.gz", torch.stack(step_logits))
+            print("greedy", lookahead, "frames", frames, "tokens", tokens)
 
 
 if __name__ == "__main__":
