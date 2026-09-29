@@ -131,7 +131,7 @@ def main():
         with gzip.open(STACKED, "rb") as source:
             stacked = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1, 138, 512))
         stream_cache = Nemotron3DiarizationSpeakerCache(model.config.streaming_config)
-        for index, start in enumerate((0, 9)):
+        for index, start in enumerate(range(0, 99, 9)):
             end = start + 9
             context = stacked[:, start:end+4]
             cached = stream_cache.get_embeds(context)
@@ -144,7 +144,9 @@ def main():
             save(args.out / f"jfk_stream_step{index}_logits.f32.gz", logits[0])
             stream_cache.update(combined, logits, model.silence_embeds, 9, mask=mask)
             save(args.out / f"jfk_stream_step{index}_fifo.f32.gz", stream_cache.fifo[0, :stream_cache.num_fifo_frames])
-            print("JFK stream step", index, "cached", cached.shape[1], "rows", combined.shape[1], "fifo", stream_cache.num_fifo_frames)
+            save(args.out / f"jfk_stream_step{index}_speaker.f32.gz", stream_cache.embeds[0, :stream_cache.num_cache_frames])
+            save(args.out / f"jfk_stream_step{index}_speaker_probs.f32.gz", stream_cache.probs[0, :stream_cache.num_cache_frames])
+            print("JFK stream step", index, "cached", cached.shape[1], "rows", combined.shape[1], "fifo", stream_cache.num_fifo_frames, "speaker", stream_cache.num_cache_frames, "compressed", stream_cache.is_compressed)
 
 if __name__ == "__main__":
     main()

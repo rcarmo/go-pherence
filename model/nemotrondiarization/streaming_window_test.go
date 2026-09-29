@@ -10,7 +10,7 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
-func TestReleasedStreamingWindowTwoChunksPyTorchParity(t *testing.T) {
+func TestReleasedStreamingWindowElevenChunksPyTorchParity(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL")
 	if path == "" {
 		t.Skip("set GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL to pinned model.safetensors")
@@ -39,17 +39,30 @@ func TestReleasedStreamingWindowTwoChunksPyTorchParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	window := &StreamingWindow{Tower: tower, Head: head, Cache: cache}
-	for step := 0; step < 2; step++ {
+	stacked := readStackingFixture(t, "testdata/jfk_stacking_transformers_5_18.f32.gz", 138*projectedWidth)
+	for step := 0; step <= 10; step++ {
 		cached := step * 9
-		refInput := readStackingFixture(t, fmt.Sprintf("testdata/jfk_stream_step%d_input.f32.gz", step), (cached+13)*projectedWidth)
-		chunk := append([]float32(nil), refInput[cached*projectedWidth:]...)
+		// Intermediate steps without saved fixtures still run against the
+		// pinned deterministic JFK stacking slice; checkpoints are 0,1,2,5,10.
+		chunk := append([]float32(nil), stacked[step*9*projectedWidth:(step*9+13)*projectedWidth]...)
+		var refInput []float32
+		saved := step <= 2 || step == 5 || step == 10
+		if saved {
+			refInput = readStackingFixture(t, fmt.Sprintf("testdata/jfk_stream_step%d_input.f32.gz", step), (cached+13)*projectedWidth)
+		}
 		initial := append([]float32(nil), chunk...)
 		input, logits, err := window.ForwardPrepared(chunk, 9, 4)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(input, refInput) {
+		if saved && !reflect.DeepEqual(input, refInput) {
 			t.Fatalf("step=%d prepared input differs", step)
+		}
+		if !reflect.DeepEqual(chunk, initial) {
+			t.Fatal("mutated prepared chunk")
+		}
+		if !saved {
+			continue
 		}
 		ref := readStackingFixture(t, fmt.Sprintf("testdata/jfk_stream_step%d_logits.f32.gz", step), len(logits))
 		var maxAbs, sumAbs float64
@@ -70,9 +83,6 @@ func TestReleasedStreamingWindowTwoChunksPyTorchParity(t *testing.T) {
 		fifoWant := readStackingFixture(t, fmt.Sprintf("testdata/jfk_stream_step%d_fifo.f32.gz", step), (step+1)*9*projectedWidth)
 		if !reflect.DeepEqual(fifo, fifoWant) {
 			t.Fatalf("step=%d FIFO differs", step)
-		}
-		if !reflect.DeepEqual(chunk, initial) {
-			t.Fatal("mutated prepared chunk")
 		}
 	}
 }

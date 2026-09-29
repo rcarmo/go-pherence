@@ -197,8 +197,13 @@ JFK stacking chunks. The second window prepends nine cached frames; both
 full-context logit tensors and FIFO states match pinned PyTorch fixtures.
 AVX2/FMA maximum logit error is `1.15e-5`, mean below `1.7e-6`;
 CPU-features-disabled maximum is `1.91e-5`, with zero values outside
-`3e-4 + 2e-5*abs(reference)`. This path admits only fully valid prepared
-embeddings and at most 376 total rows. Streaming frontend/chunk scheduling,
-padding masks, later compressed-cache model outputs, complete recording,
-labelled DER, transfer-inclusive GPU latency and production readiness
-remain unqualified.
+`3e-4 + 2e-5*abs(reference)`. The same prepared JFK sequence now runs 11 consecutive 9+4 windows,
+retaining up to 99 FIFO frames. Saved PyTorch checkpoints at steps 0, 1,
+2, 5 and 10 match full-context logits, prepared input order and FIFO state;
+AVX2/FMA maximum logit error is `1.91e-5`, CPU-features-disabled maximum
+`3.44e-5`, with zero per-value outliers. Current-frame logits are selected
+from the cached offset at eight output frames per encoder row. This path
+admits only fully valid prepared embeddings and at most 376 total rows.
+Streaming frontend/chunk scheduling, padding masks, model outputs after
+speaker-cache compression, complete recording, labelled DER,
+transfer-inclusive GPU latency and production readiness remain unqualified.
