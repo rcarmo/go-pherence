@@ -4,6 +4,7 @@
 package nemotrondiarization
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -18,6 +19,12 @@ const (
 	projectedWidth = 512
 	projectionName = "model.audio_tower.embedder.projection.weight"
 )
+
+// StackingDeviceProjector is a per-request GPU boundary for the bounded
+// [rows,1024] to [rows,512] projection. The caller owns returned output.
+type StackingDeviceProjector interface {
+	Project(ctx context.Context, stacked, weight []float32, rows int) ([]float32, error)
+}
 
 // StackingProjection owns the F32 row-major [512,1024] released weight.
 // The caller can close the safetensors file after loading it.
@@ -46,16 +53,24 @@ func LoadStackingProjection(file *safetensors.File) (*StackingProjection, error)
 // [ceil(frames/8),512] embeddings. The last group is zero-padded. It never
 // mutates caller input or retains it; SIMD dispatch is checked by the backend.
 func (p *StackingProjection) Project(features []float32, frames int) ([]float32, error) {
-	return p.project(features, frames, true)
+	return p.project(context.Background(), features, frames, true, nil)
+}
+
+// ProjectWithDevice keeps frontend and subsequent speaker inference on CPU.
+func (p *StackingProjection) ProjectWithDevice(ctx context.Context, features []float32, frames int, device StackingDeviceProjector) ([]float32, error) {
+	if ctx == nil || device == nil {
+		return nil, fmt.Errorf("invalid Nemotron diarization device projection")
+	}
+	return p.project(ctx, features, frames, true, device)
 }
 
 // ProjectScalar uses the same released weight and scalar reduction order.
 // The independently generated PyTorch fixture supplies numerical acceptance.
 func (p *StackingProjection) ProjectScalar(features []float32, frames int) ([]float32, error) {
-	return p.project(features, frames, false)
+	return p.project(context.Background(), features, frames, false, nil)
 }
 
-func (p *StackingProjection) project(features []float32, frames int, vector bool) ([]float32, error) {
+func (p *StackingProjection) project(ctx context.Context, features []float32, frames int, vector bool, device StackingDeviceProjector) ([]float32, error) {
 	if p == nil || len(p.weight) != projectedWidth*stackWidth {
 		return nil, fmt.Errorf("invalid Nemotron diarization stacking projection")
 	}
@@ -71,7 +86,16 @@ func (p *StackingProjection) project(features []float32, frames int, vector bool
 	stacked := make([]float32, rows*stackWidth)
 	copy(stacked, features)
 	out := make([]float32, rows*projectedWidth)
-	if vector && simd.HasSgemmAsm {
+	if device != nil {
+		var err error
+		out, err = device.Project(ctx, stacked, p.weight, rows)
+		if err != nil {
+			return nil, fmt.Errorf("Nemotron diarization device projection: %w", err)
+		}
+		if len(out) != rows*projectedWidth {
+			return nil, fmt.Errorf("Nemotron diarization device projection returned %d values, want %d", len(out), rows*projectedWidth)
+		}
+	} else if vector && simd.HasSgemmAsm {
 		if !simd.DenseNTTo(out, stacked, p.weight, rows, projectedWidth, stackWidth, 1, stackWidth, stackWidth, projectedWidth) {
 			return nil, fmt.Errorf("Nemotron diarization projection rejected validated shape")
 		}
@@ -84,6 +108,11 @@ func (p *StackingProjection) project(features []float32, frames int, vector bool
 				}
 				out[row*projectedWidth+channel] = sum
 			}
+		}
+	}
+	for _, value := range out {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, fmt.Errorf("non-finite Nemotron diarization projection output")
 		}
 	}
 	return out, nil

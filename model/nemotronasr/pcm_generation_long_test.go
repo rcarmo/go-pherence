@@ -13,7 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	ptx "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 )
@@ -166,8 +169,25 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		}
 		chunkSizes = []int{size}
 	}
+	backend := os.Getenv("GO_PHERENCE_NEMOTRON_ASR_GENERATION_PROJECTOR")
+	if backend != "" && backend != "ptx" && backend != "vulkan" {
+		t.Fatalf("unsupported projection backend %q", backend)
+	}
 	for _, chunkSize := range chunkSizes {
 		s := &PCMGenerationStream{Model: model}
+		var projector *DeviceSubsamplingProjector
+		if backend != "" {
+			projector = &DeviceSubsamplingProjector{Backend: backend}
+			defer projector.Close() // also release resources on an early test failure
+			s.Projector = projector
+		}
+		if backend == "ptx" {
+			previous := ptx.SetStatsEnabled(true)
+			defer ptx.SetStatsEnabled(previous)
+		}
+		ptxBefore := ptx.StatsSnapshot()
+		vkBefore := vulkan.VulkanMemoryStats()
+		requestStart := time.Now()
 		chunkIndex := 0
 		var maxInput, sumInput, maxTower, sumTower, maxMel, sumMel float64
 		var outsideInput, outsideTower, outsideMel, melRow int
@@ -243,6 +263,28 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 			offset = end
 		}
 		last, positions, err := s.Finish(context.Background())
+		if projector != nil {
+			if projector.dispatches != encoderRows/4 {
+				t.Fatalf("backend=%s dispatched %d of %d chunks", backend, projector.dispatches, encoderRows/4)
+			}
+			if closeErr := projector.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			if projector.ready || projector.ptxX != nil || projector.ptxW != nil || projector.ptxY != nil || projector.vkArena != nil || projector.vkOp != nil {
+				t.Fatal("request GPU resources retained after close")
+			}
+			if backend == "ptx" {
+				after := ptx.StatsSnapshot()
+				if after.KernelLaunches-ptxBefore.KernelLaunches < uint64(projector.dispatches) || after.HostToDevice-ptxBefore.HostToDevice < uint64(projector.dispatches+1) || after.DeviceToHost-ptxBefore.DeviceToHost < uint64(projector.dispatches) || after.Mallocs-ptxBefore.Mallocs != after.Frees-ptxBefore.Frees {
+					t.Fatalf("PTX dispatch/transfer/resource accounting before=%+v after=%+v", ptxBefore, after)
+				}
+			} else {
+				after := vulkan.VulkanMemoryStats()
+				if after.Bytes != vkBefore.Bytes || after.Allocations != vkBefore.Allocations || after.InFlight || after.Uncertain {
+					t.Fatalf("Vulkan resource accounting before=%+v after=%+v", vkBefore, after)
+				}
+			}
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -285,7 +327,7 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("PCM JFK chunk=%d decisions=%d nonblank=%d mismatches=%d text=%q ref=%q", chunkSize, len(decisions), nonblank, mismatches, text, reference.Text)
+		t.Logf("PCM JFK backend=%q chunk=%d request_elapsed=%s decisions=%d nonblank=%d mismatches=%d text=%q ref=%q", backend, chunkSize, time.Since(requestStart), len(decisions), nonblank, mismatches, text, reference.Text)
 		if mismatches != 0 || nonblank != reference.Nonblank || text != reference.Text || s.greedy.frames != int64(encoderRows) {
 			t.Fatal("native JFK streaming transcription differs from pinned generate")
 		}

@@ -46,13 +46,14 @@ func LoadPCMGenerationModel(file *safetensors.File) (*PCMGenerationModel, error)
 // Invalid PCM calls leave it unchanged. Cancellation or model errors close
 // it, since completed chunks cannot be replayed after a partial failure.
 type PCMGenerationStream struct {
-	Model    *PCMGenerationModel
-	frontend ASRMelChunkStream
-	sub      SubsamplingStream
-	tower    CachedEncoderTower
-	greedy   GreedyRNNTStream
-	closed   bool
-	onStage  func(string, []float32) // test-only observer; do not retain borrowed values
+	Model     *PCMGenerationModel
+	Projector SubsamplingProjector // optional per-request GPU projection
+	frontend  ASRMelChunkStream
+	sub       SubsamplingStream
+	tower     CachedEncoderTower
+	greedy    GreedyRNNTStream
+	closed    bool
+	onStage   func(string, []float32) // test-only observer; do not retain borrowed values
 }
 
 // AppendPCM consumes 1–80,000 mono 16-kHz finite samples and returns owned
@@ -75,7 +76,11 @@ func (s *PCMGenerationStream) AppendPCM(ctx context.Context, pcm []float32) ([]i
 	if err != nil {
 		return nil, nil, err
 	}
-	return s.process(ctx, chunks)
+	tokens, frames, err := s.process(ctx, chunks)
+	if err != nil {
+		s.closed = true // consumed PCM cannot be replayed after a device error
+	}
+	return tokens, frames, err
 }
 
 // Finish flushes the terminal zero-padded mel chunk once. A recording with
@@ -136,7 +141,8 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 			s.onStage("mel", features)
 		}
 		s.sub.Model = s.Model.Subsampling
-		projected, err := s.sub.ForwardUnmaskedChunk(features, rows)
+		s.sub.Projector = s.Projector
+		projected, err := s.sub.ForwardUnmaskedChunkContext(ctx, features, rows)
 		if err != nil {
 			s.closed = true
 			return nil, nil, err

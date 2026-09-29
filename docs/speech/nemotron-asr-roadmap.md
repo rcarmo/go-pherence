@@ -1,6 +1,38 @@
 # NVIDIA Nemotron ASR roadmap
 
-NVIDIA's Nemotron streaming ASR checkpoints are candidates for a separate native transcription provider. Go-pherence has a bounded native audio frontend and 32-frame offline subsampling path, but no native encoder, RNN-T decoder or transcription provider. The approved 3.5 ASR checkpoint ran as an isolated CPU reference on one recording; see [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
+Go-pherence runs the pinned Nemotron 3.5 ASR streaming checkpoint through a bounded native PCM-to-RNN-T-decisions path with a 24-layer cached encoder and text decoding. SIMD has model-oracle parity on JFK, tiled JFK and a podcast crop. PTX and Vulkan can optionally run one subsampling projection inside the CPU request. Neither GPU path runs the full encoder and decoder. The [bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md) identifies the released checkpoint and processor.
+
+## Hybrid GPU projection requests
+
+`PCMGenerationStream.Projector` optionally selects a per-request
+`DeviceSubsamplingProjector{Backend: "ptx"}` or `"vulkan"`. The projector
+keeps the released `[1024,4352]` subsampling weight and four-row device
+buffers resident until `Close`. Every unmasked generation chunk uploads its
+four-row input, dispatches the projection and downloads owned output.
+The frontend, causal convolutions, 24-layer cached encoder and RNN-T
+prediction still run on CPU. The caller must close the projector on success
+or failure; the opt-in parity test does so even after an early failure.
+GPU errors close the PCM stream without committing a failed subsampling
+cache transition. The diarisation GPU path has the same limited scope.
+
+On the i7-12700/RTX 3060 at `GOMAXPROCS=4`, full-request elapsed time
+(including projector preparation, transfers, dispatches and teardown;
+excluding checkpoint load) for 11-second JFK was `8.09 s` on SIMD,
+`8.33 s` with PTX and `9.48 s` with Vulkan. Both hybrid paths matched
+all 185 reference decisions, 45 nonblank emissions, absolute frames and
+text with zero subsampling/tower outliers under the existing gates.
+On a 20-second podcast crop, the single samples were `15.86 s` SIMD,
+`15.58 s` PTX and `15.80 s` Vulkan; both hybrid paths matched 419
+decisions, 167 nonblank emissions, frames and text. The two composed
+PCM-to-subsampling outliers persist on both hybrid paths and are
+unqualified. Both GPU paths also matched all 1,663 post-BOS decisions,
+frames and text on the 100-second tiled JFK reference (`74.72 s` PTX,
+`74.80 s` Vulkan, single samples). Dispatch-count and resource-close
+assertions guard the tests. There is no demonstrated whole-request GPU
+speedup, full model residency, labelled WER or sustained throughput.
+Run the opt-in parity test with
+`GO_PHERENCE_NEMOTRON_ASR_GENERATION_PROJECTOR=ptx` or `vulkan` and the
+existing model and matching generation reference variables.
 
 ## Pinned candidates
 

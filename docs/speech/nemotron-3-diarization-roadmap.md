@@ -1,10 +1,42 @@
 # Nemotron 3 Diarization roadmap
 
-NVIDIA's `nvidia/Nemotron-3-Diarization` is a candidate for a separate native
-speaker-diarisation backend. An approved checkpoint has now run as an isolated
-CPU reference on one 11-second fixture. Go-pherence has a bounded native frontend,
-feature-stack projection and first-layer pre-attention projection, but no complete
-Nemotron inference runtime. See [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
+Go-pherence runs the pinned `nvidia/Nemotron-3-Diarization` checkpoint
+through a bounded native PCM-to-logits-to-segments streaming path. SIMD has
+model-oracle parity on JFK, tiled JFK, a podcast crop and a synthetic
+speaker transition. PTX and Vulkan can optionally run one stacking
+projection inside the CPU request. Neither GPU path runs the full audio
+tower, speaker cache and head. See [the bounded reference record](../validation/nemotron-speech-reference-2026-09-28.md).
+
+## Hybrid GPU projection requests
+
+`PCMStreamingRequest.Projector` optionally selects a per-request
+`DeviceStackingProjector{Backend: "ptx"}` or `"vulkan"`. It keeps the
+released `[512,1024]` stacking weight and bounded 64-row device buffers
+resident until `Close`. Each complete, padded or first-window terminal-correction stack group
+uploads its input, dispatches a fixed 64-row projection with zeroed
+tail, then downloads owned output. The PCM frontend, 31-layer audio tower, speaker
+cache, head and segment extraction remain on CPU. Callers must close
+the projector on success or failure. A device projection failure closes
+the consumed stacking stream; its eight-row group cannot be replayed.
+
+On the i7-12700/RTX 3060 with `GOMAXPROCS=4`, the synthetic 31-second
+JFK→podcast request took `11.92 s` on SIMD, `12.24 s` with PTX and
+`12.25 s` with Vulkan (one sample each, excluding model load; including
+projector preparation, transfers, dispatches and teardown). Both hybrids
+issued nine stack dispatches, matched all 3,099 pinned logit rows with
+zero outliers under `3e-4 + 2e-5*abs(reference)`, and returned the same
+four model-assigned spans. Both also passed the 11-second JFK and
+20-second podcast references. A 16,640-sample boundary fixture checks
+the masked terminal-correction projection on GPU: both backends dispatched
+three stack groups and returned all 103 pinned logits rows with zero
+outliers. On 100-second tiled JFK, PTX took
+`90.55 s` and Vulkan `90.67 s`, each returning 9,999 logits rows and
+29 pinned spans with zero outliers. These single-host results show no
+whole-request GPU speedup; the GPU does not run the full inference
+pipeline. They do not establish labelled DER or sustained throughput.
+Run the opt-in segment parity test with
+`GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR=ptx` or `vulkan`
+and matching model, logits and segments references.
 
 ## Pinned source and scope
 

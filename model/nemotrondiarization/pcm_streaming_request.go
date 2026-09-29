@@ -18,13 +18,14 @@ const pcmTailReserve = 200 + stackFrames*160
 // must consume/store them before discarding them. Model weights are immutable
 // and may be shared, while cache and frontend state must remain per stream.
 type PCMStreamingRequest struct {
-	frontend *PCMStackingStream
-	window   *StreamingWindow
-	pending  []float32
-	pcmTail  []float32 // retain a final mel group and STFT right context
-	samples  int64
-	emitted  int64
-	closed   bool
+	frontend  *PCMStackingStream
+	window    *StreamingWindow
+	Projector StackingDeviceProjector // optional per-request GPU stack projection
+	pending   []float32
+	pcmTail   []float32 // retain a final mel group and STFT right context
+	samples   int64
+	emitted   int64
+	closed    bool
 }
 
 // LoadPCMStreamingRequest loads the released weights and creates a fresh cache.
@@ -79,6 +80,8 @@ func (s *PCMStreamingRequest) AppendPCMContext(ctx context.Context, pcm []float3
 		s.closed = true
 		return nil, err
 	}
+	s.frontend.stack.Device = s.Projector
+	s.frontend.stack.ctx = ctx
 	// Delay the last stack group until the final chunk's attention mask is
 	// known. This bounds retained PCM independently of recording duration.
 	s.pcmTail = append(s.pcmTail, pcm...)
@@ -146,6 +149,8 @@ func (s *PCMStreamingRequest) FinishContext(ctx context.Context) ([]float32, err
 		return nil, err
 	}
 	s.closed = true
+	s.frontend.stack.Device = s.Projector
+	s.frontend.stack.ctx = ctx
 	processed := s.samples - int64(len(s.pcmTail))
 	features, err := s.frontend.mel.AppendPCM(s.pcmTail)
 	if err != nil {
@@ -218,7 +223,12 @@ func (s *PCMStreamingRequest) FinishContext(ctx context.Context) ([]float32, err
 		// The first pass used all 104 mel rows. Reproject its right-context
 		// group for the terminal pass with the 104th row masked.
 		clear(terminalGroup[7*melBins:])
-		corrected, err := s.frontend.stack.Projection.Project(terminalGroup, stackFrames)
+		var corrected []float32
+		if s.Projector != nil {
+			corrected, err = s.frontend.stack.Projection.ProjectWithDevice(ctx, terminalGroup, stackFrames, s.Projector)
+		} else {
+			corrected, err = s.frontend.stack.Projection.Project(terminalGroup, stackFrames)
+		}
 		if err != nil {
 			return nil, err
 		}

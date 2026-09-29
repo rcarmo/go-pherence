@@ -10,7 +10,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
+	ptx "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
+	"github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
@@ -81,6 +84,23 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 	}
 	var spans SegmentStream
 	var got []Segment
+	backend := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR")
+	if backend != "" && backend != "ptx" && backend != "vulkan" {
+		t.Fatalf("unsupported projection backend %q", backend)
+	}
+	var projector *DeviceStackingProjector
+	if backend != "" {
+		projector = &DeviceStackingProjector{Backend: backend}
+		defer projector.Close() // release resources on an early test failure
+		request.Projector = projector
+	}
+	if backend == "ptx" {
+		previous := ptx.SetStatsEnabled(true)
+		defer ptx.SetStatsEnabled(previous)
+	}
+	ptxBefore := ptx.StatsSnapshot()
+	vkBefore := vulkan.VulkanMemoryStats()
+	requestStart := time.Now()
 	var compared, outside int
 	var maxAbs, sumAbs float64
 	consume := func(logits []float32) {
@@ -123,6 +143,28 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 		offset = end
 	}
 	logits, err := request.Finish()
+	if projector != nil {
+		if projector.Dispatches < 2 {
+			t.Fatalf("backend=%s dispatched only %d stack groups", backend, projector.Dispatches)
+		}
+		if closeErr := projector.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if projector.ready || projector.ptxX != nil || projector.ptxW != nil || projector.ptxY != nil || projector.vkArena != nil || projector.vkOp != nil {
+			t.Fatal("request GPU resources retained after close")
+		}
+		if backend == "ptx" {
+			after := ptx.StatsSnapshot()
+			if after.KernelLaunches-ptxBefore.KernelLaunches < uint64(projector.Dispatches) || after.HostToDevice-ptxBefore.HostToDevice < uint64(projector.Dispatches+1) || after.DeviceToHost-ptxBefore.DeviceToHost < uint64(projector.Dispatches) || after.Mallocs-ptxBefore.Mallocs != after.Frees-ptxBefore.Frees {
+				t.Fatalf("PTX dispatch/transfer/resource accounting before=%+v after=%+v", ptxBefore, after)
+			}
+		} else {
+			after := vulkan.VulkanMemoryStats()
+			if after.Bytes != vkBefore.Bytes || after.Allocations != vkBefore.Allocations || after.InFlight || after.Uncertain {
+				t.Fatalf("Vulkan resource accounting before=%+v after=%+v", vkBefore, after)
+			}
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +185,12 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 	if err := json.Unmarshal(segmentsData, &want); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("streamed rows=%d logits max_abs=%g mean_abs=%g outside=%d segments=%v", spans.frames, maxAbs, sumAbs/float64(compared), outside, got)
+	t.Logf("backend=%q request_elapsed=%s dispatched=%d streamed rows=%d logits max_abs=%g mean_abs=%g outside=%d segments=%v", backend, time.Since(requestStart), func() int {
+		if projector != nil {
+			return projector.Dispatches
+		}
+		return 0
+	}(), spans.frames, maxAbs, sumAbs/float64(compared), outside, got)
 	if spans.frames != int64(expectedRows) || compared != len(data)/4 || outside != 0 || sumAbs/float64(compared) > 1e-5 || !reflect.DeepEqual(got, want) {
 		t.Fatalf("streamed rows=%d segments=%v want=%v", spans.frames, got, want)
 	}

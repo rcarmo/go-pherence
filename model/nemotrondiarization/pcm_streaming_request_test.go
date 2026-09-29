@@ -49,6 +49,16 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	backend := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_STACK_PROJECTOR")
+	var projector *DeviceStackingProjector
+	if backend != "" {
+		if backend != "ptx" && backend != "vulkan" {
+			t.Fatalf("unsupported projection backend %q", backend)
+		}
+		projector = &DeviceStackingProjector{Backend: backend}
+		defer projector.Close()
+		s.Projector = projector
+	}
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -125,11 +135,24 @@ func TestReleasedPCMStreamingRequestPyTorchParity(t *testing.T) {
 		offset = end
 	}
 	got, err := s.Finish()
+	if projector != nil {
+		if projector.Dispatches == 0 {
+			t.Fatal("device projection was not dispatched")
+		}
+		if closeErr := projector.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	compare(got)
-	t.Logf("rows=%d ref_rows=%d max_abs=%g mean_abs=%g outside=%d", count/diarizationSpeakers, len(data)/4/diarizationSpeakers, maxAbs, sumAbs/float64(count), outside)
+	t.Logf("backend=%q dispatches=%d rows=%d ref_rows=%d max_abs=%g mean_abs=%g outside=%d", backend, func() int {
+		if projector != nil {
+			return projector.Dispatches
+		}
+		return 0
+	}(), count/diarizationSpeakers, len(data)/4/diarizationSpeakers, maxAbs, sumAbs/float64(count), outside)
 	if count*4 != len(data) || outside != 0 || sumAbs/float64(count) > 1e-5 {
 		t.Fatal("PCM streaming logits differ from PyTorch")
 	}
