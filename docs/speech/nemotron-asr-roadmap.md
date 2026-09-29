@@ -235,8 +235,16 @@ zero outliers under its separate `5e-4 + 1e-5*abs(reference)` gate.
 Together these locate the two composed-stage outliers in frontend error
 propagation, without attributing them to a failed isolated subsampling
 operator or widening either threshold. They remain unqualified at the
-composed stage. The source WAV digest guards fixture provenance, not
-generated-output acceptance. Transcript agreement on this clip is still
+composed stage. A paired diagnostic now drives native PCM mel and pinned
+PyTorch mel through separate native subsampling streams on that same crop.
+The pinned-mel stream has zero projection outliers; the native-mel stream
+reproduces the two composed outliers at chunk 36, row 1, columns 466 and
+639. At those columns, substituting native mel changes the outputs by
+`-0.003515` and `+0.003374` relative to pinned mel. Chunk-36 mel has
+maximum/mean absolute differences `3.54e-4`/`4.86e-6`, with its maximum
+at row 9, column 10. This isolates frontend error propagation without
+identifying a safe numerical fix or changing the acceptance gate. The source
+WAV digest guards fixture provenance, not generated-output acceptance. Transcript agreement on this clip is still
 model-oracle parity, not a human-labelled accuracy result.
 
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
