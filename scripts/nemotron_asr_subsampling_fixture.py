@@ -59,6 +59,17 @@ def main():
             final = sub.linear(hidden.transpose(1, 2).reshape(1, hidden.shape[2], -1))
             name = "projected.f32.gz" if valid == 32 else f"projected_valid{valid}.f32.gz"
             save(args.out / name, final[0])
+            if valid == 32:
+                layer = model.encoder.layers[0]
+                normal = layer.norm_feed_forward1(final)
+                save(args.out / "encoder0_ff1_normal.f32.gz", normal[0])
+                first = layer.feed_forward1.linear1(normal)
+                save(args.out / "encoder0_ff1_linear1.f32.gz", first[0])
+                activated = layer.feed_forward1.activation(first)
+                save(args.out / "encoder0_ff1_activated.f32.gz", activated[0])
+                feed_forward = layer.feed_forward1.linear2(activated)
+                save(args.out / "encoder0_ff1_output.f32.gz", feed_forward[0])
+                save(args.out / "encoder0_ff1_residual.f32.gz", (final + 0.5 * feed_forward)[0])
             print("input valid", valid, "final valid length", int(lengths[0]))
 
 
