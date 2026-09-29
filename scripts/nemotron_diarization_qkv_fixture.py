@@ -61,7 +61,9 @@ def main():
         rotary = model.model.audio_tower.rotary_emb(input_normal[None], positions)
         attention, _ = layer.self_attn(normal[None], position_embeddings=rotary, attention_mask=None)
         save(args.out / "jfk_layer0_attention.f32.gz", attention[0])
-        save(args.out / "jfk_layer0_residual.f32.gz", input_normal + attention[0])
+        residual = input_normal + attention[0]
+        save(args.out / "jfk_layer0_residual.f32.gz", residual)
+        save(args.out / "jfk_layer0_complete.f32.gz", residual + layer.mlp(layer.layer_norm2(residual)))
         all_rows = torch.from_numpy(stacked.copy().reshape(1, 138, 512))
         # The checked processor mask is valid at every downsampled position,
         # so this recording has no padding mask at the 138-row attention layer.
@@ -70,7 +72,9 @@ def main():
         all_rotary = model.model.audio_tower.rotary_emb(all_normal, all_positions)
         all_attention, _ = layer.self_attn(layer.layer_norm1(all_normal), position_embeddings=all_rotary, attention_mask=None)
         save(args.out / "jfk_full_layer0_attention.f32.gz", all_attention[0])
-        save(args.out / "jfk_full_layer0_residual.f32.gz", (all_normal + all_attention)[0])
+        full_residual = all_normal + all_attention
+        save(args.out / "jfk_full_layer0_residual.f32.gz", full_residual[0])
+        save(args.out / "jfk_full_layer0_complete.f32.gz", (full_residual + layer.mlp(layer.layer_norm2(full_residual)))[0])
 
 
 if __name__ == "__main__":

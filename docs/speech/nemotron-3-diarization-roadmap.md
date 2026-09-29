@@ -69,6 +69,12 @@ eight frames marks all 138 stacked positions valid. The one-CPU 138-row
 benchmark after sharing the owned input-normalisation buffer took 22.4–29.5 ms
 and 2,294,336 B/9 allocations in five 10-iteration runs, down from
 2,581,056 B/10 allocations. Timing samples overlap, so there is no speed
-claim. Later MLP, encoder layers, cache, upsampler and speaker
-head remain unqualified.
+claim. The bounded complete first audio layer adds `layer_norm2`, the 512→2048→512
+GELU MLP and its residual. Independent PyTorch 16- and 138-row outputs pass:
+full-context maximum absolute error `1.53e-5`, mean `3.33e-7`, with zero
+values outside the calibrated tolerance on AVX2/FMA. The scalar fallback
+passes too. One-CPU 138-row samples took 43.1–44.3 ms with 3,998,272 B/12
+allocations across five 10-iteration runs; this excludes loading, frontend,
+stacking and the other 30 layers. Later encoder layers, cache, upsampler and
+speaker head remain unqualified.
 Labelled diarisation quality, production latency and readiness promotion remain open.
