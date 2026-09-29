@@ -10,7 +10,7 @@ from pathlib import Path
 
 import soundfile as sf
 import torch
-from transformers import AutoModelForRNNT, AutoProcessor
+from transformers import AutoModelForRNNT, AutoProcessor, DynamicCache
 from transformers.masking_utils import create_bidirectional_mask
 from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import NemotronAsrStreamingEncoderCausalConvPaddingCache
 from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import chunked_limited_mask_function
@@ -78,6 +78,18 @@ def main():
                 save(args.out / "encoder0_attn_normal.f32.gz", attn_normal[0])
                 for name in ("q", "k", "v"):
                     save(args.out / f"encoder0_attn_{name}.f32.gz", getattr(layer.self_attn, f"{name}_proj")(attn_normal)[0])
+                qkv_k = layer.self_attn.k_proj(attn_normal).view(1, 5, 8, 128).transpose(1, 2)
+                qkv_v = layer.self_attn.v_proj(attn_normal).view(1, 5, 8, 128).transpose(1, 2)
+                kv_cache = DynamicCache(config=model.encoder.config)
+                for index, bounds in enumerate(((0, 1), (1, 3), (3, 5))):
+                    keys, values = kv_cache.update(
+                        qkv_k[:, :, bounds[0]:bounds[1]],
+                        qkv_v[:, :, bounds[0]:bounds[1]],
+                        layer_idx=0,
+                    )
+                    for kind, tensor in (("returned_k", keys), ("returned_v", values),
+                                         ("state_k", kv_cache.layers[0].keys), ("state_v", kv_cache.layers[0].values)):
+                        save(args.out / f"encoder0_attn_cache_{kind}{index}.f32.gz", tensor[0])
                 positions = model.encoder.encode_positions(ff1_residual)
                 save(args.out / "encoder0_attn_positions.f32.gz", positions[0])
                 attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=None)
