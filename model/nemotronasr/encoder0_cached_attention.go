@@ -3,9 +3,24 @@ package nemotronasr
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
+
+// Cached relative positions depend only on the visible K/V length. Share
+// immutable encodings across layers and streams without retaining input or
+// cache state; 61 covers the 56 retained rows plus a five-row query chunk.
+var cachedRelativePositionTables [asrKVWindow + 4]struct {
+	once   sync.Once
+	values []float32
+}
+
+func cachedRelativePositions(rows int) []float32 {
+	entry := &cachedRelativePositionTables[rows]
+	entry.once.Do(func() { entry.values = encoder0RelativePositions(rows) })
+	return entry.values
+}
 
 // ForwardCachedChunk projects an already-normalised [rows,1024] query chunk
 // and updates one stream's layer-0 key/value cache. It returns owned attention
@@ -53,7 +68,7 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 	// current rows. Once the sliding cache is full this is retained+rows,
 	// not the cumulative seen count. The prepared-row fixture previously
 	// passed cumulative get_seq_length() directly; regenerate that fixture.
-	encoded := encoder0RelativePositions(keyRows)
+	encoded := cachedRelativePositions(keyRows)
 	// _rel_shift indexes [rows-1+source-row], so the largest position
 	// consumed is keyRows+rows-2. The remaining generated positions need
 	// no 1024x1024 projection. Keep the full encoding's position origin.

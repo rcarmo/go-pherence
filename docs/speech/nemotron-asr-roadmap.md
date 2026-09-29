@@ -212,7 +212,21 @@ or missing final layer leaves prior cache state unchanged. These repeated
 prepared rows qualify the 24-layer cache transition and 57-frame sliding
 boundary, not varied full-recording PCM or native RNN-T transcription.
 An 11-second full JFK streaming-generation fixture now checks this cache
-boundary on native PCM. Labelled WER and full-request GPU timing still need
+boundary on native PCM. Cached attention now shares immutable relative-position
+encodings indexed by the visible K/V row count across layers and streams;
+`sync.Once` computes each bounded table only once. On the i7-12700 with
+`GOMAXPROCS=4`, three complete 11-second request samples fell from
+`8.51–8.52 s` and `1.86 GB/op` to `7.46–7.76 s` and `1.53 GB/op`
+(excluding model load). Fresh independently generated 72-row attention
+and tower references, both lookahead modes, the complete 100-second JFK
+PCM→text reference (1,663 decisions after BOS), and the real podcast
+PCM→text reference (419 decisions) passed. Earlier 72-row fixture files
+failed at the sliding boundary on both the unchanged code and this trial;
+they were superseded only after regenerating with the pinned processor's
+`get_mask_sizes(chunk, 0)[0] - chunk` visible cache length. The two
+podcast PCM→subsampling outliers remain unqualified. These are small
+single-host samples, not sustained speed or GPU timings. Labelled WER
+and full-request GPU timing still need
 validation.
 
 `GreedyRNNTStream.Append` now carries the released two-layer predictor and
