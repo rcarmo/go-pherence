@@ -129,7 +129,7 @@ tower and the 11-second streaming logits/spans pass; the 30-second request
 allocated `6.090 GB/op` in two samples versus `6.603 GB/op` before Q reuse.
 Timing samples remain noisy and supply no speed claim. The independent
 100-second reference accepted all 9,999 logits rows and 29 spans after
-MLP buffer reuse; it has not been rerun for Q reuse. An isolated packed/parallel head GEMM
+Q reuse (single `GOMAXPROCS=4` request: `74.83 s`, zero logit outliers). An isolated packed/parallel head GEMM
 trial looked faster at fixed shapes but failed to improve the complete
 30-second request, so that dispatch change was reverted.
 
