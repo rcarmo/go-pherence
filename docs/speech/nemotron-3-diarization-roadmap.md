@@ -177,7 +177,12 @@ state. `SpeakerFrameScores` now matches the released pre-compression scoring rul
 on two deterministic 300-row probability fixtures, including speech
 probabilities above 0.5, a positive-score branch, and conditional `-Inf`
 masking. Finite score maximum absolute error is `9.54e-7`; both fixtures
-match every masked position. These prepared embeddings and synthetic
-probabilities do not qualify recency boosts, top-k cache compression,
-model-level streaming outputs, other input lengths, transfer-inclusive
-GPU latency or production readiness.
+match every masked position. `SpeakerCompressor.Compress` now checks the released recency boost, strong
+and weak top-k boosts, speaker-major ordering, eight learned silence slots
+and sentinel fallback on two independent 486-frame probability fixtures.
+Prepared pattern and sweep cases match PyTorch selected embeddings and
+probabilities with zero per-value differences; the pattern has 70 silence
+or sentinel slots and the sweep has eight. The operator leaves inputs
+unchanged and does not mutate streaming state. Compression integration into
+cache updates, model-level streaming outputs, other input lengths,
+transfer-inclusive GPU latency and production readiness remain unqualified.

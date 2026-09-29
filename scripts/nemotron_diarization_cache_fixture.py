@@ -70,6 +70,20 @@ def main():
         speech_probs[::5, 1] = 0.92
         save(args.out / "cache_score_speech_probs.f32.gz", speech_probs)
         save(args.out / "cache_score_speech_output.f32.gz", cache._get_frame_scores(speech_probs[None])[0])
+        for label in ("pattern", "sweep"):
+            frame_ids = torch.arange(486, dtype=torch.float32)
+            compress_probs = torch.full((486, 8), 0.05)
+            if label == "pattern":
+                compress_probs[::3, 0] = 0.95
+                compress_probs[::5, 1] = 0.92
+            else:
+                for speaker in range(8):
+                    compress_probs[:, speaker] = 0.05 + 0.9 * ((frame_ids * (19 + speaker) + speaker * 37) % 487) / 487
+            compress_embeds = torch.arange(486 * 512, dtype=torch.float32).reshape(486, 512) / 10000
+            save(args.out / f"cache_compress_{label}_probs.f32.gz", compress_probs)
+            output_embeds, output_probs = cache._compress(compress_embeds[None], compress_probs[None], model.silence_embeds)
+            save(args.out / f"cache_compress_{label}_embeds.f32.gz", output_embeds[0])
+            save(args.out / f"cache_compress_{label}_selected_probs.f32.gz", output_probs[0])
         for index, frames in enumerate((237, 9), start=3):
             lookahead = 4
             chunk = torch.arange(index * 241, index * 241 + frames + lookahead, dtype=torch.float32)
