@@ -124,8 +124,16 @@ scalar maximum `1.91e-5`, mean `1.45e-6`, with zero per-value outliers.
 Composing the Go tower and head yields 1104×8 logits before trimming to
 valid input frames: AVX2/FMA maximum error `1.91e-5`, mean `3.41e-6`;
 scalar maximum `2.67e-5`, mean `3.67e-6`, with zero outliers. These
-prepared-stacking windows isolate model numerics. `OfflineRequest.ForwardPCM`
-now composes the native 16-kHz log-mel frontend, stack projection, 31-layer
+prepared-stacking windows isolate model numerics.
+
+The shared `loader/audio/NemotronMelStream` frontend processes 100 seconds of
+tiled JFK PCM in five-second calls with fixed state and owned feature chunks.
+Against full-duration pinned Transformers features, its 10,001 rows have a
+maximum error of `3.67e-4`, mean `1.15e-6` and zero tolerance outliers.
+Streaming stacking, speaker-cache scheduling and masks have not been connected;
+the offline model still rejects windows above 376 rows.
+
+`OfflineRequest.ForwardPCM` now composes the native 16-kHz log-mel frontend, stack projection, 31-layer
 tower and head on the pinned 176,000-sample JFK waveform. The owned 1101×8
 raw logits match the independent PyTorch request: AVX2/FMA maximum absolute
 error `3.25e-5`, mean `2.84e-6`; CPU-features-disabled maximum `6.11e-5`,

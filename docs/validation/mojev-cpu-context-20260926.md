@@ -157,8 +157,11 @@ Evidence: `/workspace/tmp/mojev-cpu-context-20260926`: both independent oracle
 outputs and logs, CPU environment, original failed/interrupted logs, successful
 ordinary/race/grouped logs with exit status, short-request distributions and
 response checks, host data, source overlay, cross-build and coverage records.
-The environment, source checkout and executables remain local; the downloadable
-bundle includes bounded source, reports and evidence rather than those assets.
+The Python environment, clean upstream checkout at `a74d58c` and cross-build
+executables were removed from `/workspace/tmp` on 29 September 2026 during
+workspace cleanup. The report, source overlay, oracles and raw test evidence
+remain in that directory. Recreate tooling from the pinned source and
+requirements before rerunning the gates.
 
 ```sh
 GOMAXPROCS=6 GO_PHERENCE_DISABLE_NVIDIA=1 \
