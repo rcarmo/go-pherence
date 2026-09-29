@@ -1,4 +1,4 @@
-"""Pinned streaming-generate oracle on JFK or 100-second tiled JFK, lookahead three.
+"""Pinned streaming-generate oracle on JFK, tiled JFK or a real podcast crop.
 
 Use the full-recording processor for mel values, then the generation API's
 25/32 schedule with zero right padding. This saves raw decisions and decoded
@@ -17,26 +17,34 @@ from transformers import AutoModelForRNNT, AutoProcessor
 ROOT = Path(__file__).resolve().parents[1]
 WAV = ROOT / "testdata/jfk.wav"
 INPUT_SHA = "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
+PODCAST_SHA = "8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601"
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--seconds", type=int, choices=(11, 100), default=11)
+    parser.add_argument("--podcast", action="store_true", help="real 20-second clip from podcast.wav at 300 seconds")
     args = parser.parse_args()
-    if hashlib.sha256(WAV.read_bytes()).hexdigest() != INPUT_SHA:
-        raise ValueError("JFK fixture provenance changed")
-    pcm, rate = sf.read(WAV, dtype="float32")
-    if rate != 16000 or pcm.ndim != 1 or len(pcm) != 176000:
-        raise ValueError("unexpected JFK geometry")
-    if args.seconds == 100:
+    source = ROOT / "testdata/podcast.wav" if args.podcast else WAV
+    expected_sha = PODCAST_SHA if args.podcast else INPUT_SHA
+    if hashlib.sha256(source.read_bytes()).hexdigest() != expected_sha:
+        raise ValueError("audio fixture provenance changed")
+    pcm, rate = sf.read(source, dtype="float32")
+    if rate != 16000 or pcm.ndim != 1 or not args.podcast and len(pcm) != 176000:
+        raise ValueError("unexpected audio geometry")
+    if args.podcast:
+        pcm = pcm[300*rate:320*rate]
+        if len(pcm) != 20*rate:
+            raise ValueError("unexpected podcast crop")
+    elif args.seconds == 100:
         import numpy as np
         pcm = np.tile(pcm, (args.seconds * rate + len(pcm) - 1) // len(pcm))[:args.seconds * rate]
     torch.set_num_threads(4)
     processor = AutoProcessor.from_pretrained(ROOT / "checkpoints/nemotron/asr", local_files_only=True)
     model = AutoModelForRNNT.from_pretrained(ROOT / "checkpoints/nemotron/asr", local_files_only=True).eval()
     features = processor(pcm, sampling_rate=rate, return_tensors="pt")
-    valid = args.seconds * 100
+    valid = len(pcm) // 160
     if tuple(features.input_features.shape) != (1, valid + 1, 128) or int(features.attention_mask.sum()) != valid:
         raise ValueError("unexpected feature geometry")
     chunks = [features.input_features[:, :25]]

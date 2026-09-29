@@ -155,6 +155,22 @@ a tiled single-speaker recording; it is not labelled WER, varied speech
 quality, cancellation soak, or GPU timing. The 11-second reference still
 passes with 5,520-sample calls after the fixture extension.
 
+A separate **real 20-second podcast crop** (300–320 seconds of the tracked
+mono 16-kHz `testdata/podcast.wav`) now exercises different speech and
+background. The pinned processor and released streaming `generate()`
+produce 63 mel chunks and 420 decisions including BOS; native five-second
+PCM calls match all **419 decisions after BOS**, 167 nonblank emissions,
+absolute frames and the same 351-character text. The full tower has
+maximum/mean absolute error `4.25e-6`/`1.49e-8`, zero values outside
+`3e-4 + 2e-5*abs(reference)`. The composed PCM→subsampling comparison has
+**two of 258,048** values outside its provisional
+`3e-3 + 4e-5*abs(reference)` gate, both in chunk 36 (maximum overall
+`0.00458`, mean `9.13e-5`). Those failures remain recorded; matching
+downstream tokens does not qualify the subsampling stage or measured WER.
+The source WAV digest guards fixture provenance, not generated-output
+acceptance. Transcript agreement on this clip is still model-oracle parity,
+not a human-labelled accuracy result.
+
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
 relative positions after the 57-frame window starts sliding, and applies
 the reference's chunk-distance mask. The prior prepared-row fixtures passed
