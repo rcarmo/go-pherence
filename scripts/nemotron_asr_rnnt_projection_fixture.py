@@ -11,6 +11,7 @@ from pathlib import Path
 
 import torch
 from transformers import AutoModelForRNNT
+from transformers.models.nemotron3_5_asr.generation_nemotron3_5_asr import Nemotron3_5AsrRNNTDecoderCache
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "checkpoints/nemotron/asr"
@@ -39,6 +40,12 @@ def main():
     with torch.inference_mode():
         decoder = model.decoder.embedding(torch.tensor([3]))  # fixed released token vector, not an LSTM prediction
         save(args.out / "rnnt_joint_decoder_input.f32.gz", decoder)
+        cache = Nemotron3_5AsrRNNTDecoderCache(model.config)
+        for index, token in enumerate((13087, 3, 7, 13087, 11)):
+            decoded = model.decoder(torch.tensor([[token]]), cache=cache)
+            save(args.out / f"rnnt_decoder_step{index}_output.f32.gz", decoded[0])
+            save(args.out / f"rnnt_decoder_step{index}_hidden.f32.gz", cache.hidden_state[:, 0])
+            save(args.out / f"rnnt_decoder_step{index}_cell.f32.gz", cache.cell_state[:, 0])
         for prompt in (101, 7):
             one_hot = torch.nn.functional.one_hot(torch.tensor([prompt]), num_classes=128).float()
             fused = torch.cat([block, one_hot[:, None, :].expand(-1, 5, -1)], dim=-1)
