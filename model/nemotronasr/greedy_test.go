@@ -105,4 +105,7 @@ func TestGreedyRNNTRejectsMalformed(t *testing.T) {
 	if _, _, err := (&GreedyRNNT{}).Decode(make([]float32, rnntHidden), 1); err == nil {
 		t.Fatal("accepted missing weights")
 	}
+	if _, _, err := (&GreedyRNNT{Decoder: &RNNTDecoder{}, Projection: &RNNTProjection{}}).Decode(make([]float32, (maxQualifiedRNNTFrames+1)*rnntHidden), maxQualifiedRNNTFrames+1); err == nil {
+		t.Fatal("accepted unqualified frame count")
+	}
 }

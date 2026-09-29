@@ -6,13 +6,15 @@ import (
 )
 
 // GreedyRNNT composes a single-stream predictor and joint network over at
-// most five already prompt-projected encoder rows. It returns owned token and
+// most 139 already prompt-projected encoder rows. It returns owned token and
 // frame-index slices; blank tokens are retained for reference comparison.
-// No tokenizer, longer recording, or streaming encoder is implemented here.
+// No tokenizer or native long-window/streaming encoder is implemented here.
 type GreedyRNNT struct {
 	Decoder    *RNNTDecoder
 	Projection *RNNTProjection
 }
+
+const maxQualifiedRNNTFrames = 139
 
 // Decode uses the released blank=13087 and max_symbols_per_step=10 rules.
 func (m *GreedyRNNT) Decode(encoder []float32, rows int) (tokens, frames []int, err error) {
@@ -21,7 +23,7 @@ func (m *GreedyRNNT) Decode(encoder []float32, rows int) (tokens, frames []int, 
 
 // decode accepts an optional per-step observer for independent logit checks.
 func (m *GreedyRNNT) decode(encoder []float32, rows int, observe func(int, []float32) error) (tokens, frames []int, err error) {
-	if m == nil || m.Decoder == nil || m.Projection == nil || rows < 1 || rows > 5 || len(encoder) != rows*rnntHidden {
+	if m == nil || m.Decoder == nil || m.Projection == nil || rows < 1 || rows > maxQualifiedRNNTFrames || len(encoder) != rows*rnntHidden {
 		return nil, nil, fmt.Errorf("invalid Nemotron ASR greedy input")
 	}
 	for _, value := range encoder {
