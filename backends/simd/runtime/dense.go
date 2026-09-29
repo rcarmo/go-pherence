@@ -14,12 +14,14 @@ func DenseNNTo(c, a, b []float32, m, n, k int, alpha float32, lda, ldb, ldc int)
 }
 
 // DenseNTTo applies shape-aware checked dispatch for C += alpha*A*B^T.
-// The blocked kernel currently requires contiguous rows and output.
+// The blocked kernel currently requires contiguous rows and output. The
+// 576-row cap covers bounded Nemotron diarisation windows (maximum 541 rows)
+// while retaining the checked serial path for larger/strided operations.
 func DenseNTTo(c, a, b []float32, m, n, k int, alpha float32, lda, ldb, ldc int) bool {
 	if !validSgemmSliceArgs(c, a, b, m, n, k, lda, ldb, ldc, true) {
 		return false
 	}
-	if HasSgemmAsm && m > 1 && m <= 256 && n >= 64 && k >= 64 && lda == k && ldb == k && ldc == n {
+	if HasSgemmAsm && m > 1 && m <= 576 && n >= 64 && k >= 64 && lda == k && ldb == k && ldc == n {
 		SgemmNTBlockedFMA(m, n, k, alpha, unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), unsafe.Pointer(&c[0]), lda, ldb, ldc)
 		return true
 	}

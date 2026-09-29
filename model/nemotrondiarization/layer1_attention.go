@@ -107,7 +107,7 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector bool)
 				copy(vHead[to:to+diarizationHeadWidth], v[from:from+diarizationHeadWidth])
 			}
 			clear(scores)
-			if !simd.SgemmNTTo(scores, qHead, kHead, rows, rows, diarizationHeadWidth, scaling, diarizationHeadWidth, diarizationHeadWidth, rows) {
+			if !simd.DenseNTTo(scores, qHead, kHead, rows, rows, diarizationHeadWidth, scaling, diarizationHeadWidth, diarizationHeadWidth, rows) {
 				return nil, nil, fmt.Errorf("Nemotron diarization layer-1 score shape rejected")
 			}
 			if !simd.SoftmaxRowsInPlace(scores, rows, rows) {

@@ -6,7 +6,7 @@ import (
 )
 
 func TestDenseDispatchParity(t *testing.T) {
-	for _, s := range []struct{ m, n, k int }{{1, 63, 65}, {2, 64, 64}, {5, 257, 67}, {32, 1024, 1024}, {257, 64, 64}} {
+	for _, s := range []struct{ m, n, k int }{{1, 63, 65}, {2, 64, 64}, {5, 257, 67}, {32, 1024, 1024}, {257, 64, 64}, {376, 80, 64}, {541, 80, 64}} {
 		a := randFloats(s.m*s.k, int64(s.m))
 		nt := randFloats(s.n*s.k, int64(s.n))
 		nn := make([]float32, s.k*s.n)

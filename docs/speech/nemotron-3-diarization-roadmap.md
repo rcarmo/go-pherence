@@ -284,8 +284,22 @@ PyTorch **streaming** `extract_speaker_dict`: speaker 0 at 0.31–2.25,
 `3e-4 + 2e-5*abs(reference)`. The separate offline processor fixture
 returns 0.28–2.28, 3.27–4.56 and 5.36–10.63 seconds. Comparing streaming
 spans against that offline fixture failed, as the inference contexts differ.
-The 100-second pinned script also emits matching-context streaming segment
-JSON; a native 100-second segment comparison has not run. Labelled DER,
-masked intermediate encoder rows, transfer-inclusive Vulkan/PTX latency,
+The pinned 100-second tiled-JFK streaming reference also supplies 9,999
+logits rows and 29 segments. An earlier native 7,979-sample-call test and a
+five-second-call retry each exceeded five minutes without finishing. A
+30-second profile identified unblocked `SgemmNT` in the 31-layer tower and
+attention scores as the dominant cost. `DenseNTTo` now permits contiguous
+bounded windows through 576 rows, and `Layer1Attention` sends its score
+matrix through that checked blocked dispatch. Both 11-second and 100-second
+SIMD parity pass with this change: the 100-second native PCM→logits→segments
+run completed in **246.42 seconds** (five-second PCM calls), matching all
+29 pinned streaming spans. Logits had maximum absolute error `6.48e-5`,
+mean `4.66e-6`, and zero values outside
+`3e-4 + 2e-5*abs(reference)`. A single 30-second request benchmark moved
+from 45.02 seconds/7.742 GB to 36.49 seconds/7.742 GB; these single samples
+do not establish sustained speed. The 100-second end-to-end path now
+finishes, but 246 seconds is slower than real time and remains an
+optimisation target. The full 100-second scalar run, labelled DER, masked
+intermediate encoder rows, transfer-inclusive Vulkan/PTX latency,
 cancellation and production readiness still need validation. The offline
 PCM request retains its separate 376-row limit.
