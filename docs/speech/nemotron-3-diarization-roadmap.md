@@ -62,5 +62,11 @@ maximum absolute error `5.72e-6` for the attention projection and `7.63e-6`
 for its residual. Its one-CPU, five-by-20-iteration microbenchmark used
 294,976 B/10 allocations and 0.877–2.306 ms per window; timings are noisy.
 The window does not reproduce the first 16 rows of the full 138-row recording.
-Later MLP, encoder layers, cache, upsampler and speaker head remain unqualified.
+The full 138-row first-layer attention also matches the PyTorch reference on
+JFK: max error `7.63e-6` for attention and `1.14e-5` after residual. The
+processor marks 1100 of 1101 feature frames valid; sampling that mask every
+eight frames marks all 138 stacked positions valid. The one-CPU 138-row
+benchmark took 22.2–27.8 ms and 2,581,056 B/10 allocations in five
+10-iteration runs. Later MLP, encoder layers, cache, upsampler and speaker
+head remain unqualified.
 Labelled diarisation quality, production latency and readiness promotion remain open.
