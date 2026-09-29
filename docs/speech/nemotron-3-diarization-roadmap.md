@@ -250,8 +250,32 @@ on scalar. Pooled speaker-probability maxima are `8.59e-6` and
 264 FIFO embeddings from the pinned 100-second JFK projection. The
 compressor previously ranked boosts across all speakers; the reference
 ranks each speaker's frames separately. The corrected operator retains
-its earlier pattern/sweep and seven-step parity fixtures. This case
-qualifies inference across a **seeded** compression transition, not an
-audio-scheduled continuous stream. Streaming chunk scheduling, padding
-masks, complete-recording logits, labelled DER, transfer-inclusive GPU
-latency and production readiness remain unqualified.
+its earlier pattern/sweep and seven-step parity fixtures. This case qualifies inference across a **seeded** compression transition.
+
+`PCMStreamingRequest` adds low-latency PCM scheduling with nine committed
+encoder rows and four lookahead rows. It retains at most 1,480 PCM samples,
+keeps projected context bounded, and scores the last chunk without lookahead.
+The first 104-frame chunk followed by a 103-frame terminal output needs two
+projections of its last group: the first pass uses the lookahead feature; the
+terminal pass masks its 104th feature. The last uncentred chunk excludes
+right-padded mel frames, and the scheduler trims its output accordingly.
+
+`nemotron_diarization_pcm_stream_fixture.py` runs the pinned Transformers
+model on the complete 11-second JFK recording and a 100-second tiled JFK
+recording, carrying its speaker cache between chunks. The Go request returned
+1,099 and 9,999 logits rows respectively. Against independent PyTorch logits,
+the SIMD path had maximum/mean absolute errors of `3.43e-5`/`2.95e-6`
+(11 s) and `6.48e-5`/`4.70e-6` (100 s), with no values outside
+`3e-4 + 2e-5*abs(reference)`. The 11-second `GODEBUG=cpu.all=off` run
+had maximum/mean errors of `5.34e-5`/`6.44e-6`, also with zero outliers.
+Boundary tests additionally compared PCM lengths 160, 200, 11,520, 16,639,
+16,640, 16,680, 17,040 and 28,000 samples with PyTorch. The nonfatal
+Transformers `image_like_kwargs` diagnostic did not prevent the reference
+from producing logits. A full 100-second scalar check has not run.
+
+This qualifies bounded continuous **SIMD diarisation logits**, including
+cache compression exercised by the 100-second stream.
+Speaker segments and labelled DER, masked intermediate encoder rows,
+transfer-inclusive Vulkan/PTX latency, cancellation, and production
+readiness still need validation. The offline PCM request retains its separate
+376-row limit.
