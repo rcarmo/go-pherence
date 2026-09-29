@@ -122,9 +122,14 @@ layer's owned normalisation buffer as the fc2 destination after fc1 consumes
 it; the accumulating GEMM clears that buffer before writing. The 16/138-row
 layer and 138-row tower PyTorch fixtures pass under `-race`. Two 30-second
 request samples allocated about `6.603 GB/op` after the reuse, down from
-`7.133 GB/op` after the head change; timing samples are too few and noisy
-for a speed claim. The independent 100-second reference still accepts all
-9,999 logits rows and 29 spans. An isolated packed/parallel head GEMM
+`7.133 GB/op` after the head change. The SIMD attention path then reuses
+each layer's owned Q buffer for mixed values once a row's Q scores are
+complete. Scalar and vector 16/138-row attention fixtures, the 138-row
+tower and the 11-second streaming logits/spans pass; the 30-second request
+allocated `6.090 GB/op` in two samples versus `6.603 GB/op` before Q reuse.
+Timing samples remain noisy and supply no speed claim. The independent
+100-second reference accepted all 9,999 logits rows and 29 spans after
+MLP buffer reuse; it has not been rerun for Q reuse. An isolated packed/parallel head GEMM
 trial looked faster at fixed shapes but failed to improve the complete
 30-second request, so that dispatch change was reverted.
 

@@ -107,7 +107,10 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector, resi
 			}
 		}
 	}
-	mixed := make([]float32, len(input))
+	// Each head's Q is dead after its scores are computed: the tiled path
+	// copies the head first, while the scalar path finishes scoring each row
+	// before writing that row's mixed values. Reuse the owned Q buffer.
+	mixed := q
 	const scaling = float32(1.0 / 8.0)
 	if vector && rows >= 16 {
 		qHead, kHead, vHead := make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth)
