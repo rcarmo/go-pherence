@@ -78,7 +78,14 @@ allocations across five 10-iteration runs. Sharing each position's RoPE
 sine/cosine across eight heads kept fixture parity; subsequent five
 10-iteration runs took 41.8–43.9 ms for the full layer and 21.6–22.5 ms
 for attention alone, with unchanged allocations. Timing samples overlap, so
-this does not establish a speedup. These calls exclude loading, frontend,
+this does not establish a speedup. Checked SGEMM for the two attention matrix
+products passed the independent PyTorch fixture and scalar comparison for
+windows of 1, 7, 15, 16, 17, 64, 138 and 376 rows. At 138 rows, three
+20-iteration single-CPU samples took 7.03–8.55 ms for attention and
+26.75–31.73 ms for the complete layer, versus the prior attention samples
+of 21.6–22.5 ms. Scratch increased attention allocations from 2,294,336 B/9
+to 2,539,520 B/13 (the complete layer uses 4,243,456 B/16 allocations).
+These calls exclude loading, frontend,
 stacking and the other 30 layers. The composed 138-row layer-0 output also passes the second layer's
 pre-attention normalisation and Q/K/V fixture checks. On AVX2/FMA, maximum
 absolute errors are `9.54e-7` for normalisation, `3.34e-6` for Q,
