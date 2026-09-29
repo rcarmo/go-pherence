@@ -66,6 +66,19 @@ shaders with the installed compiler; the new RoPE shader passes.
 This prepares one operation for a resident tower. It does not run a
 complete GPU attention layer, speaker cache or PCM request.
 
+A complete **single audio layer** now runs in a fixed-row resident Vulkan
+plan: LayerNorm→Q/K/V projections→time-major RoPE→non-causal eight-head
+attention→output projection/residual→LayerNorm→fc1→erf GELU→fc2/residual.
+The reusable plan uploads the complete prepared input once and downloads
+the output once; its intermediate F32 tensors and released layer weights
+remain in a bounded arena. At 16 and 138 rows, native RTX 3060 outputs
+matched independent PyTorch layer-1 fixtures with maximum/mean absolute
+errors `2.67e-5`/`5.83e-7` and `2.29e-5`/`5.12e-7`, respectively,
+with zero values outside `3e-4 + 2e-5*abs(reference)`. Device memory
+usage returned to baseline after `Close`. This tests an unmasked layer
+starting at position zero. It does not yet execute the 31-layer tower,
+streaming speaker cache, head or a complete GPU PCM request.
+
 ## Pinned source and scope
 
 - Model: [NVIDIA Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization/tree/a435e9867d79e789e90053f9b6d6834053af564a), revision `a435e9867d79e789e90053f9b6d6834053af564a`.
