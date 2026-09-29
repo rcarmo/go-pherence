@@ -367,6 +367,21 @@ the existing gate). This establishes parity through a model-assigned
 speaker change, not labelled DER or natural multi-speaker conversation
 quality.
 
+The complete layer now reuses its internal attention-output buffer for
+the residual: the public `Layer1Attention.ForwardOffline` still returns
+two distinct owned outputs, while `Layer1Complete` only needs one owned
+residual. A focused released-weight test verifies identical residual
+values and unchanged input. Three matching-CPU 30-second streaming
+request samples allocated `7.2356 GB/op` versus `7.7486 GB/op` on the
+unchanged code, about **513 MB less per request**, and observed
+`11.77–12.24 s` versus `13.63–16.27 s`. The timing ranges are noisy
+and are not a sustained speed claim. A complete 100-second PCM→logits→
+segments run still returns 9,999 rows and 29 pinned spans (79.97 s,
+maximum/mean logit error `6.87e-5`/`4.93e-6`, zero outliers); the
+podcast20 and synthetic mixed31 references also retain their pinned
+spans and logit gates. No input or returned slice is reused across
+requests.
+
 `PCMStreamingRequest.AppendPCMContext` and `FinishContext` accept a Go
 context without changing the existing methods. They check cancellation
 before consuming PCM and between bounded 13-row encoder windows; a

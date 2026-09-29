@@ -97,7 +97,7 @@ func (m *Layer1Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 	if m == nil || m.attention == nil || len(m.normWeight) != projectedWidth || len(m.normBias) != projectedWidth || len(m.fc1Weight) != diarizationIntermediate*projectedWidth || len(m.fc1Bias) != diarizationIntermediate || len(m.fc2Weight) != projectedWidth*diarizationIntermediate || len(m.fc2Bias) != projectedWidth {
 		return nil, fmt.Errorf("invalid Nemotron diarization layer-1 model")
 	}
-	_, residual, err := m.attention.ForwardOffline(input, rows)
+	residual, err := m.attention.forwardResidual(input, rows)
 	if err != nil {
 		return nil, err
 	}

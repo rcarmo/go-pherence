@@ -64,14 +64,21 @@ func loadIndexedAttention(file *safetensors.File, layer int) (*Layer1Attention, 
 // unmasked [rows,512] layer-0 output. Positions start at zero; slicing an
 // existing window changes bidirectional attention context.
 func (m *Layer1Attention) ForwardOffline(input []float32, rows int) (attention, residual []float32, err error) {
-	return m.forwardOffline(input, rows, simd.HasSgemmAsm)
+	return m.forwardOffline(input, rows, simd.HasSgemmAsm, false)
+}
+
+// forwardResidual is used by the complete layer, which needs no separate
+// attention output. Its returned slice owns the residual and aliases no input.
+func (m *Layer1Attention) forwardResidual(input []float32, rows int) ([]float32, error) {
+	_, residual, err := m.forwardOffline(input, rows, simd.HasSgemmAsm, true)
+	return residual, err
 }
 
 func (m *Layer1Attention) forwardOfflineScalar(input []float32, rows int) (attention, residual []float32, err error) {
-	return m.forwardOffline(input, rows, false)
+	return m.forwardOffline(input, rows, false, false)
 }
 
-func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector bool) (attention, residual []float32, err error) {
+func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector, residualOnly bool) (attention, residual []float32, err error) {
 	if m == nil || m.qkv == nil || len(m.outWeight) != projectedWidth*projectedWidth || len(m.outBias) != projectedWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron diarization layer-1 attention model")
 	}
@@ -159,6 +166,16 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector bool)
 	attention = make([]float32, len(input))
 	if !diarizationDenseMLP(attention, mixed, m.outWeight, m.outPacked, rows, projectedWidth, projectedWidth) {
 		return nil, nil, fmt.Errorf("Nemotron diarization layer-1 output rejected shape")
+	}
+	if residualOnly {
+		for i, value := range attention {
+			attention[i] = value + m.outBias[i%projectedWidth]
+			attention[i] = input[i] + attention[i]
+			if math.IsNaN(float64(attention[i])) || math.IsInf(float64(attention[i]), 0) {
+				return nil, nil, fmt.Errorf("non-finite Nemotron diarization layer-1 output")
+			}
+		}
+		return nil, attention, nil
 	}
 	residual = make([]float32, len(input))
 	for i, value := range attention {

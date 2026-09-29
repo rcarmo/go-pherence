@@ -38,6 +38,19 @@ func TestReleasedLayer1CompletePyTorchParity(t *testing.T) {
 				t.Fatal(err)
 			}
 			initial := append([]float32(nil), hidden...)
+			residual, err := layer1.attention.forwardResidual(hidden, rows)
+			if err != nil || len(residual) != len(hidden) || &residual[0] == &hidden[0] {
+				t.Fatalf("internal attention residual ownership: %v", err)
+			}
+			_, publicResidual, err := layer1.attention.ForwardOffline(hidden, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, value := range residual {
+				if value != publicResidual[i] {
+					t.Fatalf("internal residual differs at %d", i)
+				}
+			}
 			got, err := layer1.ForwardOffline(hidden, rows)
 			if err != nil {
 				t.Fatal(err)
