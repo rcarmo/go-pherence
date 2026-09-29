@@ -109,7 +109,10 @@ func (m *Layer0Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 	if !simd.GELUErfF32To(intermediate, intermediate) {
 		return nil, fmt.Errorf("Nemotron diarization layer-0 GELU rejected shape")
 	}
-	output := make([]float32, len(residual))
+	// fc1 has consumed normal. Reuse its owned buffer for fc2's
+	// accumulating GEMM, without touching the caller's input or residual.
+	output := normal
+	clear(output)
 	if !diarizationDenseMLP(output, intermediate, m.fc2Weight, m.fc2Packed, rows, projectedWidth, diarizationIntermediate) {
 		return nil, fmt.Errorf("Nemotron diarization layer-0 fc2 rejected shape")
 	}

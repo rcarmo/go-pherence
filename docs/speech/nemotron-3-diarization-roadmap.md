@@ -117,7 +117,14 @@ PCM benchmark at `GOMAXPROCS=4` reduced allocation from about `7.236 GB/op`
 to `7.133 GB/op` (two samples each); observed timings overlap (`13.70–15.85 s`
 before and `13.19–15.29 s` after), so this is an allocation reduction,
 not a speedup. The pinned 11-second and 100-second streaming logits and
-spans still pass with zero outliers. An isolated packed/parallel head GEMM
+spans still pass with zero outliers. The CPU audio tower also reuses each
+layer's owned normalisation buffer as the fc2 destination after fc1 consumes
+it; the accumulating GEMM clears that buffer before writing. The 16/138-row
+layer and 138-row tower PyTorch fixtures pass under `-race`. Two 30-second
+request samples allocated about `6.603 GB/op` after the reuse, down from
+`7.133 GB/op` after the head change; timing samples are too few and noisy
+for a speed claim. The independent 100-second reference still accepts all
+9,999 logits rows and 29 spans. An isolated packed/parallel head GEMM
 trial looked faster at fixed shapes but failed to improve the complete
 30-second request, so that dispatch change was reverted.
 
