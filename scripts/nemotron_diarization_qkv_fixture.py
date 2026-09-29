@@ -129,6 +129,7 @@ def main():
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)
+        save(args.out / "jfk_layer1_normal.f32.gz", short_layer1_normal[0])
         short_layer1_attention, _ = layer1.self_attn(short_layer1_normal, position_embeddings=rotary, attention_mask=None)
         save(args.out / "jfk_layer1_attention.f32.gz", short_layer1_attention[0])
         short_layer1_residual = short_layer0 + short_layer1_attention

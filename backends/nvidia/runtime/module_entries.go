@@ -171,6 +171,7 @@ func megaModuleEntries() []moduleEntry {
 		{"fp8_e4m3_dequant_transpose_f32", ptxfp8.FP8E4M3DequantTransposeF32PTX},
 		{"ideogram_cfg_step_f32", ptxideogram.IdeogramCFGStepPTX},
 		{"ideogram_layer_norm_no_affine_f32", ptxideogram.IdeogramLayerNormNoAffinePTX},
+		{"affine_layer_norm_f32", ptxideogram.AffineLayerNormF32PTX},
 		{"ideogram_rms_norm_rows_f32", ptxideogram.IdeogramRMSNormRowsPTX},
 		{"ideogram_adaln_transform_f32", ptxideogram.IdeogramAdaLNTransformPTX},
 		{"ideogram_gated_residual_f32", ptxideogram.IdeogramGatedResidualPTX},
