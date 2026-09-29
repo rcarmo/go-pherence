@@ -130,7 +130,7 @@ func (m *Layer1Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 
 func diarizationDenseMLP(output, input, weights, packed []float32, rows, n, k int) bool {
 	if len(packed) != 0 && simd.HasSgemmAsm {
-		return simd.SgemmNTPrepackedTo(output, input, weights, packed, rows, n, k, 1, k, k, n)
+		return simd.SgemmNTPrepackedParallelTo(output, input, weights, packed, rows, n, k, 1, k, k, n)
 	}
 	return simd.DenseNTTo(output, input, weights, rows, n, k, 1, k, k, n)
 }

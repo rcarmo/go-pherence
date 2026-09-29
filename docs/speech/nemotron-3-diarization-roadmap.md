@@ -327,3 +327,20 @@ scalar run, labelled DER, masked intermediate encoder rows,
 transfer-inclusive Vulkan/PTX latency, cancellation and production
 readiness still need validation. The offline
 PCM request retains its separate 376-row limit.
+
+A four-worker checked prepacked GEMM now partitions complete 16-column
+weight panels over disjoint output columns for bounded windows; it uses
+the serial path on small jobs, without SIMD, or with overlapping raw
+operands. Each output's accumulation order is unchanged. Two
+three-iteration bounded-shape microbenchmarks found the four-worker path
+faster than serial prepacking for 541×512×512, 541×2048×512 and
+541×512×2048 projections. Race, malformed-input and numerical parity
+tests pass. Two one-iteration 30-second PCM request samples fell from
+`20.50–20.57 s` to `11.76–12.05 s`, while returned storage stayed around
+7.75 GB (worker bookkeeping raised allocations from about 20,100 to
+87,000 per request). The pinned **100-second PCM→logits→segments** run
+completed in **77.90 seconds** at `GOMAXPROCS=4`, returning all 9,999
+logits rows and 29 exact streaming spans. Maximum/mean logit errors stayed
+`6.87e-5`/`4.93e-6`, with zero outliers under the existing gate. This is
+one host and recording; concurrency throughput, labelled DER and full GPU
+requests still require measurement.
