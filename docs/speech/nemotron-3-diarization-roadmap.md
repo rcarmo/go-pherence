@@ -108,6 +108,19 @@ complete requests. The request figures include the CPU frontend, first
 layer, head and cache; they do not qualify a complete GPU request or
 labelled diarization quality.
 
+The CPU head now avoids materialising a channel-major convolution copy and
+a separate pre-activation upsampled tensor on production logits calls;
+pinned intermediate tests retain both diagnostic stages. A 138-row released
+head fixture passes all projected, convolved, upsampled and logits gates;
+production logits match the diagnostic path value for value. A 30-second
+PCM benchmark at `GOMAXPROCS=4` reduced allocation from about `7.236 GB/op`
+to `7.133 GB/op` (two samples each); observed timings overlap (`13.70–15.85 s`
+before and `13.19–15.29 s` after), so this is an allocation reduction,
+not a speedup. The pinned 11-second and 100-second streaming logits and
+spans still pass with zero outliers. An isolated packed/parallel head GEMM
+trial looked faster at fixed shapes but failed to improve the complete
+30-second request, so that dispatch change was reverted.
+
 ## Pinned source and scope
 
 - Model: [NVIDIA Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization/tree/a435e9867d79e789e90053f9b6d6834053af564a), revision `a435e9867d79e789e90053f9b6d6834053af564a`.

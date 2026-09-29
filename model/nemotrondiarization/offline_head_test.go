@@ -26,9 +26,21 @@ func TestReleasedOfflineHeadPyTorchParity(t *testing.T) {
 	}
 	input := readStackingFixture(t, "testdata/jfk_full_tower_normal.f32.gz", 138*projectedWidth)
 	original := append([]float32(nil), input...)
-	projected, convolved, upsampled, logits, err := head.forwardStages(input, 138)
+	projected, convolved, upsampled, logits, err := head.forwardStages(input, 138, true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	production, err := head.ForwardOffline(input, 138)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(production) != len(logits) || len(production) == 0 || &production[0] == &logits[0] {
+		t.Fatal("production logits alias diagnostic output or have wrong length")
+	}
+	for i, value := range logits {
+		if production[i] != value {
+			t.Fatalf("production logits differ at %d: got=%g want=%g", i, production[i], value)
+		}
 	}
 	for _, item := range []struct {
 		name string

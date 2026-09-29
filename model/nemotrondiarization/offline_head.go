@@ -92,11 +92,13 @@ func LoadOfflineHead(file *safetensors.File) (*OfflineHead, error) {
 // ForwardOffline accepts a complete [rows,512] final-normalised tower output.
 // Its owned result has [rows*8,8] logits before any speaker-cache handling.
 func (m *OfflineHead) ForwardOffline(input []float32, rows int) ([]float32, error) {
-	_, _, _, logits, err := m.forwardStages(input, rows)
+	_, _, _, logits, err := m.forwardStages(input, rows, false)
 	return logits, err
 }
 
-func (m *OfflineHead) forwardStages(input []float32, rows int) (projected, convolved, upsampled, logits []float32, err error) {
+// forwardStages retains the channel-major convolution and the separate
+// pre-activation upsampled tensor only for pinned intermediate checks.
+func (m *OfflineHead) forwardStages(input []float32, rows int, stages bool) (projected, convolved, upsampled, logits []float32, err error) {
 	if m == nil || len(m.projectionWeight) != diarizationHeadWidthProjection*projectedWidth || len(m.projectionBias) != diarizationHeadWidthProjection || len(m.convDenseWeight) != diarizationHeadWidthProjection*diarizationUpsample*diarizationHeadWidthProjection*3 || len(m.convBias) != diarizationHeadWidthProjection*diarizationUpsample || len(m.denseWeight) != diarizationHeadWidthProjection*diarizationHeadWidthProjection || len(m.denseBias) != diarizationHeadWidthProjection || len(m.outputWeight) != diarizationSpeakers*diarizationHeadWidthProjection || len(m.outputBias) != diarizationSpeakers {
 		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization head weights")
 	}
@@ -137,15 +139,20 @@ func (m *OfflineHead) forwardStages(input []float32, rows int) (projected, convo
 			upsampled[row*channels+channel] += m.convBias[channel]
 		}
 	}
-	// Keep the reference Conv1d [channel,time] stage as an owned diagnostic.
-	convolved = make([]float32, len(upsampled))
-	for row := 0; row < rows; row++ {
-		for channel := 0; channel < channels; channel++ {
-			convolved[channel*rows+row] = upsampled[row*channels+channel]
+	if stages {
+		// Reference Conv1d [channel,time] is diagnostic only.
+		convolved = make([]float32, len(upsampled))
+		for row := 0; row < rows; row++ {
+			for channel := 0; channel < channels; channel++ {
+				convolved[channel*rows+row] = upsampled[row*channels+channel]
+			}
 		}
 	}
 	frames := rows * diarizationUpsample
-	activated := append([]float32(nil), upsampled...)
+	activated := upsampled
+	if stages {
+		activated = append([]float32(nil), upsampled...)
+	}
 	for i, value := range activated {
 		if value < 0 {
 			activated[i] = 0
