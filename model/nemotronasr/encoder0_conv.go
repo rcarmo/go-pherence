@@ -159,7 +159,10 @@ func (m *Encoder0Convolution) forward(input []float32, rows int, cache *Encoder0
 	if !simd.SiLUTo(depthNormal, depthNormal) {
 		return nil, nil, fmt.Errorf("Nemotron ASR encoder-0 activation rejected shape")
 	}
-	output = make([]float32, len(input))
+	// pointwise1 has consumed normal. Reuse its owned buffer for the
+	// accumulating pointwise2 GEMM while keeping both public outputs distinct.
+	output = normal
+	clear(output)
 	if !simd.DenseNTTo(output, depthNormal, m.point2, rows, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
 		return nil, nil, fmt.Errorf("Nemotron ASR encoder-0 pointwise2 rejected shape")
 	}

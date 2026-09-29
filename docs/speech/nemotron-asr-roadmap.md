@@ -191,7 +191,15 @@ allocations before reuse (`GOMAXPROCS=4`, model/WAV load excluded); timings
 overlap, so no speed claim follows. Pinned FF1/FF2, both 72-row cached tower
 lookaheads, 11-second PCM→text (three chunk sizes) and 100-second tiled JFK
 pass with zero tower outliers and matching token decisions. The shared-model
-two-stream `-race` test passes on this change.
+two-stream `-race` test passes on this change. The cached convolution then
+reuses its owned pre-norm buffer for the accumulating pointwise2 GEMM after
+pointwise1 consumes it, keeping the public output and residual separate.
+Two complete JFK samples allocated `1.336 GB/op`, 25,704 allocations
+versus `1.349 GB/op`, 26,544 allocations after the FF change; sampled
+timings overlap, so this is an allocation reduction only. Pinned convolution
+and 72-row tower references, the 100-second tiled JFK (1,663 matching
+post-BOS decisions, zero input/tower outliers), and shared-model two-stream
+`-race` still pass.
 These are single-host samples; labelled WER and broader quality are open.
 
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
