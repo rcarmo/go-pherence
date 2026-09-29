@@ -48,11 +48,10 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 			}
 		}
 	}
-	layer = &PTXAudioLayer{maxRows: maxRows}
+	candidate := &PTXAudioLayer{maxRows: maxRows}
 	defer func() {
 		if err != nil {
-			layer.Close()
-			layer = nil
+			candidate.Close()
 		}
 	}()
 	upload := func(data []float32) (*ptx.Buffer, error) {
@@ -60,7 +59,7 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 		if e != nil {
 			return nil, e
 		}
-		layer.owned = append(layer.owned, b)
+		candidate.owned = append(candidate.owned, b)
 		if e = b.Upload(data); e != nil {
 			return nil, e
 		}
@@ -79,12 +78,12 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 		dst  **ptx.Buffer
 		data []float32
 	}{
-		{&layer.qW, transpose(qkv.q, width, width)}, {&layer.kW, transpose(qkv.k, width, width)},
-		{&layer.vW, transpose(qkv.v, width, width)}, {&layer.oW, transpose(attn.outWeight, width, width)},
-		{&layer.oB, attn.outBias}, {&layer.n1W, qkv.gamma}, {&layer.n1B, qkv.beta},
-		{&layer.n2W, source.normWeight}, {&layer.n2B, source.normBias},
-		{&layer.fc1W, transpose(source.fc1Weight, hidden, width)}, {&layer.fc1B, source.fc1Bias},
-		{&layer.fc2W, transpose(source.fc2Weight, width, hidden)}, {&layer.fc2B, source.fc2Bias},
+		{&candidate.qW, transpose(qkv.q, width, width)}, {&candidate.kW, transpose(qkv.k, width, width)},
+		{&candidate.vW, transpose(qkv.v, width, width)}, {&candidate.oW, transpose(attn.outWeight, width, width)},
+		{&candidate.oB, attn.outBias}, {&candidate.n1W, qkv.gamma}, {&candidate.n1B, qkv.beta},
+		{&candidate.n2W, source.normWeight}, {&candidate.n2B, source.normBias},
+		{&candidate.fc1W, transpose(source.fc1Weight, hidden, width)}, {&candidate.fc1B, source.fc1Bias},
+		{&candidate.fc2W, transpose(source.fc2Weight, width, hidden)}, {&candidate.fc2B, source.fc2Bias},
 	} {
 		*item.dst, err = upload(item.data)
 		if err != nil {
@@ -100,11 +99,11 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 			freqs[(row*half+d)*2+1] = float32(math.Sin(float64(angle)))
 		}
 	}
-	layer.frequency, err = upload(freqs)
+	candidate.frequency, err = upload(freqs)
 	if err != nil {
 		return nil, err
 	}
-	return layer, nil
+	return candidate, nil
 }
 
 // Close is idempotent; it waits for any current ForwardBuffer call.

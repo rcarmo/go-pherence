@@ -182,7 +182,19 @@ independent complete-layer PyTorch fixtures at 16 and 138 rows (maximum
 absolute error `2.67e-5` and `2.29e-5`, mean `5.73e-7` and `5.11e-7`, zero
 outliers). Repeated 16-row, input-ownership, malformed-input, shared-instance
 concurrency and direct-buffer no-transfer/scratch-balance gates passed. The
-30-layer tower and transfer-inclusive request still need qualification.
+The opt-in `PTXAudioTower` now retains all 30 remaining layers and final
+normalisation weights on CUDA. Layer 0 and the request frontend/head/cache
+stay on CPU. `ForwardRows` executes exact unmasked prefixes against one
+maximum-row weight allocation; the 138-row final output matches the released
+PyTorch fixture (maximum absolute error `6.20e-6`, mean `3.73e-7`, zero
+outliers at the existing gate). The 16→138→16 and 13-row sequences match CPU
+composition within `5.25e-6` and `4.77e-6` maximum error respectively; those
+short-row comparisons are not independent PyTorch final-norm fixtures. Direct
+stats count one host-to-device input and one device-to-host output transfer per
+tower call with balanced scratch allocations. Repeated race, shared-instance,
+cancellation-before-run and close gates pass. The streaming request is not
+wired to PTX tower yet, so transfer-inclusive request speed and logits/spans
+parity remain open.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
