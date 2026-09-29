@@ -18,28 +18,38 @@ ROOT = Path(__file__).resolve().parents[1]
 WAV = ROOT / "testdata/jfk.wav"
 MODEL = ROOT / "checkpoints/nemotron/diarization"
 INPUT_SHA = "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
+PODCAST_SHA = "8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601"
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seconds", type=int, choices=(11, 100))
     parser.add_argument("--samples", type=int)
+    parser.add_argument("--podcast", action="store_true", help="real 20-second podcast crop at 300 seconds")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--segments-out", type=Path, help="processor segments on the same streaming logits")
     args = parser.parse_args()
     torch.set_num_threads(4)
-    if hashlib.sha256(WAV.read_bytes()).hexdigest() != INPUT_SHA:
-        raise ValueError("JFK fixture provenance changed")
-    audio, rate = sf.read(WAV, dtype="float32")
-    if rate != 16000 or audio.ndim != 1 or len(audio) != 176000:
+    source = ROOT / "testdata/podcast.wav" if args.podcast else WAV
+    if hashlib.sha256(source.read_bytes()).hexdigest() != (PODCAST_SHA if args.podcast else INPUT_SHA):
+        raise ValueError("audio fixture provenance changed")
+    audio, rate = sf.read(source, dtype="float32")
+    if rate != 16000 or audio.ndim != 1 or not args.podcast and len(audio) != 176000:
         raise ValueError("unexpected audio geometry")
-    if (args.seconds is None) == (args.samples is None):
-        raise ValueError("specify one duration")
-    if args.seconds == 100:
-        import numpy as np
-        audio = np.tile(audio, (args.seconds * rate + len(audio) - 1) // len(audio))[:args.seconds * rate]
-    elif args.samples:
-        audio = audio[:args.samples]
+    if args.podcast:
+        if args.samples is not None or args.seconds is not None:
+            raise ValueError("podcast crop selects its own duration")
+        audio = audio[300*rate:320*rate]
+        if len(audio) != 20*rate:
+            raise ValueError("unexpected podcast crop")
+    else:
+        if (args.seconds is None) == (args.samples is None):
+            raise ValueError("specify one duration")
+        if args.seconds == 100:
+            import numpy as np
+            audio = np.tile(audio, (args.seconds * rate + len(audio) - 1) // len(audio))[:args.seconds * rate]
+        elif args.samples:
+            audio = audio[:args.samples]
     processor = AutoProcessor.from_pretrained(MODEL, local_files_only=True)
     model = AutoModelForAudioFrameClassification.from_pretrained(MODEL, local_files_only=True).eval()
     if processor.streaming_mode != "low_latency":

@@ -345,6 +345,17 @@ logits rows and 29 exact streaming spans. Maximum/mean logit errors stayed
 one host and recording; concurrency throughput, labelled DER and full GPU
 requests still require measurement.
 
+A pinned real-podcast crop adds a different streaming audio input: the
+300–320-second slice of tracked mono 16-kHz `testdata/podcast.wav`.
+The independent low-latency PyTorch model and processor return 1,999
+logit rows and one speaker span at `0–19.99 s`. The native five-second
+PCM calls match all rows numerically (maximum/mean absolute error
+`3.43e-5`/`4.83e-6`, zero values outside
+`3e-4 + 2e-5*abs(reference)`) and emit the same span. The reference
+itself marks this clip as single-speaker: matching it is model-oracle
+parity, not labelled multi-speaker DER. The WAV digest verifies input
+provenance only; it is not a generated-output acceptance gate.
+
 `PCMStreamingRequest.AppendPCMContext` and `FinishContext` accept a Go
 context without changing the existing methods. They check cancellation
 before consuming PCM and between bounded 13-row encoder windows; a

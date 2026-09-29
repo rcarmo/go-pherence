@@ -37,16 +37,24 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 		t.Fatalf("JFK input rate=%d samples=%d err=%v", rate, len(pcm), err)
 	}
 	expectedRows := 1099
-	if duration := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_PCM_STREAM_SECONDS"); duration != "" {
-		if duration != "100" {
-			t.Fatal("segment reference supports only 11 or 100 seconds")
-		}
+	switch duration := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_PCM_STREAM_SECONDS"); duration {
+	case "":
+	case "100":
 		original := pcm
 		pcm = make([]float32, 16000*100)
 		for i := range pcm {
 			pcm[i] = original[i%len(original)]
 		}
 		expectedRows = 9999
+	case "podcast20":
+		pcm, rate, err = audio.WAV(filepath.Join("..", "..", "testdata", "podcast.wav"))
+		if err != nil || rate != 16000 || len(pcm) < 320*rate {
+			t.Fatalf("podcast input rate=%d samples=%d err=%v", rate, len(pcm), err)
+		}
+		pcm = pcm[300*rate : 320*rate]
+		expectedRows = 1999
+	default:
+		t.Fatalf("unsupported streaming reference duration %q", duration)
 	}
 	logitsPath := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_PCM_STREAM_REF")
 	if logitsPath == "" {
@@ -92,7 +100,7 @@ func TestReleasedPCMStreamingSegmentsPyTorchParity(t *testing.T) {
 		got = append(got, part...)
 	}
 	chunkSamples := 7979
-	if expectedRows == 9999 {
+	if expectedRows != 1099 {
 		chunkSamples = 16000 * 5
 	}
 	for offset := 0; offset < len(pcm); {
