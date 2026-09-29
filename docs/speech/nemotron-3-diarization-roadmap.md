@@ -161,6 +161,14 @@ not qualified for this tower. Sequence RoPE now checks position addition,
 u32 element indices and buffer byte extents before launching. This checks an
 isolated attention operator, not a resident PTX layer or complete request.
 
+The existing PTX erf-GELU now has a checked, GPU-resident F32 buffer entry
+point that reports errors without CPU fallback. Its 20,001-value `[-10,10]`
+probe on RTX 3060 differed from an independent F64 `math.Erf` reference by at
+most `4.77e-7`, with mean absolute error `4.67e-8` and zero values outside
+the existing `3e-6` operator gate. Malformed buffer and dimension tests pass.
+The composed layer-1 MLP and resident PTX tower still need their own fixture
+and request checks.
+
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
 pinned intermediate tests retain both diagnostic stages. A 138-row released
