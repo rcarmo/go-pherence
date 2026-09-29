@@ -5,11 +5,32 @@
 | `whisper` | Whisper STT/translation (defaults to local large-v3-turbo weights; WAV direct and M4A/other inputs via ffmpeg; `-task`/`-language` prompt flags); supports the `WHISPER_ENC_H` EP-encoder + Go turbo-decoder hybrid |
 | `diarize-vtt` | Whisper transcription/translation with optional speaker diarization → WebVTT |
 | `moss-transcribe` | Native MOSS transcription, recording-local speaker diarization, and text/raw/JSON/SRT/ASS export from 16 kHz mono PCM WAV |
+| `nemotron` | Pinned Nemotron ASR text or diarization JSON segments from mono 16-kHz WAV; SIMD or explicit PTX/Vulkan hybrid projection |
 | `speakercheck` | Speaker-embedding / verification check |
 | [`speechjob`](speechjob/README.md) | Authenticated HTTP job client: upload/status/run/cancel/delete, explicit queue commands and verified no-clobber transcript downloads; no inference server/model loading |
 | [`speechjobserve`](speechjobserve/README.md) | Opt-in Linux/amd64 server with one local hash-pinned checked CPU Whisper/FFmpeg ASR profile, metadata check mode, opt-in durable queue/worker and owned HTTP shutdown; not deployed or trained-qualified |
 
 See [`docs/speech/moss-transcribe-diarize.md`](../../docs/speech/moss-transcribe-diarize.md) for the MOSS support contract, real-checkpoint parity gates, usage, and limitations.
+
+`nemotron` uses the released checkpoints and processes PCM in five-second calls:
+
+```sh
+go run ./cmd/audio/nemotron -task asr -backend simd \
+  -input testdata/jfk.wav -model checkpoints/nemotron/asr/model.safetensors
+go run ./cmd/audio/nemotron -task diarization -backend simd \
+  -input testdata/jfk.wav -model checkpoints/nemotron/diarization/model.safetensors
+```
+
+ASR prints decoded text; diarization prints JSON speaker spans. `-backend ptx`
+or `-backend vulkan` offloads only the ASR subsampling projection or the
+diarization stacking projection and fails explicitly when that GPU backend
+is unavailable. The encoder/tower and prediction/head stay on CPU. The
+reported request timer excludes WAV/checkpoint loading but includes GPU
+preparation, transfers and teardown. Input must be mono 16-kHz WAV; ASR
+uses `tokenizer.json` beside the checkpoint unless `-tokenizer` is set.
+See the [ASR](../../docs/speech/nemotron-asr-roadmap.md) and
+[diarization](../../docs/speech/nemotron-3-diarization-roadmap.md)
+roadmaps for pinned parity results and unresolved accuracy/GPU gates.
 
 ## Whisper GPU graph flags
 
