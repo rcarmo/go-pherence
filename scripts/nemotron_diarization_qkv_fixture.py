@@ -102,7 +102,16 @@ def main():
             tower_hidden = tower_layer(tower_hidden, position_embeddings=all_rotary, attention_mask=None)
             if layer_index in (7, 15, 23, 30):
                 save(args.out / f"jfk_full_layer{layer_index}_complete.f32.gz", tower_hidden[0])
-        save(args.out / "jfk_full_tower_normal.f32.gz", model.model.audio_tower.layer_norm(tower_hidden)[0])
+        tower_normal = model.model.audio_tower.layer_norm(tower_hidden)
+        save(args.out / "jfk_full_tower_normal.f32.gz", tower_normal[0])
+        projected = model.model.proj(tower_normal)
+        save(args.out / "jfk_full_head_projected.f32.gz", projected[0])
+        convolved = model.model.upsampler.conv(projected.transpose(1, 2))
+        save(args.out / "jfk_full_head_convolved.f32.gz", convolved[0])
+        upsampled = model.model.upsampler(projected)
+        save(args.out / "jfk_full_head_upsampled.f32.gz", upsampled[0])
+        logits = model.classifier(upsampled)
+        save(args.out / "jfk_full_head_logits.f32.gz", logits[0])
         # A separate 16-row window has its own bidirectional context.
         short_layer0 = (residual + layer.mlp(layer.layer_norm2(residual)))[None]
         short_layer1_normal = layer1.layer_norm1(short_layer0)

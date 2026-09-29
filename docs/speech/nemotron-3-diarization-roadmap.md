@@ -116,5 +116,15 @@ maximum error `4.77e-6`, mean `5.66e-7` (scalar maximum `1.24e-5`, mean
 `6.51e-7`), with a `2e-5` mean gate. These are one-recording, full-context
 encoder measurements; they do not qualify arbitrary lengths, masks, chunking,
 or concurrent serving. Frontend composition, cache, upsampler and speaker head
-have no native end-to-end parity or full-request latency evidence. Labelled
-diarisation quality and production readiness promotion remain open.
+have no native end-to-end parity or full-request latency evidence. A separate `OfflineHead.ForwardOffline`
+path now matches pinned PyTorch projection, 3-tap subpixel convolution,
+upsampling and eight-speaker logits for the 138-row tower output. The isolated
+head's logits have AVX2/FMA maximum error `1.53e-5`, mean `7.03e-7`;
+scalar maximum `1.91e-5`, mean `1.45e-6`, with zero per-value outliers.
+Composing the Go tower and head yields 1104×8 logits before trimming to
+valid input frames: AVX2/FMA maximum error `1.91e-5`, mean `3.41e-6`;
+scalar maximum `2.67e-5`, mean `3.67e-6`, with zero outliers. These
+prepared-stacking windows do not cover the native frontend, the 1100-frame
+mask/trim, speaker-cache updates, thresholded segments, or a labelled DER
+gate. Transfer-inclusive GPU request latency and production readiness
+promotion remain open.
