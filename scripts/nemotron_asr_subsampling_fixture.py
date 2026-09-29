@@ -160,7 +160,17 @@ def main():
                     masked_conv = layer.conv(layer.norm_conv(masked_residual))
                     masked_conv_residual = masked_residual + masked_conv
                     masked_ff2 = layer.feed_forward2(layer.norm_feed_forward2(masked_conv_residual))
-                    save(args.out / f"encoder0_block_output_look{lookahead}.f32.gz", layer.norm_out(masked_conv_residual + 0.5 * masked_ff2)[0])
+                    first_block = layer.norm_out(masked_conv_residual + 0.5 * masked_ff2)
+                    save(args.out / f"encoder0_block_output_look{lookahead}.f32.gz", first_block[0])
+                    second = model.encoder.layers[1]
+                    second_normal = second.norm_self_att(first_block + 0.5 * second.feed_forward1(second.norm_feed_forward1(first_block)))
+                    save(args.out / f"encoder1_attn_normal_look{lookahead}.f32.gz", second_normal[0])
+                    second_output = second(
+                        first_block,
+                        attention_mask=chunk_mask,
+                        position_embeddings=positions,
+                    )
+                    save(args.out / f"encoder1_block_output_look{lookahead}.f32.gz", second_output[0])
                 conv_normal = layer.norm_conv(attention_residual)
                 save(args.out / "encoder0_conv_normal.f32.gz", conv_normal[0])
                 point1 = layer.conv.pointwise_conv1(conv_normal.transpose(1, 2))
