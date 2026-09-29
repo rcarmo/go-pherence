@@ -75,15 +75,20 @@ func (m *Layer0Attention) ForwardOffline(input []float32, rows int) (attention, 
 		inv[i] = float32(1 / math.Pow(10000, float64(2*i)/diarizationHeadWidth))
 	}
 	for row := 0; row < rows; row++ {
+		// Each head uses the same position and frequencies. Keep the F32
+		// angle rounding while evaluating sine/cosine once per position.
+		var cosine, sine [diarizationHeadWidth / 2]float32
+		for dim := range inv {
+			angle := float64(float32(row) * inv[dim])
+			cosine[dim], sine[dim] = float32(math.Cos(angle)), float32(math.Sin(angle))
+		}
 		for head := 0; head < diarizationHeads; head++ {
 			base := row*projectedWidth + head*diarizationHeadWidth
-			for dim := 0; dim < diarizationHeadWidth/2; dim++ {
-				angle := float64(float32(row) * inv[dim])
-				cosine, sine := float32(math.Cos(angle)), float32(math.Sin(angle))
+			for dim := range inv {
 				for _, values := range [][]float32{q, k} {
 					a, b := values[base+dim], values[base+dim+diarizationHeadWidth/2]
-					values[base+dim] = a*cosine - b*sine
-					values[base+dim+diarizationHeadWidth/2] = b*cosine + a*sine
+					values[base+dim] = a*cosine[dim] - b*sine[dim]
+					values[base+dim+diarizationHeadWidth/2] = b*cosine[dim] + a*sine[dim]
 				}
 			}
 		}

@@ -74,7 +74,11 @@ GELU MLP and its residual. Independent PyTorch 16- and 138-row outputs pass:
 full-context maximum absolute error `1.53e-5`, mean `3.33e-7`, with zero
 values outside the calibrated tolerance on AVX2/FMA. The scalar fallback
 passes too. One-CPU 138-row samples took 43.1–44.3 ms with 3,998,272 B/12
-allocations across five 10-iteration runs; this excludes loading, frontend,
+allocations across five 10-iteration runs. Sharing each position's RoPE
+sine/cosine across eight heads kept fixture parity; subsequent five
+10-iteration runs took 41.8–43.9 ms for the full layer and 21.6–22.5 ms
+for attention alone, with unchanged allocations. Timing samples overlap, so
+this does not establish a speedup. These calls exclude loading, frontend,
 stacking and the other 30 layers. Later encoder layers, cache, upsampler and
 speaker head remain unqualified.
 Labelled diarisation quality, production latency and readiness promotion remain open.
