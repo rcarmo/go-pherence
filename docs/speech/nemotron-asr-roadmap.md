@@ -139,6 +139,22 @@ request measured 104.02 seconds and 2.010 GB; it is not paired with a
 scalar baseline. Returned token/logit slices and all model state retain
 their existing ownership and bounded-memory contracts.
 
+A 100-second tiled-JFK reference now drives the pinned cache-aware
+`generate()` path using 313 mel chunks (25 first, then 32). The native
+`PCMGenerationStream` consumes twenty five-second PCM calls, returns 1,252
+encoder frames, and matches all **1,663 decisions after BOS**, including
+411 nonblank emissions, at identical frame indices. `DecodeRNNTText`
+matches the pinned 973-character output. The full native run completed in
+85.84 seconds on the i7-12700 with `GOMAXPROCS=1`; model loading and
+reference generation are excluded. Across 1,252 encoder rows, subsampling
+had maximum/mean absolute errors `0.00322`/`1.28e-4` with zero outliers
+under `3e-3 + 4e-5*abs(reference)`. The full 24-layer tower had
+`1.59e-5`/`1.80e-8` and zero outliers under
+`3e-4 + 2e-5*abs(reference)`. The comparison uses a model oracle on
+a tiled single-speaker recording; it is not labelled WER, varied speech
+quality, cancellation soak, or GPU timing. The 11-second reference still
+passes with 5,520-sample calls after the fixture extension.
+
 `Encoder0Attention.ForwardCachedChunk` now uses the visible K/V length for
 relative positions after the 57-frame window starts sliding, and applies
 the reference's chunk-distance mask. The prior prepared-row fixtures passed

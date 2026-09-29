@@ -30,6 +30,7 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 	}
 	var reference struct {
 		Samples   int    `json:"samples"`
+		MelValid  int    `json:"mel_valid"`
 		Tokens    []int  `json:"tokens"`
 		Durations []int  `json:"durations"`
 		Text      string `json:"text"`
@@ -38,6 +39,11 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 	if err := json.Unmarshal(data, &reference); err != nil {
 		t.Fatal(err)
 	}
+	if reference.MelValid < 1 || reference.MelValid > 10000 {
+		t.Fatal("invalid pinned mel frame count")
+	}
+	encoderRows := 1 + (reference.MelValid-25+31)/32
+	encoderRows *= 4
 	readStage := func(name string) []float32 {
 		t.Helper()
 		f, err := os.Open(strings.TrimSuffix(path, ".json") + "." + name + ".f32.gz")
@@ -51,10 +57,10 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		}
 		defer gz.Close()
 		data, err := io.ReadAll(gz)
-		if err != nil || len(data) != 140*1024*4 {
+		if err != nil || len(data) != encoderRows*1024*4 {
 			t.Fatalf("%s reference bytes=%d err=%v", name, len(data), err)
 		}
-		values := make([]float32, 140*1024)
+		values := make([]float32, encoderRows*1024)
 		for i := range values {
 			values[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[4*i:]))
 		}
@@ -63,7 +69,17 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 	inputRef := readStage("input")
 	towerRef := readStage("tower")
 	pcm, rate, err := audio.WAV(filepath.Join("..", "..", "testdata", "jfk.wav"))
-	if err != nil || rate != 16000 || len(pcm) != reference.Samples || len(reference.Tokens) != len(reference.Durations) || len(reference.Tokens) == 0 || reference.Tokens[0] != rnntBlank {
+	if err != nil || rate != 16000 || len(pcm) != 176000 {
+		t.Fatalf("unexpected JFK WAV rate=%d samples=%d err=%v", rate, len(pcm), err)
+	}
+	if reference.Samples == 16000*100 {
+		original := pcm
+		pcm = make([]float32, reference.Samples)
+		for i := range pcm {
+			pcm[i] = original[i%len(original)]
+		}
+	}
+	if len(pcm) != reference.Samples || len(reference.Tokens) != len(reference.Durations) || len(reference.Tokens) == 0 || reference.Tokens[0] != rnntBlank {
 		t.Fatalf("unexpected reference geometry: PCM=%d rate=%d tokens=%d durations=%d err=%v", len(pcm), rate, len(reference.Tokens), len(reference.Durations), err)
 	}
 	vocab, err := tokenizer.Load(filepath.Join("..", "..", "checkpoints", "nemotron", "asr", "tokenizer.json"))
@@ -77,9 +93,12 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		frame += int64(duration)
 	}
 	chunkSizes := []int{397, 4040, 5520}
+	if reference.Samples == 16000*100 {
+		chunkSizes = []int{80000}
+	}
 	if selected := os.Getenv("GO_PHERENCE_NEMOTRON_ASR_GENERATION_PCM_CHUNK_SIZE"); selected != "" {
 		size, err := strconv.Atoi(selected)
-		if err != nil || size != 397 && size != 4040 && size != 5520 {
+		if err != nil || size != 397 && size != 4040 && size != 5520 && size != 80000 {
 			t.Fatal("invalid reference PCM chunk size")
 		}
 		chunkSizes = []int{size}
@@ -140,8 +159,8 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 		}
 		decisions = append(decisions, last...)
 		frames = append(frames, positions...)
-		t.Logf("PCM JFK chunk=%d input max=%g mean=%g outside=%d tower max=%g mean=%g outside=%d", chunkSize, maxInput, sumInput/float64(140*1024), outsideInput, maxTower, sumTower/float64(140*1024), outsideTower)
-		if chunkIndex != 35 || outsideInput != 0 || outsideTower != 0 {
+		t.Logf("PCM JFK chunk=%d input max=%g mean=%g outside=%d tower max=%g mean=%g outside=%d", chunkSize, maxInput, sumInput/float64(encoderRows*1024), outsideInput, maxTower, sumTower/float64(encoderRows*1024), outsideTower)
+		if chunkIndex != encoderRows/4 || outsideInput != 0 || outsideTower != 0 {
 			t.Fatal("PCM-to-encoder stage parity failed")
 		}
 		if len(decisions) != len(reference.Tokens)-1 || !reflect.DeepEqual(frames, expectedFrames) {
@@ -164,7 +183,7 @@ func TestReleasedPCMGenerationJFKPyTorchParity(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("PCM JFK chunk=%d decisions=%d nonblank=%d mismatches=%d text=%q ref=%q", chunkSize, len(decisions), nonblank, mismatches, text, reference.Text)
-		if mismatches != 0 || nonblank != reference.Nonblank || text != reference.Text || s.greedy.frames != 140 {
+		if mismatches != 0 || nonblank != reference.Nonblank || text != reference.Text || s.greedy.frames != int64(encoderRows) {
 			t.Fatal("native JFK streaming transcription differs from pinned generate")
 		}
 	}
