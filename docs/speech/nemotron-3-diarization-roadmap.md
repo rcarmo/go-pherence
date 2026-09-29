@@ -204,6 +204,14 @@ AVX2/FMA maximum logit error is `1.91e-5`, CPU-features-disabled maximum
 `3.44e-5`, with zero per-value outliers. Current-frame logits are selected
 from the cached offset at eight output frames per encoder row. This path
 admits only fully valid prepared embeddings and at most 376 total rows.
-Streaming frontend/chunk scheduling, padding masks, model outputs after
-speaker-cache compression, complete recording, labelled DER,
+A separate model-level boundary test seeds the reference's prepared
+264-frame FIFO and runs two 9+4 JFK windows. The first moves 222 frames
+into the speaker cache and leaves 51 in FIFO; the next uses both contexts
+and leaves 60 FIFO frames. Full-context logits, speaker embeddings and
+FIFO state match pinned PyTorch fixtures. AVX2/FMA logit maximum error is
+`4.58e-5`, scalar `5.73e-5`, mean below `6.7e-6`, with zero per-value
+outliers; speaker-probability maximum error is below `1.7e-10`. These are
+prepared inputs and do not cover score-based compression during model
+inference. Streaming frontend/chunk scheduling, padding masks, model
+outputs after speaker-cache compression, complete recording, labelled DER,
 transfer-inclusive GPU latency and production readiness remain unqualified.

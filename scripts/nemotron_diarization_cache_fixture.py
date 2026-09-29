@@ -147,6 +147,30 @@ def main():
             save(args.out / f"jfk_stream_step{index}_speaker.f32.gz", stream_cache.embeds[0, :stream_cache.num_cache_frames])
             save(args.out / f"jfk_stream_step{index}_speaker_probs.f32.gz", stream_cache.probs[0, :stream_cache.num_cache_frames])
             print("JFK stream step", index, "cached", cached.shape[1], "rows", combined.shape[1], "fifo", stream_cache.num_fifo_frames, "speaker", stream_cache.num_cache_frames, "compressed", stream_cache.is_compressed)
+        # Seed a separate stream from the pinned 264-row prepared FIFO. Its
+        # next 9+4 chunk triggers the first speaker transfer; the following
+        # window checks inference with both speaker and FIFO context.
+        boundary_cache = Nemotron3DiarizationSpeakerCache(model.config.streaming_config)
+        boundary_cache.get_embeds(stacked[:, :13])  # lazy allocation
+        with gzip.open(args.out / "cache_step3_fifo.f32.gz", "rb") as source:
+            seed = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1, 264, 512))
+        boundary_cache.fifo[:, :264].copy_(seed)
+        boundary_cache.num_fifo_frames = 264
+        for index, start in enumerate((0, 9)):
+            chunk = stacked[:, start:start+13]
+            cached = boundary_cache.get_embeds(chunk)
+            combined = torch.cat([cached, chunk], dim=1)
+            mask = torch.ones(1, combined.shape[1], dtype=torch.bool)
+            position_ids = torch.arange(combined.shape[1])[None, :]
+            outputs = model.model(inputs_embeds=combined, attention_mask=mask, position_ids=position_ids)
+            logits = model.classifier(outputs.last_hidden_state)
+            save(args.out / f"jfk_boundary_step{index}_input.f32.gz", combined[0])
+            save(args.out / f"jfk_boundary_step{index}_logits.f32.gz", logits[0])
+            boundary_cache.update(combined, logits, model.silence_embeds, 9, mask=mask)
+            save(args.out / f"jfk_boundary_step{index}_fifo.f32.gz", boundary_cache.fifo[0, :boundary_cache.num_fifo_frames])
+            save(args.out / f"jfk_boundary_step{index}_speaker.f32.gz", boundary_cache.embeds[0, :boundary_cache.num_cache_frames])
+            save(args.out / f"jfk_boundary_step{index}_speaker_probs.f32.gz", boundary_cache.probs[0, :boundary_cache.num_cache_frames])
+            print("JFK boundary step", index, "rows", combined.shape[1], "speaker", boundary_cache.num_cache_frames, "fifo", boundary_cache.num_fifo_frames, "compressed", boundary_cache.is_compressed)
 
 if __name__ == "__main__":
     main()
