@@ -129,9 +129,11 @@ tower and the 11-second streaming logits/spans pass; the 30-second request
 allocated `6.090 GB/op` in two samples versus `6.603 GB/op` before Q reuse.
 The SIMD attention tile now reuses its copied Q-head buffer for the
 post-softmax value product, once scores have consumed Q. One 30-second
-request sample allocated `6.023 GB/op`; the 16/138-row scalar and vector
-attention fixtures, 138-row tower and 11-second stream still pass under
-their existing numeric gates. Timing samples remain noisy and supply no
+request sample allocated `6.023 GB/op`. Layer 0 now applies the same owned
+Q/head-tile reuse; a separate 30-second request sample allocated
+`6.004 GB/op`. The pinned layer-0 and layer-1 attention/layer fixtures,
+138-row tower and 11-second stream still pass under their numeric gates.
+The full 100-second request has not yet been rerun after the layer-0 change. Timing samples remain noisy and supply no
 speed claim. The independent
 100-second reference accepted all 9,999 logits rows and 29 spans after
 Q reuse (single `GOMAXPROCS=4` request: `74.83 s`, zero logit outliers).

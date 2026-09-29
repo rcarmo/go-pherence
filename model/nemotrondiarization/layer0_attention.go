@@ -109,7 +109,10 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 			}
 		}
 	}
-	mixed := make([]float32, rows*projectedWidth)
+	// Each Q head is dead after its scores are computed. The tiled path
+	// copies Q before scoring; the scalar path finishes a row's scores
+	// before writing its mixed values. Reuse the owned Q buffer.
+	mixed := q
 	const scaling = float32(1.0 / 8.0) // head width 64, inverse square root
 	if vector && rows >= 16 {
 		// Pack each head into contiguous rows for checked Q*K^T and P*V.
@@ -117,7 +120,6 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 		// machines without an SGEMM kernel.
 		qHead, kHead, vHead := make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth)
 		scores := make([]float32, rows*rows)
-		product := make([]float32, rows*diarizationHeadWidth)
 		for head := 0; head < diarizationHeads; head++ {
 			for row := 0; row < rows; row++ {
 				from := row*projectedWidth + head*diarizationHeadWidth
@@ -135,12 +137,12 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 					return nil, nil, fmt.Errorf("Nemotron diarization attention softmax failed")
 				}
 			}
-			clear(product)
-			if !simd.SgemmNNTo(product, scores, vHead, rows, diarizationHeadWidth, rows, 1, rows, diarizationHeadWidth, diarizationHeadWidth) {
+			clear(qHead)
+			if !simd.SgemmNNTo(qHead, scores, vHead, rows, diarizationHeadWidth, rows, 1, rows, diarizationHeadWidth, diarizationHeadWidth) {
 				return nil, nil, fmt.Errorf("Nemotron diarization attention value shape rejected")
 			}
 			for row := 0; row < rows; row++ {
-				copy(mixed[row*projectedWidth+head*diarizationHeadWidth:row*projectedWidth+(head+1)*diarizationHeadWidth], product[row*diarizationHeadWidth:(row+1)*diarizationHeadWidth])
+				copy(mixed[row*projectedWidth+head*diarizationHeadWidth:row*projectedWidth+(head+1)*diarizationHeadWidth], qHead[row*diarizationHeadWidth:(row+1)*diarizationHeadWidth])
 			}
 		}
 	} else {
