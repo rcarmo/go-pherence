@@ -2,7 +2,9 @@ package nemotronasr
 
 import (
 	"fmt"
+	"math"
 
+	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
@@ -50,6 +52,60 @@ func (m *Encoder0Block) ForwardOfflineLookahead(input []float32, rows, lookahead
 		return nil, fmt.Errorf("unsupported Nemotron ASR encoder-0 lookahead")
 	}
 	return m.forwardOffline(input, rows, lookahead)
+}
+
+// Encoder0ChunkState owns layer-0 attention and convolution history for one
+// stream. It is mutable and must not be shared concurrently.
+type Encoder0ChunkState struct {
+	Attention Encoder0KVCache
+	Conv      Encoder0ConvCache
+}
+
+// ForwardCachedChunk composes FF1, cached attention, causal convolution and
+// FF2 over at most five cumulative rows. The two caches commit together only
+// after a finite output has been produced. This is not an integrated encoder.
+func (m *Encoder0Block) ForwardCachedChunk(input []float32, rows, lookahead int, state *Encoder0ChunkState) ([]float32, error) {
+	if m == nil || m.FF1 == nil || m.Attention == nil || m.Conv == nil || m.FF2 == nil || state == nil {
+		return nil, fmt.Errorf("invalid Nemotron ASR cached encoder-0 block")
+	}
+	prepared := *state
+	ff1, err := m.FF1.ForwardOffline(input, rows)
+	if err != nil {
+		return nil, err
+	}
+	if m.Attention.qkv == nil || len(m.Attention.qkv.gamma) != encoderWidth || len(m.Attention.qkv.beta) != encoderWidth {
+		return nil, fmt.Errorf("invalid Nemotron ASR attention normalisation")
+	}
+	normal := make([]float32, len(ff1))
+	if !simd.LayerNormLastAxisTo(normal, ff1, rows, encoderWidth, m.Attention.qkv.gamma, m.Attention.qkv.beta, 1e-5) {
+		return nil, fmt.Errorf("Nemotron ASR attention normalisation rejected shape")
+	}
+	attention, err := m.Attention.ForwardCachedChunk(normal, rows, lookahead, &prepared.Attention)
+	if err != nil {
+		return nil, err
+	}
+	attentionResidual := make([]float32, len(ff1))
+	for i, value := range attention {
+		attentionResidual[i] = ff1[i] + value
+		if math.IsNaN(float64(attentionResidual[i])) || math.IsInf(float64(attentionResidual[i]), 0) {
+			return nil, fmt.Errorf("non-finite Nemotron ASR attention residual")
+		}
+	}
+	_, convResidual, err := m.Conv.ForwardCachedChunk(attentionResidual, rows, &prepared.Conv)
+	if err != nil {
+		return nil, err
+	}
+	output, err := m.FF2.ForwardOffline(convResidual, rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, value := range output {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return nil, fmt.Errorf("non-finite Nemotron ASR cached block output")
+		}
+	}
+	*state = prepared
+	return output, nil
 }
 
 func (m *Encoder0Block) forwardOffline(input []float32, rows, lookahead int) ([]float32, error) {

@@ -116,6 +116,28 @@ def main():
                             attention_mask=chunk_mask, past_key_values=stream_cache,
                         )
                         save(args.out / f"encoder0_attn_chunk_output_look{lookahead}_{index}.f32.gz", chunk_output[0])
+                for lookahead in (0, 3):
+                    block_kv = DynamicCache(config=model.encoder.config)
+                    block_conv = NemotronAsrStreamingEncoderCausalConvPaddingCache()
+                    for index, bounds in enumerate(((0, 1), (1, 3), (3, 5))):
+                        start, end = bounds
+                        chunk = final[:, start:end]
+                        left_ctx, right_ctx = model.encoder._resolve_attn_context(lookahead)
+                        chunk_mask = create_bidirectional_mask(
+                            config=model.encoder.config,
+                            inputs_embeds=chunk,
+                            attention_mask=torch.ones((1, end), dtype=torch.bool),
+                            past_key_values=block_kv,
+                            position_ids=torch.arange(start, end)[None, :],
+                            and_mask_function=chunked_limited_mask_function(left_ctx, right_ctx),
+                        )
+                        chunk_positions = model.encoder.encode_positions(chunk, cached_frames=start)
+                        block_output = layer(
+                            chunk, attention_mask=chunk_mask,
+                            position_embeddings=chunk_positions,
+                            past_key_values=block_kv, padding_cache=block_conv,
+                        )
+                        save(args.out / f"encoder0_block_chunk_output_look{lookahead}_{index}.f32.gz", block_output[0])
                 positions = model.encoder.encode_positions(ff1_residual)
                 save(args.out / "encoder0_attn_positions.f32.gz", positions[0])
                 attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=None)

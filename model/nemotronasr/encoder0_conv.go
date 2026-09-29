@@ -80,6 +80,19 @@ func LoadEncoder0Convolution(file *safetensors.File) (*Encoder0Convolution, erro
 // ForwardOffline returns owned convolution output and post-convolution
 // residual from a whole five-row unmasked FF1+attention window.
 func (m *Encoder0Convolution) ForwardOffline(input []float32, rows int) (output, residual []float32, err error) {
+	return m.forward(input, rows, nil)
+}
+
+// ForwardCachedChunk prepares a causal convolution cache transition for
+// already-composed attention residuals. It commits only after output succeeds.
+func (m *Encoder0Convolution) ForwardCachedChunk(input []float32, rows int, cache *Encoder0ConvCache) (output, residual []float32, err error) {
+	if cache == nil {
+		return nil, nil, fmt.Errorf("nil Nemotron ASR convolution cache")
+	}
+	return m.forward(input, rows, cache)
+}
+
+func (m *Encoder0Convolution) forward(input []float32, rows int, cache *Encoder0ConvCache) (output, residual []float32, err error) {
 	if m == nil || len(m.preGamma) != encoderWidth || len(m.preBeta) != encoderWidth || len(m.point1) != 2*encoderWidth*encoderWidth || len(m.depth) != encoderWidth*encoderConvKernel || len(m.depthGamma) != encoderWidth || len(m.depthBeta) != encoderWidth || len(m.point2) != encoderWidth*encoderWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron ASR encoder-0 convolution weights")
 	}
@@ -107,16 +120,36 @@ func (m *Encoder0Convolution) ForwardOffline(input []float32, rows int) (output,
 		}
 	}
 	depth := make([]float32, len(input))
-	for row := 0; row < rows; row++ {
-		for ch := 0; ch < encoderWidth; ch++ {
-			var sum float32
-			for tap := 0; tap < encoderConvKernel; tap++ {
-				source := row + tap - (encoderConvKernel - 1)
-				if source >= 0 {
-					sum += glu[source*encoderWidth+ch] * m.depth[ch*encoderConvKernel+tap]
-				}
+	var prepared Encoder0ConvCache
+	if cache != nil {
+		prepared = *cache
+		channelMajor := make([]float32, len(glu))
+		for row := 0; row < rows; row++ {
+			for ch := 0; ch < encoderWidth; ch++ {
+				channelMajor[ch*rows+row] = glu[row*encoderWidth+ch]
 			}
-			depth[row*encoderWidth+ch] = sum
+		}
+		_, cachedDepth, err := prepared.Update(channelMajor, rows, m.depth)
+		if err != nil {
+			return nil, nil, err
+		}
+		for row := 0; row < rows; row++ {
+			for ch := 0; ch < encoderWidth; ch++ {
+				depth[row*encoderWidth+ch] = cachedDepth[ch*rows+row]
+			}
+		}
+	} else {
+		for row := 0; row < rows; row++ {
+			for ch := 0; ch < encoderWidth; ch++ {
+				var sum float32
+				for tap := 0; tap < encoderConvKernel; tap++ {
+					source := row + tap - (encoderConvKernel - 1)
+					if source >= 0 {
+						sum += glu[source*encoderWidth+ch] * m.depth[ch*encoderConvKernel+tap]
+					}
+				}
+				depth[row*encoderWidth+ch] = sum
+			}
 		}
 	}
 	depthNormal := make([]float32, len(input))
@@ -133,6 +166,12 @@ func (m *Encoder0Convolution) ForwardOffline(input []float32, rows int) (output,
 	residual = make([]float32, len(input))
 	for i, value := range output {
 		residual[i] = input[i] + value
+		if math.IsNaN(float64(residual[i])) || math.IsInf(float64(residual[i]), 0) {
+			return nil, nil, fmt.Errorf("non-finite Nemotron ASR convolution output")
+		}
+	}
+	if cache != nil {
+		*cache = prepared
 	}
 	return output, residual, nil
 }
