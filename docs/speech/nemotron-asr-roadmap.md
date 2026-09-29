@@ -199,7 +199,14 @@ versus `1.349 GB/op`, 26,544 allocations after the FF change; sampled
 timings overlap, so this is an allocation reduction only. Pinned convolution
 and 72-row tower references, the 100-second tiled JFK (1,663 matching
 post-BOS decisions, zero input/tower outliers), and shared-model two-stream
-`-race` still pass.
+`-race` still pass. On the i7-12700/RTX 3060 at `GOMAXPROCS=4`, one
+100-second tiled-JFK request on this revision took `62.31 s` with SIMD,
+`55.29 s` with PTX subsampling projection and `61.55 s` with Vulkan
+subsampling projection. Each matched 1,663 pinned decisions, 411 nonblank
+emissions, and the input/tower reference gates with zero outliers. These
+samples include GPU setup, transfers and teardown but exclude WAV/model
+loading. Both GPU backends still run the 24-layer cached encoder and RNN-T
+on CPU. One PTX sample does not establish a general request speedup.
 These are single-host samples; labelled WER and broader quality are open.
 
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
