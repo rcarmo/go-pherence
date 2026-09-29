@@ -95,7 +95,10 @@ func (m *Encoder0FeedForward2) ForwardOffline(input []float32, rows int) ([]floa
 	if !simd.SiLUTo(intermediate, intermediate) {
 		return nil, fmt.Errorf("Nemotron ASR encoder-0 FF2 activation rejected shape")
 	}
-	output := make([]float32, len(input))
+	// fc1 has consumed normal. Reuse its owned buffer for the accumulating
+	// fc2 GEMM; final output still has its own storage after layer norm.
+	output := normal
+	clear(output)
 	if !simd.DenseNTTo(output, intermediate, m.last, rows, encoderWidth, encoderFFWidth, 1, encoderFFWidth, encoderFFWidth, encoderWidth) {
 		return nil, fmt.Errorf("Nemotron ASR encoder-0 FF2 linear2 rejected shape")
 	}

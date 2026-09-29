@@ -181,6 +181,17 @@ sample, model/WAV load excluded). The 72-row cached tower (lookaheads zero
 and three), 11-second PCM→text (three chunk sizes), and 100-second tiled JFK
 passed their independent reference gates with zero token mismatches and
 zero tower outliers. A shared-model two-stream `-race` run passed.
+
+Both ASR feed-forward modules now reuse their owned normalisation buffer
+as the fc2 GEMM destination once fc1 has consumed it. The accumulating
+GEMM clears that destination; the caller's input and FF2's owned final
+output remain independent. Two complete 11-second JFK request samples
+allocated `1.349 GB/op`, 26,544 allocations versus `1.368 GB/op`, 28,164
+allocations before reuse (`GOMAXPROCS=4`, model/WAV load excluded); timings
+overlap, so no speed claim follows. Pinned FF1/FF2, both 72-row cached tower
+lookaheads, 11-second PCM→text (three chunk sizes) and 100-second tiled JFK
+pass with zero tower outliers and matching token decisions. The shared-model
+two-stream `-race` test passes on this change.
 These are single-host samples; labelled WER and broader quality are open.
 
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
