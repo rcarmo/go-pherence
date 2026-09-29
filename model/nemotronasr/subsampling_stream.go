@@ -8,12 +8,14 @@ import (
 )
 
 // SubsamplingStream owns the three causal Conv2D time caches for one ASR
-// stream. It accepts valid and terminal-masked mel chunks; encoder-layer
-// masks have a separate contract. Weights are shared, but a
+// stream. It accepts masked mel chunks and the separate unmasked generation
+// schedule; do not mix the two modes within a stream. Weights are shared,
+// but a
 // stream must not be used concurrently. State is independent of duration.
 type SubsamplingStream struct {
 	Model   *Subsampling
 	started bool
+	mode    uint8        // 0=new, 1=masked/full-valid, 2=generation
 	last    [3][]float32 // last input time row at each stage, channel-major
 }
 
@@ -26,6 +28,18 @@ func (s *SubsamplingStream) ForwardChunk(features []float32, frames int) ([]floa
 	return out, err
 }
 
+// ForwardUnmaskedChunk follows the pinned streaming generate path, which
+// passes no attention mask to the encoder. It accepts the default lookahead-3
+// first 25-row chunk followed by complete 32-row chunks. Its caches must not
+// be mixed with ForwardMaskedChunk calls on the same stream.
+func (s *SubsamplingStream) ForwardUnmaskedChunk(features []float32, frames int) ([]float32, error) {
+	if s == nil || s.mode == 1 || (s.started && frames != 32) || (!s.started && frames != 25) {
+		return nil, fmt.Errorf("invalid Nemotron ASR generation subsampling chunk")
+	}
+	out, _, err := s.forwardChunk(features, frames, frames, false)
+	return out, err
+}
+
 // ForwardMaskedChunk returns owned [rows,1024] embeddings and the number of
 // internally valid convolution rows. A terminal masked mel row (or right
 // padding) is zeroed before convolution; each intermediate stage is masked
@@ -35,6 +49,13 @@ func (s *SubsamplingStream) ForwardChunk(features []float32, frames int) ([]floa
 // convolution row visible. Invalid input does not advance caches; the caller
 // must not use a stream concurrently.
 func (s *SubsamplingStream) ForwardMaskedChunk(features []float32, frames, valid int) ([]float32, int, error) {
+	if s != nil && s.mode == 2 {
+		return nil, 0, fmt.Errorf("cannot mix Nemotron ASR subsampling cache modes")
+	}
+	return s.forwardChunk(features, frames, valid, true)
+}
+
+func (s *SubsamplingStream) forwardChunk(features []float32, frames, valid int, mask bool) ([]float32, int, error) {
 	if s == nil || s.Model == nil || s.Model.Stem == nil || len(s.Model.linearWeight) != 1024*4352 || len(s.Model.linearBias) != 1024 || frames < 1 || frames > 128 || valid < 0 || valid > frames || len(features) != frames*128 {
 		return nil, 0, fmt.Errorf("invalid Nemotron ASR subsampling stream chunk")
 	}
@@ -101,7 +122,7 @@ func (s *SubsamplingStream) ForwardMaskedChunk(features []float32, frames, valid
 				to := ch*streamRows*outWidth + row*outWidth
 				copy(output[to:to+outWidth], raw[from:from+outWidth])
 				for i := to; i < to+outWidth; i++ {
-					if row >= valid || output[i] < 0 {
+					if (mask && row >= valid) || output[i] < 0 {
 						output[i] = 0
 					}
 				}
@@ -133,6 +154,11 @@ func (s *SubsamplingStream) ForwardMaskedChunk(features []float32, frames, valid
 		}
 	}
 	state.started = true
+	if mask {
+		state.mode = 1
+	} else {
+		state.mode = 2
+	}
 	*s = state
 	return out, valid, nil
 }

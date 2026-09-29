@@ -58,9 +58,31 @@ PyTorch subsampling on the native mel rows has zero outliers under the
 operator gate (maximum `6.11e-4`, mean `4.28e-5`), identifying frontend
 rounding amplified by the released subsampler. This failed composed gate
 is retained; it needs downstream decision/error analysis, not a tolerance
-change alone. Encoder attention masks, 24-layer integration,
-whole-recording tokens and text, WER, and GPU timings still need independent
-checks.
+change alone.
+
+The pinned cache-aware `generate()` path has a different input contract:
+lookahead three requires **25** mel rows first and **32** thereafter; it
+passes no attention mask to the encoder. It discards the first processor's
+masked 26th row and pads the final chunk with zero mel rows. Passing a 26-row
+first chunk raises `ValueError`. `SubsamplingStream.ForwardUnmaskedChunk`
+implements that 25/32 cache schedule and rejects mixing it with masked
+cache calls. A 13,000-sample JFK prefix, fed to the native mel scheduler in
+397-sample PCM calls, passed three released-weight PyTorch generation-path
+checkpoints: subsampling `[12,1024]`, layer zero, full 24-layer tower, and
+prompt-projected `[12,640]` states. On SIMD, the largest absolute errors
+were `0.00238` at the subsampling output, `2.37e-4` at layer zero,
+`2.16e-7` at the tower and `4.41e-6` at the RNNT projector, with zero
+per-value outliers under their respective calibrated stage gates. The
+CPU-features-disabled run likewise had zero outliers (largest tower error
+`3.28e-7`, RNNT error `7.87e-6`). Native incremental greedy decoding made
+12 blank decisions at frames 0–11, matching the pinned reference
+`generate()` after its initial BOS blank. This short prefix contains no
+nonblank decision, so full-recording transcription and text/WER remain
+unqualified. The 26/32 **masked** subsampler fixture above is a separate
+operator probe; a direct masked encoder attempt diverged from step two
+because its 2D chunk mask did not include cached history. No masked 24-layer
+claim follows from that probe. Long audio, independent token/text accuracy,
+WER, and transfer-inclusive GPU timings still need validation.
 
 `Encoder0Attention.ForwardCachedChunk` now uses cumulative sequence length for
 relative positions after the 57-frame K/V window starts sliding, and applies
