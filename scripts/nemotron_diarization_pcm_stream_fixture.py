@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--seconds", type=int, choices=(11, 100))
     parser.add_argument("--samples", type=int)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--segments-out", type=Path, help="processor segments on the same streaming logits")
     args = parser.parse_args()
     torch.set_num_threads(4)
     if hashlib.sha256(WAV.read_bytes()).hexdigest() != INPUT_SHA:
@@ -76,7 +77,12 @@ def main():
             result = model(**inp, speaker_cache=cache)
             logits.append(result.logits[0].cpu())
             shapes.append([int(inp.input_features.shape[1]), int(result.logits.shape[1])])
-    output = torch.cat(logits).contiguous().numpy().astype("<f4", copy=False)
+    joined = torch.cat(logits)
+    output = joined.contiguous().numpy().astype("<f4", copy=False)
+    if args.segments_out:
+        args.segments_out.parent.mkdir(parents=True, exist_ok=True)
+        segments = processor.extract_speaker_dict(joined[None, :, :])[0]
+        args.segments_out.write_text(json.dumps(segments, indent=2) + "\n")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("wb") as file:
         with gzip.GzipFile(filename="", fileobj=file, mode="wb", mtime=0) as compressed:

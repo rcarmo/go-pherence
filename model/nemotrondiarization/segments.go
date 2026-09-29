@@ -3,7 +3,6 @@ package nemotrondiarization
 import (
 	"fmt"
 	"math"
-	"sort"
 )
 
 // Segment uses the released processor's two-decimal second boundaries and
@@ -46,11 +45,6 @@ func ExtractSegments(logits []float32, frameMask []bool) ([]Segment, error) {
 			}
 		}
 	}
-	sort.Slice(segments, func(i, j int) bool {
-		if segments[i].Start != segments[j].Start {
-			return segments[i].Start < segments[j].Start
-		}
-		return segments[i].Speaker < segments[j].Speaker
-	})
+	sortSegments(segments)
 	return segments, nil
 }

@@ -274,8 +274,18 @@ Transformers `image_like_kwargs` diagnostic did not prevent the reference
 from producing logits. A full 100-second scalar check has not run.
 
 This qualifies bounded continuous **SIMD diarisation logits**, including
-cache compression exercised by the 100-second stream.
-Speaker segments and labelled DER, masked intermediate encoder rows,
-transfer-inclusive Vulkan/PTX latency, cancellation, and production
-readiness still need validation. The offline PCM request retains its separate
-376-row limit.
+cache compression exercised by the 100-second stream. `SegmentStream`
+converts successive committed logits into completed spans using only eight
+open-speaker starts. A released-weight 11-second JFK PCM stream with 7,979-
+sample calls yields 1,099 logits rows and three spans matching the pinned
+PyTorch **streaming** `extract_speaker_dict`: speaker 0 at 0.31–2.25,
+3.29–4.53 and 5.40–10.63 seconds. SIMD logits had maximum absolute error
+`3.43e-5`, mean `2.94e-6`, zero values outside
+`3e-4 + 2e-5*abs(reference)`. The separate offline processor fixture
+returns 0.28–2.28, 3.27–4.56 and 5.36–10.63 seconds. Comparing streaming
+spans against that offline fixture failed, as the inference contexts differ.
+The 100-second pinned script also emits matching-context streaming segment
+JSON; a native 100-second segment comparison has not run. Labelled DER,
+masked intermediate encoder rows, transfer-inclusive Vulkan/PTX latency,
+cancellation and production readiness still need validation. The offline
+PCM request retains its separate 376-row limit.
