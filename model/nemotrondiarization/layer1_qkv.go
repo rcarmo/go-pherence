@@ -75,7 +75,7 @@ func (m *Layer1QKV) Project(input []float32, rows int) (q, k, v []float32, err e
 	if m == nil || len(m.gamma) != projectedWidth || len(m.beta) != projectedWidth || len(m.q) != projectedWidth*projectedWidth || len(m.k) != projectedWidth*projectedWidth || len(m.v) != projectedWidth*projectedWidth {
 		return nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-1 weights")
 	}
-	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
+	if rows < 1 || rows > maxPreparedDiarizationRows || len(input) != rows*projectedWidth {
 		return nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-1 input shape")
 	}
 	for _, value := range input {

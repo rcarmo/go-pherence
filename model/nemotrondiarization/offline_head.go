@@ -100,7 +100,7 @@ func (m *OfflineHead) forwardStages(input []float32, rows int) (projected, convo
 	if m == nil || len(m.projectionWeight) != diarizationHeadWidthProjection*projectedWidth || len(m.projectionBias) != diarizationHeadWidthProjection || len(m.convDenseWeight) != diarizationHeadWidthProjection*diarizationUpsample*diarizationHeadWidthProjection*3 || len(m.convBias) != diarizationHeadWidthProjection*diarizationUpsample || len(m.denseWeight) != diarizationHeadWidthProjection*diarizationHeadWidthProjection || len(m.denseBias) != diarizationHeadWidthProjection || len(m.outputWeight) != diarizationSpeakers*diarizationHeadWidthProjection || len(m.outputBias) != diarizationSpeakers {
 		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization head weights")
 	}
-	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
+	if rows < 1 || rows > maxPreparedDiarizationRows || len(input) != rows*projectedWidth {
 		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization head input")
 	}
 	for _, value := range input {

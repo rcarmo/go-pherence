@@ -25,8 +25,8 @@ func (m *StreamingWindow) ForwardPrepared(chunk []float32, frames, lookahead int
 		return nil, nil, err
 	}
 	rows := len(input) / projectedWidth
-	if rows > 376 {
-		return nil, nil, fmt.Errorf("Nemotron diarization streaming window exceeds qualified 376 rows")
+	if rows > maxPreparedDiarizationRows {
+		return nil, nil, fmt.Errorf("Nemotron diarization streaming window exceeds qualified prepared row bound")
 	}
 	hidden, err := m.Tower.ForwardOffline(input, rows)
 	if err != nil {

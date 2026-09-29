@@ -199,6 +199,46 @@ def main():
             save(args.out / f"jfk_postcompress_step{index}_speaker.f32.gz", post_cache.embeds[0, :post_cache.num_cache_frames])
             save(args.out / f"jfk_postcompress_step{index}_speaker_probs.f32.gz", post_cache.probs[0, :post_cache.num_cache_frames])
             print("JFK post-compression step", index, "rows", combined.shape[1], "speaker", post_cache.num_cache_frames, "fifo", post_cache.num_fifo_frames, "compressed", post_cache.is_compressed)
+        # A separate seeded 264+264 cache reaches the upper prepared 9+4
+        # window (541 rows). The update crosses the compression boundary.
+        # The reference owns all logits and the resulting compressed state;
+        # this is not an audio-scheduled continuous stream.
+        maximum_cache = Nemotron3DiarizationSpeakerCache(model.config.streaming_config)
+        maximum_cache.get_embeds(stacked[:, :13])
+        for name, width, dest in (("speaker", 512, "embeds"), ("speaker_probs", 8, "probs"), ("fifo", 512, "fifo")):
+            with gzip.open(args.out / f"cache_step5_{name}.f32.gz", "rb") as source:
+                values = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1, -1, width))
+            getattr(maximum_cache, dest)[:, :values.shape[1]].copy_(values)
+        # Give repeated synthetic cached probabilities distinct, bounded
+        # values before score-based selection. Torch topk has no tie policy;
+        # the underlying cached embeddings remain pinned released-weight data.
+        offsets = torch.arange(264 * 8, dtype=torch.float32).reshape(1, 264, 8)
+        maximum_cache.probs[:, :264] += offsets * 1e-7
+        save(args.out / "jfk_maxcache_seed_speaker_probs.f32.gz", maximum_cache.probs[0, :264])
+        # Use 264 distinct rows from the pinned 100-second JFK projection.
+        with gzip.open(ROOT / "model/nemotrondiarization/testdata/jfk_loop100_stacking_transformers_5_18.f32.gz", "rb") as source:
+            long_stacked = torch.from_numpy(np.frombuffer(source.read(), dtype="<f4").copy().reshape(1251, 512))
+        maximum_cache.fifo[:, :264].copy_(long_stacked[160:424])
+        save(args.out / "jfk_maxcache_seed_fifo.f32.gz", maximum_cache.fifo[0, :264])
+        maximum_cache.num_cache_frames = 264
+        maximum_cache.num_fifo_frames = 264
+        maximum_cache.is_compressed = True
+        for index, start in enumerate((0, 9)):
+            chunk = stacked[:, start:start+13]
+            cached = maximum_cache.get_embeds(chunk)
+            combined = torch.cat([cached, chunk], dim=1)
+            mask = torch.ones(1, combined.shape[1], dtype=torch.bool)
+            positions = torch.arange(combined.shape[1])[None, :]
+            outputs = model.model(inputs_embeds=combined, attention_mask=mask, position_ids=positions)
+            logits = model.classifier(outputs.last_hidden_state)
+            save(args.out / f"jfk_maxcache_step{index}_input.f32.gz", combined[0])
+            save(args.out / f"jfk_maxcache_step{index}_logits.f32.gz", logits[0])
+            save(args.out / f"jfk_maxcache_step{index}_pooled.f32.gz", maximum_cache._pool_probs(logits, mask)[0])
+            maximum_cache.update(combined, logits, model.silence_embeds, 9, mask=mask)
+            save(args.out / f"jfk_maxcache_step{index}_fifo.f32.gz", maximum_cache.fifo[0, :maximum_cache.num_fifo_frames])
+            save(args.out / f"jfk_maxcache_step{index}_speaker.f32.gz", maximum_cache.embeds[0, :maximum_cache.num_cache_frames])
+            save(args.out / f"jfk_maxcache_step{index}_speaker_probs.f32.gz", maximum_cache.probs[0, :maximum_cache.num_cache_frames])
+            print("JFK max-cache step", index, "rows", combined.shape[1], "speaker", maximum_cache.num_cache_frames, "fifo", maximum_cache.num_fifo_frames, "compressed", maximum_cache.is_compressed)
 
 if __name__ == "__main__":
     main()

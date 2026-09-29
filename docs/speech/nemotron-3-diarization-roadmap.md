@@ -218,7 +218,9 @@ retaining up to 99 FIFO frames. Saved PyTorch checkpoints at steps 0, 1,
 AVX2/FMA maximum logit error is `1.91e-5`, CPU-features-disabled maximum
 `3.44e-5`, with zero per-value outliers. Current-frame logits are selected
 from the cached offset at eight output frames per encoder row. This path
-admits only fully valid prepared embeddings and at most 376 total rows.
+admits only fully valid prepared embeddings. Its qualified maximum is now
+541 rows (264 speaker + 264 FIFO + 9 current + 4 lookahead). The separate
+offline PCM request still has its 376-row limit.
 A separate model-level boundary test seeds the reference's prepared
 264-frame FIFO and runs two 9+4 JFK windows. The first moves 222 frames
 into the speaker cache and leaves 51 in FIFO; the next uses both contexts
@@ -234,9 +236,22 @@ logits, input order, stored speaker embeddings/probabilities, FIFO state
 and compressed flag match pinned PyTorch. SIMD maximum logit error is
 `1.91e-5`, scalar `4.01e-5`, with zero per-value outliers and mean below
 `7.9e-6`. This is post-compression inference on a seeded cache, **not**
-a continuous model run through the compression transition: with the
-current 376-row model limit that transition would require an oversized
-speaker+FIFO+chunk window. Streaming frontend/chunk scheduling, padding
-masks, continuous compression-boundary model output, complete recording,
-labelled DER, transfer-inclusive GPU latency and production readiness
-remain unqualified.
+a continuous model run through the compression transition. A separate
+seeded maximum-cache case now processes a 541-row prepared window and
+its 328-row successor. The first update compresses the speaker cache;
+PyTorch full-context logits, speaker embeddings, FIFO order and compressed
+state match on AVX2/FMA and the CPU-features-disabled path. Per-value
+logit outliers are zero under `3e-4 + 2e-5*abs(reference)`; maximum and
+mean errors are `5.68e-5`/`4.63e-6` on SIMD and `1.34e-4`/`1.16e-5`
+on scalar. Pooled speaker-probability maxima are `8.59e-6` and
+`1.91e-5`; selected probabilities have maxima `7.34e-6` and
+`1.69e-5`, with unchanged speaker/FIFO selection. The fixture seeds
+264 compressed speaker rows with distinct stored probabilities and
+264 FIFO embeddings from the pinned 100-second JFK projection. The
+compressor previously ranked boosts across all speakers; the reference
+ranks each speaker's frames separately. The corrected operator retains
+its earlier pattern/sweep and seven-step parity fixtures. This case
+qualifies inference across a **seeded** compression transition, not an
+audio-scheduled continuous stream. Streaming chunk scheduling, padding
+masks, complete-recording logits, labelled DER, transfer-inclusive GPU
+latency and production readiness remain unqualified.

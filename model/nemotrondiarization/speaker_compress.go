@@ -61,19 +61,24 @@ func (m *SpeakerCompressor) Compress(embeds, probs []float32) ([]float32, []floa
 			scores[row*diarizationSpeakers+speaker] += 0.05
 		}
 	}
+	// Reference torch.topk(..., dim=1) ranks frames independently for
+	// each speaker, not all speaker/frame scores in one flattened pool.
 	boost := func(count int, amount float32) {
-		candidates := make([]scoredSpeakerFrame, 0, len(scores))
-		for i, score := range scores {
-			candidates = append(candidates, scoredSpeakerFrame{index: i, score: score})
-		}
-		sort.Slice(candidates, func(i, j int) bool {
-			if candidates[i].score != candidates[j].score {
-				return candidates[i].score > candidates[j].score
+		for speaker := 0; speaker < diarizationSpeakers; speaker++ {
+			candidates := make([]scoredSpeakerFrame, rows)
+			for row := 0; row < rows; row++ {
+				i := row*diarizationSpeakers + speaker
+				candidates[row] = scoredSpeakerFrame{index: i, score: scores[i]}
 			}
-			return candidates[i].index < candidates[j].index
-		})
-		for _, candidate := range candidates[:count] {
-			scores[candidate.index] += amount
+			sort.Slice(candidates, func(i, j int) bool {
+				if candidates[i].score != candidates[j].score {
+					return candidates[i].score > candidates[j].score
+				}
+				return candidates[i].index < candidates[j].index
+			})
+			for _, candidate := range candidates[:count] {
+				scores[candidate.index] += amount
+			}
 		}
 	}
 	boost(24, float32(-2*math.Log(0.5)))

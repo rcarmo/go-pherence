@@ -175,7 +175,7 @@ func TestReleasedLayer0AttentionSIMDScalarWindows(t *testing.T) {
 
 func TestLayer0AttentionRejectsMalformed(t *testing.T) {
 	m := &Layer0Attention{qkv: &Layer0QKV{inputGamma: make([]float32, 512), inputBeta: make([]float32, 512), gamma: make([]float32, 512), beta: make([]float32, 512), q: make([]float32, 512*512), k: make([]float32, 512*512), v: make([]float32, 512*512)}, outWeight: make([]float32, 512*512), outBias: make([]float32, 512)}
-	for _, rows := range []int{0, 377} {
+	for _, rows := range []int{0, maxPreparedDiarizationRows + 1} {
 		if _, _, err := m.ForwardOffline(make([]float32, rows*512), rows); err == nil {
 			t.Fatalf("accepted rows=%d", rows)
 		}

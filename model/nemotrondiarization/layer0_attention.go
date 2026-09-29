@@ -70,7 +70,7 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 	if m == nil || m.qkv == nil || len(m.outWeight) != projectedWidth*projectedWidth || len(m.outBias) != projectedWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron diarization attention model")
 	}
-	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
+	if rows < 1 || rows > maxPreparedDiarizationRows || len(input) != rows*projectedWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron diarization attention window")
 	}
 	inputNormal, q, k, v, err := m.qkv.projectWithInputNormal(input, rows)

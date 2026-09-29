@@ -99,7 +99,7 @@ func TestLayer1AttentionRejectsMalformed(t *testing.T) {
 		t.Fatal("accepted nil model")
 	}
 	m := &Layer1Attention{qkv: &Layer1QKV{gamma: make([]float32, projectedWidth), beta: make([]float32, projectedWidth), q: make([]float32, projectedWidth*projectedWidth), k: make([]float32, projectedWidth*projectedWidth), v: make([]float32, projectedWidth*projectedWidth)}, outWeight: make([]float32, projectedWidth*projectedWidth), outBias: make([]float32, projectedWidth)}
-	for _, rows := range []int{0, 377} {
+	for _, rows := range []int{0, maxPreparedDiarizationRows + 1} {
 		if _, _, err := m.ForwardOffline(make([]float32, rows*projectedWidth), rows); err == nil {
 			t.Fatalf("accepted rows=%d", rows)
 		}
