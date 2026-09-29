@@ -127,7 +127,12 @@ each layer's owned Q buffer for mixed values once a row's Q scores are
 complete. Scalar and vector 16/138-row attention fixtures, the 138-row
 tower and the 11-second streaming logits/spans pass; the 30-second request
 allocated `6.090 GB/op` in two samples versus `6.603 GB/op` before Q reuse.
-Timing samples remain noisy and supply no speed claim. The independent
+The SIMD attention tile now reuses its copied Q-head buffer for the
+post-softmax value product, once scores have consumed Q. One 30-second
+request sample allocated `6.023 GB/op`; the 16/138-row scalar and vector
+attention fixtures, 138-row tower and 11-second stream still pass under
+their existing numeric gates. Timing samples remain noisy and supply no
+speed claim. The independent
 100-second reference accepted all 9,999 logits rows and 29 spans after
 Q reuse (single `GOMAXPROCS=4` request: `74.83 s`, zero logit outliers). An isolated packed/parallel head GEMM
 trial looked faster at fixed shapes but failed to improve the complete

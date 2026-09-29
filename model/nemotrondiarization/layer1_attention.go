@@ -115,7 +115,6 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector, resi
 	if vector && rows >= 16 {
 		qHead, kHead, vHead := make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth), make([]float32, rows*diarizationHeadWidth)
 		scores := make([]float32, rows*rows)
-		product := make([]float32, rows*diarizationHeadWidth)
 		for head := 0; head < diarizationHeads; head++ {
 			for row := 0; row < rows; row++ {
 				from := row*projectedWidth + head*diarizationHeadWidth
@@ -133,12 +132,14 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector, resi
 					return nil, nil, fmt.Errorf("Nemotron diarization layer-1 softmax failed")
 				}
 			}
-			clear(product)
-			if !simd.SgemmNNTo(product, scores, vHead, rows, diarizationHeadWidth, rows, 1, rows, diarizationHeadWidth, diarizationHeadWidth) {
+			// Scores have consumed qHead. Reuse that owned tile for the
+			// value product; the GEMM accumulates into a cleared output.
+			clear(qHead)
+			if !simd.SgemmNNTo(qHead, scores, vHead, rows, diarizationHeadWidth, rows, 1, rows, diarizationHeadWidth, diarizationHeadWidth) {
 				return nil, nil, fmt.Errorf("Nemotron diarization layer-1 value shape rejected")
 			}
 			for row := 0; row < rows; row++ {
-				copy(mixed[row*projectedWidth+head*diarizationHeadWidth:row*projectedWidth+(head+1)*diarizationHeadWidth], product[row*diarizationHeadWidth:(row+1)*diarizationHeadWidth])
+				copy(mixed[row*projectedWidth+head*diarizationHeadWidth:row*projectedWidth+(head+1)*diarizationHeadWidth], qHead[row*diarizationHeadWidth:(row+1)*diarizationHeadWidth])
 			}
 		}
 	} else {
