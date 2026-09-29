@@ -146,6 +146,14 @@ fixtures pass SIMD and CPU-features-disabled gates with zero per-value
 outliers; the changed reduction order raises the isolated convolution
 maximum to `3.63e-5` on AVX2/FMA. These timings exclude loading, frontend,
 tower, speaker extraction and transfers; no whole-request speedup has been
-measured. Speaker-cache updates, streaming, other input lengths,
-transfer-inclusive GPU request latency and production readiness promotion
-remain open.
+measured. The composed CPU path now uses the checked AVX2/FMA `GELUErfF32To` in each
+layer's MLP, falling back to scalar exact-erf outside the kernel's range.
+Released-weight layer checkpoints, full PCM logits and default-threshold
+segments still pass on AVX2/FMA and with CPU features disabled. On the same
+i7-12700 with `GOMAXPROCS=1`, five 5-iteration whole-request samples moved
+from `856–864 ms` before the GELU change to `565–629 ms` after it, with
+`479 allocations` and about `130.37 MB` per request; loading is excluded.
+The two sample ranges do not overlap, but a longer controlled latency run
+and independent quality evidence are needed before a production speed claim.
+Speaker-cache updates, streaming, other input lengths, transfer-inclusive
+GPU request latency and production readiness promotion remain open.

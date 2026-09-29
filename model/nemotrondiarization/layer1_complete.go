@@ -101,7 +101,9 @@ func (m *Layer1Complete) ForwardOffline(input []float32, rows int) ([]float32, e
 	for i, value := range intermediate {
 		intermediate[i] = value + m.fc1Bias[i%diarizationIntermediate]
 	}
-	simd.GELUExact(intermediate, intermediate)
+	if !simd.GELUErfF32To(intermediate, intermediate) {
+		return nil, fmt.Errorf("Nemotron diarization layer-1 GELU rejected shape")
+	}
 	output := make([]float32, len(residual))
 	if !simd.DenseNTTo(output, intermediate, m.fc2Weight, rows, projectedWidth, diarizationIntermediate, 1, diarizationIntermediate, diarizationIntermediate, projectedWidth) {
 		return nil, fmt.Errorf("Nemotron diarization layer-1 fc2 rejected shape")

@@ -61,6 +61,35 @@ func TestReleasedOfflineRequestPyTorchLogitParity(t *testing.T) {
 	}
 }
 
+func BenchmarkReleasedOfflineRequestJFK(b *testing.B) {
+	path := os.Getenv("GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL")
+	if path == "" {
+		b.Skip("set GO_PHERENCE_NEMOTRON_DIARIZATION_MODEL")
+	}
+	file, err := safetensors.Open(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+	model, err := LoadOfflineRequest(file)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		b.Fatal(err)
+	}
+	pcm, rate, err := audio.WAV(filepath.Join("..", "..", "testdata", "jfk.wav"))
+	if err != nil || rate != 16000 {
+		b.Fatalf("WAV rate=%d err=%v", rate, err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if _, _, err := model.ForwardPCM(pcm); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestOfflineRequestRejectsMalformed(t *testing.T) {
 	if _, err := LoadOfflineRequest(nil); err == nil {
 		t.Fatal("accepted nil checkpoint")
