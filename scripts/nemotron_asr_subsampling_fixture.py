@@ -69,7 +69,12 @@ def main():
                 save(args.out / "encoder0_ff1_activated.f32.gz", activated[0])
                 feed_forward = layer.feed_forward1.linear2(activated)
                 save(args.out / "encoder0_ff1_output.f32.gz", feed_forward[0])
-                save(args.out / "encoder0_ff1_residual.f32.gz", (final + 0.5 * feed_forward)[0])
+                ff1_residual = final + 0.5 * feed_forward
+                save(args.out / "encoder0_ff1_residual.f32.gz", ff1_residual[0])
+                attn_normal = layer.norm_self_att(ff1_residual)
+                save(args.out / "encoder0_attn_normal.f32.gz", attn_normal[0])
+                for name in ("q", "k", "v"):
+                    save(args.out / f"encoder0_attn_{name}.f32.gz", getattr(layer.self_attn, f"{name}_proj")(attn_normal)[0])
             print("input valid", valid, "final valid length", int(lengths[0]))
 
 
