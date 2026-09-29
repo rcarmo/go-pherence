@@ -65,13 +65,9 @@ func (m *Layer0Attention) ForwardOffline(input []float32, rows int) (attention, 
 	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron diarization attention window")
 	}
-	q, k, v, err := m.qkv.Project(input, rows)
+	inputNormal, q, k, v, err := m.qkv.projectWithInputNormal(input, rows)
 	if err != nil {
 		return nil, nil, err
-	}
-	inputNormal := make([]float32, len(input))
-	if !simd.LayerNormLastAxisTo(inputNormal, input, rows, projectedWidth, m.qkv.inputGamma, m.qkv.inputBeta, 1e-5) {
-		return nil, nil, fmt.Errorf("Nemotron diarization input normalisation rejected window")
 	}
 	// Transformers uses the two-half rotation: [-second_half, first_half].
 	var inv [diarizationHeadWidth / 2]float32

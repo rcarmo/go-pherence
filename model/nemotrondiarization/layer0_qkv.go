@@ -75,32 +75,39 @@ func LoadLayer0QKV(file *safetensors.File) (*Layer0QKV, error) {
 // Project accepts owned-or-caller [rows,512] stacking embeddings and returns
 // independent, owned, row-major pre-RoPE [rows,512] Q/K/V buffers.
 func (m *Layer0QKV) Project(input []float32, rows int) (q, k, v []float32, err error) {
+	_, q, k, v, err = m.projectWithInputNormal(input, rows)
+	return q, k, v, err
+}
+
+// projectWithInputNormal also returns the owned input-normalised residual
+// needed by attention, avoiding a second normalisation of the same input.
+func (m *Layer0QKV) projectWithInputNormal(input []float32, rows int) (inputNormal, q, k, v []float32, err error) {
 	if m == nil || len(m.inputGamma) != projectedWidth || len(m.inputBeta) != projectedWidth || len(m.gamma) != projectedWidth || len(m.beta) != projectedWidth || len(m.q) != projectedWidth*projectedWidth || len(m.k) != projectedWidth*projectedWidth || len(m.v) != projectedWidth*projectedWidth {
-		return nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-0 weights")
+		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-0 weights")
 	}
 	if rows < 1 || rows > 376 || len(input) != rows*projectedWidth {
-		return nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-0 input shape")
+		return nil, nil, nil, nil, fmt.Errorf("invalid Nemotron diarization layer-0 input shape")
 	}
 	for _, value := range input {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-			return nil, nil, nil, fmt.Errorf("non-finite Nemotron diarization layer-0 input")
+			return nil, nil, nil, nil, fmt.Errorf("non-finite Nemotron diarization layer-0 input")
 		}
 	}
-	inputNormal := make([]float32, len(input))
+	inputNormal = make([]float32, len(input))
 	if !simd.LayerNormLastAxisTo(inputNormal, input, rows, projectedWidth, m.inputGamma, m.inputBeta, 1e-5) {
-		return nil, nil, nil, fmt.Errorf("Nemotron diarization input normalisation rejected shape")
+		return nil, nil, nil, nil, fmt.Errorf("Nemotron diarization input normalisation rejected shape")
 	}
 	normal := make([]float32, len(input))
 	if !simd.LayerNormLastAxisTo(normal, inputNormal, rows, projectedWidth, m.gamma, m.beta, 1e-5) {
-		return nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 normalisation rejected shape")
+		return nil, nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 normalisation rejected shape")
 	}
 	q, k, v = make([]float32, len(input)), make([]float32, len(input)), make([]float32, len(input))
 	for _, item := range []struct {
 		out, weight []float32
 	}{{q, m.q}, {k, m.k}, {v, m.v}} {
 		if !simd.DenseNTTo(item.out, normal, item.weight, rows, projectedWidth, projectedWidth, 1, projectedWidth, projectedWidth, projectedWidth) {
-			return nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 projection rejected shape")
+			return nil, nil, nil, nil, fmt.Errorf("Nemotron diarization layer-0 projection rejected shape")
 		}
 	}
-	return q, k, v, nil
+	return inputNormal, q, k, v, nil
 }

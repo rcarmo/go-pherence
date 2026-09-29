@@ -66,7 +66,9 @@ The full 138-row first-layer attention also matches the PyTorch reference on
 JFK: max error `7.63e-6` for attention and `1.14e-5` after residual. The
 processor marks 1100 of 1101 feature frames valid; sampling that mask every
 eight frames marks all 138 stacked positions valid. The one-CPU 138-row
-benchmark took 22.2–27.8 ms and 2,581,056 B/10 allocations in five
-10-iteration runs. Later MLP, encoder layers, cache, upsampler and speaker
+benchmark after sharing the owned input-normalisation buffer took 22.4–29.5 ms
+and 2,294,336 B/9 allocations in five 10-iteration runs, down from
+2,581,056 B/10 allocations. Timing samples overlap, so there is no speed
+claim. Later MLP, encoder layers, cache, upsampler and speaker
 head remain unqualified.
 Labelled diarisation quality, production latency and readiness promotion remain open.
