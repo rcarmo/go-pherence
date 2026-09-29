@@ -130,8 +130,10 @@ func (m *Layer0Attention) forwardOffline(input []float32, rows int, vector bool)
 			if !simd.DenseNTTo(scores, qHead, kHead, rows, rows, diarizationHeadWidth, scaling, diarizationHeadWidth, diarizationHeadWidth, rows) {
 				return nil, nil, fmt.Errorf("Nemotron diarization attention score shape rejected")
 			}
-			if !simd.SoftmaxRowsInPlace(scores, rows, rows) {
-				return nil, nil, fmt.Errorf("Nemotron diarization attention softmax failed")
+			for row := 0; row < rows; row++ {
+				if !simd.SoftmaxSIMDInPlace(scores[row*rows : (row+1)*rows]) {
+					return nil, nil, fmt.Errorf("Nemotron diarization attention softmax failed")
+				}
 			}
 			clear(product)
 			if !simd.SgemmNNTo(product, scores, vHead, rows, diarizationHeadWidth, rows, 1, rows, diarizationHeadWidth, diarizationHeadWidth) {

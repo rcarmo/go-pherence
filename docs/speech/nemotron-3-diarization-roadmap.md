@@ -311,8 +311,18 @@ PCM→logits→segments run then completed in **161.56 seconds** with all 9,999
 logits rows and 29 spans matching the pinned streaming reference, maximum
 absolute logit error `6.48e-5`, mean `4.79e-6`, and zero calibrated
 outliers. The 11-second scalar path also passes after this change
-(79.64 seconds, max `5.34e-5`, mean `6.44e-6`, zero outliers). The
-100-second SIMD request is still slower than real time. The full 100-second
+(79.64 seconds, max `5.34e-5`, mean `6.44e-6`, zero outliers).
+The tested AVX2/FMA softmax replaces `math.Exp` in vectorised attention;
+it retains per-row F32 summation and uses the existing bounded-error
+`ExpF32To` kernel. The 11-second and 100-second pinned logits and segments
+still pass. Two more one-iteration 30-second samples measured
+`20.50–20.57 s` versus `23.62–23.71 s` before the softmax change, with
+unchanged approximate 7.742 GB request allocation. The complete
+100-second SIMD request took **130.94 seconds**, returned 9,999 rows and
+29 identical spans, and had maximum/mean logit error `6.87e-5`/`4.93e-6`
+with zero values outside the original numerical gate. The 11-second
+scalar path remains unchanged and passed in 73.04 seconds. Samples are
+small, and the 100-second SIMD request is still slower than real time. The full 100-second
 scalar run, labelled DER, masked intermediate encoder rows,
 transfer-inclusive Vulkan/PTX latency, cancellation and production
 readiness still need validation. The offline
