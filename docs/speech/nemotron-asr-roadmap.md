@@ -40,10 +40,13 @@ overlapping PCM windows. Its released-weight streaming subsampler produces
 three four-row outputs, with valid counts 3/4/3. Native SIMD matches all
 12,288 values with maximum absolute error `6.11e-4`, mean `4.18e-5`, zero
 values outside `3e-4 + 2e-5*abs(reference)`; CPU features disabled matches
-with maximum `1.22e-3`, mean `5.66e-5` and zero outliers. The last output
-row after the first and terminal chunks is projected but masked for the
-encoder; a later chunk may make its underlying mel frame valid. These are
-subsampling-only checks. `ASRMelChunkStream` now schedules arbitrary PCM
+with maximum `1.22e-3`, mean `5.66e-5` and zero outliers. The first
+chunk's 26th mel frame is masked and reappears as a valid frame in the next
+chunk; the last subsampler convolution row is internally masked in the
+first and terminal chunks. The encoder uses a separate output-mask formula:
+the pinned reference marks all four projected rows visible for both 25/26
+and 24/32 chunks. `EncoderMaskRows` records that rule; no full encoder
+masked-row parity check has passed yet. These are subsampling-only checks. `ASRMelChunkStream` now schedules arbitrary PCM
 calls into these first/subsequent/terminal shapes, holding fewer than 32
 pending mel rows. An 11-second JFK check produces 35 owned chunks and 1,100
 valid features with maximum error `3.66e-4` against the pinned frontend;

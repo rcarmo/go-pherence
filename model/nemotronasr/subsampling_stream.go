@@ -27,11 +27,13 @@ func (s *SubsamplingStream) ForwardChunk(features []float32, frames int) ([]floa
 }
 
 // ForwardMaskedChunk returns owned [rows,1024] embeddings and the number of
-// valid output rows. A terminal masked mel row (or right padding) is zeroed
-// before convolution; each intermediate stage is masked after its stride,
-// matching the pinned streaming encoder. The first call adds an extra leading
-// zero row. Invalid input does not advance caches; the caller must not use a
-// stream concurrently. The caller handles the encoder's output attention mask.
+// internally valid convolution rows. A terminal masked mel row (or right
+// padding) is zeroed before convolution; each intermediate stage is masked
+// after its stride, matching the pinned streaming subsampler. The first call
+// adds an extra leading zero row. The encoder computes its output attention
+// mask separately with EncoderMaskRows: it can mark the projected masked
+// convolution row visible. Invalid input does not advance caches; the caller
+// must not use a stream concurrently.
 func (s *SubsamplingStream) ForwardMaskedChunk(features []float32, frames, valid int) ([]float32, int, error) {
 	if s == nil || s.Model == nil || s.Model.Stem == nil || len(s.Model.linearWeight) != 1024*4352 || len(s.Model.linearBias) != 1024 || frames < 1 || frames > 128 || valid < 0 || valid > frames || len(features) != frames*128 {
 		return nil, 0, fmt.Errorf("invalid Nemotron ASR subsampling stream chunk")

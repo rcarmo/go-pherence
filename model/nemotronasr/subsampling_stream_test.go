@@ -95,6 +95,10 @@ func TestReleasedSubsamplingMaskedStreamPyTorchParity(t *testing.T) {
 			input[i] = 17
 		}
 		copyInput := append([]float32(nil), input...)
+		maskedRows, encoderVisible, maskErr := EncoderMaskRows(chunk.frames, chunk.valid, step == 0)
+		if maskErr != nil || maskedRows != 4 || encoderVisible != []int{4, 5, 4}[step] {
+			t.Fatalf("encoder mask chunk %d rows=%d visible=%d err=%v", step, maskedRows, encoderVisible, maskErr)
+		}
 		got, valid, err := stream.ForwardMaskedChunk(input, chunk.frames, chunk.valid)
 		if err != nil || len(got) != 4*1024 || valid != chunk.outputValid {
 			t.Fatalf("chunk %d: rows=%d valid=%d err=%v", step, len(got)/1024, valid, err)
