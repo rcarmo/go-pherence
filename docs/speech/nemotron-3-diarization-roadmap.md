@@ -50,6 +50,22 @@ A useful tower GPU implementation must keep activations resident across
 attention, MLP, normalisation and the cache/head boundary; the isolated
 MLP timings supply no speedup claim.
 
+A plan-compatible Vulkan time-major sequence RoPE operator now rotates
+`[rows,heads,headDim]` Q/K in one dispatch while keeping activations in
+a tensor arena. The checked F32 shader owns both elements of each pair,
+rejects frequency/input overlap and bounds rows, heads and storage before
+dispatch. A 17-row native plan run matched the independent CPU operation
+(maximum absolute error `1.19e-7`). On the RTX 3060, released-weight
+138-row layer-1 Q and K fixtures matched the pinned PyTorch post-RoPE
+reference with maximum errors `4.02e-6` and `3.40e-6`, means
+`1.34e-7` and `1.36e-7`, and zero outliers under the existing
+`3e-4 + 2e-5*abs(reference)` gate. The new SPIR-V passes `spirv-val`,
+embedded contract and byte/normalised offline rebuild checks. The
+repository-wide offline shader rebuild check still fails on 13 older
+shaders with the installed compiler; the new RoPE shader passes.
+This prepares one operation for a resident tower. It does not run a
+complete GPU attention layer, speaker cache or PCM request.
+
 ## Pinned source and scope
 
 - Model: [NVIDIA Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization/tree/a435e9867d79e789e90053f9b6d6834053af564a), revision `a435e9867d79e789e90053f9b6d6834053af564a`.

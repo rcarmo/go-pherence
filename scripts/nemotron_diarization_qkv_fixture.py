@@ -14,6 +14,7 @@ import numpy as np
 import soundfile as sf
 import torch
 from transformers import AutoModelForAudioFrameClassification, AutoProcessor
+from transformers.models.nemotron3_diarization.modeling_nemotron3_diarization import apply_rotary_pos_emb
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "checkpoints/nemotron/diarization"
@@ -81,8 +82,15 @@ def main():
         layer1 = model.model.audio_tower.layers[1]
         full_layer1_normal = layer1.layer_norm1(full_layer0)
         save(args.out / "jfk_full_layer1_normal.f32.gz", full_layer1_normal[0])
+        qkv = {}
         for name in ("q", "k", "v"):
-            save(args.out / f"jfk_full_layer1_{name}.f32.gz", getattr(layer1.self_attn, f"{name}_proj")(full_layer1_normal)[0])
+            qkv[name] = getattr(layer1.self_attn, f"{name}_proj")(full_layer1_normal)
+            save(args.out / f"jfk_full_layer1_{name}.f32.gz", qkv[name][0])
+        rotary_cos, rotary_sin = all_rotary
+        for name in ("q", "k"):
+            heads = qkv[name].view(1, 138, 8, 64).transpose(1, 2)
+            rotated, _ = apply_rotary_pos_emb(heads, heads, rotary_cos, rotary_sin)
+            save(args.out / f"jfk_full_layer1_{name}_rope.f32.gz", rotated.transpose(1, 2).reshape(138, 512))
         full_layer1_attention, _ = layer1.self_attn(full_layer1_normal, position_embeddings=all_rotary, attention_mask=None)
         save(args.out / "jfk_full_layer1_attention.f32.gz", full_layer1_attention[0])
         full_layer1_residual = full_layer0 + full_layer1_attention
