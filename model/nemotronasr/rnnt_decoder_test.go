@@ -27,10 +27,17 @@ func TestReleasedRNNTDecoderCachedStepsPyTorchParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	var state DecoderState
+	var first []float32
+	var firstValue float32
 	for index, token := range []int{rnntBlank, 3, 7, rnntBlank, 11} {
 		got, err := decoder.Step(token, &state)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if index == 0 {
+			first, firstValue = got, got[0]
+		} else if &got[0] == &first[0] || first[0] != firstValue {
+			t.Fatal("Step output aliases a prior call")
 		}
 		output, hidden, cell, initialized := state.Snapshot()
 		if !initialized || len(output) != rnntHidden || len(hidden) != 2*rnntHidden || len(cell) != 2*rnntHidden {
@@ -56,6 +63,9 @@ func TestReleasedRNNTDecoderCachedStepsPyTorchParity(t *testing.T) {
 				t.Fatalf("step=%d %s differs from PyTorch", index, item.name)
 			}
 		}
+	}
+	if first[0] != firstValue || &first[0] == &state.output[0] {
+		t.Fatal("Step output aliases state after decoding")
 	}
 }
 

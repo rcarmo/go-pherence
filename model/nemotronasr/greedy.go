@@ -41,7 +41,7 @@ func (m *GreedyRNNT) decode(encoder []float32, rows int, observe func(int, []flo
 		if len(tokens) >= rows*10 {
 			return nil, nil, fmt.Errorf("Nemotron ASR greedy bound exceeded")
 		}
-		decoded, err := m.Decoder.Step(token, &state)
+		decoded, err := m.Decoder.stepBorrowed(token, &state)
 		if err != nil {
 			return nil, nil, err
 		}

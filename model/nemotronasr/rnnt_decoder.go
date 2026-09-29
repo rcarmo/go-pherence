@@ -95,6 +95,16 @@ func LoadRNNTDecoder(file *safetensors.File) (*RNNTDecoder, error) {
 // blanks return the owned cached output without changing the state. No token
 // selection, joint call, or multi-batch cache update is performed here.
 func (m *RNNTDecoder) Step(token int, state *DecoderState) ([]float32, error) {
+	output, err := m.stepBorrowed(token, state)
+	if err != nil {
+		return nil, err
+	}
+	return append([]float32(nil), output...), nil
+}
+
+// stepBorrowed returns the current state's output. Only same-package callers
+// that finish using it before the next Step may use this borrowed view.
+func (m *RNNTDecoder) stepBorrowed(token int, state *DecoderState) ([]float32, error) {
 	if m == nil || state == nil || len(m.embedding) != rnntVocabulary*rnntHidden || len(m.projectWeight) != rnntHidden*rnntHidden || len(m.projectBias) != rnntHidden {
 		return nil, fmt.Errorf("invalid RNNT decoder")
 	}
@@ -113,7 +123,7 @@ func (m *RNNTDecoder) Step(token int, state *DecoderState) ([]float32, error) {
 			}
 		}
 		if token == rnntBlank {
-			return append([]float32(nil), state.output...), nil
+			return state.output, nil
 		}
 	} else if len(state.output) != 0 || len(state.hidden) != 0 || len(state.cell) != 0 {
 		return nil, fmt.Errorf("invalid uninitialized RNNT decoder cache")
@@ -163,5 +173,5 @@ func (m *RNNTDecoder) Step(token int, state *DecoderState) ([]float32, error) {
 		}
 	}
 	state.output, state.hidden, state.cell, state.initialized = output, hidden, cell, true
-	return append([]float32(nil), output...), nil
+	return output, nil
 }
