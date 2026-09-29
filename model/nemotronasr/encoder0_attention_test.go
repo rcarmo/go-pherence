@@ -1,6 +1,7 @@
 package nemotronasr
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -73,6 +74,70 @@ func TestReleasedEncoder0AttentionPyTorchParity(t *testing.T) {
 	}
 }
 
+func TestReleasedEncoder0AttentionLookaheadParity(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_NEMOTRON_ASR_MODEL")
+	if path == "" {
+		t.Skip("set GO_PHERENCE_NEMOTRON_ASR_MODEL to pinned model.safetensors")
+	}
+	file, err := safetensors.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, loadErr := LoadEncoder0Attention(file)
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	input := readStemFixture(t, "encoder0_ff1_residual", 5*encoderWidth)
+	original := append([]float32(nil), input...)
+	for _, lookahead := range []int{0, 3} {
+		mask := readStemFixture(t, fmt.Sprintf("encoder0_attn_mask_look%d", lookahead), 25)
+		for row := 0; row < 5; row++ {
+			for source := 0; source < 5; source++ {
+				want := float32(0)
+				if source/(lookahead+1) <= row/(lookahead+1) {
+					want = 1
+				}
+				if mask[row*5+source] != want {
+					t.Fatalf("lookahead=%d mask row=%d source=%d got=%g want=%g", lookahead, row, source, mask[row*5+source], want)
+				}
+			}
+		}
+		output, residual, err := m.ForwardOfflineLookahead(input, 5, lookahead)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, item := range []struct {
+			name string
+			got  []float32
+		}{{"output", output}, {"residual", residual}} {
+			ref := readStemFixture(t, fmt.Sprintf("encoder0_attn_%s_look%d", item.name, lookahead), 5*encoderWidth)
+			var maxAbs, sumAbs float64
+			var outside int
+			for i, value := range item.got {
+				delta := math.Abs(float64(value - ref[i]))
+				maxAbs = math.Max(maxAbs, delta)
+				sumAbs += delta
+				if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || delta > 3e-4+2e-5*math.Abs(float64(ref[i])) {
+					outside++
+				}
+			}
+			mean := sumAbs / float64(len(item.got))
+			t.Logf("lookahead=%d %s max_abs=%g mean_abs=%g outside=%d", lookahead, item.name, maxAbs, mean, outside)
+			if outside != 0 || mean > 2e-5 {
+				t.Fatalf("lookahead=%d %s differs from independent reference", lookahead, item.name)
+			}
+		}
+	}
+	for i, value := range input {
+		if value != original[i] {
+			t.Fatalf("mutated input at %d", i)
+		}
+	}
+}
+
 func TestEncoder0AttentionRejectsMalformed(t *testing.T) {
 	if _, err := LoadEncoder0Attention(nil); err == nil {
 		t.Fatal("accepted nil checkpoint")
@@ -94,6 +159,9 @@ func TestEncoder0AttentionRejectsMalformed(t *testing.T) {
 	bad[0] = float32(math.NaN())
 	if _, _, err := m.ForwardOffline(bad, 1); err == nil {
 		t.Fatal("accepted non-finite input")
+	}
+	if _, _, err := m.ForwardOfflineLookahead(make([]float32, encoderWidth), 1, 2); err == nil {
+		t.Fatal("accepted unsupported lookahead")
 	}
 }
 

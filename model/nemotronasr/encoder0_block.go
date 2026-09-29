@@ -7,8 +7,9 @@ import (
 )
 
 // Encoder0Block owns the first released offline ASR encoder block's weights.
-// Only an unmasked window of 1..5 subsampled rows at default lookahead 3 is
-// admitted; later blocks, caches and RNN-T are not implemented here.
+// Only a direct unmasked window of 1..5 subsampled rows is admitted. The
+// released encoder's default chunk mask, later blocks, caches and RNN-T are
+// not implemented here.
 type Encoder0Block struct {
 	FF1       *Encoder0FeedForward1
 	Attention *Encoder0Attention

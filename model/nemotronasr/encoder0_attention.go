@@ -72,10 +72,23 @@ func LoadEncoder0Attention(file *safetensors.File) (*Encoder0Attention, error) {
 }
 
 // ForwardOffline returns independent owned attention and residual arrays for
-// an entire [rows,1024] FF1 window starting at position zero. At <=4 rows,
-// the released default lookahead 3 admits all keys. The 5-row fixture is also
-// wholly visible with chunk size four. Larger windows need a mask/cache gate.
+// an unmasked [rows,1024] FF1 window starting at position zero. The released
+// encoder applies a chunk mask even to five rows; this direct operator path
+// does not implement that mask or the key/value cache.
 func (m *Encoder0Attention) ForwardOffline(input []float32, rows int) (attention, residual []float32, err error) {
+	return m.forwardOffline(input, rows, -1)
+}
+
+// ForwardOfflineLookahead applies the released chunk rule for the supported
+// zero- and three-token lookahead settings. No cached key/value state exists.
+func (m *Encoder0Attention) ForwardOfflineLookahead(input []float32, rows, lookahead int) (attention, residual []float32, err error) {
+	if lookahead != 0 && lookahead != 3 {
+		return nil, nil, fmt.Errorf("unsupported Nemotron ASR encoder-0 lookahead")
+	}
+	return m.forwardOffline(input, rows, lookahead)
+}
+
+func (m *Encoder0Attention) forwardOffline(input []float32, rows, lookahead int) (attention, residual []float32, err error) {
 	if m == nil || m.qkv == nil || len(m.relativeWeight) != encoderWidth*encoderWidth || len(m.biasU) != encoderWidth || len(m.biasV) != encoderWidth || len(m.outputWeight) != encoderWidth*encoderWidth {
 		return nil, nil, fmt.Errorf("invalid Nemotron ASR encoder-0 attention weights")
 	}
@@ -108,6 +121,9 @@ func (m *Encoder0Attention) ForwardOffline(input []float32, rows int) (attention
 					positional += (q[row*encoderWidth+off] + m.biasV[off]) * relative[pos*encoderWidth+off]
 				}
 				scores[source] = (content + positional) * scaling
+				if lookahead >= 0 && source/(lookahead+1) > row/(lookahead+1) {
+					scores[source] = float32(math.Inf(-1))
+				}
 			}
 			if !simd.SoftmaxInPlace(scores[:rows]) {
 				return nil, nil, fmt.Errorf("Nemotron ASR attention softmax failed")

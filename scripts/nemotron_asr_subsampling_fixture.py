@@ -11,6 +11,8 @@ from pathlib import Path
 import soundfile as sf
 import torch
 from transformers import AutoModelForRNNT, AutoProcessor
+from transformers.masking_utils import create_bidirectional_mask
+from transformers.models.nemotron_asr_streaming.modeling_nemotron_asr_streaming import chunked_limited_mask_function
 
 ROOT = Path(__file__).resolve().parents[1]
 WAV = ROOT / "testdata/jfk.wav"
@@ -81,6 +83,18 @@ def main():
                 save(args.out / "encoder0_attn_output.f32.gz", attention[0])
                 attention_residual = ff1_residual + attention
                 save(args.out / "encoder0_attn_residual.f32.gz", attention_residual[0])
+                for lookahead in (0, 3):
+                    left_ctx, right_ctx = model.encoder._resolve_attn_context(lookahead)
+                    chunk_mask = create_bidirectional_mask(
+                        config=model.encoder.config,
+                        inputs_embeds=ff1_residual,
+                        attention_mask=torch.ones((1, ff1_residual.shape[1]), dtype=torch.bool),
+                        and_mask_function=chunked_limited_mask_function(left_ctx, right_ctx),
+                    )
+                    save(args.out / f"encoder0_attn_mask_look{lookahead}.f32.gz", chunk_mask[0, 0].float())
+                    masked_attention, _ = layer.self_attn(attn_normal, position_embeddings=positions, attention_mask=chunk_mask)
+                    save(args.out / f"encoder0_attn_output_look{lookahead}.f32.gz", masked_attention[0])
+                    save(args.out / f"encoder0_attn_residual_look{lookahead}.f32.gz", (ff1_residual + masked_attention)[0])
                 conv_normal = layer.norm_conv(attention_residual)
                 save(args.out / "encoder0_conv_normal.f32.gz", conv_normal[0])
                 point1 = layer.conv.pointwise_conv1(conv_normal.transpose(1, 2))
