@@ -253,7 +253,16 @@ cancellation after each completed window and returns no partial logits; its
 state-driven test cancels after the first emission. Three native `-race` PTX
 runs confirmed terminal cancellation, no returned partial logits, and
 explicit resident-tower cleanup. The check does not interrupt an active GPU
-kernel or establish a service deadline guarantee.
+kernel or establish a service deadline guarantee. A separate bounded PTX
+lifecycle check ran two cycles over exact 13/16/31/58/103/138/13/103-row
+windows against CPU composition, with zero values outside the existing
+numerical gate; the largest absolute error was `1.29e-5`. Device allocation
+and free counts/bytes balanced after both closes. A synthetic F32 input with
+values up to about 160 tested the resident layer at 13/103/138 rows: maximum
+error versus CPU composition was `7.63e-5`, with zero outliers. Two native
+`-race` repetitions passed. These tests do not establish multi-speaker DER,
+other-device parity, high-volume soak, or interruption of an in-flight CUDA
+kernel.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
