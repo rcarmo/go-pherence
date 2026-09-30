@@ -87,6 +87,14 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 		base := head * asrAttentionHeadWidth
 		for row := 0; row < rows; row++ {
 			globalRow := seen + row
+			// Each query/head bias is independent of the visible source. Keep
+			// its exact float32 sum in stack-owned vectors once per row.
+			var queryU, queryV [asrAttentionHeadWidth]float32
+			for dim := 0; dim < asrAttentionHeadWidth; dim++ {
+				off := base + dim
+				queryU[dim] = q[row*encoderWidth+off] + m.biasU[off]
+				queryV[dim] = q[row*encoderWidth+off] + m.biasV[off]
+			}
 			for source := 0; source < keyRows; source++ {
 				var content, positional float32
 				// _rel_shift for q rows and cached+current keys maps to
@@ -94,8 +102,8 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 				pos := rows - 1 + source - row
 				for dim := 0; dim < asrAttentionHeadWidth; dim++ {
 					off := base + dim
-					content += (q[row*encoderWidth+off] + m.biasU[off]) * visibleK[(head*keyRows+source)*asrAttentionHeadWidth+dim]
-					positional += (q[row*encoderWidth+off] + m.biasV[off]) * relative[pos*encoderWidth+off]
+					content += queryU[dim] * visibleK[(head*keyRows+source)*asrAttentionHeadWidth+dim]
+					positional += queryV[dim] * relative[pos*encoderWidth+off]
 				}
 				scores[source] = (content + positional) * scaling
 				globalSource := seen - retained + source
@@ -108,12 +116,8 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 			if !simd.SoftmaxInPlace(scores) {
 				return nil, fmt.Errorf("Nemotron ASR cached attention softmax failed")
 			}
-			for dim := 0; dim < asrAttentionHeadWidth; dim++ {
-				var sum float32
-				for source := 0; source < keyRows; source++ {
-					sum += scores[source] * visibleV[(head*keyRows+source)*asrAttentionHeadWidth+dim]
-				}
-				mixed[row*encoderWidth+base+dim] = sum
+			if !simd.AttentionValueRowTo(mixed[row*encoderWidth+base:row*encoderWidth+base+asrAttentionHeadWidth], scores, visibleV[head*keyRows*asrAttentionHeadWidth:(head+1)*keyRows*asrAttentionHeadWidth], keyRows, asrAttentionHeadWidth) {
+				return nil, fmt.Errorf("Nemotron ASR cached attention value accumulation rejected shape")
 			}
 		}
 	}
