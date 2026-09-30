@@ -239,7 +239,7 @@ func TestBrowserOffersExplicitSpeakerProfileSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(html), `id="diarize" type="checkbox"`) || !strings.Contains(string(js), `($('diarize').checked?'diar':'asr')+'-'+language+'-'+extension`) {
+	if !strings.Contains(string(html), `id="diarize" type="checkbox"`) || !strings.Contains(string(html), `<option value="nem" selected>Nemotron (default)</option>`) || !strings.Contains(string(js), `($('diarize').checked?$('speaker-provider').value:'asr')+'-'+language+'-'+extension`) {
 		t.Fatal("browser does not select separate ASR and diarization profiles")
 	}
 }

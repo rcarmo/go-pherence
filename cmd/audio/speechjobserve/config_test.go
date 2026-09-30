@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -139,7 +140,13 @@ func TestConfigProfileSetCompatibilityAndBounds(t *testing.T) {
 		func(c *ServerConfig) { c.Profiles[1].ID = c.Profiles[0].ID },
 		func(c *ServerConfig) { c.Profiles[1].OverlapSamples++ },
 		func(c *ServerConfig) { c.Profiles[23].Community = &CommunitySettings{} },
-		func(c *ServerConfig) { c.Profiles = append(c.Profiles, base) },
+		func(c *ServerConfig) {
+			for len(c.Profiles) <= 48 {
+				extra := base
+				extra.ID = fmt.Sprintf("extra-%d", len(c.Profiles))
+				c.Profiles = append(c.Profiles, extra)
+			}
+		},
 	} {
 		bad := c
 		bad.Profiles = append([]ProfileSettings(nil), c.Profiles...)

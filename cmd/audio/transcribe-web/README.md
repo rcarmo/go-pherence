@@ -8,7 +8,9 @@ Conversational profiles set Community-1 `tie_policy` to `lowest-index`. Equal re
 
 The browser checks WAV and M4A container signatures before upload. A filename/content mismatch is blocked with conversion guidance. The API exposes only allowlisted failure codes; raw stage errors and local paths stay private. Permanent media-type failures do not offer Retry because the retained bytes cannot succeed under the same profile. Primary downloads prefer speaker-labelled VTT when available. Other JSON and VTT variants are visible in the recording detail, without collapsible sections. Export filenames use the recording title and explicit language, for example `customer-interview.pt.speakers.vtt`; internal job IDs are excluded.
 
-The app exposes no microphone, streaming, translation, named speaker identity, collaborative editing, cloud API or concurrent inference path.
+The in-development Nemotron integration keeps Whisper ASR and adds CPU-only speaker diarization. For new speaker-labelled uploads, the UI selects `nem-{language}-{m4a|wav}` by default; `diar-*` remains the explicit Community-1 choice. The server must configure the separate Nemotron profiles before those submissions are available. Existing profile identities remain unchanged. [Bounded CPU smoke evidence and validation limits](../../../docs/validation/nemotron-speechjob-cpu-integration-20260930.md).
+
+The app exposes no microphone, streaming audio ingestion, translation, named speaker identity, collaborative editing, cloud API or concurrent inference path.
 
 ## Build
 

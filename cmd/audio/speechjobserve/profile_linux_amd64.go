@@ -252,7 +252,7 @@ func buildProfile(ctx context.Context, c ServerConfig, load bool) ([]httpapi.Pro
 		return nil, e
 	}
 	if len(b.owners) > 0 {
-		return nil, fmt.Errorf("experimental Vulkan profile requires owned builder")
+		return nil, fmt.Errorf("model profile with resident owners requires owned builder")
 	}
 	return b.Profiles, nil
 }
@@ -354,6 +354,14 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		}
 		result.owners = append(result.owners, communityOwner)
 	}
+	nemotronOwner, e := prepareNemotron(ctx, c)
+	if e != nil {
+		closeBuiltProfiles(result)
+		return nil, e
+	}
+	if nemotronOwner != nil {
+		result.owners = append(result.owners, nemotronOwner)
+	}
 	for i, opts := range profiles {
 		asr := asrStages[i]
 		text, err := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
@@ -362,6 +370,19 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 			return nil, err
 		}
 		stages := []speechjob.Stage{decodeStages[i], asr, text, speechjob.NewVTTStage()}
+		if opts.Nemotron != nil {
+			if nemotronOwner == nil {
+				closeBuiltProfiles(result)
+				return nil, fmt.Errorf("Nemotron owner missing")
+			}
+			diar := nemotronOwner.Stage()
+			speaker, err := speechjob.NewNemotronSpeakerTranscriptStage(speechjob.SpeakerTranscriptConfig{TranscriptVersion: text.Version, DiarizationVersion: diar.Version, AllowExperimental: true})
+			if err != nil {
+				closeBuiltProfiles(result)
+				return nil, err
+			}
+			stages = append(stages, diar, speaker, speechjob.NewSpeakerVTTStage())
+		}
 		if opts.Community != nil {
 			if communityOwner == nil {
 				closeBuiltProfiles(result)

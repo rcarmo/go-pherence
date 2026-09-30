@@ -453,6 +453,13 @@ func TestRecordingPresentationFallbacks(t *testing.T) {
 	if language, speakers := recordingOptions(m, "asr-en-wav"); language != "en" || speakers {
 		t.Fatal(language, speakers)
 	}
+	if language, speakers := recordingOptions(m, "nem-it-m4a"); language != "it" || !speakers {
+		t.Fatal(language, speakers)
+	}
+	m.Configuration = `{"Config":"{\"Profile\":{\"language\":\"es\",\"nemotron\":{\"enable\":true}}}"}`
+	if language, speakers := recordingOptions(m, ""); language != "es" || !speakers {
+		t.Fatal(language, speakers)
+	}
 }
 
 func TestRecordingTitleAndHumanExportFilename(t *testing.T) {

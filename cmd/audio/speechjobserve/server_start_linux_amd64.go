@@ -85,6 +85,9 @@ func startWithRuntimes(ctx context.Context, path string, check bool, out io.Writ
 		if e = inspectCommunityMetadata(ctx, cfg); e != nil {
 			return e
 		}
+		if e = inspectNemotronMetadata(ctx, cfg); e != nil {
+			return e
+		}
 		return json.NewEncoder(out).Encode(struct {
 			MetadataChecked bool `json:"metadata_checked"`
 			Loaded          bool `json:"model_loaded"`

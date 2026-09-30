@@ -121,8 +121,13 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 	if d.Policy.MinDurationOff != 0 || d.Policy.TiePolicy == c1.RejectAmbiguousTies && len(d.AmbiguousFrames) > 0 || d.Path != "silence" && !d.ConstraintSatisfied {
 		return zero, ErrConfiguration
 	}
+	return labelTranscriptTurns(ctx, t, d.FullTurns, d.ExclusiveTurns, d.Clusters, textKey, d.StageKey, speakerCoveragePolicy, d.Path == "silence")
+}
+
+func labelTranscriptTurns(ctx context.Context, t Transcript, full, wordTurns []c1.SpeakerTurn, speakers int, textKey, diarKey, policy string, silence bool) (SpeakerTranscript, error) {
+	var zero SpeakerTranscript
 	var spans [64][]speakerSpan
-	for i, turn := range d.FullTurns {
+	for i, turn := range full {
 		if i%256 == 0 {
 			if e := ctx.Err(); e != nil {
 				return zero, e
@@ -138,7 +143,7 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 		}
 		spans[turn.Speaker] = row
 	}
-	result := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: textKey, DiarizationKey: d.StageKey, Policy: speakerCoveragePolicy, Transcript: t}
+	result := SpeakerTranscript{Schema: 2, Experimental: true, TranscriptKey: textKey, DiarizationKey: diarKey, Policy: policy, Transcript: t}
 	result.Transcript.Cues = append([]Cue(nil), t.Cues...)
 	if t.Words != nil {
 		result.Transcript.Words = append([]WordCue(nil), t.Words...)
@@ -168,16 +173,16 @@ func labelSpeakerTranscript(ctx context.Context, t Transcript, d DiarizationDocu
 				tied = true
 			}
 		}
-		if requireFull && intersecting != 1 || tied || bestOverlap <= 0 || bestSpeaker >= d.Clusters {
+		if requireFull && intersecting != 1 || tied || bestOverlap <= 0 || bestSpeaker >= speakers {
 			return -1
 		}
 		return bestSpeaker
 	}
 	var exclusive [64][]speakerSpan
-	for _, turn := range d.ExclusiveTurns {
+	for _, turn := range wordTurns {
 		exclusive[turn.Speaker] = append(exclusive[turn.Speaker], speakerSpan{turn.Start, turn.End})
 	}
-	if len(result.Transcript.Words) > 0 && d.Path == "silence" {
+	if len(result.Transcript.Words) > 0 && silence {
 		return zero, ErrConfiguration
 	}
 	for i, cue := range result.Transcript.Cues {
@@ -258,7 +263,7 @@ func ReadSpeakerTranscriptJSON(ctx context.Context, r io.Reader) (SpeakerTranscr
 }
 
 func validateSpeakerTranscript(ctx context.Context, d SpeakerTranscript) error {
-	if d.Schema != 2 || !d.Experimental || !validHash(d.TranscriptKey) || !validHash(d.DiarizationKey) || d.Policy != speakerCoveragePolicy || d.Transcript.Cues == nil {
+	if d.Schema != 2 || !d.Experimental || !validHash(d.TranscriptKey) || !validHash(d.DiarizationKey) || (d.Policy != speakerCoveragePolicy && d.Policy != nemotronSpeakerPolicy) || d.Transcript.Cues == nil {
 		return ErrCorrupt
 	}
 	if e := validateTranscript(ctx, d.Transcript); e != nil {
@@ -305,6 +310,9 @@ func WriteSpeakerTranscriptVTT(ctx context.Context, w io.Writer, d SpeakerTransc
 	}
 	const header = "WEBVTT\n\n"
 	note := "NOTE Experimental Community-1 speaker labels; exclusive-turn word attribution when available.\n\n"
+	if d.Policy == nemotronSpeakerPolicy {
+		note = "NOTE Experimental Nemotron speaker labels; maximum-positive-overlap word attribution; overlap ties remain unlabelled.\n\n"
+	}
 	if body.Len()+len(note) > MaxTranscriptBytes {
 		return ErrLimit
 	}

@@ -101,7 +101,7 @@ type Handler struct {
 // The store must be exclusively owned by this handler while requests run. The
 // caller closes it only after Shutdown succeeds. No default profile is inferred.
 func New(cfg Config) (*Handler, error) {
-	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 32 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 || cfg.Queue != nil && (cfg.EnableUI || cfg.RunAdmission != nil) {
+	if cfg.Store == nil || len(cfg.Profiles) < 1 || len(cfg.Profiles) > 48 || len(cfg.Hosts) < 1 || len(cfg.Hosts) > 16 || len(cfg.Token) < 32 || len(cfg.Token) > 256 || cfg.MaxUploadBytes < 1 || cfg.MaxUploadBytes > 512<<20 || cfg.MaxConcurrentRequests < 1 || cfg.MaxConcurrentRequests > 64 || cfg.Queue != nil && (cfg.EnableUI || cfg.RunAdmission != nil) {
 		return nil, fmt.Errorf("invalid HTTP job configuration")
 	}
 	for _, b := range []byte(cfg.Token) {
@@ -883,7 +883,7 @@ func titleWord(word string) string {
 func recordingOptions(m speechjob.Manifest, profile string) (string, bool) {
 	parts := strings.Split(profile, "-")
 	if len(parts) == 3 {
-		return parts[1], parts[0] == "diar"
+		return parts[1], parts[0] == "diar" || parts[0] == "nem"
 	}
 	var outer struct {
 		Config string `json:"Config"`
@@ -892,10 +892,11 @@ func recordingOptions(m speechjob.Manifest, profile string) (string, bool) {
 		Profile struct {
 			Language  string          `json:"language"`
 			Community json.RawMessage `json:"community"`
+			Nemotron  json.RawMessage `json:"nemotron"`
 		} `json:"Profile"`
 	}
 	if json.Unmarshal([]byte(m.Configuration), &outer) == nil && json.Unmarshal([]byte(outer.Config), &inner) == nil {
-		speakers := len(inner.Profile.Community) > 0 && string(inner.Profile.Community) != "null"
+		speakers := len(inner.Profile.Community) > 0 && string(inner.Profile.Community) != "null" || len(inner.Profile.Nemotron) > 0 && string(inner.Profile.Nemotron) != "null"
 		return inner.Profile.Language, speakers
 	}
 	for _, cp := range m.Checkpoints {

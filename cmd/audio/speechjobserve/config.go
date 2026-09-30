@@ -137,9 +137,18 @@ type CommunitySettings struct {
 	Vulkan             *CommunityVulkanSettings      `json:"vulkan,omitempty"`
 	MaxResultBytes     int64                         `json:"max_result_bytes"`
 }
+type NemotronSettings struct {
+	Enable            bool   `json:"enable"`
+	AllowExperimental bool   `json:"allow_experimental"`
+	ModelRevision     string `json:"model_revision"`
+	Model             Asset  `json:"model"`
+	MaxResultBytes    int64  `json:"max_result_bytes"`
+}
+
 type ProfileSettings struct {
 	Vulkan                   *VulkanSettings    `json:"vulkan,omitempty"`
 	Community                *CommunitySettings `json:"community,omitempty"`
+	Nemotron                 *NemotronSettings  `json:"nemotron,omitempty"`
 	ID                       string             `json:"id"`
 	Language                 string             `json:"language"`
 	Extension                string             `json:"extension"`
@@ -312,7 +321,7 @@ func uniqueJSON(data []byte, maxDepth int, foldKeys, allowNull bool) error {
 }
 func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
 	hasProfile := c.Profile != (ProfileSettings{})
-	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 24 {
+	if !hasProfile && len(c.Profiles) == 0 || len(c.Profiles) > 48 {
 		return nil, fmt.Errorf("configure exactly one profile or one profile set")
 	}
 	profiles := c.Profiles
@@ -326,17 +335,26 @@ func (c ServerConfig) configuredProfiles() ([]ProfileSettings, error) {
 	}
 	seen := map[string]bool{}
 	base := profiles[0]
-	base.ID, base.Language, base.Extension, base.Community = "", "", "", nil
+	base.ID, base.Language, base.Extension, base.Community, base.Nemotron = "", "", "", nil, nil
 	var community *CommunitySettings
+	var nemotron *NemotronSettings
 	for _, profile := range profiles {
 		if seen[profile.ID] {
 			return nil, fmt.Errorf("duplicate profile ID")
 		}
 		seen[profile.ID] = true
 		shared := profile
-		shared.ID, shared.Language, shared.Extension, shared.Community = "", "", "", nil
+		shared.ID, shared.Language, shared.Extension, shared.Community, shared.Nemotron = "", "", "", nil, nil
 		if !reflect.DeepEqual(base, shared) {
-			return nil, fmt.Errorf("profile set may differ only by ID, language, extension and Community opt-in")
+			return nil, fmt.Errorf("profile set may differ only by ID, language, extension and diarization provider opt-in")
+		}
+		if profile.Nemotron != nil {
+			if nemotron == nil {
+				copy := *profile.Nemotron
+				nemotron = &copy
+			} else if *nemotron != *profile.Nemotron {
+				return nil, fmt.Errorf("profiles must share one Nemotron configuration")
+			}
 		}
 		if profile.Community != nil {
 			if community == nil {
@@ -446,6 +464,13 @@ func (c ServerConfig) validate() error {
 	if v := f.Vulkan; v != nil {
 		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
 			return fmt.Errorf("invalid experimental Vulkan profile")
+		}
+	}
+	for _, p := range profiles {
+		if x := p.Nemotron; x != nil {
+			if p.Community != nil || !x.Enable || !x.AllowExperimental || x.ModelRevision != "a435e9867d79e789e90053f9b6d6834053af564a" || !filepath.IsAbs(x.Model.Path) || !validHash(x.Model.SHA256) || x.MaxResultBytes < 1 || x.MaxResultBytes > 16<<20 || c.Resources == nil {
+				return fmt.Errorf("invalid Nemotron CPU diarization configuration")
+			}
 		}
 	}
 	if x := configuredCommunity(profiles); x != nil {
