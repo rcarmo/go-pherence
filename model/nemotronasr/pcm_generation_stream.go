@@ -172,6 +172,12 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 		}
 		tokens = append(tokens, partTokens...)
 		frames = append(frames, partFrames...)
+		// A completed chunk may be the final one in this PCM call. Check
+		// cancellation before returning any decisions from a partial call.
+		if err := ctx.Err(); err != nil {
+			s.closed = true
+			return nil, nil, err
+		}
 	}
 	return tokens, frames, nil
 }

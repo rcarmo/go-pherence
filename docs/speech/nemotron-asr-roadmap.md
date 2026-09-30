@@ -208,6 +208,13 @@ samples include GPU setup, transfers and teardown but exclude WAV/model
 loading. Both GPU backends still run the 24-layer cached encoder and RNN-T
 on CPU. One PTX sample does not establish a general request speedup.
 These are single-host samples; labelled WER and broader quality are open.
+A post-chunk cancellation check now prevents a completed encoder chunk from
+returning partial tokens/frames when cancellation arrives before the PCM call
+returns. A state-driven test cancelled after the first greedy chunk on SIMD,
+PTX and Vulkan projection paths. Two native `-race` runs confirmed terminal
+closure, no returned decisions, rejected finish, request-owned projector
+cleanup and balanced PTX device allocations. An active kernel cannot be
+interrupted, and this is not a service deadline guarantee.
 
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
 `AppendPCM` calls, model/WAV loading excluded) identified relative-position
