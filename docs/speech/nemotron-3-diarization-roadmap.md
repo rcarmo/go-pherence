@@ -247,6 +247,13 @@ fell from `64–68 ms` to `33–36 ms`; the pinned 100-second request took
 `23.71 s` (test) and `23.60 s` (CLI), returned 9,999 matching logits rows
 and the same 29 spans with zero outliers. This remains a hybrid request on
 one i7-12700/RTX 3060 host; no full-GPU or labelled DER claim follows.
+A cancellation check tied to an exact `ctx.Err()` call count previously failed
+with the pinned model on the unchanged baseline. The request now checks
+cancellation after each completed window and returns no partial logits; its
+state-driven test cancels after the first emission. Three native `-race` PTX
+runs confirmed terminal cancellation, no returned partial logits, and
+explicit resident-tower cleanup. The check does not interrupt an active GPU
+kernel or establish a service deadline guarantee.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;

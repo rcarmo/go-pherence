@@ -125,6 +125,11 @@ func (s *PCMStreamingRequest) runReady(ctx context.Context) ([]float32, error) {
 		s.emitted += lowLatencyFrames * diarizationUpsample
 		copy(s.pending, s.pending[lowLatencyFrames*projectedWidth:])
 		s.pending = s.pending[:len(s.pending)-lowLatencyFrames*projectedWidth]
+		// Explicitly observe cancellation after a completed window. The
+		// caller receives no partial logits if it cancels before return.
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

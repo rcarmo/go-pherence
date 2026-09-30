@@ -11,19 +11,17 @@ import (
 	"github.com/rcarmo/go-pherence/loader/safetensors"
 )
 
-// failAfterChecks deterministically cancels between bounded windows,
-// without relying on a timer interrupting a nonpreemptible GEMM.
-type failAfterChecks struct {
-	checks int
-	limit  int
+// cancelAfterEmission cancels on request state, not a fragile count of
+// context checks inside the frontend, tower, or cache.
+type cancelAfterEmission struct {
+	request *PCMStreamingRequest
 }
 
-func (c *failAfterChecks) Deadline() (time.Time, bool) { return time.Time{}, false }
-func (c *failAfterChecks) Done() <-chan struct{}       { return nil }
-func (c *failAfterChecks) Value(key any) any           { return nil }
-func (c *failAfterChecks) Err() error {
-	c.checks++
-	if c.checks >= c.limit {
+func (c *cancelAfterEmission) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (c *cancelAfterEmission) Done() <-chan struct{}       { return nil }
+func (c *cancelAfterEmission) Value(key any) any           { return nil }
+func (c *cancelAfterEmission) Err() error {
+	if c.request.emitted > 0 {
 		return context.Canceled
 	}
 	return nil
@@ -74,12 +72,33 @@ func TestPCMStreamingRequestContextValidation(t *testing.T) {
 	}
 
 	s = newRequest()
-	between := &failAfterChecks{limit: 3} // validate, first window, second window
+	// Cancel on the explicit post-window check. No partial logits escape.
+	between := &cancelAfterEmission{request: s}
 	out, err := s.AppendPCMContext(between, make([]float32, 16000*5))
-	if !errors.Is(err, context.Canceled) || out != nil || !s.closed || s.emitted != lowLatencyFrames*diarizationUpsample || between.checks != 3 {
-		t.Fatalf("between-window cancellation err=%v out=%d closed=%v emitted=%d checks=%d", err, len(out), s.closed, s.emitted, between.checks)
+	if !errors.Is(err, context.Canceled) || out != nil || !s.closed || s.emitted != lowLatencyFrames*diarizationUpsample {
+		t.Fatalf("between-window cancellation err=%v out=%d closed=%v emitted=%d", err, len(out), s.closed, s.emitted)
 	}
 	if _, err := s.Finish(); err == nil {
 		t.Fatal("accepted finish after partial cancelled request")
+	}
+	if os.Getenv("GO_PHERENCE_TEST_NEMOTRON_PTX_REQUEST") == "1" {
+		s = newRequest()
+		if err := s.EnablePTXTower(); err != nil {
+			t.Fatal(err)
+		}
+		between = &cancelAfterEmission{request: s}
+		out, err = s.AppendPCMContext(between, make([]float32, 16000*5))
+		if !errors.Is(err, context.Canceled) || out != nil || !s.closed || s.emitted != lowLatencyFrames*diarizationUpsample {
+			t.Fatalf("PTX between-window cancellation err=%v out=%d closed=%v emitted=%d", err, len(out), s.closed, s.emitted)
+		}
+		if s.window.PTXTower == nil || s.window.PTXTower.tower == nil {
+			t.Fatal("PTX cancellation did not exercise resident tower")
+		}
+		if err := s.ClosePTXTower(); err != nil {
+			t.Fatal(err)
+		}
+		if s.window.PTXTower != nil {
+			t.Fatal("PTX tower retained after cancellation cleanup")
+		}
 	}
 }
