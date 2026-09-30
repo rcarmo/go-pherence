@@ -290,6 +290,12 @@ identifying a safe numerical fix or changing the acceptance gate. Two
 bounded frontend power trials—direct `re²+im²` and a float64 squared sum
 before the magnitude cast—and scalar rather than SIMD per-frame mel
 projection still produced two composed-stage outliers and were reverted.
+A fourth bounded FFT trial replaced recurrence twiddles in `ForwardRealInto`
+with direct `sin`/`cos` twiddles at each 512-point butterfly stage. The same
+two chunk-36 composed-stage outliers persisted, with unchanged logged
+frontend contributions (`-0.003515` and `+0.003374`) and mel maximum
+`3.54e-4`; the trial was reverted. Neither the existing tolerance nor the
+production FFT changed.
 The source WAV digest guards fixture provenance, not
 generated-output acceptance. Transcript agreement on this clip is still
 model-oracle parity, not a human-labelled accuracy result.
