@@ -129,7 +129,11 @@ func buildNemotronASRProfiles(ctx context.Context, c ServerConfig, load bool, co
 			closeBuiltProfiles(result)
 			return nil, err
 		}
-		text, err := speechjob.NewNemotronASRStage(model, vocab, speechjob.NemotronASRConfig{ModelSHA256: c.Weights.SHA256, TokenizerSHA256: c.Tokenizer.SHA256, RuntimeSHA256: c.RuntimeSHA256, ModelRevision: c.NemotronASR.ModelRevision, Language: opts.Language, PromptID: prompts[opts.Language], MaxResultBytes: opts.ResultBytes})
+		asrConfig := speechjob.NemotronASRConfig{ModelSHA256: c.Weights.SHA256, TokenizerSHA256: c.Tokenizer.SHA256, RuntimeSHA256: c.RuntimeSHA256, ModelRevision: c.NemotronASR.ModelRevision, Language: opts.Language, PromptID: prompts[opts.Language], MaxResultBytes: opts.ResultBytes}
+		if p := c.NemotronASR.Projection; p != nil {
+			asrConfig.ProjectionBackend, asrConfig.ProjectionDevice, asrConfig.ProjectionBackendSHA256 = p.Backend, p.DeviceContains, p.BackendSHA256
+		}
+		text, err := speechjob.NewNemotronASRStage(model, vocab, asrConfig)
 		if err != nil {
 			closeBuiltProfiles(result)
 			return nil, err

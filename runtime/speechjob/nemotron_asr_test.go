@@ -4,6 +4,7 @@ package speechjob
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
@@ -168,5 +169,87 @@ func TestNemotronCoarseTimingRoundtripAndLegacyBytes(t *testing.T) {
 	text.Words = []WordCue{{StartSample: 0, EndSample: 16000, Speaker: -1, Text: "hello"}}
 	if err := WriteTranscriptJSON(context.Background(), io.Discard, text); err == nil {
 		t.Fatal("coarse declared word alignment")
+	}
+}
+
+func TestNemotronASRSharedIdentityKeepsCPUCheckpointVersion(t *testing.T) {
+	cfg := NemotronASRConfig{ModelSHA256: hash([]byte("m")), TokenizerSHA256: hash([]byte("v")), RuntimeSHA256: hash([]byte("r")), ModelRevision: NemotronASRRevision, Language: "auto", PromptID: 101, MaxResultBytes: 1 << 20}
+	factory := func() nemotronASRStream { return &fakeASR{} }
+	stage, err := newNemotronASRStage(asrVocab(), cfg, factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := struct {
+		ModelSHA256, TokenizerSHA256, RuntimeSHA256, ModelRevision string
+		Language                                                   string
+		PromptID                                                   int
+		MaxResultBytes                                             int64
+	}{cfg.ModelSHA256, cfg.TokenizerSHA256, cfg.RuntimeSHA256, cfg.ModelRevision, cfg.Language, cfg.PromptID, cfg.MaxResultBytes}
+	identity, _ := json.Marshal(struct {
+		Schema string
+		Config any
+	}{"speechjob-nemotron-asr-cpu-emission-chunks-v1", legacy})
+	if stage.Version != hash(identity) {
+		t.Fatal("CPU checkpoint identity changed")
+	}
+	shared := cfg
+	shared.ProjectionBackend = "vulkan-shared"
+	shared.ProjectionDevice = "Intel"
+	shared.ProjectionBackendSHA256 = hash([]byte("backend"))
+	candidate, err := newNemotronASRStage(asrVocab(), shared, factory)
+	if err != nil || candidate.Version == stage.Version {
+		t.Fatal("shared identity missing", err)
+	}
+	for _, bad := range []NemotronASRConfig{
+		func() NemotronASRConfig { c := shared; c.ProjectionBackend = "vulkan"; return c }(),
+		func() NemotronASRConfig { c := shared; c.ProjectionDevice = ""; return c }(),
+		func() NemotronASRConfig { c := shared; c.ProjectionBackendSHA256 = "bad"; return c }(),
+		func() NemotronASRConfig { c := cfg; c.ProjectionDevice = "Intel"; return c }(),
+	} {
+		if _, err := newNemotronASRStage(asrVocab(), bad, factory); err == nil {
+			t.Fatal("bad projection config")
+		}
+	}
+}
+
+type closingASR struct {
+	fakeASR
+	closed   *int
+	closeErr error
+}
+
+func (s *closingASR) Close() error { *s.closed++; return s.closeErr }
+func TestNemotronASRClosesOwnedProjectionBeforeCheckpoint(t *testing.T) {
+	for _, mode := range []string{"success", "inference-failed", "close-failed"} {
+		t.Run(mode, func(t *testing.T) {
+			store, _ := openTest(t)
+			job := createTest(t, store)
+			closed := 0
+			failure := errors.New("injected")
+			stage, err := newNemotronASRStage(asrVocab(), asrConfig(), func() nemotronASRStream {
+				s := &closingASR{closed: &closed}
+				if mode == "inference-failed" {
+					s.fail = failure
+				}
+				if mode == "close-failed" {
+					s.closeErr = failure
+				}
+				return s
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			job, err = store.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(96000), stage, NewVTTStage()}, nil)
+			if closed != 1 {
+				t.Fatal("projection owner not closed", closed)
+			}
+			if mode == "success" {
+				if err != nil || job.Status != Complete {
+					t.Fatal(job, err)
+				}
+			} else if !errors.Is(err, failure) || job.Status != Failed || len(job.Checkpoints) != 1 {
+				t.Fatal("partial ASR published before owner close", job, err)
+			}
+		})
 	}
 }

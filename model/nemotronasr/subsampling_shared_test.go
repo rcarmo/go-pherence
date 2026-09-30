@@ -311,3 +311,16 @@ func TestSubsamplingSharedFailurePreservesAcknowledgedChunk(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestProjectionTransferStatsSnapshot(t *testing.T) {
+	var absent *DeviceSubsamplingProjector
+	if absent.TransferStats() != (ProjectionTransferStats{}) {
+		t.Fatal("nil stats")
+	}
+	p := &DeviceSubsamplingProjector{dispatches: 7, stats: ProjectionTransferStats{InputCopyBytes: 11, CPUWrites: 7}}
+	snapshot := p.TransferStats()
+	snapshot.CPUWrites = 0
+	if p.TransferStats().CPUWrites != 7 || snapshot.Dispatches != 7 {
+		t.Fatal("snapshot aliases/counters wrong")
+	}
+}

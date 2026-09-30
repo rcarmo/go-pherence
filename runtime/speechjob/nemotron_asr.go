@@ -12,6 +12,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 	"github.com/rcarmo/go-pherence/loader/tokenizer"
 	asr "github.com/rcarmo/go-pherence/model/nemotronasr"
@@ -27,6 +28,9 @@ type NemotronASRConfig struct {
 	Language                                                   string
 	PromptID                                                   int
 	MaxResultBytes                                             int64
+	// Empty preserves the CPU profile/checkpoint identity. Shared Vulkan must
+	// be explicit and attested; it never falls back to copied or CPU execution.
+	ProjectionBackend, ProjectionDevice, ProjectionBackendSHA256 string
 }
 
 type nemotronASRStream interface {
@@ -44,22 +48,66 @@ func NewNemotronASRStage(model *asr.PCMGenerationModel, vocab *tokenizer.Tokeniz
 	}
 	return newNemotronASRStage(vocab, cfg, func() nemotronASRStream {
 		prompt := cfg.PromptID
-		return &asr.PCMGenerationStream{Model: model, PromptID: &prompt}
+		stream := &asr.PCMGenerationStream{Model: model, PromptID: &prompt}
+		if cfg.ProjectionBackend == "vulkan-shared" {
+			projector := &asr.DeviceSubsamplingProjector{Backend: "vulkan", SharedMemory: true}
+			stream.Projector = projector
+			return &nemotronSharedASRStream{PCMGenerationStream: stream, projector: projector, device: cfg.ProjectionDevice}
+		}
+		return stream
 	})
 }
 
+type nemotronSharedASRStream struct {
+	*asr.PCMGenerationStream
+	projector *asr.DeviceSubsamplingProjector
+	device    string
+	checked   bool
+}
+
+func (s *nemotronSharedASRStream) AppendPCM(ctx context.Context, pcm []float32) ([]int, []int64, error) {
+	if !s.checked {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+		if !vulkan.VulkanInit() || !strings.Contains(strings.ToLower(vulkan.VulkanDeviceName()), strings.ToLower(s.device)) {
+			return nil, nil, ErrConfiguration
+		}
+		s.checked = true
+	}
+	return s.PCMGenerationStream.AppendPCM(ctx, pcm)
+}
+func (s *nemotronSharedASRStream) Close() error { return s.projector.Close() }
+
 func newNemotronASRStage(vocab *tokenizer.Tokenizer, cfg NemotronASRConfig, factory func() nemotronASRStream) (Stage, error) {
 	if vocab == nil || len(vocab.InvVocab) < 13087 || !validHash(cfg.ModelSHA256) || !validHash(cfg.TokenizerSHA256) || !validHash(cfg.RuntimeSHA256) || cfg.ModelRevision != NemotronASRRevision || cfg.PromptID < 0 || cfg.PromptID >= 128 || cfg.MaxResultBytes < 1 || cfg.MaxResultBytes > MaxTranscriptBytes || factory == nil {
+		return Stage{}, ErrConfiguration
+	}
+	if cfg.ProjectionBackend != "" && cfg.ProjectionBackend != "vulkan-shared" || cfg.ProjectionBackend == "vulkan-shared" && (strings.TrimSpace(cfg.ProjectionDevice) == "" || !validHash(cfg.ProjectionBackendSHA256)) || cfg.ProjectionBackend == "" && (cfg.ProjectionDevice != "" || cfg.ProjectionBackendSHA256 != "") {
 		return Stage{}, ErrConfiguration
 	}
 	expected := map[string]int{"auto": 101, "en": 0, "pt": 13, "fr": 8, "es": 2, "it": 15}
 	if prompt, ok := expected[cfg.Language]; !ok || prompt != cfg.PromptID {
 		return Stage{}, ErrConfiguration
 	}
+	// Keep the original CPU identity byte-for-byte: old ASR checkpoints and
+	// profiles must not change merely because an opt-in backend was added.
+	legacy := struct {
+		ModelSHA256, TokenizerSHA256, RuntimeSHA256, ModelRevision string
+		Language                                                   string
+		PromptID                                                   int
+		MaxResultBytes                                             int64
+	}{cfg.ModelSHA256, cfg.TokenizerSHA256, cfg.RuntimeSHA256, cfg.ModelRevision, cfg.Language, cfg.PromptID, cfg.MaxResultBytes}
 	identity, _ := json.Marshal(struct {
 		Schema string
-		Config NemotronASRConfig
-	}{"speechjob-nemotron-asr-cpu-emission-chunks-v1", cfg})
+		Config any
+	}{"speechjob-nemotron-asr-cpu-emission-chunks-v1", legacy})
+	if cfg.ProjectionBackend != "" {
+		identity, _ = json.Marshal(struct {
+			Schema string
+			Config NemotronASRConfig
+		}{"speechjob-nemotron-asr-vulkan-shared-emission-chunks-v1", cfg})
+	}
 	return Stage{Name: "transcript", Version: hash(identity), Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		var decoded Blob
 		for _, cp := range in.job.Checkpoints {
@@ -96,6 +144,9 @@ func newNemotronASRStage(vocab *tokenizer.Tokenizer, cfg NemotronASRConfig, fact
 		stream := factory()
 		if stream == nil {
 			return ErrConfiguration
+		}
+		if closer, ok := stream.(io.Closer); ok {
+			defer func() { err = errors.Join(err, closer.Close()) }()
 		}
 		language := cfg.Language
 		if language == "auto" {

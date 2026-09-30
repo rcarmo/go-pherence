@@ -1,6 +1,6 @@
 # Nemotron ASR scoped shared-memory projection
 
-The experimental Vulkan subsampling projection now supports CPU producers and consumers using the same native allocation as the shader. The implementation is opt-in, passes CPU-only ownership and numerical tests, and has not run on a GPU. Production remains on the deployed CPU build `c9569c86`.
+The experimental Vulkan subsampling projection supports CPU producers and consumers using the same native allocation as the shader. Native analytic, trained JFK parity and an isolated ASR-plus-diarization smoke passed on Intel Iris Xe after the user's 21:56 execution authorisation. Application-level per-chunk projection copies are zero; latency did not improve consistently. Production remains on the deployed CPU build `c9569c86`.
 
 ## Implementation
 
@@ -24,7 +24,9 @@ nemotron -task asr -backend vulkan -vulkan-shared-projection \
   -tokenizer /path/to/tokenizer.json
 ```
 
-This command uses a GPU. It was not executed during implementation. Separate device clearance is required before running it. Shared mode rejects unsupported configurations or uncached memory; it has no silent copied/CPU fallback.
+This command uses a GPU and requires device clearance. Shared mode rejects unsupported configurations or uncached memory; it has no silent copied/CPU fallback.
+
+The candidate server also accepts `nemotron_asr.projection` with `backend: "vulkan-shared"`, `allow_experimental: true`, a nonempty `device_contains` and pinned `backend_sha256`. Omission preserves CPU stage/profile identities. Shared execution has a separate stage identity, per-request native resources, device matching before inference and cleanup before checkpoint publication. Diarization remains CPU-only.
 
 ## Verification
 
@@ -39,7 +41,11 @@ Base: `a8e9b48f11273b2d59e1e41422e5dab4fa89a9b8`. Go `1.26.2`, Linux amd64, `GOM
 | Linux arm64/riscv64 Vulkan and ASR test-binary cross-builds | Pass; no foreign execution |
 | `git diff --check` | Pass |
 | Scoped CPU lease steady-state allocation assertion | 0 allocations/call |
-| Native Vulkan analytic gate | Added, skipped; GPU execution not authorised |
+| Native Vulkan analytic gate | Pass, three runs on Iris Xe |
+| Trained CPU/copied/shared JFK parity and cancellation/fresh retry | Pass |
+| Isolated shared-ASR + CPU-diarization JFK job | Pass, four verified artifacts |
+| New server opt-in validation and legacy CPU checkpoint identity | Pass |
+| Full-tree CPU tests/vet/build, full-tree race and layout after server wiring | Pass |
 
 The host lacks `make` and a C compiler and defaults to `CGO_ENABLED=0`. Layout and race checks therefore ran in an existing Go 1.26.2 Bookworm image, ID `962e4695d843cf55fac32114d1e26e465eb9ef1efb9713f4f29dd72e57809e1d`, with no network, no passed GPU devices, a read-only source mount, two CPU quota, 3 GiB memory and no swap. Earlier shell waits expired while their containers continued; the final run completed within its wait budget and wrote `layout_exit=0` and `race_exit=0` before exiting. All validation containers exited.
 
@@ -49,12 +55,26 @@ Model-free [ASR tests](../../model/nemotronasr/subsampling_shared_test.go) use a
 
 Changed public CPU access and stream wrappers have 100% statement coverage; `withCPU` has 95%. `ProjectScoped` has 38.7% coverage because its real Vulkan setup/dispatch/consume branches require device execution. Whole affected-package coverage is Vulkan 87.8%, ASR 34.9%, CLI 25.9%; these figures include existing model/driver-gated code. Coverage does not measure shader execution.
 
-The opt-in [native analytic gate](../../backends/vulkan/vulkan_cpu_access_native_test.go) requires `GO_PHERENCE_TEST_VULKAN_CPU_ACCESS=1` and a nonempty `GO_PHERENCE_VULKAN_DEVICE`. It checks shared input → identity-matrix projection plus bias → shared output across reuse, copied/mapped read agreement and guards. It has not run. Native trained ASR parity, task quality and independent review are unverified. Two read-only review delegates timed out without producing findings.
+The opt-in [native analytic gate](../../backends/vulkan/vulkan_cpu_access_native_test.go) requires `GO_PHERENCE_TEST_VULKAN_CPU_ACCESS=1` and a nonempty `GO_PHERENCE_VULKAN_DEVICE`. It checks shared input → identity-matrix projection plus bias → shared output across reuse, copied/mapped read agreement and guards. It passed three native runs. The trained gate in `model/nemotronasr/shared_projection_native_test.go` hashes the model before loading and records application transfer counters, repeated timings, stage parity, cancellation and fresh-request reuse. Independent upstream trained parity and listening-based task quality remain unverified. Two earlier read-only review delegates timed out without producing findings.
 
 ## Transfer scope and performance
 
 At the existing four-row seam, each projection uses 69,632 input bytes and 16,384 output bytes. Scoped generation removes the per-chunk upload/download copies and the owned flatten/projection buffers at this boundary. Weight/bias preparation still copies. Convolution, encoder intermediates and returned transcript/token outputs still allocate.
 
-For 35 JFK chunks, the removed boundary copies total 3,010,560 bytes (2.87 MiB). This is source-derived accounting, not an observed native transfer-counter result. No GPU timing, driver memory-type result, trained shared-path execution or speed improvement has been measured. The projection covers one matrix multiplication; a resident FFN block or encoder tower needs separate implementation and measurement.
+For 35 JFK projections, native application counters report copied input 2,437,120 bytes and copied output 573,440 bytes, totalling 3,010,560 bytes (2.87 MiB). Shared mode reports zero input/output copy bytes, 35 CPU-write borrows and 35 CPU-read borrows. Both modes upload 17,829,888 weight/bias bytes once per request. Counters do not describe driver-internal movement.
+
+Five alternating-order JFK whole-request samples, excluding model/WAV load and including projection setup/teardown:
+
+| Backend | Median | Mean | Range |
+|---|---:|---:|---:|
+| CPU | 3.6117 s | 3.7845 s | 3.5293–4.5602 s |
+| Copied Vulkan | 3.7725 s | 3.8241 s | 3.7407–4.0757 s |
+| Shared Vulkan | 3.8215 s | 3.9109 s | 3.7669–4.1589 s |
+
+Shared versus copied shader/subsampling and tower values matched exactly. Against CPU, subsampling max/mean absolute error was 0.001708984375 / 0.0000375458; tower error was 0.000000834465 / 0.0000000107770. Existing 3e-3+4e-5-relative subsampling and 3e-4+2e-5-relative tower gates passed without changes. All token decisions and frame positions matched. Cancellation after a completed chunk and a fresh shared request passed; native memory counters returned to baseline after close.
+
+The isolated candidate on loopback port 18094 completed an English JFK ASR-plus-CPU-diarization job in 7.097 seconds for 11 seconds of audio. All four exports passed size/hash verification and plain ASR cue/text comparison. The full Decoder run is separate and is not covered by this smoke. The projection covers one matrix multiplication; a resident FFN block or encoder tower needs separate implementation and measurement.
+
+Native environment: Intel Iris Xe RPL-P (`8086:a7a0`), i915, Mesa 26.1.5, Vulkan device API 1.4.354; container image `73955bdf70a7b14e89100610502f01d2e4dc231697fd17e785275f538cad6204`, Intel ICD only, only `/dev/dri/renderD128` passed, CPU4/8GiB/swap0, NVIDIA disabled, live-Qwen-idle and host-available-memory guards. Analytic tests used CPU2/1GiB. Evidence is under `tmp/nemotron-zc-native-20260930/`, including analytic/trained logs, `trained-results.json`, smoke metadata/exports and explicit validation exit records.
 
 The live transcription PID `2755577` and Qwen PID `2756230` remain unchanged with zero restarts. Transcription still has `PrivateDevices=yes`. No service, deployed binary, model, profile, GPU access setting or job was changed.

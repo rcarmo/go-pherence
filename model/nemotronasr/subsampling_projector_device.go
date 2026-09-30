@@ -21,10 +21,29 @@ type DeviceSubsamplingProjector struct {
 	ready                 bool
 	closed                bool
 	dispatches            int // successful GPU projections; observable after Close
+	stats                 ProjectionTransferStats
 	ptxX, ptxW, ptxY      *ptx.Buffer
 	vkOp                  *vulkan.VkLinearF32
 	vkArena               *vulkan.VkTensorArena
 	vkX, vkW, vkBias, vkY *vulkan.VkTensorF32
+}
+
+// ProjectionTransferStats counts application-level boundary copies and scoped
+// borrows. Weight preparation is separate; driver-internal movement is unknown.
+// Request objects are serial; snapshot only outside a projection callback.
+type ProjectionTransferStats struct {
+	InputCopyBytes, OutputCopyBytes, WeightUploadBytes uint64
+	CPUWrites, CPUReads                                uint64
+	Dispatches                                         int
+}
+
+func (p *DeviceSubsamplingProjector) TransferStats() ProjectionTransferStats {
+	if p == nil {
+		return ProjectionTransferStats{}
+	}
+	s := p.stats
+	s.Dispatches = p.dispatches
+	return s
 }
 
 func (p *DeviceSubsamplingProjector) Close() error {
@@ -130,6 +149,7 @@ func (p *DeviceSubsamplingProjector) prepare(ctx context.Context, weight, bias [
 	default:
 		return fmt.Errorf("unsupported Nemotron ASR projection backend %q", p.Backend)
 	}
+	p.stats.WeightUploadBytes += uint64(len(weight)+len(bias)) * 4
 	p.ready = true
 	return nil
 }
@@ -143,9 +163,11 @@ func (p *DeviceSubsamplingProjector) Project(ctx context.Context, input, weight,
 		var owned []float32
 		err := p.ProjectScoped(ctx, weight, bias, rows, func(mapped []float32) error {
 			copy(mapped, input)
+			p.stats.InputCopyBytes += uint64(len(input)) * 4
 			return nil
 		}, func(mapped []float32) error {
 			owned = append([]float32(nil), mapped...)
+			p.stats.OutputCopyBytes += uint64(len(mapped)) * 4
 			return nil
 		})
 		if err != nil {
@@ -213,6 +235,8 @@ func (p *DeviceSubsamplingProjector) Project(ctx context.Context, input, weight,
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	p.stats.InputCopyBytes += uint64(len(input)) * 4
+	p.stats.OutputCopyBytes += uint64(len(result)) * 4
 	p.dispatches++
 	return result, nil
 }
@@ -250,6 +274,7 @@ func (p *DeviceSubsamplingProjector) ProjectScoped(ctx context.Context, weight, 
 	if err := p.vkX.WithCPUWrite(ctx, func(input []float32) error {
 		// A failed producer cannot leave stale request data for the next call.
 		clear(input)
+		p.stats.CPUWrites++
 		if err := produce(input); err != nil {
 			return err
 		}
@@ -266,6 +291,7 @@ func (p *DeviceSubsamplingProjector) ProjectScoped(ctx context.Context, weight, 
 		return err
 	}
 	if err := p.vkY.WithCPURead(ctx, func(output []float32) error {
+		p.stats.CPUReads++
 		for _, v := range output {
 			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 				return fmt.Errorf("non-finite Nemotron ASR shared projection output")
