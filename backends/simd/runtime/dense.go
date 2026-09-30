@@ -1,6 +1,9 @@
 package simd
 
-import "unsafe"
+import (
+	"runtime"
+	"unsafe"
+)
 
 // DenseNNTo applies shape-aware checked dispatch for C += alpha*A*B.
 func DenseNNTo(c, a, b []float32, m, n, k int, alpha float32, lda, ldb, ldc int) bool {
@@ -22,6 +25,13 @@ func DenseNTTo(c, a, b []float32, m, n, k int, alpha float32, lda, ldb, ldc int)
 		return false
 	}
 	if HasSgemmAsm && m > 1 && m <= 576 && n >= 64 && k >= 64 && lda == k && ldb == k && ldc == n {
+		// Tiny streaming query blocks still have large output-channel work.
+		// Partition the existing blocked kernel, preserving K accumulation
+		// order and accumulating destination semantics. Larger-M callers keep
+		// their existing dispatch to avoid nested head/batch parallelism.
+		if m <= 5 && n >= 1024 && k >= 1024 && alpha == 1 && runtime.GOMAXPROCS(0) > 1 {
+			return sgemmNTBlockedParallelTo(c, a, b, m, n, k, min(runtime.GOMAXPROCS(0), 4))
+		}
 		SgemmNTBlockedFMA(m, n, k, alpha, unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), unsafe.Pointer(&c[0]), lda, ldb, ldc)
 		return true
 	}
