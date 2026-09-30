@@ -38,4 +38,4 @@ python3 scripts/prepare_ami_corpus.py \
   --start 350 --duration 60 --output /new/output/directory
 ```
 
-Next qualification work must run the pinned Community and Whisper pipelines on this fixture, retain model/result hashes, and score corpus DER/JER and speaker-attributed words. One 60-second meeting excerpt is still a pilot; it cannot establish broad-corpus qualification by itself.
+The [Nemotron CLI pilot](nemotron-pilot-20260930.md) records local SIMD, PTX and Vulkan request timings and independently labelled transcript-only WER and DER/JER on this excerpt. Its CLI transcript has no word times or speaker labels, so speaker-attributed WER needs another pipeline. Broader qualification also needs more rights-reviewed recordings, pinned reference-system comparisons and sustained timing evidence.

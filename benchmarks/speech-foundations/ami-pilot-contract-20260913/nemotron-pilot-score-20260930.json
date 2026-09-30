@@ -1,0 +1,72 @@
+{
+  "audio_samples": 960000,
+  "diarization": {
+    "hypothesis_spans": 39,
+    "scores": [
+      {
+        "collar": 0.0,
+        "der": {
+          "confusion": 4.232999999999999,
+          "correct": 37.477,
+          "diarization error rate": 0.542505920554701,
+          "false alarm": 0.0,
+          "missed detection": 40.20800000000001,
+          "total": 81.91800000000002
+        },
+        "jer": {
+          "jaccard error rate": 0.5968430729851503,
+          "speaker count": 4.0,
+          "speaker error": 2.387372291940601
+        }
+      },
+      {
+        "collar": 0.25,
+        "der": {
+          "confusion": 3.539999999999999,
+          "correct": 28.394999999999992,
+          "diarization error rate": 0.5284475886807496,
+          "false alarm": 0.0,
+          "missed detection": 28.281000000000027,
+          "total": 60.216000000000015
+        },
+        "jer": {
+          "jaccard error rate": 0.5947892829453876,
+          "speaker count": 4.0,
+          "speaker error": 2.3791571317815503
+        }
+      }
+    ],
+    "skip_overlap": false,
+    "uem": [
+      0,
+      60
+    ]
+  },
+  "inputs_sha256": {
+    "audio": "fb7398edefaaff13f5e2d586ebd2dcfe7b5a7ef0bb1984de7ea569299854749e",
+    "contract": "2d482707104937414f1b43a749c7f675cdb186541ded8c98c1e1b219c559ab38",
+    "manifest": "dde86d414108fe169298a74502fd60728f5269c5fef96a9d120ca0eea46f764d",
+    "rttm": "c9b3b3118c892722616ef5dc8af87b4963cd693e9ad3136bc8944f220db4a476",
+    "spans": "e833993911c7c6e5294764ed896b1c32d60ab1fc07092f87763d69351f8aa8cd",
+    "transcript": "61e0b6db19a3ae4ec79ff6733690b5b52b941c25361bd61c1536b0779e45a3ef",
+    "words": "1a64d54a0fb42afe3d0ccab8cf304b712e76660039807055b5facc9287a7abde"
+  },
+  "meeting": "ES2004a",
+  "normalization": "nfkc-casefold-unicode-alnum-internal-apostrophe-v1",
+  "qualified": false,
+  "schema": 1,
+  "scope": "one AMI headset-mix excerpt; absolute transcript-only WER and DER/JER; no word timestamps, cpSA-WER, corpus gate or reference-system delta",
+  "source_interval": [
+    350,
+    410
+  ],
+  "wer": {
+    "deletions": 61,
+    "errors": 69,
+    "hypothesis_tokens": 119,
+    "insertions": 1,
+    "rate": 0.3854748603351955,
+    "reference_tokens": 179,
+    "substitutions": 7
+  }
+}
