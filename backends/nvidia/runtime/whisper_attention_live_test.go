@@ -89,13 +89,63 @@ func TestWhisperAttentionFullOnlineRepeated103Keys(t *testing.T) {
 	}
 }
 
+// Repeated shared-score launches at the 103-key diarization geometry must
+// remain stable against the separately qualified online kernel. The shared
+// reduction buffer is reused between maximum and sum passes.
+func TestWhisperAttentionFullRepeated103Keys(t *testing.T) {
+	requireWhisperAttentionFullKernels(t)
+	const seq, heads, dim = 103, 8, 64
+	q, k, v := makeWhisperAttentionInputs(seq, heads, dim)
+	qBuf := uploadWhisperAttentionTensor(t, "q", q)
+	kBuf := uploadWhisperAttentionTensor(t, "k", k)
+	vBuf := uploadWhisperAttentionTensor(t, "v", v)
+	shared := allocWhisperAttentionTensor(t, "shared", len(q))
+	online := allocWhisperAttentionTensor(t, "online", len(q))
+	scale := float32(1 / math.Sqrt(dim))
+	if err := WhisperAttentionFullOnlineBuffer(online, qBuf, kBuf, vBuf, seq, seq, heads, dim, scale); err != nil {
+		t.Fatal(err)
+	}
+	if err := SyncErr(); err != nil {
+		t.Fatal(err)
+	}
+	ref := make([]float32, len(q))
+	if err := online.Download(ref); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]float32, len(q))
+	for trial := 0; trial < 20; trial++ {
+		if err := WhisperAttentionFullBuffer(shared, qBuf, kBuf, vBuf, seq, seq, heads, dim, scale); err != nil {
+			t.Fatal(err)
+		}
+		if err := SyncErr(); err != nil {
+			t.Fatal(err)
+		}
+		if err := shared.Download(got); err != nil {
+			t.Fatal(err)
+		}
+		var max float64
+		var outside int
+		for i, value := range got {
+			d := math.Abs(float64(value - ref[i]))
+			max = math.Max(max, d)
+			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || d > 2e-5 {
+				outside++
+			}
+		}
+		t.Logf("trial=%d max_abs=%g outside=%d", trial, max, outside)
+		if outside != 0 {
+			t.Fatal("shared-score attention differs from online reference")
+		}
+	}
+}
+
 func BenchmarkWhisperAttentionFullCandidates(b *testing.B) {
 	requireWhisperAttentionFullKernels(b)
 	const (
 		heads   = 16
 		headDim = 64
 	)
-	for _, seq := range []int{375, 1500} {
+	for _, seq := range []int{103, 375, 1500} {
 		b.Run(fmt.Sprintf("seq_%d_heads_%d_dim_%d", seq, heads, headDim), func(b *testing.B) {
 			q, k, v := makeWhisperAttentionInputs(seq, heads, headDim)
 			qBuf := uploadWhisperAttentionTensor(b, "q", q)

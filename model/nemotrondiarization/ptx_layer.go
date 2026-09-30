@@ -218,7 +218,7 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 			return err
 		}
 	}
-	if err = ptx.WhisperAttentionFullOnlineBuffer(mixed, q, k, v, rows, rows, diarizationHeads, diarizationHeadWidth, 1.0/8.0); err != nil {
+	if err = ptx.WhisperAttentionFullBuffer(mixed, q, k, v, rows, rows, diarizationHeads, diarizationHeadWidth, 1.0/8.0); err != nil {
 		return err
 	}
 	if err = ptx.SgemmReg2(rows, projectedWidth, projectedWidth, 1, mixed, l.oW, projected); err != nil {

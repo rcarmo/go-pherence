@@ -145,9 +145,8 @@ error was `7.60e-7` and `9.54e-7`, mean absolute error was `4.47e-8` and
 5.18 development environment. A separate 10,000–30,000-offset F32 test had
 maximum error `4.38e-4` against a centred F64 reference at its `2e-3` gate;
 odd widths, in-place output and malformed buffers also passed. These are
-operator tests on RTX 3060. The PTX diarization request still runs its tower
-on CPU: exact-erf GELU, long-context attention and safe resident layer/tower
-lifetime need qualification before any transfer-inclusive PTX speed claim.
+operator tests on RTX 3060. The resident PTX path and its later request
+measurements are documented below.
 
 A separate exact-key operator check now composes the existing PTX sequence
 RoPE and `attention_full_online` kernels with the released layer-1 Q/K/V and
@@ -155,9 +154,9 @@ a CPU output projection. At 16 and 138 rows on RTX 3060, attention matched
 the independent PyTorch fixture with maximum absolute errors `3.67e-5` and
 `2.86e-5`, mean errors `2.47e-7` and `1.72e-7`, and zero outliers at the
 existing gate; three repeat runs passed. The online kernel was selected
-explicitly for this test. The default shared-score `attention_full` gave
-variable errors at 138 rows on the same inputs, including outliers, and is
-not qualified for this tower. Sequence RoPE now checks position addition,
+explicitly for this test. The initial shared-score `attention_full` gave
+variable errors at 138 rows, including outliers; its later barrier fix and
+resident-request evidence are documented below. Sequence RoPE checks position addition,
 u32 element indices and buffer byte extents before launching. This checks an
 isolated attention operator, not a resident PTX layer or complete request.
 
@@ -173,8 +172,8 @@ The 16/138-row complete-layer outputs match independent PyTorch fixtures with
 maximum absolute error `2.29e-5` at both lengths, mean errors `5.65e-7` and
 `5.14e-7`, and zero outliers at the existing gate. The model-owned residual
 and GPU copy remain unchanged. The production `PTXAudioLayer` now composes
-Q/K/V projection, sequence RoPE, explicitly selected online attention,
-output projection, both affine norms and the complete MLP without downloading
+Q/K/V projection, sequence RoPE, explicitly selected shared-score attention
+(after its max/sum barrier fix), output projection, both affine norms and the complete MLP without downloading
 intermediate activations. It retains transposed weights and frequencies,
 accepts exact 16/138-row unmasked windows, serialises forward and close, and
 returns errors without CPU fallback. On RTX 3060 its output matched the
@@ -233,6 +232,21 @@ pinned 100-second PTX-tower request took `77.73 s` with 9,999 matching
 logits rows, the same 29 spans and zero outliers. This is still slower than
 the previous `75.69 s` projection-only PTX sample; unrelated SGEMM callers
 retain oracle dispatch.
+
+A bounded 103-row stage probe measured CPU layer 0 at `4.89–7.28 ms`,
+one H2D transfer at `25–34 µs`, the 30-layer PTX tower/final norm at
+`57.70–59.15 ms`, one D2H transfer at `121–136 µs`, and the CPU head at
+`4.67–5.30 ms` (three samples; diagnostic wall times). The existing
+shared-score `attention_full` had shown variable 138-row outliers; adding
+a barrier before its shared max/sum buffer reuse made 20 repeated 103-key
+launches agree with the separately qualified online kernel at the existing
+`2e-5` operator gate. With the shared-score path selected only for PTX
+diarization, 16/138-row layer and tower fixtures and repeated streaming
+windows pass with zero outliers. At 103 rows, five-call warmed tower samples
+fell from `64–68 ms` to `33–36 ms`; the pinned 100-second request took
+`23.71 s` (test) and `23.60 s` (CLI), returned 9,999 matching logits rows
+and the same 29 spans with zero outliers. This remains a hybrid request on
+one i7-12700/RTX 3060 host; no full-GPU or labelled DER claim follows.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;

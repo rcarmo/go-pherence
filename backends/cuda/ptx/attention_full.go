@@ -118,6 +118,8 @@ MAX_SKIP:
     bra MAX_REDUCE;
 MAX_READY:
     ld.shared.f32 %f2, [%r19];
+    // A later warp must read the maximum before reduce_shared[0] is reused.
+    bar.sync 0;
 
     // Exponentiate scores in place and reduce their sum.
     mov.f32 %f7, 0f00000000;

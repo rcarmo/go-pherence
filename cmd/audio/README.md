@@ -33,8 +33,11 @@ fail the request without a CPU fallback. On an i7-12700/RTX 3060 with
 took 1.70–2.41 s versus 1.89 s on SIMD, while 100-second tiled JFK took
 30.31–35.74 s versus 75.13 s on SIMD (bounded single-host samples). A
 100-second PTX-tower logits test passed the independent numerical gate in
-83.28 s; it has not shown a speedup over the earlier 75.69 s PTX projection
-hybrid. Labelled quality and sustained throughput need separate checks. The
+83.28 s before the shared-score attention fix. With that fix, a pinned
+100-second PTX-tower request took 23.71 s in the test and 23.60 s through the
+CLI on the same host, with 9,999 matching logit rows and 29 identical spans.
+These are single-host samples. Labelled quality and sustained throughput need
+separate checks. The
 reported CLI timer excludes WAV/checkpoint loading but includes GPU setup,
 transfers and teardown. Input must be mono 16-kHz WAV; ASR
 uses `tokenizer.json` beside the checkpoint unless `-tokenizer` is set.
