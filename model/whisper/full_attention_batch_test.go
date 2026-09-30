@@ -35,6 +35,10 @@ func TestWhisperFullAttentionPackedQueryBatchedMatchesCurrentExact(t *testing.T)
 	}{
 		{name: "single_worker", seqQ: 137, seqKV: 149, numHeads: 3, headDim: 16, workers: 1, queryBatch: 64},
 		{name: "multi_worker_medium", seqQ: 257, seqKV: 263, numHeads: 4, headDim: 64, workers: 4, queryBatch: fullAttentionQueryBatchDefault},
+		{name: "live_batch96_single_row_tail", seqQ: 289, seqKV: 263, numHeads: 2, headDim: 64, workers: 2, queryBatch: 96},
+		{name: "blocked_cap", seqQ: 576, seqKV: 263, numHeads: 2, headDim: 64, workers: 2, queryBatch: 128},
+		{name: "above_blocked_cap", seqQ: 577, seqKV: 263, numHeads: 2, headDim: 64, workers: 2, queryBatch: 128},
+		{name: "live_long_batch64", seqQ: 1025, seqKV: 263, numHeads: 2, headDim: 64, workers: 2, queryBatch: 64},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

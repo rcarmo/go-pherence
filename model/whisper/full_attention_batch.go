@@ -3,6 +3,7 @@ package whisper
 import (
 	"math"
 	"sync"
+	"unsafe"
 
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
 )
@@ -40,6 +41,10 @@ func fullAttentionPackedQueryBatched(q, k, v []float32, seqQ, seqKV, numHeads, h
 		nw = 1
 	}
 
+	// Choose the NT arithmetic kernel using the complete head shape, as
+	// fullAttentionPerHead does. Batching must not change blocked-vs-serial
+	// dispatch, including a one-row tail or a head exceeding the blocked cap.
+	blockedNT := simdrt.HasSgemmAsm && seqQ > 1 && seqQ <= 576 && seqKV >= 64 && headDim >= 64
 	qHeadStride := seqQ * headDim
 	kvHeadStride := seqKV * headDim
 	work := func(hStart, hEnd int) {
@@ -57,7 +62,9 @@ func fullAttentionPackedQueryBatched(q, k, v []float32, seqQ, seqKV, numHeads, h
 				}
 				scoreBlock := scores[:qm*seqKV]
 				clear(scoreBlock)
-				if !simdrt.SgemmNTTo(scoreBlock, qh[q0*headDim:], kh, qm, seqKV, headDim, scale, headDim, headDim, seqKV) {
+				if blockedNT {
+					simdrt.SgemmNTBlockedFMA(qm, seqKV, headDim, scale, unsafe.Pointer(&qh[q0*headDim]), unsafe.Pointer(&kh[0]), unsafe.Pointer(&scoreBlock[0]), headDim, headDim, seqKV)
+				} else if !simdrt.SgemmNTTo(scoreBlock, qh[q0*headDim:], kh, qm, seqKV, headDim, scale, headDim, headDim, seqKV) {
 					attnScalarHead(scoreBlock, qh[q0*headDim:], kh, qm, seqKV, headDim, scale)
 				}
 				for tq := 0; tq < qm; tq++ {
