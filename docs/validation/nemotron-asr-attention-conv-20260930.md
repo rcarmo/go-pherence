@@ -61,4 +61,18 @@ Every decision ID, absolute encoder frame and decoded text was compared and unch
 
 ## Release state
 
-The accepted candidate is ready for commit and idle-queue service verification. Native timings do not establish a live service speedup until deployment is tested. Local profiles, trial outputs, interleaved logs and guard records are under `tmp/nemotron-asr-opt3-20260930/`. Model assets and audio remain excluded from Git. Live Qwen's separately authorised update was outside this change; no Qwen settings or GPU recovery were performed by this pass.
+Implementation `c9569c86e40759a7d4bbd89e93e52361d89297fa` was pushed and remotely verified, then deployed to the idle transcription service. Installed server SHA256: `5ed6bb910f4cb9ae506e496b54daff779ea122077bb193d69f7cb89ef6046a4a`. Metadata-only validation passed with no model loaded or listener. The installed configuration differs only in the runtime SHA; model, frontend and all 36 profile settings are unchanged. The prior server/config were backed up under `deploy-backup-nemotron-opt3-20260930T200220Z`, and all sixteen existing manifest hashes matched before restart.
+
+| Live complete job | Previous retained sample | New sample | New RTF |
+| --- | ---: | ---: | ---: |
+| JFK ASR, 11 s | 4.820 s | 4.557 s | 0.414 |
+| Podcast ASR, 20 s | 8.066 s | 7.556 s | 0.378 |
+| JFK ASR plus speakers, 11 s | 6.168 s from an earlier pass | 6.271 s | 0.570 |
+
+The ASR-only live samples were 5.5–6.3% shorter. The speaker sample was about 1.7% longer than its retained earlier-pass sample; no speaker-inclusive speedup is claimed. These are single persisted `updated - created` job measurements including decode/queue/export publication, excluding model startup. The interleaved native baseline/candidate comparison is the primary causal evidence.
+
+Live jobs `50d31963caebae970def53d342ae477b`, `848bbc174b55c68f8b88aea02e7a6139` and `e0bc720c23de44129aaf1797a12e8277` all completed in one attempt. Their transcript text and artifact sizes/SHA256 matched, with two plain exports or four exports for the speaker case. Plain downloads remained accessible after media reconciliation; an older retained VTT also remained downloadable. The queue returned to its original terminal failed item.
+
+The service retains four CPU quota, 8 GiB memory cap, zero cgroup swap and GPU device isolation. It had zero restarts and peak cgroup memory 6,946,361,344 bytes (about 6.47 GiB, including file-backed pages; not process RSS). Host available memory was about 21 GiB. Live Qwen PID 2741851/restart count were unchanged during deployment and checks; Gemma remained off. The native window was explicitly handed back for Qwen's separate restart/browser work after checks drained.
+
+Local profiles, trial outputs, interleaved logs, live export verification and guard records are under `tmp/nemotron-asr-opt3-20260930/`. Model assets and audio remain excluded from Git. Live Qwen's separately authorised update was outside this change; no Qwen settings or GPU recovery were performed by this pass. The separate zero-copy Vulkan/CPU document is a design assessment only, not an executed or deployed GPU feature.
