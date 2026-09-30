@@ -1,6 +1,6 @@
 # Nemotron ASR CPU trial on Sigma — 30 September 2026
 
-Native Nemotron ASR transcribed the JFK and podcast clips faster than real time on Sigma. The experimental speech-job/server integration passes model-free tests, but has not replaced the deployed Whisper ASR service.
+Nemotron ASR has replaced Whisper in Sigma's live transcription service on port 8093. Complete jobs, including decode, queue and export publication, processed the 11-second JFK sample in 6.87 seconds and the 20-second podcast crop in 11.60 seconds. Both ran faster than real time.
 
 ## Pinned assets
 
@@ -34,7 +34,7 @@ The retained deployed Whisper JFK job spent about 28 s before ASR/transcript pub
 
 Top-level `nemotron_asr` opts the server into a separate Nemotron-only model loader and profile builder. It verifies the pinned metadata and token vocabulary, shares immutable model weights and creates fresh frontend/encoder/predictor state for each attempt. It does not load a second Whisper model or perform automatic fallback.
 
-Locale prompts are explicit: `auto=101`, `en=0`, `pt=13`, `fr=8`, `es=2`, `it=15`. Nil `PCMGenerationStream.PromptID` preserves existing callers' automatic prompt. Only the automatic English clips above have trained local evidence; the explicit language paths have configuration/validation tests, not multilingual accuracy qualification. Automatic prompting reports transcript language `und`, because native inference does not return a detected locale.
+Locale prompts are explicit: `auto=101`, `en=0`, `pt=13`, `fr=8`, `es=2`, `it=15`. Nil `PCMGenerationStream.PromptID` preserves existing callers' automatic prompt. Automatic English clips and the explicit English speaker profile have trained local evidence below; other explicit language paths have configuration/validation tests, not multilingual accuracy qualification. Automatic prompting reports transcript language `und`, because native inference does not return a detected locale.
 
 The ASR stage writes a separate model-neutral `transcript` checkpoint directly. Verified decode and other completed stages survive retries. Cancellation or inference failure publishes no partial transcript and retries ASR from zero with fresh state. This implementation does not journal incremental ASR output or reuse Whisper window acknowledgements.
 
@@ -42,7 +42,7 @@ Word alignment is unavailable. The JSON explicitly declares `timing:"rnnt-emissi
 
 ASR progress reports processed samples, not durable window acknowledgements. The HTTP progress snapshot accepts those counters during the `transcript` stage and the UI labels them as transcription.
 
-## Validation and remaining deployment work
+## Validation
 
 - Focused job/HTTP/model/server/web package tests passed.
 - Full `go test -p 1 ./...`, `go vet -p 1 ./...`, and `go build -p 1 ./...` passed with NVIDIA disabled and CGO disabled.
@@ -50,4 +50,39 @@ ASR progress reports processed samples, not durable window acknowledgements. The
 - Regression tests cover fresh retry, cancellation atomicity, retained decode, language/prompt identity, malformed decisions, coarse-timing roundtrip, unchanged legacy JSON and ASR sample progress.
 - `git diff --check` passed.
 
-The live port-8093 service still uses Whisper ASR with Nemotron diarization. A bounded complete server/job smoke, resource validation with the larger ASR model, and idle-queue deployment are still required. Faster-than-realtime service completion, labelled multi-language accuracy, long-recording performance and independent reference parity remain unverified.
+## Isolated service and authorised replacement
+
+A CPU-only isolated service loaded the full 36-profile configuration in a network-disabled container with four CPU quota, 8 GiB memory and no swap. It loaded native Nemotron ASR, Community-1 and Nemotron diarization weights, without loading Whisper weights. JFK automatic transcription completed in 6.864 s (RTF 0.624), explicit-English transcription plus speakers in 8.892 s (RTF 0.808), and the podcast crop in 12.388 s (RTF 0.619). Podcast container peak memory was 7,115,608,064 bytes, including file-backed pages, below its cap. These results include decode, queue and export publication, and exclude service startup/model loading.
+
+The helper initially expected `und` in the job's profile-language field, where the API reports requested `auto`; the actual transcript correctly reports `und`. That assertion was corrected. The first podcast poll hit the helper's eight-second HTTP timeout during inference and service shutdown cancelled that test job; a separate podcast-only run with a 35-second verifier timeout then completed. No failed output was accepted or replayed under an incompatible plan.
+
+Rui authorised replacing the production service. The queue contained only an old terminal failed item. Before stopping the old unit, binaries/config were backed up under `deploy-backup-nemotron-asr-20260930T132502Z`. All seven prior manifest hashes matched after installation and before restart; no existing job data was removed. Profile IDs remain available, but new model/runtime stage identities do not accept old Whisper checkpoints as Nemotron output. Existing exports stay downloadable.
+
+Installed binaries built from source commit `709676436fae504a22d3743dfc3a2e7dbd8a2601`:
+
+- Server SHA256: `a39e5a5de32bf59e55019840dfe5e3926f5d49a96006e75da5b97f9ab7fb16ac`.
+- Frontend SHA256: `247de771d6a2ba96bb802bfd2b113d6e6bb2d26df9b6155833b5d94207dbd663`.
+- Installed config opts into `nemotron_asr`; its weights path names the pinned Nemotron ASR checkpoint. All 36 profiles use coarse timing and CPU execution. There are no Vulkan opt-ins.
+- Metadata-only `--check` passed with `metadata_checked:true`, `model_loaded:false`, `listening:false`.
+
+## Live complete-job measurements
+
+The resident service was measured with one queued job at a time, `GOMAXPROCS=4`, systemd `CPUQuota=400%`, `MemoryMax=8G`, `MemorySwapMax=0`, and `PrivateDevices=yes`. The Qwen LAN slot was idle before native checks; its service remained available and unchanged. Gemma remained off as requested.
+
+| Live case | Job ID | Audio | Complete job | RTF |
+| --- | --- | ---: | ---: | ---: |
+| Automatic JFK ASR | `e46a48ce4c003d621d756ffc0329f333` | 11 s | 6.870 s | 0.625 |
+| English JFK ASR plus speakers | `3e0c7831d2b73debcce574b0da143deb` | 11 s | 8.942 s | 0.813 |
+| Automatic podcast ASR | `06f0f3f603a84ed865d72dda278adf6a` | 20 s | 11.595 s | 0.580 |
+
+Complete-job time is persisted `updated - created` before reconciliation: it includes upload creation, queue/decode, inference and export publication, excludes model loading, and does not include the verifier's extra cleanup wait. Each job completed in one attempt. JFK words matched the known sentence; podcast quality was not human-scored. Jobs have `decode`, `transcript`, `vtt` checkpoints and no `asr-windows` Whisper journal. The speaker job adds `diarization`, `speaker-transcript`, `speaker-vtt`.
+
+All plain/speaker export downloads matched the API's size and SHA256. Successful reconciliation released source media, while transcript/VTT downloads remained available. SSE delivered ASR processed-sample progress and diarization sample counters. Transcript JSON and VTT explicitly state coarse emission-chunk timing and no word alignment. Speaker cues may remain unlabelled under conservative full-coverage attribution; this is not word-aligned speaker accuracy qualification.
+
+Live cancellation/retry job `b74a71ac08e16b23bd175f615daf47e8` cancelled its first ASR attempt, retained source media and the verified decode checkpoint, and published no partial transcript. Explicit retry completed on attempt two with the same decode checkpoint key/blob and a downloadable transcript. ASR replayed from zero with fresh stream state.
+
+Playwright checked Nemotron as the default speaker provider, four export controls, an actual browser VTT download, no collapsibles and no page errors. LAN `192.168.1.70:8093` reports 36 profiles. The service had no restarts, zero cgroup swap, and peak memory 6,916,440,064 bytes (about 6.44 GiB, including file-backed pages; not process RSS). Host available memory exceeded the 6 GiB guard. Qwen PID and restart count stayed unchanged.
+
+## Remaining quality/performance scope
+
+The replacement and faster-than-realtime complete-job target are verified for these short recordings on Sigma. Labelled multilingual/multi-speaker accuracy, word alignment, long-recording throughput, independent local PyTorch reference parity and contention performance remain unverified. No GPU execution or recovery was attempted.
