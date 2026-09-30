@@ -1,6 +1,6 @@
 # RTX 3060 PCIe bus-loss investigation — 30 September 2026
 
-The failure is confirmed at the guest NVIDIA driver/device boundary, but the initiating cause is **not established**. On VM108 (`sandbox`) at 2026-09-30 02:16:22.379 UTC, driver 610.57.04 reported Xid 79 (`GPU has fallen off the bus`), then Xid 154 requesting PF FLR. A repeated Nemotron Vulkan diarization request subsequently returned `VK_ERROR_DEVICE_LOST` (`vkWaitForFences: -4`). PCI inventory still lists the virtual function, but `nvidia-smi` cannot reach a usable GPU. Neither an exposed reset method nor virtual PCI enumeration proves the physical card or link is healthy.
+The failure is confirmed at the guest NVIDIA driver/device boundary, but the initiating cause is **not established**. On VM108 (`sandbox`) at 2026-09-30 02:16:22.379 UTC, driver 610.57.04 reported Xid 79 (`GPU has fallen off the bus`), then Xid 154 requesting PF FLR. The same failed Nemotron Vulkan diarization request returned `VK_ERROR_DEVICE_LOST` (`vkWaitForFences: -4`). PCI inventory still lists the guest PCI function, but `nvidia-smi` cannot reach a usable GPU. Neither an exposed reset method nor virtual PCI enumeration proves the physical card or link is healthy.
 
 ## Timeline and attribution
 
