@@ -54,6 +54,19 @@ This is implementation agreement against the previously deployed native model, n
 
 ## Release and remaining work
 
-The cache-only change is ready for an idle-queue update. Live latency/peak memory must be reported separately after installation. Profiles, allocation counts, native outputs and rejected-candidate logs are retained under `tmp/nemotron-asr-opt2-20260930/`; local model assets/audio and experimental source copies are excluded from Git.
+The cache-only implementation was committed/pushed as `e4d92a666a5aa3323a2b453d4a9c1a51d0d6e172` and installed after checking that the queue had no pending/running work. The prior server/config were backed up under `deploy-backup-nemotron-kv-20260930T144736Z`. All fourteen existing manifest hashes matched after installation and before restart. The model, profiles, CPU quota and no-GPU/no-swap policy were unchanged; the new runtime SHA intentionally changes plan identities.
+
+Installed server SHA256: `4323b3825ed2bb12d1f409e615b099b23b41c5a354c5b177d47d81ab66f26712`. Metadata-only check passed with `metadata_checked:true`, `model_loaded:false`, `listening:false`. The service reports all 36 profiles.
+
+| Live complete job | Prior retained sample | New sample | New RTF |
+| --- | ---: | ---: | ---: |
+| JFK ASR, 11 s | 5.013 s | 4.820 s | 0.438 |
+| Podcast ASR, 20 s | 8.365 s | 8.066 s | 0.403 |
+
+The new jobs were `bfdca8a6f6235b304dcb9965ad9f8226` and `660245264b2480ac316d5d46a8b3e9b4`. Both completed in one attempt, with identical text and verified download sizes/SHA256. Complete-job time includes decode/queue/export publication and excludes model startup. The two single live samples are about 3.6–3.8% shorter; they do not establish a sustained latency gain. The native paired allocation measurement above remains the primary accepted result.
+
+The live service had zero restarts and zero cgroup swap, with a peak of 5,929,463,808 bytes (about 5.52 GiB, including file-backed pages). This peak was collected over two ASR-only jobs; the earlier deployment peak included additional speaker/cancellation cases, so the difference is not a controlled peak-memory comparison. Host available memory was about 23 GiB. Qwen remained unchanged and available; the native CPU window was released after checks.
+
+Profiles, allocation counts, native outputs and rejected-candidate logs are retained under `tmp/nemotron-asr-opt2-20260930/`; local model assets/audio and experimental source copies are excluded from Git.
 
 Future CPU work should target the remaining measured arithmetic or copying cost without trading exact output/rollback guarantees for an unmeasured speed claim. No GPU clearance, model change or Qwen runtime change is part of this release.
