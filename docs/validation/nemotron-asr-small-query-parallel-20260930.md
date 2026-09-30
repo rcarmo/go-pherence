@@ -54,4 +54,16 @@ JFK had 185 decisions and podcast 419 in both arms. All decision IDs, absolute e
 
 Local comparison/profiles remain under `tmp/nemotron-asr-opt-20260930/`: `matched-*.log`, `baseline-results.json`, `parallel-results.json`, CPU/allocation profiles, native shared-state/cancellation logs and memory guard output. Model assets/audio are not committed. Full logs: `/tmp/nemotron-opt-full-{tests,vet,build}.log`.
 
-Code is ready for commit and idle-queue deployment verification. A live speedup is not established until the updated service is installed and tested. GPU acceleration, longer recordings, external-request contention, multilingual accuracy and persistent worker pools remain separate work.
+Implementation commit `51f546d604cf6744d25ee8c3244827c6ed80abfc` was pushed and remotely verified. The authorised idle transcription service was updated to server SHA256 `906e0700670c2684c5334c52a756676271ee62509326cb8a15474ac3c79a01cd`. Frontend/model/profile settings were unchanged; the runtime SHA intentionally changes plan identities. Old checkpoints are not accepted as new-plan output.
+
+Before the switch, all eleven existing manifest hashes were recorded and matched after binary/config installation. Backup: `deploy-backup-nemotron-opt-20260930T140739Z`. Metadata-only check passed with no model loaded or listener. The service retains four CPU quota, 8 GiB limit, no swap and no GPU devices. Live Qwen PID/restart count remained unchanged; Gemma remained off.
+
+| Live completed job | Before, retained sample | After | Time reduction |
+| --- | ---: | ---: | ---: |
+| JFK ASR, 11 s | 6.870 s | 5.013 s | 27.0% |
+| Podcast ASR, 20 s | 11.595 s | 8.365 s | 27.9% |
+| JFK ASR plus speakers, 11 s | 8.942 s | 6.168 s | 31.0% |
+
+These are persisted `updated - created` complete-job times, including decode/queue/export publication, excluding service startup and verifier cleanup. Before/after live samples are descriptive; the interleaved native results above are the primary causal comparison. After RT factors are 0.456, 0.418 and 0.561 respectively. All jobs completed in one attempt; text was unchanged and all artifact download sizes/SHA256 matched. Earlier retained exports remained downloadable after the update. The queue drained to its original terminal failed item. The service had zero restarts and zero cgroup swap; peak cgroup memory was 6,911,991,808 bytes (about 6.44 GiB, including file-backed pages). Host available memory remained above its guard.
+
+The CPU window was explicitly released back to the Qwen investigation after live checks. GPU acceleration, longer recordings, external-request contention, multilingual accuracy, incremental ASR retention and persistent worker pools remain separate work.
