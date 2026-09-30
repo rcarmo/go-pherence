@@ -32,6 +32,16 @@ done
 
 CLI `request_elapsed` excludes WAV/checkpoint load and Go build, but includes inference GPU setup, transfers and teardown. Each request is below the 60-second audio duration on this host. These are single runs on a potentially busy machine; they do not establish sustained or portable throughput. The resident GPU diarization paths retain the frontend, audio layer 0, head and speaker cache on CPU; GPU ASR offloads only subsampling projection.
 
+A separate binary (built once with `go build -o "$p/nemotron-cli" ./cmd/audio/nemotron`) was timed for each task/backend with `GOMAXPROCS=4 /usr/bin/time -f 'wall_elapsed=%e maxrss_kb=%M' -o "$p/wall-$backend-$task.time" "$p/nemotron-cli"` followed by the same task/backend/tower/input/model flags above, with stdout and stderr redirected to local files. Wall time includes WAV and checkpoint load, inference and process exit; it excludes compilation. Each re-run preserved the prior transcript text and 39 speaker-span geometries.
+
+| Backend | ASR process wall / peak RSS | Diarization process wall / peak RSS |
+|---|---:|---:|
+| SIMD | 37.38 s / 5,155,940 KiB | 38.77 s / 1,581,632 KiB |
+| PTX | 38.40 s / 5,273,564 KiB | 13.07 s / 1,687,052 KiB |
+| Vulkan | 38.35 s / 5,371,128 KiB | 16.96 s / 2,720,788 KiB |
+
+These six one-off full-process runs also finished within 60 seconds on this host. The load-inclusive ASR wall times were slightly slower for GPU projection hybrids than for SIMD in these samples. Repeated controlled trials and sustained streams remain open.
+
 ## Saved output and scoring
 
 All three saved transcripts contain 119 normalized words. Their transcript file SHA-256 is `61e0b6db19a3ae4ec79ff6733690b5b52b941c25361bd61c1536b0779e45a3ef`. All three span files contain 39 turns; their SHA-256 is `e833993911c7c6e5294764ed896b1c32d60ab1fc07092f87763d69351f8aa8cd`.
