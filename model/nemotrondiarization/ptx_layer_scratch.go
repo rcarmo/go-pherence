@@ -1,6 +1,7 @@
 package nemotrondiarization
 
 import (
+	"errors"
 	"fmt"
 
 	ptx "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -10,7 +11,8 @@ import (
 // extents are capacities; launches still use the caller's exact row count.
 // Index 8 is the wider fc1 activation; the other eight use projectedWidth.
 type ptxLayerScratch struct {
-	buffers [9]*ptx.Buffer
+	buffers  [9]*ptx.Buffer
+	terminal error
 }
 
 func newPTXLayerScratch(maxRows int) (scratch *ptxLayerScratch, err error) {
@@ -20,7 +22,16 @@ func newPTXLayerScratch(maxRows int) (scratch *ptxLayerScratch, err error) {
 	candidate := &ptxLayerScratch{}
 	defer func() {
 		if err != nil {
-			candidate.close()
+			if syncErr := ptxCleanupSync(); syncErr != nil {
+				candidate.terminal = fmt.Errorf("PTX scratch construction sync: %w", syncErr)
+				err = errors.Join(err, candidate.terminal)
+				scratch = candidate // completion uncertain: do not free
+				return
+			}
+			if closeErr := candidate.close(); closeErr != nil {
+				err = errors.Join(err, closeErr)
+				scratch = candidate // retain unconfirmed owners
+			}
 		}
 	}()
 	for i := range candidate.buffers {
@@ -28,7 +39,7 @@ func newPTXLayerScratch(maxRows int) (scratch *ptxLayerScratch, err error) {
 		if i == 8 {
 			width = diarizationIntermediate
 		}
-		candidate.buffers[i], err = ptx.Malloc(maxRows * width)
+		candidate.buffers[i], err = ptxCleanupMalloc(maxRows * width)
 		if err != nil {
 			return nil, err
 		}
@@ -36,16 +47,29 @@ func newPTXLayerScratch(maxRows int) (scratch *ptxLayerScratch, err error) {
 	return candidate, nil
 }
 
-func (s *ptxLayerScratch) close() {
+func (s *ptxLayerScratch) close() error { return s.closeChecked(ptxCleanupFree) }
+
+// Keep failed owners reachable; do not retry after a driver error without
+// separately establishing context health. A successful free is never repeated.
+func (s *ptxLayerScratch) closeChecked(free func(*ptx.Buffer) error) error {
 	if s == nil {
-		return
+		return nil
 	}
+	if s.terminal != nil {
+		return s.terminal
+	}
+	var err error
 	for i := len(s.buffers) - 1; i >= 0; i-- {
 		if s.buffers[i] != nil {
-			s.buffers[i].Free()
+			if e := free(s.buffers[i]); e != nil {
+				err = errors.Join(err, e)
+				s.terminal = err
+				break
+			}
 			s.buffers[i] = nil
 		}
 	}
+	return err
 }
 
 func (s *ptxLayerScratch) valid(rows int) bool {

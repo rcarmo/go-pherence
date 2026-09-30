@@ -2,6 +2,7 @@ package nemotrondiarization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 
@@ -12,10 +13,16 @@ import (
 // DeviceStackingProjector keeps weights and bounded buffers resident for one
 // CPU PCM-to-speaker-segments request. Only stack projection runs on the GPU;
 // each projected chunk includes upload, dispatch and download.
+// Narrow close seams let failure tests use inert owners without a Vulkan loader.
+var projectorVKArenaClose = (*vulkan.VkTensorArena).Close
+var projectorVKOpClose = (*vulkan.VkLinearF32).Close
+
 type DeviceStackingProjector struct {
 	Backend               string // "ptx" or "vulkan"
 	ready                 bool
 	closed                bool
+	terminal              error
+	uncertain             bool // failed PTX driver call: later sync cannot erase uncertainty
 	Dispatches            int
 	ptxX, ptxW, ptxY      *ptx.Buffer
 	vkOp                  *vulkan.VkLinearF32
@@ -27,40 +34,52 @@ func (p *DeviceStackingProjector) Close() error {
 	if p == nil {
 		return nil
 	}
+	if p.closed {
+		return p.terminal
+	}
 	p.ready = false
 	p.closed = true
-	if p.ptxX != nil {
-		p.ptxX.Free()
-		p.ptxX = nil
+	if p.uncertain {
+		return p.terminal // retain owners without another driver call
 	}
-	if p.ptxW != nil {
-		p.ptxW.Free()
-		p.ptxW = nil
+	if p.Backend == "ptx" && (p.ptxX != nil || p.ptxW != nil || p.ptxY != nil) {
+		if err := ptxCleanupSync(); err != nil {
+			p.terminal = errors.Join(p.terminal, fmt.Errorf("PTX stacking close sync: %w", err))
+			return p.terminal
+		}
+		for _, owner := range []**ptx.Buffer{&p.ptxX, &p.ptxW, &p.ptxY} {
+			if *owner != nil {
+				if err := ptxCleanupFree(*owner); err != nil {
+					p.terminal = errors.Join(p.terminal, fmt.Errorf("PTX stacking close free: %w", err))
+					return p.terminal
+				}
+				*owner = nil
+			}
+		}
 	}
-	if p.ptxY != nil {
-		p.ptxY.Free()
-		p.ptxY = nil
-	}
-	var err error
 	if p.vkArena != nil {
-		err = p.vkArena.Close()
+		if err := projectorVKArenaClose(p.vkArena); err != nil {
+			p.terminal = errors.Join(p.terminal, fmt.Errorf("Vulkan stacking arena close: %w", err))
+			return p.terminal // retain failed and unvisited owners
+		}
 		p.vkArena = nil
 	}
 	if p.vkOp != nil {
-		if closeErr := p.vkOp.Close(); err == nil {
-			err = closeErr
+		if err := projectorVKOpClose(p.vkOp); err != nil {
+			p.terminal = errors.Join(p.terminal, fmt.Errorf("Vulkan stacking operator close: %w", err))
+			return p.terminal
 		}
 		p.vkOp = nil
 	}
 	p.vkX, p.vkW, p.vkBias, p.vkY = nil, nil, nil, nil
-	return err
+	return p.terminal
 }
 
 func (p *DeviceStackingProjector) prepare(ctx context.Context, weight []float32) (err error) {
 	const in, out, maxRows = stackWidth, projectedWidth, 64
 	defer func() {
 		if err != nil {
-			_ = p.Close()
+			err = errors.Join(err, p.Close())
 		}
 	}()
 	switch p.Backend {
@@ -84,6 +103,8 @@ func (p *DeviceStackingProjector) prepare(ctx context.Context, weight []float32)
 			return err
 		}
 		if err = p.ptxW.Upload(transposed); err != nil {
+			p.uncertain = true
+			p.terminal = fmt.Errorf("PTX stacking weight upload: %w", err)
 			return err
 		}
 	case "vulkan":
@@ -124,7 +145,13 @@ func (p *DeviceStackingProjector) prepare(ctx context.Context, weight []float32)
 
 func (p *DeviceStackingProjector) Project(ctx context.Context, stacked, weight []float32, rows int) ([]float32, error) {
 	const in, out, maxRows = stackWidth, projectedWidth, 64
-	if p == nil || p.closed || ctx == nil || rows < 1 || rows > maxRows || len(stacked) != rows*in || len(weight) != out*in {
+	if p == nil {
+		return nil, fmt.Errorf("invalid Nemotron diarization device projection shape")
+	}
+	if p.terminal != nil {
+		return nil, p.terminal
+	}
+	if p.closed || ctx == nil || rows < 1 || rows > maxRows || len(stacked) != rows*in || len(weight) != out*in {
 		return nil, fmt.Errorf("invalid Nemotron diarization device projection shape")
 	}
 	if err := ctx.Err(); err != nil {
@@ -153,19 +180,27 @@ func (p *DeviceStackingProjector) Project(ctx context.Context, stacked, weight [
 	switch p.Backend {
 	case "ptx":
 		if err := p.ptxX.Upload(padded); err != nil {
-			return nil, err
+			p.uncertain = true
+			p.terminal = fmt.Errorf("PTX stacking projection upload: %w", err)
+			return nil, p.terminal
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		if err := ptx.Sgemm(maxRows, out, in, 1, p.ptxX, p.ptxW, p.ptxY); err != nil {
-			return nil, err
+			p.uncertain = true
+			p.terminal = fmt.Errorf("PTX stacking projection launch: %w", err)
+			return nil, p.terminal
 		}
 		if err := ptx.SyncErr(); err != nil {
-			return nil, err
+			p.uncertain = true
+			p.terminal = fmt.Errorf("PTX stacking projection sync: %w", err)
+			return nil, p.terminal
 		}
 		if err := p.ptxY.Download(result); err != nil {
-			return nil, err
+			p.uncertain = true
+			p.terminal = fmt.Errorf("PTX stacking projection download: %w", err)
+			return nil, p.terminal
 		}
 	case "vulkan":
 		if err := p.vkX.Upload(ctx, padded); err != nil {

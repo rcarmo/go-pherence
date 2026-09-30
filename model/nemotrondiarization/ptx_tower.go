@@ -17,6 +17,8 @@ import (
 type PTXAudioTower struct {
 	mu           sync.Mutex
 	closed       bool
+	terminal     error         // failed sync/free: no further CUDA calls from this owner
+	pending      []*ptx.Buffer // transient owners retained after uncertain completion
 	first        *Layer0Complete
 	layers       []*PTXAudioLayer
 	weight, bias *ptx.Buffer
@@ -40,25 +42,33 @@ func NewPTXAudioTower(source *OfflineAudioTower, maxRows int) (result *PTXAudioT
 	t := &PTXAudioTower{first: source.first, maxRows: maxRows, layers: make([]*PTXAudioLayer, 0, 30)}
 	defer func() {
 		if err != nil {
-			t.Close()
+			closeErr := t.Close()
+			err = errors.Join(err, closeErr)
+			if closeErr != nil {
+				result = t // retain failed owners for process-level recovery
+			}
 		}
 	}()
 	for index, model := range source.remaining {
 		var layer *PTXAudioLayer
 		layer, err = NewPTXAudioLayer(model, maxRows)
 		if err != nil {
+			if layer != nil {
+				t.layers = append(t.layers, layer) // failed constructor retains owners
+				t.terminal = fmt.Errorf("PTX tower layer construction: %w", err)
+			}
 			return nil, fmt.Errorf("PTX tower layer %d: %w", index+1, err)
 		}
 		t.layers = append(t.layers, layer)
 	}
 	upload := func(data []float32) (*ptx.Buffer, error) {
-		b, e := ptx.Malloc(len(data))
+		b, e := ptxCleanupMalloc(len(data))
 		if e != nil {
 			return nil, e
 		}
 		if e = b.Upload(data); e != nil {
-			b.Free()
-			return nil, e
+			// Preserve ownership until the tower's checked, synchronized Close.
+			return b, e
 		}
 		return b, nil
 	}
@@ -72,37 +82,86 @@ func NewPTXAudioTower(source *OfflineAudioTower, maxRows int) (result *PTXAudioT
 	}
 	t.scratch, err = newPTXLayerScratch(maxRows)
 	if err != nil {
+		if t.scratch != nil {
+			t.terminal = fmt.Errorf("PTX tower scratch construction: %w", err)
+		}
 		return nil, err
 	}
 	return t, nil
 }
 
-// Close is idempotent and waits for an active ForwardRows call.
-func (t *PTXAudioTower) Close() {
+// Close serializes with ForwardRows. A sync/free failure seals this owner:
+// retain every unconfirmed allocation and reject retries until the process
+// owner performs separate recovery. A repeated Close returns the same error.
+func (t *PTXAudioTower) Close() error {
 	if t == nil {
-		return
+		return nil
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.terminal != nil {
+		return t.terminal
+	}
 	if t.closed {
-		return
+		return nil
 	}
-	t.closed = true
-	// Drain all queued work before closing scratch and layer-owned weights.
-	ptx.SyncErr()
+	if err := ptxCleanupSync(); err != nil {
+		t.terminal = fmt.Errorf("PTX tower close: %w", err)
+		return t.terminal
+	}
 	if t.scratch != nil {
-		t.scratch.close()
+		if err := t.scratch.close(); err != nil {
+			t.terminal = fmt.Errorf("PTX tower scratch close: %w", err)
+			return t.terminal
+		}
+		t.scratch = nil
 	}
-	if t.bias != nil {
-		t.bias.Free()
-	}
-	if t.weight != nil {
-		t.weight.Free()
+	for _, owner := range []struct {
+		name string
+		buf  **ptx.Buffer
+	}{{"bias", &t.bias}, {"weight", &t.weight}} {
+		if *owner.buf != nil {
+			if err := ptxCleanupFree(*owner.buf); err != nil {
+				t.terminal = fmt.Errorf("PTX tower %s close: %w", owner.name, err)
+				return t.terminal
+			}
+			*owner.buf = nil
+		}
 	}
 	for i := len(t.layers) - 1; i >= 0; i-- {
-		t.layers[i].Close()
+		if t.layers[i] != nil {
+			if err := t.layers[i].Close(); err != nil {
+				t.terminal = fmt.Errorf("PTX tower layer %d close: %w", i+1, err)
+				return t.terminal
+			}
+			t.layers[i] = nil
+		}
 	}
+	t.closed = true
 	t.layers, t.first, t.weight, t.bias, t.scratch = nil, nil, nil, nil, nil
+	return nil
+}
+
+// releaseForwardOwners is called under t.mu after work may have been queued.
+// Never retry a failed free in-process; successful frees have zeroed pointers.
+func (t *PTXAudioTower) releaseForwardOwners(owners []*ptx.Buffer) error {
+	if t.terminal != nil {
+		t.pending = append(t.pending, owners...)
+		return t.terminal // prior failed sync: no second sync/free can erase uncertainty
+	}
+	if syncErr := ptxCleanupSync(); syncErr != nil {
+		t.terminal = fmt.Errorf("PTX tower forward sync: %w", syncErr)
+		t.pending = append(t.pending, owners...)
+		return t.terminal
+	}
+	for i := len(owners) - 1; i >= 0; i-- {
+		if freeErr := ptxCleanupFree(owners[i]); freeErr != nil {
+			t.terminal = fmt.Errorf("PTX tower forward free: %w", freeErr)
+			t.pending = append(t.pending, owners...)
+			return t.terminal
+		}
+	}
+	return nil
 }
 
 // ForwardRows returns an owned final-normalised output for one exact unmasked
@@ -114,6 +173,9 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.terminal != nil {
+		return nil, t.terminal
+	}
 	if t.closed || t.first == nil || len(t.layers) != 30 || rows < 1 || rows > t.maxRows || len(stacked) != rows*projectedWidth || !t.scratch.valid(rows) {
 		return nil, fmt.Errorf("invalid PTX diarization tower window")
 	}
@@ -133,7 +195,7 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 		return nil, err
 	}
 	n := rows * projectedWidth
-	a, err := ptx.Malloc(n)
+	a, err := ptxCleanupMalloc(n)
 	if err != nil {
 		return nil, err
 	}
@@ -141,15 +203,12 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 	// Keep original owners independent of the a/b ping-pong references.
 	// CUDA work may still be queued if a later launch or context check fails.
 	defer func() {
-		err = errors.Join(err, ptx.SyncErr())
-		for i := len(owners) - 1; i >= 0; i-- {
-			owners[i].Free()
-		}
+		err = errors.Join(err, t.releaseForwardOwners(owners))
 		if err != nil {
 			result = nil
 		}
 	}()
-	b, err := ptx.Malloc(n)
+	b, err := ptxCleanupMalloc(n)
 	if err != nil {
 		return nil, err
 	}
@@ -172,8 +231,9 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 	if err := ptx.AffineLayerNormF32Buffer(b, a, t.weight, t.bias, rows, projectedWidth, 1e-5); err != nil {
 		return nil, err
 	}
-	if err := ptx.SyncErr(); err != nil {
-		return nil, err
+	if err := ptxCleanupSync(); err != nil {
+		t.terminal = fmt.Errorf("PTX tower forward sync: %w", err)
+		return nil, t.terminal
 	}
 	out := make([]float32, n)
 	if err := b.Download(out); err != nil {

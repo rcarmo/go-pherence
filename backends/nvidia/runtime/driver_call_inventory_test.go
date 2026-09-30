@@ -14,7 +14,7 @@ import (
 // This inventory is a guard against new unreviewed sites, not a lock proof.
 func TestRawCUDADriverCallsStayInReviewedScopes(t *testing.T) {
 	allowed := map[string]map[string]bool{
-		"runtime.go":      {"Init": true, "ensureContextLocked": true, "Malloc": true, "Free": true, "Upload": true, "UploadBytes": true, "UploadUint32": true, "DownloadBytes": true, "Download": true, "syncCounted": true, "loadModuleDataWithLog": true, "loadPTXModuleLocked": true, "LaunchKernel": true, "MemInfo": true, "Shutdown": true},
+		"runtime.go":      {"Init": true, "ensureContextLocked": true, "Malloc": true, "FreeChecked": true, "Upload": true, "UploadBytes": true, "UploadUint32": true, "DownloadBytes": true, "Download": true, "syncCounted": true, "loadModuleDataWithLog": true, "loadPTXModuleLocked": true, "LaunchKernel": true, "MemInfo": true, "Shutdown": true},
 		"driver_scope.go": {"unloadModule": true, "prewarmAllocatorLocked": true},
 		"devbuf.go":       {"copyDtoDAsync": true, "CopyDtoD": true, "ZeroFloat32Buffer": true},
 		"streams.go":      {"initStreamsLocked": true, "PrefetchWeights": true, "MarkComputeDone": true, "WaitPrefetch": true, "SyncAll": true, "BeginCapture": true, "EndCapture": true, "Launch": true, "Destroy": true, "launchKernelOnStreamLocked": true, "shutdownStreams": true},

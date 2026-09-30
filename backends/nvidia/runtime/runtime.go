@@ -318,24 +318,44 @@ func Malloc(n int) (*Buffer, error) {
 	return &Buffer{Ptr: ptr, Size: int(size)}, nil
 }
 
-// Free releases GPU memory.
-func (b *Buffer) Free() {
+// Free retains the legacy signature. On driver failure the pointer remains
+// owned, but callers needing error handling must use FreeChecked instead.
+func (b *Buffer) Free() { _ = b.FreeChecked() }
+
+// FreeChecked releases device memory only after the driver confirms the free.
+// A failed free keeps the handle for process-level diagnosis; it does not
+// authorise a blind retry after device/context loss.
+func (b *Buffer) FreeChecked() error {
 	if b == nil {
-		return
+		return nil
 	}
-	if b.Ptr != 0 {
-		if gpuStatsEnabled.Load() {
-			gpuStatsFrees.Add(1)
-			gpuStatsFreeBytes.Add(uint64(b.Size))
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	cudaMu.Lock()
+	defer cudaMu.Unlock()
+	if b.Ptr == 0 {
+		return nil
+	}
+	if cuMemFree == nil {
+		return fmt.Errorf("cuMemFree unavailable")
+	}
+	if gpuOK && gpuCtx != 0 {
+		if cuCtxSetCurrent == nil {
+			return fmt.Errorf("cuCtxSetCurrent before cuMemFree unavailable")
 		}
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-		cudaMu.Lock()
-		defer cudaMu.Unlock()
-		ensureContextLocked()
-		cuMemFree(b.Ptr)
-		b.Ptr = 0
+		if r := cuCtxSetCurrent(gpuCtx); r != CUDA_SUCCESS {
+			return fmt.Errorf("cuCtxSetCurrent before cuMemFree: error %d", r)
+		}
 	}
+	if r := cuMemFree(b.Ptr); r != CUDA_SUCCESS {
+		return fmt.Errorf("cuMemFree: error %d", r)
+	}
+	if gpuStatsEnabled.Load() {
+		gpuStatsFrees.Add(1)
+		gpuStatsFreeBytes.Add(uint64(b.Size))
+	}
+	b.Ptr = 0
+	return nil
 }
 
 func checkedByteSize(elements, capacityBytes int) (uint64, error) {
@@ -509,7 +529,17 @@ func syncCounted(count bool) CUresult {
 	defer runtime.UnlockOSThread()
 	cudaMu.Lock()
 	defer cudaMu.Unlock()
-	ensureContextLocked()
+	if gpuOK && gpuCtx != 0 {
+		if cuCtxSetCurrent == nil {
+			return 201 // invalid context; never certify completion
+		}
+		if r := cuCtxSetCurrent(gpuCtx); r != CUDA_SUCCESS {
+			return r
+		}
+	}
+	if cuCtxSynchronize == nil {
+		return 201
+	}
 	r := cuCtxSynchronize()
 	if count && r == CUDA_SUCCESS && gpuStatsEnabled.Load() {
 		gpuStatsSyncs.Add(1)

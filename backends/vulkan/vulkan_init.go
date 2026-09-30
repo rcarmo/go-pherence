@@ -21,6 +21,9 @@ type vkLoader struct {
 func vkNativeLoader() vkLoader {
 	return vkLoader{
 		open: func() (uintptr, error) {
+			if os.Getenv("GO_PHERENCE_DISABLE_VULKAN") != "" {
+				return 0, fmt.Errorf("native Vulkan disabled by GO_PHERENCE_DISABLE_VULKAN")
+			}
 			h, err := purego.Dlopen("libvulkan.so.1", purego.RTLD_LAZY)
 			if err != nil {
 				return purego.Dlopen("libvulkan.so", purego.RTLD_LAZY)

@@ -15,8 +15,12 @@ import (
 // starting at zero. ForwardBuffer serializes Close and each layer launch; the
 // output must not overlap the input. It does not run the first layer or head.
 type PTXAudioLayer struct {
+	callMu                                 sync.Mutex // ForwardBuffer versus Close, including post-launch sync
 	mu                                     sync.Mutex
 	closed                                 bool
+	terminal                               error
+	pending                                []*ptx.Buffer // transient owners after uncertain completion
+	pendingScratch                         *ptxLayerScratch
 	maxRows                                int
 	owned                                  []*ptx.Buffer
 	frequency                              *ptx.Buffer
@@ -52,17 +56,21 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 	candidate := &PTXAudioLayer{maxRows: maxRows}
 	defer func() {
 		if err != nil {
-			candidate.Close()
+			closeErr := candidate.Close()
+			err = errors.Join(err, closeErr)
+			if closeErr != nil {
+				layer = candidate // retain failed owners
+			}
 		}
 	}()
 	upload := func(data []float32) (*ptx.Buffer, error) {
-		b, e := ptx.Malloc(len(data))
+		b, e := ptxCleanupMalloc(len(data))
 		if e != nil {
 			return nil, e
 		}
 		candidate.owned = append(candidate.owned, b)
 		if e = b.Upload(data); e != nil {
-			return nil, e
+			return b, e // candidate.owned retains failed upload allocation
 		}
 		return b, nil
 	}
@@ -107,50 +115,111 @@ func NewPTXAudioLayer(source *Layer1Complete, maxRows int) (layer *PTXAudioLayer
 	return candidate, nil
 }
 
-// Close is idempotent; it waits for any current ForwardBuffer call.
-func (l *PTXAudioLayer) Close() {
+// Close waits for a current ForwardBuffer call. On a failed free it retains
+// the remaining owners and seals the layer against new work or blind retry.
+func (l *PTXAudioLayer) Close() error {
 	if l == nil {
-		return
+		return nil
 	}
+	l.callMu.Lock()
+	defer l.callMu.Unlock()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.terminal != nil {
+		return l.terminal
+	}
 	if l.closed {
-		return
+		return nil
+	}
+	if len(l.owned) != 0 {
+		if err := ptxCleanupSync(); err != nil {
+			l.terminal = fmt.Errorf("PTX layer close sync: %w", err)
+			return l.terminal
+		}
+	}
+	for i := len(l.owned) - 1; i >= 0; i-- {
+		if l.owned[i] != nil {
+			if err := ptxCleanupFree(l.owned[i]); err != nil {
+				l.terminal = fmt.Errorf("PTX layer free: %w", err)
+				return l.terminal
+			}
+			l.owned[i] = nil
+		}
 	}
 	l.closed = true
-	for i := len(l.owned) - 1; i >= 0; i-- {
-		l.owned[i].Free()
-	}
 	l.owned = nil
+	return nil
 }
 
 // Forward returns a caller-owned host output and preserves the host input.
-func (l *PTXAudioLayer) Forward(input []float32, rows int) ([]float32, error) {
+func (l *PTXAudioLayer) Forward(input []float32, rows int) (result []float32, err error) {
 	if l == nil || rows < 1 || rows > l.maxRows || len(input) != rows*projectedWidth {
 		return nil, fmt.Errorf("invalid PTX diarization layer input")
+	}
+	l.callMu.Lock()
+	defer l.callMu.Unlock()
+	l.mu.Lock()
+	closed, terminal := l.closed, l.terminal
+	l.mu.Unlock()
+	if terminal != nil {
+		return nil, terminal
+	}
+	if closed {
+		return nil, fmt.Errorf("PTX diarization layer closed")
 	}
 	for _, value := range input {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 			return nil, fmt.Errorf("non-finite PTX diarization layer input")
 		}
 	}
-	in, err := ptx.Malloc(len(input))
+	in, err := ptxCleanupMalloc(len(input))
 	if err != nil {
 		return nil, err
 	}
-	defer in.Free()
-	out, err := ptx.Malloc(len(input))
+	owners := []*ptx.Buffer{in}
+	defer func() {
+		l.mu.Lock()
+		if l.terminal != nil {
+			l.pending = append(l.pending, owners...)
+			err = errors.Join(err, l.terminal)
+			result = nil
+			l.mu.Unlock()
+			return
+		}
+		l.mu.Unlock()
+		if syncErr := ptxCleanupSync(); syncErr != nil {
+			l.mu.Lock()
+			l.terminal = fmt.Errorf("PTX layer host forward sync: %w", syncErr)
+			l.pending = append(l.pending, owners...)
+			err = errors.Join(err, l.terminal)
+			result = nil
+			l.mu.Unlock()
+			return
+		}
+		for i := len(owners) - 1; i >= 0; i-- {
+			if freeErr := ptxCleanupFree(owners[i]); freeErr != nil {
+				l.mu.Lock()
+				l.terminal = fmt.Errorf("PTX layer host forward free: %w", freeErr)
+				l.pending = append(l.pending, owners...)
+				err = errors.Join(err, l.terminal)
+				result = nil
+				l.mu.Unlock()
+				return
+			}
+		}
+	}()
+	out, err := ptxCleanupMalloc(len(input))
 	if err != nil {
 		return nil, err
 	}
-	defer out.Free()
+	owners = append(owners, out)
 	if err := in.Upload(input); err != nil {
 		return nil, err
 	}
-	if err := l.ForwardBuffer(out, in, rows); err != nil {
+	if err := l.forwardBufferLocked(out, in, rows); err != nil {
 		return nil, err
 	}
-	result := make([]float32, len(input))
+	result = make([]float32, len(input))
 	if err := out.Download(result); err != nil {
 		return nil, err
 	}
@@ -167,8 +236,27 @@ func deviceBuffersOverlap(a, b *ptx.Buffer, bytes uint64) bool {
 
 // ForwardBuffer keeps every intermediate resident; it synchronizes before
 // releasing per-call scratch or permitting Close. No CPU fallback is used.
-func (l *PTXAudioLayer) ForwardBuffer(out, in *ptx.Buffer, rows int) (err error) {
-	if l == nil || rows < 1 || rows > l.maxRows || in == nil || out == nil || in.Ptr == 0 || out.Ptr == 0 {
+func (l *PTXAudioLayer) ForwardBuffer(out, in *ptx.Buffer, rows int) error {
+	if l == nil {
+		return fmt.Errorf("invalid PTX diarization layer device input")
+	}
+	l.callMu.Lock()
+	defer l.callMu.Unlock()
+	return l.forwardBufferLocked(out, in, rows)
+}
+
+// forwardBufferLocked is entered with callMu held by either public entrypoint.
+func (l *PTXAudioLayer) forwardBufferLocked(out, in *ptx.Buffer, rows int) (err error) {
+	if l == nil {
+		return fmt.Errorf("invalid PTX diarization layer device input")
+	}
+	l.mu.Lock()
+	terminal := l.terminal
+	l.mu.Unlock()
+	if terminal != nil {
+		return terminal
+	}
+	if rows < 1 || rows > l.maxRows || in == nil || out == nil || in.Ptr == 0 || out.Ptr == 0 {
 		return fmt.Errorf("invalid PTX diarization layer device input")
 	}
 	n, ok := checked.MulInt(rows, projectedWidth)
@@ -177,14 +265,51 @@ func (l *PTXAudioLayer) ForwardBuffer(out, in *ptx.Buffer, rows int) (err error)
 		deviceBuffersOverlap(in, out, uint64(bytes)) {
 		return fmt.Errorf("invalid or overlapping PTX diarization layer device input")
 	}
+	l.mu.Lock()
+	closed, terminal := l.closed, l.terminal
+	l.mu.Unlock()
+	if terminal != nil {
+		return terminal
+	}
+	if closed {
+		return fmt.Errorf("PTX diarization layer closed")
+	}
 	scratch, err := newPTXLayerScratch(rows)
 	if err != nil {
+		if scratch != nil {
+			l.mu.Lock()
+			l.terminal = fmt.Errorf("PTX layer scratch construction: %w", err)
+			l.pendingScratch = scratch
+			l.mu.Unlock()
+		}
 		return err
 	}
 	defer func() {
-		// A failed launch may leave queued work; drain before freeing scratch.
-		err = errors.Join(err, ptx.SyncErr())
-		scratch.close()
+		l.mu.Lock()
+		terminal := l.terminal
+		l.mu.Unlock()
+		if terminal != nil {
+			l.mu.Lock()
+			l.pendingScratch = scratch
+			l.mu.Unlock()
+			err = errors.Join(err, terminal)
+			return
+		}
+		if syncErr := ptxCleanupSync(); syncErr != nil {
+			l.mu.Lock()
+			l.terminal = fmt.Errorf("PTX layer forward sync: %w", syncErr)
+			l.pendingScratch = scratch
+			l.mu.Unlock()
+			err = errors.Join(err, l.terminal)
+			return // retain scratch; no free while completion is uncertain
+		}
+		if closeErr := scratch.close(); closeErr != nil {
+			l.mu.Lock()
+			l.terminal = fmt.Errorf("PTX layer scratch free: %w", closeErr)
+			l.pendingScratch = scratch
+			l.mu.Unlock()
+			err = errors.Join(err, l.terminal)
+		}
 	}()
 	return l.forwardWithScratch(out, in, rows, scratch)
 }
@@ -198,6 +323,9 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.terminal != nil {
+		return l.terminal
+	}
 	if l.closed {
 		return fmt.Errorf("PTX diarization layer closed")
 	}

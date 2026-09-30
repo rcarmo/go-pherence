@@ -23,21 +23,28 @@ func NewPTXStreamingTower(model *OfflineAudioTower) (*PTXStreamingTower, error) 
 	return &PTXStreamingTower{model: model}, nil
 }
 
-func (s *PTXStreamingTower) Close() {
+func (s *PTXStreamingTower) Close() error {
 	if s == nil {
-		return
+		return nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		return
+		if s.tower != nil {
+			return s.tower.Close() // terminal owner returns its memoised error
+		}
+		return nil
 	}
-	s.closed = true
 	if s.tower != nil {
-		s.tower.Close()
+		if err := s.tower.Close(); err != nil {
+			s.closed = true // reject new work, retain failed owner and error
+			return err
+		}
 		s.tower = nil
 	}
+	s.closed = true
 	s.model = nil
+	return nil
 }
 
 func (s *PTXStreamingTower) Forward(ctx context.Context, input []float32, rows int) ([]float32, error) {
@@ -46,6 +53,9 @@ func (s *PTXStreamingTower) Forward(ctx context.Context, input []float32, rows i
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.tower != nil && s.tower.terminal != nil {
+		return nil, s.tower.terminal
+	}
 	if s.closed || s.model == nil || rows < 1 || rows > maxPreparedDiarizationRows || len(input) != rows*projectedWidth {
 		return nil, fmt.Errorf("invalid PTX streaming tower input")
 	}
@@ -55,6 +65,10 @@ func (s *PTXStreamingTower) Forward(ctx context.Context, input []float32, rows i
 	if s.tower == nil {
 		candidate, err := NewPTXAudioTower(s.model, maxPreparedDiarizationRows)
 		if err != nil {
+			if candidate != nil {
+				s.tower = candidate // preserve failed constructor cleanup owner
+				s.closed = true
+			}
 			return nil, err
 		}
 		s.tower = candidate
@@ -77,7 +91,9 @@ func (s *PCMStreamingRequest) ClosePTXTower() error {
 	if s == nil || s.window == nil || s.window.PTXTower == nil {
 		return nil
 	}
-	s.window.PTXTower.Close()
+	if err := s.window.PTXTower.Close(); err != nil {
+		return fmt.Errorf("Nemotron streaming PTX tower cleanup: %w", err)
+	}
 	s.window.PTXTower = nil
 	return nil
 }

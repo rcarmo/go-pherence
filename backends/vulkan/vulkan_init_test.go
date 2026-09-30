@@ -9,6 +9,15 @@ import (
 	"unsafe"
 )
 
+// The CPU-only gate is enforced before dlopen; never open a native driver.
+func TestVulkanNativeLoaderDisabledBeforeOpen(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_VULKAN", "1")
+	handle, err := vkNativeLoader().open()
+	if handle != 0 || err == nil || !strings.Contains(err.Error(), "GO_PHERENCE_DISABLE_VULKAN") {
+		t.Fatalf("native loader gate failed: handle=%d err=%v", handle, err)
+	}
+}
+
 // Save ALL function slots and published state; no native loader is opened.
 func offlineInitState(t *testing.T) {
 	t.Helper()
