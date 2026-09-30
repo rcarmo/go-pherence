@@ -40,7 +40,15 @@ A separate binary (built once with `go build -o "$p/nemotron-cli" ./cmd/audio/ne
 | PTX | 38.40 s / 5,273,564 KiB | 13.07 s / 1,687,052 KiB |
 | Vulkan | 38.35 s / 5,371,128 KiB | 16.96 s / 2,720,788 KiB |
 
-These six one-off full-process runs also finished within 60 seconds on this host. The load-inclusive ASR wall times were slightly slower for GPU projection hybrids than for SIMD in these samples. Repeated controlled trials and sustained streams remain open.
+Four further process invocations per task/backend used the same binary, input and flags, in interleaved backend/task order (`simd`, `ptx`, `vulkan` within ASR and then diarization). Their stdout was discarded; each exited successfully. Across five samples per case, process-wall medians and ranges were:
+
+| Backend | ASR median [min, max] | Diarization median [min, max] |
+|---|---:|---:|
+| SIMD | 37.38 [36.80, 38.07] s | 38.31 [38.04, 39.28] s |
+| PTX | 37.93 [37.39, 38.40] s | 13.07 [12.96, 13.23] s |
+| Vulkan | 38.13 [37.94, 39.02] s | 16.78 [16.64, 16.96] s |
+
+All 30 load-inclusive invocations finished within 60 seconds on this host, and the saved-output replay matched across the first six. The GPU projection ASR hybrids show no supported wall-time speedup over SIMD because their ranges overlap. These are separate short cold-process runs; no long-lived stream, sustained multi-request workload, long soak or other host has been measured.
 
 ## Saved output and scoring
 
