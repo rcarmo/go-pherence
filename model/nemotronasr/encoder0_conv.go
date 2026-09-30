@@ -119,7 +119,10 @@ func (m *Encoder0Convolution) forward(input []float32, rows int, cache *Encoder0
 			glu[row*encoderWidth+ch] = point[row*2*encoderWidth+ch] / (1 + float32(math.Exp(float64(-gate))))
 		}
 	}
-	depth := make([]float32, len(input))
+	// GLU has consumed the owned pointwise-1 buffer. Its first half is
+	// large enough for the depthwise result and remains independent of GLU.
+	depth := point[:len(input)]
+	clear(depth)
 	var prepared Encoder0ConvCache
 	if cache != nil {
 		prepared = *cache
