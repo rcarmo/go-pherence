@@ -50,7 +50,7 @@ func (h *Handler) progressSnapshot(id string) (ProgressSnapshot, error) {
 		h.mu.Lock()
 		work, ok := h.workProgress[id]
 		h.mu.Unlock()
-		if ok && work.Stage == m.ActiveStage {
+		if ok && (work.Stage == m.ActiveStage || m.ActiveStage == "transcript" && work.Stage == "asr-windows" && work.Phase == "samples") {
 			p.Work = &work
 		}
 	}

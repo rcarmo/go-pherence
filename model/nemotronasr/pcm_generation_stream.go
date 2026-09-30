@@ -46,7 +46,11 @@ func LoadPCMGenerationModel(file *safetensors.File) (*PCMGenerationModel, error)
 // Invalid PCM calls leave it unchanged. Cancellation or model errors close
 // it, since completed chunks cannot be replayed after a partial failure.
 type PCMGenerationStream struct {
-	Model     *PCMGenerationModel
+	Model *PCMGenerationModel
+	// PromptID selects a released locale prompt before the first PCM call.
+	// Nil preserves the historical automatic-language prompt 101. Keep the
+	// pointed value immutable for the lifetime of a stream.
+	PromptID  *int
 	Projector SubsamplingProjector // optional per-request GPU projection
 	frontend  ASRMelChunkStream
 	sub       SubsamplingStream
@@ -111,6 +115,9 @@ func (s *PCMGenerationStream) validate(ctx context.Context) error {
 	if s == nil || s.closed || s.Model == nil || s.Model.Subsampling == nil || s.Model.Tower == nil || s.Model.Projection == nil || s.Model.Decoder == nil || ctx == nil {
 		return fmt.Errorf("invalid Nemotron ASR PCM generation stream")
 	}
+	if s.PromptID != nil && (*s.PromptID < 0 || *s.PromptID >= rnntPrompts) {
+		return fmt.Errorf("invalid Nemotron ASR language prompt")
+	}
 	if err := ctx.Err(); err != nil {
 		s.closed = true
 		return err
@@ -159,7 +166,11 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 		if s.onStage != nil {
 			s.onStage("tower", hidden)
 		}
-		_, _, encoded, err := s.Model.Projection.Project(hidden, 4, 101)
+		prompt := 101
+		if s.PromptID != nil {
+			prompt = *s.PromptID
+		}
+		_, _, encoded, err := s.Model.Projection.Project(hidden, 4, prompt)
 		if err != nil {
 			s.closed = true
 			return nil, nil, err

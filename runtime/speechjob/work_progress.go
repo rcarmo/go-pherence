@@ -30,6 +30,12 @@ func reportWorkProgress(ctx context.Context, stage string, completed, total int6
 	}
 }
 
+// ReportASRProgress publishes bounded ASR sample/window progress without durable
+// acknowledgement semantics. A transcript stage may replay from zero on retry.
+func ReportASRProgress(ctx context.Context, completed, total int64, phase string) {
+	reportWorkProgress(ctx, "asr-windows", completed, total, phase)
+}
+
 // ReportDiarizationProgress lets a model owner publish window completion through
 // the caller's context, without coupling the model package to queue or HTTP.
 func ReportDiarizationProgress(ctx context.Context, completed, total int64, phase string) {

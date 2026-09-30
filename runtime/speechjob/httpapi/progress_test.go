@@ -124,6 +124,29 @@ func TestProgressSSEStreamsRunningAndTerminal(t *testing.T) {
 	}
 }
 
+func TestProgressNemotronTranscriptSampleCounters(t *testing.T) {
+	ready, release := make(chan struct{}), make(chan struct{})
+	h, _, _ := fixture(t, []speechjob.Stage{testStage("transcript", func(ctx context.Context, _ *speechjob.Input, w io.Writer) error {
+		speechjob.ReportASRProgress(ctx, 80000, 160000, "samples")
+		close(ready)
+		<-release
+		_, err := io.WriteString(w, "{}")
+		return err
+	})}, 4)
+	j := upload(t, h)
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() { done <- request(h, "POST", "/v1/jobs/"+j.ID+"/run", nil) }()
+	<-ready
+	w := request(h, "GET", "/v1/jobs/"+j.ID+"/progress", nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"stage":"transcript"`) || !strings.Contains(w.Body.String(), `"completed":80000`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	close(release)
+	if w := <-done; w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
 func TestProgressRejectsInvalidCountersAndBoundsMap(t *testing.T) {
 	h, _, _ := fixture(t, []speechjob.Stage{textStage("decode", "PCM")}, 4)
 	h.recordWorkProgress("first", speechjob.WorkProgress{Stage: "asr-windows", Completed: 2, Total: 3})

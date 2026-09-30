@@ -33,6 +33,9 @@ type Transcript struct {
 	SourceTiming media.SourceTiming `json:"source_timing"`
 	Cues         []Cue              `json:"cues"`
 	Words        []WordCue          `json:"words,omitempty"`
+	// Timing marks coarse provider timing when word alignment is unavailable.
+	// Empty preserves existing Whisper document bytes and timing semantics.
+	Timing string `json:"timing,omitempty"`
 }
 type Cue struct {
 	StartSample int64  `json:"start_sample"`
@@ -56,6 +59,9 @@ func validateTranscript(ctx context.Context, t Transcript) error {
 	}
 	if t.Schema != 2 || t.SampleRate != 16000 || t.TotalSamples < 0 || t.TotalSamples > 4*3600*16000 || len(t.Cues) > MaxTranscriptCues || len(t.Language) < 2 || len(t.Language) > 32 {
 		return fmt.Errorf("invalid transcript schema/geometry/language")
+	}
+	if t.Timing != "" && t.Timing != "rnnt-emission-chunks-not-word-alignment-v1" || t.Timing != "" && len(t.Words) > 0 {
+		return ErrCorrupt
 	}
 	if _, e := media.MarshalSourceTimingWAVChunk(t.SourceTiming); e != nil {
 		return fmt.Errorf("invalid transcript source timing: %w", e)
@@ -210,6 +216,13 @@ func WriteWebVTT(ctx context.Context, w io.Writer, t Transcript) error {
 	if e := validateTranscript(ctx, t); e != nil {
 		return e
 	}
+	if t.Timing != "" {
+		var body bytes.Buffer
+		if e := writeVTTCues(ctx, &body, t.Cues); e != nil {
+			return e
+		}
+		return writeContext(ctx, w, bytes.Replace(body.Bytes(), []byte("WEBVTT\n\n"), []byte("WEBVTT\n\nNOTE Nemotron RNN-T emission chunk timing; no word alignment.\n\n"), 1))
+	}
 	return writeVTTCues(ctx, w, t.Cues)
 }
 
@@ -306,7 +319,7 @@ func validateTranscriptJSONShape(ctx context.Context, b []byte) error {
 			var required map[string]bool
 			switch index {
 			case 0:
-				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "source_timing": true, "cues": true, "words": false}
+				required = map[string]bool{"schema": true, "sample_rate": true, "total_samples": true, "language": true, "source_timing": true, "cues": true, "words": false, "timing": false}
 			case 1:
 				required = map[string]bool{"start_ns": true, "duration_ns": true, "exact": true, "has_edits": true, "source_rate": true, "priming": true, "padding": true, "leading_silence": true}
 			default:

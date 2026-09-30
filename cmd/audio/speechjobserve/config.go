@@ -187,24 +187,31 @@ type ResourceSettings struct {
 	ResidentBytes int64 `json:"resident_bytes"`
 	WorkBytes     int64 `json:"work_bytes"`
 }
+type NemotronASRSettings struct {
+	Enable            bool   `json:"enable"`
+	AllowExperimental bool   `json:"allow_experimental"`
+	ModelRevision     string `json:"model_revision"`
+}
+
 type ServerConfig struct {
-	Resources      *ResourceSettings `json:"resources,omitempty"`
-	Queue          QueueSettings     `json:"queue"`
-	Schema         int               `json:"schema"`
-	AllowExecution bool              `json:"allow_execution"`
-	Store          string            `json:"store"`
-	RuntimeSHA256  string            `json:"runtime_sha256"`
-	Threads        int               `json:"threads"`
-	Limits         Limits            `json:"limits"`
-	HTTP           HTTPSettings      `json:"http"`
-	Weights        Asset             `json:"weights"`
-	ModelConfig    Asset             `json:"model_config"`
-	Tokenizer      Asset             `json:"tokenizer"`
-	Generation     Asset             `json:"generation"`
-	FFmpeg         Asset             `json:"ffmpeg,omitempty"`
-	FFprobe        Asset             `json:"ffprobe,omitempty"`
-	Profile        ProfileSettings   `json:"profile,omitempty"`
-	Profiles       []ProfileSettings `json:"profiles,omitempty"`
+	NemotronASR    *NemotronASRSettings `json:"nemotron_asr,omitempty"`
+	Resources      *ResourceSettings    `json:"resources,omitempty"`
+	Queue          QueueSettings        `json:"queue"`
+	Schema         int                  `json:"schema"`
+	AllowExecution bool                 `json:"allow_execution"`
+	Store          string               `json:"store"`
+	RuntimeSHA256  string               `json:"runtime_sha256"`
+	Threads        int                  `json:"threads"`
+	Limits         Limits               `json:"limits"`
+	HTTP           HTTPSettings         `json:"http"`
+	Weights        Asset                `json:"weights"`
+	ModelConfig    Asset                `json:"model_config"`
+	Tokenizer      Asset                `json:"tokenizer"`
+	Generation     Asset                `json:"generation"`
+	FFmpeg         Asset                `json:"ffmpeg,omitempty"`
+	FFprobe        Asset                `json:"ffprobe,omitempty"`
+	Profile        ProfileSettings      `json:"profile,omitempty"`
+	Profiles       []ProfileSettings    `json:"profiles,omitempty"`
 }
 
 func validHash(s string) bool {
@@ -439,6 +446,16 @@ func (c ServerConfig) validate() error {
 		u, e := url.Parse(h.Origin)
 		if e != nil || u == nil || h.MaxRequests < 2 || !seen[u.Host] || (u.Scheme == "https") != hasTLS {
 			return fmt.Errorf("browser UI requires matching TLS/origin/Host and two request slots")
+		}
+	}
+	if x := c.NemotronASR; x != nil {
+		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "ea30d66debe3740a08b573244286791d423d6b3e" || c.Resources == nil {
+			return fmt.Errorf("invalid Nemotron ASR configuration")
+		}
+		for _, p := range profiles {
+			if p.Vulkan != nil || p.WordTimestamps || p.Language != "auto" && p.Language != "en" && p.Language != "pt" && p.Language != "fr" && p.Language != "es" && p.Language != "it" {
+				return fmt.Errorf("Nemotron ASR requires CPU, coarse timing and a released language prompt")
+			}
 		}
 	}
 	for _, a := range []Asset{c.Weights, c.ModelConfig, c.Tokenizer, c.Generation} {

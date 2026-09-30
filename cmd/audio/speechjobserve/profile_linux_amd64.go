@@ -260,6 +260,9 @@ func buildProfileOwned(ctx context.Context, c ServerConfig, load bool, runtime v
 	return buildProfileOwnedRuntimes(ctx, c, load, profileRuntimes{runtime, defaultCommunityRuntime()})
 }
 func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, runtimes profileRuntimes) (*builtProfiles, error) {
+	if c.NemotronASR != nil {
+		return buildNemotronASRProfiles(ctx, c, load, runtimes.Community)
+	}
 	runtime := runtimes.Vulkan
 	p, e := prepareModel(ctx, c)
 	if e != nil {

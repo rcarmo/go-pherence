@@ -313,6 +313,9 @@ func WriteSpeakerTranscriptVTT(ctx context.Context, w io.Writer, d SpeakerTransc
 	if d.Policy == nemotronSpeakerPolicy {
 		note = "NOTE Experimental Nemotron speaker labels; maximum-positive-overlap word attribution; overlap ties remain unlabelled.\n\n"
 	}
+	if d.Transcript.Timing != "" {
+		note += "NOTE Nemotron RNN-T emission chunk timing; no word alignment.\n\n"
+	}
 	if body.Len()+len(note) > MaxTranscriptBytes {
 		return ErrLimit
 	}
