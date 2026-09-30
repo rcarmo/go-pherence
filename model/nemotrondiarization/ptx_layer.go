@@ -209,7 +209,7 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 		return err
 	}
 	for _, op := range []struct{ dst, weight *ptx.Buffer }{{q, l.qW}, {k, l.kW}, {v, l.vW}} {
-		if err = ptx.Sgemm(rows, projectedWidth, projectedWidth, 1, norm, op.weight, op.dst); err != nil {
+		if err = ptx.SgemmReg2(rows, projectedWidth, projectedWidth, 1, norm, op.weight, op.dst); err != nil {
 			return err
 		}
 	}
@@ -221,7 +221,7 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 	if err = ptx.WhisperAttentionFullOnlineBuffer(mixed, q, k, v, rows, rows, diarizationHeads, diarizationHeadWidth, 1.0/8.0); err != nil {
 		return err
 	}
-	if err = ptx.Sgemm(rows, projectedWidth, projectedWidth, 1, mixed, l.oW, projected); err != nil {
+	if err = ptx.SgemmReg2(rows, projectedWidth, projectedWidth, 1, mixed, l.oW, projected); err != nil {
 		return err
 	}
 	if err = ptx.WhisperRowBiasBuffer(projected, l.oB, rows, projectedWidth); err != nil {
@@ -233,7 +233,7 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 	if err = ptx.AffineLayerNormF32Buffer(norm2, residual, l.n2W, l.n2B, rows, projectedWidth, 1e-5); err != nil {
 		return err
 	}
-	if err = ptx.Sgemm(rows, diarizationIntermediate, projectedWidth, 1, norm2, l.fc1W, fc1); err != nil {
+	if err = ptx.SgemmReg2(rows, diarizationIntermediate, projectedWidth, 1, norm2, l.fc1W, fc1); err != nil {
 		return err
 	}
 	if err = ptx.WhisperRowBiasBuffer(fc1, l.fc1B, rows, diarizationIntermediate); err != nil {
@@ -242,7 +242,7 @@ func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratc
 	if err = ptx.GELUErfF32Buffer(fc1, intermediateN); err != nil {
 		return err
 	}
-	if err = ptx.Sgemm(rows, projectedWidth, diarizationIntermediate, 1, fc1, l.fc2W, out); err != nil {
+	if err = ptx.SgemmReg2(rows, projectedWidth, diarizationIntermediate, 1, fc1, l.fc2W, out); err != nil {
 		return err
 	}
 	if err = ptx.WhisperRowBiasBuffer(out, l.fc2B, rows, projectedWidth); err != nil {

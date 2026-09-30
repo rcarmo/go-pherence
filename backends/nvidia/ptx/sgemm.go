@@ -374,7 +374,9 @@ SKINNY_TILE_LOOP:
     add.u64 %rd6, %rd0, %rd6;
     mov.f32 %f2, 0.0;
     @%p3 ld.global.f32 %f2, [%rd6];
-    st.shared.f32 [%rd5], %f2;
+    // Only the first 16 lanes own this row's A fragment. Higher lanes
+    // would overwrite the following row in the 17-wide shared tile.
+    @%p1 st.shared.f32 [%rd5], %f2;
 
     // Load B tile: 128 threads cooperatively cover 16 x 32 values.
     mad.lo.u32 %r20, %r5, 32, %r6;

@@ -219,6 +219,21 @@ PCM→logits→segments sample took `80.81 s`, again with 9,999 rows, 29 spans
 and zero outliers. It is still slower than the prior projection-only PTX
 sample; the tower benchmark is not a complete-request speed claim.
 
+The explicit `SgemmReg2` candidate now serves only the PTX diarization
+layer's six projection calls; general SGEMM dispatch remains on its oracle.
+An independent F64 matrix-product test at 13/103/138-row F32 shapes found
+zero outliers for oracle, reg2 and the repaired skinny candidate. The skinny
+kernel previously wrote A shared-memory rows from lanes 16–31 beyond their
+16-element fragments; its store is now lane-guarded. At 103 rows, the reg2
+candidate took `71–73 µs` for 512×512, `255–256 µs` for fc1 and about
+`277 µs` for fc2 versus oracle `97 µs`, `361–363 µs` and `371 µs` in the
+bounded resident-kernel probe. The PTX tower at 103 rows took `64–68 ms`
+versus the prior shared-scratch `71–74 ms` in two five-call samples. One
+pinned 100-second PTX-tower request took `77.73 s` with 9,999 matching
+logits rows, the same 29 spans and zero outliers. This is still slower than
+the previous `75.69 s` projection-only PTX sample; unrelated SGEMM callers
+retain oracle dispatch.
+
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
 pinned intermediate tests retain both diagnostic stages. A 138-row released
