@@ -167,7 +167,11 @@ func (m *Layer1Attention) forwardOffline(input []float32, rows int, vector, resi
 			}
 		}
 	}
-	attention = make([]float32, len(input))
+	// K is no longer read after attention scores are computed. Reuse its
+	// owned storage for the output projection; the caller still receives an
+	// output independent of input and all model weights.
+	attention = k
+	clear(attention)
 	if !diarizationDenseMLP(attention, mixed, m.outWeight, m.outPacked, rows, projectedWidth, projectedWidth) {
 		return nil, nil, fmt.Errorf("Nemotron diarization layer-1 output rejected shape")
 	}

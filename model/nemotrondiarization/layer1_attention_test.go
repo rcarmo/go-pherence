@@ -91,6 +91,43 @@ func TestReleasedLayer1AttentionPyTorchParity(t *testing.T) {
 	}
 }
 
+func TestLayer1AttentionOutputOwnershipAcrossCalls(t *testing.T) {
+	// The output projection reuses an owned Q/K/V buffer. Subsequent calls
+	// must neither overwrite earlier outputs nor retain caller input.
+	m := &Layer1Attention{
+		qkv: &Layer1QKV{
+			gamma: make([]float32, projectedWidth), beta: make([]float32, projectedWidth),
+			q: make([]float32, projectedWidth*projectedWidth),
+			k: make([]float32, projectedWidth*projectedWidth),
+			v: make([]float32, projectedWidth*projectedWidth),
+		},
+		outWeight: make([]float32, projectedWidth*projectedWidth),
+		outBias:   make([]float32, projectedWidth),
+	}
+	for _, rows := range []int{1, 16} { // scalar and tiled attention paths
+		t.Run(fmt.Sprintf("rows=%d", rows), func(t *testing.T) {
+			input := make([]float32, rows*projectedWidth)
+			input[0] = 3
+			attention, residual, err := m.ForwardOffline(input, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if &attention[0] == &residual[0] || &attention[0] == &input[0] || &residual[0] == &input[0] || attention[0] != 0 || residual[0] != 3 {
+				t.Fatal("outputs alias input/each other or differ from zero-weight reference")
+			}
+			attention[0] = 42
+			residual[0] = 99
+			nextAttention, nextResidual, err := m.ForwardOffline(input, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if attention[0] != 42 || residual[0] != 99 || nextAttention[0] != 0 || nextResidual[0] != 3 || input[0] != 3 {
+				t.Fatal("subsequent call changed owned outputs or input")
+			}
+		})
+	}
+}
+
 func TestLayer1AttentionRejectsMalformed(t *testing.T) {
 	if _, err := LoadLayer1Attention(nil); err == nil {
 		t.Fatal("accepted nil checkpoint")
