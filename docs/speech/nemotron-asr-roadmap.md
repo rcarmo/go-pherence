@@ -215,6 +215,16 @@ PTX and Vulkan projection paths. Two native `-race` runs confirmed terminal
 closure, no returned decisions, rejected finish, request-owned projector
 cleanup and balanced PTX device allocations. An active kernel cannot be
 interrupted, and this is not a service deadline guarantee.
+A separate bounded test amplified the first five seconds of JFK PCM by 3×
+and ran full streaming decisions through SIMD, PTX and Vulkan projection
+paths. Against SIMD, both GPU projection paths had maximum/mean subsampling
+error `1.83e-3`/`4.41e-5`, zero values outside the existing
+`3e-3 + 4e-5*abs(reference)` gate; tower maximum/mean error was
+`1.70e-6`/`1.49e-8` with zero outliers. Tokens and frame positions matched,
+caller PCM stayed unchanged, and PTX allocations and frees balanced. Two
+native `-race` repetitions passed. SIMD is a cross-backend implementation
+reference here, not independent PyTorch quality or labelled WER evidence.
+The 20-second podcast's two composed-stage outliers remain unqualified.
 
 A one-CPU i7-12700 full-request benchmark (11-second JFK, five-second
 `AppendPCM` calls, model/WAV loading excluded) identified relative-position
