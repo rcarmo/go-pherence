@@ -88,6 +88,40 @@ func TestReleasedEncoder0CachedAttentionChunksPyTorchParity(t *testing.T) {
 	}
 }
 
+func TestEncoder0CachedAttentionOutputOwnershipAcrossCalls(t *testing.T) {
+	// Update copies the projected K into visible/cache-owned storage; the
+	// returned output may reuse the original K only if it stays independent.
+	m := &Encoder0Attention{
+		qkv: &Encoder0QKV{
+			q: make([]float32, encoderWidth*encoderWidth),
+			k: make([]float32, encoderWidth*encoderWidth),
+			v: make([]float32, encoderWidth*encoderWidth),
+		},
+		outputWeight:   make([]float32, encoderWidth*encoderWidth),
+		relativeWeight: make([]float32, encoderWidth*encoderWidth),
+		biasU:          make([]float32, encoderWidth),
+		biasV:          make([]float32, encoderWidth),
+	}
+	input := make([]float32, encoderWidth)
+	input[0] = 3
+	cache := &Encoder0KVCache{}
+	first, err := m.ForwardCachedChunk(input, 1, 0, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if &first[0] == &input[0] || first[0] != 0 || input[0] != 3 {
+		t.Fatal("output aliases input or differs from zero-weight reference")
+	}
+	first[0] = 42
+	second, err := m.ForwardCachedChunk(input, 1, 0, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first[0] != 42 || second[0] != 0 || input[0] != 3 || cache.retained != 2 {
+		t.Fatal("subsequent call changed owned output, input, or cache")
+	}
+}
+
 func TestEncoder0CachedAttentionRejectsMalformed(t *testing.T) {
 	var cache Encoder0KVCache
 	if _, err := (*Encoder0Attention)(nil).ForwardCachedChunk(make([]float32, encoderWidth), 1, 0, &cache); err == nil {

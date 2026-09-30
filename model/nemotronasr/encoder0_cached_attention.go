@@ -117,7 +117,10 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 			}
 		}
 	}
-	output := make([]float32, len(input))
+	// Update copied K into owned visible/cache storage. The original K
+	// projection is dead after scoring, so use its owned buffer for output.
+	output := k
+	clear(output)
 	if !simd.DenseNTTo(output, mixed, m.outputWeight, rows, encoderWidth, encoderWidth, 1, encoderWidth, encoderWidth, encoderWidth) {
 		return nil, fmt.Errorf("Nemotron ASR cached attention output rejected shape")
 	}
