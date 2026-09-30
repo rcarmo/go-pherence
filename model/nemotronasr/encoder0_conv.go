@@ -126,7 +126,10 @@ func (m *Encoder0Convolution) forward(input []float32, rows int, cache *Encoder0
 	var prepared Encoder0ConvCache
 	if cache != nil {
 		prepared = *cache
-		channelMajor := make([]float32, len(glu))
+		// GLU has consumed both pointwise-1 halves. Depth occupies the
+		// first half; transpose into the disjoint second half for the
+		// cache update, which copies the values it retains.
+		channelMajor := point[len(input):]
 		for row := 0; row < rows; row++ {
 			for ch := 0; ch < encoderWidth; ch++ {
 				channelMajor[ch*rows+row] = glu[row*encoderWidth+ch]
