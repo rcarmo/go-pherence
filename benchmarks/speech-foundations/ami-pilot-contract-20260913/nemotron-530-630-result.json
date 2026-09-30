@@ -1,0 +1,34 @@
+{
+  "licence": {
+    "spdx": "CC-BY-4.0",
+    "url": "https://groups.inf.ed.ac.uk/ami/corpus/license.shtml"
+  },
+  "meeting": "ES2004a",
+  "output": {
+    "audio": {
+      "path": "ES2004a-530-630.wav",
+      "samples": 1600000,
+      "sha256": "4fbea62ac20148203c75ab2e094dcb902beb67f5504d566430c8cc8702d3a69e"
+    },
+    "rttm": {
+      "path": "ES2004a-530-630.rttm",
+      "sha256": "ba3aac01bb0fa6bc84d4d58314c04cbe7a9fbde57f24568822c54a514aacbb34",
+      "turns": 36,
+      "uri": "ES2004a-530-630"
+    },
+    "words": {
+      "count": 269,
+      "path": "ES2004a-530-630.words.json",
+      "sha256": "2430219f312e05c5a3137c2c056a22c0ceb717cd7be638101584d412cb6cb02e"
+    }
+  },
+  "schema": 1,
+  "source": {
+    "annotations_sha256": "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d",
+    "audio_sha256": "3e2560b19bee6952c7c7ce041b0f1ea8a7ea9468044c4eea79d2a2c67e24ab0f"
+  },
+  "source_interval": [
+    530,
+    630
+  ]
+}

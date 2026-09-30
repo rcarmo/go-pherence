@@ -1,0 +1,72 @@
+{
+  "audio_samples": 1600000,
+  "diarization": {
+    "hypothesis_spans": 67,
+    "scores": [
+      {
+        "collar": 0.0,
+        "der": {
+          "confusion": 0.0,
+          "correct": 69.90200000000006,
+          "diarization error rate": 0.39264859228362836,
+          "false alarm": 0.008000000000002672,
+          "missed detection": 45.177999999999955,
+          "total": 115.08000000000001
+        },
+        "jer": {
+          "jaccard error rate": 0.3943328951836073,
+          "speaker count": 4.0,
+          "speaker error": 1.5773315807344293
+        }
+      },
+      {
+        "collar": 0.25,
+        "der": {
+          "confusion": 0.0,
+          "correct": 58.092000000000056,
+          "diarization error rate": 0.35942307056138084,
+          "false alarm": 0.0,
+          "missed detection": 32.594999999999956,
+          "total": 90.68700000000003
+        },
+        "jer": {
+          "jaccard error rate": 0.3650478122282022,
+          "speaker count": 4.0,
+          "speaker error": 1.4601912489128088
+        }
+      }
+    ],
+    "skip_overlap": false,
+    "uem": [
+      0,
+      100
+    ]
+  },
+  "inputs_sha256": {
+    "audio": "4fbea62ac20148203c75ab2e094dcb902beb67f5504d566430c8cc8702d3a69e",
+    "contract": "a6b059d54e274cc499e4ea70ae04cf4017ce43a33a7953025ca74673632af716",
+    "manifest": "a6b059d54e274cc499e4ea70ae04cf4017ce43a33a7953025ca74673632af716",
+    "rttm": "ba3aac01bb0fa6bc84d4d58314c04cbe7a9fbde57f24568822c54a514aacbb34",
+    "spans": "79be183ed87ac997fb40b91d4fa1f9e2d1b96e2d140c1a0de12213c1be5dd489",
+    "transcript": "7406c54a682aac4620f5078543fc19792127d9020ce490fca29c647efc109622",
+    "words": "2430219f312e05c5a3137c2c056a22c0ceb717cd7be638101584d412cb6cb02e"
+  },
+  "meeting": "ES2004a",
+  "normalization": "nfkc-casefold-unicode-alnum-internal-apostrophe-v1",
+  "qualified": false,
+  "schema": 1,
+  "scope": "one AMI headset-mix excerpt; absolute transcript-only WER and DER/JER; no word timestamps, cpSA-WER, corpus gate or reference-system delta",
+  "source_interval": [
+    530,
+    630
+  ],
+  "wer": {
+    "deletions": 75,
+    "errors": 88,
+    "hypothesis_tokens": 200,
+    "insertions": 1,
+    "rate": 0.32116788321167883,
+    "reference_tokens": 274,
+    "substitutions": 12
+  }
+}

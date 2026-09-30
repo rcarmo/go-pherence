@@ -1,0 +1,72 @@
+{
+  "audio_samples": 1600000,
+  "diarization": {
+    "hypothesis_spans": 58,
+    "scores": [
+      {
+        "collar": 0.0,
+        "der": {
+          "confusion": 4.553000000000006,
+          "correct": 54.24700000000001,
+          "diarization error rate": 0.5114467379948845,
+          "false alarm": 0.0,
+          "missed detection": 52.236000000000004,
+          "total": 111.03600000000003
+        },
+        "jer": {
+          "jaccard error rate": 0.5654622644402132,
+          "speaker count": 4.0,
+          "speaker error": 2.2618490577608528
+        }
+      },
+      {
+        "collar": 0.25,
+        "der": {
+          "confusion": 3.8600000000000065,
+          "correct": 43.08100000000002,
+          "diarization error rate": 0.4904732055209283,
+          "false alarm": 0.0,
+          "missed detection": 37.61000000000002,
+          "total": 84.55100000000003
+        },
+        "jer": {
+          "jaccard error rate": 0.5587212360513586,
+          "speaker count": 4.0,
+          "speaker error": 2.2348849442054344
+        }
+      }
+    ],
+    "skip_overlap": false,
+    "uem": [
+      0,
+      100
+    ]
+  },
+  "inputs_sha256": {
+    "audio": "47a1a3569aac9dcf9c33e069d65045a151aa37358ae57c816609c1356578395b",
+    "contract": "5dd6a62616e7d8cd225333e4085e78a78e22f0ea72d08290e19eb9a6a012524c",
+    "manifest": "5dd6a62616e7d8cd225333e4085e78a78e22f0ea72d08290e19eb9a6a012524c",
+    "rttm": "dc158bd486471e24970308a109b1cf66baab1a05286b342710eb26b0f531785c",
+    "spans": "c6c64cf9d80cfb7691aef1f013dec585b05a11673b0d94080e58beb7b671e5d1",
+    "transcript": "ab692003c91ffee919f9ab371a480d8cefa2b0d6248c61cc1518edf076abde7a",
+    "words": "87238f284c786962a5ce2ebc5cc6b739da706867ee1234239538e9f95a5f4197"
+  },
+  "meeting": "ES2004a",
+  "normalization": "nfkc-casefold-unicode-alnum-internal-apostrophe-v1",
+  "qualified": false,
+  "schema": 1,
+  "scope": "one AMI headset-mix excerpt; absolute transcript-only WER and DER/JER; no word timestamps, cpSA-WER, corpus gate or reference-system delta",
+  "source_interval": [
+    350,
+    450
+  ],
+  "wer": {
+    "deletions": 72,
+    "errors": 83,
+    "hypothesis_tokens": 166,
+    "insertions": 1,
+    "rate": 0.350210970464135,
+    "reference_tokens": 237,
+    "substitutions": 10
+  }
+}

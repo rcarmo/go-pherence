@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score saved Nemotron CLI text and speaker spans on a hash-pinned AMI pilot.
+"""Score saved Nemotron CLI text and speaker spans on pinned AMI excerpts.
 
 This scores absolute transcript-only WER and overlap-inclusive DER/JER. CLI
 ASR has no word times or speaker labels, so cpSA-WER cannot be measured here.
@@ -11,6 +11,10 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+# Excerpt geometry is selected before reading the locally prepared manifest.
+# Source and generated-asset hashes are separately pinned by each committed
+# contract file and must match the local manifest and actual assets.
+CASE_GEOMETRY = {(350, 410): (28, 179), (350, 450): (39, 237), (530, 630): (36, 269)}
 
 
 def load_module(name):
@@ -30,8 +34,13 @@ def score(contract_path, manifest_path, audio_path, rttm_path, words_path, trans
     CORPUS.exact_keys(manifest, ("schema", "meeting", "source_interval", "source", "output", "licence"))
     if manifest != contract:
         raise ValueError("AMI pilot manifest differs from pinned contract")
-    if manifest["schema"] != 1 or manifest["meeting"] != "ES2004a" or manifest["source_interval"] != [350, 410]:
+    interval = manifest["source_interval"]
+    if manifest["schema"] != 1 or manifest["meeting"] != "ES2004a" or not isinstance(interval, list) or len(interval) != 2 or any(type(v) is not int for v in interval) or tuple(interval) not in CASE_GEOMETRY:
         raise ValueError("unsupported AMI pilot identity")
+    start, end = interval
+    duration = end - start
+    expected_turns, expected_words = CASE_GEOMETRY[start, end]
+    uri = f"ES2004a-{start}-{end}"
     outputs = manifest["output"]
     CORPUS.exact_keys(outputs, ("audio", "rttm", "words"))
     audio, rttm, words = outputs["audio"], outputs["rttm"], outputs["words"]
@@ -39,14 +48,14 @@ def score(contract_path, manifest_path, audio_path, rttm_path, words_path, trans
     CORPUS.exact_keys(rttm, ("path", "sha256", "turns", "uri"))
     CORPUS.exact_keys(words, ("path", "sha256", "count"))
     if (audio["path"], rttm["path"], words["path"], rttm["uri"]) != (
-        "ES2004a-350-410.wav", "ES2004a-350-410.rttm", "ES2004a-350-410.words.json", "ES2004a-350-410"
-    ) or audio["samples"] != 960000 or rttm["turns"] != 28 or words["count"] != 179:
+        uri + ".wav", uri + ".rttm", uri + ".words.json", uri
+    ) or audio["samples"] != duration * 16000 or rttm["turns"] != expected_turns or words["count"] != expected_words:
         raise ValueError("unexpected AMI pilot geometry")
     for path, expected in ((audio_path, audio["sha256"]), (rttm_path, rttm["sha256"]), (words_path, words["sha256"])):
         if not isinstance(expected, str) or not CORPUS.HEX64.fullmatch(expected) or CORPUS.sha256(path) != expected:
             raise ValueError("AMI pilot asset checksum changed")
     CORPUS.verify_wav(audio_path, {"sha256": audio["sha256"], "samples": audio["samples"], "channels": 1, "sample_rate": 16000})
-    CORPUS.verify_rttm(rttm_path, rttm, 60)
+    CORPUS.verify_rttm(rttm_path, rttm, duration)
     reference = WORDS.read_json(words_path)
     if reference["meeting"] != manifest["meeting"] or reference["source_interval"] != manifest["source_interval"] or len(reference["words"]) != words["count"]:
         raise ValueError("AMI pilot word identity changed")
@@ -57,10 +66,10 @@ def score(contract_path, manifest_path, audio_path, rttm_path, words_path, trans
     if not hypothesis_tokens or len(hypothesis_tokens) > WORDS.MAX_WORDS:
         raise ValueError("invalid transcript tokens")
     lexical = WORDS.edit_counts([word[3] for word in reference_tokens], hypothesis_tokens)
-    turns = CORPUS.parse_turns(CORPUS.read_json(turns_path), 60, True)
+    turns = CORPUS.parse_turns(CORPUS.read_json(turns_path), duration, True)
     if not turns or any(int(speaker) > 7 for _, _, speaker in turns):
         raise ValueError("invalid Nemotron speaker spans")
-    scores = CORPUS.score_turns(rttm_path, rttm["uri"], [[0, 60]], turns, [0.0, 0.25])
+    scores = CORPUS.score_turns(rttm_path, rttm["uri"], [[0, duration]], turns, [0.0, 0.25])
     return {
         "schema": 1,
         "meeting": manifest["meeting"],
@@ -77,7 +86,7 @@ def score(contract_path, manifest_path, audio_path, rttm_path, words_path, trans
         },
         "normalization": WORDS.POLICY,
         "wer": {"reference_tokens": len(reference_tokens), "hypothesis_tokens": len(hypothesis_tokens), **lexical, "rate": lexical["errors"] / len(reference_tokens)},
-        "diarization": {"hypothesis_spans": len(turns), "uem": [0, 60], "skip_overlap": False, "scores": scores},
+        "diarization": {"hypothesis_spans": len(turns), "uem": [0, duration], "skip_overlap": False, "scores": scores},
         "qualified": False,
         "scope": "one AMI headset-mix excerpt; absolute transcript-only WER and DER/JER; no word timestamps, cpSA-WER, corpus gate or reference-system delta",
     }

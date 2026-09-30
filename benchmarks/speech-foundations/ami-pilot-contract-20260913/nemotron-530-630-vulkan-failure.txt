@@ -1,0 +1,26 @@
+ES2004a 530–630 s, repeated Vulkan diarization, 2026-09-30 03:16:22 WEST
+Binary built from ede9ea019fad6732962c9dddc49578fc1add9c90
+GOMAXPROCS=4; command and paths: nemotron-530-630-followup-20260930.md
+
+CLI stderr (verbatim, excluding shell timing):
+backend=vulkan: hybrid request; stacking projection and 30 resident audio layers/final norm run on GPU; frontend, audio layer 0, head and speaker cache run on CPU
+nemotron: Nemotron Vulkan tower layer 29: Vulkan submission still in flight
+Vulkan submission state uncertain; process-level recovery required
+Vulkan device lost; process-level recovery required
+vkWaitForFences: -4
+Vulkan device lost; process-level recovery required
+Nemotron streaming tower cleanup: Vulkan device lost; process-level recovery required
+
+/usr/bin/time file (verbatim):
+Command exited with non-zero status 1
+wall_elapsed=24.09 maxrss_kb=2738988
+
+Bounded journalctl -k excerpt at 03:16:22 WEST:
+Sep 30 03:16:22 sandbox kernel: NVRM: Xid (PCI:0000:00:10): 79, GPU has fallen off the bus.
+Sep 30 03:16:22 sandbox kernel: NVRM: GPU 0000:00:10.0: GPU has fallen off the bus.
+Sep 30 03:16:22 sandbox kernel: NVRM: Xid (PCI:0000:00:10): 154, GPU recovery action changed from 0x0 (None) to 0x1 (PF FLR)
+
+nvidia-smi -L after failure:
+Unable to determine the device handle for gpu 0000:00:10.0: Unknown Error
+
+CLI stdout was empty. No retry or recovery attempted after GPU became unavailable.

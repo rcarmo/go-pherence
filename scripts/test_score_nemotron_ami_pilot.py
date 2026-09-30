@@ -65,6 +65,45 @@ class AMIPilotScoreTests(unittest.TestCase):
         self.assertFalse(result["diarization"]["skip_overlap"])
         self.assertEqual(scorer.call_args.args[2:], ([[0, 60]], [(0., 1., "0")], [0., .25]))
 
+    def test_nonoverlapping_hundred_second_case(self):
+        contract, manifest, audio, rttm, words, _, spans = self.paths
+        prefix = "ES2004a-530-630"
+        replacements = {audio: audio.with_name(prefix + ".wav"), rttm: rttm.with_name(prefix + ".rttm"), words: words.with_name(prefix + ".words.json")}
+        for old, new in replacements.items():
+            old.rename(new)
+        self.paths[2], self.paths[3], self.paths[4] = replacements[audio], replacements[rttm], replacements[words]
+        with wave.open(str(self.paths[2]), "wb") as stream:
+            stream.setnchannels(1)
+            stream.setsampwidth(2)
+            stream.setframerate(16000)
+            stream.writeframes(b"\0\0" * 1600000)
+        self.paths[3].write_text("".join(
+            f"SPEAKER {prefix} 1 {i * 2:.6f} 1.000000 <NA> <NA> {'ABCD'[i % 4]} <NA> <NA>\n"
+            for i in range(36)), encoding="utf-8")
+        ref = json.loads(self.paths[4].read_text())
+        ref["source_interval"] = [530, 630]
+        ref["words"].extend({"start": i / 3, "end": i / 3 + .1, "speaker": "ABCD"[i % 4],
+                             "text": "hello", "source_id": f"w{i}", "punctuation": False} for i in range(179, 269))
+        self.paths[4].write_text(json.dumps(ref), encoding="utf-8")
+        data = json.loads(manifest.read_text())
+        data["source_interval"] = [530, 630]
+        for key, index in (("audio", 2), ("rttm", 3), ("words", 4)):
+            data["output"][key]["path"] = self.paths[index].name
+            data["output"][key]["sha256"] = MODULE.CORPUS.sha256(self.paths[index])
+        data["output"]["audio"]["samples"] = 1600000
+        data["output"]["rttm"]["turns"] = 36
+        data["output"]["rttm"]["uri"] = prefix
+        data["output"]["words"]["count"] = 269
+        manifest.write_text(json.dumps(data), encoding="utf-8")
+        contract.write_bytes(manifest.read_bytes())
+        result, scorer = self.run_score()
+        self.assertEqual(result["wer"]["reference_tokens"], 269)
+        self.assertEqual(result["diarization"]["uem"], [0, 100])
+        self.assertEqual(scorer.call_args.args[2:], ([[0, 100]], [(0., 1., "0")], [0., .25]))
+        self.paths[6].write_text(json.dumps([{"Start": 0, "End": 101, "Speaker": 0}]), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "turn outside"):
+            self.run_score()
+
     def test_changed_reference_and_spans_rejected(self):
         self.paths[4].write_text(self.paths[4].read_text() + " ", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "checksum changed"):
