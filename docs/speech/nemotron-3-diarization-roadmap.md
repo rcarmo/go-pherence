@@ -262,7 +262,13 @@ values up to about 160 tested the resident layer at 13/103/138 rows: maximum
 error versus CPU composition was `7.63e-5`, with zero outliers. Two native
 `-race` repetitions passed. These tests do not establish multi-speaker DER,
 other-device parity, high-volume soak, or interruption of an in-flight CUDA
-kernel.
+kernel. A maximum-capacity exact-key check ran 13→541→13 rows on the
+1251-row tiled-JFK stacking fixture. At 541 rows, PTX versus CPU-composed
+output had maximum absolute error `1.19e-5`, mean `6.88e-7`, and zero
+outliers at the existing gate; the 13-row repeats also had zero outliers.
+The caller input stayed unchanged and CUDA allocation/free counts and bytes
+balanced after close. Two native `-race` repetitions passed. This is an
+unmasked model-composition check, not independent PyTorch DER evidence.
 
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
