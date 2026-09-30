@@ -1,6 +1,7 @@
 package nemotrondiarization
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -176,42 +177,34 @@ func (l *PTXAudioLayer) ForwardBuffer(out, in *ptx.Buffer, rows int) (err error)
 		deviceBuffersOverlap(in, out, uint64(bytes)) {
 		return fmt.Errorf("invalid or overlapping PTX diarization layer device input")
 	}
+	scratch, err := newPTXLayerScratch(rows)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// A failed launch may leave queued work; drain before freeing scratch.
+		err = errors.Join(err, ptx.SyncErr())
+		scratch.close()
+	}()
+	return l.forwardWithScratch(out, in, rows, scratch)
+}
+
+// forwardWithScratch is called by a serialised tower or by ForwardBuffer.
+// It queues operations without a per-layer sync; the owner drains before
+// reusing/freeing scratch or closing weights. Layer mutex protects Close.
+func (l *PTXAudioLayer) forwardWithScratch(out, in *ptx.Buffer, rows int, scratch *ptxLayerScratch) error {
+	if l == nil || !scratch.valid(rows) {
+		return fmt.Errorf("invalid PTX diarization layer scratch")
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.closed {
 		return fmt.Errorf("PTX diarization layer closed")
 	}
-	var scratch []*ptx.Buffer
-	defer func() {
-		// CUDA work may be asynchronous even when a later launch fails.
-		if syncErr := ptx.SyncErr(); err == nil {
-			err = syncErr
-		}
-		for i := len(scratch) - 1; i >= 0; i-- {
-			scratch[i].Free()
-		}
-	}()
-	alloc := func(n int) (*ptx.Buffer, error) {
-		b, e := ptx.Malloc(n)
-		if e == nil {
-			scratch = append(scratch, b)
-		}
-		return b, e
-	}
 	widthN, intermediateN := rows*projectedWidth, rows*diarizationIntermediate
-	var norm, q, k, v, mixed, projected, residual, norm2, fc1 *ptx.Buffer
-	for _, item := range []struct {
-		dst  **ptx.Buffer
-		size int
-	}{
-		{&norm, widthN}, {&q, widthN}, {&k, widthN}, {&v, widthN}, {&mixed, widthN},
-		{&projected, widthN}, {&residual, widthN}, {&norm2, widthN}, {&fc1, intermediateN},
-	} {
-		*item.dst, err = alloc(item.size)
-		if err != nil {
-			return err
-		}
-	}
+	norm, q, k, v := scratch.buffers[0], scratch.buffers[1], scratch.buffers[2], scratch.buffers[3]
+	mixed, projected, residual, norm2, fc1 := scratch.buffers[4], scratch.buffers[5], scratch.buffers[6], scratch.buffers[7], scratch.buffers[8]
+	var err error
 	if err = ptx.AffineLayerNormF32Buffer(norm, in, l.n1W, l.n1B, rows, projectedWidth, 1e-5); err != nil {
 		return err
 	}

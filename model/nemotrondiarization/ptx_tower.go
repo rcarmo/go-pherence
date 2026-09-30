@@ -20,6 +20,7 @@ type PTXAudioTower struct {
 	first        *Layer0Complete
 	layers       []*PTXAudioLayer
 	weight, bias *ptx.Buffer
+	scratch      *ptxLayerScratch
 	maxRows      int
 }
 
@@ -69,6 +70,10 @@ func NewPTXAudioTower(source *OfflineAudioTower, maxRows int) (result *PTXAudioT
 	if err != nil {
 		return nil, err
 	}
+	t.scratch, err = newPTXLayerScratch(maxRows)
+	if err != nil {
+		return nil, err
+	}
 	return t, nil
 }
 
@@ -83,6 +88,11 @@ func (t *PTXAudioTower) Close() {
 		return
 	}
 	t.closed = true
+	// Drain all queued work before closing scratch and layer-owned weights.
+	ptx.SyncErr()
+	if t.scratch != nil {
+		t.scratch.close()
+	}
 	if t.bias != nil {
 		t.bias.Free()
 	}
@@ -92,7 +102,7 @@ func (t *PTXAudioTower) Close() {
 	for i := len(t.layers) - 1; i >= 0; i-- {
 		t.layers[i].Close()
 	}
-	t.layers, t.first, t.weight, t.bias = nil, nil, nil, nil
+	t.layers, t.first, t.weight, t.bias, t.scratch = nil, nil, nil, nil, nil
 }
 
 // ForwardRows returns an owned final-normalised output for one exact unmasked
@@ -104,7 +114,7 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.closed || t.first == nil || len(t.layers) != 30 || rows < 1 || rows > t.maxRows || len(stacked) != rows*projectedWidth {
+	if t.closed || t.first == nil || len(t.layers) != 30 || rows < 1 || rows > t.maxRows || len(stacked) != rows*projectedWidth || !t.scratch.valid(rows) {
 		return nil, fmt.Errorf("invalid PTX diarization tower window")
 	}
 	if err := ctx.Err(); err != nil {
@@ -151,7 +161,7 @@ func (t *PTXAudioTower) ForwardRows(ctx context.Context, stacked []float32, rows
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if err := layer.ForwardBuffer(b, a, rows); err != nil {
+		if err := layer.forwardWithScratch(b, a, rows, t.scratch); err != nil {
 			return nil, fmt.Errorf("PTX tower layer %d: %w", index+1, err)
 		}
 		a, b = b, a

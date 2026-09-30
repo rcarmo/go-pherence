@@ -207,6 +207,18 @@ projection-only request. The CLI exposes `-backend ptx -ptx-tower` as an
 explicit hybrid; repeat CLI timing, cancellation soak, labelled quality and
 sustained throughput remain open.
 
+A bounded tower-owned scratch set now replaces nine alloc/free pairs per
+layer and defers one CUDA drain until the 30-layer call completes. On the
+same i7-12700/RTX 3060 (`GOMAXPROCS=4`, five warm repetitions per case,
+two runs), exact 103-row tower calls changed from `75–76 ms` and about
+`7,099` Go allocations to `71–74 ms` and about `3,015` allocations. The
+138-row calls changed from `115–119 ms` to about `107 ms`; setup remained
+about `0.5 s`. The independent 138-row PyTorch fixture, repeated 103-row
+stream windows and race gates passed unchanged. One pinned 100-second
+PCM→logits→segments sample took `80.81 s`, again with 9,999 rows, 29 spans
+and zero outliers. It is still slower than the prior projection-only PTX
+sample; the tower benchmark is not a complete-request speed claim.
+
 The CPU head now avoids materialising a channel-major convolution copy and
 a separate pre-activation upsampled tensor on production logits calls;
 pinned intermediate tests retain both diagnostic stages. A 138-row released
