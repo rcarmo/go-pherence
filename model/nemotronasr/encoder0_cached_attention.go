@@ -76,7 +76,7 @@ func (m *Encoder0Attention) ForwardCachedChunk(input []float32, rows, lookahead 
 		return nil, err
 	}
 	prepared := *cache // Update replaces its slices; it never changes their backing arrays.
-	visibleK, visibleV, err := prepared.Update(toHeads(k), toHeads(v), rows)
+	visibleK, visibleV, err := prepared.updateVisibleView(toHeads(k), toHeads(v), rows)
 	if err != nil {
 		return nil, err
 	}
