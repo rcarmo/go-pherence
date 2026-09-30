@@ -25,8 +25,8 @@ import (
 const chunkSamples = 16000 * 5
 
 type options struct {
-	task, backend, input, model, vocab string
-	vulkanTower, ptxTower              bool
+	task, backend, input, model, vocab      string
+	vulkanTower, ptxTower, sharedProjection bool
 }
 
 func main() {
@@ -47,6 +47,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&opts.vocab, "tokenizer", "", "ASR tokenizer.json (defaults beside model)")
 	fs.BoolVar(&opts.vulkanTower, "vulkan-tower", false, "opt-in resident Vulkan diarization tower (hybrid; requires -backend vulkan)")
 	fs.BoolVar(&opts.ptxTower, "ptx-tower", false, "opt-in resident PTX diarization tower (hybrid; requires -backend ptx)")
+	fs.BoolVar(&opts.sharedProjection, "vulkan-shared-projection", false, "experimental ASR projection with scoped CPU-cached native input/output (requires -task asr -backend vulkan)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -61,6 +62,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 	if opts.ptxTower && (opts.task != "diarization" || opts.backend != "ptx" || opts.vulkanTower) {
 		return fmt.Errorf("-ptx-tower requires -task diarization -backend ptx without -vulkan-tower")
+	}
+	if opts.sharedProjection && (opts.task != "asr" || opts.backend != "vulkan") {
+		return fmt.Errorf("-vulkan-shared-projection requires -task asr -backend vulkan")
 	}
 	if strings.ToLower(filepath.Ext(opts.input)) != ".wav" {
 		return fmt.Errorf("input must be a WAV file")
@@ -99,7 +103,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 		if opts.task == "asr" {
 			projection = "subsampling"
 		}
-		if opts.vulkanTower {
+		if opts.sharedProjection {
+			fmt.Fprintln(stderr, "backend=vulkan: experimental shared projection; CPU writes input and consumes output in scoped native cached mappings; weights uploaded once; remaining ASR stages stay on CPU")
+		} else if opts.vulkanTower {
 			fmt.Fprintln(stderr, "backend=vulkan: hybrid request; stacking projection and 30 resident audio layers/final norm run on GPU; frontend, audio layer 0, head and speaker cache run on CPU")
 		} else if opts.ptxTower {
 			fmt.Fprintln(stderr, "backend=ptx: hybrid request; stacking projection and 30 resident audio layers/final norm run on GPU; frontend, audio layer 0, head and speaker cache run on CPU")
@@ -174,7 +180,7 @@ func transcribe(ctx context.Context, model *nemotronasr.PCMGenerationModel, opts
 	}
 	stream := &nemotronasr.PCMGenerationStream{Model: model}
 	if opts.backend != "simd" {
-		projector := &nemotronasr.DeviceSubsamplingProjector{Backend: opts.backend}
+		projector := &nemotronasr.DeviceSubsamplingProjector{Backend: opts.backend, SharedMemory: opts.sharedProjection}
 		defer func() { err = errors.Join(err, projector.Close()) }()
 		stream.Projector = projector
 	}

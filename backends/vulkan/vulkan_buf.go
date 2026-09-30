@@ -24,6 +24,7 @@ type VkBuf struct {
 	mapped          unsafe.Pointer
 	allocationBytes uint64 // zero only for non-owning test fixtures
 	heapIndex       uint32
+	memoryFlags     uint32 // actual selected memory type properties
 }
 
 // VkBufAlloc allocates a Vulkan buffer accessible from both host and device.
@@ -37,6 +38,10 @@ func VkBufAlloc(sizeBytes int) (*VkBuf, error) {
 
 // Caller owns vkLane through construction/publication (also used by arenas).
 func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
+	return vkBufAllocFlagsLocked(sizeBytes, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+}
+
+func vkBufAllocFlagsLocked(sizeBytes int, wantFlags uint32) (*VkBuf, error) {
 	if err := vkStatusLocked(); err != nil {
 		return nil, err
 	}
@@ -115,7 +120,8 @@ func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
 		return nil, err
 	}
 
-	// Find host-visible + host-coherent memory type
+	// Shared CPU/SIMD arenas additionally require HOST_CACHED, with no silent
+	// fallback to uncached mappings. Legacy allocation selection is unchanged.
 	var props vkPhysicalDeviceMemoryProperties
 	vkGetPhysicalDeviceMemoryProperties(physical, unsafe.Pointer(&props))
 	if props.memoryTypeCount == 0 || props.memoryTypeCount > 32 || props.memoryHeapCount == 0 || props.memoryHeapCount > 16 {
@@ -123,7 +129,6 @@ func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
 	}
 
 	memTypeIdx := uint32(0xFFFFFFFF)
-	wantFlags := uint32(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
 	for i := uint32(0); i < props.memoryTypeCount; i++ {
 		if props.memoryTypes[i].heapIndex >= props.memoryHeapCount {
 			return nil, fmt.Errorf("invalid Vulkan memory heap index")
@@ -177,7 +182,7 @@ func vkBufAllocLocked(sizeBytes int) (*VkBuf, error) {
 		return nil, fmt.Errorf("vkMapMemory returned nil pointer")
 	}
 	committed = true
-	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped, allocationBytes: allocationBytes, heapIndex: heapIndex}, nil
+	return &VkBuf{device: device, buf: buf, mem: mem, size: uint64(sizeBytes), mapped: mapped, allocationBytes: allocationBytes, heapIndex: heapIndex, memoryFlags: props.memoryTypes[memTypeIdx].propertyFlags}, nil
 }
 
 // Upload copies float32 data to the buffer. Invalid inputs are ignored for

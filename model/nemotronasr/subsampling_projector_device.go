@@ -11,10 +11,13 @@ import (
 
 // DeviceSubsamplingProjector keeps one projection's weights and buffers
 // resident for a single CPU PCM-to-text request. The GPU executes only the
-// subsampling projection; input upload, dispatch and output download happen
-// on every four-row chunk. Close releases all request-owned resources.
+// subsampling projection. The legacy path uploads/downloads each four-row
+// chunk. Explicit SharedMemory instead uses scoped native producer/consumer
+// access. The request must not be used concurrently. Close releases all
+// request-owned resources once their GPU use is confirmed complete.
 type DeviceSubsamplingProjector struct {
 	Backend               string // "ptx" or "vulkan"
+	SharedMemory          bool   // explicit Vulkan-only opt-in; immutable after first use
 	ready                 bool
 	closed                bool
 	dispatches            int // successful GPU projections; observable after Close
@@ -45,11 +48,14 @@ func (p *DeviceSubsamplingProjector) Close() error {
 	var err error
 	if p.vkArena != nil {
 		err = p.vkArena.Close()
+		if err != nil {
+			return err // retain owners for an explicit drain then Close retry
+		}
 		p.vkArena = nil
 	}
 	if p.vkOp != nil {
-		if closeErr := p.vkOp.Close(); err == nil {
-			err = closeErr
+		if closeErr := p.vkOp.Close(); closeErr != nil {
+			return closeErr
 		}
 		p.vkOp = nil
 	}
@@ -94,7 +100,12 @@ func (p *DeviceSubsamplingProjector) prepare(ctx context.Context, weight, bias [
 		if p.vkOp, err = vulkan.NewVkLinearF32(ctx); err != nil {
 			return err
 		}
-		if p.vkArena, err = vulkan.NewVkTensorArena(ctx, 24<<20); err != nil {
+		if p.SharedMemory {
+			p.vkArena, err = vulkan.NewVkSharedTensorArena(ctx, 24<<20)
+		} else {
+			p.vkArena, err = vulkan.NewVkTensorArena(ctx, 24<<20)
+		}
+		if err != nil {
 			return err
 		}
 		alloc := func(shape ...int) (*vulkan.VkTensorF32, error) { return p.vkArena.AllocF32(ctx, shape...) }
@@ -125,6 +136,23 @@ func (p *DeviceSubsamplingProjector) prepare(ctx context.Context, weight, bias [
 
 func (p *DeviceSubsamplingProjector) Project(ctx context.Context, input, weight, bias []float32, rows int) ([]float32, error) {
 	const in, out = 4352, 1024
+	if p != nil && p.SharedMemory {
+		if rows != 4 || len(input) != rows*in {
+			return nil, fmt.Errorf("invalid Nemotron ASR device projection input")
+		}
+		var owned []float32
+		err := p.ProjectScoped(ctx, weight, bias, rows, func(mapped []float32) error {
+			copy(mapped, input)
+			return nil
+		}, func(mapped []float32) error {
+			owned = append([]float32(nil), mapped...)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return owned, nil // compatibility API intentionally copies in/out
+	}
 	if p == nil || p.closed || ctx == nil || rows != 4 || len(input) != rows*in || len(weight) != out*in || len(bias) != out {
 		return nil, fmt.Errorf("invalid Nemotron ASR device projection shape")
 	}
@@ -187,4 +215,66 @@ func (p *DeviceSubsamplingProjector) Project(ctx context.Context, input, weight,
 	}
 	p.dispatches++
 	return result, nil
+}
+
+// ScopedProjectionEnabled preserves copied Vulkan/PTX behavior unless the
+// request explicitly selects shared memory. It never silently falls back.
+func (p *DeviceSubsamplingProjector) ScopedProjectionEnabled() bool {
+	return p != nil && p.SharedMemory
+}
+
+// ProjectScoped runs CPU producer -> GPU projection -> CPU consumer against
+// native shared storage, with no per-chunk upload/download. Immutable weights
+// are uploaded once. Request objects must not be used concurrently; callbacks
+// must obey ScopedSubsamplingProjector's lifetime and no-reentry contract.
+func (p *DeviceSubsamplingProjector) ProjectScoped(ctx context.Context, weight, bias []float32, rows int, produce, consume func([]float32) error) error {
+	const in, out = 4352, 1024
+	if p == nil || p.closed || !p.SharedMemory || p.Backend != "vulkan" || ctx == nil || rows != 4 || len(weight) != out*in || len(bias) != out || produce == nil || consume == nil {
+		return fmt.Errorf("invalid Nemotron ASR shared projection")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !p.ready {
+		for _, values := range [][]float32{weight, bias} {
+			for _, v := range values {
+				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+					return fmt.Errorf("non-finite Nemotron ASR shared projection weights")
+				}
+			}
+		}
+		if err := p.prepare(ctx, weight, bias); err != nil {
+			return err
+		}
+	}
+	if err := p.vkX.WithCPUWrite(ctx, func(input []float32) error {
+		// A failed producer cannot leave stale request data for the next call.
+		clear(input)
+		if err := produce(input); err != nil {
+			return err
+		}
+		for _, v := range input {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return fmt.Errorf("non-finite Nemotron ASR shared projection input")
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := p.vkOp.Forward(ctx, p.vkY, p.vkX, p.vkW, p.vkBias); err != nil {
+		return err
+	}
+	if err := p.vkY.WithCPURead(ctx, func(output []float32) error {
+		for _, v := range output {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return fmt.Errorf("non-finite Nemotron ASR shared projection output")
+			}
+		}
+		return consume(output)
+	}); err != nil {
+		return err
+	}
+	p.dispatches++
+	return nil
 }

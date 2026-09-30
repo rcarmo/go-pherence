@@ -149,16 +149,16 @@ func (s *PCMGenerationStream) process(ctx context.Context, chunks []ASRMelChunk)
 		}
 		s.sub.Model = s.Model.Subsampling
 		s.sub.Projector = s.Projector
-		projected, err := s.sub.ForwardUnmaskedChunkContext(ctx, features, rows)
-		if err != nil {
-			s.closed = true
-			return nil, nil, err
-		}
-		if s.onStage != nil {
-			s.onStage("subsampling", projected)
-		}
-		s.tower.Tower = s.Model.Tower
-		hidden, err := s.tower.ForwardChunk(projected, 4, 3)
+		var hidden []float32
+		err := s.sub.WithUnmaskedChunkContext(ctx, features, rows, func(projected []float32) error {
+			if s.onStage != nil {
+				s.onStage("subsampling", projected)
+			}
+			s.tower.Tower = s.Model.Tower
+			var err error
+			hidden, err = s.tower.ForwardChunk(projected, 4, 3)
+			return err
+		})
 		if err != nil {
 			s.closed = true
 			return nil, nil, err

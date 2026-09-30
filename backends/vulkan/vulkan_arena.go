@@ -37,11 +37,22 @@ type VkTensorArenaStats struct {
 }
 
 func NewVkTensorArena(ctx context.Context, capacityBytes int) (*VkTensorArena, error) {
+	return newVkTensorArena(ctx, capacityBytes, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+}
+
+// NewVkSharedTensorArena requires coherent, CPU-cached native memory. No
+// uncached fallback is permitted. It enables scoped CPU/SIMD access to the
+// same allocation used by Vulkan; it does not initialise a device.
+func NewVkSharedTensorArena(ctx context.Context, capacityBytes int) (*VkTensorArena, error) {
+	return newVkTensorArena(ctx, capacityBytes, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT|VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
+}
+
+func newVkTensorArena(ctx context.Context, capacityBytes int, flags uint32) (*VkTensorArena, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err
 	}
 	defer vkRelease()
-	buffer, err := vkBufAllocLocked(capacityBytes)
+	buffer, err := vkBufAllocFlagsLocked(capacityBytes, flags)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +229,55 @@ func (t *VkTensorF32) transfer(ctx context.Context, data []float32, upload bool)
 	}
 	runtime.KeepAlive(binding.buffer)
 	return nil
+}
+
+// WithCPURead borrows the tensor's native, CPU-cached mapping synchronously.
+// The slice MUST NOT escape the callback, be mutated, or be used asynchronously.
+// The callback must not reenter any Vulkan API (including Close/Stats): the
+// package lane remains held, excluding submission, transfer and destruction.
+// GPU-written data is accessible only after a confirmed fence and the existing
+// compute-to-host barrier. An in-flight/uncertain/lost owner is rejected.
+func (t *VkTensorF32) WithCPURead(ctx context.Context, consume func([]float32) error) error {
+	return t.withCPU(ctx, consume)
+}
+
+// WithCPUWrite borrows the same mapping for a synchronous producer. The slice
+// must not escape or be used asynchronously, and Vulkan APIs must not be called
+// from the callback. Errors/cancellation/panics release the lease but do not
+// roll back writes; callers must discard or fully overwrite failed contents
+// before submitting them. Subsequent dispatch uses the host-to-compute barrier.
+func (t *VkTensorF32) WithCPUWrite(ctx context.Context, produce func([]float32) error) error {
+	return t.withCPU(ctx, produce)
+}
+
+func (t *VkTensorF32) withCPU(ctx context.Context, callback func([]float32) error) error {
+	if callback == nil {
+		return fmt.Errorf("nil Vulkan CPU callback")
+	}
+	if err := vkAcquire(ctx); err != nil {
+		return err
+	}
+	defer vkRelease()
+	binding, err := t.bindingLocked()
+	if err != nil {
+		return err
+	}
+	const required = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT
+	if binding.buffer.memoryFlags&required != required {
+		return fmt.Errorf("Vulkan CPU borrow requires host-visible/coherent/cached memory")
+	}
+	if t.offset%4 != 0 || t.size%4 != 0 || uintptr(binding.buffer.mapped)%4 != 0 || t.size/4 > uint64(int(^uint(0)>>1)) {
+		return fmt.Errorf("invalid Vulkan CPU F32 alignment/size")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	defer runtime.KeepAlive(binding.buffer)
+	mapped := unsafe.Slice((*float32)(unsafe.Add(binding.buffer.mapped, uintptr(t.offset))), int(t.size/4))
+	if err := callback(mapped); err != nil {
+		return err
+	}
+	return ctx.Err()
 }
 
 // DispatchF32Context uses tensor byte ranges but retains their backing buffers,

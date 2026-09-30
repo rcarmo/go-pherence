@@ -29,6 +29,9 @@ func TestRunRejectsInvalidFlagsAndNonMonoWAV(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	for _, args := range [][]string{
 		{"-task", "asr", "-backend", "unknown", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "asr", "-backend", "simd", "-vulkan-shared-projection", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "asr", "-backend", "ptx", "-vulkan-shared-projection", "-input", "in.wav", "-model", "model.safetensors"},
+		{"-task", "diarization", "-backend", "vulkan", "-vulkan-shared-projection", "-input", "in.wav", "-model", "model.safetensors"},
 		{"-task", "diarization", "-backend", "simd", "-input", "in.wav", "-model", "model.safetensors", "-tokenizer", "tokens.json"},
 		{"-task", "asr", "-input", "in.mp3", "-model", "model.safetensors"},
 		{"-task", "asr", "-backend", "vulkan", "-vulkan-tower", "-input", "in.wav", "-model", "model.safetensors"},

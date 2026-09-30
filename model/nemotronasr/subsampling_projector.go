@@ -10,3 +10,15 @@ import "context"
 type SubsamplingProjector interface {
 	Project(ctx context.Context, input, weight, bias []float32, rows int) ([]float32, error)
 }
+
+// ScopedSubsamplingProjector is an optional zero-copy boundary. produce writes
+// directly into backend-owned input storage; consume reads projected storage
+// before reuse. Neither callback may retain the slice, start asynchronous work,
+// or reenter the backend. consume must not mutate its read-only input. Callback
+// failure does not publish output or advance the subsampling caches.
+// Project still returns owned output for existing callers.
+type ScopedSubsamplingProjector interface {
+	SubsamplingProjector
+	ScopedProjectionEnabled() bool
+	ProjectScoped(ctx context.Context, weight, bias []float32, rows int, produce, consume func([]float32) error) error
+}

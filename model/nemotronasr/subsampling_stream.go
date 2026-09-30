@@ -50,7 +50,7 @@ func (s *SubsamplingStream) ForwardUnmaskedChunkContext(ctx context.Context, fea
 	if s == nil || s.mode == 1 || (s.started && frames != 32) || (!s.started && frames != 25) {
 		return nil, fmt.Errorf("invalid Nemotron ASR generation subsampling chunk")
 	}
-	out, _, err := s.forwardChunk(ctx, features, frames, frames, false)
+	out, _, err := s.forwardChunk(ctx, features, frames, frames, false, nil)
 	return out, err
 }
 
@@ -66,10 +66,28 @@ func (s *SubsamplingStream) ForwardMaskedChunk(features []float32, frames, valid
 	if s != nil && s.mode == 2 {
 		return nil, 0, fmt.Errorf("cannot mix Nemotron ASR subsampling cache modes")
 	}
-	return s.forwardChunk(context.Background(), features, frames, valid, true)
+	return s.forwardChunk(context.Background(), features, frames, valid, true, nil)
 }
 
-func (s *SubsamplingStream) forwardChunk(ctx context.Context, features []float32, frames, valid int, mask bool) ([]float32, int, error) {
+// WithUnmaskedChunkContext consumes projection output before shared storage is
+// reused. consume must not retain/mutate its input or reenter the backend. The
+// convolution caches advance only after successful consumption; the generation
+// caller closes the whole stream if later encoder work partially advances.
+func (s *SubsamplingStream) WithUnmaskedChunkContext(ctx context.Context, features []float32, frames int, consume func([]float32) error) error {
+	if ctx == nil || consume == nil {
+		return fmt.Errorf("nil Nemotron ASR subsampling context/consumer")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if s == nil || s.mode == 1 || (s.started && frames != 32) || (!s.started && frames != 25) {
+		return fmt.Errorf("invalid Nemotron ASR generation subsampling chunk")
+	}
+	_, _, err := s.forwardChunk(ctx, features, frames, frames, false, consume)
+	return err
+}
+
+func (s *SubsamplingStream) forwardChunk(ctx context.Context, features []float32, frames, valid int, mask bool, consume func([]float32) error) ([]float32, int, error) {
 	if s == nil || s.Model == nil || s.Model.Stem == nil || len(s.Model.linearWeight) != 1024*4352 || len(s.Model.linearBias) != 1024 || frames < 1 || frames > 128 || valid < 0 || valid > frames || len(features) != frames*128 {
 		return nil, 0, fmt.Errorf("invalid Nemotron ASR subsampling stream chunk")
 	}
@@ -148,13 +166,44 @@ func (s *SubsamplingStream) forwardChunk(ctx context.Context, features []float32
 	if width*subsamplingChannels != 4352 {
 		return nil, 0, fmt.Errorf("invalid Nemotron ASR stream projection width")
 	}
-	flattened := make([]float32, rows*4352)
-	for row := 0; row < rows; row++ {
-		for ch := 0; ch < subsamplingChannels; ch++ {
-			copy(flattened[row*4352+ch*width:row*4352+(ch+1)*width], input[ch*rows*width+row*width:ch*rows*width+(row+1)*width])
+	flatten := func(flattened []float32) error {
+		if len(flattened) != rows*4352 {
+			return fmt.Errorf("invalid Nemotron ASR scoped projection input length")
 		}
+		for row := 0; row < rows; row++ {
+			for ch := 0; ch < subsamplingChannels; ch++ {
+				copy(flattened[row*4352+ch*width:row*4352+(ch+1)*width], input[ch*rows*width+row*width:ch*rows*width+(row+1)*width])
+			}
+		}
+		return nil
 	}
-	out := make([]float32, rows*1024)
+	var out []float32
+	scoped, shared := s.Projector.(ScopedSubsamplingProjector)
+	shared = shared && !mask && scoped.ScopedProjectionEnabled()
+	if shared {
+		err := scoped.ProjectScoped(ctx, s.Model.linearWeight, s.Model.linearBias, rows, flatten, func(projected []float32) error {
+			if len(projected) != rows*1024 {
+				return fmt.Errorf("invalid Nemotron ASR scoped projection output length")
+			}
+			for _, v := range projected {
+				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+					return fmt.Errorf("non-finite Nemotron ASR stream projection")
+				}
+			}
+			if consume != nil {
+				return consume(projected)
+			}
+			out = append([]float32(nil), projected...) // public API owns output
+			return nil
+		})
+		if err != nil {
+			return nil, 0, fmt.Errorf("Nemotron ASR stream shared projection: %w", err)
+		}
+	} else {
+	flattened := make([]float32, rows*4352)
+	if err := flatten(flattened); err != nil {
+		return nil, 0, err
+	}
 	if s.Projector != nil && !mask {
 		var err error
 		out, err = s.Projector.Project(ctx, flattened, s.Model.linearWeight, s.Model.linearBias, rows)
@@ -164,8 +213,11 @@ func (s *SubsamplingStream) forwardChunk(ctx context.Context, features []float32
 		if len(out) != rows*1024 {
 			return nil, 0, fmt.Errorf("Nemotron ASR stream device projection returned %d values, want %d", len(out), rows*1024)
 		}
-	} else if !simd.DenseNTTo(out, flattened, s.Model.linearWeight, rows, 1024, 4352, 1, 4352, 4352, 1024) {
-		return nil, 0, fmt.Errorf("Nemotron ASR stream projection rejected shape")
+	} else {
+		out = make([]float32, rows*1024)
+		if !simd.DenseNTTo(out, flattened, s.Model.linearWeight, rows, 1024, 4352, 1, 4352, 4352, 1024) {
+			return nil, 0, fmt.Errorf("Nemotron ASR stream projection rejected shape")
+		}
 	}
 	for row := 0; row < rows; row++ {
 		for col := 0; col < 1024; col++ {
@@ -178,6 +230,16 @@ func (s *SubsamplingStream) forwardChunk(ctx context.Context, features []float32
 			}
 			out[row*1024+col] = v
 		}
+	}
+	if consume != nil {
+		if err := consume(out); err != nil {
+			return nil, 0, err
+		}
+		out = nil
+	}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
 	}
 	state.started = true
 	if mask {
