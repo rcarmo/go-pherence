@@ -84,8 +84,10 @@ func (m *Encoder0Block) ForwardCachedChunk(input []float32, rows, lookahead int,
 	if err != nil {
 		return nil, err
 	}
-	attentionResidual := make([]float32, len(ff1))
-	for i, value := range attention {
+	// Attention returned an owned output. This block only consumes its
+	// residual, so accumulate FF1 there instead of allocating another row.
+	attentionResidual := attention
+	for i, value := range attentionResidual {
 		attentionResidual[i] = ff1[i] + value
 		if math.IsNaN(float64(attentionResidual[i])) || math.IsInf(float64(attentionResidual[i]), 0) {
 			return nil, fmt.Errorf("non-finite Nemotron ASR attention residual")
