@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeSplitKeyDiagnostic
+    vulkan_splitkey_diagnostic_test.go:43: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeSplitKeyDiagnostic (0.22s)
+FAIL

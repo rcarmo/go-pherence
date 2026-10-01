@@ -1,0 +1,42 @@
+=== RUN   TestVulkanNativeSplitKeyDiagnostic
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/1x1x1x1
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/3x17x2x3
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":18,"max_abs":4.425757182957568e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/17x33x2x17
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":578,"max_abs":3.2801414709404675e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/31x65x3x31
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":2883,"max_abs":3.780534232195043e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/2x257x3x64
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":384,"max_abs":1.2192649282566359e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/1x4096x1x1
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":1,"max_abs":4.344016708845988e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/4096x1x1x1
+    vulkan_splitkey_diagnostic_test.go:95: NATIVE_METRIC {"name":"split scalar","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeSplitKeyDiagnostic/1500x1500x20x64
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=0 ns=67253448 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=0 ns=66965354 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=0 ns=67501180 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=0 ns=67146490 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=1 ns=67141805 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=1 ns=67099096 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=1 ns=66963722 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=1 ns=67770356 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=2 ns=66923845 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=2 ns=67273713 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=2 ns=67133157 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=2 ns=67130208 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=3 ns=67627034 max_abs=5.4016709327697754e-08
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=3 ns=67153501 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=false block=3 ns=67131205 max_abs=0
+    vulkan_splitkey_diagnostic_test.go:111: SPLITKEY_SAMPLE splits=2 candidate=true block=3 ns=67222994 max_abs=5.4016709327697754e-08
+--- PASS: TestVulkanNativeSplitKeyDiagnostic (1.96s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/1x1x1x1 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/3x17x2x3 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/17x33x2x17 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/31x65x3x31 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/2x257x3x64 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/1x4096x1x1 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/4096x1x1x1 (0.02s)
+    --- PASS: TestVulkanNativeSplitKeyDiagnostic/1500x1500x20x64 (1.60s)
+PASS

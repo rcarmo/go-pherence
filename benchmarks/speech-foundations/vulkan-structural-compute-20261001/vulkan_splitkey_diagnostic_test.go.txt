@@ -1,0 +1,118 @@
+package vulkan
+
+import (
+	"context"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestVulkanNativeSplitKeyDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_SPLITKEY_DIR")
+	if dir == "" {
+		t.Skip("explicit split-key experiment")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	splits, err := strconv.Atoi(os.Getenv("GO_PHERENCE_TEST_SPLITKEY_COUNT"))
+	if err != nil || splits < 2 || splits > 8 {
+		t.Fatal("splits")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("device")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	base, err := NewVkAttentionKey32ScoreILPF32(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeClose(t, base)
+	load := func(name string, buffers, push int) *VkComputeKernel {
+		code, e := os.ReadFile(dir + "/" + name + ".spv")
+		if e != nil {
+			t.Fatal(e)
+		}
+		kernel, e := VkKernelCreate(code, buffers, push)
+		if e != nil {
+			t.Fatal(e)
+		}
+		nativeClose(t, kernel)
+		return kernel
+	}
+	partial, merge := load("partial", 5, 24), load("merge", 3, 16)
+	for _, dims := range [][4]int{{1, 1, 1, 1}, {3, 17, 2, 3}, {17, 33, 2, 17}, {31, 65, 3, 31}, {2, 257, 3, 64}, {1, 4096, 1, 1}, {4096, 1, 1, 1}, {1500, 1500, 20, 64}} {
+		if !t.Run(strconv.Itoa(dims[0])+"x"+strconv.Itoa(dims[1])+"x"+strconv.Itoa(dims[2])+"x"+strconv.Itoa(dims[3]), func(t *testing.T) {
+			m, n, h, c := dims[0], dims[1], dims[2], dims[3]
+			width := h * c
+			ctx := context.Background()
+			a, err := NewVkTensorArena(ctx, 128<<20)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeClose(t, a)
+			left := nativeGuard(t, a)
+			q, k, v := nativeData(m*width, 11, .5), nativeData(n*width, 12, .5), nativeData(n*width, 13, .5)
+			tq, tk, tv := nativeTensor(t, a, q, m, width), nativeTensor(t, a, k, n, width), nativeTensor(t, a, v, n, width)
+			out := nativeTensor(t, a, nil, m, width)
+			parts := nativeTensor(t, a, nil, splits*m, width)
+			stats := nativeTensor(t, a, nil, splits*m*h, 2)
+			right := nativeGuard(t, a)
+			scale := math.Float32bits(float32(1 / math.Sqrt(float64(c))))
+			plan, err := NewVkF32Plan(ctx, []VkF32Stage{{Kernel: partial, Groups: [3]uint32{uint32((m + 15) / 16), uint32(h), uint32(splits)}, Tensors: []*VkTensorF32{tq, tk, tv, parts, stats}, PushWords: []uint32{uint32(m), uint32(n), uint32(h), uint32(c), scale, uint32(splits)}}, {Kernel: merge, Groups: [3]uint32{uint32((m + 15) / 16), uint32(h), 1}, Tensors: []*VkTensorF32{parts, stats, out}, PushWords: []uint32{uint32(m), uint32(h), uint32(c), uint32(splits)}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeClose(t, plan)
+			runBase := func() time.Duration {
+				return nativeRun(t, func(ctx context.Context) error { return base.Forward(ctx, out, tq, tk, tv, h) })
+			}
+			runCandidate := func() time.Duration { return nativeRun(t, plan.Run) }
+			runBase()
+			ref := nativeDownload(t, out)
+			check := func() float64 {
+				got := nativeDownload(t, out)
+				max := 0.0
+				for i, x := range got {
+					diff := math.Abs(float64(x) - float64(ref[i]))
+					max = math.Max(max, diff)
+					if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) || diff > 2e-5+2e-5*math.Abs(float64(ref[i])) {
+						t.Fatal("split drift", i, x, ref[i])
+					}
+				}
+				left()
+				right()
+				return max
+			}
+			runCandidate()
+			max := check()
+			if m < 1000 || n < 1000 {
+				nativeCompare(t, "split scalar", nativeDownload(t, out), attentionReference(q, k, v, m, n, h, c), 2e-5, 2e-5, 0)
+				return
+			}
+			for block := 0; block < 4; block++ {
+				order := []bool{false, true, true, false}
+				if block%2 == 1 {
+					order = []bool{true, false, false, true}
+				}
+				for _, candidate := range order {
+					var elapsed time.Duration
+					if candidate {
+						elapsed = runCandidate()
+					} else {
+						elapsed = runBase()
+					}
+					max = check()
+					t.Logf("SPLITKEY_SAMPLE splits=%d candidate=%t block=%d ns=%d max_abs=%g", splits, candidate, block, elapsed.Nanoseconds(), max)
+				}
+			}
+		}) {
+			return
+		}
+	}
+}

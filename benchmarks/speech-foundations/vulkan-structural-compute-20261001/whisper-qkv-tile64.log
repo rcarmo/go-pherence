@@ -1,0 +1,41 @@
+=== RUN   TestVulkanNativeQKVFusionDiagnostic
+=== RUN   TestVulkanNativeQKVFusionDiagnostic/1x1x1
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":1,"max_abs":1.862645149230957e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":1,"max_abs":7.275957614183426e-11,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQKVFusionDiagnostic/2x3x5
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":10,"max_abs":2.3283064365386963e-10,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":10,"max_abs":7.450580596923828e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":10,"max_abs":9.313225746154785e-10,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQKVFusionDiagnostic/31x33x65
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":1.6472768038511276e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":2.9802322387695312e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":2.9802322387695312e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQKVFusionDiagnostic/65x63x31
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":2.9802322387695312e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":4.470348358154297e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_qkv_fusion_diagnostic_test.go:119: NATIVE_METRIC {"name":"fused scalar","values":2015,"max_abs":4.7031790018081665e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQKVFusionDiagnostic/1500x1280x1280
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=0 ns=31887055 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=0 ns=32433494 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=0 ns=29704984 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=0 ns=26338380 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=1 ns=29114972 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=1 ns=25789466 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=1 ns=25940067 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=1 ns=28740437 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=2 ns=25701232 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=2 ns=29388015 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=2 ns=28984026 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=2 ns=25601932 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=3 ns=29524833 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=3 ns=25637246 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=false block=3 ns=25663496 shape=[1500 1280 1280]
+    vulkan_qkv_fusion_diagnostic_test.go:137: QKV_SAMPLE tile=64 candidate=true block=3 ns=29068857 shape=[1500 1280 1280]
+--- PASS: TestVulkanNativeQKVFusionDiagnostic (1.09s)
+    --- PASS: TestVulkanNativeQKVFusionDiagnostic/1x1x1 (0.01s)
+    --- PASS: TestVulkanNativeQKVFusionDiagnostic/2x3x5 (0.01s)
+    --- PASS: TestVulkanNativeQKVFusionDiagnostic/31x33x65 (0.01s)
+    --- PASS: TestVulkanNativeQKVFusionDiagnostic/65x63x31 (0.01s)
+    --- PASS: TestVulkanNativeQKVFusionDiagnostic/1500x1280x1280 (0.93s)
+PASS

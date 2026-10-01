@@ -1,0 +1,148 @@
+package vulkan
+
+import (
+	"context"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// External shader only: no default/graph integration until this diagnostic wins.
+func TestVulkanNativeQKVFusionDiagnostic(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_TEST_QKV_SPV")
+	if path == "" {
+		t.Skip("explicit bounded QKV fusion")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	tile, err := strconv.Atoi(os.Getenv("GO_PHERENCE_TEST_QKV_TILE"))
+	if err != nil || (tile != 32 && tile != 64) {
+		t.Fatal("tile")
+	}
+	code, err := os.ReadFile(path)
+	if err != nil || len(code) > 1<<20 {
+		t.Fatal("code", err)
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical device")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	base, err := NewVkLinearRegTile64F32(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeClose(t, base)
+	kernel, err := VkKernelCreate(code, 10, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeClose(t, kernel)
+	for _, dims := range [][3]int{{1, 1, 1}, {2, 3, 5}, {31, 33, 65}, {65, 63, 31}, {1500, 1280, 1280}} {
+		if !t.Run(strings.Trim(strings.ReplaceAll(strings.TrimSpace(strconv.Itoa(dims[0])+"x"+strconv.Itoa(dims[1])+"x"+strconv.Itoa(dims[2])), " ", ""), " "), func(t *testing.T) {
+			ctx := context.Background()
+			m, k, n := dims[0], dims[1], dims[2]
+			a, err := NewVkTensorArena(ctx, 96<<20)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeClose(t, a)
+			left := nativeGuard(t, a)
+			x := nativeData(m*k, 11, .125)
+			tx := nativeTensor(t, a, x, m, k)
+			var weights, bias, outs []*VkTensorF32
+			var expected [][]float32
+			for i := 0; i < 3; i++ {
+				w, b := nativeData(n*k, int64(12+i), .125), nativeData(n, int64(15+i), .125)
+				weights = append(weights, nativeTensor(t, a, w, n, k))
+				bias = append(bias, nativeTensor(t, a, b, n))
+				outs = append(outs, nativeTensor(t, a, nil, m, n))
+				if m < 1000 {
+					ref := nativeLinearRef(x, w, b, m, k, n)
+					f := make([]float32, len(ref))
+					for j, v := range ref {
+						f[j] = float32(v)
+					}
+					expected = append(expected, f)
+				}
+			}
+			right := nativeGuard(t, a)
+			stages := make([]VkF32Stage, 3)
+			for i := 0; i < 3; i++ {
+				stages[i], err = base.Stage(ctx, outs[i], tx, weights[i], bias[i])
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			baseline, err := NewVkF32Plan(ctx, stages)
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeClose(t, baseline)
+			columns := n
+			if os.Getenv("GO_PHERENCE_TEST_QKV_BAND") == "1" {
+				columns = n * 3
+			}
+			stage := VkF32Stage{Kernel: kernel, Groups: [3]uint32{uint32((columns + tile - 1) / tile), uint32((m + tile - 1) / tile), 1}, Tensors: []*VkTensorF32{tx, weights[0], weights[1], weights[2], bias[0], bias[1], bias[2], outs[0], outs[1], outs[2]}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}
+			fused, err := NewVkF32Plan(ctx, []VkF32Stage{stage})
+			if err != nil {
+				t.Fatal(err)
+			}
+			nativeClose(t, fused)
+			run := func(p *VkF32Plan) time.Duration { return nativeRun(t, p.Run) }
+			run(baseline)
+			ref := make([][]float32, 3)
+			for i := 0; i < 3; i++ {
+				ref[i] = nativeDownload(t, outs[i])
+			}
+			check := func() {
+				for i := 0; i < 3; i++ {
+					got := nativeDownload(t, outs[i])
+					for j, v := range got {
+						if math.Float32bits(v) != math.Float32bits(ref[i][j]) {
+							t.Fatal("fusion drift", i, j, v, ref[i][j])
+						}
+					}
+				}
+			}
+			run(fused)
+			check()
+			left()
+			right()
+			if m < 1000 {
+				for i := 0; i < 3; i++ {
+					want := make([]float64, len(expected[i]))
+					for j, v := range expected[i] {
+						want[j] = float64(v)
+					}
+					nativeCompare(t, "fused scalar", ref[i], want, 2e-5, 2e-5, 0)
+				}
+				return
+			}
+			for block := 0; block < 4; block++ {
+				order := []bool{false, true, true, false}
+				if block%2 == 1 {
+					order = []bool{true, false, false, true}
+				}
+				for _, candidate := range order {
+					p := baseline
+					if candidate {
+						p = fused
+					}
+					elapsed := run(p)
+					check()
+					left()
+					right()
+					t.Logf("QKV_SAMPLE tile=%d candidate=%t block=%d ns=%d shape=%v", tile, candidate, block, elapsed.Nanoseconds(), dims)
+				}
+			}
+		}) {
+			return
+		}
+	}
+}
