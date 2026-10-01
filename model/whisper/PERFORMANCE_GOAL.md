@@ -58,6 +58,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Exact CPU four-dot trial](../../docs/validation/whisper-decoder-x4-20261001.md) reuses the existing two-chain AVX2 `Sdotx4` for neighbouring decoder output rows. Synthetic FC2 gains 18%, but fresh language requests are effectively tied and VAD/word requests improve only 0.7–1.0%. The second opt-in is rejected; the accepted parallel-row path stays unchanged. Exact tested outputs and the limited qualification scope are archived.
 
+[Vulkan decoder GEMV feasibility](../../docs/validation/whisper-decoder-vulkan-gemv-20261001.md) reproduces the tested CPU SIMD reduction on Vulkan. Dispatch/transfer-inclusive Q/K/V/O and FFN projections lose to CPU4; the head has a small isolated gain for an extra265.6MB weight copy. Pinned captured head logits match exactly, but no request gain or resident fused-decoder result is established. All diagnostic code is archived only; runtime/defaults stay unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
