@@ -1,0 +1,5 @@
+2026-10-01T07:47:10Z
+6e944fb1ec8e2f39c12b02e9d4ba40f015093d1e
+go version go1.26.2 linux/amd64
+490e62287259411720269874dee3337a1eaf539d62680f3f9756686f351842e9  tmp/whisper-vad-parity-20261001/whisper-stream-final.test
+2fe730a2ca09377e033b84d33a008d80a48e12cb9ac3baa55d8879bd68a28ece  tmp/whisper-vad-parity-20261001/whisper-packed-onehash.test

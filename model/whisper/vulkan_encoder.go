@@ -229,7 +229,8 @@ func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int
 	}
 	s.resources = append(s.resources, s.norm)
 	if q5 {
-		matrices := make([]vk.VkLinearQ5Matrix, 0, len(linearWeights))
+		shapes := make([]vk.VkLinearQ5Shape, 0, len(linearWeights))
+		var names, originalNames []string
 		for layer := 0; layer < layout.cfg.EncoderLayers; layer++ {
 			for _, part := range []struct {
 				step string
@@ -237,21 +238,29 @@ func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int
 			}{{"fc1", 0}, {"fc2", 2}} {
 				name := fmt.Sprintf("layer%d.%s.w", layer, part.step)
 				spec := linearWeights[name]
-				raw, shape, e := file.Q5Blocks(ctx, fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight", layer, part.mlp))
-				if e != nil {
-					return nil, e
-				}
-				if len(spec.shape) != 2 || len(shape) != 2 || shape[0] != spec.shape[1] || shape[1] != spec.shape[0] {
+				if len(spec.shape) != 2 {
 					return nil, fmt.Errorf("whisper Vulkan Q5: shape %s", name)
 				}
-				if e := checkOriginalQ5Values(ctx, raw, spec.data); e != nil {
-					return nil, e
-				}
-				linearIndexes[name] = len(matrices)
-				matrices = append(matrices, vk.VkLinearQ5Matrix{Blocks: raw, OutDim: spec.shape[0], InDim: spec.shape[1]})
+				linearIndexes[name] = len(shapes)
+				shapes = append(shapes, vk.VkLinearQ5Shape{OutDim: spec.shape[0], InDim: spec.shape[1]})
+				names = append(names, name)
+				originalNames = append(originalNames, fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight", layer, part.mlp))
 			}
 		}
-		s.q5Linear, err = vk.NewVkLinearQ5Set(ctx, matrices)
+		s.q5Linear, err = vk.NewVkLinearQ5SetStream(ctx, shapes, func(ctx context.Context, index int) ([]byte, error) {
+			spec := linearWeights[names[index]]
+			raw, shape, e := file.Q5Blocks(ctx, originalNames[index])
+			if e != nil {
+				return nil, e
+			}
+			if len(shape) != 2 || shape[0] != spec.shape[1] || shape[1] != spec.shape[0] {
+				return nil, fmt.Errorf("whisper Vulkan Q5: shape %s", names[index])
+			}
+			if e := checkOriginalQ5Values(ctx, raw, spec.data); e != nil {
+				return nil, e
+			}
+			return raw, nil
+		})
 		if s.q5Linear != nil {
 			s.resources = append(s.resources, s.q5Linear)
 			s.stats.WeightBytes += s.q5Linear.StorageBytes()

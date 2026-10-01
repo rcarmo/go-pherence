@@ -51,4 +51,6 @@ The authorised Intel runner retained four-CPU quota, `taskset -c 0-7`, 8 GiB mem
 
 Native trained recovery: `GO_PHERENCE_TEST_PACKED_ENCODER=1`, pinned Turbo config/tokenizer/original-Q5 paths, named Intel device, and `TestVulkanOriginalQ5EncoderNative` with timeout no longer than 300 seconds. Trained timing uses `TestWhisperPerformanceGoalArm`, `GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES=1` and explicit `vulkan-original-q5-mlp`. No downloads or default hardware work occur in ordinary tests.
 
+The later [streamed preparation validation](whisper-q5-stream-preparation-20261001.md) reduces temporary copies and construction time without changing the retained inference kernels or outputs. The earlier array-based measurements above remain valid for their recorded revision.
+
 The retained original Q5 process median of 3.350 s still uses a different activation/quantisation graph and timing boundary. Go's 6.932 s request result does not meet that target. Independent acoustic/word timing, long-form/resume and matched whole-workflow acceptance remain open. Further execution-level work should remove CPU widening and packing duplication through a checked packed weight provider, or pursue measured algorithmic savings; these are proposals, not results.

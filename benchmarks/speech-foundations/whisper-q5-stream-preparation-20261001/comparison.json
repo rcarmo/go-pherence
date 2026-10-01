@@ -1,0 +1,95 @@
+{
+  "samples": {
+    "true": [
+      {
+        "block": 0,
+        "ns": 1042640603,
+        "allocated_bytes": 288388016,
+        "allocations": 268,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 1,
+        "ns": 1010373613,
+        "allocated_bytes": 288388000,
+        "allocations": 267,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 2,
+        "ns": 1001393306,
+        "allocated_bytes": 288388000,
+        "allocations": 267,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 3,
+        "ns": 1017170775,
+        "allocated_bytes": 288388000,
+        "allocations": 267,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 4,
+        "ns": 1002081410,
+        "allocated_bytes": 288388000,
+        "allocations": 267,
+        "native_bytes": 314572800
+      }
+    ],
+    "false": [
+      {
+        "block": 0,
+        "ns": 1147605298,
+        "allocated_bytes": 602965392,
+        "allocations": 334,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 1,
+        "ns": 1095874855,
+        "allocated_bytes": 602966024,
+        "allocations": 337,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 2,
+        "ns": 1081061336,
+        "allocated_bytes": 602965800,
+        "allocations": 335,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 3,
+        "ns": 1068591926,
+        "allocated_bytes": 602965280,
+        "allocations": 333,
+        "native_bytes": 314572800
+      },
+      {
+        "block": 4,
+        "ns": 1088649916,
+        "allocated_bytes": 602966008,
+        "allocations": 336,
+        "native_bytes": 314572800
+      }
+    ]
+  },
+  "preparation": {
+    "stored_median_ns": 1088649916,
+    "stream_median_ns": 1010373613,
+    "change_percent": -7.190218071904031,
+    "allocated_bytes_saved": 314577800
+  },
+  "full_request": {
+    "stored_preparation_seconds": 2.478671833,
+    "stream_preparation_seconds": 2.375370738,
+    "stored_fullarm_seconds": 42.319776141,
+    "stream_fullarm_seconds": 42.272125409,
+    "stored_median_request_seconds": 6.920485228,
+    "stream_median_request_seconds": 6.921275509,
+    "exact_windows": true
+  },
+  "VADword_regressions": "JFK and two groups, five stream requests each exact against retained original-Q5 reports",
+  "review": "source judge timed out60s, no independent approval"
+}

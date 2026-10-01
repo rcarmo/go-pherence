@@ -1,0 +1,14 @@
+=== RUN   TestVulkanQ5PreparationComparison
+    vulkan_q5_preparation_native_test.go:26: LEGACY_LOAD seconds=5.210743423 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=false block=0 ns=1147605298 allocated_bytes=602965392 allocations=334 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=true block=0 ns=1042640603 allocated_bytes=288388016 allocations=268 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=true block=1 ns=1010373613 allocated_bytes=288388000 allocations=267 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=false block=1 ns=1095874855 allocated_bytes=602966024 allocations=337 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=false block=2 ns=1081061336 allocated_bytes=602965800 allocations=335 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=true block=2 ns=1001393306 allocated_bytes=288388000 allocations=267 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=true block=3 ns=1017170775 allocated_bytes=288388000 allocations=267 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=false block=3 ns=1068591926 allocated_bytes=602965280 allocations=333 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=false block=4 ns=1088649916 allocated_bytes=602966008 allocations=336 retained_native=314572800
+    vulkan_q5_preparation_native_test.go:98: Q5_PREP_SAMPLE stream=true block=4 ns=1002081410 allocated_bytes=288388000 allocations=267 retained_native=314572800
+--- PASS: TestVulkanQ5PreparationComparison (15.85s)
+PASS
