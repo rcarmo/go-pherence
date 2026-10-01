@@ -1,0 +1,9 @@
+=== RUN   TestVulkanNativeQ8OriginalBytes
+=== RUN   TestVulkanNativeQ8OriginalBytes/ff-norm
+    vulkan_q8_original_native_test.go:44: open testdata/integer-dot/q8-stripped.spv: no such file or directory
+=== RUN   TestVulkanNativeQ8OriginalBytes/tmp-ff
+    vulkan_q8_original_native_test.go:44: open testdata/integer-dot/q8-stripped.spv: no such file or directory
+--- FAIL: TestVulkanNativeQ8OriginalBytes (0.07s)
+    --- FAIL: TestVulkanNativeQ8OriginalBytes/ff-norm (0.01s)
+    --- FAIL: TestVulkanNativeQ8OriginalBytes/tmp-ff (0.03s)
+FAIL

@@ -1,0 +1,19 @@
+=== RUN   TestVulkanNativeQ5IntegerTrained
+=== RUN   TestVulkanNativeQ5IntegerTrained/encoder.blocks.0.mlp.0.weight
+    vulkan_q5_integer_trained_native_test.go:129: INTDOT_TRAINED_DRIFT tensor=encoder.blocks.0.mlp.0.weight values=7680000 scalarChecked=6 maxAbs=0.00889658928 meanAbs=0.000717285026
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.0.weight repeat=0 baseline=0.032877484 candidate=0.022679585
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.0.weight repeat=1 baseline=0.032982655 candidate=0.022718313
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.0.weight repeat=2 baseline=0.032809105 candidate=0.022739955
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.0.weight repeat=3 baseline=0.032943226 candidate=0.022721770
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.0.weight repeat=4 baseline=0.032597013 candidate=0.022586744
+=== RUN   TestVulkanNativeQ5IntegerTrained/encoder.blocks.0.mlp.2.weight
+    vulkan_q5_integer_trained_native_test.go:129: INTDOT_TRAINED_DRIFT tensor=encoder.blocks.0.mlp.2.weight values=1920000 scalarChecked=6 maxAbs=0.0293309093 meanAbs=0.00456083748
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.2.weight repeat=0 baseline=0.034055864 candidate=0.024410426
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.2.weight repeat=1 baseline=0.033726580 candidate=0.023398869
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.2.weight repeat=2 baseline=0.033841126 candidate=0.023248899
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.2.weight repeat=3 baseline=0.033811457 candidate=0.024338418
+    vulkan_q5_integer_trained_native_test.go:144: INTDOT_TRAINED_SAMPLE tensor=encoder.blocks.0.mlp.2.weight repeat=4 baseline=0.033959335 candidate=0.023971376
+--- PASS: TestVulkanNativeQ5IntegerTrained (1.38s)
+    --- PASS: TestVulkanNativeQ5IntegerTrained/encoder.blocks.0.mlp.0.weight (0.55s)
+    --- PASS: TestVulkanNativeQ5IntegerTrained/encoder.blocks.0.mlp.2.weight (0.41s)
+PASS

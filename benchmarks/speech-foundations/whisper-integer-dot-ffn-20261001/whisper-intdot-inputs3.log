@@ -1,0 +1,18 @@
+=== RUN   TestWhisperPerformanceStageProfile
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.156762582 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+--- FAIL: TestWhisperPerformanceStageProfile (14.40s)
+panic: runtime error: index out of range [0] with length 0 [recovered, repanicked]
+
+goroutine 20 [running]:
+testing.tRunner.func1.2({0x73f220, 0x17e300bedb78})
+	/var/home/agent/workspace/tools/go-toolchain/go/src/testing/testing.go:1974 +0x232
+testing.tRunner.func1()
+	/var/home/agent/workspace/tools/go-toolchain/go/src/testing/testing.go:1977 +0x349
+panic({0x73f220?, 0x17e300bedb78?})
+	/var/home/agent/workspace/tools/go-toolchain/go/src/runtime/panic.go:860 +0x13a
+github.com/rcarmo/go-pherence/model/whisper.TestWhisperPerformanceStageProfile(0x17e2b9bdc248)
+	/var/home/agent/workspace/projects/go-pherence-transcribe-web/model/whisper/performance_stage_test.go:157 +0x246f
+testing.tRunner(0x17e2b9bdc248, 0x98da78)
+	/var/home/agent/workspace/tools/go-toolchain/go/src/testing/testing.go:2036 +0xea
+created by testing.(*T).Run in goroutine 1
+	/var/home/agent/workspace/tools/go-toolchain/go/src/testing/testing.go:2101 +0x4c5

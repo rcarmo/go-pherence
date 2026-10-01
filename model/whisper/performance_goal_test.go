@@ -26,7 +26,7 @@ type whisperGoalOptions struct {
 
 func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisperGoalOptions, error) {
 	opts := whisperGoalOptions{backend: backend}
-	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-original-q5-source" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
+	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-original-q5-source" && backend != "vulkan-original-q5-integer-dot" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
 		return opts, fmt.Errorf("select explicit CPU/F32/selective-Q8 backend")
 	}
 	n, err := strconv.Atoi(repeats)
@@ -50,7 +50,7 @@ func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisp
 	return opts, nil
 }
 func TestWhisperGoalOptionsAdmission(t *testing.T) {
-	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-original-q5-source", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
+	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-original-q5-source", "vulkan-original-q5-integer-dot", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
 		opts, err := parseWhisperGoalOptions(backend, "5", "1", "0")
 		if err != nil || opts.repeats != 5 || !opts.vad || opts.words {
 			t.Fatal(opts, err)
@@ -121,10 +121,10 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		if modelPin != "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" && modelPin != "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69" {
 			t.Fatal("retained original model pin required")
 		}
-		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" && opts.backend != "vulkan-original-q5-source" {
+		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" && opts.backend != "vulkan-original-q5-source" && opts.backend != "vulkan-original-q5-integer-dot" {
 			t.Fatal("legacy-value diagnostic must preserve stored values without extra quantisation")
 		}
-		if opts.backend == "vulkan-original-q5-source" {
+		if opts.backend == "vulkan-original-q5-source" || opts.backend == "vulkan-original-q5-integer-dot" {
 			model, tok, policy, packedFile = pinnedLegacyWhisperModelMode(t, ctx, true)
 		} else if opts.backend == "vulkan-original-q5-mlp" {
 			model, tok, policy, packedFile = pinnedLegacyWhisperModelOpen(t, ctx)
@@ -135,7 +135,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	} else {
 		model, tok, policy = pinnedTurboSpeechModel(t, ctx)
 	}
-	if (opts.backend == "vulkan-original-q5-mlp" || opts.backend == "vulkan-original-q5-source") && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
+	if (opts.backend == "vulkan-original-q5-mlp" || (opts.backend == "vulkan-original-q5-source" || opts.backend == "vulkan-original-q5-integer-dot")) && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
 		t.Fatal("packed mode requires original stored-value model")
 	}
 	loadSeconds := time.Since(started).Seconds()
@@ -165,7 +165,11 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	var memoryBefore vk.VulkanMemoryUsage
 	if opts.backend != "cpu" {
 		device := os.Getenv("GO_PHERENCE_VULKAN_DEVICE")
-		if device == "" || !vk.VulkanInit() || !strings.Contains(strings.ToLower(vk.VulkanDeviceName()), strings.ToLower(device)) || strings.Contains(strings.ToLower(vk.VulkanDeviceName()), "llvmpipe") || strings.Contains(strings.ToLower(vk.VulkanDeviceName()), "lavapipe") {
+		init := vk.VulkanInit
+		if opts.backend == "vulkan-original-q5-integer-dot" {
+			init = vk.VulkanInitIntegerDot
+		}
+		if device == "" || !init() || !strings.Contains(strings.ToLower(vk.VulkanDeviceName()), strings.ToLower(device)) || strings.Contains(strings.ToLower(vk.VulkanDeviceName()), "llvmpipe") || strings.Contains(strings.ToLower(vk.VulkanDeviceName()), "lavapipe") {
 			t.Fatal("authorised physical Vulkan device required")
 		}
 		memoryBefore = vk.VulkanMemoryStats()
@@ -194,6 +198,15 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 			encoder, err = NewVulkanEncoderOriginalQ5MLP(ctx, model.Encoder, model.Config.MaxLength, packedFile)
 			if closeErr := packedFile.Close(); err == nil {
 				err = closeErr
+			}
+		case "vulkan-original-q5-integer-dot":
+			precision = "Original Q5_0 FFN native plus Q8_1 activations/F16 scale+sum/F32 block FMA; other weights/attention/decoder F32"
+			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5IntegerDotMLP, packedFile, true)
+			if closeErr := packedFile.Close(); err == nil {
+				err = closeErr
+			}
+			if err == nil {
+				model.Encoder = nil
 			}
 		case "vulkan-original-q5-source":
 			precision = "Original Q5_0 encoder FC1/FC2 never CPU-widened; native packed FFN plus F32 other weights/attention/decoder"

@@ -31,12 +31,14 @@ type vulkanEncoderState struct {
 	resources        []vkEncoderCloser
 	plans            []*vk.VkF32Plan
 	input, output    *vk.VkTensorF32
+	tensors          map[string]*vk.VkTensorF32 // owned, private diagnostic views
 	conv             *vk.VkConv1D3F32
 	add              *vk.VkAddF32
 	norm             *vk.VkLayerNormF32
 	linear           *vk.VkLinearF32
 	q8Linear         *vk.VkLinearQ8WeightSet
 	q5Linear         *vk.VkLinearQ5Set
+	q5Dot            *vk.VkLinearQ5IntegerDotSet
 	gelu             *vk.VkGELUErfF32
 	attention        *vk.VkAttentionF32
 }
@@ -71,10 +73,17 @@ func NewVulkanEncoderTile64Key32ScoreILP(ctx context.Context, source *Encoder, f
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32ScoreILP)
 }
 
-// NewVulkanEncoderOriginalQ5MLP retains original Q5_0 FC1/FC2 weights on-device.
-// source and file must identify the same checkpoint. File is used synchronously
-// during construction; no file handle or source bytes escape. All other weights,
-// activations, decoder and attention remain F32. No requantisation or fallback.
+// NewVulkanEncoderOriginalQ5IntegerDotMLP quantises FFN activations to Q8_1.
+// Experimental candidate requiring explicit integer-dot and original Q5 weights.
+// FFN magnitude <=1000 and nonzero block maximum >=1e-30 are required; invalid
+// blocks yield nonfinite output rejected by Forward. Accuracy/timing unqualified.
+func NewVulkanEncoderOriginalQ5IntegerDotMLP(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5IntegerDotMLP, file)
+}
+
+// NewVulkanEncoderOriginalQ5MLP retains original Q5_0 FFN weights with F32
+// activations/attention. Source/file must identify the same exact values. File
+// is read synchronously; no fallback, requantisation or retained handle.
 func NewVulkanEncoderOriginalQ5MLP(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
 	if file == nil {
 		return nil, fmt.Errorf("whisper Vulkan Q5: nil pinned file")
@@ -128,6 +137,7 @@ const (
 	vulkanLinearF32Tile64Key32
 	vulkanLinearF32Tile64Key32ScoreILP
 	vulkanLinearOriginalQ5MLP
+	vulkanLinearOriginalQ5IntegerDotMLP
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -156,7 +166,7 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || linearMode != vulkanLinearOriginalQ5MLP) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5IntegerDotMLP)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -167,7 +177,14 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 	if err != nil {
 		return nil, err
 	}
-	q5 := linearMode == vulkanLinearOriginalQ5MLP
+	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP
+	if dot && !vk.VulkanIntegerDotEnabled() {
+		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
+	}
+	q5 := linearMode == vulkanLinearOriginalQ5MLP || dot
+	if dot {
+		layout.scratch = append(append([]vkEncoderTensor(nil), layout.scratch...), vkEncoderTensor{name: "q8fc1", shape: []int{layout.rows * (layout.cfg.EncoderDModel / 32) * 9}}, vkEncoderTensor{name: "q8fc2", shape: []int{layout.rows * (layout.cfg.EncoderFFNDim / 32) * 9}})
+	}
 	if q5 && file == nil {
 		return nil, fmt.Errorf("whisper Vulkan Q5: require pinned original file")
 	}
@@ -253,7 +270,7 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 				originalNames = append(originalNames, fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight", layer, part.mlp))
 			}
 		}
-		s.q5Linear, err = vk.NewVkLinearQ5SetStream(ctx, shapes, func(ctx context.Context, index int) ([]byte, error) {
+		reader := func(ctx context.Context, index int) ([]byte, error) {
 			spec := linearWeights[names[index]]
 			raw, shape, e := file.Q5Blocks(ctx, originalNames[index])
 			if e != nil {
@@ -268,7 +285,17 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 				}
 			}
 			return raw, nil
-		})
+		}
+		if dot {
+			s.q5Dot, err = vk.NewVkLinearQ5IntegerDotSetStream(ctx, shapes, reader)
+			if s.q5Dot != nil {
+				s.resources = append(s.resources, s.q5Dot)
+				s.stats.WeightBytes += s.q5Dot.StorageBytes()
+			}
+			s.stats.Stages += layout.cfg.EncoderLayers * 2
+		} else {
+			s.q5Linear, err = vk.NewVkLinearQ5SetStream(ctx, shapes, reader)
+		}
 		if s.q5Linear != nil {
 			s.resources = append(s.resources, s.q5Linear)
 			s.stats.WeightBytes += s.q5Linear.StorageBytes()
@@ -329,6 +356,7 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 	}
 	s.resources = append(s.resources, s.attention)
 	tensors := map[string]*vk.VkTensorF32{}
+	s.tensors = tensors
 	for i, specs := range allSpecs {
 		var arena *vk.VkTensorArena
 		arena, err = vk.NewVkTensorArena(ctx, int(sizes[i]))
@@ -375,7 +403,18 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 			case "norm":
 				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
 			case "linear":
-				if index, quantized := linearIndexes[step.in[1]]; quantized && q5 {
+				if index, quantized := linearIndexes[step.in[1]]; quantized && dot {
+					scratch := tensors["q8fc1"]
+					if strings.Contains(step.in[1], "fc2") {
+						scratch = tensors["q8fc2"]
+					}
+					pair, e := s.q5Dot.Stages(ctx, index, out, in[0], in[2], scratch)
+					if e != nil {
+						return nil, e
+					}
+					stages = append(stages, pair...)
+					continue
+				} else if index, quantized := linearIndexes[step.in[1]]; quantized && q5 {
 					stage, err = s.q5Linear.Stage(ctx, index, out, in[0], in[2])
 				} else if index, quantized := linearIndexes[step.in[1]]; quantized {
 					stage, err = s.q8Linear.Stage(ctx, index, out, in[0], in[2])
@@ -548,6 +587,7 @@ func (e *VulkanEncoder) Close() error {
 	s.closed = true
 	s.resources = nil
 	s.plans = nil
+	s.tensors = nil
 	s.input = nil
 	s.output = nil
 	return nil

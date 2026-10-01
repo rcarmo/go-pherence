@@ -25,10 +25,10 @@ func integerQ8Oracle(x []float32) ([9]uint32, [32]int8) {
 			max = a
 		}
 	}
-	d := max / 127
+	d := max * float32(1.0/127.0)
 	var inv float32
-	if d != 0 {
-		inv = 1 / d
+	if max != 0 {
+		inv = 127 / max
 	}
 	sum := 0
 	for i, v := range x {

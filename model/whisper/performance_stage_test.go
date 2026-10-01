@@ -2,13 +2,16 @@ package whisper
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
 	"io"
+	"math"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -149,6 +152,32 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 			t.Fatal(err)
 		}
 		for i, p := range plans {
+			if dump := os.Getenv("GO_PHERENCE_WHISPER_STAGE_INPUT_DUMP"); dump != "" && run == 0 && len(inputs[i]) > 1 && strings.HasPrefix(inputs[i][1], "layer0.") && (strings.Contains(inputs[i][1], "fc1") || strings.Contains(inputs[i][1], "fc2")) && labels[i] == "linear" {
+				name := inputs[i][0]
+				tensor := enc.s.tensors[name]
+				shape := tensor.Shape()
+				elems := 1
+				for _, n := range shape {
+					elems *= n
+				}
+				data := make([]float32, elems)
+				if err := tensor.Download(ctx, data); err != nil {
+					t.Fatal(err)
+				}
+				bytes := make([]byte, len(data)*4)
+				for j, v := range data {
+					binary.LittleEndian.PutUint32(bytes[j*4:], math.Float32bits(v))
+				}
+				file, err := os.OpenFile(filepath.Join(dump, outputs[i]+"-"+name+".f32"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = file.Write(bytes)
+				closeErr := file.Close()
+				if err != nil || closeErr != nil {
+					t.Fatal(err, closeErr)
+				}
+			}
 			start := time.Now()
 			if err := p.Run(ctx); err != nil {
 				t.Fatal(err)

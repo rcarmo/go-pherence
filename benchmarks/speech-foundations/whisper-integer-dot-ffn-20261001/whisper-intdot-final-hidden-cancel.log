@@ -1,0 +1,5 @@
+=== RUN   TestVulkanIntegerDotEncoderNative
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.187960658 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_integer_dot_native_test.go:114: INTDOT_HIDDEN values=1920000 different=1919998 maxAbs=7.21779966 meanAbs=0.0486335811 checkpoints=1304 scratchAdded=10800000
+--- PASS: TestVulkanIntegerDotEncoderNative (47.83s)
+PASS

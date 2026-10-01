@@ -89,7 +89,10 @@ func packQ5Into(ctx context.Context, raw []byte, dst []uint32) error {
 // lane is held and must not call Vulkan tools/operators or mutate prior results.
 // Errors/cancellation return no usable partial owner; failed cleanup preserves
 // an owner with the error for retrying Close. read is never retained.
-func NewVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (result *VkLinearQ5Set, err error) {
+func NewVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5Set, error) {
+	return newVkLinearQ5SetStream(ctx, shapes, read, false)
+}
+func newVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error), integerDot bool) (result *VkLinearQ5Set, err error) {
 	if read == nil {
 		return nil, fmt.Errorf("Q5 stream: nil reader")
 	}
@@ -101,7 +104,12 @@ func NewVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read 
 	if err != nil {
 		return nil, err
 	}
-	kernel, err := vkKernelCreateLocked(spirv_linear_q5_grouped_f32, 4, 12)
+	var kernel *VkComputeKernel
+	if integerDot {
+		kernel, err = vkKernelCreateModeLocked(spirv_linear_q5_integer_dot, 4, 12, true)
+	} else {
+		kernel, err = vkKernelCreateLocked(spirv_linear_q5_grouped_f32, 4, 12)
+	}
 	if err != nil {
 		return nil, err
 	}
