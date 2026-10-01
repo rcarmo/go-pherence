@@ -1,0 +1,140 @@
+[
+  {
+    "variant": "whisper-fp16-tile64-stripped",
+    "shape": "1500 1280 1280",
+    "baseline_ns": [
+      19114748,
+      15635558,
+      15627936,
+      15690225,
+      15731767,
+      15582875
+    ],
+    "candidate_ns": [
+      22357984,
+      18546419,
+      18602156,
+      18614225,
+      18725108,
+      18373111
+    ],
+    "baseline_median_ns": 15662891.5,
+    "candidate_median_ns": 18608190.5,
+    "change_percent": 18.80431209013993
+  },
+  {
+    "variant": "whisper-fp16-tile64-stripped",
+    "shape": "1500 1280 5120",
+    "baseline_ns": [
+      34577807,
+      34658092,
+      34644394,
+      34771001,
+      34754771,
+      34921762
+    ],
+    "candidate_ns": [
+      40409147,
+      40753543,
+      40794462,
+      40382864,
+      40436801,
+      40281657
+    ],
+    "baseline_median_ns": 34706431.5,
+    "candidate_median_ns": 40422974,
+    "change_percent": 16.471133023284178
+  },
+  {
+    "variant": "whisper-fp16-tile64-stripped",
+    "shape": "1500 5120 1280",
+    "baseline_ns": [
+      36777079,
+      36520796,
+      36618419,
+      36663201,
+      36152427,
+      36317820
+    ],
+    "candidate_ns": [
+      41487136,
+      41167014,
+      41065911,
+      41498087,
+      41169778,
+      41156507
+    ],
+    "baseline_median_ns": 36569607.5,
+    "candidate_median_ns": 41168396,
+    "change_percent": 12.575438497665026
+  },
+  {
+    "variant": "whisper-fp16-bitcast-static",
+    "shape": "1500 1280 1280",
+    "baseline_ns": [
+      14724023,
+      14704327,
+      14703520,
+      14795216,
+      15610616,
+      15654974
+    ],
+    "candidate_ns": [
+      17748655,
+      17755128,
+      17654883,
+      18930452,
+      18768560,
+      18817612
+    ],
+    "baseline_median_ns": 14759619.5,
+    "candidate_median_ns": 18261844,
+    "change_percent": 23.728419963671833
+  },
+  {
+    "variant": "whisper-fp16-bitcast-static",
+    "shape": "1500 1280 5120",
+    "baseline_ns": [
+      34531437,
+      34458834,
+      34484945,
+      34587731,
+      35732331,
+      34427239
+    ],
+    "candidate_ns": [
+      40860204,
+      40974463,
+      40812437,
+      40999401,
+      41088075,
+      40876613
+    ],
+    "baseline_median_ns": 34508191,
+    "candidate_median_ns": 40925538,
+    "change_percent": 18.596590589173445
+  },
+  {
+    "variant": "whisper-fp16-bitcast-static",
+    "shape": "1500 5120 1280",
+    "baseline_ns": [
+      36295990,
+      36328288,
+      36188667,
+      36224977,
+      36130305,
+      36732248
+    ],
+    "candidate_ns": [
+      41435219,
+      41573304,
+      41548078,
+      41615875,
+      41991320,
+      41817373
+    ],
+    "baseline_median_ns": 36260483.5,
+    "candidate_median_ns": 41594589.5,
+    "change_percent": 14.710520889772472
+  }
+]

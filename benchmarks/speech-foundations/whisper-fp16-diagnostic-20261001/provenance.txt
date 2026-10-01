@@ -1,0 +1,13 @@
+bacd9dc94ea7eb1b29f332097a543ea1e3e12cbc
+go version go1.26.2 linux/amd64
+a8d736d5bbe4b49acc182fdfdb47edaf5fcccc8b17831ceaf7ad426344872282  /var/home/agent/workspace/tmp/whisper-vad-parity-20261001/vulkan-fp16-projection.test
+Glslang Version: 11:12.0.0
+ESSL Version: OpenGL ES GLSL 3.20 glslang Khronos. 12.0.0
+GLSL Version: 4.60 glslang Khronos. 12.0.0
+SPIR-V Version 0x00010600, Revision 1
+GLSL.std.450 Version 100, Revision 1
+Khronos Tool ID 8
+SPIR-V Generator Version 11
+GL_KHR_vulkan_glsl version 100
+ARB_GL_gl_spirv version 100
+2026-10-01T04:46:42Z

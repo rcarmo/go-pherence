@@ -1,0 +1,54 @@
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[1_1_1]
+    vulkan_fp16_projection_native_test.go:119: NATIVE_METRIC {"name":"F16tile64","values":1,"max_abs":3.725290298461914e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[2_3_5]
+    vulkan_fp16_projection_native_test.go:119: NATIVE_METRIC {"name":"F16tile64","values":10,"max_abs":2.7939677238464355e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[33_65_63]
+    vulkan_fp16_projection_native_test.go:119: NATIVE_METRIC {"name":"F16tile64","values":2079,"max_abs":4.260800778865814e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[1500_1280_1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=19114748 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=22357984 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=18546419 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=15635558 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=18602156 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=15627936 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=15690225 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=18614225 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=15731767 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=18725108 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=18373111 shape=[1500 1280 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=15582875 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[1500_1280_5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=34577807 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=40409147 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=40753543 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=34658092 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=40794462 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=34644394 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=34771001 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=40382864 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=34754771 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=40436801 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=40281657 shape=[1500 1280 5120]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=34921762 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[1500_5120_1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=36777079 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=41487136 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=0 ns=41167014 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=0 ns=36520796 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=41065911 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=36618419 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=1 ns=36663201 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=1 ns=41498087 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=36152427 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=41169778 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=true block=2 ns=41156507 shape=[1500 5120 1280]
+    vulkan_fp16_projection_native_test.go:142: FP16TILE64_SAMPLE candidate=false block=2 ns=36317820 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeFP16ProjectionDiagnostic (2.56s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[1_1_1] (0.08s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[2_3_5] (0.01s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[33_65_63] (0.01s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[1500_1280_1280] (0.48s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[1500_1280_5120] (1.01s)
+    --- PASS: TestVulkanNativeFP16ProjectionDiagnostic/[1500_5120_1280] (0.90s)
+PASS

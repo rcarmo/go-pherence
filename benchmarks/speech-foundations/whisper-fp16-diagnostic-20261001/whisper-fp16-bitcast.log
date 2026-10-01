@@ -1,0 +1,6 @@
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic
+=== RUN   TestVulkanNativeFP16ProjectionDiagnostic/[1_1_1]
+    vulkan_fp16_projection_native_test.go:75: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeFP16ProjectionDiagnostic (0.09s)
+    --- FAIL: TestVulkanNativeFP16ProjectionDiagnostic/[1_1_1] (0.02s)
+FAIL
