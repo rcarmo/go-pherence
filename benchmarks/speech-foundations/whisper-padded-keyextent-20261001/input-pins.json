@@ -1,0 +1,20 @@
+[
+  {
+    "fixture": "pt2",
+    "path": "/var/home/agent/workspace/projects/whisper-stt/benchmarks/pt-real-2.wav",
+    "sha": "bda07e92625321318397e41cfa8169839d361c67442befea86a1ef2e047e919f",
+    "samples": 700160
+  },
+  {
+    "fixture": "podcast",
+    "path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/fc1-quality-podcast20.wav",
+    "sha": "a68c5cffadd6098504a83b223b003bfb8330fca4198533ee4b861f70a7e23646",
+    "samples": 320000
+  },
+  {
+    "fixture": "podcast-vadwords",
+    "path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/fc1-quality-podcast20.wav",
+    "sha": "a68c5cffadd6098504a83b223b003bfb8330fca4198533ee4b861f70a7e23646",
+    "samples": 320000
+  }
+]

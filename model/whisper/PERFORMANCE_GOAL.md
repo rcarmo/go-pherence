@@ -64,6 +64,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Common-state attribution](../../docs/validation/whisper-common-state-20261001.md) localises the cropped-JFK decision to encoder output differences. Original flash attention exposes 1536 keys, including36 unmasked zero K/V rows; Go uses1500. Common-Q/K/V padding reduces attention drift, and a test-only padding control restores EOT/free output on this crop without audio/text-policy changes. Original-GELU compatibility further reduces hidden drift. No runtime mode, expanded quality or speed acceptance is added; padding/GELU require separate qualification.
 
+[Experimental padded-key-extent mode](../../docs/validation/whisper-padded-keyextent-20261001.md) adds explicit `NewVulkanEncoderOriginalQ5PaddedKeyExtent` / `vulkan-original-q5-padded-keyextent`. Virtual zero K/V positions reproduce physical padding bit-for-bit without added storage/stages. JFK VAD extra tails disappear, but PT/podcast timestamps and words shift and original quality parity fails. A noisy initial speed result is excluded; a later JFK pair is +0.61% slower. No default/deployment/speed/quality acceptance is granted; erf GELU and CPU decoder remain unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

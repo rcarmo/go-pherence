@@ -1,0 +1,52 @@
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.074s
+ok  	github.com/rcarmo/go-pherence/model/whisper	36.788s
+KEYEXTENT_OPTIN_RACE_PASS
+go test ./docs -run '^TestModelLayout' -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.512s
+bun test scripts/model-layout.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/model-layout.test.ts:
+(pass) source is singular and checkpoint roots are ignored [33.46ms]
+(pass) Make defaults to checkpoints and honours explicit/legacy overrides [5.11ms]
+(pass) standard Make gates enforce the layout before broad validation [9.51ms]
+(pass) GitHub workflow runs the no-weights documentation and layout gate [0.25ms]
+(pass) Python asset helpers use checkpoints by default and preserve path overrides [115.06ms]
+
+ 5 pass
+ 0 fail
+ 3087 expect() calls
+Ran 5 tests across 1 file. [173.00ms]
+bun test scripts/check-doc-links.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/check-doc-links.test.ts:
+(pass) checks inline, reference, image and HTML targets [0.29ms]
+(pass) ignores external links, fragments and fenced examples [0.03ms]
+
+ 2 pass
+ 0 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [10.00ms]
+bun run scripts/check-doc-links.ts
+Checked 536 Markdown files (tracked + new); broken links: 0
+go test ./docs -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.563s
+bun test v1.4.2 (744846f84)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.44ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.22ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.06ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.15ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [52.34ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [22.52ms]
+
+scripts/check-vulkan-integer-dot.test.ts:
+(pass) explicit shader gate refuses overwrite and reports unavailable tools [1.27ms]
+
+ 7 pass
+ 0 fail
+ 92 expect() calls
+Ran 7 tests across 2 files. [93.00ms]
+KEYEXTENT_DOC_FINAL_PASS

@@ -1,0 +1,5 @@
+=== RUN   TestWhisperPaddedExtentNative
+    vulkan_padded_extent_native_test.go:24: LEGACY_LOAD seconds=2.840440945 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_padded_extent_native_test.go:148: PADDED_EXTENT_PHYSICAL_HIDDEN values=1920000 checkpoints=1242 bitsExact=true statsUnchanged=true cancelReuse=true
+--- PASS: TestWhisperPaddedExtentNative (42.87s)
+PASS

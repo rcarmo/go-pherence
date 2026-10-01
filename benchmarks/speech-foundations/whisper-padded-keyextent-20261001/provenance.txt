@@ -1,0 +1,9 @@
+2026-10-01T19:23:11Z
+80b19a5e7621e79f41b2fba577c3237c72a6174a
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+37f93d429e63d7d3469b52e6ea12bcd6eef1030a81257f8b813ee2703eae5ec3  tmp/whisper-vad-parity-20261001/keyextent-model.test
+d5810676f0643176c5001979f286215172a9974c5cb94102a6c97df5313d87a6  tmp/whisper-vad-parity-20261001/keyextent-model-final.test
+32a3edc16cb5b0bb80805cc85152b721f8045482e4e2d35726ec42c899ba1525  tmp/whisper-vad-parity-20261001/keyextent-retained-model.test
+4b01c6f3131779600dde157943bcd0b0e1345fb9e613708156dc4c64c22f7b8c  tmp/whisper-vad-parity-20261001/keyextent-final.test
+ce2479a03c213df7ef377c9751a5d6aecfe5f90894f8e1eec20062b8bc86edad  projects/whisper-stt/runtime/build-vulkan/bin/libwhisper.so.1.9.3
+30dde78f5d74041d0d55850ae6c1b2b6a1e07280b488c767e4e9fd4352c49d61  projects/whisper-stt/runtime/build-vulkan/bin/libggml-vulkan.so.0.23.0

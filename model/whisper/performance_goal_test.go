@@ -26,7 +26,7 @@ type whisperGoalOptions struct {
 
 func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisperGoalOptions, error) {
 	opts := whisperGoalOptions{backend: backend}
-	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-original-q5-source" && backend != "vulkan-original-q5-decode4" && backend != "vulkan-original-q5-exact-combined" && backend != "vulkan-original-q5-attention-outputilp" && backend != "vulkan-original-q5-attention-unroll4" && backend != "vulkan-original-q5-integer-dot" && backend != "vulkan-original-q5-integer-dot-fc1" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
+	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-original-q5-source" && backend != "vulkan-original-q5-decode4" && backend != "vulkan-original-q5-exact-combined" && backend != "vulkan-original-q5-attention-outputilp" && backend != "vulkan-original-q5-padded-keyextent" && backend != "vulkan-original-q5-attention-unroll4" && backend != "vulkan-original-q5-integer-dot" && backend != "vulkan-original-q5-integer-dot-fc1" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
 		return opts, fmt.Errorf("select explicit CPU/F32/selective-Q8 backend")
 	}
 	n, err := strconv.Atoi(repeats)
@@ -50,7 +50,7 @@ func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisp
 	return opts, nil
 }
 func TestWhisperGoalOptionsAdmission(t *testing.T) {
-	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-original-q5-source", "vulkan-original-q5-decode4", "vulkan-original-q5-exact-combined", "vulkan-original-q5-attention-outputilp", "vulkan-original-q5-attention-unroll4", "vulkan-original-q5-integer-dot", "vulkan-original-q5-integer-dot-fc1", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
+	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-original-q5-source", "vulkan-original-q5-decode4", "vulkan-original-q5-exact-combined", "vulkan-original-q5-attention-outputilp", "vulkan-original-q5-padded-keyextent", "vulkan-original-q5-attention-unroll4", "vulkan-original-q5-integer-dot", "vulkan-original-q5-integer-dot-fc1", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
 		opts, err := parseWhisperGoalOptions(backend, "5", "1", "0")
 		if err != nil || opts.repeats != 5 || !opts.vad || opts.words {
 			t.Fatal(opts, err)
@@ -121,10 +121,10 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		if modelPin != "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" && modelPin != "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69" {
 			t.Fatal("retained original model pin required")
 		}
-		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" && opts.backend != "vulkan-original-q5-source" && opts.backend != "vulkan-original-q5-decode4" && opts.backend != "vulkan-original-q5-exact-combined" && opts.backend != "vulkan-original-q5-attention-outputilp" && opts.backend != "vulkan-original-q5-attention-unroll4" && opts.backend != "vulkan-original-q5-integer-dot" && opts.backend != "vulkan-original-q5-integer-dot-fc1" {
+		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" && opts.backend != "vulkan-original-q5-source" && opts.backend != "vulkan-original-q5-decode4" && opts.backend != "vulkan-original-q5-exact-combined" && opts.backend != "vulkan-original-q5-attention-outputilp" && opts.backend != "vulkan-original-q5-padded-keyextent" && opts.backend != "vulkan-original-q5-attention-unroll4" && opts.backend != "vulkan-original-q5-integer-dot" && opts.backend != "vulkan-original-q5-integer-dot-fc1" {
 			t.Fatal("legacy-value diagnostic must preserve stored values without extra quantisation")
 		}
-		if ((opts.backend == "vulkan-original-q5-source" || (opts.backend == "vulkan-original-q5-decode4" || (opts.backend == "vulkan-original-q5-exact-combined" || opts.backend == "vulkan-original-q5-attention-outputilp"))) || opts.backend == "vulkan-original-q5-attention-unroll4") || (opts.backend == "vulkan-original-q5-integer-dot" || opts.backend == "vulkan-original-q5-integer-dot-fc1") {
+		if ((opts.backend == "vulkan-original-q5-source" || (opts.backend == "vulkan-original-q5-decode4" || (opts.backend == "vulkan-original-q5-exact-combined" || (opts.backend == "vulkan-original-q5-attention-outputilp" || opts.backend == "vulkan-original-q5-padded-keyextent")))) || opts.backend == "vulkan-original-q5-attention-unroll4") || (opts.backend == "vulkan-original-q5-integer-dot" || opts.backend == "vulkan-original-q5-integer-dot-fc1") {
 			model, tok, policy, packedFile = pinnedLegacyWhisperModelMode(t, ctx, true)
 		} else if opts.backend == "vulkan-original-q5-mlp" {
 			model, tok, policy, packedFile = pinnedLegacyWhisperModelOpen(t, ctx)
@@ -135,7 +135,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	} else {
 		model, tok, policy = pinnedTurboSpeechModel(t, ctx)
 	}
-	if (opts.backend == "vulkan-original-q5-mlp" || (((opts.backend == "vulkan-original-q5-source" || (opts.backend == "vulkan-original-q5-decode4" || (opts.backend == "vulkan-original-q5-exact-combined" || opts.backend == "vulkan-original-q5-attention-outputilp"))) || opts.backend == "vulkan-original-q5-attention-unroll4") || (opts.backend == "vulkan-original-q5-integer-dot" || opts.backend == "vulkan-original-q5-integer-dot-fc1"))) && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
+	if (opts.backend == "vulkan-original-q5-mlp" || (((opts.backend == "vulkan-original-q5-source" || (opts.backend == "vulkan-original-q5-decode4" || (opts.backend == "vulkan-original-q5-exact-combined" || (opts.backend == "vulkan-original-q5-attention-outputilp" || opts.backend == "vulkan-original-q5-padded-keyextent")))) || opts.backend == "vulkan-original-q5-attention-unroll4") || (opts.backend == "vulkan-original-q5-integer-dot" || opts.backend == "vulkan-original-q5-integer-dot-fc1"))) && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
 		t.Fatal("packed mode requires original stored-value model")
 	}
 	loadSeconds := time.Since(started).Seconds()
@@ -224,6 +224,13 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 				err = ce
 			}
 			if err == nil {
+				model.Encoder = nil
+			}
+		case "vulkan-original-q5-padded-keyextent":
+			precision = "Original Q5_0 decode4 FFN + virtual256-padded zeroKV F32 attention; erf GELU/decoder unchanged"
+			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedKeyExtent, packedFile, true)
+			if err == nil {
+				err = packedFile.Close()
 				model.Encoder = nil
 			}
 		case "vulkan-original-q5-attention-outputilp":

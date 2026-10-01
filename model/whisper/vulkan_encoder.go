@@ -162,6 +162,15 @@ func newVulkanEncoderVariant(ctx context.Context, source *Encoder, frames int, m
 	return newVulkanEncoderMode(ctx, source, frames, makePlan, mode)
 }
 
+// NewVulkanEncoderOriginalQ5PaddedKeyExtent is an experimental compatibility
+// selection: virtual zero K/V through the original 256-key boundary. Decode4
+// FFN, erf GELU and F32 precision stay unchanged. Output differs from true-key
+// mode; independent quality/timestamp acceptance is not established. No default
+// change or automatic fallback.
+func NewVulkanEncoderOriginalQ5PaddedKeyExtent(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedKeyExtent, file)
+}
+
 type vulkanLinearMode uint8
 
 const (
@@ -174,6 +183,7 @@ const (
 	vulkanLinearOriginalQ5Decode4
 	vulkanLinearOriginalQ5ExactCombined
 	vulkanLinearOriginalQ5AttentionOutputILP
+	vulkanLinearOriginalQ5PaddedKeyExtent
 	vulkanLinearOriginalQ5AttentionUnroll4
 	vulkanLinearOriginalQ5IntegerDotMLP
 	vulkanLinearOriginalQ5IntegerDotFC1
@@ -214,7 +224,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5PaddedKeyExtent && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -230,7 +240,8 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if dot && !vk.VulkanIntegerDotEnabled() {
 		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
 	}
-	outputILP := linearMode == vulkanLinearOriginalQ5AttentionOutputILP
+	paddedExtent := linearMode == vulkanLinearOriginalQ5PaddedKeyExtent
+	outputILP := linearMode == vulkanLinearOriginalQ5AttentionOutputILP || paddedExtent
 	unroll := linearMode == vulkanLinearOriginalQ5AttentionUnroll4 || linearMode == vulkanLinearOriginalQ5ExactCombined || outputILP
 	if unroll && layout.cfg.HeadDim != 64 {
 		return nil, fmt.Errorf("Whisper attention unroll requires headDim64")
@@ -417,7 +428,9 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if outputILP {
+	if paddedExtent {
+		s.attention, err = vk.NewVkAttentionKey32PaddedExtentF32(ctx)
+	} else if outputILP {
 		s.attention, err = vk.NewVkAttentionKey32OutputILPF32(ctx)
 	} else if unroll {
 		s.attention, err = vk.NewVkAttentionKey32ScoreILPUnroll4F32(ctx)

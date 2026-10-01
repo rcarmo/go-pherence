@@ -1,0 +1,754 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992664,
+  "PreparationAllocatedBytes": 289362416,
+  "Backend": "vulkan-original-q5-attention-outputilp",
+  "Language": "pt",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "bda07e92625321318397e41cfa8169839d361c67442befea86a1ef2e047e919f",
+  "ModelLoadSeconds": 2.87585539,
+  "PreparationSeconds": 0.892148928,
+  "CleanupSeconds": 0.005737862,
+  "FullArmSeconds": 67.203695739,
+  "InputSamples": 700160,
+  "CPUThreads": 4,
+  "Precision": "Original Q5_0 FFN decode4 + headDim64 ordered F32 attention output ILP; stored values/decoder unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 12.699837198,
+      "AllocatedBytes": 346233064,
+      "Allocations": 71246,
+      "DecoderSelfSeconds": 0.300718252,
+      "DecoderCrossSeconds": 0.551423571,
+      "DecoderMLPSeconds": 0.547283466,
+      "DecoderHeadSeconds": 0.489882494,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 480000,
+            "EmitStart": 0,
+            "EmitEnd": 480000,
+            "InputSamples": 480000,
+            "PadSamples": 0
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.98,
+              "Text": "Estava interessado em depositar dinheiro na minha conta",
+              "Tokens": [
+                4410,
+                4061,
+                12478,
+                1573,
+                846,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001
+              ]
+            },
+            {
+              "Start": 4.98,
+              "End": 10.28,
+              "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+              "Tokens": [
+                308,
+                11,
+                846,
+                18314,
+                11467,
+                11,
+                27955,
+                31060,
+                289,
+                369,
+                4249,
+                29322,
+                11,
+                369,
+                22501,
+                3441,
+                289
+              ]
+            },
+            {
+              "Start": 10.28,
+              "End": 13.86,
+              "Text": "e como é que posso transferir dinheiro para a conta",
+              "Tokens": [
+                308,
+                2617,
+                1136,
+                631,
+                22501,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                24001
+              ]
+            },
+            {
+              "Start": 13.86,
+              "End": 19.6,
+              "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+              "Tokens": [
+                2820,
+                369,
+                14291,
+                631,
+                3418,
+                8130,
+                45498,
+                11,
+                14396,
+                2228,
+                22501,
+                6736,
+                6755,
+                1367,
+                12994,
+                3528,
+                13
+              ]
+            },
+            {
+              "Start": 21.44,
+              "End": 22.14,
+              "Text": "Seguim até isso.",
+              "Tokens": [
+                1100,
+                2794,
+                332,
+                8784,
+                4616,
+                13
+              ]
+            }
+          ]
+        },
+        {
+          "Window": {
+            "Index": 1,
+            "Start": 480000,
+            "End": 700160,
+            "EmitStart": 480000,
+            "EmitEnd": 700160,
+            "InputSamples": 480000,
+            "PadSamples": 259840
+          },
+          "Segments": [
+            {
+              "Start": 30,
+              "End": 43.76,
+              "Text": "E aí",
+              "Tokens": [
+                462,
+                7461
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 12.625284787,
+      "AllocatedBytes": 344510064,
+      "Allocations": 70953,
+      "DecoderSelfSeconds": 0.303484663,
+      "DecoderCrossSeconds": 0.553774551,
+      "DecoderMLPSeconds": 0.54875458,
+      "DecoderHeadSeconds": 0.49258991,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 480000,
+            "EmitStart": 0,
+            "EmitEnd": 480000,
+            "InputSamples": 480000,
+            "PadSamples": 0
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.98,
+              "Text": "Estava interessado em depositar dinheiro na minha conta",
+              "Tokens": [
+                4410,
+                4061,
+                12478,
+                1573,
+                846,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001
+              ]
+            },
+            {
+              "Start": 4.98,
+              "End": 10.28,
+              "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+              "Tokens": [
+                308,
+                11,
+                846,
+                18314,
+                11467,
+                11,
+                27955,
+                31060,
+                289,
+                369,
+                4249,
+                29322,
+                11,
+                369,
+                22501,
+                3441,
+                289
+              ]
+            },
+            {
+              "Start": 10.28,
+              "End": 13.86,
+              "Text": "e como é que posso transferir dinheiro para a conta",
+              "Tokens": [
+                308,
+                2617,
+                1136,
+                631,
+                22501,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                24001
+              ]
+            },
+            {
+              "Start": 13.86,
+              "End": 19.6,
+              "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+              "Tokens": [
+                2820,
+                369,
+                14291,
+                631,
+                3418,
+                8130,
+                45498,
+                11,
+                14396,
+                2228,
+                22501,
+                6736,
+                6755,
+                1367,
+                12994,
+                3528,
+                13
+              ]
+            },
+            {
+              "Start": 21.44,
+              "End": 22.14,
+              "Text": "Seguim até isso.",
+              "Tokens": [
+                1100,
+                2794,
+                332,
+                8784,
+                4616,
+                13
+              ]
+            }
+          ]
+        },
+        {
+          "Window": {
+            "Index": 1,
+            "Start": 480000,
+            "End": 700160,
+            "EmitStart": 480000,
+            "EmitEnd": 700160,
+            "InputSamples": 480000,
+            "PadSamples": 259840
+          },
+          "Segments": [
+            {
+              "Start": 30,
+              "End": 43.76,
+              "Text": "E aí",
+              "Tokens": [
+                462,
+                7461
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 12.842442133,
+      "AllocatedBytes": 344512472,
+      "Allocations": 71138,
+      "DecoderSelfSeconds": 0.303340647,
+      "DecoderCrossSeconds": 0.554618087,
+      "DecoderMLPSeconds": 0.551045726,
+      "DecoderHeadSeconds": 0.490596014,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 480000,
+            "EmitStart": 0,
+            "EmitEnd": 480000,
+            "InputSamples": 480000,
+            "PadSamples": 0
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.98,
+              "Text": "Estava interessado em depositar dinheiro na minha conta",
+              "Tokens": [
+                4410,
+                4061,
+                12478,
+                1573,
+                846,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001
+              ]
+            },
+            {
+              "Start": 4.98,
+              "End": 10.28,
+              "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+              "Tokens": [
+                308,
+                11,
+                846,
+                18314,
+                11467,
+                11,
+                27955,
+                31060,
+                289,
+                369,
+                4249,
+                29322,
+                11,
+                369,
+                22501,
+                3441,
+                289
+              ]
+            },
+            {
+              "Start": 10.28,
+              "End": 13.86,
+              "Text": "e como é que posso transferir dinheiro para a conta",
+              "Tokens": [
+                308,
+                2617,
+                1136,
+                631,
+                22501,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                24001
+              ]
+            },
+            {
+              "Start": 13.86,
+              "End": 19.6,
+              "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+              "Tokens": [
+                2820,
+                369,
+                14291,
+                631,
+                3418,
+                8130,
+                45498,
+                11,
+                14396,
+                2228,
+                22501,
+                6736,
+                6755,
+                1367,
+                12994,
+                3528,
+                13
+              ]
+            },
+            {
+              "Start": 21.44,
+              "End": 22.14,
+              "Text": "Seguim até isso.",
+              "Tokens": [
+                1100,
+                2794,
+                332,
+                8784,
+                4616,
+                13
+              ]
+            }
+          ]
+        },
+        {
+          "Window": {
+            "Index": 1,
+            "Start": 480000,
+            "End": 700160,
+            "EmitStart": 480000,
+            "EmitEnd": 700160,
+            "InputSamples": 480000,
+            "PadSamples": 259840
+          },
+          "Segments": [
+            {
+              "Start": 30,
+              "End": 43.76,
+              "Text": "E aí",
+              "Tokens": [
+                462,
+                7461
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 12.613451117,
+      "AllocatedBytes": 344504272,
+      "Allocations": 70932,
+      "DecoderSelfSeconds": 0.303954058,
+      "DecoderCrossSeconds": 0.550792425,
+      "DecoderMLPSeconds": 0.549127185,
+      "DecoderHeadSeconds": 0.487613305,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 480000,
+            "EmitStart": 0,
+            "EmitEnd": 480000,
+            "InputSamples": 480000,
+            "PadSamples": 0
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.98,
+              "Text": "Estava interessado em depositar dinheiro na minha conta",
+              "Tokens": [
+                4410,
+                4061,
+                12478,
+                1573,
+                846,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001
+              ]
+            },
+            {
+              "Start": 4.98,
+              "End": 10.28,
+              "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+              "Tokens": [
+                308,
+                11,
+                846,
+                18314,
+                11467,
+                11,
+                27955,
+                31060,
+                289,
+                369,
+                4249,
+                29322,
+                11,
+                369,
+                22501,
+                3441,
+                289
+              ]
+            },
+            {
+              "Start": 10.28,
+              "End": 13.86,
+              "Text": "e como é que posso transferir dinheiro para a conta",
+              "Tokens": [
+                308,
+                2617,
+                1136,
+                631,
+                22501,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                24001
+              ]
+            },
+            {
+              "Start": 13.86,
+              "End": 19.6,
+              "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+              "Tokens": [
+                2820,
+                369,
+                14291,
+                631,
+                3418,
+                8130,
+                45498,
+                11,
+                14396,
+                2228,
+                22501,
+                6736,
+                6755,
+                1367,
+                12994,
+                3528,
+                13
+              ]
+            },
+            {
+              "Start": 21.44,
+              "End": 22.14,
+              "Text": "Seguim até isso.",
+              "Tokens": [
+                1100,
+                2794,
+                332,
+                8784,
+                4616,
+                13
+              ]
+            }
+          ]
+        },
+        {
+          "Window": {
+            "Index": 1,
+            "Start": 480000,
+            "End": 700160,
+            "EmitStart": 480000,
+            "EmitEnd": 700160,
+            "InputSamples": 480000,
+            "PadSamples": 259840
+          },
+          "Segments": [
+            {
+              "Start": 30,
+              "End": 43.76,
+              "Text": "E aí",
+              "Tokens": [
+                462,
+                7461
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 12.647888959,
+      "AllocatedBytes": 344508472,
+      "Allocations": 70988,
+      "DecoderSelfSeconds": 0.30277008,
+      "DecoderCrossSeconds": 0.582276809,
+      "DecoderMLPSeconds": 0.549765114,
+      "DecoderHeadSeconds": 0.489610152,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 480000,
+            "EmitStart": 0,
+            "EmitEnd": 480000,
+            "InputSamples": 480000,
+            "PadSamples": 0
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.98,
+              "Text": "Estava interessado em depositar dinheiro na minha conta",
+              "Tokens": [
+                4410,
+                4061,
+                12478,
+                1573,
+                846,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001
+              ]
+            },
+            {
+              "Start": 4.98,
+              "End": 10.28,
+              "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+              "Tokens": [
+                308,
+                11,
+                846,
+                18314,
+                11467,
+                11,
+                27955,
+                31060,
+                289,
+                369,
+                4249,
+                29322,
+                11,
+                369,
+                22501,
+                3441,
+                289
+              ]
+            },
+            {
+              "Start": 10.28,
+              "End": 13.86,
+              "Text": "e como é que posso transferir dinheiro para a conta",
+              "Tokens": [
+                308,
+                2617,
+                1136,
+                631,
+                22501,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                24001
+              ]
+            },
+            {
+              "Start": 13.86,
+              "End": 19.6,
+              "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+              "Tokens": [
+                2820,
+                369,
+                14291,
+                631,
+                3418,
+                8130,
+                45498,
+                11,
+                14396,
+                2228,
+                22501,
+                6736,
+                6755,
+                1367,
+                12994,
+                3528,
+                13
+              ]
+            },
+            {
+              "Start": 21.44,
+              "End": 22.14,
+              "Text": "Seguim até isso.",
+              "Tokens": [
+                1100,
+                2794,
+                332,
+                8784,
+                4616,
+                13
+              ]
+            }
+          ]
+        },
+        {
+          "Window": {
+            "Index": 1,
+            "Start": 480000,
+            "End": 700160,
+            "EmitStart": 480000,
+            "EmitEnd": 700160,
+            "InputSamples": 480000,
+            "PadSamples": 259840
+          },
+          "Segments": [
+            {
+              "Start": 30,
+              "End": 43.76,
+              "Text": "E aí",
+              "Tokens": [
+                462,
+                7461
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
