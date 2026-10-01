@@ -1,0 +1,29 @@
+[
+  {
+    "fixture": "jfk",
+    "path": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/testdata/jfk.wav",
+    "wav_sha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+    "pcm_path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/refresh-jfk.f32",
+    "pcm_sha256": "ebd52851100536db02d12c49fddd010372dcdc70243562e057553d476b706ae0",
+    "samples": 176000,
+    "language": "en"
+  },
+  {
+    "fixture": "pt",
+    "path": "/var/home/agent/workspace/tmp/whisper-oracle-final-20260912/minds-pt-0/canonical.wav",
+    "wav_sha256": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+    "pcm_path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/refresh-pt.f32",
+    "pcm_sha256": "c21ff590f8718096aaaa08d1fb29d16c07d83af466920645beaf6cb73cc96ed7",
+    "samples": 144726,
+    "language": "pt"
+  },
+  {
+    "fixture": "groups",
+    "path": "/var/home/agent/workspace/tmp/whisper-attention-20261001/jfk-two-groups.wav",
+    "wav_sha256": "c099aafe393a0af1a29f500a811a4b52972d88ee5590fa87351c35693d366aef",
+    "pcm_path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/refresh-groups.f32",
+    "pcm_sha256": "2e769632d1a631c3c0e0bd74529ebe83a57da3d7504c013265b2ab8a906953e7",
+    "samples": 880000,
+    "language": "en"
+  }
+]

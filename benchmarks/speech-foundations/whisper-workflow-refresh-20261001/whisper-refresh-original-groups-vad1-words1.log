@@ -1,0 +1,258 @@
+whisper_init_from_file_with_params_no_state: loading model from '/var/home/agent/workspace/projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin'
+whisper_init_with_params_no_state: use gpu    = 1
+whisper_init_with_params_no_state: flash attn = 1
+whisper_init_with_params_no_state: gpu_device = 0
+whisper_init_with_params_no_state: dtw        = 0
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Intel(R) Iris(R) Xe Graphics (RPL-P) (Intel open-source Mesa driver) | uma: 1 | fp16: 1 | bf16: 0 | fp4: 0 | warp size: 32 | shared memory: 49152 | int dot: 1 | matrix cores: none
+whisper_init_with_params_no_state: devices    = 2
+whisper_init_with_params_no_state: backends   = 2
+whisper_model_load: loading model
+whisper_model_load: n_vocab       = 51866
+whisper_model_load: n_audio_ctx   = 1500
+whisper_model_load: n_audio_state = 1280
+whisper_model_load: n_audio_head  = 20
+whisper_model_load: n_audio_layer = 32
+whisper_model_load: n_text_ctx    = 448
+whisper_model_load: n_text_state  = 1280
+whisper_model_load: n_text_head   = 20
+whisper_model_load: n_text_layer  = 4
+whisper_model_load: n_mels        = 128
+whisper_model_load: ftype         = 8
+whisper_model_load: qntvr         = 2
+whisper_model_load: type          = 5 (large v3)
+whisper_model_load: adding 1609 extra tokens
+whisper_model_load: n_langs       = 100
+whisper_model_load:      Vulkan0 total size =   573.40 MB
+whisper_model_load: model size    =  573.40 MB
+whisper_backend_init_gpu: device 0: Vulkan0 (type: 2)
+whisper_backend_init_gpu: found GPU device 0: Vulkan0 (type: 2, cnt: 0)
+whisper_backend_init_gpu: using Vulkan0 backend
+whisper_init_state: kv self size  =   10.49 MB
+whisper_init_state: kv cross size =   31.46 MB
+whisper_init_state: kv pad  size  =    7.86 MB
+whisper_init_state: compute buffer (conv)   =   37.69 MB
+whisper_init_state: compute buffer (encode) =   55.35 MB
+whisper_init_state: compute buffer (cross)  =   39.99 MB
+whisper_init_state: compute buffer (decode) =  100.04 MB
+whisper_full: VAD is enabled, processing speech segments only
+whisper_vad: VAD is enabled, processing speech segments only
+whisper_vad_init_from_file_with_params: loading VAD model from '/var/home/agent/workspace/projects/whisper-stt/models/ggml-silero-v6.2.0.bin'
+whisper_vad_init_with_params: model type: silero-16k
+whisper_vad_init_with_params: model version: 6.2.0
+whisper_vad_init_with_params: n_encoder_layers = 4
+whisper_vad_init_with_params: encoder_in_channels[0] = 129
+whisper_vad_init_with_params: encoder_in_channels[1] = 128
+whisper_vad_init_with_params: encoder_in_channels[2] = 64
+whisper_vad_init_with_params: encoder_in_channels[3] = 64
+whisper_vad_init_with_params: encoder_out_channels[0] = 128
+whisper_vad_init_with_params: encoder_out_channels[1] = 64
+whisper_vad_init_with_params: encoder_out_channels[2] = 64
+whisper_vad_init_with_params: encoder_out_channels[3] = 128
+whisper_vad_init_with_params: lstm_input_size = 128
+whisper_vad_init_with_params: lstm_hidden_size = 128
+whisper_vad_init_with_params: final_conv_in = 128
+whisper_vad_init_with_params: final_conv_out = 1
+whisper_vad_init_with_params:          CPU total size =     0.88 MB
+whisper_vad_init_with_params: model size    =    0.88 MB
+whisper_backend_init_gpu: no GPU found
+whisper_vad_init_context: compute buffer (VAD)   =    1.60 MB
+whisper_vad_segments_from_samples: detecting speech timestamps in 880000 samples
+whisper_vad_detect_speech_no_reset: detecting speech in 880000 samples
+whisper_vad_detect_speech_no_reset: n_chunks: 1719
+whisper_vad_detect_speech_no_reset: props size: 1719
+whisper_vad_detect_speech_no_reset: chunk_len: 384 < n_window: 512
+whisper_vad_detect_speech_no_reset: vad time = 75.70 ms processing 880000 samples
+whisper_vad_segments_from_probs: detecting speech timestamps using 1719 probabilities
+whisper_vad_segments_from_probs: Merged 2 adjacent segments, now have 8 segments
+whisper_vad_segments_from_probs: Final speech segments after filtering: 8
+whisper_vad_segments_from_probs: VAD segment 0: start = 0.32, end = 2.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 1: start = 3.27, end = 4.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 2: start = 5.38, end = 7.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 3: start = 8.16, end = 10.62 (duration: 2.46)
+whisper_vad_segments_from_probs: VAD segment 4: start = 44.32, end = 46.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 5: start = 47.27, end = 48.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 6: start = 49.38, end = 51.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 7: start = 52.16, end = 54.62 (duration: 2.46)
+whisper_vad: detected 8 speech segments
+whisper_vad: Including segment 0: 0.32 - 2.37 (duration: 2.05)
+whisper_vad: Including segment 1: 3.27 - 4.51 (duration: 1.24)
+whisper_vad: Including segment 2: 5.38 - 7.78 (duration: 2.40)
+whisper_vad: Including segment 3: 8.16 - 10.72 (duration: 2.56)
+whisper_vad: Including segment 4: 44.32 - 46.37 (duration: 2.05)
+whisper_vad: Including segment 5: 47.27 - 48.51 (duration: 1.24)
+whisper_vad: Including segment 6: 49.38 - 51.78 (duration: 2.40)
+whisper_vad: Including segment 7: 52.16 - 54.62 (duration: 2.46)
+whisper_vad: total duration of speech segments: 16.40 seconds
+whisper_vad: vad_segment_info: orig_start: 0.32, orig_end: 2.27, vad_start: 0.00, vad_end: 1.95
+whisper_vad: vad_segment_info: orig_start: 3.27, orig_end: 4.41, vad_start: 2.15, vad_end: 3.29
+whisper_vad: vad_segment_info: orig_start: 5.38, orig_end: 7.68, vad_start: 3.49, vad_end: 5.79
+whisper_vad: vad_segment_info: orig_start: 8.16, orig_end: 10.62, vad_start: 5.99, vad_end: 8.45
+whisper_vad: vad_segment_info: orig_start: 44.32, orig_end: 46.27, vad_start: 8.65, vad_end: 10.60
+whisper_vad: vad_segment_info: orig_start: 47.27, orig_end: 48.41, vad_start: 10.80, vad_end: 11.94
+whisper_vad: vad_segment_info: orig_start: 49.38, orig_end: 51.68, vad_start: 12.14, vad_end: 14.44
+whisper_vad: vad_segment_info: orig_start: 52.16, orig_end: 54.62, vad_start: 14.64, vad_end: 17.10
+whisper_vad: Created time mapping table with 23 points
+whisper_vad: Reduced audio from 880000 to 273600 samples (68.9% reduction)
+ORIGINAL_REQUEST repeat=0 seconds=4.78897 segments=2
+whisper_full: VAD is enabled, processing speech segments only
+whisper_vad: VAD is enabled, processing speech segments only
+whisper_vad_segments_from_samples: detecting speech timestamps in 880000 samples
+whisper_vad_detect_speech_no_reset: detecting speech in 880000 samples
+whisper_vad_detect_speech_no_reset: n_chunks: 1719
+whisper_vad_detect_speech_no_reset: props size: 1719
+whisper_vad_detect_speech_no_reset: chunk_len: 384 < n_window: 512
+whisper_vad_detect_speech_no_reset: vad time = 154.53 ms processing 880000 samples
+whisper_vad_segments_from_probs: detecting speech timestamps using 1719 probabilities
+whisper_vad_segments_from_probs: Merged 2 adjacent segments, now have 8 segments
+whisper_vad_segments_from_probs: Final speech segments after filtering: 8
+whisper_vad_segments_from_probs: VAD segment 0: start = 0.32, end = 2.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 1: start = 3.27, end = 4.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 2: start = 5.38, end = 7.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 3: start = 8.16, end = 10.62 (duration: 2.46)
+whisper_vad_segments_from_probs: VAD segment 4: start = 44.32, end = 46.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 5: start = 47.27, end = 48.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 6: start = 49.38, end = 51.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 7: start = 52.16, end = 54.62 (duration: 2.46)
+whisper_vad: detected 8 speech segments
+whisper_vad: Including segment 0: 0.32 - 2.37 (duration: 2.05)
+whisper_vad: Including segment 1: 3.27 - 4.51 (duration: 1.24)
+whisper_vad: Including segment 2: 5.38 - 7.78 (duration: 2.40)
+whisper_vad: Including segment 3: 8.16 - 10.72 (duration: 2.56)
+whisper_vad: Including segment 4: 44.32 - 46.37 (duration: 2.05)
+whisper_vad: Including segment 5: 47.27 - 48.51 (duration: 1.24)
+whisper_vad: Including segment 6: 49.38 - 51.78 (duration: 2.40)
+whisper_vad: Including segment 7: 52.16 - 54.62 (duration: 2.46)
+whisper_vad: total duration of speech segments: 16.40 seconds
+whisper_vad: vad_segment_info: orig_start: 0.32, orig_end: 2.27, vad_start: 0.00, vad_end: 1.95
+whisper_vad: vad_segment_info: orig_start: 3.27, orig_end: 4.41, vad_start: 2.15, vad_end: 3.29
+whisper_vad: vad_segment_info: orig_start: 5.38, orig_end: 7.68, vad_start: 3.49, vad_end: 5.79
+whisper_vad: vad_segment_info: orig_start: 8.16, orig_end: 10.62, vad_start: 5.99, vad_end: 8.45
+whisper_vad: vad_segment_info: orig_start: 44.32, orig_end: 46.27, vad_start: 8.65, vad_end: 10.60
+whisper_vad: vad_segment_info: orig_start: 47.27, orig_end: 48.41, vad_start: 10.80, vad_end: 11.94
+whisper_vad: vad_segment_info: orig_start: 49.38, orig_end: 51.68, vad_start: 12.14, vad_end: 14.44
+whisper_vad: vad_segment_info: orig_start: 52.16, orig_end: 54.62, vad_start: 14.64, vad_end: 17.10
+whisper_vad: Created time mapping table with 23 points
+whisper_vad: Reduced audio from 880000 to 273600 samples (68.9% reduction)
+ORIGINAL_REQUEST repeat=1 seconds=3.3508 segments=2
+whisper_full: VAD is enabled, processing speech segments only
+whisper_vad: VAD is enabled, processing speech segments only
+whisper_vad_segments_from_samples: detecting speech timestamps in 880000 samples
+whisper_vad_detect_speech_no_reset: detecting speech in 880000 samples
+whisper_vad_detect_speech_no_reset: n_chunks: 1719
+whisper_vad_detect_speech_no_reset: props size: 1719
+whisper_vad_detect_speech_no_reset: chunk_len: 384 < n_window: 512
+whisper_vad_detect_speech_no_reset: vad time = 231.52 ms processing 880000 samples
+whisper_vad_segments_from_probs: detecting speech timestamps using 1719 probabilities
+whisper_vad_segments_from_probs: Merged 2 adjacent segments, now have 8 segments
+whisper_vad_segments_from_probs: Final speech segments after filtering: 8
+whisper_vad_segments_from_probs: VAD segment 0: start = 0.32, end = 2.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 1: start = 3.27, end = 4.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 2: start = 5.38, end = 7.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 3: start = 8.16, end = 10.62 (duration: 2.46)
+whisper_vad_segments_from_probs: VAD segment 4: start = 44.32, end = 46.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 5: start = 47.27, end = 48.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 6: start = 49.38, end = 51.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 7: start = 52.16, end = 54.62 (duration: 2.46)
+whisper_vad: detected 8 speech segments
+whisper_vad: Including segment 0: 0.32 - 2.37 (duration: 2.05)
+whisper_vad: Including segment 1: 3.27 - 4.51 (duration: 1.24)
+whisper_vad: Including segment 2: 5.38 - 7.78 (duration: 2.40)
+whisper_vad: Including segment 3: 8.16 - 10.72 (duration: 2.56)
+whisper_vad: Including segment 4: 44.32 - 46.37 (duration: 2.05)
+whisper_vad: Including segment 5: 47.27 - 48.51 (duration: 1.24)
+whisper_vad: Including segment 6: 49.38 - 51.78 (duration: 2.40)
+whisper_vad: Including segment 7: 52.16 - 54.62 (duration: 2.46)
+whisper_vad: total duration of speech segments: 16.40 seconds
+whisper_vad: vad_segment_info: orig_start: 0.32, orig_end: 2.27, vad_start: 0.00, vad_end: 1.95
+whisper_vad: vad_segment_info: orig_start: 3.27, orig_end: 4.41, vad_start: 2.15, vad_end: 3.29
+whisper_vad: vad_segment_info: orig_start: 5.38, orig_end: 7.68, vad_start: 3.49, vad_end: 5.79
+whisper_vad: vad_segment_info: orig_start: 8.16, orig_end: 10.62, vad_start: 5.99, vad_end: 8.45
+whisper_vad: vad_segment_info: orig_start: 44.32, orig_end: 46.27, vad_start: 8.65, vad_end: 10.60
+whisper_vad: vad_segment_info: orig_start: 47.27, orig_end: 48.41, vad_start: 10.80, vad_end: 11.94
+whisper_vad: vad_segment_info: orig_start: 49.38, orig_end: 51.68, vad_start: 12.14, vad_end: 14.44
+whisper_vad: vad_segment_info: orig_start: 52.16, orig_end: 54.62, vad_start: 14.64, vad_end: 17.10
+whisper_vad: Created time mapping table with 23 points
+whisper_vad: Reduced audio from 880000 to 273600 samples (68.9% reduction)
+ORIGINAL_REQUEST repeat=2 seconds=3.29358 segments=2
+whisper_full: VAD is enabled, processing speech segments only
+whisper_vad: VAD is enabled, processing speech segments only
+whisper_vad_segments_from_samples: detecting speech timestamps in 880000 samples
+whisper_vad_detect_speech_no_reset: detecting speech in 880000 samples
+whisper_vad_detect_speech_no_reset: n_chunks: 1719
+whisper_vad_detect_speech_no_reset: props size: 1719
+whisper_vad_detect_speech_no_reset: chunk_len: 384 < n_window: 512
+whisper_vad_detect_speech_no_reset: vad time = 308.40 ms processing 880000 samples
+whisper_vad_segments_from_probs: detecting speech timestamps using 1719 probabilities
+whisper_vad_segments_from_probs: Merged 2 adjacent segments, now have 8 segments
+whisper_vad_segments_from_probs: Final speech segments after filtering: 8
+whisper_vad_segments_from_probs: VAD segment 0: start = 0.32, end = 2.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 1: start = 3.27, end = 4.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 2: start = 5.38, end = 7.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 3: start = 8.16, end = 10.62 (duration: 2.46)
+whisper_vad_segments_from_probs: VAD segment 4: start = 44.32, end = 46.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 5: start = 47.27, end = 48.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 6: start = 49.38, end = 51.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 7: start = 52.16, end = 54.62 (duration: 2.46)
+whisper_vad: detected 8 speech segments
+whisper_vad: Including segment 0: 0.32 - 2.37 (duration: 2.05)
+whisper_vad: Including segment 1: 3.27 - 4.51 (duration: 1.24)
+whisper_vad: Including segment 2: 5.38 - 7.78 (duration: 2.40)
+whisper_vad: Including segment 3: 8.16 - 10.72 (duration: 2.56)
+whisper_vad: Including segment 4: 44.32 - 46.37 (duration: 2.05)
+whisper_vad: Including segment 5: 47.27 - 48.51 (duration: 1.24)
+whisper_vad: Including segment 6: 49.38 - 51.78 (duration: 2.40)
+whisper_vad: Including segment 7: 52.16 - 54.62 (duration: 2.46)
+whisper_vad: total duration of speech segments: 16.40 seconds
+whisper_vad: vad_segment_info: orig_start: 0.32, orig_end: 2.27, vad_start: 0.00, vad_end: 1.95
+whisper_vad: vad_segment_info: orig_start: 3.27, orig_end: 4.41, vad_start: 2.15, vad_end: 3.29
+whisper_vad: vad_segment_info: orig_start: 5.38, orig_end: 7.68, vad_start: 3.49, vad_end: 5.79
+whisper_vad: vad_segment_info: orig_start: 8.16, orig_end: 10.62, vad_start: 5.99, vad_end: 8.45
+whisper_vad: vad_segment_info: orig_start: 44.32, orig_end: 46.27, vad_start: 8.65, vad_end: 10.60
+whisper_vad: vad_segment_info: orig_start: 47.27, orig_end: 48.41, vad_start: 10.80, vad_end: 11.94
+whisper_vad: vad_segment_info: orig_start: 49.38, orig_end: 51.68, vad_start: 12.14, vad_end: 14.44
+whisper_vad: vad_segment_info: orig_start: 52.16, orig_end: 54.62, vad_start: 14.64, vad_end: 17.10
+whisper_vad: Created time mapping table with 23 points
+whisper_vad: Reduced audio from 880000 to 273600 samples (68.9% reduction)
+ORIGINAL_REQUEST repeat=3 seconds=3.28965 segments=2
+whisper_full: VAD is enabled, processing speech segments only
+whisper_vad: VAD is enabled, processing speech segments only
+whisper_vad_segments_from_samples: detecting speech timestamps in 880000 samples
+whisper_vad_detect_speech_no_reset: detecting speech in 880000 samples
+whisper_vad_detect_speech_no_reset: n_chunks: 1719
+whisper_vad_detect_speech_no_reset: props size: 1719
+whisper_vad_detect_speech_no_reset: chunk_len: 384 < n_window: 512
+whisper_vad_detect_speech_no_reset: vad time = 402.03 ms processing 880000 samples
+whisper_vad_segments_from_probs: detecting speech timestamps using 1719 probabilities
+whisper_vad_segments_from_probs: Merged 2 adjacent segments, now have 8 segments
+whisper_vad_segments_from_probs: Final speech segments after filtering: 8
+whisper_vad_segments_from_probs: VAD segment 0: start = 0.32, end = 2.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 1: start = 3.27, end = 4.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 2: start = 5.38, end = 7.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 3: start = 8.16, end = 10.62 (duration: 2.46)
+whisper_vad_segments_from_probs: VAD segment 4: start = 44.32, end = 46.27 (duration: 1.95)
+whisper_vad_segments_from_probs: VAD segment 5: start = 47.27, end = 48.41 (duration: 1.14)
+whisper_vad_segments_from_probs: VAD segment 6: start = 49.38, end = 51.68 (duration: 2.30)
+whisper_vad_segments_from_probs: VAD segment 7: start = 52.16, end = 54.62 (duration: 2.46)
+whisper_vad: detected 8 speech segments
+whisper_vad: Including segment 0: 0.32 - 2.37 (duration: 2.05)
+whisper_vad: Including segment 1: 3.27 - 4.51 (duration: 1.24)
+whisper_vad: Including segment 2: 5.38 - 7.78 (duration: 2.40)
+whisper_vad: Including segment 3: 8.16 - 10.72 (duration: 2.56)
+whisper_vad: Including segment 4: 44.32 - 46.37 (duration: 2.05)
+whisper_vad: Including segment 5: 47.27 - 48.51 (duration: 1.24)
+whisper_vad: Including segment 6: 49.38 - 51.78 (duration: 2.40)
+whisper_vad: Including segment 7: 52.16 - 54.62 (duration: 2.46)
+whisper_vad: total duration of speech segments: 16.40 seconds
+whisper_vad: vad_segment_info: orig_start: 0.32, orig_end: 2.27, vad_start: 0.00, vad_end: 1.95
+whisper_vad: vad_segment_info: orig_start: 3.27, orig_end: 4.41, vad_start: 2.15, vad_end: 3.29
+whisper_vad: vad_segment_info: orig_start: 5.38, orig_end: 7.68, vad_start: 3.49, vad_end: 5.79
+whisper_vad: vad_segment_info: orig_start: 8.16, orig_end: 10.62, vad_start: 5.99, vad_end: 8.45
+whisper_vad: vad_segment_info: orig_start: 44.32, orig_end: 46.27, vad_start: 8.65, vad_end: 10.60
+whisper_vad: vad_segment_info: orig_start: 47.27, orig_end: 48.41, vad_start: 10.80, vad_end: 11.94
+whisper_vad: vad_segment_info: orig_start: 49.38, orig_end: 51.68, vad_start: 12.14, vad_end: 14.44
+whisper_vad: vad_segment_info: orig_start: 52.16, orig_end: 54.62, vad_start: 14.64, vad_end: 17.10
+whisper_vad: Created time mapping table with 23 points
+whisper_vad: Reduced audio from 880000 to 273600 samples (68.9% reduction)
+ORIGINAL_REQUEST repeat=4 seconds=3.3091 segments=2
+ORIGINAL_PROCESS seconds=18.360604605 status=0 expired=false

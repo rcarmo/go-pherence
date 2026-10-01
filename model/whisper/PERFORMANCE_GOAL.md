@@ -52,6 +52,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Compact projection scheduling trials](../../docs/validation/vulkan-projection-scheduling-20261001.md) reject 13 original-Q5 and four F32 shared-layout/geometry/barrier/K-tile variants. All tested operator outputs stay exact, but no useful trained gain is measured. Diagnostics remain archived only; the retained outputILP/decode4 path and defaults are unchanged.
 
+[Whole-workflow refresh](../../docs/validation/whisper-workflow-refresh-20261001.md) measures the retained outputILP/decode4 path against reusable original Vulkan+flash contexts. JFK medians remain 3.018s original / 6.311s Go without VAD, and 3.028s / 6.537s with native VAD. VAD text/timestamp mapping, grouped-window count and word-alignment methods differ; original speed/quality acceptance still fails. CPU decoder/setup and original integer-dot arithmetic remain substantial attribution targets. No runtime change follows this measurement.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

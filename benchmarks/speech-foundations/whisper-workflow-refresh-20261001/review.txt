@@ -1,0 +1,3 @@
+Read-only methodology judge completed via delegate (github-copilot/gpt-5.4). Scope was the supplied facts, not an independent source/raw-evidence audit.
+Verdict: adequate practical end-to-end latency diagnostic on this exact setup; not an apples-to-apples core-engine comparison.
+Caveats confirmed: F16/Q8_1 vs F32 arithmetic, GPU vs CPU decoder placement, VAD compaction/window count, token times vs CPU DTW, unequal timed setup (Go SHA and legacy decoder loading), state handling, small five-request/three-fixture coverage. Do not claim broad performance generalisation, core decoder efficiency, acoustic correctness or parity from these data.

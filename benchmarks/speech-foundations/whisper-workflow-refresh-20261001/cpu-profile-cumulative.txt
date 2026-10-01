@@ -1,0 +1,54 @@
+File: refresh-go.test
+Build ID: ef13897486b395dd4d6705748103422f2afa02b0
+Type: cpu
+Time: 2026-10-01 17:12:58 WEST
+Duration: 35.71s, Total samples = 15.93s (44.61%)
+Showing nodes accounting for 13.85s, 86.94% of 15.93s total
+Dropped 173 nodes (cum <= 0.08s)
+Showing top 45 nodes out of 92
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      8.89s 55.81%  github.com/rcarmo/go-pherence/model/whisper.TestWhisperPerformanceGoalArm
+         0     0%     0%      8.89s 55.81%  testing.tRunner
+     0.02s  0.13%  0.13%      6.35s 39.86%  github.com/rcarmo/go-pherence/backends/simd/runtime.Sdot
+     6.33s 39.74% 39.86%      6.33s 39.74%  github.com/rcarmo/go-pherence/backends/simd/runtime.sdotAsm
+         0     0% 39.86%      5.11s 32.08%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).TranscribePCMWindows (inline)
+         0     0% 39.86%      5.11s 32.08%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).TranscribePCMWindowsFrom
+         0     0% 39.86%      5.09s 31.95%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).TranscribePCMWindowsFrom.func3
+         0     0% 39.86%      5.09s 31.95%  github.com/rcarmo/go-pherence/model/whisper.transcribePCMPlanFrom
+         0     0% 39.86%      4.04s 25.36%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).decodePCMWindow
+         0     0% 39.86%      3.93s 24.67%  github.com/rcarmo/go-pherence/model/whisper.decodeCheckedTimestamps
+         0     0% 39.86%      3.90s 24.48%  github.com/rcarmo/go-pherence/model/whisper.decodeCheckedTimestamps.func1
+         0     0% 39.86%      3.89s 24.42%  github.com/rcarmo/go-pherence/model/whisper.(*Decoder).ForwardToken
+         0     0% 39.86%      3.89s 24.42%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).decodePCMWindow.func1
+         0     0% 39.86%      3.57s 22.41%  github.com/rcarmo/go-pherence/model/whisper.linearForwardOpt.func3
+         0     0% 39.86%      3.57s 22.41%  github.com/rcarmo/go-pherence/model/whisper.linearRowBlock
+         0     0% 39.86%      3.56s 22.35%  github.com/rcarmo/go-pherence/backends/simd/runtime.DenseNTTo
+         0     0% 39.86%      3.56s 22.35%  github.com/rcarmo/go-pherence/backends/simd/runtime.SgemmNTBlockedFMA
+     3.56s 22.35% 62.21%      3.56s 22.35%  github.com/rcarmo/go-pherence/backends/simd/runtime.sgemmNTTileFMA
+     0.03s  0.19% 62.40%      3.32s 20.84%  github.com/rcarmo/go-pherence/model/whisper.linearForwardOpt.func1
+         0     0% 62.40%      3.32s 20.84%  github.com/rcarmo/go-pherence/model/whisper.linearForwardOpt.func2
+     0.03s  0.19% 62.59%      3.09s 19.40%  github.com/rcarmo/go-pherence/model/whisper.linearInto
+         0     0% 62.59%      2.89s 18.14%  github.com/rcarmo/go-pherence/model/whisper.pinnedLegacyWhisperModelMode
+         0     0% 62.59%      2.45s 15.38%  github.com/rcarmo/go-pherence/model/whisper.loadModelSourceCheckedMode
+     0.30s  1.88% 64.47%      2.45s 15.38%  github.com/rcarmo/go-pherence/model/whisper.loadModelSourceCheckedMode.func2
+     0.04s  0.25% 64.72%      1.64s 10.30%  github.com/rcarmo/go-pherence/loader/whisperggml.(*File).Float32
+         0     0% 64.72%      1.64s 10.30%  github.com/rcarmo/go-pherence/model/whisper.(*legacyGGMLSource).GetFloat32
+     0.03s  0.19% 64.91%      1.05s  6.59%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).encodePCMWindow
+        1s  6.28% 71.19%         1s  6.28%  runtime.memmove
+         0     0% 71.19%      0.85s  5.34%  github.com/rcarmo/go-pherence/model/whisper.newVulkanEncoderPackedOnlyMode (inline)
+         0     0% 71.19%      0.85s  5.34%  github.com/rcarmo/go-pherence/model/whisper.newVulkanEncoderPackedSelected
+         0     0% 71.19%      0.73s  4.58%  github.com/rcarmo/go-pherence/loader/gguf.DequantToF32 (inline)
+         0     0% 71.19%      0.73s  4.58%  github.com/rcarmo/go-pherence/loader/gguf.dequantToF32
+     0.67s  4.21% 75.39%      0.72s  4.52%  github.com/rcarmo/go-pherence/loader/gguf.dequantQ5_0
+     0.01s 0.063% 75.46%      0.60s  3.77%  github.com/ebitengine/purego.RegisterFunc.func4
+     0.02s  0.13% 75.58%      0.58s  3.64%  github.com/rcarmo/go-pherence/model/whisper.crossAttentionHeadMajorObserved
+     0.03s  0.19% 75.77%      0.57s  3.58%  github.com/rcarmo/go-pherence/model/whisper.(*VulkanEncoder).Forward
+     0.54s  3.39% 79.16%      0.57s  3.58%  runtime.cgocall
+     0.01s 0.063% 79.22%      0.49s  3.08%  github.com/rcarmo/go-pherence/backends/vulkan.(*VkF32Plan).Run
+     0.42s  2.64% 81.86%      0.49s  3.08%  math.IsInf (inline)
+     0.29s  1.82% 83.68%      0.45s  2.82%  github.com/rcarmo/go-pherence/loader/audio.WhisperLogMelContext
+         0     0% 83.68%      0.45s  2.82%  github.com/rcarmo/go-pherence/model/whisper.MelFlatFromSamplesCheckedContext (inline)
+         0     0% 83.68%      0.38s  2.39%  github.com/rcarmo/go-pherence/loader/whisperggml.Open
+     0.19s  1.19% 84.87%      0.37s  2.32%  github.com/rcarmo/go-pherence/loader/whisperggml.finite (inline)
+     0.01s 0.063% 84.93%      0.33s  2.07%  github.com/rcarmo/go-pherence/backends/simd/runtime.Saxpy
+     0.32s  2.01% 86.94%      0.32s  2.01%  github.com/rcarmo/go-pherence/backends/simd/runtime.saxpyAsm

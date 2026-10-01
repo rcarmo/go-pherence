@@ -1,0 +1,6 @@
+2026-10-01T16:18:37Z
+aeddf1a604f62a75ff5c22ecf2a999089f08980c
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+dcef563bcac6d0a306fb689e275cfdbb846811fbc83cec60ae227716268f6c18  projects/whisper-stt/runtime/build-vulkan/bin/whisper-cli
+ce2479a03c213df7ef377c9751a5d6aecfe5f90894f8e1eec20062b8bc86edad  projects/whisper-stt/runtime/build-vulkan/bin/libwhisper.so.1.9.3
+30dde78f5d74041d0d55850ae6c1b2b6a1e07280b488c767e4e9fd4352c49d61  projects/whisper-stt/runtime/build-vulkan/bin/libggml-vulkan.so.0.23.0
