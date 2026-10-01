@@ -1,0 +1,460 @@
+[
+  {
+    "EndGuard": false,
+    "ValidSamples": 176000,
+    "DecodeCalls": 31,
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 10.4,
+        "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+        "Tokens": [
+          400,
+          370,
+          11,
+          452,
+          7177,
+          6280,
+          11,
+          1029,
+          406,
+          437,
+          428,
+          1941,
+          393,
+          360,
+          337,
+          291,
+          11,
+          1029,
+          437,
+          291,
+          393,
+          360,
+          337,
+          428,
+          1941,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "TimestampIndex": 0,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 30,
+        "Input": 50885,
+        "TimestampIndex": 520,
+        "NearAudioEnd": false
+      }
+    ],
+    "Seconds": 0.725752179
+  },
+  {
+    "EndGuard": true,
+    "ValidSamples": 176000,
+    "DecodeCalls": 31,
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 10.4,
+        "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+        "Tokens": [
+          400,
+          370,
+          11,
+          452,
+          7177,
+          6280,
+          11,
+          1029,
+          406,
+          437,
+          428,
+          1941,
+          393,
+          360,
+          337,
+          291,
+          11,
+          1029,
+          437,
+          291,
+          393,
+          360,
+          337,
+          428,
+          1941,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "TimestampIndex": 0,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "TimestampIndex": -1,
+        "NearAudioEnd": false
+      },
+      {
+        "Position": 30,
+        "Input": 50885,
+        "TimestampIndex": 520,
+        "NearAudioEnd": false
+      }
+    ],
+    "Seconds": 0.719213125
+  }
+]

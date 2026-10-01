@@ -1,0 +1,133 @@
+package whisper
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestWhisperVADBoundaryDiagnostic(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_TEST_VAD_BOUNDARY_PCM")
+	if path == "" {
+		t.Skip("explicit VAD boundary trace")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
+	defer cancel()
+	b, e := os.ReadFile(path)
+	if e != nil || len(b)%4 != 0 || fmt.Sprintf("%x", sha256.Sum256(b)) != os.Getenv("GO_PHERENCE_TEST_VAD_BOUNDARY_SHA") {
+		t.Fatal("PCMpin", e)
+	}
+	valid := len(b) / 4
+	model, tok, policy, file := pinnedLegacyWhisperModelMode(t, ctx, true)
+	defer file.Close()
+	if !vk.VulkanInit() || !strings.Contains(vk.VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := vk.VulkanMemoryStats()
+	defer func() {
+		a := vk.VulkanMemoryStats()
+		if a.Bytes != before.Bytes || a.Allocations != before.Allocations || a.InFlight {
+			t.Error("nativeleak", a)
+		}
+	}()
+	enc, e := newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5AttentionOutputILP, file, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer func() {
+		if e := enc.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	samples := make([]float32, model.Config.MaxLength*160)
+	if valid > len(samples) {
+		t.Fatal("extent")
+	}
+	for i := 0; i < valid; i++ {
+		samples[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+	}
+	hidden, frames, e := model.encodePCMWindow(ctx, samples, enc)
+	if e != nil {
+		t.Fatal(e)
+	}
+	v, e := checkedTimestampVocabulary(model.Config, tok, "en")
+	if e != nil {
+		t.Fatal(e)
+	}
+	opts, suppress, begin, e := resolvePCMGeneration(model.Config, v, PCMTranscribeOptions{Language: "en", Generation: policy}, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens)
+	if e != nil {
+		t.Fatal(e)
+	}
+	type step struct {
+		Position, Input int
+		TimestampIndex  int
+		NearAudioEnd    bool
+	}
+	type result struct {
+		EndGuard                  bool
+		ValidSamples, DecodeCalls int
+		Segments                  []Segment
+		Steps                     []step
+		Seconds                   float64
+	}
+	var reports []result
+	repeats := 1
+	if os.Getenv("GO_PHERENCE_TEST_VAD_BOUNDARY_REPEAT5") == "1" {
+		repeats = 5
+	}
+	for repeat := 0; repeat < repeats; repeat++ {
+		for _, guard := range []bool{false, true} {
+			state, e := NewDecoderStateContext(ctx, model.Config, hidden, frames, model.Decoder)
+			if e != nil {
+				t.Fatal(e)
+			}
+			r := result{EndGuard: guard, ValidSamples: valid}
+			forward := func(token int) ([]float32, error) {
+				r.DecodeCalls++
+				index := -1
+				if token >= v.timestampBegin {
+					index = token - v.timestampBegin
+				}
+				r.Steps = append(r.Steps, step{state.Pos, token, index, index > 0 && index*2+10 >= valid/160})
+				logits := model.Decoder.ForwardToken(token, state)
+				if token == v.timestampBegin+503 || token == v.timestampBegin+515 {
+					t.Logf("GO_BOUNDARY_RAW guard=%t pos=%d input=%d eot=%.9g ts503=%.9g ts515=%.9g thank=%.9g", guard, state.Pos, token, logits[v.eot], logits[v.timestampBegin+503], logits[v.timestampBegin+515], logits[1044])
+				}
+				return logits, ctx.Err()
+			}
+			start := time.Now()
+			r.Segments, e = decodeBoundaryDiagnostic(ctx, model.Config, tok, v, opts, suppress, begin, valid, guard, forward)
+			r.Seconds = time.Since(start).Seconds()
+			if e != nil {
+				t.Fatal(e)
+			}
+			reports = append(reports, r)
+			t.Logf("VAD_BOUNDARY repeat=%d guard=%t samples=%d calls=%d seconds=%.9f segments=%+v", repeat, guard, valid, r.DecodeCalls, r.Seconds, r.Segments)
+		}
+	}
+	out, e := json.MarshalIndent(reports, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	f, e := os.OpenFile(os.Getenv("GO_PHERENCE_TEST_VAD_BOUNDARY_REPORT"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.Write(out)
+	ce := f.Close()
+	if e != nil || ce != nil {
+		t.Fatal(e, ce)
+	}
+}

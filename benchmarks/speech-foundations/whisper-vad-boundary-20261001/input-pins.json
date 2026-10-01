@@ -1,0 +1,36 @@
+[
+  {
+    "mode": "gap",
+    "samples": 164800,
+    "spans": [
+      {
+        "Start": 5152,
+        "End": 169952
+      }
+    ],
+    "sha256": "0f4302922d4f470606faf7bca41df64ade994a3fc6ff9774c485bb06155b4c4f"
+  },
+  {
+    "mode": "compact",
+    "samples": 125696,
+    "spans": [
+      {
+        "Start": 5152,
+        "End": 36320
+      },
+      {
+        "Start": 52256,
+        "End": 70624
+      },
+      {
+        "Start": 86048,
+        "End": 122848
+      },
+      {
+        "Start": 130592,
+        "End": 169952
+      }
+    ],
+    "sha256": "93e65c1f707aadfeabaede06a8692aae33b2b0e3d0adde19e7fd5da96a8a3f4f"
+  }
+]

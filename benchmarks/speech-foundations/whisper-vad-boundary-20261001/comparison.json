@@ -1,0 +1,1253 @@
+{
+  "status": "crop-sensitive generation quality diagnostic; no production change or speed/quality acceptance",
+  "controls": [
+    {
+      "mode": "gap",
+      "samples": 164800,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.06,
+          "End": 10.3,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.06,
+          "End": 10.3,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        36,
+        35
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "compact",
+      "samples": 125696,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 5.18,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "Start": 5.44,
+          "End": 7.6,
+          "Text": "Ask what you can do for your country.",
+          "Tokens": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 5.18,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "Start": 5.44,
+          "End": 7.6,
+          "Text": "Ask what you can do for your country.",
+          "Tokens": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        33,
+        33
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "leading",
+      "samples": 169952,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.38,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.38,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        31,
+        31
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "trailing",
+      "samples": 170848,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.06,
+          "End": 10.68,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.06,
+          "End": 10.68,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        36,
+        35
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "full",
+      "samples": 176000,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        31,
+        31
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "prefix30",
+      "samples": 165280,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.08,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.08,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        31,
+        31
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "prefix100",
+      "samples": 166400,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        31,
+        30
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "grid5120",
+      "samples": 164832,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 7.18,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "Start": 7.88,
+          "End": 10.06,
+          "Text": "Ask what you can do for your country.",
+          "Tokens": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 7.18,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "Start": 7.88,
+          "End": 10.06,
+          "Text": "Ask what you can do for your country.",
+          "Tokens": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        33,
+        33
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    },
+    {
+      "mode": "zero322",
+      "samples": 169952,
+      "baseline": [
+        {
+          "Start": 0,
+          "End": 10.38,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guarded": [
+        {
+          "Start": 0,
+          "End": 10.38,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "guard_preserves_segments": true,
+      "calls": [
+        31,
+        31
+      ],
+      "scope": "one encoder execution shared by baseline/guard decoder states; single fixture diagnostic"
+    }
+  ],
+  "originals": [
+    {
+      "arm": "gap",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "compact",
+      "input_samples": 125696,
+      "segments": [
+        {
+          "start": 0,
+          "end": 5.18,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13,
+            50624
+          ]
+        },
+        {
+          "start": 5.44,
+          "end": 7.6,
+          "text": "Ask what you can do for your country.",
+          "tokens": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50745
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "gap-nointdot",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "gap-nof16",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "trace-gap",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "gap-scores",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    },
+    {
+      "arm": "gap-scores-both",
+      "input_samples": 164800,
+      "segments": [
+        {
+          "start": 0,
+          "end": 10.06,
+          "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "tokens": [
+            50365,
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13,
+            50868
+          ]
+        }
+      ],
+      "scope": "original rawPCM noVAD;5repeatoutputgate not speed baseline"
+    }
+  ],
+  "scores": {
+    "same_generated_prefix": [
+      50365,
+      400,
+      370,
+      11,
+      452,
+      7177,
+      6280,
+      11,
+      1029,
+      406,
+      437,
+      428,
+      1941,
+      393,
+      360,
+      337,
+      291,
+      11,
+      1029,
+      437,
+      291,
+      393,
+      360,
+      337,
+      428,
+      1941,
+      13,
+      50868
+    ],
+    "original": {
+      "eot": 10.9662,
+      "repeated_timestamp": 10.677,
+      "other_timestamp": 4.205,
+      "thank": -3.03665,
+      "scope": "read-only logits-filter callback before subsequent timestamp masks"
+    },
+    "go": {
+      "eot": 10.8156681,
+      "repeated_timestamp": 10.992569,
+      "other_timestamp": 4.46491003,
+      "thank": -2.82966566,
+      "scope": "raw ForwardToken logits before Go timestamp mask"
+    },
+    "go_tail_consumed": [
+      50868,
+      1044,
+      291,
+      13,
+      50880
+    ],
+    "cause": "decision-margin reversal demonstrated; responsible model/mel/encoder/decoder operation not isolated"
+  },
+  "states": [
+    {
+      "name": "whisper-vad-boundary-gap-state.json",
+      "exit": 1
+    },
+    {
+      "name": "whisper-vad-boundary-gap-fixed-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-compact-fixed-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-leading-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-trailing-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-full-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-gap-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-compact-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-gap-fixed-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-compact-fixed-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-prefix30-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-prefix100-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-grid5120-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-zero322-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-gap-nointdot-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-gap-nof16-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-trace-build-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-trace-gap-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-score-build-state.json",
+      "exit": 2
+    },
+    {
+      "name": "whisper-vad-boundary-gap-scores-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-scores-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-original-scores-both-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-gap-final5-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-compact-final5-state.json",
+      "exit": 0
+    },
+    {
+      "name": "whisper-vad-boundary-retained-gates-state.json",
+      "exit": 0
+    }
+  ]
+}

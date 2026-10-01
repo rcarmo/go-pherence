@@ -1,0 +1,6 @@
+=== RUN   TestWhisperVADBoundaryDiagnostic
+    vad_boundary_native_diagnostic_test.go:33: LEGACY_LOAD seconds=2.826189286 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vad_boundary_native_diagnostic_test.go:108: VAD_BOUNDARY guard=false samples=176000 calls=31 seconds=0.725752179 segments=[{Start:0 End:10.4 Text:And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country. Tokens:[400 370 11 452 7177 6280 11 1029 406 437 428 1941 393 360 337 291 11 1029 437 291 393 360 337 428 1941 13]}]
+    vad_boundary_native_diagnostic_test.go:108: VAD_BOUNDARY guard=true samples=176000 calls=31 seconds=0.719213125 segments=[{Start:0 End:10.4 Text:And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country. Tokens:[400 370 11 452 7177 6280 11 1029 406 437 428 1941 393 360 337 291 11 1029 437 291 393 360 337 428 1941 13]}]
+--- PASS: TestWhisperVADBoundaryDiagnostic (10.87s)
+PASS

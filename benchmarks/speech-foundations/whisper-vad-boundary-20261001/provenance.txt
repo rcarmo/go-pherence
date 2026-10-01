@@ -1,0 +1,9 @@
+2026-10-01T17:51:32Z
+d93515783780e68d0b1a725f9ca5b0910c1d1f75
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+bf985aee3c337cbdbdd4872a68416c683a9141cf2f62b414e71ad9e81365d168  tmp/whisper-vad-parity-20261001/vad-boundary.test
+d85147004e0fc5b3644f0c90e7f182d720c3aff7674f63b13b886b0e4aee52bf  tmp/whisper-vad-parity-20261001/vad-boundary-score.test
+59eaa9ec1a20a9d8430ff0cfe30be552bd9a04a860d9fb4a9935719d2ea40a7e  tmp/whisper-vad-parity-20261001/vad-boundary-final.test
+9952d88c05bbd46102b6692d68cd0b12279ba09339659df722a5ae320c2b6d32  tmp/whisper-vad-parity-20261001/boundary-original-trace
+ce76929afd03c22aa5b65db2e37f5699abeca1ac6f3e3c7e7321d51f3aea263d  tmp/whisper-vad-parity-20261001/boundary-original-scores
+ce2479a03c213df7ef377c9751a5d6aecfe5f90894f8e1eec20062b8bc86edad  projects/whisper-stt/runtime/build-vulkan/bin/libwhisper.so.1.9.3

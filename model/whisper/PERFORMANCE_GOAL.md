@@ -60,6 +60,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Vulkan decoder GEMV feasibility](../../docs/validation/whisper-decoder-vulkan-gemv-20261001.md) reproduces the tested CPU SIMD reduction on Vulkan. Dispatch/transfer-inclusive Q/K/V/O and FFN projections lose to CPU4; the head has a small isolated gain for an extra265.6MB weight copy. Pinned captured head logits match exactly, but no request gain or resident fused-decoder result is established. All diagnostic code is archived only; runtime/defaults stay unchanged.
 
+[VAD crop/generation boundary trace](../../docs/validation/whisper-vad-boundary-20261001.md) reproduces the extra `Thank you.` on identical cropped PCM. Original and Go match a 28-token prefix, then EOT/repeated-timestamp margins reverse. A test-only original100ms end guard does not remove the text; small leading-context shifts change segmentation and are not installed as a fix. Model-operation cause, acoustic accuracy and speed parity remain unresolved; runtime/defaults are unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
