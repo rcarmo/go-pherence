@@ -56,4 +56,4 @@ A GPU decoder that follows the original's arithmetic is now both the largest rem
 
 [Hashed evidence](../../benchmarks/speech-foundations/whisper-decoder-attribution-20261001/) holds the original runs, swap reports, environments, harness sources (pinned original diagnostic include, Go state test as text), logs/states/exits and provenance. Binaries, PCM, mel and hidden arrays are recorded by hash only. The Go diagnostic test was removed from the tree after the run.
 
-Native runs used the @llama isolation hold: CPU4/8GiB/no-swap, physical Intel Iris Xe, Qwen idle, host ≥6 GiB, ≤120 s deadlines. All containers exited 0 without OOM and were removed.
+Native runs used the @llama isolation hold: CPU4/8GiB/no-swap, physical Intel Iris Xe, Qwen idle, host ≥6 GiB, ≤120 s deadlines. The first swap-harness build exited 1 (missing `WHISPER_VERSION` define); the rebuild with that define passed. Every other container exited 0. None hit OOM, and all were removed.
