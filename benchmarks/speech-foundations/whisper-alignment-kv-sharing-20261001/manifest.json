@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "date": "2026-10-01",
+  "scope": "immutable CPU cross-KV sharing for fresh word-alignment state",
+  "limits": {
+    "cpus": 4,
+    "affinity": "0-7",
+    "memory_gib": 8,
+    "process_swap": 0,
+    "heap": "GOMEMLIMIT4GiB",
+    "gpu": "IntelIrisXeMesa26.1.5"
+  },
+  "baseline_directory": "../vulkan-attention-key32-20261001",
+  "qualification": {
+    "fixtures": [
+      "JFK",
+      "Portuguese0",
+      "French0",
+      "JFKtwogroups"
+    ],
+    "repeats": 5,
+    "word_segment_token_span_parity": "exact all5 perfixture",
+    "full_test_vet_build_race_layout_cross": "PASS",
+    "annotation_accuracy": "unverified",
+    "production_change": false
+  },
+  "pins": [
+    {
+      "file": "go-key32-kvshared-keepgaps-gclimit-jfk-vad1-words1.json",
+      "bytes": 30208,
+      "sha256": "512136db5cbc66ecc5d8f5b47c980a4e555c2e41cf7a9e4d20ee36700502159e"
+    },
+    {
+      "file": "go-key32-kvshared-minds-pt-0-vad1-words1.json",
+      "bytes": 27733,
+      "sha256": "84f7ffbae0e47123de88d87a10af332638b62cb29d0ed6a0a9d738ce346d436d"
+    },
+    {
+      "file": "go-key32-kvshared-minds-fr-0-vad1-words1.json",
+      "bytes": 11580,
+      "sha256": "ddb5fa00add15321c125c2b2b75edf4fa4f0550031a50d534a36a6d0606fd341"
+    },
+    {
+      "file": "go-key32-kvshared-twogroups-gclimit-vad1-words1.json",
+      "bytes": 58465,
+      "sha256": "d928b3528becf4397dc89588f09d03dabe6a5bee73a283e8f34078655b34aac3"
+    },
+    {
+      "file": "whisper-kvsharing-final-tree-exit.txt",
+      "bytes": 28,
+      "sha256": "08289145c4a22801a0628c5c3871717f7742cba48b02b278ca466de9e93bb9a8"
+    },
+    {
+      "file": "whisper-kvsharing-final-tree-state.json",
+      "bytes": 331,
+      "sha256": "67d271ee8a62ac82cbb1a658e604add31aee8fae4d707bdfd11fff054a9ae482"
+    },
+    {
+      "file": "whisper-kvsharing-final-tree-monitor.log",
+      "bytes": 6140,
+      "sha256": "d00eb4cf655d7584a41ed74d861cd651dbf70c8dcaf5fb6087f30c99c6336df7"
+    }
+  ]
+}

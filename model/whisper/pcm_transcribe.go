@@ -256,7 +256,7 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 	if len(allTokens) == 0 {
 		return segments, nil, nil
 	}
-	alignmentState, err := NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
+	alignmentState, err := newAlignmentDecoderStateContext(ctx, w.Config, frames, state)
 	if err != nil {
 		return nil, nil, err
 	}

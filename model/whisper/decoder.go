@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
@@ -137,25 +138,14 @@ func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []flo
 	dModel := cfg.DecoderDModel
 	numLayers := cfg.DecoderLayers
 
-	state := &DecoderState{
-		SelfKCache: make([][]float32, numLayers),
-		SelfVCache: make([][]float32, numLayers),
-		CrossK:     make([][]float32, numLayers),
-		CrossV:     make([][]float32, numLayers),
-		CrossKHead: make([][]float32, numLayers),
-		CrossVHead: make([][]float32, numLayers),
-		LastToken:  -1,
-		Bufs:       newDecoderBufs(cfg),
+	state, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	// Pre-allocate self-attention KV caches
-	for l := 0; l < numLayers; l++ {
-		if err := speechContextErr(ctx); err != nil {
-			return nil, err
-		}
-		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
-		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
-	}
+	state.CrossK = make([][]float32, numLayers)
+	state.CrossV = make([][]float32, numLayers)
+	state.CrossKHead = make([][]float32, numLayers)
+	state.CrossVHead = make([][]float32, numLayers)
 
 	// Pre-compute cross-attention K/V from encoder output (done once)
 	// Use GPU SGEMM if available for this large batched matmul
@@ -185,6 +175,59 @@ func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []flo
 		return nil, err
 	}
 	return state, nil
+}
+
+func newDecoderSelfStateContext(ctx context.Context, cfg Config) (*DecoderState, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	s := &DecoderState{SelfKCache: make([][]float32, cfg.DecoderLayers), SelfVCache: make([][]float32, cfg.DecoderLayers), LastToken: -1, Bufs: newDecoderBufs(cfg)}
+	for l := 0; l < cfg.DecoderLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		s.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*cfg.DecoderDModel)
+		s.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*cfg.DecoderDModel)
+	}
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// Private same-window alignment seam. The checked caller owns both states,
+// excludes concurrent use and never mutates cross-KV after construction. Only
+// immutable CPU cross-KV is shared; fresh self-KV, observer, position and scratch
+// are separate. Copy outer slice headers to keep state metadata independent.
+// No GPU lifetime or public borrowed-storage contract is introduced.
+func newAlignmentDecoderStateContext(ctx context.Context, cfg Config, encLen int, source *DecoderState) (*DecoderState, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("alignment state: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if source == nil || encLen < 1 || encLen > cfg.MaxLength || cfg.DecoderLayers < 1 || cfg.DecoderDModel < 1 || len(source.CrossKGPU) != 0 || len(source.CrossVGPU) != 0 || len(source.CrossK) != cfg.DecoderLayers || len(source.CrossV) != cfg.DecoderLayers || len(source.CrossKHead) != cfg.DecoderLayers || len(source.CrossVHead) != cfg.DecoderLayers {
+		return nil, fmt.Errorf("alignment state: CPU cross-KV geometry required")
+	}
+	for l := 0; l < cfg.DecoderLayers; l++ {
+		n := encLen * cfg.DecoderDModel
+		if len(source.CrossK[l]) != n || len(source.CrossV[l]) != n || len(source.CrossKHead[l]) != n || len(source.CrossVHead[l]) != n {
+			return nil, fmt.Errorf("alignment state: cross-KV extent mismatch")
+		}
+	}
+	s, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	s.CrossK = append([][]float32(nil), source.CrossK...)
+	s.CrossV = append([][]float32(nil), source.CrossV...)
+	s.CrossKHead = append([][]float32(nil), source.CrossKHead...)
+	s.CrossVHead = append([][]float32(nil), source.CrossVHead...)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // ForwardToken runs one decoder step for a single token.
