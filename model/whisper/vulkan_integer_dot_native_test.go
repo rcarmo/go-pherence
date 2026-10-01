@@ -56,7 +56,12 @@ func TestVulkanIntegerDotEncoderNative(t *testing.T) {
 	if e = base.Close(); e != nil {
 		t.Fatal(e)
 	}
-	candidate, e := NewVulkanEncoderOriginalQ5IntegerDotMLP(ctx, model.Encoder, model.Config.MaxLength, file)
+	hybrid := os.Getenv("GO_PHERENCE_TEST_WHISPER_INTDOT_FC1") == "1"
+	construct := NewVulkanEncoderOriginalQ5IntegerDotMLP
+	if hybrid {
+		construct = NewVulkanEncoderOriginalQ5IntegerDotFC1
+	}
+	candidate, e := construct(ctx, model.Encoder, model.Config.MaxLength, file)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -81,7 +86,12 @@ func TestVulkanIntegerDotEncoderNative(t *testing.T) {
 		total += delta
 	}
 	cs := candidate.Stats()
-	if cs.WeightBytes != stats.WeightBytes || cs.ScratchBytes <= stats.ScratchBytes || cs.Stages != stats.Stages+model.Config.EncoderLayers*2 || cs.Plans != stats.Plans {
+	if cs.WeightBytes != stats.WeightBytes || cs.ScratchBytes <= stats.ScratchBytes || cs.Stages != stats.Stages+model.Config.EncoderLayers*(func() int {
+		if hybrid {
+			return 1
+		}
+		return 2
+	})() || cs.Plans != stats.Plans {
 		t.Fatal("stats", stats, cs)
 	}
 	countContext := newCheckpointContext(0)
@@ -111,7 +121,7 @@ func TestVulkanIntegerDotEncoderNative(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("INTDOT_HIDDEN values=%d different=%d maxAbs=%.9g meanAbs=%.9g checkpoints=%d scratchAdded=%d", len(got), different, maximum, total/float64(len(got)), calls, cs.ScratchBytes-stats.ScratchBytes)
+	t.Logf("INTDOT_HIDDEN hybridFC1=%t values=%d different=%d maxAbs=%.9g meanAbs=%.9g checkpoints=%d scratchAdded=%d", hybrid, len(got), different, maximum, total/float64(len(got)), calls, cs.ScratchBytes-stats.ScratchBytes)
 	if e = candidate.Close(); e != nil {
 		t.Fatal(e)
 	}
@@ -132,6 +142,18 @@ func TestVulkanIntegerDotEncoderRejectsBeforeDevice(t *testing.T) {
 	cancel()
 	if e, err := NewVulkanEncoderOriginalQ5IntegerDotMLP(ctx, source, 17, nil); e != nil || !errors.Is(err, context.Canceled) {
 		t.Fatal("cancel", err)
+	}
+	if e, err := NewVulkanEncoderOriginalQ5IntegerDotFC1(nil, source, 17, nil); e != nil || err == nil {
+		t.Fatal("FC1 nil")
+	}
+	if e, err := NewVulkanEncoderOriginalQ5IntegerDotFC1(ctx, source, 17, nil); e != nil || !errors.Is(err, context.Canceled) {
+		t.Fatal("FC1 cancel", err)
+	}
+	if e, err := NewVulkanEncoderOriginalQ5IntegerDotFC1(context.Background(), source, 17, nil); e != nil || err == nil {
+		t.Fatal("FC1 original source")
+	}
+	if e, err := newVulkanEncoderPackedSelected(context.Background(), source, 17, vk.NewVkF32Plan, vulkanLinearOriginalQ5IntegerDotMLP, nil, true, func(string) bool { return true }); e != nil || err == nil {
+		t.Fatal("partial packed-only")
 	}
 	if vulkanDefaultLinearMode != vulkanLinearF32RegTile {
 		t.Fatal("default")

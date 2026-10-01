@@ -23,6 +23,7 @@ var spirv_linear_q5_integer_dot []byte
 type VkLinearQ5IntegerDotSet struct {
 	weights *VkLinearQ5Set
 	quant   *VkComputeKernel
+	f32     *VkComputeKernel // explicit hybrid mode only, shares original storage
 }
 
 func NewVkLinearQ5IntegerDotSetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5IntegerDotSet, error) {
@@ -34,7 +35,12 @@ func NewVkLinearQ5IntegerDotSetStream(ctx context.Context, shapes []VkLinearQ5Sh
 		return nil, err
 	}
 	owner := &VkLinearQ5IntegerDotSet{weights: weights}
-	owner.quant, err = VkKernelCreateIntegerDot(spirv_quant_q8_integer_dot, 2, 4)
+	if err = ctx.Err(); err == nil {
+		owner.quant, err = VkKernelCreateIntegerDot(spirv_quant_q8_integer_dot, 2, 4)
+	}
+	if err == nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		if closeErr := owner.Close(); closeErr != nil {
 			return owner, errors.Join(err, closeErr)
@@ -60,6 +66,9 @@ func (s *VkLinearQ5IntegerDotSet) Close() error {
 	if err := vkStatusLocked(); err != nil {
 		return err
 	}
+	if s.f32 != nil && vkUsesKernelLocked(s.f32) {
+		return ErrVulkanInFlight
+	}
 	if s.weights != nil && (vkUsesKernelLocked(s.weights.kernel) || vkUsesBufferLocked(s.weights.storage)) || s.quant != nil && vkUsesKernelLocked(s.quant) {
 		return ErrVulkanInFlight
 	}
@@ -67,6 +76,12 @@ func (s *VkLinearQ5IntegerDotSet) Close() error {
 		if err := s.weights.closeLocked(); err != nil {
 			return err
 		}
+	}
+	if s.f32 != nil {
+		if err := s.f32.closeLocked(); err != nil {
+			return err
+		}
+		s.f32 = nil
 	}
 	if s.quant != nil {
 		if err := s.quant.closeLocked(); err != nil {
@@ -133,4 +148,41 @@ func (s *VkLinearQ5IntegerDotSet) Stages(ctx context.Context, index int, out, x,
 		return nil, e
 	}
 	return []VkF32Stage{{Kernel: s.quant, Groups: qgroups, bindings: []vkBufferBinding{xb, qb}, PushWords: []uint32{uint32(blocks)}}, {Kernel: s.weights.kernel, Groups: lgroups, bindings: []vkBufferBinding{qb, wb, bb, yb}, PushWords: []uint32{uint32(rows), uint32(view.inDim), uint32(view.outDim)}}}, nil
+}
+
+// NewVkLinearQ5IntegerDotHybridSetStream adds the ordered F32 activation kernel
+// over the same original packed storage. This is an explicit hybrid arithmetic
+// owner, not an unsupported-device fallback. Callers choose the kernel at build.
+func NewVkLinearQ5IntegerDotHybridSetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5IntegerDotSet, error) {
+	owner, err := NewVkLinearQ5IntegerDotSetStream(ctx, shapes, read)
+	if err != nil {
+		return owner, err
+	}
+	if err = ctx.Err(); err == nil {
+		owner.f32, err = VkKernelCreate(spirv_linear_q5_grouped_f32, 4, 12)
+	}
+	if err == nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		if ce := owner.Close(); ce != nil {
+			return owner, errors.Join(err, ce)
+		}
+		return nil, err
+	}
+	return owner, nil
+}
+
+// F32Stage explicitly retains ordered F32 activations/accumulation for one view.
+func (s *VkLinearQ5IntegerDotSet) F32Stage(ctx context.Context, index int, out, x, bias *VkTensorF32) (VkF32Stage, error) {
+	if err := vkAcquire(ctx); err != nil {
+		return VkF32Stage{}, err
+	}
+	defer vkRelease()
+	if s == nil || s.f32 == nil || s.weights == nil || s.weights.storage == nil || index < 0 || index >= len(s.weights.views) {
+		return VkF32Stage{}, fmt.Errorf("Q5 hybrid F32 closed/index")
+	}
+	view := s.weights.views[index]
+	op := VkLinearQ5GroupedF32{kernel: s.f32, weight: s.weights.storage, weightValues: view.outDim * view.inDim, inDim: view.inDim, outDim: view.outDim}
+	return op.stageLocked(out, x, bias, view.offset, view.size)
 }

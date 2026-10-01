@@ -36,7 +36,7 @@ func TestVulkanOfflineQ5IntegerDotOwner(t *testing.T) {
 	mockVK(t, &vkAllocateDescriptorSets, func(_ VkDevice, p unsafe.Pointer, out *VkDescriptorSet) VkResult { *out = 6; return VK_SUCCESS })
 	mockVK(t, &vkAllocateCommandBuffers, func(_ VkDevice, p unsafe.Pointer, out *VkCommandBuffer) VkResult { *out = 7; return VK_SUCCESS })
 	mockVK(t, &vkCreateFence, func(_ VkDevice, p, a unsafe.Pointer, out *VkFence) VkResult { *out = 8; return VK_SUCCESS })
-	op, e := NewVkLinearQ5IntegerDotSetStream(context.Background(), []VkLinearQ5Shape{{1, 32}}, func(context.Context, int) ([]byte, error) { return make([]byte, 22), nil })
+	op, e := NewVkLinearQ5IntegerDotHybridSetStream(context.Background(), []VkLinearQ5Shape{{1, 32}}, func(context.Context, int) ([]byte, error) { return make([]byte, 22), nil })
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -67,6 +67,13 @@ func TestVulkanOfflineQ5IntegerDotOwner(t *testing.T) {
 	if e != nil || len(stages) != 2 || !reflect.DeepEqual(stages[0].PushWords, []uint32{1}) || !reflect.DeepEqual(stages[1].PushWords, []uint32{1, 32, 1}) {
 		t.Fatal("stage", e)
 	}
+	f32, e := op.F32Stage(context.Background(), 0, out, x, bias)
+	if e != nil || f32.Kernel != op.f32 || len(f32.bindings) != 4 || !reflect.DeepEqual(f32.PushWords, []uint32{1, 32, 1}) {
+		t.Fatal("hybrid F32 stage", e)
+	}
+	if _, e = op.F32Stage(context.Background(), 1, out, x, bias); e == nil {
+		t.Fatal("hybrid index")
+	}
 	if _, e = op.Stages(context.Background(), 0, out, x, bias, bias); e == nil {
 		t.Fatal("scratch shape")
 	}
@@ -96,6 +103,10 @@ func TestVulkanOfflineQ5IntegerDotOwner(t *testing.T) {
 	if e = op.Close(); !errors.Is(e, ErrVulkanInFlight) {
 		t.Fatal("pending", e)
 	}
+	vkPending = &vkPendingSubmission{kernel: op.f32}
+	if e = op.Close(); !errors.Is(e, ErrVulkanInFlight) {
+		t.Fatal("hybrid pending", e)
+	}
 	vkPending = old
 	if e = op.Close(); e != nil {
 		t.Fatal(e)
@@ -106,18 +117,36 @@ func TestVulkanOfflineQ5IntegerDotOwner(t *testing.T) {
 	if _, e = op.Stages(context.Background(), 0, out, x, bias, q); e == nil {
 		t.Fatal("closed")
 	}
-	for _, arm := range []string{"reader", "extent", "quant-create"} {
+	if _, e = op.F32Stage(context.Background(), 0, out, x, bias); e == nil {
+		t.Fatal("closed hybrid")
+	}
+	for _, arm := range []string{"reader", "extent", "quant-create", "hybrid-create", "cancel-create"} {
 		before := memory.frees
 		created := 0
 		mockVK(t, &vkCreateShaderModule, func(_ VkDevice, p, a unsafe.Pointer, out *VkShaderModule) VkResult {
 			created++
-			if arm == "quant-create" && created == 2 {
+			if (arm == "quant-create" && created == 2) || (arm == "hybrid-create" && created == 3) {
 				return -3
 			}
 			*out = 1
 			return VK_SUCCESS
 		})
-		owner, err := NewVkLinearQ5IntegerDotSetStream(context.Background(), []VkLinearQ5Shape{{1, 32}}, func(context.Context, int) ([]byte, error) {
+		ctx, cancel := context.WithCancel(context.Background())
+		construct := NewVkLinearQ5IntegerDotSetStream
+		if arm == "hybrid-create" {
+			construct = NewVkLinearQ5IntegerDotHybridSetStream
+		}
+		original := vkCreateShaderModule
+		if arm == "cancel-create" {
+			mockVK(t, &vkCreateShaderModule, func(d VkDevice, p, a unsafe.Pointer, out *VkShaderModule) VkResult {
+				r := original(d, p, a, out)
+				if created == 2 {
+					cancel()
+				}
+				return r
+			})
+		}
+		owner, err := construct(ctx, []VkLinearQ5Shape{{1, 32}}, func(context.Context, int) ([]byte, error) {
 			if arm == "reader" {
 				return nil, errors.New("reader failed")
 			}
@@ -126,6 +155,7 @@ func TestVulkanOfflineQ5IntegerDotOwner(t *testing.T) {
 			}
 			return make([]byte, 22), nil
 		})
+		cancel()
 		if owner != nil || err == nil || memory.frees != before+1 {
 			t.Fatal("rollback", arm, owner, err, memory.frees, before)
 		}

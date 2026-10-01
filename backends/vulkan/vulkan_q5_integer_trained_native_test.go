@@ -65,7 +65,7 @@ func TestVulkanNativeQ5IntegerTrained(t *testing.T) {
 			for i := range x {
 				x[i] = math.Float32frombits(binary.LittleEndian.Uint32(f32[i*4:]))
 			}
-			op, e := NewVkLinearQ5IntegerDotSetStream(ctx, []VkLinearQ5Shape{{part.n, part.k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+			op, e := NewVkLinearQ5IntegerDotHybridSetStream(ctx, []VkLinearQ5Shape{{part.n, part.k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -127,6 +127,23 @@ func TestVulkanNativeQ5IntegerTrained(t *testing.T) {
 			}
 			nativeRun(t, func(c context.Context) error { return base.Forward(c, baseout, tx, bias) })
 			ref := nativeDownload(t, baseout)
+			f32Stage, e := op.F32Stage(ctx, 0, out, tx, bias)
+			if e != nil {
+				t.Fatal(e)
+			}
+			f32Plan, e := NewVkF32Plan(ctx, []VkF32Stage{f32Stage})
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, f32Plan)
+			nativeRun(t, f32Plan.Run)
+			f32Values := nativeDownload(t, out)
+			for i, v := range f32Values {
+				if math.Float32bits(v) != math.Float32bits(ref[i]) {
+					t.Fatal("hybrid shared F32 stage", i)
+				}
+			}
+			nativeRun(t, plan.Run)
 			var maximum, total float64
 			for i, v := range got {
 				delta := math.Abs(float64(v - ref[i]))

@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "shaders": [
+    {
+      "name": "q8",
+      "source": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/backends/vulkan/shaders/integer-dot/q8.glsl",
+      "stored": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/backends/vulkan/shaders/integer-dot/q8-stripped.spv",
+      "validate": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compile": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "strip": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "rebuiltValidate": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalised": true,
+      "fixtureEqual": true,
+      "pass": true
+    },
+    {
+      "name": "linear",
+      "source": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/backends/vulkan/shaders/integer-dot/linear.glsl",
+      "stored": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/backends/vulkan/shaders/integer-dot/linear-stripped.spv",
+      "validate": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "compile": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "strip": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "rebuiltValidate": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "normalised": true,
+      "fixtureEqual": true,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

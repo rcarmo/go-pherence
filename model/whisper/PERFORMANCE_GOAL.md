@@ -36,6 +36,8 @@ Diagnostic stage attribution uses `GO_PHERENCE_TEST_WHISPER_STAGES=1` with an ex
 
 The explicit experimental `vulkan-original-q5-integer-dot` arm loads original packed-only FFN weights and negotiates integer-dot before creating the device. FFN activations/scales are Q8_1; other weights, attention and decoder remain F32. It does not reuse the bitwise-F32 contract or change defaults. [Trained candidate qualification](../../docs/validation/whisper-integer-dot-ffn-20261001.md) reports a Portuguese segment-end regression; speed/quality acceptance is not granted. Stage input capture uses an explicit `GO_PHERENCE_WHISPER_STAGE_INPUT_DUMP` directory and writes layer0 FC1/FC2 inputs exclusively without overwriting; diagnostic downloads invalidate speed interpretation of that profiling run.
 
+The separately named `vulkan-original-q5-integer-dot-fc1` candidate quantises only FC1; FC2 keeps ordered packed-Q5/F32 arithmetic on shared original weight storage. [Timestamp attribution and FC1 qualification](../../docs/validation/whisper-integer-dot-fc1-20261001.md) records exact five-repeat small-fixture/VADword outputs and limited request gains. Independent quality/long-form/resume and matched original-speed acceptance remain open; this mode is never selected by defaults.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

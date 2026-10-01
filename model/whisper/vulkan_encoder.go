@@ -73,10 +73,19 @@ func NewVulkanEncoderTile64Key32ScoreILP(ctx context.Context, source *Encoder, f
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32ScoreILP)
 }
 
-// NewVulkanEncoderOriginalQ5IntegerDotMLP quantises FFN activations to Q8_1.
-// Experimental candidate requiring explicit integer-dot and original Q5 weights.
-// FFN magnitude <=1000 and nonzero block maximum >=1e-30 are required; invalid
-// blocks yield nonfinite output rejected by Forward. Accuracy/timing unqualified.
+// NewVulkanEncoderOriginalQ5IntegerDotFC1 quantises only FC1 activations; FC2
+// retains ordered packed Q5/F32 arithmetic over the same original storage. This
+// explicit experimental mode requires integer-dot enablement and original Q5.
+// Activation bounds/NaN rejection match the full-FFN integer-dot candidate;
+// independent acoustic accuracy remains unqualified. No device/CPU fallback.
+func NewVulkanEncoderOriginalQ5IntegerDotFC1(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5IntegerDotFC1, file)
+}
+
+// NewVulkanEncoderOriginalQ5IntegerDotMLP quantises both FFN activations to
+// Q8_1. Requires explicit integer-dot and original Q5. Magnitude<=1000/nonzero
+// block maximum>=1e-30; invalid blocks yield nonfinite output rejected by Forward.
+// This mode has a recorded Portuguese timing regression and is not qualified.
 func NewVulkanEncoderOriginalQ5IntegerDotMLP(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
 	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5IntegerDotMLP, file)
 }
@@ -138,6 +147,7 @@ const (
 	vulkanLinearF32Tile64Key32ScoreILP
 	vulkanLinearOriginalQ5MLP
 	vulkanLinearOriginalQ5IntegerDotMLP
+	vulkanLinearOriginalQ5IntegerDotFC1
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -162,11 +172,20 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File) (*VulkanEncoder, error) {
 	return newVulkanEncoderPackedOnlyMode(ctx, source, frames, makePlan, linearMode, file, false)
 }
-func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool) (result *VulkanEncoder, err error) {
+func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedSelected(ctx, source, frames, makePlan, linearMode, file, packedOnly, nil)
+}
+
+// Private selector seam for numerical attribution only. Public constructors use
+// nil (all FFN). Partial selection requires the complete widened source.
+func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool, dotSelect func(string) bool) (result *VulkanEncoder, err error) {
+	if dotSelect != nil && (packedOnly || linearMode != vulkanLinearOriginalQ5IntegerDotMLP) {
+		return nil, fmt.Errorf("Whisper: diagnostic selection requires widened integer-dot source")
+	}
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5IntegerDotMLP)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -177,13 +196,17 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 	if err != nil {
 		return nil, err
 	}
-	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP
+	hybrid := linearMode == vulkanLinearOriginalQ5IntegerDotFC1
+	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP || hybrid
 	if dot && !vk.VulkanIntegerDotEnabled() {
 		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
 	}
 	q5 := linearMode == vulkanLinearOriginalQ5MLP || dot
-	if dot {
+	if dot && !hybrid {
 		layout.scratch = append(append([]vkEncoderTensor(nil), layout.scratch...), vkEncoderTensor{name: "q8fc1", shape: []int{layout.rows * (layout.cfg.EncoderDModel / 32) * 9}}, vkEncoderTensor{name: "q8fc2", shape: []int{layout.rows * (layout.cfg.EncoderFFNDim / 32) * 9}})
+	}
+	if hybrid {
+		layout.scratch = append(append([]vkEncoderTensor(nil), layout.scratch...), vkEncoderTensor{name: "q8fc1", shape: []int{layout.rows * (layout.cfg.EncoderDModel / 32) * 9}})
 	}
 	if q5 && file == nil {
 		return nil, fmt.Errorf("whisper Vulkan Q5: require pinned original file")
@@ -195,7 +218,7 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
-				if step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && isVulkanMLPWeight(step.in[1])) {
+				if step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && isVulkanMLPWeight(step.in[1]) && (dotSelect == nil || dotSelect(step.in[1]))) {
 					linearWeights[step.in[1]] = vkEncoderTensor{}
 				}
 			}
@@ -260,7 +283,10 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 				mlp  int
 			}{{"fc1", 0}, {"fc2", 2}} {
 				name := fmt.Sprintf("layer%d.%s.w", layer, part.step)
-				spec := linearWeights[name]
+				spec, selected := linearWeights[name]
+				if !selected {
+					continue
+				}
 				if len(spec.shape) != 2 {
 					return nil, fmt.Errorf("whisper Vulkan Q5: shape %s", name)
 				}
@@ -287,12 +313,20 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 			return raw, nil
 		}
 		if dot {
-			s.q5Dot, err = vk.NewVkLinearQ5IntegerDotSetStream(ctx, shapes, reader)
+			if hybrid {
+				s.q5Dot, err = vk.NewVkLinearQ5IntegerDotHybridSetStream(ctx, shapes, reader)
+			} else {
+				s.q5Dot, err = vk.NewVkLinearQ5IntegerDotSetStream(ctx, shapes, reader)
+			}
 			if s.q5Dot != nil {
 				s.resources = append(s.resources, s.q5Dot)
 				s.stats.WeightBytes += s.q5Dot.StorageBytes()
 			}
-			s.stats.Stages += layout.cfg.EncoderLayers * 2
+			if hybrid {
+				s.stats.Stages += layout.cfg.EncoderLayers
+			} else {
+				s.stats.Stages += len(shapes)
+			}
 		} else {
 			s.q5Linear, err = vk.NewVkLinearQ5SetStream(ctx, shapes, reader)
 		}
@@ -403,7 +437,9 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 			case "norm":
 				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
 			case "linear":
-				if index, quantized := linearIndexes[step.in[1]]; quantized && dot {
+				if index, quantized := linearIndexes[step.in[1]]; quantized && hybrid && strings.Contains(step.in[1], ".fc2.") {
+					stage, err = s.q5Dot.F32Stage(ctx, index, out, in[0], in[2])
+				} else if index, quantized := linearIndexes[step.in[1]]; quantized && dot {
 					scratch := tensors["q8fc1"]
 					if strings.Contains(step.in[1], "fc2") {
 						scratch = tensors["q8fc2"]
