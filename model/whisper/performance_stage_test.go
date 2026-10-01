@@ -6,6 +6,7 @@ import (
 	"fmt"
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio/media"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
 	"io"
 	"os"
 	"strings"
@@ -19,13 +20,15 @@ func whisperStageMode(backend string) (vulkanLinearMode, error) {
 		return vulkanDefaultLinearMode, nil
 	case "vulkan-f32-tile64-key32-scoreilp":
 		return vulkanLinearF32Tile64Key32ScoreILP, nil
+	case "vulkan-original-q5-mlp":
+		return vulkanLinearOriginalQ5MLP, nil
 	default:
 		return 0, fmt.Errorf("unsupported stage-profile backend %q", backend)
 	}
 }
 
 func TestWhisperStageModeAdmission(t *testing.T) {
-	for backend, want := range map[string]vulkanLinearMode{"": vulkanDefaultLinearMode, "vulkan-f32": vulkanDefaultLinearMode, "vulkan-f32-tile64-key32-scoreilp": vulkanLinearF32Tile64Key32ScoreILP} {
+	for backend, want := range map[string]vulkanLinearMode{"": vulkanDefaultLinearMode, "vulkan-f32": vulkanDefaultLinearMode, "vulkan-f32-tile64-key32-scoreilp": vulkanLinearF32Tile64Key32ScoreILP, "vulkan-original-q5-mlp": vulkanLinearOriginalQ5MLP} {
 		got, err := whisperStageMode(backend)
 		if err != nil || got != want {
 			t.Fatal(backend, got, err)
@@ -54,7 +57,14 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model, _, _ := pinnedTurboSpeechModel(t, ctx)
+	var model *Whisper
+	var file *legacy.File
+	if mode == vulkanLinearOriginalQ5MLP {
+		model, _, _, file = pinnedLegacyWhisperModelOpen(t, ctx)
+		defer file.Close()
+	} else {
+		model, _, _ = pinnedTurboSpeechModel(t, ctx)
+	}
 	path := os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT")
 	pinnedSpeechFile(t, path, os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT_SHA256"))
 	if !vk.VulkanInit() {
@@ -69,10 +79,10 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stages []vk.VkF32Stage
-	enc, err := newVulkanEncoderMode(ctx, model.Encoder, model.Config.MaxLength, func(ctx context.Context, s []vk.VkF32Stage) (*vk.VkF32Plan, error) {
+	enc, err := newVulkanEncoderPackedMode(ctx, model.Encoder, model.Config.MaxLength, func(ctx context.Context, s []vk.VkF32Stage) (*vk.VkF32Plan, error) {
 		stages = append(stages, s...)
 		return vk.NewVkF32Plan(ctx, s)
-	}, mode)
+	}, mode, file)
 	if err != nil {
 		if enc != nil {
 			enc.Close()
@@ -84,10 +94,13 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	var labels []string
+	var labels, outputs []string
+	var inputs [][]string
 	for _, p := range layout.plans {
 		for _, s := range p {
 			labels = append(labels, s.op)
+			outputs = append(outputs, s.out)
+			inputs = append(inputs, append([]string(nil), s.in...))
 		}
 	}
 	if len(labels) != len(stages) {
@@ -140,7 +153,7 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 			if err := p.Run(ctx); err != nil {
 				t.Fatal(err)
 			}
-			rows = append(rows, map[string]any{"run": run, "stage": i, "op": labels[i], "seconds": time.Since(start).Seconds()})
+			rows = append(rows, map[string]any{"run": run, "stage": i, "op": labels[i], "out": outputs[i], "inputs": inputs[i], "backend": os.Getenv("GO_PHERENCE_WHISPER_BENCH_BACKEND"), "seconds": time.Since(start).Seconds()})
 		}
 		out := make([]float32, len(baseline))
 		if err := enc.s.output.Download(ctx, out); err != nil {

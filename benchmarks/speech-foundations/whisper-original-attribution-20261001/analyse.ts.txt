@@ -1,0 +1,19 @@
+import{join}from'node:path';
+const root='/var/home/agent/workspace/tmp/whisper-vad-parity-20261001';
+const median=(a:number[])=>[...a].sort((a,b)=>a-b)[Math.floor(a.length/2)];
+const arms:any={};
+for(const arm of ['q5','f16','no-intdot','no-f16','no-intdot-no-f16']){
+ const reps=arm==='f16'||arm==='no-intdot-no-f16'?['']:['','-r1','-r2'];const samples=[];
+ for(const repeat of reps){const log=await Bun.file(join(root,`whisper-original-profile-${arm}${repeat}.log`)).text();
+ const blocks=log.split('Vulkan Timings:').slice(1).map(b=>{const entries=[];for(const m of b.matchAll(/^\s*(.+?): (\d+) x ([\d.e+]+) us = ([\d.e+]+) us/gm))entries.push({op:m[1].trim(),count:+m[2],mean_us:+m[3],total_us:+m[4]});const total=b.match(/Total time: ([\d.e+]+) us/);return{entries,total_us:total?+total[1]:null}});
+ const encoder=blocks.find(b=>b.entries.some(e=>e.op.includes('FLASH_ATTN_EXT')&&e.count===32));if(!encoder)throw Error('encoder block');
+ const sums=(test:(s:string)=>boolean)=>encoder.entries.filter(e=>test(e.op)).reduce((a,e)=>a+e.total_us/1e6,0);
+ const timing:any={};for(const m of log.matchAll(/whisper_print_timings:\s+(\w+) time\s*=\s*([\d.]+) ms/g))timing[m[1]]=+m[2]/1000;
+ const json=await Bun.file(join(root,`original-profile-${arm}${repeat}.json`)).json();const output=json.transcription.map((s:any)=>({text:s.text,offsets:s.offsets,ids:s.tokens?.map((t:any)=>t.id)}));
+ samples.push({repeat,encoder_GPU_seconds:encoder.total_us!/1e6,projection_seconds:sums(s=>s.startsWith('MUL_MAT ')&&s.includes('n=1500')),attention_seconds:sums(s=>s.startsWith('FLASH_ATTN_EXT')),conversion_seconds:sums(s=>s==='CPY'||s==='CONT'),phase_timing:timing,blocks,output});
+ }
+ arms[arm]={samples,median_projection_seconds:median(samples.map(s=>s.projection_seconds)),median_attention_seconds:median(samples.map(s=>s.attention_seconds)),median_encode_wall_seconds:median(samples.map(s=>s.phase_timing.encode))};
+}
+for(const[arm,data]of Object.entries(arms)as any){for(const s of data.samples)if(JSON.stringify(s.output)!==JSON.stringify(arms.q5.samples[0].output))throw Error('original output differs '+arm)}
+const go=await Bun.file(join(root,'original-q5-go-stage.json')).json();const totals:any={};for(const s of go){const category=s.op==='linear'?s.inputs[1].split('.')[1]:s.op;totals[category]=(totals[category]??0)+s.seconds/3}
+const result={arms,go_mean_separately_fenced_stages_seconds:totals,limitations:['Profiler synchronisation changes runtime; these are not speed baselines','Original Q5 MMQ quantises RHS to Q8_1; Go inputs remain F32','Disabling F16 changes multiple paths, including MMQ accumulation and attention','Original timestamp and Go host-fence samples have different boundaries','JFK output equivalence is not independent acoustic/timing accuracy'],same_original_text_content_tokens_segment_offsets:true};await Bun.write('/var/home/agent/workspace/tmp/whisper-original-attribution-20261001/attribution.json',JSON.stringify(result,null,2)+'\n');for(const[arm,d]of Object.entries(arms)as any)console.log(arm,{projection:d.median_projection_seconds,attention:d.median_attention_seconds,encode_wall:d.median_encode_wall_seconds});console.log('Go',totals);
