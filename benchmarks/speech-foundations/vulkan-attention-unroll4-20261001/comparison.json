@@ -1,0 +1,274 @@
+{
+  "stages": [
+    {
+      "variant": "unroll4",
+      "baseline": 0.067153504,
+      "candidate": 0.065000552,
+      "change_percent": -3.206015876699453,
+      "samples": {
+        "baseline": [
+          0.067153504,
+          0.067477041,
+          0.067090927,
+          0.067383098,
+          0.066814085
+        ],
+        "candidate": [
+          0.065583366,
+          0.065273357,
+          0.064971863,
+          0.064840959,
+          0.065000552
+        ]
+      }
+    },
+    {
+      "variant": "unroll8",
+      "baseline": 0.067050367,
+      "candidate": 0.065131372,
+      "change_percent": -2.8620201288383607,
+      "samples": {
+        "baseline": [
+          0.067198699,
+          0.06696238,
+          0.067136831,
+          0.066774717,
+          0.067050367
+        ],
+        "candidate": [
+          0.064911954,
+          0.065238499,
+          0.06522859,
+          0.065112648,
+          0.065131372
+        ]
+      }
+    },
+    {
+      "variant": "unroll64",
+      "baseline": 0.067014616,
+      "candidate": 0.064926949,
+      "change_percent": -3.1152413079558627,
+      "samples": {
+        "baseline": [
+          0.069260259,
+          0.066979048,
+          0.06687445,
+          0.067014616,
+          0.074315543
+        ],
+        "candidate": [
+          0.06492533,
+          0.064926949,
+          0.064978908,
+          0.064854319,
+          0.070570244
+        ]
+      }
+    },
+    {
+      "variant": "barrier",
+      "baseline": 0.066974598,
+      "candidate": 0.066513763,
+      "change_percent": -0.6880743054254568,
+      "samples": {
+        "baseline": [
+          0.066974598,
+          0.068043228,
+          0.066932286,
+          0.067025941,
+          0.066922037
+        ],
+        "candidate": [
+          0.06646211,
+          0.066513763,
+          0.066603155,
+          0.066498947,
+          0.066899075
+        ]
+      }
+    },
+    {
+      "variant": "unroll4barrier",
+      "baseline": 0.066920321,
+      "candidate": 0.06475788,
+      "change_percent": -3.231366747329256,
+      "samples": {
+        "baseline": [
+          0.067246504,
+          0.066859281,
+          0.066736141,
+          0.066920321,
+          0.067034586
+        ],
+        "candidate": [
+          0.06475788,
+          0.064816094,
+          0.064801766,
+          0.064750744,
+          0.064567233
+        ]
+      }
+    },
+    {
+      "variant": "transpose",
+      "baseline": 0.066994367,
+      "candidate": 0.06747078,
+      "change_percent": 0.7111239665866131,
+      "samples": {
+        "baseline": [
+          0.067175726,
+          0.067043223,
+          0.066994367,
+          0.066954797,
+          0.066928767
+        ],
+        "candidate": [
+          0.067481223,
+          0.06747078,
+          0.067626646,
+          0.067378289,
+          0.067292896
+        ]
+      }
+    },
+    {
+      "variant": "padK",
+      "baseline": 0.067011427,
+      "candidate": 0.244838176,
+      "change_percent": 265.36779913670546,
+      "samples": {
+        "baseline": [
+          0.06714188,
+          0.066963893,
+          0.067544063,
+          0.066887823,
+          0.067011427
+        ],
+        "candidate": [
+          0.247978151,
+          0.244551084,
+          0.244838176,
+          0.244423165,
+          0.244994009
+        ]
+      }
+    },
+    {
+      "variant": "unroll4transpose",
+      "baseline": 0.067181352,
+      "candidate": 0.128386361,
+      "change_percent": 91.10416384594345,
+      "samples": {
+        "baseline": [
+          0.069584462,
+          0.066955971,
+          0.067181352,
+          0.067119852,
+          0.067200263
+        ],
+        "candidate": [
+          0.127887401,
+          0.128258638,
+          0.128576531,
+          0.128386361,
+          0.128509785
+        ]
+      }
+    }
+  ],
+  "requests": [
+    {
+      "fixture": "jfk",
+      "baseline": 6.918345968,
+      "candidate": 6.824805724,
+      "change_percent": -1.352060802287991,
+      "exact": true,
+      "baseline_scope": "same native window",
+      "full_before": 38.41937967,
+      "full_after": 38.001458566
+    },
+    {
+      "fixture": "pt",
+      "baseline": 6.870825731,
+      "candidate": 6.809716699,
+      "change_percent": -0.889398660255436,
+      "exact": true,
+      "baseline_scope": "same native window",
+      "full_before": 38.313423952,
+      "full_after": 37.940573197
+    },
+    {
+      "fixture": "fr",
+      "baseline": 6.372178631,
+      "candidate": 6.246865047,
+      "change_percent": -1.966573620368428,
+      "exact": true,
+      "baseline_scope": "same native window",
+      "full_before": 35.781218866,
+      "full_after": 35.175540099
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline": 8.141799615,
+      "candidate": 8.036129344,
+      "change_percent": -1.297873639696534,
+      "exact": true,
+      "baseline_scope": "same native window",
+      "full_before": 44.551627207,
+      "full_after": 44.032435889
+    },
+    {
+      "fixture": "groups",
+      "baseline": 16.316604688,
+      "candidate": 16.172713335,
+      "change_percent": -0.8818706817468325,
+      "exact": true,
+      "baseline_scope": "same native window",
+      "full_before": 85.476223821,
+      "full_after": 84.739724347
+    },
+    {
+      "fixture": "pt1",
+      "baseline": 6.443919207,
+      "candidate": 6.411075077,
+      "change_percent": -0.5096918341918721,
+      "exact": true,
+      "baseline_scope": "earlier expanded-quality window; output gate not fresh speed pair",
+      "full_before": 36.064416753,
+      "full_after": 35.812640815
+    },
+    {
+      "fixture": "pt2",
+      "baseline": 14.425392744,
+      "candidate": 14.249715945,
+      "change_percent": -1.217830267207587,
+      "exact": true,
+      "baseline_scope": "earlier expanded-quality window; output gate not fresh speed pair",
+      "full_before": 75.924670269,
+      "full_after": 75.150251582
+    },
+    {
+      "fixture": "podcast",
+      "baseline": 9.207257108,
+      "candidate": 9.1176189,
+      "change_percent": -0.9735603877306209,
+      "exact": true,
+      "baseline_scope": "earlier expanded-quality window; output gate not fresh speed pair",
+      "full_before": 49.911396681,
+      "full_after": 49.493604092
+    },
+    {
+      "fixture": "podcast-vadwords",
+      "baseline": 12.214761809,
+      "candidate": 12.123961484,
+      "change_percent": -0.7433654984012605,
+      "exact": true,
+      "baseline_scope": "earlier expanded-quality window; output gate not fresh speed pair",
+      "full_before": 65.046198813,
+      "full_after": 64.404686431
+    }
+  ],
+  "silence_median": 0.020092755,
+  "goal": "still unmet"
+}

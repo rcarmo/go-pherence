@@ -73,6 +73,13 @@ func NewVulkanEncoderTile64Key32ScoreILP(ctx context.Context, source *Encoder, f
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32ScoreILP)
 }
 
+// NewVulkanEncoderOriginalQ5AttentionUnroll4 keeps original Q5 FFN weights and
+// F32 activations, selecting an exact-order headDim64-only attention unroll.
+// Explicit candidate; file/source values must match, with no fallback/default.
+func NewVulkanEncoderOriginalQ5AttentionUnroll4(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5AttentionUnroll4, file)
+}
+
 // NewVulkanEncoderOriginalQ5IntegerDotFC1 quantises only FC1 activations; FC2
 // retains ordered packed Q5/F32 arithmetic over the same original storage. This
 // explicit experimental mode requires integer-dot enablement and original Q5.
@@ -146,6 +153,7 @@ const (
 	vulkanLinearF32Tile64Key32
 	vulkanLinearF32Tile64Key32ScoreILP
 	vulkanLinearOriginalQ5MLP
+	vulkanLinearOriginalQ5AttentionUnroll4
 	vulkanLinearOriginalQ5IntegerDotMLP
 	vulkanLinearOriginalQ5IntegerDotFC1
 	vulkanLinearQ8Weight
@@ -185,7 +193,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -201,7 +209,11 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if dot && !vk.VulkanIntegerDotEnabled() {
 		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
 	}
-	q5 := linearMode == vulkanLinearOriginalQ5MLP || dot
+	unroll := linearMode == vulkanLinearOriginalQ5AttentionUnroll4
+	if unroll && layout.cfg.HeadDim != 64 {
+		return nil, fmt.Errorf("Whisper attention unroll requires headDim64")
+	}
+	q5 := linearMode == vulkanLinearOriginalQ5MLP || dot || unroll
 	if dot && !hybrid {
 		layout.scratch = append(append([]vkEncoderTensor(nil), layout.scratch...), vkEncoderTensor{name: "q8fc1", shape: []int{layout.rows * (layout.cfg.EncoderDModel / 32) * 9}}, vkEncoderTensor{name: "q8fc2", shape: []int{layout.rows * (layout.cfg.EncoderFFNDim / 32) * 9}})
 	}
@@ -378,7 +390,9 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5 {
+	if unroll {
+		s.attention, err = vk.NewVkAttentionKey32ScoreILPUnroll4F32(ctx)
+	} else if linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5 {
 		s.attention, err = vk.NewVkAttentionKey32ScoreILPF32(ctx)
 	} else if linearMode == vulkanLinearF32Tile64Key32 {
 		s.attention, err = vk.NewVkAttentionKey32F32(ctx)

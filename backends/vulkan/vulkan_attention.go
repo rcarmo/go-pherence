@@ -14,7 +14,10 @@ import (
 // No mask, GQA, F16, quantisation or model/default selection is provided.
 // Caller contents must have finite representable dot products and weighted
 // sums; no data scan. Device accuracy/performance still need qualification.
-type VkAttentionF32 struct{ kernel *VkComputeKernel }
+type VkAttentionF32 struct {
+	kernel          *VkComputeKernel
+	requiredHeadDim int
+}
 
 func NewVkAttentionF32(ctx context.Context) (*VkAttentionF32, error) {
 	return newVkAttentionF32Code(ctx, spirv_attention_f32)
@@ -87,6 +90,9 @@ func (op *VkAttentionF32) stageLocked(out, q, k, v *VkTensorF32, heads int) (VkF
 		return fail("sequence/head/width envelope")
 	}
 	dim := width / heads
+	if err := vkAttentionHeadDim(op.requiredHeadDim, dim); err != nil {
+		return VkF32Stage{}, err
+	}
 	if dim < 1 || dim > 64 {
 		return fail("head dimension must be1..64")
 	}

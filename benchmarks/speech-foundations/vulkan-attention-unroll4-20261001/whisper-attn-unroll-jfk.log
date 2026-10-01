@@ -1,0 +1,4 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:125: legacy-value diagnostic must preserve stored values without extra quantisation
+--- FAIL: TestWhisperPerformanceGoalArm (0.00s)
+FAIL

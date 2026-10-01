@@ -1,0 +1,137 @@
+package vulkan
+
+import (
+	"context"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+// Fixed headDim64 diagnostic shaders only, never selected by a public operator.
+func TestVulkanNativeAttentionUnrollDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_ATTENTION_UNROLL_DIR")
+	if dir == "" {
+		t.Skip("explicit attention unroll diagnostic")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical device")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	baseline, e := NewVkAttentionKey32ScoreILPF32(context.Background())
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, baseline)
+	variants := []string{"unroll4", "unroll8", "unroll64"}
+	if os.Getenv("GO_PHERENCE_TEST_ATTENTION_BARRIER") == "1" {
+		variants = []string{"barrier", "unroll4barrier"}
+	}
+	if os.Getenv("GO_PHERENCE_TEST_ATTENTION_LAYOUT") == "1" {
+		variants = []string{"transpose", "padK", "unroll4transpose"}
+	}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(dir + "/" + variant + ".spv")
+			if e != nil {
+				t.Fatal(e)
+			}
+			candidate, e := newVkAttentionF32Code(context.Background(), code)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, candidate)
+			for _, shape := range [][3]int{{17, 37, 2}, {1500, 1500, 20}} {
+				t.Run(variant+"-shape", func(t *testing.T) {
+					rows, keys, heads := shape[0], shape[1], shape[2]
+					a, e := NewVkTensorArena(context.Background(), 64<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					q := nativeTensor(t, a, nativeData(rows*heads*64, 11, .5), rows, heads*64)
+					k := nativeTensor(t, a, nativeData(keys*heads*64, 12, .5), keys, heads*64)
+					v := nativeTensor(t, a, nativeData(keys*heads*64, 13, .5), keys, heads*64)
+					out := nativeTensor(t, a, nil, rows, heads*64)
+					right := nativeGuard(t, a)
+					run := func(op *VkAttentionF32) time.Duration {
+						return nativeRun(t, func(ctx context.Context) error { return op.Forward(ctx, out, q, k, v, heads) })
+					}
+					run(baseline)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, useCandidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							op := baseline
+							if useCandidate {
+								op = candidate
+							}
+							wall := run(op)
+							got := nativeDownload(t, out)
+							for i, x := range got {
+								if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) || math.Float32bits(x) != math.Float32bits(ref[i]) {
+									t.Fatal("exact drift", variant, shape, i, x, ref[i])
+								}
+							}
+							left()
+							right()
+							if rows == 1500 {
+								t.Logf("ATTN_UNROLL variant=%s candidate=%t repeat=%d seconds=%.9f", variant, useCandidate, repeat, wall.Seconds())
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestVulkanNativeAttentionUnrollIndependent(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_ATTENTION_UNROLL_INDEPENDENT") != "1" {
+		t.Skip("explicit fixed64 independent reference")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physicaldevice")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	op, e := NewVkAttentionKey32ScoreILPUnroll4F32(context.Background())
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, op)
+	for _, shape := range [][3]int{{1, 1, 1}, {17, 37, 2}, {33, 65, 3}, {1, 4096, 1}, {4096, 1, 1}, {2, 33, 32}} {
+		for _, sign := range []float32{-1, 0, 1} {
+			sq, sk, h := shape[0], shape[1], shape[2]
+			q, k, v := nativeData(sq*h*64, 11, sign), nativeData(sk*h*64, 12, .5), nativeData(sk*h*64, 13, .5)
+			if sign == 0 {
+				for i := range k {
+					k[i] = 1000
+				}
+			}
+			a := nativeArena(t)
+			left := nativeGuard(t, a)
+			tq, tk, tv := nativeTensor(t, a, q, sq, h*64), nativeTensor(t, a, k, sk, h*64), nativeTensor(t, a, v, sk, h*64)
+			out := nativeTensor(t, a, nil, sq, h*64)
+			right := nativeGuard(t, a)
+			nativeRun(t, func(ctx context.Context) error { return op.Forward(ctx, out, tq, tk, tv, h) })
+			nativeCompare(t, "unroll64-independent", nativeDownload(t, out), attentionReference(q, k, v, sq, sk, h, 64), 2e-5, 2e-5, 0)
+			left()
+			right()
+			if e = a.Close(); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	t.Log("UNROLL_INDEPENDENT shapes6 signs3 float64Reference PASS")
+}

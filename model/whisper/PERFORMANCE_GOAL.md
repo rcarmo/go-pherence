@@ -40,6 +40,8 @@ The separately named `vulkan-original-q5-integer-dot-fc1` candidate quantises on
 
 [Expanded FC1 qualification](../../docs/validation/whisper-fc1-expanded-quality-20261001.md) finds a podcast word/segment change without VAD, and a20ms word-boundary change with native VAD. Additional Portuguese supplied-label scoring does not establish broad accuracy or original timing parity. The candidate stays experimental. Stage profiling now admits FC1 explicitly and reports quantisation as a separate labelled stage; individually fenced samples are diagnostic, not speed acceptance.
 
+The explicit `vulkan-original-q5-attention-unroll4` arm retains original packed FFN with F32 activations and uses the headDim64-only exact-order attention unroll. [Qualification](../../docs/validation/vulkan-attention-unroll4-20261001.md) records fresh0.9–2.0% request gains, expanded baseline-output equality and hidden-bit/cancellation gates. Other head dimensions are refused; no fallback/default selection occurs. Original timing/quality gaps remain open.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
