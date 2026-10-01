@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992648,
+  "PreparationAllocatedBytes": 293944864,
+  "Backend": "vulkan-original-q5-exact-combined",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "6516da2b046a1040ba05a312c042bb45a0329baa73fd8b4907c7904bf367d363",
+  "ModelLoadSeconds": 2.915813921,
+  "PreparationSeconds": 0.906965423,
+  "CleanupSeconds": 0.004483184,
+  "FullArmSeconds": 3.929643046,
+  "InputSamples": 80000,
+  "CPUThreads": 4,
+  "Precision": "Original Q5_0 FFN decode4 + headDim64 attention unroll4; ordered F32 values/activations/decoder unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 0.020848537,
+      "AllocatedBytes": 311792,
+      "Allocations": 3008,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 1,
+      "request_seconds": 0.020295849,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 2,
+      "request_seconds": 0.020223342,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 3,
+      "request_seconds": 0.0201164,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 4,
+      "request_seconds": 0.020052344,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+// Analyse exact retained requests without discarding the first sample or
+// comparing old expanded baselines as fresh speed measurements.
+const root='tmp/whisper-vad-parity-20261001';const median=(v:number[])=>v.toSorted((a,b)=>a-b)[Math.floor(v.length/2)];const results=[];
+for(const fixture of ['jfk','pt','fr','jfk-vadwords','groups','pt1','pt2','podcast','podcast-vadwords']){
+ const expanded=['pt1','pt2','podcast','podcast-vadwords'].includes(fixture);const baseline=expanded?`fc1-quality-baseline-${fixture}`:`combined-exact-baseline-${fixture}`;const candidate=expanded?`combined-exact-expanded-${fixture}`:`combined-exact-combined-${fixture}`;
+ const a=await Bun.file(`${root}/${baseline}.json`).json(),b=await Bun.file(`${root}/${candidate}.json`).json();const snapshots=(r:any)=>r.Samples.map((s:any)=>s.windows??s.vad_windows??[]);
+ if(a.Samples.length!==5||b.Samples.length!==5)throw Error(`sample count ${fixture}`);const exact=JSON.stringify(snapshots(a))===JSON.stringify(snapshots(b));if(!exact)throw Error(`output mismatch ${fixture}`);
+ for(const key of ['EncoderStats','ModelPin','InputPin','Language','CPUThreads','GoMemoryLimit','VAD','WordTimestamps','VADPreserveWindowGaps'])if(JSON.stringify(a[key])!==JSON.stringify(b[key]))throw Error(`setting/stat mismatch ${fixture}/${key}`);
+ const base=median(a.Samples.map((s:any)=>s.request_seconds)),cand=median(b.Samples.map((s:any)=>s.request_seconds));
+ results.push({fixture,baseline:base,candidate:cand,change_percent:100*(cand/base-1),exact,scope:expanded?'earlier baseline output gate only; not fresh speed acceptance':'fresh paired processes, baseline then combined',full_before:a.FullArmSeconds,full_after:b.FullArmSeconds,load_before:a.ModelLoadSeconds,load_after:b.ModelLoadSeconds,prepare_before:a.PreparationSeconds,prepare_after:b.PreparationSeconds});
+}
+const r=await Bun.file(`${root}/combined-exact-silence.json`).json();if(r.Samples.length!==5||r.Samples.some((s:any)=>(s.windows??s.vad_windows??[]).length!==0))throw Error('silence outputs');
+const profileRows=await Bun.file(`${root}/combined-exact-profile.json`).json();if(profileRows.length!==390*3)throw Error('profile sample count');const profile:any={};for(const row of profileRows){let name=row.op;if(name==='linear')name=row.inputs[1].match(/\.(q|k|v|o|fc1|fc2)\./)?.[1]??name;profile[name]=(profile[name]??0)+row.seconds/3;}
+const data={schema:1,results,silence_median:median(r.Samples.map((s:any)=>s.request_seconds)),profile,qualification:'exact retained-Go outputs only; original matched-speed/quality objective remains unmet'};await Bun.write('tmp/whisper-combined-exact-20261001/comparison.json',JSON.stringify(data,null,2));console.log(JSON.stringify(data,null,2));

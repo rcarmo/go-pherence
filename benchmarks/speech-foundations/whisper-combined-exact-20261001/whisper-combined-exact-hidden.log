@@ -1,0 +1,5 @@
+=== RUN   TestWhisperVulkanExactCombinedNative
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.164908469 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_exact_combined_native_test.go:101: EXACT_COMBINED_HIDDEN values=1920000 checkpoints=1274 bitExact=true statsUnchanged=true cancelReuse=true
+--- PASS: TestWhisperVulkanExactCombinedNative (50.95s)
+PASS

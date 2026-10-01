@@ -44,6 +44,8 @@ The explicit `vulkan-original-q5-attention-unroll4` arm retains original packed 
 
 The explicit `vulkan-original-q5-decode4` arm retains original Q5 storage and ordered F32 arithmetic but assigns four lanes per block for shared decode. [Qualification](../../docs/validation/vulkan-q5-decode4-20261001.md) records native/pinned6.7–6.8% kernel gains, fresh1.3–2.2% request gains and expanded exact-output gates. It does not automatically combine attention unroll or quantisation, and defaults remain unchanged.
 
+The explicit `vulkan-original-q5-exact-combined` arm combines the retained decode4 FFN and headDim64 F32 attention unroll kernels without quantisation. [Combined qualification](../../docs/validation/whisper-combined-exact-20261001.md) records measured2.5–3.8% fresh request gains, not summed component percentages, plus expanded exact word outputs and hidden/cancellation gates. Stage profiling admits this mode explicitly. Defaults remain unchanged; original speed/quality gaps stay open.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
