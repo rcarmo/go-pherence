@@ -1,0 +1,575 @@
+[
+  {
+    "Mode": "own",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0381556,
+        "RepeatTimestamp": -0.31366724
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 2.463209,
+        "RepeatTimestamp": -3.89115
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": 1.570827,
+        "RepeatTimestamp": -4.9115653
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.548283,
+        "RepeatTimestamp": -4.202791
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 2.864459,
+        "RepeatTimestamp": -3.7057233
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 3.451802,
+        "RepeatTimestamp": -3.7342377
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 3.7360828,
+        "RepeatTimestamp": -3.960826
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 3.1622512,
+        "RepeatTimestamp": -3.6842868
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": 3.0179737,
+        "RepeatTimestamp": -3.532012
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": 3.1963878,
+        "RepeatTimestamp": -3.6575253
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": 4.035712,
+        "RepeatTimestamp": -3.8233552
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 3.1221497,
+        "RepeatTimestamp": -3.7622397
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 3.3778915,
+        "RepeatTimestamp": -3.4384654
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.2779078,
+        "RepeatTimestamp": -3.49902
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": 3.898756,
+        "RepeatTimestamp": -3.5439239
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.3029737,
+        "RepeatTimestamp": -3.633661
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 3.6038556,
+        "RepeatTimestamp": -3.4158711
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 3.611637,
+        "RepeatTimestamp": -3.5247822
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 3.451202,
+        "RepeatTimestamp": -3.5360851
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 3.7935822,
+        "RepeatTimestamp": -3.4501426
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 4.2492695,
+        "RepeatTimestamp": -3.6554332
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.2152169,
+        "RepeatTimestamp": -3.6468663
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.2815723,
+        "RepeatTimestamp": -3.4257736
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.71262,
+        "RepeatTimestamp": -3.4124405
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 3.5575767,
+        "RepeatTimestamp": -3.3514915
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 3.5860753,
+        "RepeatTimestamp": -3.4669068
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 3.43231,
+        "RepeatTimestamp": -3.4749959
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 3.9476295,
+        "RepeatTimestamp": -3.4139943
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 3.3476143,
+        "RepeatTimestamp": -3.4964561
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": 4.0779567,
+        "RepeatTimestamp": -3.8356905
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 3.0474422,
+        "RepeatTimestamp": -0.30524716
+      }
+    ]
+  },
+  {
+    "Mode": "original-mel",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0381556,
+        "RepeatTimestamp": -0.31366777
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 2.4632092,
+        "RepeatTimestamp": -3.8911486
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": 1.5708257,
+        "RepeatTimestamp": -4.9115677
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.5482852,
+        "RepeatTimestamp": -4.2027907
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 2.8644576,
+        "RepeatTimestamp": -3.705724
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 3.4517999,
+        "RepeatTimestamp": -3.7342372
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 3.7360826,
+        "RepeatTimestamp": -3.9608245
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 3.1622522,
+        "RepeatTimestamp": -3.684287
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": 3.0179749,
+        "RepeatTimestamp": -3.5320134
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": 3.1963868,
+        "RepeatTimestamp": -3.6575243
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": 4.035712,
+        "RepeatTimestamp": -3.8233564
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 3.1221495,
+        "RepeatTimestamp": -3.7622395
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 3.3778915,
+        "RepeatTimestamp": -3.4384654
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.2779074,
+        "RepeatTimestamp": -3.4990191
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": 3.8987546,
+        "RepeatTimestamp": -3.5439243
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.302973,
+        "RepeatTimestamp": -3.6336608
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 3.6038551,
+        "RepeatTimestamp": -3.41587
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 3.6116366,
+        "RepeatTimestamp": -3.524782
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 3.4512012,
+        "RepeatTimestamp": -3.5360827
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 3.7935796,
+        "RepeatTimestamp": -3.4501438
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 4.2492723,
+        "RepeatTimestamp": -3.655433
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.2152143,
+        "RepeatTimestamp": -3.6468673
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.2815707,
+        "RepeatTimestamp": -3.425774
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.7126212,
+        "RepeatTimestamp": -3.4124413
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 3.5575771,
+        "RepeatTimestamp": -3.351491
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 3.586076,
+        "RepeatTimestamp": -3.466908
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 3.4323087,
+        "RepeatTimestamp": -3.4749973
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 3.9476295,
+        "RepeatTimestamp": -3.4139946
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 3.3476136,
+        "RepeatTimestamp": -3.496456
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": 4.077957,
+        "RepeatTimestamp": -3.8356903
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 3.0474415,
+        "RepeatTimestamp": -0.30524656
+      }
+    ]
+  },
+  {
+    "Mode": "original-hidden",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0611968,
+        "RepeatTimestamp": -1.9504128
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 4.4830146,
+        "RepeatTimestamp": -2.562508
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": -4.133505,
+        "RepeatTimestamp": -7.1738853
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.2544725,
+        "RepeatTimestamp": -0.11204529
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 6.2087717,
+        "RepeatTimestamp": 2.6630635
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 7.143106,
+        "RepeatTimestamp": 3.6096704
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 0.12616396,
+        "RepeatTimestamp": -2.971815
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 1.0193895,
+        "RepeatTimestamp": -2.448245
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": -0.9708283,
+        "RepeatTimestamp": -3.323611
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": -0.21282423,
+        "RepeatTimestamp": -0.7096732
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": -2.6150417,
+        "RepeatTimestamp": -3.6162338
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 0.45721427,
+        "RepeatTimestamp": -2.463574
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 1.7188512,
+        "RepeatTimestamp": -1.6311488
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.3324635,
+        "RepeatTimestamp": -1.0959979
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": -0.17064875,
+        "RepeatTimestamp": -1.9658184
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.288978,
+        "RepeatTimestamp": 2.8389697
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 4.8302855,
+        "RepeatTimestamp": 3.0483398
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 5.688452,
+        "RepeatTimestamp": 1.6756597
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 5.6890206,
+        "RepeatTimestamp": 2.7669303
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 4.1979537,
+        "RepeatTimestamp": 1.8872463
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 0.7534379,
+        "RepeatTimestamp": -0.8640379
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.7897923,
+        "RepeatTimestamp": 2.874481
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.6141615,
+        "RepeatTimestamp": 2.0473714
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.865444,
+        "RepeatTimestamp": 3.8339717
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 4.443684,
+        "RepeatTimestamp": 5.2787743
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 4.524124,
+        "RepeatTimestamp": 6.79568
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 5.2768526,
+        "RepeatTimestamp": 8.29546
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 1.0716301,
+        "RepeatTimestamp": 5.845817
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 2.363263,
+        "RepeatTimestamp": 4.026067
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": -0.15403643,
+        "RepeatTimestamp": 11.823394
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      }
+    ]
+  }
+]

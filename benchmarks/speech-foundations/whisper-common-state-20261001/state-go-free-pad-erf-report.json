@@ -1,0 +1,680 @@
+[
+  {
+    "Mode": "own",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0791998,
+        "RepeatTimestamp": -1.9249048
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 4.490503,
+        "RepeatTimestamp": -2.545773
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": -4.1268578,
+        "RepeatTimestamp": -7.1507044
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.3209107,
+        "RepeatTimestamp": -0.045421302
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 6.256941,
+        "RepeatTimestamp": 2.6902075
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 7.15421,
+        "RepeatTimestamp": 3.6154196
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 0.11535975,
+        "RepeatTimestamp": -2.9924307
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 1.025226,
+        "RepeatTimestamp": -2.4750056
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": -1.008809,
+        "RepeatTimestamp": -3.3560863
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": -0.18743682,
+        "RepeatTimestamp": -0.6914831
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": -2.599163,
+        "RepeatTimestamp": -3.5982718
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 0.4607339,
+        "RepeatTimestamp": -2.4527366
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 1.7258093,
+        "RepeatTimestamp": -1.6218375
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.324298,
+        "RepeatTimestamp": -1.1284146
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": -0.1770207,
+        "RepeatTimestamp": -1.9693137
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.2711608,
+        "RepeatTimestamp": 2.8197374
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 4.8310924,
+        "RepeatTimestamp": 3.0148766
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 5.6866827,
+        "RepeatTimestamp": 1.645806
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 5.703923,
+        "RepeatTimestamp": 2.75134
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 4.2329764,
+        "RepeatTimestamp": 1.9335057
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 0.7759724,
+        "RepeatTimestamp": -0.83094317
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.8076699,
+        "RepeatTimestamp": 2.8796885
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.6281738,
+        "RepeatTimestamp": 2.046885
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.8186471,
+        "RepeatTimestamp": 3.852201
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 4.4562955,
+        "RepeatTimestamp": 5.280218
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 4.3989344,
+        "RepeatTimestamp": 6.778447
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 5.158389,
+        "RepeatTimestamp": 8.325434
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 0.9860586,
+        "RepeatTimestamp": 5.7827263
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 2.3808742,
+        "RepeatTimestamp": 4.0328336
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": -0.16292602,
+        "RepeatTimestamp": 11.844404
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963354,
+        "RepeatTimestamp": 10.879085
+      }
+    ],
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 10.06,
+        "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+        "Tokens": [
+          400,
+          370,
+          11,
+          452,
+          7177,
+          6280,
+          11,
+          1029,
+          406,
+          437,
+          428,
+          1941,
+          393,
+          360,
+          337,
+          291,
+          11,
+          1029,
+          437,
+          291,
+          393,
+          360,
+          337,
+          428,
+          1941,
+          13
+        ]
+      }
+    ]
+  },
+  {
+    "Mode": "original-mel",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0792015,
+        "RepeatTimestamp": -1.9249117
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 4.4905043,
+        "RepeatTimestamp": -2.545773
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": -4.12686,
+        "RepeatTimestamp": -7.1507025
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.3209045,
+        "RepeatTimestamp": -0.04542792
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 6.2569222,
+        "RepeatTimestamp": 2.6901987
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 7.1542077,
+        "RepeatTimestamp": 3.6154184
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 0.11535764,
+        "RepeatTimestamp": -2.9924269
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 1.0252204,
+        "RepeatTimestamp": -2.4750042
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": -1.0088074,
+        "RepeatTimestamp": -3.356088
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": -0.1874361,
+        "RepeatTimestamp": -0.6914845
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": -2.599166,
+        "RepeatTimestamp": -3.598277
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 0.46073145,
+        "RepeatTimestamp": -2.4527366
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 1.7258091,
+        "RepeatTimestamp": -1.6218386
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.324296,
+        "RepeatTimestamp": -1.1284157
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": -0.1770303,
+        "RepeatTimestamp": -1.9693226
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.2711654,
+        "RepeatTimestamp": 2.8197393
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 4.83109,
+        "RepeatTimestamp": 3.0148792
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 5.6866837,
+        "RepeatTimestamp": 1.6458027
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 5.7039204,
+        "RepeatTimestamp": 2.751334
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 4.2329736,
+        "RepeatTimestamp": 1.9335037
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 0.77597284,
+        "RepeatTimestamp": -0.8309462
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.8076694,
+        "RepeatTimestamp": 2.8796911
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.6281686,
+        "RepeatTimestamp": 2.046885
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.8186662,
+        "RepeatTimestamp": 3.8522081
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 4.4563007,
+        "RepeatTimestamp": 5.2802196
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 4.3989544,
+        "RepeatTimestamp": 6.7784543
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 5.1584034,
+        "RepeatTimestamp": 8.32543
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 0.9860587,
+        "RepeatTimestamp": 5.7827253
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 2.3808744,
+        "RepeatTimestamp": 4.0328317
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": -0.1629149,
+        "RepeatTimestamp": 11.844406
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963355,
+        "RepeatTimestamp": 10.879088
+      }
+    ],
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 10.06,
+        "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+        "Tokens": [
+          400,
+          370,
+          11,
+          452,
+          7177,
+          6280,
+          11,
+          1029,
+          406,
+          437,
+          428,
+          1941,
+          393,
+          360,
+          337,
+          291,
+          11,
+          1029,
+          437,
+          291,
+          393,
+          360,
+          337,
+          428,
+          1941,
+          13
+        ]
+      }
+    ]
+  },
+  {
+    "Mode": "original-hidden",
+    "Scores": [
+      {
+        "Position": 0,
+        "Input": 50258,
+        "EOT": 2.0611968,
+        "RepeatTimestamp": -1.9504128
+      },
+      {
+        "Position": 1,
+        "Input": 50259,
+        "EOT": 4.4830146,
+        "RepeatTimestamp": -2.562508
+      },
+      {
+        "Position": 2,
+        "Input": 50360,
+        "EOT": -4.133505,
+        "RepeatTimestamp": -7.1738853
+      },
+      {
+        "Position": 3,
+        "Input": 50365,
+        "EOT": 2.2544725,
+        "RepeatTimestamp": -0.11204529
+      },
+      {
+        "Position": 4,
+        "Input": 400,
+        "EOT": 6.2087717,
+        "RepeatTimestamp": 2.6630635
+      },
+      {
+        "Position": 5,
+        "Input": 370,
+        "EOT": 7.143106,
+        "RepeatTimestamp": 3.6096704
+      },
+      {
+        "Position": 6,
+        "Input": 11,
+        "EOT": 0.12616396,
+        "RepeatTimestamp": -2.971815
+      },
+      {
+        "Position": 7,
+        "Input": 452,
+        "EOT": 1.0193895,
+        "RepeatTimestamp": -2.448245
+      },
+      {
+        "Position": 8,
+        "Input": 7177,
+        "EOT": -0.9708283,
+        "RepeatTimestamp": -3.323611
+      },
+      {
+        "Position": 9,
+        "Input": 6280,
+        "EOT": -0.21282423,
+        "RepeatTimestamp": -0.7096732
+      },
+      {
+        "Position": 10,
+        "Input": 11,
+        "EOT": -2.6150417,
+        "RepeatTimestamp": -3.6162338
+      },
+      {
+        "Position": 11,
+        "Input": 1029,
+        "EOT": 0.45721427,
+        "RepeatTimestamp": -2.463574
+      },
+      {
+        "Position": 12,
+        "Input": 406,
+        "EOT": 1.7188512,
+        "RepeatTimestamp": -1.6311488
+      },
+      {
+        "Position": 13,
+        "Input": 437,
+        "EOT": 3.3324635,
+        "RepeatTimestamp": -1.0959979
+      },
+      {
+        "Position": 14,
+        "Input": 428,
+        "EOT": -0.17064875,
+        "RepeatTimestamp": -1.9658184
+      },
+      {
+        "Position": 15,
+        "Input": 1941,
+        "EOT": 3.288978,
+        "RepeatTimestamp": 2.8389697
+      },
+      {
+        "Position": 16,
+        "Input": 393,
+        "EOT": 4.8302855,
+        "RepeatTimestamp": 3.0483398
+      },
+      {
+        "Position": 17,
+        "Input": 360,
+        "EOT": 5.688452,
+        "RepeatTimestamp": 1.6756597
+      },
+      {
+        "Position": 18,
+        "Input": 337,
+        "EOT": 5.6890206,
+        "RepeatTimestamp": 2.7669303
+      },
+      {
+        "Position": 19,
+        "Input": 291,
+        "EOT": 4.1979537,
+        "RepeatTimestamp": 1.8872463
+      },
+      {
+        "Position": 20,
+        "Input": 11,
+        "EOT": 0.7534379,
+        "RepeatTimestamp": -0.8640379
+      },
+      {
+        "Position": 21,
+        "Input": 1029,
+        "EOT": 3.7897923,
+        "RepeatTimestamp": 2.874481
+      },
+      {
+        "Position": 22,
+        "Input": 437,
+        "EOT": 3.6141615,
+        "RepeatTimestamp": 2.0473714
+      },
+      {
+        "Position": 23,
+        "Input": 291,
+        "EOT": 3.865444,
+        "RepeatTimestamp": 3.8339717
+      },
+      {
+        "Position": 24,
+        "Input": 393,
+        "EOT": 4.443684,
+        "RepeatTimestamp": 5.2787743
+      },
+      {
+        "Position": 25,
+        "Input": 360,
+        "EOT": 4.524124,
+        "RepeatTimestamp": 6.79568
+      },
+      {
+        "Position": 26,
+        "Input": 337,
+        "EOT": 5.2768526,
+        "RepeatTimestamp": 8.29546
+      },
+      {
+        "Position": 27,
+        "Input": 428,
+        "EOT": 1.0716301,
+        "RepeatTimestamp": 5.845817
+      },
+      {
+        "Position": 28,
+        "Input": 1941,
+        "EOT": 2.363263,
+        "RepeatTimestamp": 4.026067
+      },
+      {
+        "Position": 29,
+        "Input": 13,
+        "EOT": -0.15403643,
+        "RepeatTimestamp": 11.823394
+      },
+      {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      }
+    ],
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 10.06,
+        "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+        "Tokens": [
+          400,
+          370,
+          11,
+          452,
+          7177,
+          6280,
+          11,
+          1029,
+          406,
+          437,
+          428,
+          1941,
+          393,
+          360,
+          337,
+          291,
+          11,
+          1029,
+          437,
+          291,
+          393,
+          360,
+          337,
+          428,
+          1941,
+          13
+        ]
+      }
+    ]
+  }
+]

@@ -62,6 +62,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [VAD crop/generation boundary trace](../../docs/validation/whisper-vad-boundary-20261001.md) reproduces the extra `Thank you.` on identical cropped PCM. Original and Go match a 28-token prefix, then EOT/repeated-timestamp margins reverse. A test-only original100ms end guard does not remove the text; small leading-context shifts change segmentation and are not installed as a fix. Model-operation cause, acoustic accuracy and speed parity remain unresolved; runtime/defaults are unchanged.
 
+[Common-state attribution](../../docs/validation/whisper-common-state-20261001.md) localises the cropped-JFK decision to encoder output differences. Original flash attention exposes 1536 keys, including36 unmasked zero K/V rows; Go uses1500. Common-Q/K/V padding reduces attention drift, and a test-only padding control restores EOT/free output on this crop without audio/text-policy changes. Original-GELU compatibility further reduces hidden drift. No runtime mode, expanded quality or speed acceptance is added; padding/GELU require separate qualification.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

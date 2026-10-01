@@ -1,0 +1,700 @@
+{
+  "status": "single-crop encoder boundary attributed; padded-key extent reproduces original attention and reverses EOT decision; no production or expanded accuracy/speed acceptance",
+  "prompt": [
+    50258,
+    50259,
+    50360
+  ],
+  "tokens": 31,
+  "source_pins": {
+    "original": "c44b60b8053bbf2a5c1e014f11323fb3f2485177",
+    "go": "a50704b7ccda11517447e0dee077a91345ff7d56"
+  },
+  "invalid_excluded": [
+    "wrongtask50359 initial replay",
+    "wrongGELU1minus2 initial",
+    "partialencoder unsupportedcallbackcancel run"
+  ],
+  "commonAttention": [
+    {
+      "mode": "f32",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op4-attention.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-attention-final-common-attention-f32.f32",
+      "count": 1920000,
+      "differing_bits": 1919923,
+      "max_abs": 0.1491107940673828,
+      "mean_abs": 0.0012524596170345587,
+      "rmse": 0.0064026085306822375
+    },
+    {
+      "mode": "kv-f16",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op4-attention.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-attention-final-common-attention-kv-f16.f32",
+      "count": 1920000,
+      "differing_bits": 1919995,
+      "max_abs": 0.14912307262420654,
+      "mean_abs": 0.001249330802172174,
+      "rmse": 0.0064024189779200375
+    },
+    {
+      "mode": "qkv-f16",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op4-attention.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-attention-final-common-attention-qkv-f16.f32",
+      "count": 1920000,
+      "differing_bits": 1919844,
+      "max_abs": 0.14911746978759766,
+      "mean_abs": 0.0012496848324114566,
+      "rmse": 0.006402419723338668
+    },
+    {
+      "mode": "padded-kv-f16",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op4-attention.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-attention-final-common-attention-padded-kv-f16.f32",
+      "count": 1920000,
+      "differing_bits": 1839190,
+      "max_abs": 0.000011444091796875,
+      "mean_abs": 9.083467929243787e-8,
+      "rmse": 3.0377141559111314e-7
+    },
+    {
+      "mode": "padded-f32",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op4-attention.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-attention-final-common-attention-padded-f32.f32",
+      "count": 1920000,
+      "differing_bits": 1918217,
+      "max_abs": 0.0005984306335449219,
+      "mean_abs": 0.000005893030589649821,
+      "rmse": 0.0000195031036705969
+    }
+  ],
+  "hidden": [
+    {
+      "mode": "corrected",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-padding-hidden.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-corrected-hidden.f32",
+      "count": 1920000,
+      "differing_bits": 1919998,
+      "max_abs": 4.468953847885132,
+      "mean_abs": 0.033465306193865,
+      "rmse": 0.068497060681123
+    },
+    {
+      "mode": "free-pad-erf",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-padding-hidden.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-free-pad-erf-hidden.f32",
+      "count": 1920000,
+      "differing_bits": 1919996,
+      "max_abs": 4.372858628630638,
+      "mean_abs": 0.011206406919882138,
+      "rmse": 0.03421122830634832
+    },
+    {
+      "mode": "free-pad-tanh",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-padding-hidden.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-free-pad-tanh-hidden.f32",
+      "count": 1920000,
+      "differing_bits": 1919728,
+      "max_abs": 0.026459917426109314,
+      "mean_abs": 0.0001635267622798466,
+      "rmse": 0.00034530270855845287
+    },
+    {
+      "mode": "pad-erf-repeat",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-padding-hidden.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-pad-erf-repeat-hidden.f32",
+      "count": 1920000,
+      "differing_bits": 1919996,
+      "max_abs": 4.372858628630638,
+      "mean_abs": 0.011206406919882138,
+      "rmse": 0.03421122830634832
+    }
+  ],
+  "scores": [
+    {
+      "engine": "original",
+      "prefix": "state-original-corrected",
+      "last": {
+        "position": 30,
+        "input": 50868,
+        "eot": 10.9726419449,
+        "repeat_timestamp": 10.6823635101
+      },
+      "margin": 0.2902784347999994
+    },
+    {
+      "engine": "original",
+      "prefix": "state-original-go-hidden",
+      "last": {
+        "position": 30,
+        "input": 50868,
+        "eot": 10.8031082153,
+        "repeat_timestamp": 10.8640699387
+      },
+      "margin": -0.06096172340000017
+    },
+    {
+      "engine": "original",
+      "prefix": "state-original-bothdisabled",
+      "last": {
+        "position": 30,
+        "input": 50868,
+        "eot": 10.9777488708,
+        "repeat_timestamp": 10.7465248108
+      },
+      "margin": 0.23122405999999884
+    },
+    {
+      "engine": "original",
+      "prefix": "state-original-padding",
+      "last": {
+        "position": 30,
+        "input": 50868,
+        "eot": 10.9777488708,
+        "repeat_timestamp": 10.7465248108
+      },
+      "margin": 0.23122405999999884
+    },
+    {
+      "engine": "original",
+      "prefix": "state-original-ops-fixed",
+      "last": {
+        "position": 30,
+        "input": 50868,
+        "eot": 10.9777488708,
+        "repeat_timestamp": 10.7465248108
+      },
+      "margin": 0.23122405999999884
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-corrected",
+      "mode": "own",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.815668,
+        "RepeatTimestamp": 10.992569
+      },
+      "margin": -0.1769009999999991,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-corrected",
+      "mode": "original-mel",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.815668,
+        "RepeatTimestamp": 10.99257
+      },
+      "margin": -0.17690200000000011,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-corrected",
+      "mode": "original-hidden",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.947939,
+        "RepeatTimestamp": 10.790747
+      },
+      "margin": 0.15719200000000022,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-bothdisabled-hidden",
+      "mode": "own",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.815668,
+        "RepeatTimestamp": 10.992569
+      },
+      "margin": -0.1769009999999991,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-bothdisabled-hidden",
+      "mode": "original-mel",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.815668,
+        "RepeatTimestamp": 10.99257
+      },
+      "margin": -0.17690200000000011,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-bothdisabled-hidden",
+      "mode": "original-hidden",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      },
+      "margin": 0.13712250000000026,
+      "segments": null
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-erf",
+      "mode": "own",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963354,
+        "RepeatTimestamp": 10.879085
+      },
+      "margin": 0.08426900000000082,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-erf",
+      "mode": "original-mel",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963355,
+        "RepeatTimestamp": 10.879088
+      },
+      "margin": 0.08426700000000054,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-erf",
+      "mode": "original-hidden",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      },
+      "margin": 0.13712250000000026,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-tanh",
+      "mode": "own",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.964653,
+        "RepeatTimestamp": 10.829616
+      },
+      "margin": 0.13503700000000052,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-tanh",
+      "mode": "original-mel",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.964659,
+        "RepeatTimestamp": 10.829602
+      },
+      "margin": 0.13505699999999976,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-free-pad-tanh",
+      "mode": "original-hidden",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      },
+      "margin": 0.13712250000000026,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-pad-erf-repeat",
+      "mode": "own",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963354,
+        "RepeatTimestamp": 10.879085
+      },
+      "margin": 0.08426900000000082,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-pad-erf-repeat",
+      "mode": "original-mel",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.963355,
+        "RepeatTimestamp": 10.879088
+      },
+      "margin": 0.08426700000000054,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    },
+    {
+      "engine": "Go",
+      "prefix": "state-go-pad-erf-repeat",
+      "mode": "original-hidden",
+      "last": {
+        "Position": 30,
+        "Input": 50868,
+        "EOT": 10.9654455,
+        "RepeatTimestamp": 10.828323
+      },
+      "margin": 0.13712250000000026,
+      "segments": [
+        {
+          "Start": 0,
+          "End": 10.06,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    }
+  ],
+  "logits": [
+    {
+      "mode": "own",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-corrected-logits-30.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-corrected-own-logits-30.f32",
+      "count": 51866,
+      "differing_bits": 51866,
+      "max_abs": 0.3540940284729004,
+      "mean_abs": 0.12664490715470797,
+      "rmse": 0.13654611401816333
+    },
+    {
+      "mode": "original-hidden",
+      "a": "tmp/whisper-vad-parity-20261001/state-original-corrected-logits-30.f32",
+      "b": "tmp/whisper-vad-parity-20261001/state-go-corrected-original-hidden-logits-30.f32",
+      "count": 51866,
+      "differing_bits": 51866,
+      "max_abs": 0.22620201110839844,
+      "mean_abs": 0.08532704698485773,
+      "rmse": 0.09172688297466937
+    }
+  ],
+  "checks": {
+    "original_final_instrumented_vs_plain_hidden_bits": "4b36c3ae71111151008de40639b39128c868530699ae9313cd51dbce1601bdc1",
+    "padding_erf_repeated_hidden_bits": "92baf919c003233b7c2e75321b11e5c8cd38ddeb7e40bd691891559f2afe1d39",
+    "raw_artifact_count": 1817,
+    "raw_bytes": 2329121200
+  },
+  "scope": "fixed singleJFKcrop164800sample; forcedprefix/commoninputs and freegeneration, notrequesttimings or acousticreference; no default/library/source modification",
+  "invalid_original_ops_arm": "state-original-ops (unsupported callback cancelled): exclude all outputs, logits, comparisons; Go-original-hidden modes fed it are invalid"
+}

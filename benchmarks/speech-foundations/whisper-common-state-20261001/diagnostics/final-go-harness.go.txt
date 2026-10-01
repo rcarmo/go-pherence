@@ -1,0 +1,379 @@
+package whisper
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
+	"github.com/rcarmo/go-pherence/half"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestWhisperCommonStateDiagnostic(t *testing.T) {
+	prefix := os.Getenv("GO_PHERENCE_TEST_STATE_PREFIX")
+	if prefix == "" {
+		t.Skip("explicit common state diagnostic")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
+	defer cancel()
+	t.Setenv(envDecoderParallelRows, "1")
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	model, tok, policy, file := pinnedLegacyWhisperModelMode(t, ctx, true)
+	defer file.Close()
+	read := func(path string, count int) []float32 {
+		b, e := os.ReadFile(path)
+		if e != nil || len(b) != count*4 {
+			t.Fatal("extent", path, e, len(b))
+		}
+		v := make([]float32, count)
+		for i := range v {
+			v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+			if math.IsNaN(float64(v[i])) || math.IsInf(float64(v[i]), 0) {
+				t.Fatal("nonfinite", path, i)
+			}
+		}
+		return v
+	}
+	write := func(path string, v []float32) {
+		b := make([]byte, len(v)*4)
+		for i, f := range v {
+			binary.LittleEndian.PutUint32(b[i*4:], math.Float32bits(f))
+		}
+		if e := os.WriteFile(path, b, 0600); e != nil {
+			t.Fatal(e)
+		}
+		t.Logf("STATE_EXPORT path=%s count=%d sha=%x", path, len(v), sha256.Sum256(b))
+	}
+	pcmPath := os.Getenv("GO_PHERENCE_TEST_STATE_PCM")
+	raw, e := os.ReadFile(pcmPath)
+	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != "0f4302922d4f470606faf7bca41df64ade994a3fc6ff9774c485bb06155b4c4f" {
+		t.Fatal("PCMpin", e)
+	}
+	short := read(pcmPath, 164800)
+	samples := make([]float32, 480000)
+	copy(samples, short)
+	mel, frames, e := MelFlatFromSamplesCheckedContext(ctx, samples, model.Config)
+	if e != nil || frames != 3000 {
+		t.Fatal("mel", e, frames)
+	}
+	write(prefix+"-mel.f32", mel)
+	if !vk.VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(vk.VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := vk.VulkanMemoryStats()
+	defer func() {
+		a := vk.VulkanMemoryStats()
+		if a.Bytes != before.Bytes || a.Allocations != before.Allocations || a.InFlight || a.DeviceLost {
+			t.Error("leak", before, a)
+		}
+	}()
+	var gelu *vk.VkComputeKernel
+	if path := os.Getenv("GO_PHERENCE_TEST_STATE_TANH_SHADER"); path != "" {
+		code, e := os.ReadFile(path)
+		if e != nil {
+			t.Fatal(e)
+		}
+		gelu, e = vk.VkKernelCreate(code, 2, 4)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer func() {
+			if e := gelu.Close(); e != nil {
+				t.Error(e)
+			}
+		}()
+	}
+	var padKernel *vk.VkComputeKernel
+	var padArena *vk.VkTensorArena
+	var paddedK, paddedV *vk.VkTensorF32
+	if path := os.Getenv("GO_PHERENCE_TEST_STATE_PAD_SHADER"); path != "" {
+		code, e := os.ReadFile(path)
+		if e != nil {
+			t.Fatal(e)
+		}
+		padKernel, e = vk.VkKernelCreate(code, 2, 8)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer func() {
+			if e := padKernel.Close(); e != nil {
+				t.Error(e)
+			}
+		}()
+		padArena, e = vk.NewVkTensorArena(ctx, 2*1536*1280*4+4096)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer func() {
+			if e := padArena.Close(); e != nil {
+				t.Error(e)
+			}
+		}()
+		paddedK, e = padArena.AllocF32(ctx, 1536, 1280)
+		if e != nil {
+			t.Fatal(e)
+		}
+		paddedV, e = padArena.AllocF32(ctx, 1536, 1280)
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	var planOut []*vk.VkTensorF32
+	var opStages []vk.VkF32Stage
+	factory := func(c context.Context, stages []vk.VkF32Stage) (*vk.VkF32Plan, error) {
+		if gelu != nil {
+			indices := []int{}
+			if len(stages) == 5 {
+				indices = []int{1, 3}
+			} else if len(stages) == 12 {
+				indices = []int{9}
+			}
+			for _, i := range indices {
+				stages[i].Kernel = gelu
+			}
+		}
+		if len(planOut) == 1 {
+			opStages = append([]vk.VkF32Stage(nil), stages...)
+		}
+		if padKernel != nil && len(stages) == 12 {
+			attn := stages[4]
+			attn.Tensors = append([]*vk.VkTensorF32(nil), attn.Tensors...)
+			copies := make([]vk.VkF32Stage, 2)
+			for i, out := range []*vk.VkTensorF32{paddedK, paddedV} {
+				copies[i] = vk.VkF32Stage{Kernel: padKernel, Groups: [3]uint32{uint32((1536*1280 + 255) / 256), 1, 1}, Tensors: []*vk.VkTensorF32{attn.Tensors[i+1], out}, PushWords: []uint32{1500 * 1280, 1536 * 1280}}
+				attn.Tensors[i+1] = out
+			}
+			attn.PushWords = append([]uint32(nil), attn.PushWords...)
+			attn.PushWords[1] = 1536
+			next := append([]vk.VkF32Stage(nil), stages[:4]...)
+			next = append(next, copies...)
+			next = append(next, attn)
+			stages = append(next, stages[5:]...)
+		}
+		last := stages[len(stages)-1]
+		planOut = append(planOut, last.Tensors[len(last.Tensors)-1])
+		return vk.NewVkF32Plan(c, stages)
+	}
+	enc, e := newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, factory, vulkanLinearOriginalQ5AttentionOutputILP, file, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer func() {
+		if e := enc.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	hidden, e := enc.Forward(ctx, mel)
+	if e != nil {
+		t.Fatal(e)
+	}
+	write(prefix+"-hidden.f32", hidden)
+	if os.Getenv("GO_PHERENCE_TEST_STATE_LAYERS") == "1" {
+		if e := enc.s.input.Upload(ctx, mel); e != nil {
+			t.Fatal(e)
+		}
+		for i, p := range enc.s.plans {
+			if e := p.Run(ctx); e != nil {
+				t.Fatal(e)
+			}
+			n := 1500 * 1280
+			out := make([]float32, n)
+			if e := planOut[i].Download(ctx, out); e != nil {
+				t.Fatal(e)
+			}
+			name := "stem-pos"
+			if i > 0 && i < 33 {
+				name = fmt.Sprintf("layer%d-output", i-1)
+			}
+			if i == 33 {
+				name = "final"
+			}
+			write(prefix+"-diag-"+name+".f32", out)
+			if i == 33 {
+				for j, v := range out {
+					if math.Float32bits(v) != math.Float32bits(hidden[j]) {
+						t.Fatal("fencedfinalbits", j)
+					}
+				}
+			}
+		}
+	}
+	if os.Getenv("GO_PHERENCE_TEST_STATE_OPS") == "1" {
+		if e := enc.s.input.Upload(ctx, mel); e != nil {
+			t.Fatal(e)
+		}
+		if e := enc.s.plans[0].Run(ctx); e != nil {
+			t.Fatal(e)
+		}
+		names := []string{"norm", "q", "k", "v", "attention", "o", "residual", "ffnorm", "fc1", "gelu", "fc2", "output"}
+		outs := []string{"norm", "q", "k", "v", "norm", "tmp", "h", "norm", "ff", "ff", "tmp", "h"}
+		for i, stage := range opStages {
+			p, e := vk.NewVkF32Plan(ctx, []vk.VkF32Stage{stage})
+			if e != nil {
+				t.Fatal(e)
+			}
+			e = p.Run(ctx)
+			ce := p.Close()
+			if e != nil || ce != nil {
+				t.Fatal(e, ce)
+			}
+			n := 1500 * 1280
+			if i == 8 || i == 9 {
+				n = 1500 * 5120
+			}
+			out := make([]float32, n)
+			if e := enc.s.tensors[outs[i]].Download(ctx, out); e != nil {
+				t.Fatal(e)
+			}
+			write(fmt.Sprintf("%s-diag-op%d-%s.f32", prefix, i, names[i]), out)
+		}
+	}
+	if os.Getenv("GO_PHERENCE_TEST_STATE_COMMON_QKV") == "1" {
+		originalOp := os.Getenv("GO_PHERENCE_TEST_STATE_COMMON_QKV_PREFIX")
+		for _, mode := range []string{"f32", "kv-f16", "qkv-f16", "padded-kv-f16", "padded-f32"} {
+			for i, name := range []string{"q", "k", "v"} {
+				values := read(fmt.Sprintf("%s-diag-op%d-%s.f32", originalOp, i+1, name), 1500*1280)
+				if mode == "qkv-f16" || ((mode == "kv-f16" || mode == "padded-kv-f16") && name != "q") {
+					for j, v := range values {
+						values[j] = half.F16ToF32(half.F32ToF16Even(v))
+					}
+				}
+				if e := enc.s.tensors[name].Upload(ctx, values); e != nil {
+					t.Fatal(e)
+				}
+			}
+			stage := opStages[4]
+			stage.Tensors = append([]*vk.VkTensorF32(nil), stage.Tensors...)
+			var arena *vk.VkTensorArena
+			if mode == "padded-kv-f16" || mode == "padded-f32" {
+				var e error
+				arena, e = vk.NewVkTensorArena(ctx, 2*1536*1280*4+4096)
+				if e != nil {
+					t.Fatal(e)
+				}
+				for i, name := range []string{"k", "v"} {
+					src := read(fmt.Sprintf("%s-diag-op%d-%s.f32", originalOp, i+2, name), 1500*1280)
+					values := make([]float32, 1536*1280)
+					for j, v := range src {
+						if mode == "padded-f32" {
+							values[j] = v
+						} else {
+							values[j] = half.F16ToF32(half.F32ToF16Even(v))
+						}
+					}
+					tensor, e := arena.AllocF32(ctx, 1536, 1280)
+					if e != nil {
+						t.Fatal(e)
+					}
+					if e := tensor.Upload(ctx, values); e != nil {
+						t.Fatal(e)
+					}
+					stage.Tensors[i+1] = tensor
+				}
+				stage.PushWords = append([]uint32(nil), stage.PushWords...)
+				stage.PushWords[1] = 1536
+			}
+			p, e := vk.NewVkF32Plan(ctx, []vk.VkF32Stage{stage})
+			if e != nil {
+				t.Fatal(e)
+			}
+			e = p.Run(ctx)
+			ce := p.Close()
+			if e != nil || ce != nil {
+				t.Fatal(e, ce)
+			}
+			values := make([]float32, 1500*1280)
+			if e := enc.s.tensors["norm"].Download(ctx, values); e != nil {
+				t.Fatal(e)
+			}
+			write(prefix+"-common-attention-"+mode+".f32", values)
+			if arena != nil {
+				if e := arena.Close(); e != nil {
+					t.Fatal(e)
+				}
+			}
+		}
+	}
+	originalPrefix := os.Getenv("GO_PHERENCE_TEST_STATE_ORIGINAL")
+	originalMel := read(originalPrefix+"-mel.f32", 128*3000)
+	originalHidden := read(originalPrefix+"-hidden.f32", 1280*1500)
+	commonMelHidden, e := enc.Forward(ctx, originalMel)
+	if e != nil {
+		t.Fatal(e)
+	}
+	write(prefix+"-original-mel-hidden.f32", commonMelHidden)
+	tokens := []int{50258, 50259, 50360, 50365, 400, 370, 11, 452, 7177, 6280, 11, 1029, 406, 437, 428, 1941, 393, 360, 337, 291, 11, 1029, 437, 291, 393, 360, 337, 428, 1941, 13, 50868}
+	type score struct {
+		Position, Input      int
+		EOT, RepeatTimestamp float32
+	}
+	type arm struct {
+		Mode     string
+		Scores   []score
+		Segments []Segment
+	}
+	var report []arm
+	for _, part := range []struct {
+		name   string
+		hidden []float32
+	}{{"own", hidden}, {"original-mel", commonMelHidden}, {"original-hidden", originalHidden}} {
+		state, e := NewDecoderStateContext(ctx, model.Config, part.hidden, 1500, model.Decoder)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r := arm{Mode: part.name}
+		for pos, token := range tokens {
+			if e := ctx.Err(); e != nil {
+				t.Fatal(e)
+			}
+			logits := model.Decoder.ForwardToken(token, state)
+			write(fmt.Sprintf("%s-%s-logits-%d.f32", prefix, part.name, pos), logits)
+			r.Scores = append(r.Scores, score{pos, token, logits[50257], logits[50868]})
+		}
+		if os.Getenv("GO_PHERENCE_TEST_STATE_FREE_DECODE") == "1" {
+			v, e := checkedTimestampVocabulary(model.Config, tok, "en")
+			if e != nil {
+				t.Fatal(e)
+			}
+			opts, suppress, begin, e := resolvePCMGeneration(model.Config, v, PCMTranscribeOptions{Language: "en", Generation: policy}, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens)
+			if e != nil {
+				t.Fatal(e)
+			}
+			fresh, e := NewDecoderStateContext(ctx, model.Config, part.hidden, 1500, model.Decoder)
+			if e != nil {
+				t.Fatal(e)
+			}
+			r.Segments, e = decodeCheckedTimestamps(ctx, model.Config, tok, v, opts, suppress, begin, func(token int) ([]float32, error) { return model.Decoder.ForwardToken(token, fresh), ctx.Err() })
+			if e != nil {
+				t.Fatal(e)
+			}
+			t.Logf("STATE_FREE mode=%s segments=%+v", part.name, r.Segments)
+		}
+		report = append(report, r)
+		t.Logf("COMMON_STATE mode=%s final=%+v", part.name, r.Scores[len(tokens)-1])
+	}
+	b, e := json.MarshalIndent(report, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	f, e := os.OpenFile(prefix+"-report.json", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.Write(b)
+	ce := f.Close()
+	if e != nil || ce != nil {
+		t.Fatal(e, ce)
+	}
+	t.Log("STATE_COMMON_PREFIX_PASS tokens=31")
+}

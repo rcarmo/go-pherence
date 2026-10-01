@@ -1,0 +1,6 @@
+2026-10-01T18:38:45Z
+a50704b7ccda11517447e0dee077a91345ff7d56
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+c48686fbc2cba1b0ac0f9c8e964188c691e67fff5906f2629f3223ff64f92d16  projects/whisper-stt/vendor/whisper.cpp/src/whisper.cpp
+5725c70536c3a71fea2b1007d415b482851ecd89943a4f1084092c4b1489e6dd  tmp/whisper-vad-parity-20261001/state-original-padding
+715435bade70c9bffff18e2338d3cce962b32c223531e0349875b2af7e0aa29a  tmp/whisper-vad-parity-20261001/state-go-final.test
