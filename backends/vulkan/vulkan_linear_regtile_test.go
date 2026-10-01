@@ -129,6 +129,10 @@ func TestVulkanOfflineLinearRegAdmission(t *testing.T) {
 	expectErrorIs(t, err, context.Canceled)
 }
 func TestVulkanNativeLinearRegTile(t *testing.T) {
+	testVulkanNativeLinearRegTile(t, NewVkLinearF32, NewVkLinearRegTileF32)
+}
+
+func testVulkanNativeLinearRegTile(t *testing.T, baseline, candidateConstructor func(context.Context) (*VkLinearF32, error)) {
 	if os.Getenv("GO_PHERENCE_TEST_VULKAN_LINEAR_REGTILE") != "1" {
 		t.Skip("explicit candidate GPU window required")
 	}
@@ -145,12 +149,12 @@ func TestVulkanNativeLinearRegTile(t *testing.T) {
 	}
 	before := VulkanMemoryStats()
 	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
-	old, err := NewVkLinearF32(context.Background())
+	old, err := baseline(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	nativeClose(t, old)
-	candidate, err := NewVkLinearRegTileF32(context.Background())
+	candidate, err := candidateConstructor(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

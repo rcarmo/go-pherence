@@ -27,15 +27,27 @@ func NewVkLinearF32(ctx context.Context) (*VkLinearF32, error) {
 func NewVkLinearRegTileF32(ctx context.Context) (*VkLinearF32, error) {
 	return newVkLinearF32(ctx, true)
 }
+
+// NewVkLinearRegTile64F32 explicitly selects a 64x64 output tile with sixteen
+// accumulators per lane and 16KiB shared memory. F32 precision and K reduction
+// order are unchanged. It is never an implicit fallback or serving default.
+func NewVkLinearRegTile64F32(ctx context.Context) (*VkLinearF32, error) {
+	return newVkLinearF32Code(ctx, spirv_linear_f32_regtile64, 64)
+}
+
 func newVkLinearF32(ctx context.Context, registerTile bool) (*VkLinearF32, error) {
-	if err := vkAcquire(ctx); err != nil {
-		return nil, err
-	}
-	defer vkRelease()
 	code, tile := spirv_linear_f32, uint32(16)
 	if registerTile {
 		code, tile = spirv_linear_f32_regtile, 32
 	}
+	return newVkLinearF32Code(ctx, code, tile)
+}
+
+func newVkLinearF32Code(ctx context.Context, code []byte, tile uint32) (*VkLinearF32, error) {
+	if err := vkAcquire(ctx); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
 	k, err := vkKernelCreateLocked(code, 4, 12)
 	if err != nil {
 		return nil, err
@@ -103,7 +115,7 @@ func (op *VkLinearF32) stageLocked(out, x, weight, bias *VkTensorF32) (VkF32Stag
 	if tile == 0 {
 		tile = 16
 	}
-	if tile != 16 && tile != 32 {
+	if tile != 16 && tile != 32 && tile != 64 {
 		return fail("invalid kernel output tile")
 	}
 	groups := [3]uint32{(uint32(outDim) + tile - 1) / tile, (uint32(rows) + tile - 1) / tile, 1}

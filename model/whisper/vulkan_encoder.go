@@ -51,6 +51,12 @@ func NewVulkanEncoder(ctx context.Context, source *Encoder, frames int) (*Vulkan
 	return newVulkanEncoder(ctx, source, frames, vk.NewVkF32Plan)
 }
 
+// NewVulkanEncoderRegTile64 explicitly opts into the 64x64 F32 projection
+// candidate. All encoder arithmetic and attention precision remain F32.
+func NewVulkanEncoderRegTile64(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32RegTile64)
+}
+
 // NewVulkanEncoderQ8Weight explicitly selects per-output-row symmetric Q8 for
 // transformer projection weights only. Stem convolutions, normalization,
 // activations, attention, accumulation and output remain F32. This candidate is
@@ -93,6 +99,7 @@ type vulkanLinearMode uint8
 const (
 	vulkanLinearF32 vulkanLinearMode = iota
 	vulkanLinearF32RegTile
+	vulkanLinearF32RegTile64
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -211,7 +218,9 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		}
 	}
 	if linearMode != vulkanLinearQ8Weight {
-		if linearMode == vulkanLinearF32RegTile {
+		if linearMode == vulkanLinearF32RegTile64 {
+			s.linear, err = vk.NewVkLinearRegTile64F32(ctx)
+		} else if linearMode == vulkanLinearF32RegTile {
 			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
 		} else {
 			s.linear, err = vk.NewVkLinearF32(ctx)
