@@ -107,7 +107,24 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
 	defer cancel()
 	started := time.Now()
-	model, tok, policy := pinnedTurboSpeechModel(t, ctx)
+	var model *Whisper
+	var tok *Tokenizer
+	var policy *CheckedGenerationConfig
+	modelPin := "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1"
+	precision := "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only"
+	if os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") == "1" {
+		modelPin = os.Getenv("GO_PHERENCE_WHISPER_GGML_SHA256")
+		if modelPin != "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" && modelPin != "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69" {
+			t.Fatal("retained original model pin required")
+		}
+		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" {
+			t.Fatal("legacy-value diagnostic must preserve stored values without extra quantisation")
+		}
+		model, tok, policy = pinnedLegacyWhisperModel(t, ctx)
+		precision = "Explicit legacy GGML stored values widened to F32; original storage identified by ModelPin; no packed inference"
+	} else {
+		model, tok, policy = pinnedTurboSpeechModel(t, ctx)
+	}
 	loadSeconds := time.Since(started).Seconds()
 	reader, err := media.OpenCanonicalPCM(ctx, input)
 	if err != nil {
@@ -231,7 +248,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		Precision                                                            string
 		GoMemoryLimit                                                        string
 		Samples                                                              []whisperGoalSample
-	}{1, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1", pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only", os.Getenv("GOMEMLIMIT"), samples}
+	}{1, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
 	if err := ctx.Err(); err != nil {
 		t.Fatal(err)
 	}

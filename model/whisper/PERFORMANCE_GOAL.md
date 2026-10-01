@@ -18,6 +18,8 @@ Required variables:
 | `GO_PHERENCE_WHISPER_BENCH_WORDS` | Explicit `0` or `1` |
 | `GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS` | `1` explicitly retains original internal silence; absent uses compact mode. Match scheduling in comparisons. |
 | `GOMEMLIMIT` | Explicit process heap budget, separately from native/container memory. Repeated grouped word alignment used `4GiB` under an `8GiB` hard cap. |
+| `GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES` | `1` explicitly loads original GGML stored values widened to F32 for compatibility diagnostics; only CPU/key32 F32 modes. No packed inference. |
+| `GO_PHERENCE_WHISPER_GGML`, `GO_PHERENCE_WHISPER_GGML_SHA256` | Retained original GGML path/full-file pin for legacy-value mode; HF config/generation/tokenizer remain separately pinned. |
 | `GO_PHERENCE_WHISPER_BENCH_INPUT` | Regular canonical mono16-kHz WAV, 10ms–60s, at most16MiB |
 | `GO_PHERENCE_WHISPER_BENCH_INPUT_SHA256` | Input pin |
 | `GO_PHERENCE_WHISPER_BENCH_LANGUAGE` | Explicit language policy |
@@ -28,7 +30,7 @@ Required variables:
 
 Use a bounded test timeout no longer than30minutes. Vulkan arms retain a4GiB application allocation cap and assert cleanup to the isolated native baseline. This is not a total process/RSS limit; use container/service caps externally.
 
-The opt-in key32/gap-preserving results and limits are recorded in [bounded validation](../../docs/validation/vulkan-attention-key32-20261001.md).
+The opt-in key32/gap-preserving results and limits are recorded in [bounded validation](../../docs/validation/vulkan-attention-key32-20261001.md). Original Q5/F16 stored-value diagnostics are recorded in [compatibility validation](../../docs/validation/whisper-original-value-bridge-20261001.md).
 
 ## Evidence
 

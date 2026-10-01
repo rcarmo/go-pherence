@@ -1,0 +1,5 @@
+=== RUN   TestPinnedLegacyWhisperValueLoad
+    legacy_ggml_source_test.go:85: LEGACY_LOAD seconds=5.118675108 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+LEGACY_LOADED {128 3000 32 1280 20 5120 4 1280 20 5120 51866 448 64}
+--- PASS: TestPinnedLegacyWhisperValueLoad (5.17s)
+PASS

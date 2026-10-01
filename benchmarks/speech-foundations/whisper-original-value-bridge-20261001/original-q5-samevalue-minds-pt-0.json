@@ -1,0 +1,423 @@
+{
+	"systeminfo": "WHISPER : VITISAI = 0 | COREML = 0 | OPENVINO = 0 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | OPENMP = 1 | REPACK = 1 | ",
+	"model": {
+		"type": "large",
+		"multilingual": true,
+		"vocab": 51866,
+		"audio": {
+			"ctx": 1500,
+			"state": 1280,
+			"head": 20,
+			"layer": 32
+		},
+		"text": {
+			"ctx": 448,
+			"state": 1280,
+			"head": 20,
+			"layer": 4
+		},
+		"mels": 128,
+		"ftype": 8
+	},
+	"params": {
+		"model": "/var/home/agent/workspace/projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin",
+		"language": "pt",
+		"translate": false
+	},
+	"result": {
+		"language": "pt"
+	},
+	"transcription": [
+		{
+			"timestamps": {
+				"from": "00:00:00,000",
+				"to": "00:00:07,360"
+			},
+			"offsets": {
+				"from": 0,
+				"to": 7360
+			},
+			"text": " Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+			"tokens": [
+				{
+					"text": "[_BEG_]",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,000"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 0
+					},
+					"id": 50365,
+					"p": 0.177612,
+					"t_dtw": -1
+				},
+				{
+					"text": " Bom",
+					"timestamps": {
+						"from": "00:00:00,030",
+						"to": "00:00:00,500"
+					},
+					"offsets": {
+						"from": 30,
+						"to": 500
+					},
+					"id": 19812,
+					"p": 0.786583,
+					"t_dtw": -1
+				},
+				{
+					"text": " dia",
+					"timestamps": {
+						"from": "00:00:00,500",
+						"to": "00:00:01,000"
+					},
+					"offsets": {
+						"from": 500,
+						"to": 1000
+					},
+					"id": 6801,
+					"p": 0.972008,
+					"t_dtw": -1
+				},
+				{
+					"text": ",",
+					"timestamps": {
+						"from": "00:00:01,150",
+						"to": "00:00:01,150"
+					},
+					"offsets": {
+						"from": 1150,
+						"to": 1150
+					},
+					"id": 11,
+					"p": 0.533526,
+					"t_dtw": -1
+				},
+				{
+					"text": " estou",
+					"timestamps": {
+						"from": "00:00:01,190",
+						"to": "00:00:01,530"
+					},
+					"offsets": {
+						"from": 1190,
+						"to": 1530
+					},
+					"id": 17660,
+					"p": 0.918422,
+					"t_dtw": -1
+				},
+				{
+					"text": " a",
+					"timestamps": {
+						"from": "00:00:01,530",
+						"to": "00:00:01,540"
+					},
+					"offsets": {
+						"from": 1530,
+						"to": 1540
+					},
+					"id": 257,
+					"p": 0.986037,
+					"t_dtw": -1
+				},
+				{
+					"text": " lig",
+					"timestamps": {
+						"from": "00:00:01,640",
+						"to": "00:00:01,830"
+					},
+					"offsets": {
+						"from": 1640,
+						"to": 1830
+					},
+					"id": 11742,
+					"p": 0.996803,
+					"t_dtw": -1
+				},
+				{
+					"text": "ar",
+					"timestamps": {
+						"from": "00:00:01,830",
+						"to": "00:00:02,000"
+					},
+					"offsets": {
+						"from": 1830,
+						"to": 2000
+					},
+					"id": 289,
+					"p": 0.99972,
+					"t_dtw": -1
+				},
+				{
+					"text": " porque",
+					"timestamps": {
+						"from": "00:00:02,000",
+						"to": "00:00:02,240"
+					},
+					"offsets": {
+						"from": 2000,
+						"to": 2240
+					},
+					"id": 4021,
+					"p": 0.899531,
+					"t_dtw": -1
+				},
+				{
+					"text": " precis",
+					"timestamps": {
+						"from": "00:00:02,550",
+						"to": "00:00:02,700"
+					},
+					"offsets": {
+						"from": 2550,
+						"to": 2700
+					},
+					"id": 7974,
+					"p": 0.948505,
+					"t_dtw": -1
+				},
+				{
+					"text": "ava",
+					"timestamps": {
+						"from": "00:00:02,700",
+						"to": "00:00:02,880"
+					},
+					"offsets": {
+						"from": 2700,
+						"to": 2880
+					},
+					"id": 4061,
+					"p": 0.99247,
+					"t_dtw": -1
+				},
+				{
+					"text": " de",
+					"timestamps": {
+						"from": "00:00:02,880",
+						"to": "00:00:03,040"
+					},
+					"offsets": {
+						"from": 2880,
+						"to": 3040
+					},
+					"id": 368,
+					"p": 0.982633,
+					"t_dtw": -1
+				},
+				{
+					"text": " informações",
+					"timestamps": {
+						"from": "00:00:03,050",
+						"to": "00:00:04,000"
+					},
+					"offsets": {
+						"from": 3050,
+						"to": 4000
+					},
+					"id": 42542,
+					"p": 0.945909,
+					"t_dtw": -1
+				},
+				{
+					"text": " sobre",
+					"timestamps": {
+						"from": "00:00:04,000",
+						"to": "00:00:04,160"
+					},
+					"offsets": {
+						"from": 4000,
+						"to": 4160
+					},
+					"id": 5473,
+					"p": 0.959246,
+					"t_dtw": -1
+				},
+				{
+					"text": " como",
+					"timestamps": {
+						"from": "00:00:04,180",
+						"to": "00:00:04,320"
+					},
+					"offsets": {
+						"from": 4180,
+						"to": 4320
+					},
+					"id": 2617,
+					"p": 0.949425,
+					"t_dtw": -1
+				},
+				{
+					"text": " é",
+					"timestamps": {
+						"from": "00:00:04,320",
+						"to": "00:00:04,350"
+					},
+					"offsets": {
+						"from": 4320,
+						"to": 4350
+					},
+					"id": 1136,
+					"p": 0.856117,
+					"t_dtw": -1
+				},
+				{
+					"text": " que",
+					"timestamps": {
+						"from": "00:00:04,350",
+						"to": "00:00:04,370"
+					},
+					"offsets": {
+						"from": 4350,
+						"to": 4370
+					},
+					"id": 631,
+					"p": 0.980336,
+					"t_dtw": -1
+				},
+				{
+					"text": " eu",
+					"timestamps": {
+						"from": "00:00:04,460",
+						"to": "00:00:04,530"
+					},
+					"offsets": {
+						"from": 4460,
+						"to": 4530
+					},
+					"id": 2228,
+					"p": 0.936373,
+					"t_dtw": -1
+				},
+				{
+					"text": " posso",
+					"timestamps": {
+						"from": "00:00:04,610",
+						"to": "00:00:04,730"
+					},
+					"offsets": {
+						"from": 4610,
+						"to": 4730
+					},
+					"id": 22501,
+					"p": 0.967215,
+					"t_dtw": -1
+				},
+				{
+					"text": " depos",
+					"timestamps": {
+						"from": "00:00:04,950",
+						"to": "00:00:05,410"
+					},
+					"offsets": {
+						"from": 4950,
+						"to": 5410
+					},
+					"id": 19930,
+					"p": 0.864943,
+					"t_dtw": -1
+				},
+				{
+					"text": "itar",
+					"timestamps": {
+						"from": "00:00:05,500",
+						"to": "00:00:05,900"
+					},
+					"offsets": {
+						"from": 5500,
+						"to": 5900
+					},
+					"id": 3981,
+					"p": 0.999853,
+					"t_dtw": -1
+				},
+				{
+					"text": " dinheiro",
+					"timestamps": {
+						"from": "00:00:05,900",
+						"to": "00:00:06,360"
+					},
+					"offsets": {
+						"from": 5900,
+						"to": 6360
+					},
+					"id": 23760,
+					"p": 0.860104,
+					"t_dtw": -1
+				},
+				{
+					"text": " na",
+					"timestamps": {
+						"from": "00:00:06,400",
+						"to": "00:00:06,520"
+					},
+					"offsets": {
+						"from": 6400,
+						"to": 6520
+					},
+					"id": 1667,
+					"p": 0.990093,
+					"t_dtw": -1
+				},
+				{
+					"text": " minha",
+					"timestamps": {
+						"from": "00:00:06,530",
+						"to": "00:00:06,830"
+					},
+					"offsets": {
+						"from": 6530,
+						"to": 6830
+					},
+					"id": 11720,
+					"p": 0.99786,
+					"t_dtw": -1
+				},
+				{
+					"text": " conta",
+					"timestamps": {
+						"from": "00:00:06,830",
+						"to": "00:00:07,060"
+					},
+					"offsets": {
+						"from": 6830,
+						"to": 7060
+					},
+					"id": 24001,
+					"p": 0.993296,
+					"t_dtw": -1
+				},
+				{
+					"text": ".",
+					"timestamps": {
+						"from": "00:00:07,140",
+						"to": "00:00:07,310"
+					},
+					"offsets": {
+						"from": 7140,
+						"to": 7310
+					},
+					"id": 13,
+					"p": 0.84353,
+					"t_dtw": -1
+				},
+				{
+					"text": "[_TT_368]",
+					"timestamps": {
+						"from": "00:00:07,360",
+						"to": "00:00:07,360"
+					},
+					"offsets": {
+						"from": 7360,
+						"to": 7360
+					},
+					"id": 50733,
+					"p": 0.186254,
+					"t_dtw": -1
+				}
+			]
+		}
+	]
+}
