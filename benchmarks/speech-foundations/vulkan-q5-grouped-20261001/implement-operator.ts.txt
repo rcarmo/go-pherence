@@ -1,0 +1,44 @@
+const root='/var/home/agent/workspace/projects/go-pherence-transcribe-web/';
+let code=await Bun.file(root+'backends/vulkan/vulkan_linear_f16_weight.go').text();
+code=code.replaceAll('VkLinearF16WeightF32','VkLinearQ5GroupedF32').replaceAll('LinearF16WeightF32','LinearQ5GroupedF32').replace('"math"','"encoding/binary"');
+const start=code.indexOf('// VkLinearQ5GroupedF32'),end=code.indexOf('type VkLinearQ5GroupedF32',start);
+code=code.slice(0,start)+`// VkLinearQ5GroupedF32 owns immutable original GGML Q5_0 blocks (32 values,
+// 22 bytes/block), losslessly repacked into aligned 24-byte blocks. Eight lanes
+// per block widen stored values into F32 shared memory. Input, bias, ordered
+// accumulation and output remain F32. No quantisation or F16 activation rounding
+// is performed. Standalone opt-in; not admitted to VkF32Plan or serving defaults.
+// Copies share native closure; callers must exclude Forward from Close.
+`+code.slice(end);
+const commentStart=code.indexOf('// NewVkLinearQ5GroupedF32'),funcStart=code.indexOf('func NewVkLinearQ5GroupedF32',commentStart);
+code=code.slice(0,commentStart)+`// NewVkLinearQ5GroupedF32 copies and validates row-major original Q5_0 blocks.
+// K must be divisible by 32. F16 scales must be finite; raw length must exactly
+// match N*K/32*22. Packing preserves every source bit and adds two zero bytes
+// after each scale. The caller may release raw after successful construction.
+`+code.slice(funcStart);
+code=code.replace('weights []float32','raw []byte').replace('len(weights) != outDim*inDim','inDim%32 != 0 || len(raw) != outDim*(inDim/32)*22').replace('packLinearF16Weights(weights)','packLinearQ5Blocks(ctx, raw)').replace('spirv_linear_f16_weight_f32','spirv_linear_q5_grouped_f32').replace('weightValues: len(weights)','weightValues: outDim*inDim');
+const ps=code.indexOf('func packLinearF16Weights'),pe=code.indexOf('func (op *VkLinearQ5GroupedF32) Close()',ps);
+code=code.slice(0,ps)+`func packLinearQ5Blocks(ctx context.Context, raw []byte) ([]uint32, error) {
+ if ctx==nil {return nil,fmt.Errorf("Vulkan LinearQ5GroupedF32: nil context")}
+ if err:=ctx.Err();err!=nil{return nil,err}
+ if len(raw)==0||len(raw)%22!=0||len(raw)/22>16384*(16384/32){return nil,fmt.Errorf("Vulkan LinearQ5GroupedF32: block boundary/budget")}
+ words:=make([]uint32,len(raw)/22*6)
+ for b:=0;b<len(raw)/22;b++ {
+  if b%1024==0 {if err:=ctx.Err();err!=nil{return nil,err}}
+  src:=raw[b*22:][:22]; scale:=binary.LittleEndian.Uint16(src)
+  if scale&0x7c00==0x7c00{return nil,fmt.Errorf("Vulkan LinearQ5GroupedF32: nonfinite scale")}
+  words[b*6]=uint32(scale)
+  words[b*6+1]=binary.LittleEndian.Uint32(src[2:6])
+  for j:=0;j<4;j++{words[b*6+2+j]=binary.LittleEndian.Uint32(src[6+j*4:])}
+ }
+ if err:=ctx.Err();err!=nil{return nil,err}
+ return words,nil
+}
+
+`+code.slice(pe);
+code=code.replace('packedBytes := uint64((op.weightValues + 1) / 2 * 4)','packedBytes := uint64(op.weightValues / 32 * 24)').replace('(uint32(op.outDim) + 15) / 16, (uint32(rows) + 15) / 16','(uint32(op.outDim) + 63) / 64, (uint32(rows) + 63) / 64');
+code=code.replace('\n\t"github.com/rcarmo/go-pherence/half"\n','\n');
+await Bun.write(root+'backends/vulkan/vulkan_linear_q5_grouped.go',code);
+await Bun.write(root+'backends/vulkan/shaders/linear_q5_grouped_f32.glsl',await Bun.file('/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/linear-q5-unroll8.glsl').text());
+const bytes=await Bun.file('/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/linear-q5-unroll8.spv').bytes();
+await Bun.write(root+'backends/vulkan/shaders/linear_q5_grouped_f32.spv',bytes);
+await Bun.write(root+'backends/vulkan/vulkan_spirv_linear_q5_grouped.go','package vulkan\n\n// Compiled with glslangValidator -V -S comp shaders/linear_q5_grouped_f32.glsl.\nvar spirv_linear_q5_grouped_f32 = []byte{\n'+Array.from(bytes).map((b,i)=>(i%16===0?'\t':'')+'0x'+b.toString(16).padStart(2,'0')+','+(i%16===15?'\n':' ')).join('')+'\n}\n');

@@ -1,0 +1,65 @@
+{
+  "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "tensors": [
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/encoder.blocks.0.mlp.0.weight.q5",
+      "sha256": "a77fb574d76fe0466e369c994da0300a32909dd878cb667c7dab54da6c883ea4",
+      "tensor": {
+        "Name": "encoder.blocks.0.mlp.0.weight",
+        "Shape": [
+          1280,
+          5120
+        ],
+        "Type": 6,
+        "Offset": 5163275,
+        "Bytes": 4505600,
+        "Elements": 6553600
+      }
+    },
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/encoder.blocks.0.mlp.2.weight.q5",
+      "sha256": "267ebf2b481b2f1f2788a770727b7805619c4472f56539c2fbea411db6237102",
+      "tensor": {
+        "Name": "encoder.blocks.0.mlp.2.weight",
+        "Shape": [
+          5120,
+          1280
+        ],
+        "Type": 6,
+        "Offset": 9674087,
+        "Bytes": 4505600,
+        "Elements": 6553600
+      }
+    },
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/encoder.blocks.31.mlp.0.weight.q5",
+      "sha256": "2ec7fac1c1d34cc459e08446fc81a90d47a329fc2f2029fcfb205453b302f3f9",
+      "tensor": {
+        "Name": "encoder.blocks.31.mlp.0.weight",
+        "Shape": [
+          1280,
+          5120
+        ],
+        "Type": 6,
+        "Offset": 344637601,
+        "Bytes": 4505600,
+        "Elements": 6553600
+      }
+    },
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-q5-grouped-20261001/encoder.blocks.31.mlp.2.weight.q5",
+      "sha256": "bb6c5c9a596b2295ad29fa06277de258500055a11827fd548aeb4c81e78a5554",
+      "tensor": {
+        "Name": "encoder.blocks.31.mlp.2.weight",
+        "Shape": [
+          5120,
+          1280
+        ],
+        "Type": 6,
+        "Offset": 349148415,
+        "Bytes": 4505600,
+        "Elements": 6553600
+      }
+    }
+  ]
+}

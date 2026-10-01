@@ -1,0 +1,281 @@
+=== RUN   TestVulkanNativeQ5GroupedOperator
+=== RUN   TestVulkanNativeQ5GroupedOperator/[32_32_64]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1_32_1]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[2_64_5]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[33_96_63]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=17771163 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=17548255 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=17663577 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=17797888 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=17643447 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=17835581 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=17686018 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=17736790 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=17673504 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=17654063 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=17703177 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=17915318 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=34380261 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=32815626 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=32900780 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=34549068 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33081012 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=34541283 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=34597154 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33023437 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=34537952 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=32750935 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=32775469 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=34541626 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_5120_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36339933 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=34224927 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=33928095 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36851156 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33817876 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36799978 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36539657 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33972299 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36499556 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=35834554 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=33952787 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=35930935 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedOperator (2.13s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[32_32_64] (0.06s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_1280] (0.41s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_5120] (0.86s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_5120_1280] (0.69s)
+=== RUN   TestVulkanNativeQ5GroupedOperator
+=== RUN   TestVulkanNativeQ5GroupedOperator/[32_32_64]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1_32_1]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[2_64_5]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[33_96_63]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=8846357 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=8825731 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=8744207 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=9018236 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=8933326 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=8987294 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9682586 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=8946230 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9073419 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=8969181 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=8952395 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9018557 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=34753406 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=32858207 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=32919902 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=34408675 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=32784440 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=34642843 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=34751396 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=37467633 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36093871 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=37979169 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=37897022 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=34735844 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_5120_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36602318 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=34161801 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=33752716 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36367596 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33979485 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36651767 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36669551 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=34045902 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36105939 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=33938613 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=33843102 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36471931 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedOperator (1.83s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[32_32_64] (0.02s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_1280] (0.25s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_5120] (0.83s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_5120_1280] (0.70s)
+=== RUN   TestVulkanNativeQ5GroupedOperator
+=== RUN   TestVulkanNativeQ5GroupedOperator/[32_32_64]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1_32_1]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[2_64_5]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[33_96_63]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=8743334 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=8812543 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=9163674 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=8886300 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=8795874 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=8941633 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9260140 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=9013904 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9576999 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=9007067 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=8945411 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9000241 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=34556650 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=32765539 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=34030252 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36118108 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33846972 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36402601 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=35785050 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=33861693 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36504192 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=33905221 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=33953070 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=35612319 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_5120_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36954103 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=34910519 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=36037579 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36904870 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=35000761 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=37147084 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=37189348 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=34993459 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36921420 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=34965195 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=35136525 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=37012888 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedOperator (1.80s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[32_32_64] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_1280] (0.23s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_5120] (0.82s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_5120_1280] (0.70s)
+=== RUN   TestVulkanNativeQ5GroupedOperator
+=== RUN   TestVulkanNativeQ5GroupedOperator/[32_32_64]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1_32_1]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[2_64_5]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[33_96_63]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=9200128 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=9174969 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=9517229 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=9749171 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=9466685 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9560614 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9594070 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=9596546 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9600004 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=9378755 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=9486739 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9624053 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=38428320 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=38559284 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=36145129 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36705376 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=36142598 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36530388 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=36855987 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=34985668 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36861613 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=35034808 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=34971638 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=36948756 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_5120_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=38116674 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=36580550 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=36181680 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=38259454 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=36503970 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=38197897 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=38502940 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=36420648 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=38393963 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=36298483 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=36156695 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=38350935 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedOperator (1.86s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[32_32_64] (0.02s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_1280] (0.26s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_5120] (0.83s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_5120_1280] (0.72s)
+=== RUN   TestVulkanNativeQ5GroupedOperator
+=== RUN   TestVulkanNativeQ5GroupedOperator/[32_32_64]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1_32_1]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[2_64_5]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[33_96_63]
+    vulkan_linear_q5_grouped_native_test.go:132: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=9592599 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=10190903 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=9548341 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=9520527 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=9549259 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9696299 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=9667299 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=9633901 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9642952 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=9616272 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=9540288 shape=[1500 1280 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=9658019 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_1280_5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=36821080 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=34996451 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=37764352 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=39481413 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=37783181 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=39487769 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=39542959 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=37816969 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=39626875 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=37734422 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=37895493 shape=[1500 1280 5120]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=39438097 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedOperator/[1500_5120_1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=41124200 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=39205464 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=0 ns=39053772 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=0 ns=41107802 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=39241374 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=41036197 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=1 ns=41299725 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=1 ns=39116666 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=41485723 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=39580700 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=true block=2 ns=39735830 shape=[1500 5120 1280]
+    vulkan_linear_q5_grouped_native_test.go:155: Q5GROUPED_SAMPLE candidate=false block=2 ns=42106542 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedOperator (1.94s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[32_32_64] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_1280] (0.26s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_1280_5120] (0.88s)
+    --- PASS: TestVulkanNativeQ5GroupedOperator/[1500_5120_1280] (0.75s)
+PASS

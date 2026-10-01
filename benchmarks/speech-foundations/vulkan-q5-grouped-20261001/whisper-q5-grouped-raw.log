@@ -1,0 +1,6 @@
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[32_32_64]
+    vulkan_q5_grouped_diagnostic_test.go:124: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeQ5GroupedDiagnostic (0.09s)
+    --- FAIL: TestVulkanNativeQ5GroupedDiagnostic/[32_32_64] (0.01s)
+FAIL

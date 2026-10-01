@@ -43,7 +43,7 @@ Verified checks:
 - `make model-layout-check host-build host-vet host-test docs-check`;
 - whole-tree `go test -race -p=2 -count=1 -timeout=180s ./...`;
 - Linux ARM64 and RISC-V whole-tree builds, compilation only;
-- six shader-checker tests and all 27 stored/rebuilt SPIR-V modules validated and normalised-matched offline.
+- six shader-checker tests; all 27 stored/rebuilt modules validated. The original static report did **not** fully normalised-match: `rope_sequence_f32` differed by a redundant read-only-input decoration. The earlier all-pass statement was incorrect. [The later asset correction](vulkan-q5-grouped-20261001.md) regenerates that unrelated module and records a genuinely passing full shader gate. The original failed report is preserved.
 
 Two outer shell calls timed out while their isolated containers continued. The first container's exit 0 alone did not establish whole-tree race completion: its attached log stopped early. A separate confirmation run has `PASS_RACE`, `PASS_ARM64_BUILD` and `PASS_RISCV64_BUILD` in the complete `podman logs`, with exit 0. Its attachment timed out just before finishing; logs/state were recovered and the stopped container removed. All failures, empty benchmark invocations caused by an incorrect test filter, partial logs and completion records are retained; empty invocations supply no benchmark evidence.
 

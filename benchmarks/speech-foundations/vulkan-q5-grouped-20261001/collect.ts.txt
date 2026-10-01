@@ -1,0 +1,15 @@
+import{join}from'node:path';import{mkdir,copyFile,readdir}from'node:fs/promises';
+const root='/var/home/agent/workspace',base=join(root,'tmp/whisper-vad-parity-20261001'),out=join(root,'projects/go-pherence-transcribe-web/benchmarks/speech-foundations/vulkan-q5-grouped-20261001');await mkdir(out,{recursive:true});
+const patterns=/^(whisper-q5-(grouped-|unroll[48]|model[0-3]|op-model[0-3]|operator|gelu|rope-|full-check|final-race)|whisper-batch)/;
+for(const f of await readdir(base))if(patterns.test(f)&&/\.(log|json|txt)$/.test(f))await copyFile(join(base,f),join(out,f));
+for(const f of ['batch-candidate-jfk.json','batch-baseline-jfk.json','run-guarded.sh','q5-operator.env',...Array.from({length:4},(_,i)=>`q5-op-model${i}.env`)])await copyFile(join(base,f),join(out,f));
+for(const f of await readdir(join(root,'tmp/whisper-q5-grouped-20261001')))if(/\.(glsl|spv|txt|json|out|log)$/.test(f))await copyFile(join(root,'tmp/whisper-q5-grouped-20261001',f),join(out,f));
+for(const f of ['extract-model.go','build-candidates.ts','implement-operator.ts','implement-tests.ts'])await copyFile(join(root,'tmp/whisper-q5-grouped-20261001',f),join(out,f+'.txt'));
+for(const f of await readdir(join(root,'tmp/whisper-structural-20261001')))await copyFile(join(root,'tmp/whisper-structural-20261001',f),join(out,f));
+const timings:any[]=[];
+for(const f of await readdir(out))if(/^(whisper-q5-(grouped-.*admitted|unroll[48]|op-model[0-3]|gelu-noprecise))\.log$/.test(f)){
+const a:any={};for(const m of (await Bun.file(join(out,f)).text()).matchAll(/candidate=(true|false).*ns=(\d+) shape=\[([^\]]+)\]/g))(a[m[3]]??={true:[],false:[]})[m[1]].push(Number(m[2]));
+const median=(x:number[])=>{x=[...x].sort((a,b)=>a-b);return(x[x.length/2-1]+x[x.length/2])/2};
+for(const[shape,v]of Object.entries(a)as any){const baseline=median(v.false),candidate=median(v.true);timings.push({log:f,shape,baseline_ns:v.false,candidate_ns:v.true,baseline_median_ns:baseline,candidate_median_ns:candidate,change_percent:100*(candidate/baseline-1)})}}
+const a=await Bun.file(join(out,'batch-baseline-jfk.json')).json(),b=await Bun.file(join(out,'batch-candidate-jfk.json')).json();for(const s of b.Samples)if(JSON.stringify(s.windows)!==JSON.stringify(a.Samples[0].windows))throw Error('batch output drift');const med=(j:any)=>j.Samples.map((s:any)=>s.request_seconds).sort((a:number,b:number)=>a-b)[2];
+await Bun.write(join(out,'timings.json'),JSON.stringify({kernels:timings,batch:{baseline:med(a),candidate:med(b),change_percent:100*(med(b)/med(a)-1),outputs_exact:true}},null,2)+'\n');console.log(timings.filter(t=>/op-model/.test(t.log)).map(t=>({log:t.log,shape:t.shape,change:t.change_percent})));

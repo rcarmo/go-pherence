@@ -1,0 +1,9 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:126: TURBO_LOAD ns=3967611400 tensors=587 checkpoint_f16=true inference_f32=true
+    performance_goal_test.go:227: WHISPER_GOAL backend=vulkan-f32-tile64-key32-scoreilp VAD=false words=false repeat=0 seconds=7.189447 bytes=170205776 allocations=24505
+    performance_goal_test.go:227: WHISPER_GOAL backend=vulkan-f32-tile64-key32-scoreilp VAD=false words=false repeat=1 seconds=7.070194 bytes=168540488 allocations=24372
+    performance_goal_test.go:227: WHISPER_GOAL backend=vulkan-f32-tile64-key32-scoreilp VAD=false words=false repeat=2 seconds=7.081094 bytes=168539912 allocations=24358
+    performance_goal_test.go:227: WHISPER_GOAL backend=vulkan-f32-tile64-key32-scoreilp VAD=false words=false repeat=3 seconds=7.051055 bytes=168532976 allocations=24316
+    performance_goal_test.go:227: WHISPER_GOAL backend=vulkan-f32-tile64-key32-scoreilp VAD=false words=false repeat=4 seconds=7.108798 bytes=168531472 allocations=24351
+--- PASS: TestWhisperPerformanceGoalArm (42.30s)
+PASS

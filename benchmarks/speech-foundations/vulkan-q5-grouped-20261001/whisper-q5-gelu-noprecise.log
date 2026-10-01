@@ -1,0 +1,53 @@
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[32_32_64]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[1_32_1]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[2_64_5]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[33_96_63]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[1500_1280_1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=24084926 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=18790604 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=18561032 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=18929711 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=18780730 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=19039967 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=18591168 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=18416627 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=18726420 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=18727979 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=18758059 shape=[1500 1280 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=19105547 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[1500_1280_5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=34765525 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=35987314 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=34682567 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=34739651 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=34863957 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=34981187 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=34903534 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=34828936 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=34757349 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=36298679 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=34910057 shape=[1500 1280 5120]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=35077930 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[1500_5120_1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=34673550 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=36357175 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=0 ns=36186154 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=0 ns=35090799 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=36721937 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=34885149 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=1 ns=35345779 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=1 ns=35749504 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=34708449 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=36234068 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=true block=2 ns=36476437 shape=[1500 5120 1280]
+    vulkan_q5_gelu_diagnostic_test.go:190: Q5GROUPED_SAMPLE candidate=false block=2 ns=34596560 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GELUFusionDiagnostic (2.15s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[32_32_64] (0.14s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[1500_1280_1280] (0.43s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[1500_1280_5120] (0.83s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[1500_5120_1280] (0.69s)
+PASS

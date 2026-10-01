@@ -1,0 +1,10 @@
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[32_32_64]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[1_32_1]
+=== RUN   TestVulkanNativeQ5GELUFusionDiagnostic/[2_64_5]
+    vulkan_q5_gelu_diagnostic_test.go:160: packed drift [2 64 5] 5 -0.0147077385 -0.014707742
+--- FAIL: TestVulkanNativeQ5GELUFusionDiagnostic (0.19s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[32_32_64] (0.14s)
+    --- PASS: TestVulkanNativeQ5GELUFusionDiagnostic/[1_32_1] (0.01s)
+    --- FAIL: TestVulkanNativeQ5GELUFusionDiagnostic/[2_64_5] (0.01s)
+FAIL

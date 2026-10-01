@@ -1,0 +1,20 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:126: TURBO_LOAD ns=3973667294 tensors=587 checkpoint_f16=true inference_f32=true
+    performance_goal_test.go:218: request 0 infer PCM window 0: whisper Vulkan: plan0: Vulkan submission still in flight
+        context deadline exceeded
+    performance_goal_test.go:188: Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+        Vulkan submission still in flight
+    performance_goal_test.go:166: Vulkan submission still in flight
+--- FAIL: TestWhisperPerformanceGoalArm (7.96s)
+FAIL
