@@ -1,0 +1,87 @@
+package vulkan
+
+import (
+	"context"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+// Fixed headDim64 diagnostic shaders only, never selected by a public operator.
+func TestVulkanNativeAttentionPrefetchDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_ATTENTION_PREFETCH_DIR")
+	if dir == "" {
+		t.Skip("explicit attention unroll diagnostic")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical device")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	baseline, e := NewVkAttentionKey32ScoreILPUnroll4F32(context.Background())
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, baseline)
+	variants := []string{"vregister", "outinterleave", "outunroll4", "vregisterout"}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(dir + "/" + variant + ".spv")
+			if e != nil {
+				t.Fatal(e)
+			}
+			candidate, e := newVkAttentionF32Code(context.Background(), code)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, candidate)
+			for _, shape := range [][3]int{{17, 37, 2}, {1500, 1500, 20}} {
+				t.Run(variant+"-shape", func(t *testing.T) {
+					rows, keys, heads := shape[0], shape[1], shape[2]
+					a, e := NewVkTensorArena(context.Background(), 64<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					q := nativeTensor(t, a, nativeData(rows*heads*64, 11, .5), rows, heads*64)
+					k := nativeTensor(t, a, nativeData(keys*heads*64, 12, .5), keys, heads*64)
+					v := nativeTensor(t, a, nativeData(keys*heads*64, 13, .5), keys, heads*64)
+					out := nativeTensor(t, a, nil, rows, heads*64)
+					right := nativeGuard(t, a)
+					run := func(op *VkAttentionF32) time.Duration {
+						return nativeRun(t, func(ctx context.Context) error { return op.Forward(ctx, out, q, k, v, heads) })
+					}
+					run(baseline)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, useCandidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							op := baseline
+							if useCandidate {
+								op = candidate
+							}
+							wall := run(op)
+							got := nativeDownload(t, out)
+							for i, x := range got {
+								if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) || math.Float32bits(x) != math.Float32bits(ref[i]) {
+									t.Fatal("exact drift", variant, shape, i, x, ref[i])
+								}
+							}
+							left()
+							right()
+							if rows == 1500 {
+								t.Logf("ATTN_PREFETCH variant=%s candidate=%t repeat=%d seconds=%.9f", variant, useCandidate, repeat, wall.Seconds())
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}

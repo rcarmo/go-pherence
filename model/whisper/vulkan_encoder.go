@@ -86,6 +86,12 @@ func NewVulkanEncoderOriginalQ5ExactCombined(ctx context.Context, source *Encode
 	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5ExactCombined, file)
 }
 
+// NewVulkanEncoderOriginalQ5AttentionOutputILP combines decode4 FFN and F32
+// headDim64 attention with interleaved ordered output FMAs. Explicit, no fallback.
+func NewVulkanEncoderOriginalQ5AttentionOutputILP(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5AttentionOutputILP, file)
+}
+
 // NewVulkanEncoderOriginalQ5AttentionUnroll4 keeps original Q5 FFN/F32 values
 // and selects exact-order headDim64 attention. No fallback or default change.
 func NewVulkanEncoderOriginalQ5AttentionUnroll4(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
@@ -167,6 +173,7 @@ const (
 	vulkanLinearOriginalQ5MLP
 	vulkanLinearOriginalQ5Decode4
 	vulkanLinearOriginalQ5ExactCombined
+	vulkanLinearOriginalQ5AttentionOutputILP
 	vulkanLinearOriginalQ5AttentionUnroll4
 	vulkanLinearOriginalQ5IntegerDotMLP
 	vulkanLinearOriginalQ5IntegerDotFC1
@@ -207,7 +214,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -223,11 +230,12 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if dot && !vk.VulkanIntegerDotEnabled() {
 		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
 	}
-	unroll := linearMode == vulkanLinearOriginalQ5AttentionUnroll4 || linearMode == vulkanLinearOriginalQ5ExactCombined
+	outputILP := linearMode == vulkanLinearOriginalQ5AttentionOutputILP
+	unroll := linearMode == vulkanLinearOriginalQ5AttentionUnroll4 || linearMode == vulkanLinearOriginalQ5ExactCombined || outputILP
 	if unroll && layout.cfg.HeadDim != 64 {
 		return nil, fmt.Errorf("Whisper attention unroll requires headDim64")
 	}
-	decode4 := linearMode == vulkanLinearOriginalQ5Decode4 || linearMode == vulkanLinearOriginalQ5ExactCombined
+	decode4 := linearMode == vulkanLinearOriginalQ5Decode4 || linearMode == vulkanLinearOriginalQ5ExactCombined || outputILP
 	q5 := linearMode == vulkanLinearOriginalQ5MLP || dot || unroll || decode4
 	if dot && !hybrid {
 		layout.scratch = append(append([]vkEncoderTensor(nil), layout.scratch...), vkEncoderTensor{name: "q8fc1", shape: []int{layout.rows * (layout.cfg.EncoderDModel / 32) * 9}}, vkEncoderTensor{name: "q8fc2", shape: []int{layout.rows * (layout.cfg.EncoderFFNDim / 32) * 9}})
@@ -409,7 +417,9 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if unroll {
+	if outputILP {
+		s.attention, err = vk.NewVkAttentionKey32OutputILPF32(ctx)
+	} else if unroll {
 		s.attention, err = vk.NewVkAttentionKey32ScoreILPUnroll4F32(ctx)
 	} else if linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5 {
 		s.attention, err = vk.NewVkAttentionKey32ScoreILPF32(ctx)

@@ -46,6 +46,8 @@ The explicit `vulkan-original-q5-decode4` arm retains original Q5 storage and or
 
 The explicit `vulkan-original-q5-exact-combined` arm combines the retained decode4 FFN and headDim64 F32 attention unroll kernels without quantisation. [Combined qualification](../../docs/validation/whisper-combined-exact-20261001.md) records measured2.5–3.8% fresh request gains, not summed component percentages, plus expanded exact word outputs and hidden/cancellation gates. Stage profiling admits this mode explicitly. Defaults remain unchanged; original speed/quality gaps stay open.
 
+The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 values and interleaves four headDim64 attention output columns while preserving each key-ordered FMA chain. [Qualification](../../docs/validation/vulkan-attention-outputilp-20261001.md) records measured4.6–5.9% fresh request gains over combined exact, expanded word-output equality and hidden/cancel gates. Other head dimensions are refused; no fallback/default/quantisation change occurs. Original workflow/quality acceptance remains open.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

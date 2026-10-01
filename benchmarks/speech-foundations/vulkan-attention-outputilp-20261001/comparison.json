@@ -1,0 +1,235 @@
+{
+  "stages": [
+    {
+      "variant": "vregister",
+      "baseline": 0.064984785,
+      "candidate": 0.064807118,
+      "change_percent": -0.27339784227955466,
+      "samples": {
+        "baseline": [
+          0.064984785,
+          0.065118569,
+          0.065153084,
+          0.064902072,
+          0.064925187
+        ],
+        "candidate": [
+          0.064807118,
+          0.064694572,
+          0.064642508,
+          0.064946893,
+          0.06484089
+        ]
+      }
+    },
+    {
+      "variant": "outinterleave",
+      "baseline": 0.064943304,
+      "candidate": 0.053844688,
+      "change_percent": -17.08970027148602,
+      "samples": {
+        "baseline": [
+          0.065068263,
+          0.064943304,
+          0.064923178,
+          0.06495167,
+          0.064874304
+        ],
+        "candidate": [
+          0.05752058,
+          0.053643018,
+          0.053882783,
+          0.053780743,
+          0.053844688
+        ]
+      }
+    },
+    {
+      "variant": "outunroll4",
+      "baseline": 0.064918653,
+      "candidate": 0.053854369,
+      "change_percent": -17.043304949657546,
+      "samples": {
+        "baseline": [
+          0.06492898,
+          0.06491404,
+          0.065138402,
+          0.064881896,
+          0.064918653
+        ],
+        "candidate": [
+          0.053854369,
+          0.053937607,
+          0.053626532,
+          0.053650957,
+          0.059092978
+        ]
+      }
+    },
+    {
+      "variant": "vregisterout",
+      "baseline": 0.064919789,
+      "candidate": 0.053283739,
+      "change_percent": -17.923733547562836,
+      "samples": {
+        "baseline": [
+          0.064964189,
+          0.065140726,
+          0.064886873,
+          0.064919789,
+          0.064908802
+        ],
+        "candidate": [
+          0.053283739,
+          0.053308685,
+          0.053242438,
+          0.053248741,
+          0.053325912
+        ]
+      }
+    }
+  ],
+  "results": [
+    {
+      "fixture": "jfk",
+      "baseline": 6.693957435,
+      "candidate": 6.301220768,
+      "change_percent": -5.867032630750502,
+      "exact": true,
+      "scope": "fresh baseline-combined then outputILP processes",
+      "full_before": 37.39394415,
+      "full_after": 35.356019375,
+      "load_before": 2.881467611,
+      "load_after": 2.8722704329999997,
+      "prepare_before": 0.897124563,
+      "prepare_after": 0.886793053
+    },
+    {
+      "fixture": "pt",
+      "baseline": 6.664178402,
+      "candidate": 6.297351634,
+      "change_percent": -5.5044560015066635,
+      "exact": true,
+      "scope": "fresh baseline-combined then outputILP processes",
+      "full_before": 37.144323079,
+      "full_after": 35.339777663,
+      "load_before": 2.877401373,
+      "load_after": 2.888860787,
+      "prepare_before": 0.894829184,
+      "prepare_after": 0.902676729
+    },
+    {
+      "fixture": "fr",
+      "baseline": 6.13810029,
+      "candidate": 5.779865715,
+      "change_percent": -5.8362450607661875,
+      "exact": true,
+      "scope": "fresh baseline-combined then outputILP processes",
+      "full_before": 34.557113228,
+      "full_after": 32.739710031,
+      "load_before": 2.878215397,
+      "load_after": 2.904692856,
+      "prepare_before": 0.898152671,
+      "prepare_after": 0.890248045
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline": 7.895248393,
+      "candidate": 7.514847233,
+      "change_percent": -4.818102497411825,
+      "exact": true,
+      "scope": "fresh baseline-combined then outputILP processes",
+      "full_before": 43.308047278,
+      "full_after": 41.51334426,
+      "load_before": 2.921465965,
+      "load_after": 2.880013918,
+      "prepare_before": 0.909035001,
+      "prepare_after": 0.896713236
+    },
+    {
+      "fixture": "groups",
+      "baseline": 15.850858835,
+      "candidate": 15.124277996,
+      "change_percent": -4.58385786261405,
+      "exact": true,
+      "scope": "fresh baseline-combined then outputILP processes",
+      "full_before": 83.250417987,
+      "full_after": 79.572260252,
+      "load_before": 2.8703898519999997,
+      "load_after": 2.868027548,
+      "prepare_before": 0.897937146,
+      "prepare_after": 0.89709178
+    },
+    {
+      "fixture": "pt1",
+      "baseline": 6.2233972,
+      "candidate": 5.8852236399999995,
+      "change_percent": -5.433906098746199,
+      "exact": true,
+      "scope": "earlier combined baseline output gate; not fresh speed acceptance",
+      "full_before": 34.983737012,
+      "full_after": 33.153830607,
+      "load_before": 2.889346067,
+      "load_after": 2.8721723409999997,
+      "prepare_before": 0.897046579,
+      "prepare_after": 0.896855709
+    },
+    {
+      "fixture": "pt2",
+      "baseline": 14.030248071,
+      "candidate": 13.244141386,
+      "change_percent": -5.602942164827818,
+      "exact": true,
+      "scope": "earlier combined baseline output gate; not fresh speed acceptance",
+      "full_before": 74.109097479,
+      "full_after": 70.039183947,
+      "load_before": 2.885602476,
+      "load_after": 2.87605893,
+      "prepare_before": 0.894136105,
+      "prepare_after": 0.896362527
+    },
+    {
+      "fixture": "podcast",
+      "baseline": 8.983530256,
+      "candidate": 8.617052708,
+      "change_percent": -4.0794380110784845,
+      "exact": true,
+      "scope": "earlier combined baseline output gate; not fresh speed acceptance",
+      "full_before": 48.907167062,
+      "full_after": 46.866046514,
+      "load_before": 2.911994926,
+      "load_after": 2.882591031,
+      "prepare_before": 0.896883301,
+      "prepare_after": 0.898390887
+    },
+    {
+      "fixture": "podcast-vadwords",
+      "baseline": 11.952164001,
+      "candidate": 11.621028429999999,
+      "change_percent": -2.7705072568640743,
+      "exact": true,
+      "scope": "earlier combined baseline output gate; not fresh speed acceptance",
+      "full_before": 63.618983658,
+      "full_after": 61.980486795,
+      "load_before": 2.876834919,
+      "load_after": 2.8864400679999997,
+      "prepare_before": 0.901626422,
+      "prepare_after": 0.904535331
+    }
+  ],
+  "silence_median": 0.019749247,
+  "profile": {
+    "conv": 0.11760190733333331,
+    "gelu": 0.07601976533333336,
+    "add": 0.07447626999999993,
+    "norm": 0.0638173463333333,
+    "q": 0.29891170199999995,
+    "k": 0.29751859999999997,
+    "v": 0.2984186410000002,
+    "attention": 1.7285393176666661,
+    "o": 0.29642389933333346,
+    "fc1": 0.9936157046666668,
+    "fc2": 1.0324673356666667
+  },
+  "acceptance": "exact retained-Go parity and limited speed gains; original workflow/quality objective remains unmet"
+}
