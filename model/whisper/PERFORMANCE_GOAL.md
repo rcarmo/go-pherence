@@ -54,6 +54,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Whole-workflow refresh](../../docs/validation/whisper-workflow-refresh-20261001.md) measures the retained outputILP/decode4 path against reusable original Vulkan+flash contexts. JFK medians remain 3.018s original / 6.311s Go without VAD, and 3.028s / 6.537s with native VAD. VAD text/timestamp mapping, grouped-window count and word-alignment methods differ; original speed/quality acceptance still fails. CPU decoder/setup and original integer-dot arithmetic remain substantial attribution targets. No runtime change follows this measurement.
 
+[Exact CPU decoder row scheduling](../../docs/validation/whisper-decoder-parallel-rows-20261001.md) adds `GO_PHERENCE_WHISPER_DECODER_PARALLEL_ROWS=1`. It splits independent `linearInto` outputs across the existing bounded thread budget while preserving each SIMD dot and bias operation. Fresh requests improve 1.1–3.6% for language fixtures and 6.6–6.9% for VAD/words; trained logits/caches/observations and expanded output timings stay bit-exact. Serial defaults and services remain unchanged. Extra goroutine allocations and original speed/VAD-quality gaps are recorded.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

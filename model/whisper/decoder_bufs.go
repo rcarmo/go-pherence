@@ -61,6 +61,10 @@ func linearInto(out, x, weight, bias []float32, inDim, outDim int) {
 		copy(out, linearForwardInt8(x[:inDim], weight, bias, 1, inDim, outDim))
 		return
 	}
+	if workers := decoderRowWorkers(outDim); workers > 1 {
+		decoderLinearRowsInto(out, x, weight, bias, inDim, outDim, workers)
+		return
+	}
 	for o := 0; o < outDim; o++ {
 		wOff := o * inDim
 		sum := simdrt.Sdot(x[:inDim], weight[wOff:wOff+inDim])

@@ -1,0 +1,5 @@
+=== RUN   TestDecoderParallelRowsTrainedExact
+    decoder_rows_native_test.go:23: LEGACY_LOAD seconds=2.834035466 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    decoder_rows_native_test.go:88: DECODER_PARALLEL_LOGITS_SELFKV_CROSS_OBSERVER_EXACT tokens=8 vocab=51866 observerValues=960000 precancel_freshreuse=PASS
+--- PASS: TestDecoderParallelRowsTrainedExact (4.21s)
+PASS

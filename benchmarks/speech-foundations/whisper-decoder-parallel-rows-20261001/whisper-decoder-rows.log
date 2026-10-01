@@ -1,0 +1,91 @@
+=== RUN   TestDecoderRowsDiagnostic
+=== RUN   TestDecoderRowsDiagnostic/GG
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=false repeat=0 seconds=0.005005564 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=true repeat=0 seconds=0.003439571 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=true repeat=1 seconds=0.002758863 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=false repeat=1 seconds=0.006210025 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=false repeat=2 seconds=0.005147176 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=true repeat=2 seconds=0.003431261 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=true repeat=3 seconds=0.002770295 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=false repeat=3 seconds=0.004998716 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=false repeat=4 seconds=0.005698054 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=2 candidate=true repeat=4 seconds=0.002716366 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=false repeat=0 seconds=0.005023164 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=true repeat=0 seconds=0.002129507 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=true repeat=1 seconds=0.001569130 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=false repeat=1 seconds=0.004778494 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=false repeat=2 seconds=0.004941342 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=true repeat=2 seconds=0.001980708 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=true repeat=3 seconds=0.001475867 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=false repeat=3 seconds=0.004521458 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=false repeat=4 seconds=0.004762892 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=1280 workers=4 candidate=true repeat=4 seconds=0.001770686 calls=30
+=== RUN   TestDecoderRowsDiagnostic/GY
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=false repeat=0 seconds=0.036949716 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=true repeat=0 seconds=0.021683582 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=true repeat=1 seconds=0.021782438 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=false repeat=1 seconds=0.038875053 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=false repeat=2 seconds=0.038683956 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=true repeat=2 seconds=0.021891158 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=true repeat=3 seconds=0.021490763 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=false repeat=3 seconds=0.039830132 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=false repeat=4 seconds=0.039506245 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=2 candidate=true repeat=4 seconds=0.022150233 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=false repeat=0 seconds=0.038847526 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=true repeat=0 seconds=0.016049289 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=true repeat=1 seconds=0.015414261 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=false repeat=1 seconds=0.043071428 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=false repeat=2 seconds=0.042350128 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=true repeat=2 seconds=0.016544398 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=true repeat=3 seconds=0.014621364 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=false repeat=3 seconds=0.040136079 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=false repeat=4 seconds=0.039303082 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=5120 workers=4 candidate=true repeat=4 seconds=0.016421232 calls=30
+=== RUN   TestDecoderRowsDiagnostic/YG
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=false repeat=0 seconds=0.043407576 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=true repeat=0 seconds=0.021871475 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=true repeat=1 seconds=0.021772749 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=false repeat=1 seconds=0.041633042 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=false repeat=2 seconds=0.041633898 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=true repeat=2 seconds=0.021676121 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=true repeat=3 seconds=0.021419909 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=false repeat=3 seconds=0.041462786 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=false repeat=4 seconds=0.041591652 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=2 candidate=true repeat=4 seconds=0.022526639 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=false repeat=0 seconds=0.041635314 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=true repeat=0 seconds=0.015236667 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=true repeat=1 seconds=0.015072777 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=false repeat=1 seconds=0.042607752 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=false repeat=2 seconds=0.041781832 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=true repeat=2 seconds=0.016648818 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=true repeat=3 seconds=0.015295709 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=false repeat=3 seconds=0.039876705 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=false repeat=4 seconds=0.038884420 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=5120 N=1280 workers=4 candidate=true repeat=4 seconds=0.015711556 calls=30
+=== RUN   TestDecoderRowsDiagnostic/GW
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=false repeat=0 seconds=0.407574073 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=true repeat=0 seconds=0.246638422 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=true repeat=1 seconds=0.248005029 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=false repeat=1 seconds=0.420832711 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=false repeat=2 seconds=0.419262122 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=true repeat=2 seconds=0.245673686 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=true repeat=3 seconds=0.247469787 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=false repeat=3 seconds=0.415357693 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=false repeat=4 seconds=0.413350322 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=2 candidate=true repeat=4 seconds=0.245761854 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=false repeat=0 seconds=0.421361904 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=true repeat=0 seconds=0.178210198 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=true repeat=1 seconds=0.184255682 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=false repeat=1 seconds=0.410858273 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=false repeat=2 seconds=0.409224481 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=true repeat=2 seconds=0.177502015 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=true repeat=3 seconds=0.177858027 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=false repeat=3 seconds=0.427648088 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=false repeat=4 seconds=0.429957734 calls=30
+    decoder_rows_diagnostic_test.go:82: DECODER_ROWS K=1280 N=51866 workers=4 candidate=true repeat=4 seconds=0.180013014 calls=30
+--- PASS: TestDecoderRowsDiagnostic (7.78s)
+    --- PASS: TestDecoderRowsDiagnostic/GG (0.08s)
+    --- PASS: TestDecoderRowsDiagnostic/GY (0.60s)
+    --- PASS: TestDecoderRowsDiagnostic/YG (0.62s)
+    --- PASS: TestDecoderRowsDiagnostic/GW (6.47s)
+PASS
