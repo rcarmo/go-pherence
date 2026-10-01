@@ -13,6 +13,12 @@ var spirv_quant_q8_integer_dot []byte
 //go:embed shaders/integer-dot/linear-stripped.spv
 var spirv_linear_q5_integer_dot []byte
 
+//go:embed shaders/integer-dot/q8-coop-stripped.spv
+var spirv_quant_q8_integer_dot_coop []byte
+
+//go:embed shaders/integer-dot/linear-mmq-stripped.spv
+var spirv_linear_q5_integer_dot_mmq []byte
+
 // VkLinearQ5IntegerDotSet is an explicit experimental arithmetic owner. Original
 // Q5 bytes are unchanged; activations and scales are quantised to Q8_1. It is not
 // F32-equivalent. Callers must provide finite, bounded activations; there is no
@@ -24,19 +30,45 @@ type VkLinearQ5IntegerDotSet struct {
 	weights *VkLinearQ5Set
 	quant   *VkComputeKernel
 	f32     *VkComputeKernel // explicit hybrid mode only, shares original storage
+	mmq     bool             // 4-block-step 64x64/128-thread schedule; same per-output arithmetic
 }
 
 func NewVkLinearQ5IntegerDotSetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5IntegerDotSet, error) {
-	weights, err := newVkLinearQ5SetStream(ctx, shapes, read, true)
+	return newVkLinearQ5IntegerDotSetStream(ctx, shapes, read, false)
+}
+
+// NewVkLinearQ5IntegerDotMMQSetStream selects the explicit four-block-step
+// schedule. Each output keeps the same integer block sums, F32 block epilogue,
+// increasing-block FMA order and final bias add as the base kernel. inDim must be
+// a multiple of 128; there is no fallback to the base schedule.
+func NewVkLinearQ5IntegerDotMMQSetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5IntegerDotSet, error) {
+	for _, shape := range shapes {
+		if shape.InDim%128 != 0 {
+			return nil, fmt.Errorf("Q5 integer-dot MMQ requires inDim%%128==0")
+		}
+	}
+	return newVkLinearQ5IntegerDotSetStream(ctx, shapes, read, true)
+}
+
+func newVkLinearQ5IntegerDotSetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error), mmq bool) (*VkLinearQ5IntegerDotSet, error) {
+	code := spirv_linear_q5_integer_dot
+	if mmq {
+		code = spirv_linear_q5_integer_dot_mmq
+	}
+	weights, err := newVkLinearQ5SetStreamCode(ctx, shapes, read, code, true)
 	if err != nil {
 		if weights != nil {
 			return &VkLinearQ5IntegerDotSet{weights: weights}, err
 		}
 		return nil, err
 	}
-	owner := &VkLinearQ5IntegerDotSet{weights: weights}
+	owner := &VkLinearQ5IntegerDotSet{weights: weights, mmq: mmq}
 	if err = ctx.Err(); err == nil {
-		owner.quant, err = VkKernelCreateIntegerDot(spirv_quant_q8_integer_dot, 2, 4)
+		quant := spirv_quant_q8_integer_dot
+		if mmq {
+			quant = spirv_quant_q8_integer_dot_coop // same words; 8 invocations per block
+		}
+		owner.quant, err = VkKernelCreateIntegerDot(quant, 2, 4)
 	}
 	if err == nil {
 		err = ctx.Err()
@@ -111,6 +143,9 @@ func (s *VkLinearQ5IntegerDotSet) Stages(ctx context.Context, index int, out, x,
 	}
 	rows := x.shape[0]
 	blocks := rows * (view.inDim / 32)
+	if s.mmq && view.inDim%128 != 0 {
+		return nil, fmt.Errorf("Q5 integer-dot MMQ inDim")
+	}
 	if rows < 1 || rows > 16384 || x.shape[1] != view.inDim || out.shape[0] != rows || out.shape[1] != view.outDim || bias.shape[0] != view.outDim || scratch.shape[0] != blocks*9 {
 		return nil, fmt.Errorf("Q5 integer-dot shape")
 	}

@@ -31,13 +31,17 @@ func whisperStageMode(backend string) (vulkanLinearMode, error) {
 		return vulkanLinearOriginalQ5ExactCombined, nil
 	case "vulkan-original-q5-attention-outputilp":
 		return vulkanLinearOriginalQ5AttentionOutputILP, nil
+	case "vulkan-original-q5-padded-integer-dot-all":
+		return vulkanLinearOriginalQ5PaddedIntegerDotAll, nil
+	case "vulkan-original-q5-padded-integer-dot-mmq":
+		return vulkanLinearOriginalQ5PaddedIntegerDotMMQ, nil
 	default:
 		return 0, fmt.Errorf("unsupported stage-profile backend %q", backend)
 	}
 }
 
 func TestWhisperStageModeAdmission(t *testing.T) {
-	for backend, want := range map[string]vulkanLinearMode{"": vulkanDefaultLinearMode, "vulkan-f32": vulkanDefaultLinearMode, "vulkan-f32-tile64-key32-scoreilp": vulkanLinearF32Tile64Key32ScoreILP, "vulkan-original-q5-mlp": vulkanLinearOriginalQ5MLP, "vulkan-original-q5-integer-dot-fc1": vulkanLinearOriginalQ5IntegerDotFC1, "vulkan-original-q5-exact-combined": vulkanLinearOriginalQ5ExactCombined, "vulkan-original-q5-attention-outputilp": vulkanLinearOriginalQ5AttentionOutputILP} {
+	for backend, want := range map[string]vulkanLinearMode{"": vulkanDefaultLinearMode, "vulkan-f32": vulkanDefaultLinearMode, "vulkan-f32-tile64-key32-scoreilp": vulkanLinearF32Tile64Key32ScoreILP, "vulkan-original-q5-mlp": vulkanLinearOriginalQ5MLP, "vulkan-original-q5-integer-dot-fc1": vulkanLinearOriginalQ5IntegerDotFC1, "vulkan-original-q5-exact-combined": vulkanLinearOriginalQ5ExactCombined, "vulkan-original-q5-attention-outputilp": vulkanLinearOriginalQ5AttentionOutputILP, "vulkan-original-q5-padded-integer-dot-all": vulkanLinearOriginalQ5PaddedIntegerDotAll, "vulkan-original-q5-padded-integer-dot-mmq": vulkanLinearOriginalQ5PaddedIntegerDotMMQ} {
 		got, err := whisperStageMode(backend)
 		if err != nil || got != want {
 			t.Fatal(backend, got, err)
@@ -68,7 +72,7 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 	}
 	var model *Whisper
 	var file *legacy.File
-	if mode == vulkanLinearOriginalQ5MLP || mode == vulkanLinearOriginalQ5IntegerDotFC1 || mode == vulkanLinearOriginalQ5ExactCombined || mode == vulkanLinearOriginalQ5AttentionOutputILP {
+	if mode == vulkanLinearOriginalQ5MLP || mode == vulkanLinearOriginalQ5IntegerDotFC1 || mode == vulkanLinearOriginalQ5ExactCombined || mode == vulkanLinearOriginalQ5AttentionOutputILP || (mode == vulkanLinearOriginalQ5PaddedIntegerDotAll || mode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ) {
 		model, _, _, file = pinnedLegacyWhisperModelOpen(t, ctx)
 		defer file.Close()
 	} else {
@@ -77,7 +81,7 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 	path := os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT")
 	pinnedSpeechFile(t, path, os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT_SHA256"))
 	init := vk.VulkanInit
-	if mode == vulkanLinearOriginalQ5IntegerDotFC1 {
+	if mode == vulkanLinearOriginalQ5IntegerDotFC1 || (mode == vulkanLinearOriginalQ5PaddedIntegerDotAll || mode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ) {
 		init = vk.VulkanInitIntegerDot
 	}
 	if !init() {
@@ -111,6 +115,11 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 	var inputs [][]string
 	for _, p := range layout.plans {
 		for _, s := range p {
+			if (mode == vulkanLinearOriginalQ5PaddedIntegerDotAll || mode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ) && s.op == "linear" {
+				labels = append(labels, "q8-activation")
+				outputs = append(outputs, "q8")
+				inputs = append(inputs, []string{s.in[0]})
+			}
 			if mode == vulkanLinearOriginalQ5IntegerDotFC1 && s.op == "linear" && strings.Contains(s.in[1], ".fc1.") {
 				labels = append(labels, "q8-activation")
 				outputs = append(outputs, "q8fc1")

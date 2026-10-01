@@ -6,8 +6,10 @@ Default shader admission refuses these optional arithmetic modules. `VulkanInitI
 - `q8`: serial maximum over 32 finite F32 activations; compiled-original operation order `d=amax*(1/127)`, `inv=127/amax`, GLSL Round, F16 scale/scaled sum and signed-byte packing. Invalid blocks emit a NaN marker. Magnitude above1000, nonfinite values or nonzero maxima below1e-30 are rejected this way.
 - `q5q8`: independent-block Q5_0×Q8_1 correction in F32.
 - `linear`: K32 tiled Q5_0×Q8_1, F32 correction and explicit FMA across blocks, then F32 bias. This is not ordered F32 per-element arithmetic.
+- `q8-coop`: the same Q8_1 words as `q8`, computed by eight invocations per block with coalesced loads; maximum, invalid flags and integer sums are order-independent.
+- `linear-mmq`: the `linear` per-output arithmetic (integer block sums, precise `dot*ds.x-16*ds.y`, block-ordered FMA, bias last) on the original MMQ schedule: 128 invocations, 64×64 tile, four K blocks per shared-memory stage, register-resident Q5 unpack. Requires K%128==0.
 
-The explicit experimental `VkLinearQ5IntegerDotSet` embeds `q8` and `linear` from `shaders/integer-dot/`; matching diagnostic copies remain here. The mode is not selected by defaults. Its trained Portuguese segment end regresses, so it has no overall timing/accuracy acceptance.
+The explicit experimental `VkLinearQ5IntegerDotSet` embeds `q8` and `linear` (or `q8-coop` and `linear-mmq` through `NewVkLinearQ5IntegerDotMMQSetStream`) from `shaders/integer-dot/`; matching diagnostic copies remain here. The mode is not selected by defaults. Its trained Portuguese segment end regresses, so it has no overall timing/accuracy acceptance.
 
 Compile using shaderc v2026.1/glslang `301b4ede53d59b68bf55f95bb26412d9233c8187` with `glslc --target-env=vulkan1.1 -fshader-stage=compute`; strip debug via `spirv-opt --strip-debug`; validate with `spirv-val --target-env vulkan1.3`. Offline glslang12 does not support the integer-dot extension. Source/binaries are hashed in `SHA256SUMS`; `scripts/check-vulkan-integer-dot.ts` independently checks regeneration and fixture equality. Existing28 production shaders retain their separate gate.
 

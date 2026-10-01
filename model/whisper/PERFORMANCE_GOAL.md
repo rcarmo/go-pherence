@@ -68,6 +68,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Original-style GELU trial](../../docs/validation/whisper-gelu-compat-20261001.md) matches the original tanh-form GELU bit-for-bit on 7.68M captured FC1 values, but substituting it into the padded-key encoder leaves all ten tested fixture outputs unchanged (PT row0 still 7.38s) and request costs tied (−0.36..+0.09%). Rejected as a runtime mode; K/V storage rounding remains untested.
 
+[Integer-dot MMQ schedule](../../docs/validation/whisper-intdot-mmq-20261001.md): the original's Intel MMQ structure (128 invocations, 64×64 tile, four blocks per stage, register Q5 unpack) with unchanged Go block arithmetic. Encoder hidden values are bit-identical to all-projection integer-dot. JFK request 5.230→4.409 s (padded exact F32 6.13 s, whisper.cpp 3.02 s). Private benchmark modes only; integer-dot PT/JFK endpoints (9.04/11.0 s) remain unqualified. Next: original F16 flash attention, GPU decoder/cross K/V.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

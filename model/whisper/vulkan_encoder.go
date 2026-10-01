@@ -190,6 +190,9 @@ const (
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
+	vulkanLinearOriginalQ5PaddedIntegerDotMLP // private compatibility diagnostic only
+	vulkanLinearOriginalQ5PaddedIntegerDotAll // private: all encoder projections Q5×Q8_1
+	vulkanLinearOriginalQ5PaddedIntegerDotMMQ // private: same arithmetic, four-block-step schedule
 )
 
 const vulkanDefaultLinearMode = vulkanLinearF32RegTile
@@ -224,7 +227,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5PaddedKeyExtent && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5PaddedKeyExtent && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1 && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMLP && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotAll && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMMQ)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -236,11 +239,13 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		return nil, err
 	}
 	hybrid := linearMode == vulkanLinearOriginalQ5IntegerDotFC1
-	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP || hybrid
+	mmq := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ
+	dotAll := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotAll || mmq
+	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP || linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMLP || dotAll || hybrid
 	if dot && !vk.VulkanIntegerDotEnabled() {
 		return nil, fmt.Errorf("Whisper integer-dot requires explicit device enablement")
 	}
-	paddedExtent := linearMode == vulkanLinearOriginalQ5PaddedKeyExtent
+	paddedExtent := linearMode == vulkanLinearOriginalQ5PaddedKeyExtent || linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMLP || dotAll
 	outputILP := linearMode == vulkanLinearOriginalQ5AttentionOutputILP || paddedExtent
 	unroll := linearMode == vulkanLinearOriginalQ5AttentionUnroll4 || linearMode == vulkanLinearOriginalQ5ExactCombined || outputILP
 	if unroll && layout.cfg.HeadDim != 64 {
@@ -264,7 +269,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
-				if step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && isVulkanMLPWeight(step.in[1]) && (dotSelect == nil || dotSelect(step.in[1]))) {
+				if step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && (isVulkanMLPWeight(step.in[1]) || dotAll) && (dotSelect == nil || dotSelect(step.in[1]))) {
 					linearWeights[step.in[1]] = vkEncoderTensor{}
 				}
 			}
@@ -325,9 +330,8 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		var names, originalNames []string
 		for layer := 0; layer < layout.cfg.EncoderLayers; layer++ {
 			for _, part := range []struct {
-				step string
-				mlp  int
-			}{{"fc1", 0}, {"fc2", 2}} {
+				step, original string
+			}{{"q", "attn.query"}, {"k", "attn.key"}, {"v", "attn.value"}, {"o", "attn.out"}, {"fc1", "mlp.0"}, {"fc2", "mlp.2"}} {
 				name := fmt.Sprintf("layer%d.%s.w", layer, part.step)
 				spec, selected := linearWeights[name]
 				if !selected {
@@ -339,7 +343,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 				linearIndexes[name] = len(shapes)
 				shapes = append(shapes, vk.VkLinearQ5Shape{OutDim: spec.shape[0], InDim: spec.shape[1]})
 				names = append(names, name)
-				originalNames = append(originalNames, fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight", layer, part.mlp))
+				originalNames = append(originalNames, fmt.Sprintf("encoder.blocks.%d.%s.weight", layer, part.original))
 			}
 		}
 		reader := func(ctx context.Context, index int) ([]byte, error) {
@@ -361,6 +365,8 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		if dot {
 			if hybrid {
 				s.q5Dot, err = vk.NewVkLinearQ5IntegerDotHybridSetStream(ctx, shapes, reader)
+			} else if mmq {
+				s.q5Dot, err = vk.NewVkLinearQ5IntegerDotMMQSetStream(ctx, shapes, reader)
 			} else {
 				s.q5Dot, err = vk.NewVkLinearQ5IntegerDotSetStream(ctx, shapes, reader)
 			}

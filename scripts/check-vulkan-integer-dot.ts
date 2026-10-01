@@ -1,6 +1,6 @@
 /**
  * SCRIPT_JDOC
- * @summary Validate the two explicitly embedded integer-dot shaders and regenerate with modern shaderc.
+ * @summary Validate the four explicitly embedded integer-dot shaders and regenerate with modern shaderc.
  * @description Separate optional arithmetic gate; never opens a Vulkan device. Requires a fresh evidence directory.
  * @usage bun scripts/check-vulkan-integer-dot.ts --output <new-directory>
  * @arg --output New report directory (required; never overwritten).
@@ -18,7 +18,7 @@ export function verifyIntegerDot(output:string){
  if(!output||existsSync(output))throw Error("required new report directory");
  const root=resolve(import.meta.dir,"..");output=resolve(output);mkdirSync(output,{recursive:true});
  const results=[];
- for(const name of ["q8","linear"]){
+ for(const name of ["q8","linear","q8-coop","linear-mmq"]){
   const source=resolve(root,"backends/vulkan/shaders/integer-dot",name+".glsl"),stored=resolve(root,"backends/vulkan/shaders/integer-dot",name+"-stripped.spv");
   const compiled=resolve(output,name+".spv"),stripped=resolve(output,name+"-stripped.spv");
   const bytes=new Uint8Array(readFileSync(stored));

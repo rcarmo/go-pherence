@@ -1,0 +1,5 @@
+=== RUN   TestWhisperPerformanceStageProfile
+    performance_stage_test.go:77: TURBO_LOAD ns=3934683206 tensors=587 checkpoint_f16=true inference_f32=true
+    performance_stage_test.go:105: Whisper integer-dot requires explicit device enablement
+--- FAIL: TestWhisperPerformanceStageProfile (6.88s)
+FAIL

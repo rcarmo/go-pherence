@@ -1,0 +1,3 @@
+const b = new Uint32Array((await Bun.file(process.argv[2]).arrayBuffer()));
+const ops = new Map<number, number>(); for (let p = 5; p < b.length;) { const c = b[p] >>> 16, o = b[p] & 0xffff; ops.set(o, (ops.get(o) ?? 0) + 1); p += c; }
+console.log([...ops.keys()].sort((a, b) => a - b).join(","));

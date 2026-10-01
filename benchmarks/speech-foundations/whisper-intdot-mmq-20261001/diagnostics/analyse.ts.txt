@@ -1,0 +1,12 @@
+import { readFileSync, existsSync } from "fs";
+const R = "tmp/whisper-vad-parity-20261001";
+const med = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+const out: any = {};
+for (const arm of ["padintdot", "padintdotall", "mmq", "mmq2"]) for (const f of ["pt", "jfk", "fr", "jfk-vadwords", "groups", "pt1", "pt2", "podcast", "podcast-vadwords", "silence"]) {
+  const p = `${R}/${arm}-candidate-${f}.json`; if (!existsSync(p)) continue; const j = JSON.parse(readFileSync(p, "utf8"));
+  const o = j.Samples.map((s: any) => JSON.stringify([s.windows, s.words ?? null]));
+  out[`${arm}/${f}`] = { median: med(j.Samples.map((s: any) => s.request_seconds)), n: j.Samples.length, stable: new Set(o).size === 1, out0: o[0], segs: (j.Samples[0]?.windows ?? []).flatMap((w: any) => (w.Segments ?? []).map((s: any) => `${s.Start}-${s.End}`)).join(","), weight: j.EncoderStats.WeightBytes, stages: j.EncoderStats.Stages };
+}
+const cmp: any = {};
+for (const k of Object.keys(out)) { const [arm, f] = k.split("/"); const ref = out[`padintdotall/${f}`]; cmp[k] = { median: +out[k].median.toFixed(3), stable: out[k].stable, segs: out[k].segs, sameAsAll: ref ? out[k].out0 === ref.out0 : null, weightMB: +(out[k].weight / 1e6).toFixed(1), stages: out[k].stages }; }
+console.log(JSON.stringify(cmp, null, 1)); await Bun.write(`${R}/mmq-comparison.json`, JSON.stringify(cmp, null, 2));
