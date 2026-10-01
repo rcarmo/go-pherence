@@ -1,0 +1,1 @@
+{"OciVersion":"1.2.1","Status":"exited","Running":false,"Paused":false,"Restarting":false,"OOMKilled":true,"Dead":false,"Pid":0,"ExitCode":137,"Error":"","StartedAt":"2026-10-01T03:27:10.417118982+01:00","FinishedAt":"2026-10-01T03:28:41.440970919+01:00","CheckpointedAt":"0001-01-01T00:00:00Z","RestoredAt":"0001-01-01T00:00:00Z"}

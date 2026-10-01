@@ -292,7 +292,10 @@ func nativeSpeechLayerNorm(t *testing.T) {
 	}
 }
 func nativeSpeechAttention(t *testing.T) {
-	op, err := NewVkAttentionF32(context.Background())
+	nativeSpeechAttentionWith(t, NewVkAttentionF32)
+}
+func nativeSpeechAttentionWith(t *testing.T, constructor func(context.Context) (*VkAttentionF32, error)) {
+	op, err := constructor(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

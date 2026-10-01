@@ -57,6 +57,12 @@ func NewVulkanEncoderRegTile64(ctx context.Context, source *Encoder, frames int)
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32RegTile64)
 }
 
+// NewVulkanEncoderTile64Key32 explicitly selects F32 tile64 projections and
+// the separately qualified key32 FMA online-softmax attention candidate.
+func NewVulkanEncoderTile64Key32(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32)
+}
+
 // NewVulkanEncoderQ8Weight explicitly selects per-output-row symmetric Q8 for
 // transformer projection weights only. Stem convolutions, normalization,
 // activations, attention, accumulation and output remain F32. This candidate is
@@ -100,6 +106,7 @@ const (
 	vulkanLinearF32 vulkanLinearMode = iota
 	vulkanLinearF32RegTile
 	vulkanLinearF32RegTile64
+	vulkanLinearF32Tile64Key32
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -218,7 +225,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		}
 	}
 	if linearMode != vulkanLinearQ8Weight {
-		if linearMode == vulkanLinearF32RegTile64 {
+		if linearMode == vulkanLinearF32RegTile64 || linearMode == vulkanLinearF32Tile64Key32 {
 			s.linear, err = vk.NewVkLinearRegTile64F32(ctx)
 		} else if linearMode == vulkanLinearF32RegTile {
 			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
@@ -234,7 +241,12 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if s.attention, err = vk.NewVkAttentionF32(ctx); err != nil {
+	if linearMode == vulkanLinearF32Tile64Key32 {
+		s.attention, err = vk.NewVkAttentionKey32F32(ctx)
+	} else {
+		s.attention, err = vk.NewVkAttentionF32(ctx)
+	}
+	if err != nil {
 		return nil, err
 	}
 	s.resources = append(s.resources, s.attention)

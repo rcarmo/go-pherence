@@ -1,6 +1,6 @@
 # Native Silero VAD
 
-This package implements the native CPU graph, fresh recurrent state, speech-span policy and original-sample mapping for the retained Silero 6.2.0 Whisper VAD checkpoint. It is experimental. A separate checked Whisper `TranscribePCMWindowsWithVAD` API is under development. It is not a serving default. Nine bounded independent whisper.cpp fixtures passed probability, segmentation, reset and cancelled-retry checks. End-to-end Whisper VAD with word timestamps currently rejects a JFK word crossing a removed gap; recognition quality and speed acceptance are incomplete.
+This package implements the native CPU graph, fresh recurrent state, speech-span policy and original-sample mapping for the retained Silero 6.2.0 Whisper VAD checkpoint. It is experimental and available through the checked [Whisper VAD API](../whisper/pcm_vad.go). It is not a serving default. Nine bounded independent whisper.cpp fixtures passed probability, segmentation, reset and cancelled-retry checks. Explicit gap-preserving Whisper VAD completes bounded multilingual/word-timing fixtures. Independent recognition/timing accuracy and speed acceptance are incomplete.
 
 The [legacy GGML loader](../../loader/silero/ggml.go) requires a pinned hash before decoding. It admits the 15-tensor inventory and scalar final bias, owns decoded F32 values, and rejects malformed geometry, unsupported dtypes, nonfinite weights and trailing data. `New` copies immutable weights; each `NewStream` owns scratch and LSTM state.
 
@@ -18,7 +18,7 @@ F16 convolution weights and their im2col activations retain the source's binary1
 - `SpeechSpans` applies the selected threshold/hysteresis, minimum speech/silence, short-gap merge and padding policy. Output is clipped to actual PCM samples. Finite maximum-speech splitting is not implemented.
 - `CompactedReader` reads retained spans without holding the entire PCM. `MapStart` and `MapEnd` preserve different boundary directions between speech spans. A word/cue crossing a removed gap needs explicit caller handling; this package does not invent alignment.
 
-The existing no-VAD/resume Whisper APIs still only skip exact zero PCM. The development opt-in API uses fresh native VAD state and returns compacted-window coordinates separately from original segments, words and retained speech spans. It rejects word intervals crossing removed silence, exposes no resume API and changes no checkpoint or serving default. Toy integration tests establish orchestration and mapping only; they do not establish trained recognition quality or performance acceptance.
+The existing no-VAD/resume Whisper APIs still only skip exact zero PCM. The opt-in API uses fresh native VAD state and returns retained-window coordinates separately from original segments, words and speech spans. Compact mode rejects words crossing removed silence. Explicit `PreserveWindowGaps` retains actual internal silence in each original-audio group for recognition and alignment; disjoint groups decode separately. It exposes no resume API and changes no checkpoint or serving default. See [bounded gap-preserving qualification](../../docs/validation/vulkan-attention-key32-20261001.md). Toy integration tests establish orchestration and mapping only; they do not establish trained recognition quality or performance acceptance.
 
 ## Verification
 

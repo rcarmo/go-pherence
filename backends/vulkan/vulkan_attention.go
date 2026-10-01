@@ -17,11 +17,21 @@ import (
 type VkAttentionF32 struct{ kernel *VkComputeKernel }
 
 func NewVkAttentionF32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32)
+}
+
+// NewVkAttentionKey32F32 explicitly selects 32-key online softmax with parallel
+// exponent evaluation and F32 FMA. It changes reduction/rounding relative to
+// the baseline and must be separately numerically/task-qualified. No fallback.
+func NewVkAttentionKey32F32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32_key32)
+}
+func newVkAttentionF32Code(ctx context.Context, code []byte) (*VkAttentionF32, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err
 	}
 	defer vkRelease()
-	k, err := vkKernelCreateLocked(spirv_attention_f32, 4, 20)
+	k, err := vkKernelCreateLocked(code, 4, 20)
 	if err != nil {
 		return nil, err
 	}

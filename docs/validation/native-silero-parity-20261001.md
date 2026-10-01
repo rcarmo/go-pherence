@@ -1,6 +1,6 @@
 # Native Silero bounded parity — 1 October 2026
 
-Native Go Silero passes nine independent, bounded whisper.cpp comparisons with ten repetitions each. The checked Whisper VAD integration still fails on a word crossing a removed JFK gap; it is experimental and unavailable as a serving default.
+Native Go Silero passes nine independent, bounded whisper.cpp comparisons with ten repetitions each. At this initial qualification, the checked compacted Whisper integration rejected a word crossing a removed JFK gap. The later explicit [gap-preserving mode](vulkan-attention-key32-20261001.md) completes bounded word-timing fixtures. Both modes are experimental and unavailable as serving defaults.
 
 ## Reference and arithmetic
 
@@ -34,6 +34,6 @@ Runs used an isolated network-disabled container, four-CPU quota, affinity CPUs 
 
 ## Limits
 
-This qualifies the bounded native VAD graph and span policy against the selected reference. It does not establish acoustic accuracy, finite maximum-speech splitting, long-form quality, durable VAD resume identity or end-to-end Whisper performance. The opt-in Whisper integration currently rejects `word crosses a removed VAD gap; original timing unavailable` on JFK. No timing interpolation, tolerance increase or default-service change was used to bypass that failure.
+This qualifies the bounded native VAD graph and span policy against the selected reference. It does not establish acoustic accuracy, finite maximum-speech splitting, long-form quality, durable VAD resume identity or end-to-end Whisper performance. The original compact-mode Whisper integration rejects `word crosses a removed VAD gap; original timing unavailable` on JFK. No timing interpolation, tolerance increase or default-service change was used to bypass that failure.
 
 Acceptance criteria: [native Go Whisper performance contract](../speech/whisper-go-performance-contract-20260930.md).

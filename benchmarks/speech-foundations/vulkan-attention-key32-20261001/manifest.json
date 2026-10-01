@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "scope": "explicit F32 key32/tile64 attention and original-gap-preserving native VAD, bounded fixtures only",
+  "limits": {
+    "cpus": 4,
+    "affinity": "0-7",
+    "memory_gib": 8,
+    "process_swap": 0,
+    "device": "IntelIrisXeRPL-P",
+    "driver": "Mesa26.1.5"
+  },
+  "failed_default_gc": "twogroups five-repeat OOM at8GiB;GOMEMLIMIT4GiB passes unchanged cap",
+  "pins": [
+    {
+      "file": "whisper-key32-final-native.log",
+      "bytes": 5070,
+      "sha256": "b2e360c51ee0fe583dbc0eaaca8234ac3c8f364f01692d0e317d737fccc6e5cf"
+    },
+    {
+      "file": "whisper-key32-cancel-native.log",
+      "bytes": 443,
+      "sha256": "348a67d915bfb34f3418dcdcfc762354fa1bb178aad86ee3d75dc7dec42f0caf"
+    },
+    {
+      "file": "whisper-key32-whole-tree-exit.txt",
+      "bytes": 28,
+      "sha256": "08289145c4a22801a0628c5c3871717f7742cba48b02b278ca466de9e93bb9a8"
+    },
+    {
+      "file": "whisper-key32-whole-tree-state.json",
+      "bytes": 331,
+      "sha256": "7a1d4e82e4d233342da8077ac2b01bbffc5f84e03c4656d9dbc886e56a100b7d"
+    },
+    {
+      "file": "go-vulkan-f32-tile64-key32-final-jfk-vad0-words0.json",
+      "bytes": 7733,
+      "sha256": "31d7443a1713c7f4df5f713b07d22648265b512e5b1c776917bf689d90ec6a90"
+    },
+    {
+      "file": "go-tile64-keepgaps-gclimit-jfk-vad1-words1.json",
+      "bytes": 30205,
+      "sha256": "bfb2edc9c95e6a1152b10c8cb9ff86c2095384c382b142164c42d624504751f5"
+    },
+    {
+      "file": "go-key32-keepgaps-gclimit-jfk-vad1-words1.json",
+      "bytes": 30209,
+      "sha256": "a301241acb7592d8287f5e01252d429288a44935d77dbf41b4c61f424822bfe9"
+    },
+    {
+      "file": "go-key32-keepgaps-twogroups-gclimit-vad1-words1.json",
+      "bytes": 58440,
+      "sha256": "304bbab28663ca3d1c15f5a8690366eedf76fd30f841820bc9ae197fa52d724f"
+    },
+    {
+      "file": "whisper-key32-twogroups-state.json",
+      "bytes": 332,
+      "sha256": "cf08cdc82afb31c910517581c665c078dc50b03a6e6e9fa40190d622d2a3b938"
+    },
+    {
+      "file": "whisper-key32-twogroups-exit.txt",
+      "bytes": 30,
+      "sha256": "6b31152208c65853a4621e85ce38a4e5dc9da885f16e3f54d462c43d70752cee"
+    },
+    {
+      "file": "whisper-key32-twogroups-gclimit-state.json",
+      "bytes": 331,
+      "sha256": "191ad825959acbcd2e3e61ea98e9dd169c470ccf53cc9b691b069ed82202d145"
+    },
+    {
+      "file": "whisper-key32-twogroups-gclimit-monitor.log",
+      "bytes": 1562,
+      "sha256": "0c4f651f606895a0ce906058697a22a71f5ee78722216c060aec8eb9b871be4c"
+    },
+    {
+      "file": "go-vulkan-f32-tile64-key32-minds-pt-0-vad0-words0.json",
+      "bytes": 7768,
+      "sha256": "3a9d528cfec03f809ba855fa40e09207f638e83615fa21fcd38b884288d7a307"
+    },
+    {
+      "file": "go-vulkan-f32-tile64-key32-minds-pt-1-vad0-words0.json",
+      "bytes": 5930,
+      "sha256": "70bffcf2865e833382465d9718c1a37b46809034ce8343ad6ce87c68943b79a6"
+    },
+    {
+      "file": "go-vulkan-f32-tile64-key32-minds-fr-0-vad0-words0.json",
+      "bytes": 5449,
+      "sha256": "9732a07a82930017a609462e5e74790c41028ac08501e4ef257a751983f10d6a"
+    },
+    {
+      "file": "go-key32-keepgaps-jfk-vad1-words1.json",
+      "bytes": 30180,
+      "sha256": "a137100020414be00d27a2d18277dace12907fdd1804d100696414f2e3947908"
+    },
+    {
+      "file": "go-key32-keepgaps-minds-pt-0-vad1-words1.json",
+      "bytes": 27697,
+      "sha256": "c47af1e222079f97611d8dbaf2bde5dee4bb997b8566bf057d5089b5f1cea04e"
+    },
+    {
+      "file": "go-key32-keepgaps-minds-pt-1-vad1-words1.json",
+      "bytes": 15544,
+      "sha256": "f050d09657f3e1a08b115cadfd0d6ed2be2ba7bf7dceff78cd24f393e6f94fea"
+    },
+    {
+      "file": "go-key32-keepgaps-minds-fr-0-vad1-words1.json",
+      "bytes": 11547,
+      "sha256": "d85a5eff140af9d0bbac0ea69d853cdc1441c2d1ca158ed8b379fb27d2a51a15"
+    },
+    {
+      "file": "go-key32-keepgaps-padded-vad1-words1.json",
+      "bytes": 30208,
+      "sha256": "2a75d12163bbbd5aa556d5570c7541222608778fc0145d40fad55544c4b1ff23"
+    },
+    {
+      "file": "go-key32-keepgaps-silence-vad1-words1.json",
+      "bytes": 1853,
+      "sha256": "a474cf65d7686bb4b7aaba820fb4a542c0f4f5725f74e4449664ec9dccb186a6"
+    },
+    {
+      "file": "whisper-key32-final-tree-exit.txt",
+      "bytes": 50,
+      "sha256": "8f47311b8978d3b7c17a2bf96f6bcaea7bccb4de3b611de2d7a3eea2ee2619ae"
+    },
+    {
+      "file": "whisper-key32-final-tree-state.json",
+      "bytes": 331,
+      "sha256": "347e1027b11059aa0718141bd6248dcc06d8520364d485d9a3169d07644c7920"
+    },
+    {
+      "file": "whisper-key32-final-tree-resumed-monitor.log",
+      "bytes": 898,
+      "sha256": "12ccaf956e49565ee30ccc376df53710a70ccef7ca9cc2efb62c75b6cff8051c"
+    },
+    {
+      "file": "whisper-key32-independent-final.log",
+      "bytes": 443,
+      "sha256": "a4e068f6f7be45faac711ef275017759f282ccea398e0bf1daded640256281b5"
+    },
+    {
+      "file": "original-q5-vad-dtw-jfk.json",
+      "bytes": 7999,
+      "sha256": "000f437d2510bb92edefb0dc7d9bc5f41debeab9443732a33b0d407b52182460"
+    },
+    {
+      "file": "whisper-original-vad-dtw.log",
+      "bytes": 6818,
+      "sha256": "51e331dce2c2260b8baadcd9884a8a0b82f883791e586be7461434faf9919b14",
+      "raw_sha256": "185f055d5c8215c33863de6a7a2d3c2e6db8017f610c2c1e131ebad67da50910",
+      "raw_workspace_path": "tmp/whisper-vad-parity-20261001/whisper-original-vad-dtw.log",
+      "normalisation": "trim trailing whitespace only; raw retained at workspace path"
+    }
+  ],
+  "validation": "Final current tree completed exit0 after inbound turn interrupted host runner; guard resumed until drain; full log pipe truncated by interruption, prior whole-tree full logs retained."
+}

@@ -21,7 +21,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve, join } from 'node:path';
 
 const root=resolve(import.meta.dir,'..');
-export const shaderNames=['attention_f32','attention_score','channel_affine_relu_f32','conv1d3_f32','conv2d_chw_f32','gelu_erf_f32','gelu_tanh_mul_f32','gemv_bf16_mixed','gemv_f32','layer_norm_f32','linear_f16_weight_f32','linear_f32','linear_f32_regtile','linear_f32_regtile64','linear_q8_weight_f32','lstm_cell_f32','lstm_sequence_f32','rms_norm_bf16','rms_norm_f32','rms_norm_no_scale_f32','rope_partial_f32','rope_sequence_f32','silu_mul_f32','vec_add_bf16','vec_add_f32'];
+export const shaderNames=['attention_f32','attention_f32_key32','attention_score','channel_affine_relu_f32','conv1d3_f32','conv2d_chw_f32','gelu_erf_f32','gelu_tanh_mul_f32','gemv_bf16_mixed','gemv_f32','layer_norm_f32','linear_f16_weight_f32','linear_f32','linear_f32_regtile','linear_f32_regtile64','linear_q8_weight_f32','lstm_cell_f32','lstm_sequence_f32','rms_norm_bf16','rms_norm_f32','rms_norm_no_scale_f32','rope_partial_f32','rope_sequence_f32','silu_mul_f32','vec_add_bf16','vec_add_f32'];
 const sha=(b:Uint8Array|string)=>createHash('sha256').update(b).digest('hex');
 
 export function embeddedShaders(text:string):Map<string,Uint8Array>{
@@ -84,7 +84,7 @@ async function main(){
   const validator=await tool(process.env.SPIRV_VAL||'spirv-val');report.validator=validator;
   const compiler=await tool(process.env.GLSLANG_VALIDATOR||'glslangValidator');report.compiler=compiler;
   const goPath=join(root,'backends/vulkan/vulkan_spirv_embedded.go');
-  const goText=await Bun.file(goPath).text(),extraText=await Bun.file(join(root,'backends/vulkan/vulkan_spirv_linear_regtile64.go')).text(),embedded=embeddedShaders(goText+'\n'+extraText);
+  const goText=await Bun.file(goPath).text(),extraText=await Bun.file(join(root,'backends/vulkan/vulkan_spirv_linear_regtile64.go')).text()+'\n'+await Bun.file(join(root,'backends/vulkan/vulkan_spirv_attention_key32.go')).text(),embedded=embeddedShaders(goText+'\n'+extraText);
   report.embeddedSourceSHA256=sha(goText);report.extraEmbeddedSourceSHA256=sha(extraText);
   temporary=mkdtempSync(join(tmpdir(),'go-pherence-spirv-'));
   for(const name of shaderNames){

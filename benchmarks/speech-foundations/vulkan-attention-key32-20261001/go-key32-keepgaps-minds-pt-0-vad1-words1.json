@@ -1,0 +1,1099 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32",
+  "Language": "pt",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+  "ModelLoadSeconds": 5.0388707,
+  "PreparationSeconds": 1.734378526,
+  "CleanupSeconds": 0.008969258,
+  "FullArmSeconds": 49.355523204,
+  "InputSamples": 144726,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 8.597493049,
+      "AllocatedBytes": 324575344,
+      "Allocations": 28372,
+      "DecoderSelfSeconds": 0.334566465,
+      "DecoderCrossSeconds": 0.427740414,
+      "DecoderMLPSeconds": 0.691171924,
+      "DecoderHeadSeconds": 0.335905783,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 100800,
+            "EmitStart": 0,
+            "EmitEnd": 100800,
+            "InputSamples": 480000,
+            "PadSamples": 379200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 18464,
+              "End": 79840
+            },
+            {
+              "Start": 82464,
+              "End": 119264
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 18464,
+              "End": 119264
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.154,
+              "End": 7.374,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Bom",
+              "Start": 1.154,
+              "End": 1.454,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "dia,",
+              "Start": 1.454,
+              "End": 1.674,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "estou",
+              "Start": 1.674,
+              "End": 1.794,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "a",
+              "Start": 1.794,
+              "End": 1.934,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "ligar",
+              "Start": 1.934,
+              "End": 2.334,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "porque",
+              "Start": 2.334,
+              "End": 2.714,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "precisava",
+              "Start": 2.714,
+              "End": 3.014,
+              "TokenStart": 8,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "de",
+              "Start": 3.014,
+              "End": 3.474,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "informações",
+              "Start": 3.474,
+              "End": 3.994,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "sobre",
+              "Start": 3.994,
+              "End": 4.294,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "como",
+              "Start": 4.294,
+              "End": 4.374,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "é",
+              "Start": 4.374,
+              "End": 4.434,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "que",
+              "Start": 4.434,
+              "End": 4.514,
+              "TokenStart": 15,
+              "TokenEnd": 16
+            },
+            {
+              "Word": "eu",
+              "Start": 4.514,
+              "End": 4.814,
+              "TokenStart": 16,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "posso",
+              "Start": 4.814,
+              "End": 5.514,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "depositar",
+              "Start": 5.514,
+              "End": 6.374,
+              "TokenStart": 18,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 6.374,
+              "End": 6.854,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "na",
+              "Start": 6.854,
+              "End": 7.074,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "minha",
+              "Start": 7.074,
+              "End": 7.354,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "conta.",
+              "Start": 7.354,
+              "End": 7.434,
+              "TokenStart": 23,
+              "TokenEnd": 25
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 8.494544515,
+      "AllocatedBytes": 322930184,
+      "Allocations": 28256,
+      "DecoderSelfSeconds": 0.328069006,
+      "DecoderCrossSeconds": 0.417508964,
+      "DecoderMLPSeconds": 0.69177614,
+      "DecoderHeadSeconds": 0.341410594,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 100800,
+            "EmitStart": 0,
+            "EmitEnd": 100800,
+            "InputSamples": 480000,
+            "PadSamples": 379200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 18464,
+              "End": 79840
+            },
+            {
+              "Start": 82464,
+              "End": 119264
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 18464,
+              "End": 119264
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.154,
+              "End": 7.374,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Bom",
+              "Start": 1.154,
+              "End": 1.454,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "dia,",
+              "Start": 1.454,
+              "End": 1.674,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "estou",
+              "Start": 1.674,
+              "End": 1.794,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "a",
+              "Start": 1.794,
+              "End": 1.934,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "ligar",
+              "Start": 1.934,
+              "End": 2.334,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "porque",
+              "Start": 2.334,
+              "End": 2.714,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "precisava",
+              "Start": 2.714,
+              "End": 3.014,
+              "TokenStart": 8,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "de",
+              "Start": 3.014,
+              "End": 3.474,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "informações",
+              "Start": 3.474,
+              "End": 3.994,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "sobre",
+              "Start": 3.994,
+              "End": 4.294,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "como",
+              "Start": 4.294,
+              "End": 4.374,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "é",
+              "Start": 4.374,
+              "End": 4.434,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "que",
+              "Start": 4.434,
+              "End": 4.514,
+              "TokenStart": 15,
+              "TokenEnd": 16
+            },
+            {
+              "Word": "eu",
+              "Start": 4.514,
+              "End": 4.814,
+              "TokenStart": 16,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "posso",
+              "Start": 4.814,
+              "End": 5.514,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "depositar",
+              "Start": 5.514,
+              "End": 6.374,
+              "TokenStart": 18,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 6.374,
+              "End": 6.854,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "na",
+              "Start": 6.854,
+              "End": 7.074,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "minha",
+              "Start": 7.074,
+              "End": 7.354,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "conta.",
+              "Start": 7.354,
+              "End": 7.434,
+              "TokenStart": 23,
+              "TokenEnd": 25
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 8.458578536,
+      "AllocatedBytes": 322930312,
+      "Allocations": 28253,
+      "DecoderSelfSeconds": 0.325185216,
+      "DecoderCrossSeconds": 0.418120181,
+      "DecoderMLPSeconds": 0.683274042,
+      "DecoderHeadSeconds": 0.342050482,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 100800,
+            "EmitStart": 0,
+            "EmitEnd": 100800,
+            "InputSamples": 480000,
+            "PadSamples": 379200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 18464,
+              "End": 79840
+            },
+            {
+              "Start": 82464,
+              "End": 119264
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 18464,
+              "End": 119264
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.154,
+              "End": 7.374,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Bom",
+              "Start": 1.154,
+              "End": 1.454,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "dia,",
+              "Start": 1.454,
+              "End": 1.674,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "estou",
+              "Start": 1.674,
+              "End": 1.794,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "a",
+              "Start": 1.794,
+              "End": 1.934,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "ligar",
+              "Start": 1.934,
+              "End": 2.334,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "porque",
+              "Start": 2.334,
+              "End": 2.714,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "precisava",
+              "Start": 2.714,
+              "End": 3.014,
+              "TokenStart": 8,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "de",
+              "Start": 3.014,
+              "End": 3.474,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "informações",
+              "Start": 3.474,
+              "End": 3.994,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "sobre",
+              "Start": 3.994,
+              "End": 4.294,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "como",
+              "Start": 4.294,
+              "End": 4.374,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "é",
+              "Start": 4.374,
+              "End": 4.434,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "que",
+              "Start": 4.434,
+              "End": 4.514,
+              "TokenStart": 15,
+              "TokenEnd": 16
+            },
+            {
+              "Word": "eu",
+              "Start": 4.514,
+              "End": 4.814,
+              "TokenStart": 16,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "posso",
+              "Start": 4.814,
+              "End": 5.514,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "depositar",
+              "Start": 5.514,
+              "End": 6.374,
+              "TokenStart": 18,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 6.374,
+              "End": 6.854,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "na",
+              "Start": 6.854,
+              "End": 7.074,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "minha",
+              "Start": 7.074,
+              "End": 7.354,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "conta.",
+              "Start": 7.354,
+              "End": 7.434,
+              "TokenStart": 23,
+              "TokenEnd": 25
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 8.482061106,
+      "AllocatedBytes": 322904632,
+      "Allocations": 28201,
+      "DecoderSelfSeconds": 0.328016923,
+      "DecoderCrossSeconds": 0.420618899,
+      "DecoderMLPSeconds": 0.687523474,
+      "DecoderHeadSeconds": 0.337538174,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 100800,
+            "EmitStart": 0,
+            "EmitEnd": 100800,
+            "InputSamples": 480000,
+            "PadSamples": 379200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 18464,
+              "End": 79840
+            },
+            {
+              "Start": 82464,
+              "End": 119264
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 18464,
+              "End": 119264
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.154,
+              "End": 7.374,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Bom",
+              "Start": 1.154,
+              "End": 1.454,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "dia,",
+              "Start": 1.454,
+              "End": 1.674,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "estou",
+              "Start": 1.674,
+              "End": 1.794,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "a",
+              "Start": 1.794,
+              "End": 1.934,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "ligar",
+              "Start": 1.934,
+              "End": 2.334,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "porque",
+              "Start": 2.334,
+              "End": 2.714,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "precisava",
+              "Start": 2.714,
+              "End": 3.014,
+              "TokenStart": 8,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "de",
+              "Start": 3.014,
+              "End": 3.474,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "informações",
+              "Start": 3.474,
+              "End": 3.994,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "sobre",
+              "Start": 3.994,
+              "End": 4.294,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "como",
+              "Start": 4.294,
+              "End": 4.374,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "é",
+              "Start": 4.374,
+              "End": 4.434,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "que",
+              "Start": 4.434,
+              "End": 4.514,
+              "TokenStart": 15,
+              "TokenEnd": 16
+            },
+            {
+              "Word": "eu",
+              "Start": 4.514,
+              "End": 4.814,
+              "TokenStart": 16,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "posso",
+              "Start": 4.814,
+              "End": 5.514,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "depositar",
+              "Start": 5.514,
+              "End": 6.374,
+              "TokenStart": 18,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 6.374,
+              "End": 6.854,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "na",
+              "Start": 6.854,
+              "End": 7.074,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "minha",
+              "Start": 7.074,
+              "End": 7.354,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "conta.",
+              "Start": 7.354,
+              "End": 7.434,
+              "TokenStart": 23,
+              "TokenEnd": 25
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 8.539647351,
+      "AllocatedBytes": 322907520,
+      "Allocations": 28209,
+      "DecoderSelfSeconds": 0.331163923,
+      "DecoderCrossSeconds": 0.428823685,
+      "DecoderMLPSeconds": 0.697079758,
+      "DecoderHeadSeconds": 0.347323071,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 100800,
+            "EmitStart": 0,
+            "EmitEnd": 100800,
+            "InputSamples": 480000,
+            "PadSamples": 379200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 18464,
+              "End": 79840
+            },
+            {
+              "Start": 82464,
+              "End": 119264
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 18464,
+              "End": 119264
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.154,
+              "End": 7.374,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Bom",
+              "Start": 1.154,
+              "End": 1.454,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "dia,",
+              "Start": 1.454,
+              "End": 1.674,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "estou",
+              "Start": 1.674,
+              "End": 1.794,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "a",
+              "Start": 1.794,
+              "End": 1.934,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "ligar",
+              "Start": 1.934,
+              "End": 2.334,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "porque",
+              "Start": 2.334,
+              "End": 2.714,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "precisava",
+              "Start": 2.714,
+              "End": 3.014,
+              "TokenStart": 8,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "de",
+              "Start": 3.014,
+              "End": 3.474,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "informações",
+              "Start": 3.474,
+              "End": 3.994,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "sobre",
+              "Start": 3.994,
+              "End": 4.294,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "como",
+              "Start": 4.294,
+              "End": 4.374,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "é",
+              "Start": 4.374,
+              "End": 4.434,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "que",
+              "Start": 4.434,
+              "End": 4.514,
+              "TokenStart": 15,
+              "TokenEnd": 16
+            },
+            {
+              "Word": "eu",
+              "Start": 4.514,
+              "End": 4.814,
+              "TokenStart": 16,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "posso",
+              "Start": 4.814,
+              "End": 5.514,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "depositar",
+              "Start": 5.514,
+              "End": 6.374,
+              "TokenStart": 18,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 6.374,
+              "End": 6.854,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "na",
+              "Start": 6.854,
+              "End": 7.074,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "minha",
+              "Start": 7.074,
+              "End": 7.354,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "conta.",
+              "Start": 7.354,
+              "End": 7.434,
+              "TokenStart": 23,
+              "TokenEnd": 25
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

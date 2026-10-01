@@ -1,0 +1,5 @@
+=== RUN   TestVulkanEncoderKey32Native
+    vulkan_encoder_key32_native_test.go:121: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":3.5762786865234375e-7,"name":"key32-independent","rel_budget":0.0001,"values":136}
+    vulkan_encoder_key32_native_test.go:121: ENCODER_METRIC {"abs_budget":0.0001,"max_abs":0.0000011920928955078125,"name":"key32-independent","rel_budget":0.0001,"values":4160}
+--- PASS: TestVulkanEncoderKey32Native (0.33s)
+PASS
