@@ -12,7 +12,7 @@ Required variables:
 |---|---|
 | `GO_PHERENCE_TEST_WHISPER_GOAL=1` | Explicit trained compute admission |
 | `GO_PHERENCE_WHISPER_TURBO_DIR` | Pinned model/config/tokenizer/generation files used by existing Turbo gates |
-| `GO_PHERENCE_WHISPER_BENCH_BACKEND` | `cpu`, `vulkan-f32`, `vulkan-f32-tile64`, `vulkan-f32-tile64-key32`, `vulkan-q8-mlp`, or `vulkan-q8-kv-mlp` |
+| `GO_PHERENCE_WHISPER_BENCH_BACKEND` | `cpu`, `vulkan-f32`, `vulkan-f32-tile64`, `vulkan-f32-tile64-key32`, `vulkan-f32-tile64-key32-scoreilp`, `vulkan-q8-mlp`, or `vulkan-q8-kv-mlp` |
 | `GO_PHERENCE_WHISPER_BENCH_REPEATS` | Five through ten repetitions |
 | `GO_PHERENCE_WHISPER_BENCH_VAD` | Explicit `0` or `1` |
 | `GO_PHERENCE_WHISPER_BENCH_WORDS` | Explicit `0` or `1` |
@@ -30,7 +30,7 @@ Required variables:
 
 Use a bounded test timeout no longer than30minutes. Vulkan arms retain a4GiB application allocation cap and assert cleanup to the isolated native baseline. This is not a total process/RSS limit; use container/service caps externally.
 
-The opt-in key32/gap-preserving results and limits are recorded in [bounded validation](../../docs/validation/vulkan-attention-key32-20261001.md). Original Q5/F16 stored-value diagnostics are recorded in [compatibility validation](../../docs/validation/whisper-original-value-bridge-20261001.md).
+The opt-in key32/gap-preserving results and limits are recorded in [bounded validation](../../docs/validation/vulkan-attention-key32-20261001.md). The exact-order score-interleaving candidate is recorded in [score ILP validation](../../docs/validation/vulkan-attention-scoreilp-20261001.md). Original Q5/F16 stored-value diagnostics are recorded in [compatibility validation](../../docs/validation/whisper-original-value-bridge-20261001.md).
 
 ## Evidence
 

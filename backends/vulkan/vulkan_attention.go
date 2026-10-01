@@ -26,6 +26,14 @@ func NewVkAttentionF32(ctx context.Context) (*VkAttentionF32, error) {
 func NewVkAttentionKey32F32(ctx context.Context) (*VkAttentionF32, error) {
 	return newVkAttentionF32Code(ctx, spirv_attention_f32_key32)
 }
+
+// NewVkAttentionKey32ScoreILPF32 explicitly interleaves two independent score
+// accumulators while preserving increasing-channel FMA order for each key.
+// The key32 online-softmax and output-reduction orders remain unchanged.
+// This is an opt-in kernel, with no fallback or serving default selection.
+func NewVkAttentionKey32ScoreILPF32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32_key32_scoreilp)
+}
 func newVkAttentionF32Code(ctx context.Context, code []byte) (*VkAttentionF32, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err

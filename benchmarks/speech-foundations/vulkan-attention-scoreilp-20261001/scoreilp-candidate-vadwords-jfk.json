@@ -1,0 +1,1215 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32-scoreilp",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+  "ModelLoadSeconds": 5.068716179,
+  "PreparationSeconds": 1.763911856,
+  "CleanupSeconds": 0.008518193,
+  "FullArmSeconds": 47.180354783,
+  "InputSamples": 176000,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 8.127602138,
+      "AllocatedBytes": 202958888,
+      "Allocations": 28034,
+      "DecoderSelfSeconds": 0.344933476,
+      "DecoderCrossSeconds": 0.444979473,
+      "DecoderMLPSeconds": 0.723076962,
+      "DecoderHeadSeconds": 0.354347481,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "And",
+              "Start": 0.322,
+              "End": 0.862,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "so,",
+              "Start": 0.862,
+              "End": 1.202,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "my",
+              "Start": 1.202,
+              "End": 1.542,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "fellow",
+              "Start": 1.542,
+              "End": 2.102,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "Americans,",
+              "Start": 2.102,
+              "End": 3.782,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "ask",
+              "Start": 3.782,
+              "End": 4.242,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "not",
+              "Start": 4.242,
+              "End": 5.542,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "what",
+              "Start": 5.542,
+              "End": 5.802,
+              "TokenStart": 9,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "your",
+              "Start": 5.802,
+              "End": 6.242,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "country",
+              "Start": 6.242,
+              "End": 6.602,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "can",
+              "Start": 6.602,
+              "End": 6.822,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "do",
+              "Start": 6.822,
+              "End": 7.062,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "for",
+              "Start": 7.062,
+              "End": 7.402,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "you,",
+              "Start": 7.402,
+              "End": 8.522,
+              "TokenStart": 15,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "ask",
+              "Start": 8.522,
+              "End": 8.762,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "what",
+              "Start": 8.762,
+              "End": 9.042,
+              "TokenStart": 18,
+              "TokenEnd": 19
+            },
+            {
+              "Word": "you",
+              "Start": 9.042,
+              "End": 9.362,
+              "TokenStart": 19,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "can",
+              "Start": 9.362,
+              "End": 9.562,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "do",
+              "Start": 9.562,
+              "End": 9.782,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "for",
+              "Start": 9.782,
+              "End": 9.982,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "your",
+              "Start": 9.982,
+              "End": 10.362,
+              "TokenStart": 23,
+              "TokenEnd": 24
+            },
+            {
+              "Word": "country.",
+              "Start": 10.362,
+              "End": 10.602,
+              "TokenStart": 24,
+              "TokenEnd": 26
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 8.035441444,
+      "AllocatedBytes": 201269640,
+      "Allocations": 27846,
+      "DecoderSelfSeconds": 0.347119033,
+      "DecoderCrossSeconds": 0.448344043,
+      "DecoderMLPSeconds": 0.731296496,
+      "DecoderHeadSeconds": 0.356617092,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "And",
+              "Start": 0.322,
+              "End": 0.862,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "so,",
+              "Start": 0.862,
+              "End": 1.202,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "my",
+              "Start": 1.202,
+              "End": 1.542,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "fellow",
+              "Start": 1.542,
+              "End": 2.102,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "Americans,",
+              "Start": 2.102,
+              "End": 3.782,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "ask",
+              "Start": 3.782,
+              "End": 4.242,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "not",
+              "Start": 4.242,
+              "End": 5.542,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "what",
+              "Start": 5.542,
+              "End": 5.802,
+              "TokenStart": 9,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "your",
+              "Start": 5.802,
+              "End": 6.242,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "country",
+              "Start": 6.242,
+              "End": 6.602,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "can",
+              "Start": 6.602,
+              "End": 6.822,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "do",
+              "Start": 6.822,
+              "End": 7.062,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "for",
+              "Start": 7.062,
+              "End": 7.402,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "you,",
+              "Start": 7.402,
+              "End": 8.522,
+              "TokenStart": 15,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "ask",
+              "Start": 8.522,
+              "End": 8.762,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "what",
+              "Start": 8.762,
+              "End": 9.042,
+              "TokenStart": 18,
+              "TokenEnd": 19
+            },
+            {
+              "Word": "you",
+              "Start": 9.042,
+              "End": 9.362,
+              "TokenStart": 19,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "can",
+              "Start": 9.362,
+              "End": 9.562,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "do",
+              "Start": 9.562,
+              "End": 9.782,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "for",
+              "Start": 9.782,
+              "End": 9.982,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "your",
+              "Start": 9.982,
+              "End": 10.362,
+              "TokenStart": 23,
+              "TokenEnd": 24
+            },
+            {
+              "Word": "country.",
+              "Start": 10.362,
+              "End": 10.602,
+              "TokenStart": 24,
+              "TokenEnd": 26
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 8.059627047,
+      "AllocatedBytes": 201274608,
+      "Allocations": 27854,
+      "DecoderSelfSeconds": 0.341987229,
+      "DecoderCrossSeconds": 0.440634654,
+      "DecoderMLPSeconds": 0.720694404,
+      "DecoderHeadSeconds": 0.353019491,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "And",
+              "Start": 0.322,
+              "End": 0.862,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "so,",
+              "Start": 0.862,
+              "End": 1.202,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "my",
+              "Start": 1.202,
+              "End": 1.542,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "fellow",
+              "Start": 1.542,
+              "End": 2.102,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "Americans,",
+              "Start": 2.102,
+              "End": 3.782,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "ask",
+              "Start": 3.782,
+              "End": 4.242,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "not",
+              "Start": 4.242,
+              "End": 5.542,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "what",
+              "Start": 5.542,
+              "End": 5.802,
+              "TokenStart": 9,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "your",
+              "Start": 5.802,
+              "End": 6.242,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "country",
+              "Start": 6.242,
+              "End": 6.602,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "can",
+              "Start": 6.602,
+              "End": 6.822,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "do",
+              "Start": 6.822,
+              "End": 7.062,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "for",
+              "Start": 7.062,
+              "End": 7.402,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "you,",
+              "Start": 7.402,
+              "End": 8.522,
+              "TokenStart": 15,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "ask",
+              "Start": 8.522,
+              "End": 8.762,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "what",
+              "Start": 8.762,
+              "End": 9.042,
+              "TokenStart": 18,
+              "TokenEnd": 19
+            },
+            {
+              "Word": "you",
+              "Start": 9.042,
+              "End": 9.362,
+              "TokenStart": 19,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "can",
+              "Start": 9.362,
+              "End": 9.562,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "do",
+              "Start": 9.562,
+              "End": 9.782,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "for",
+              "Start": 9.782,
+              "End": 9.982,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "your",
+              "Start": 9.982,
+              "End": 10.362,
+              "TokenStart": 23,
+              "TokenEnd": 24
+            },
+            {
+              "Word": "country.",
+              "Start": 10.362,
+              "End": 10.602,
+              "TokenStart": 24,
+              "TokenEnd": 26
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 8.030122901,
+      "AllocatedBytes": 201260736,
+      "Allocations": 27813,
+      "DecoderSelfSeconds": 0.347219513,
+      "DecoderCrossSeconds": 0.443279393,
+      "DecoderMLPSeconds": 0.729331602,
+      "DecoderHeadSeconds": 0.35537299,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "And",
+              "Start": 0.322,
+              "End": 0.862,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "so,",
+              "Start": 0.862,
+              "End": 1.202,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "my",
+              "Start": 1.202,
+              "End": 1.542,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "fellow",
+              "Start": 1.542,
+              "End": 2.102,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "Americans,",
+              "Start": 2.102,
+              "End": 3.782,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "ask",
+              "Start": 3.782,
+              "End": 4.242,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "not",
+              "Start": 4.242,
+              "End": 5.542,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "what",
+              "Start": 5.542,
+              "End": 5.802,
+              "TokenStart": 9,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "your",
+              "Start": 5.802,
+              "End": 6.242,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "country",
+              "Start": 6.242,
+              "End": 6.602,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "can",
+              "Start": 6.602,
+              "End": 6.822,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "do",
+              "Start": 6.822,
+              "End": 7.062,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "for",
+              "Start": 7.062,
+              "End": 7.402,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "you,",
+              "Start": 7.402,
+              "End": 8.522,
+              "TokenStart": 15,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "ask",
+              "Start": 8.522,
+              "End": 8.762,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "what",
+              "Start": 8.762,
+              "End": 9.042,
+              "TokenStart": 18,
+              "TokenEnd": 19
+            },
+            {
+              "Word": "you",
+              "Start": 9.042,
+              "End": 9.362,
+              "TokenStart": 19,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "can",
+              "Start": 9.362,
+              "End": 9.562,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "do",
+              "Start": 9.562,
+              "End": 9.782,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "for",
+              "Start": 9.782,
+              "End": 9.982,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "your",
+              "Start": 9.982,
+              "End": 10.362,
+              "TokenStart": 23,
+              "TokenEnd": 24
+            },
+            {
+              "Word": "country.",
+              "Start": 10.362,
+              "End": 10.602,
+              "TokenStart": 24,
+              "TokenEnd": 26
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 8.085484473,
+      "AllocatedBytes": 201261440,
+      "Allocations": 27819,
+      "DecoderSelfSeconds": 0.347935556,
+      "DecoderCrossSeconds": 0.450179598,
+      "DecoderMLPSeconds": 0.726371662,
+      "DecoderHeadSeconds": 0.353840415,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "And",
+              "Start": 0.322,
+              "End": 0.862,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "so,",
+              "Start": 0.862,
+              "End": 1.202,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "my",
+              "Start": 1.202,
+              "End": 1.542,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "fellow",
+              "Start": 1.542,
+              "End": 2.102,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "Americans,",
+              "Start": 2.102,
+              "End": 3.782,
+              "TokenStart": 5,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "ask",
+              "Start": 3.782,
+              "End": 4.242,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "not",
+              "Start": 4.242,
+              "End": 5.542,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "what",
+              "Start": 5.542,
+              "End": 5.802,
+              "TokenStart": 9,
+              "TokenEnd": 10
+            },
+            {
+              "Word": "your",
+              "Start": 5.802,
+              "End": 6.242,
+              "TokenStart": 10,
+              "TokenEnd": 11
+            },
+            {
+              "Word": "country",
+              "Start": 6.242,
+              "End": 6.602,
+              "TokenStart": 11,
+              "TokenEnd": 12
+            },
+            {
+              "Word": "can",
+              "Start": 6.602,
+              "End": 6.822,
+              "TokenStart": 12,
+              "TokenEnd": 13
+            },
+            {
+              "Word": "do",
+              "Start": 6.822,
+              "End": 7.062,
+              "TokenStart": 13,
+              "TokenEnd": 14
+            },
+            {
+              "Word": "for",
+              "Start": 7.062,
+              "End": 7.402,
+              "TokenStart": 14,
+              "TokenEnd": 15
+            },
+            {
+              "Word": "you,",
+              "Start": 7.402,
+              "End": 8.522,
+              "TokenStart": 15,
+              "TokenEnd": 17
+            },
+            {
+              "Word": "ask",
+              "Start": 8.522,
+              "End": 8.762,
+              "TokenStart": 17,
+              "TokenEnd": 18
+            },
+            {
+              "Word": "what",
+              "Start": 8.762,
+              "End": 9.042,
+              "TokenStart": 18,
+              "TokenEnd": 19
+            },
+            {
+              "Word": "you",
+              "Start": 9.042,
+              "End": 9.362,
+              "TokenStart": 19,
+              "TokenEnd": 20
+            },
+            {
+              "Word": "can",
+              "Start": 9.362,
+              "End": 9.562,
+              "TokenStart": 20,
+              "TokenEnd": 21
+            },
+            {
+              "Word": "do",
+              "Start": 9.562,
+              "End": 9.782,
+              "TokenStart": 21,
+              "TokenEnd": 22
+            },
+            {
+              "Word": "for",
+              "Start": 9.782,
+              "End": 9.982,
+              "TokenStart": 22,
+              "TokenEnd": 23
+            },
+            {
+              "Word": "your",
+              "Start": 9.982,
+              "End": 10.362,
+              "TokenStart": 23,
+              "TokenEnd": 24
+            },
+            {
+              "Word": "country.",
+              "Start": 10.362,
+              "End": 10.602,
+              "TokenStart": 24,
+              "TokenEnd": 26
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

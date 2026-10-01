@@ -1,0 +1,411 @@
+go test ./docs -run '^TestModelLayout' -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.397s
+bun test scripts/model-layout.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/model-layout.test.ts:
+(pass) source is singular and checkpoint roots are ignored [35.20ms]
+(pass) Make defaults to checkpoints and honours explicit/legacy overrides [4.68ms]
+(pass) standard Make gates enforce the layout before broad validation [9.56ms]
+(pass) GitHub workflow runs the no-weights documentation and layout gate [0.29ms]
+(pass) Python asset helpers use checkpoints by default and preserve path overrides [121.32ms]
+
+ 5 pass
+ 0 fail
+ 3038 expect() calls
+Ran 5 tests across 1 file. [186.00ms]
+go build ./...
+go vet ./...
+GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 go test -count=1 -timeout=120s ./...
+ok  	github.com/rcarmo/go-pherence/backends/cuda/ptx	0.001s
+?   	github.com/rcarmo/go-pherence/backends/ggmlcompute	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlexec	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlgraph	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlquant	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/internal/ggmlutil	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/llamagraph	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/mlx	0.005s
+?   	github.com/rcarmo/go-pherence/backends/nvidia	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/ioctl	0.001s
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/ideogram	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q6	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	0.026s
+ok  	github.com/rcarmo/go-pherence/backends/placement	0.002s
+?   	github.com/rcarmo/go-pherence/backends/simd	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/simd/fft	0.005s
+ok  	github.com/rcarmo/go-pherence/backends/simd/kernels	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/bf16	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/fp8	0.103s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4	0.006s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/q4	0.002s
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	0.619s
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/board	0.002s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ime2	6.372s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/inference	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ort	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/rvv	0.003s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/tcm	0.001s
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	0.527s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/diarize-vtt	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags	0.001s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/moss-transcribe	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/nemotron	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/omnivoice	0.013s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/pockettts	0.001s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/qwen3tts-twoframe	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speakercheck	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjob	0.079s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	6.760s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/transcribe-web	0.004s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/whisper	0.002s
+?   	github.com/rcarmo/go-pherence/cmd/audio/whisperffndiag	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmarun	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve	0.007s
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserver	0.012s
+ok  	github.com/rcarmo/go-pherence/cmd/gliner2	0.002s
+?   	github.com/rcarmo/go-pherence/cmd/image/hy3dinspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4gen	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4inspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaeprobe	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaesmoke	0.003s
+?   	github.com/rcarmo/go-pherence/cmd/image/internal/k3flags	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/qwenimage21	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/zimageinspect	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/internal/dgflags	0.001s
+?   	github.com/rcarmo/go-pherence/cmd/internal/testexec	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/jevcompare	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/jevlike	0.059s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/go-system-one	0.002s
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/llmchat	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmgen	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmserver	0.008s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/servebench	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/specbench	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/speccheck	0.028s
+ok  	github.com/rcarmo/go-pherence/cmd/models/embcheck	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpparity	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpsmoke	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufinspect	0.056s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufsmoke	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/models/lfm2inspect	0.012s
+ok  	github.com/rcarmo/go-pherence/cmd/models/modelcoverage	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/models/shapecheck	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/needle	0.044s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen36run	0.003s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen3ttsinspect	0.020s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpmeta	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsmoke	0.002s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsynth	0.002s
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/ime2run	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/ime2test	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/npu-tcm	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_bench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ffnblockbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlplan	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphfusebench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphrun	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_llama	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortbench	0.001s
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortlayerbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_plandump	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_qbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_run	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/testi8i4	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/verifydot	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/tinydemo	[no test files]
+ok  	github.com/rcarmo/go-pherence/docs	5.469s
+ok  	github.com/rcarmo/go-pherence/gpu	0.001s
+ok  	github.com/rcarmo/go-pherence/half	0.003s
+?   	github.com/rcarmo/go-pherence/internal/checked	[no test files]
+ok  	github.com/rcarmo/go-pherence/internal/commandcapture	0.054s
+ok  	github.com/rcarmo/go-pherence/internal/contextmutex	0.003s
+ok  	github.com/rcarmo/go-pherence/internal/floatcmp	0.001s
+ok  	github.com/rcarmo/go-pherence/internal/ggmlfp16	0.003s
+ok  	github.com/rcarmo/go-pherence/internal/httpinput	0.002s
+?   	github.com/rcarmo/go-pherence/internal/modelcoverage	[no test files]
+ok  	github.com/rcarmo/go-pherence/loader/audio	0.434s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	1.304s
+ok  	github.com/rcarmo/go-pherence/loader/config	0.003s
+ok  	github.com/rcarmo/go-pherence/loader/gguf	0.087s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/internal/q4layout	0.001s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/llamaq4	0.002s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/llamaq4plan9	0.013s
+ok  	github.com/rcarmo/go-pherence/loader/needle	0.014s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	0.002s
+ok  	github.com/rcarmo/go-pherence/loader/omnivoice	0.038s
+ok  	github.com/rcarmo/go-pherence/loader/safetensors	0.006s
+ok  	github.com/rcarmo/go-pherence/loader/silero	0.066s
+ok  	github.com/rcarmo/go-pherence/loader/tokenizer	0.007s
+ok  	github.com/rcarmo/go-pherence/loader/weights	0.001s
+ok  	github.com/rcarmo/go-pherence/loader/whisperggml	0.002s
+ok  	github.com/rcarmo/go-pherence/model	0.067s
+ok  	github.com/rcarmo/go-pherence/model/bert	0.001s
+ok  	github.com/rcarmo/go-pherence/model/common	0.001s
+ok  	github.com/rcarmo/go-pherence/model/decider	0.005s
+ok  	github.com/rcarmo/go-pherence/model/diffusiongemma	0.015s
+ok  	github.com/rcarmo/go-pherence/model/gemma	0.001s
+?   	github.com/rcarmo/go-pherence/model/gemma4	[no test files]
+ok  	github.com/rcarmo/go-pherence/model/gliner2	0.056s
+ok  	github.com/rcarmo/go-pherence/model/gosystemone	0.011s
+ok  	github.com/rcarmo/go-pherence/model/hunyuan3d	0.008s
+ok  	github.com/rcarmo/go-pherence/model/ideogram4	0.002s
+ok  	github.com/rcarmo/go-pherence/model/inspect	0.001s
+ok  	github.com/rcarmo/go-pherence/model/internal/ops	0.001s
+ok  	github.com/rcarmo/go-pherence/model/internal/readiness	0.001s
+ok  	github.com/rcarmo/go-pherence/model/internal/tensorinspect	0.001s
+ok  	github.com/rcarmo/go-pherence/model/jevlike	1.138s
+ok  	github.com/rcarmo/go-pherence/model/laya	0.048s
+ok  	github.com/rcarmo/go-pherence/model/lfm2	0.004s
+?   	github.com/rcarmo/go-pherence/model/llama	[no test files]
+ok  	github.com/rcarmo/go-pherence/model/modernbert	0.020s
+ok  	github.com/rcarmo/go-pherence/model/mosstranscribe	0.016s
+ok  	github.com/rcarmo/go-pherence/model/needle	1.894s
+ok  	github.com/rcarmo/go-pherence/model/nemotronasr	0.372s
+ok  	github.com/rcarmo/go-pherence/model/nemotrondiarization	0.038s
+ok  	github.com/rcarmo/go-pherence/model/nimble	0.003s
+ok  	github.com/rcarmo/go-pherence/model/omnivoice	0.604s
+ok  	github.com/rcarmo/go-pherence/model/openjev	0.005s
+ok  	github.com/rcarmo/go-pherence/model/pockettts	0.382s
+ok  	github.com/rcarmo/go-pherence/model/qwen	0.520s
+ok  	github.com/rcarmo/go-pherence/model/qwen3tts	0.364s
+ok  	github.com/rcarmo/go-pherence/model/qwenimage21	0.004s
+ok  	github.com/rcarmo/go-pherence/model/silero	0.016s
+ok  	github.com/rcarmo/go-pherence/model/simplejev	0.008s
+ok  	github.com/rcarmo/go-pherence/model/speaker	8.483s
+ok  	github.com/rcarmo/go-pherence/model/speaker/community1	3.646s
+ok  	github.com/rcarmo/go-pherence/model/trellis2	0.001s
+ok  	github.com/rcarmo/go-pherence/model/whisper	6.802s
+ok  	github.com/rcarmo/go-pherence/model/zimage	0.002s
+ok  	github.com/rcarmo/go-pherence/runtime/expertstream	0.037s
+ok  	github.com/rcarmo/go-pherence/runtime/graph	0.001s
+ok  	github.com/rcarmo/go-pherence/runtime/inferencesched	0.052s
+ok  	github.com/rcarmo/go-pherence/runtime/kv	0.030s
+ok  	github.com/rcarmo/go-pherence/runtime/memory	0.042s
+ok  	github.com/rcarmo/go-pherence/runtime/promptcache	0.005s
+ok  	github.com/rcarmo/go-pherence/runtime/quant	0.013s
+ok  	github.com/rcarmo/go-pherence/runtime/resourcebudget	0.012s
+ok  	github.com/rcarmo/go-pherence/runtime/sampling	0.124s
+ok  	github.com/rcarmo/go-pherence/runtime/servingbench	0.337s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob	0.982s
+ok  	github.com/rcarmo/go-pherence/runtime/speechjob/httpapi	2.057s
+ok  	github.com/rcarmo/go-pherence/scripts/decisioncompare	0.003s
+?   	github.com/rcarmo/go-pherence/scripts/qwen3tts-admission	[no test files]
+ok  	github.com/rcarmo/go-pherence/tensor	0.005s
+ok  	github.com/rcarmo/go-pherence/webui	0.019s
+bun test scripts/check-doc-links.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/check-doc-links.test.ts:
+(pass) checks inline, reference, image and HTML targets [0.30ms]
+(pass) ignores external links, fragments and fenced examples [0.04ms]
+
+ 2 pass
+ 0 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [8.00ms]
+bun run scripts/check-doc-links.ts
+Checked 509 Markdown files (tracked + new); broken links: 0
+go test ./docs -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.393s
+bun test v1.4.2 (744846f84)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.45ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.18ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.04ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.12ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [37.47ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [23.67ms]
+
+ 6 pass
+ 0 fail
+ 77 expect() calls
+Ran 6 tests across 1 file. [75.00ms]
+ok  	github.com/rcarmo/go-pherence/backends/cuda/ptx	1.010s
+?   	github.com/rcarmo/go-pherence/backends/ggmlcompute	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlexec	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlgraph	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/ggmlquant	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/internal/ggmlutil	1.010s
+ok  	github.com/rcarmo/go-pherence/backends/llamagraph	1.008s
+ok  	github.com/rcarmo/go-pherence/backends/mlx	1.050s
+?   	github.com/rcarmo/go-pherence/backends/nvidia	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/internal/debuglog	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/ioctl	1.009s
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/bf16	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/fp8	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/ideogram	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/mlx	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/nvfp4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q4	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q5	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q6	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/nvidia/ptx/q8	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/nvidia/runtime	1.127s
+ok  	github.com/rcarmo/go-pherence/backends/placement	1.009s
+?   	github.com/rcarmo/go-pherence/backends/simd	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/simd/fft	1.054s
+ok  	github.com/rcarmo/go-pherence/backends/simd/kernels	1.014s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/bf16	1.012s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/fp8	2.430s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/nvfp4	1.028s
+ok  	github.com/rcarmo/go-pherence/backends/simd/quant/q4	1.017s
+ok  	github.com/rcarmo/go-pherence/backends/simd/runtime	4.953s
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/aipool	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/config	[no test files]
+?   	github.com/rcarmo/go-pherence/backends/spacemit/aicpu/q4kcshim	[no test files]
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/board	1.008s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ime2	75.809s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/inference	1.008s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/ort	1.008s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/rvv	1.030s
+ok  	github.com/rcarmo/go-pherence/backends/spacemit/tcm	1.008s
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.141s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/diarize-vtt	1.010s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/internal/whisperflags	1.008s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/moss-transcribe	1.013s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/nemotron	1.013s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/omnivoice	1.058s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/pockettts	1.008s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/qwen3tts-twoframe	1.013s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speakercheck	1.009s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjob	1.288s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/speechjobserve	31.058s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/transcribe-web	1.018s
+ok  	github.com/rcarmo/go-pherence/cmd/audio/whisper	1.011s
+?   	github.com/rcarmo/go-pherence/cmd/audio/whisperffndiag	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/diffusiongemmainspect	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmarun	1.014s
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserve	1.066s
+ok  	github.com/rcarmo/go-pherence/cmd/diffusiongemmaserver	1.119s
+ok  	github.com/rcarmo/go-pherence/cmd/gliner2	1.014s
+?   	github.com/rcarmo/go-pherence/cmd/image/hy3dinspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4gen	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4inspect	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaeprobe	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/image/ideogram4vaesmoke	1.015s
+?   	github.com/rcarmo/go-pherence/cmd/image/internal/k3flags	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/qwenimage21	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/image/zimageinspect	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/internal/dgflags	1.008s
+?   	github.com/rcarmo/go-pherence/cmd/internal/testexec	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/jevcompare	1.014s
+ok  	github.com/rcarmo/go-pherence/cmd/jevlike	1.393s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/go-system-one	1.012s
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/pathutil	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/internal/promptfile	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/llm/llmchat	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmgen	1.015s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/llmserver	1.063s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/servebench	1.011s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/specbench	1.012s
+ok  	github.com/rcarmo/go-pherence/cmd/llm/speccheck	1.156s
+ok  	github.com/rcarmo/go-pherence/cmd/models/embcheck	1.009s
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpparity	1.015s
+ok  	github.com/rcarmo/go-pherence/cmd/models/gemma4mtpsmoke	1.012s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufinspect	1.348s
+ok  	github.com/rcarmo/go-pherence/cmd/models/ggufsmoke	1.015s
+ok  	github.com/rcarmo/go-pherence/cmd/models/lfm2inspect	4.108s
+ok  	github.com/rcarmo/go-pherence/cmd/models/modelcoverage	1.012s
+ok  	github.com/rcarmo/go-pherence/cmd/models/shapecheck	1.017s
+ok  	github.com/rcarmo/go-pherence/cmd/needle	1.340s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen36run	1.017s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwen3ttsinspect	5.143s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpmeta	1.014s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsmoke	1.013s
+ok  	github.com/rcarmo/go-pherence/cmd/qwen/qwenmtpsynth	1.014s
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/ime2run	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/ime2test	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/npu-tcm	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_bench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ffnblockbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ggmlplan	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphfusebench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_graphrun	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_llama	[no test files]
+ok  	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortbench	1.008s
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_ortlayerbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_plandump	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_qbench	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/spacemit_run	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/testi8i4	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/spacemit/verifydot	[no test files]
+?   	github.com/rcarmo/go-pherence/cmd/tinydemo	[no test files]
+ok  	github.com/rcarmo/go-pherence/docs	108.782s
+ok  	github.com/rcarmo/go-pherence/gpu	1.010s
+ok  	github.com/rcarmo/go-pherence/half	1.033s
+?   	github.com/rcarmo/go-pherence/internal/checked	[no test files]
+ok  	github.com/rcarmo/go-pherence/internal/commandcapture	2.080s
+ok  	github.com/rcarmo/go-pherence/internal/contextmutex	1.016s
+ok  	github.com/rcarmo/go-pherence/internal/floatcmp	1.008s
+ok  	github.com/rcarmo/go-pherence/internal/ggmlfp16	1.032s
+ok  	github.com/rcarmo/go-pherence/internal/httpinput	1.009s
+?   	github.com/rcarmo/go-pherence/internal/modelcoverage	[no test files]
+ok  	github.com/rcarmo/go-pherence/loader/audio	7.583s
+ok  	github.com/rcarmo/go-pherence/loader/audio/media	2.397s
+ok  	github.com/rcarmo/go-pherence/loader/config	1.015s
+ok  	github.com/rcarmo/go-pherence/loader/gguf	2.175s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/internal/q4layout	1.008s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/llamaq4	1.008s
+ok  	github.com/rcarmo/go-pherence/loader/gguf/llamaq4plan9	1.141s
+ok  	github.com/rcarmo/go-pherence/loader/needle	1.119s
+ok  	github.com/rcarmo/go-pherence/loader/numpy	1.017s
+ok  	github.com/rcarmo/go-pherence/loader/omnivoice	1.233s
+ok  	github.com/rcarmo/go-pherence/loader/safetensors	1.038s
+ok  	github.com/rcarmo/go-pherence/loader/silero	2.186s
+ok  	github.com/rcarmo/go-pherence/loader/tokenizer	1.067s
+ok  	github.com/rcarmo/go-pherence/loader/weights	1.009s
+ok  	github.com/rcarmo/go-pherence/loader/whisperggml	1.012s
+ok  	github.com/rcarmo/go-pherence/model	3.350s
+ok  	github.com/rcarmo/go-pherence/model/bert	1.008s
+ok  	github.com/rcarmo/go-pherence/model/common	1.008s
+ok  	github.com/rcarmo/go-pherence/model/decider	1.035s
+ok  	github.com/rcarmo/go-pherence/model/diffusiongemma	1.116s
+ok  	github.com/rcarmo/go-pherence/model/gemma	1.009s
+?   	github.com/rcarmo/go-pherence/model/gemma4	[no test files]
+ok  	github.com/rcarmo/go-pherence/model/gliner2	1.342s
+ok  	github.com/rcarmo/go-pherence/model/gosystemone	1.087s
+ok  	github.com/rcarmo/go-pherence/model/hunyuan3d	1.048s
+ok  	github.com/rcarmo/go-pherence/model/ideogram4	1.014s
+ok  	github.com/rcarmo/go-pherence/model/inspect	1.008s
+ok  	github.com/rcarmo/go-pherence/model/internal/ops	1.008s
+ok  	github.com/rcarmo/go-pherence/model/internal/readiness	1.008s
+ok  	github.com/rcarmo/go-pherence/model/internal/tensorinspect	1.008s
+ok  	github.com/rcarmo/go-pherence/model/jevlike	8.703s
+ok  	github.com/rcarmo/go-pherence/model/laya	1.369s
+ok  	github.com/rcarmo/go-pherence/model/lfm2	1.023s
+?   	github.com/rcarmo/go-pherence/model/llama	[no test files]
+ok  	github.com/rcarmo/go-pherence/model/modernbert	1.149s
+ok  	github.com/rcarmo/go-pherence/model/mosstranscribe	1.056s
+ok  	github.com/rcarmo/go-pherence/model/needle	13.427s
+ok  	github.com/rcarmo/go-pherence/model/nemotronasr	5.236s
+ok  	github.com/rcarmo/go-pherence/model/nemotrondiarization	1.510s
+ok  	github.com/rcarmo/go-pherence/model/nimble	1.023s
+ok  	github.com/rcarmo/go-pherence/model/omnivoice	3.965s
+ok  	github.com/rcarmo/go-pherence/model/openjev	1.021s
+ok  	github.com/rcarmo/go-pherence/model/pockettts	6.110s
+ok  	github.com/rcarmo/go-pherence/model/qwen	6.168s
+ok  	github.com/rcarmo/go-pherence/model/qwen3tts	3.483s
+ok  	github.com/rcarmo/go-pherence/model/qwenimage21	1.014s
+ok  	github.com/rcarmo/go-pherence/model/silero	1.165s
+ok  	github.com/rcarmo/go-pherence/model/simplejev	1.063s

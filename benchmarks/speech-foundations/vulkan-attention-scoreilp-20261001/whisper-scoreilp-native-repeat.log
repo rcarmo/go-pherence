@@ -1,0 +1,161 @@
+=== RUN   TestVulkanNativeAttentionScoreILP
+=== RUN   TestVulkanNativeAttentionScoreILP/independent
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1230565}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":303470}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":308768}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.826661395007648e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":293526}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":2.767401235947986e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":291351}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.160010383420399e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":286514}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":5.064824967204729e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":262387}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":3.9721062294884035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":427980}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":3.2536213345757403e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":508562}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.8552660772247487e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":2420754}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":422422}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.358565501849654e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":326168}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":282175}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":352532}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.0000018002380999249112,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":305731}
+=== NAME  TestVulkanNativeAttentionScoreILP
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78226380 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=66887489 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=66807889 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78840854 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67085706 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78455730 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78347877 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=66939617 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78652128 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67114986 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=66983873 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78400313 max_abs=0 shape=[1500 20 64]
+--- PASS: TestVulkanNativeAttentionScoreILP (1.48s)
+    --- PASS: TestVulkanNativeAttentionScoreILP/independent (0.10s)
+=== RUN   TestVulkanNativeAttentionScoreILP
+=== RUN   TestVulkanNativeAttentionScoreILP/independent
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":429009}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":321000}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":240922}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.826661395007648e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":129570}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":2.767401235947986e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":207782}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.160010383420399e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":145254}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":5.064824967204729e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":251918}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":3.9721062294884035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":196066}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":3.2536213345757403e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":382977}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.8552660772247487e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1584596}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":287223}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.358565501849654e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":267716}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":238558}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":146071}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.0000018002380999249112,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":260426}
+=== NAME  TestVulkanNativeAttentionScoreILP
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78723490 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67365727 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67060655 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78453518 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=66973305 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78589882 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78560247 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=66946101 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78434987 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67114427 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67010951 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78285282 max_abs=0 shape=[1500 20 64]
+--- PASS: TestVulkanNativeAttentionScoreILP (1.22s)
+    --- PASS: TestVulkanNativeAttentionScoreILP/independent (0.01s)
+=== RUN   TestVulkanNativeAttentionScoreILP
+=== RUN   TestVulkanNativeAttentionScoreILP/independent
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":480261}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":253653}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":225298}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.826661395007648e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":151930}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":2.767401235947986e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":232901}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.160010383420399e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":147247}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":5.064824967204729e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":250491}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":3.9721062294884035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":318569}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":3.2536213345757403e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":365612}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.8552660772247487e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1538127}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":261678}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.358565501849654e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":275407}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":136914}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":108395}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.0000018002380999249112,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":235479}
+=== NAME  TestVulkanNativeAttentionScoreILP
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78271935 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67144983 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=72856599 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=86290419 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67064684 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78271961 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78573205 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67300496 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78626167 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=66963969 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67238425 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78283337 max_abs=0 shape=[1500 20 64]
+--- PASS: TestVulkanNativeAttentionScoreILP (1.24s)
+    --- PASS: TestVulkanNativeAttentionScoreILP/independent (0.01s)
+=== RUN   TestVulkanNativeAttentionScoreILP
+=== RUN   TestVulkanNativeAttentionScoreILP/independent
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":388176}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":311825}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":131570}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.826661395007648e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":214106}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":2.767401235947986e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":114588}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.160010383420399e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":119272}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":5.064824967204729e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":262205}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":3.9721062294884035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":250989}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":3.2536213345757403e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":251401}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.8552660772247487e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1492125}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":260979}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.358565501849654e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":175022}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":124583}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":107387}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.0000018002380999249112,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":115071}
+=== NAME  TestVulkanNativeAttentionScoreILP
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78503050 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67286522 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67222195 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78606675 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67383522 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78703711 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78636617 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67322586 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78834664 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67255945 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67343201 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78734602 max_abs=0 shape=[1500 20 64]
+--- PASS: TestVulkanNativeAttentionScoreILP (1.23s)
+    --- PASS: TestVulkanNativeAttentionScoreILP/independent (0.01s)
+=== RUN   TestVulkanNativeAttentionScoreILP
+=== RUN   TestVulkanNativeAttentionScoreILP/independent
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 1 1 1]","values":1,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":552633}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 3 2 3]","values":12,"max_abs":2.4318113900356764e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":176987}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[15 17 3 7]","values":315,"max_abs":3.1699323432832216e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":269414}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[16 16 2 16]","values":512,"max_abs":4.826661395007648e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":123662}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[17 31 2 17]","values":578,"max_abs":2.767401235947986e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":146567}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[31 33 3 31]","values":2883,"max_abs":5.160010383420399e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":117452}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[33 17 2 32]","values":2112,"max_abs":5.064824967204729e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":138613}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[3 65 2 63]","values":378,"max_abs":3.9721062294884035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":155189}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[2 129 3 64]","values":384,"max_abs":3.2536213345757403e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":243460}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 4096 1 1]","values":1,"max_abs":1.8552660772247487e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1292811}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[4096 1 1 1]","values":4096,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":182408}
+    vulkan_speech_native_test.go:312: NATIVE_METRIC {"name":"attention[1 17 32 64]","values":2048,"max_abs":4.358565501849654e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":178466}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/-1","values":102,"max_abs":0,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":96496}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/0","values":102,"max_abs":5.551115123125783e-17,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":102473}
+    vulkan_speech_native_test.go:334: NATIVE_METRIC {"name":"attention-stress/1","values":102,"max_abs":0.0000018002380999249112,"abs_budget":0.0002,"rel_budget":0.00002,"wall_ns":102757}
+=== NAME  TestVulkanNativeAttentionScoreILP
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78510582 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67333474 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=0 ns=67564740 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=0 ns=78625647 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67256871 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78562097 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=1 ns=78761262 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=1 ns=67324886 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=78693541 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=67243526 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=true block=2 ns=70220275 max_abs=0 shape=[1500 20 64]
+    vulkan_attention_scoreilp_native_test.go:83: ATTENTION_SAMPLE candidate=false block=2 ns=84190680 max_abs=0 shape=[1500 20 64]
+--- PASS: TestVulkanNativeAttentionScoreILP (1.23s)
+    --- PASS: TestVulkanNativeAttentionScoreILP/independent (0.01s)
+PASS

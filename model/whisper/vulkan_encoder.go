@@ -63,6 +63,12 @@ func NewVulkanEncoderTile64Key32(ctx context.Context, source *Encoder, frames in
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32)
 }
 
+// NewVulkanEncoderTile64Key32ScoreILP selects F32 tile64 projections and
+// explicit key32 score-interleaved attention. Defaults remain unchanged.
+func NewVulkanEncoderTile64Key32ScoreILP(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
+	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32ScoreILP)
+}
+
 // NewVulkanEncoderQ8Weight explicitly selects per-output-row symmetric Q8 for
 // transformer projection weights only. Stem convolutions, normalization,
 // activations, attention, accumulation and output remain F32. This candidate is
@@ -107,6 +113,7 @@ const (
 	vulkanLinearF32RegTile
 	vulkanLinearF32RegTile64
 	vulkanLinearF32Tile64Key32
+	vulkanLinearF32Tile64Key32ScoreILP
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -225,7 +232,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		}
 	}
 	if linearMode != vulkanLinearQ8Weight {
-		if linearMode == vulkanLinearF32RegTile64 || linearMode == vulkanLinearF32Tile64Key32 {
+		if linearMode == vulkanLinearF32RegTile64 || linearMode == vulkanLinearF32Tile64Key32 || linearMode == vulkanLinearF32Tile64Key32ScoreILP {
 			s.linear, err = vk.NewVkLinearRegTile64F32(ctx)
 		} else if linearMode == vulkanLinearF32RegTile {
 			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
@@ -241,7 +248,9 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if linearMode == vulkanLinearF32Tile64Key32 {
+	if linearMode == vulkanLinearF32Tile64Key32ScoreILP {
+		s.attention, err = vk.NewVkAttentionKey32ScoreILPF32(ctx)
+	} else if linearMode == vulkanLinearF32Tile64Key32 {
 		s.attention, err = vk.NewVkAttentionKey32F32(ctx)
 	} else {
 		s.attention, err = vk.NewVkAttentionF32(ctx)

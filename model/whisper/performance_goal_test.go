@@ -25,7 +25,7 @@ type whisperGoalOptions struct {
 
 func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisperGoalOptions, error) {
 	opts := whisperGoalOptions{backend: backend}
-	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
+	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
 		return opts, fmt.Errorf("select explicit CPU/F32/selective-Q8 backend")
 	}
 	n, err := strconv.Atoi(repeats)
@@ -49,7 +49,7 @@ func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisp
 	return opts, nil
 }
 func TestWhisperGoalOptionsAdmission(t *testing.T) {
-	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
+	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
 		opts, err := parseWhisperGoalOptions(backend, "5", "1", "0")
 		if err != nil || opts.repeats != 5 || !opts.vad || opts.words {
 			t.Fatal(opts, err)
@@ -117,7 +117,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		if modelPin != "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" && modelPin != "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69" {
 			t.Fatal("retained original model pin required")
 		}
-		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" {
+		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" {
 			t.Fatal("legacy-value diagnostic must preserve stored values without extra quantisation")
 		}
 		model, tok, policy = pinnedLegacyWhisperModel(t, ctx)
@@ -173,6 +173,8 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 			encoder, err = NewVulkanEncoderRegTile64(ctx, model.Encoder, model.Config.MaxLength)
 		case "vulkan-f32-tile64-key32":
 			encoder, err = NewVulkanEncoderTile64Key32(ctx, model.Encoder, model.Config.MaxLength)
+		case "vulkan-f32-tile64-key32-scoreilp":
+			encoder, err = NewVulkanEncoderTile64Key32ScoreILP(ctx, model.Encoder, model.Config.MaxLength)
 		case "vulkan-q8-mlp":
 			encoder, err = NewVulkanEncoderQ8MLPWeight(ctx, model.Encoder, model.Config.MaxLength)
 		case "vulkan-q8-kv-mlp":

@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32-scoreilp",
+  "Language": "fr",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+  "ModelLoadSeconds": 5.053790383,
+  "PreparationSeconds": 1.766643443,
+  "CleanupSeconds": 0.009667713,
+  "FullArmSeconds": 39.49419779,
+  "InputSamples": 60074,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 6.545755096,
+      "AllocatedBytes": 162523056,
+      "Allocations": 24235,
+      "DecoderSelfSeconds": 0.073087765,
+      "DecoderCrossSeconds": 0.094689172,
+      "DecoderMLPSeconds": 0.154426069,
+      "DecoderHeadSeconds": 0.075731972,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 6.503264776,
+      "AllocatedBytes": 160861512,
+      "Allocations": 24096,
+      "DecoderSelfSeconds": 0.0726752,
+      "DecoderCrossSeconds": 0.094287623,
+      "DecoderMLPSeconds": 0.153229206,
+      "DecoderHeadSeconds": 0.075557728,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 6.547681964,
+      "AllocatedBytes": 160854736,
+      "Allocations": 24090,
+      "DecoderSelfSeconds": 0.072555416,
+      "DecoderCrossSeconds": 0.094120775,
+      "DecoderMLPSeconds": 0.1529591,
+      "DecoderHeadSeconds": 0.07582514,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 6.527986605,
+      "AllocatedBytes": 160859392,
+      "Allocations": 24125,
+      "DecoderSelfSeconds": 0.072819037,
+      "DecoderCrossSeconds": 0.093609711,
+      "DecoderMLPSeconds": 0.153652346,
+      "DecoderHeadSeconds": 0.075369382,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 6.538659623,
+      "AllocatedBytes": 160858016,
+      "Allocations": 24097,
+      "DecoderSelfSeconds": 0.071025698,
+      "DecoderCrossSeconds": 0.091333541,
+      "DecoderMLPSeconds": 0.150683244,
+      "DecoderHeadSeconds": 0.074649788,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

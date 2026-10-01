@@ -1,0 +1,44 @@
+import { join } from 'node:path';
+import { mkdir, copyFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+
+const root='/var/home/agent/workspace', src=join(root,'tmp/whisper-vad-parity-20261001');
+const out=join(root,'projects/go-pherence-transcribe-web/benchmarks/speech-foundations/vulkan-attention-scoreilp-20261001');
+await mkdir(out,{recursive:true});
+const copy=async(name:string)=>copyFile(join(src,name),join(out,name));
+const median=(values:number[])=>{const v=[...values].sort((a,b)=>a-b);return v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2};
+const table:any[]=[];
+for(const lang of ['jfk','pt','fr']){
+ const a=await Bun.file(join(src,`scoreilp-baseline-${lang}.json`)).json(), b=await Bun.file(join(src,`scoreilp-candidate-${lang}.json`)).json();
+ if(a.Samples.length!==5||b.Samples.length!==5||!a.Samples[0].windows)throw Error('missing fixture');
+ for(const s of [...a.Samples,...b.Samples])if(JSON.stringify(s.windows)!==JSON.stringify(a.Samples[0].windows))throw Error('transcript drift '+lang);
+ const baseline=median(a.Samples.map((s:any)=>s.request_seconds)),candidate=median(b.Samples.map((s:any)=>s.request_seconds));
+ table.push({fixture:lang,mode:'noVAD/noWords',baseline,candidate,change_percent:100*(candidate/baseline-1),output_exact:true,samples_per_arm:5});
+ await copy(`scoreilp-baseline-${lang}.json`);await copy(`scoreilp-candidate-${lang}.json`);
+}
+const old:any={jfk:'go-key32-kvshared-keepgaps-gclimit-jfk-vad1-words1.json',twogroups:'go-key32-kvshared-twogroups-gclimit-vad1-words1.json','minds-pt-0':'go-key32-kvshared-minds-pt-0-vad1-words1.json','minds-fr-0':'go-key32-kvshared-minds-fr-0-vad1-words1.json',silence:'go-key32-keepgaps-silence-vad1-words1.json'};
+for(const [name,path]of Object.entries(old)){
+ const a=await Bun.file(join(src,path as string)).json(), b=await Bun.file(join(src,`scoreilp-candidate-vadwords-${name}.json`)).json();
+ if(b.Samples.length!==5||!b.VAD||!b.WordTimestamps||!b.VADPreserveWindowGaps||b.GoMemoryLimit!=='4GiB')throw Error('VAD admission');
+ for(const s of b.Samples)if(JSON.stringify(s.vad_windows??[])!==JSON.stringify(a.Samples[0].vad_windows??[]))throw Error('VAD drift '+name);
+ await copy(path as string);await copy(`scoreilp-candidate-vadwords-${name}.json`);
+ table.push({fixture:name,mode:'VAD/words',output_exact:true,candidate:median(b.Samples.map((s:any)=>s.request_seconds)),samples:5,baseline_report:path,timing_baseline:'historical; no speed claim'});
+}
+await copy('scoreilp-baseline-vadwords-jfk.json');
+const a=await Bun.file(join(src,'scoreilp-baseline-vadwords-jfk.json')).json(),b=await Bun.file(join(src,'scoreilp-candidate-vadwords-jfk.json')).json();
+for(const s of [...a.Samples,...b.Samples])if(JSON.stringify(s.vad_windows)!==JSON.stringify(a.Samples[0].vad_windows))throw Error('fresh JFK drift');
+const baseline=median(a.Samples.map((s:any)=>s.request_seconds)),candidate=median(b.Samples.map((s:any)=>s.request_seconds));
+table.push({fixture:'jfk',mode:'VAD/words/matched',baseline,candidate,change_percent:100*(candidate/baseline-1),output_exact:true,samples_per_arm:5});
+const experiments:any[]=[];
+for(const name of ['ilp','barrier','combined','query32','score-ilp']){
+ const log=await Bun.file(join(src,`whisper-attn-${name}.log`)).text(), arms:any={true:[],false:[]};
+ for(const m of log.matchAll(/candidate=(true|false).*ns=(\d+) max_abs=(\S+)/g)){arms[m[1]].push(Number(m[2]));if(Number(m[3])!==0)throw Error('native output drift');}
+ if(arms.true.length!==6||arms.false.length!==6||!log.includes('--- PASS:'))throw Error('timing sample missing');
+ experiments.push({variant:name,baseline_ns:arms.false,candidate_ns:arms.true,change_percent:100*(median(arms.true)/median(arms.false)-1)});
+}
+for(const name of await readdir(src))if(/^whisper-(attn-(ilp|barrier|combined|query32|score-ilp)|scoreilp-)/.test(name)&&(/\.(log|json|txt)$/.test(name)))await copy(name);
+for(const name of await readdir(src))if(/^scoreilp-.*\.env$/.test(name))await copy(name);
+await copy('run-guarded.sh');
+for(const name of await readdir(join(root,'tmp/whisper-attention-ilp-20261001')))if(/\.(glsl|spv)$/.test(name))await copyFile(join(root,'tmp/whisper-attention-ilp-20261001',name),join(out,name));
+await Bun.write(join(out,'comparison.json'),JSON.stringify({table,experiments,review:'focused independent source-only delegate completed, no concrete issue; no independent model accuracy review'},null,2)+'\n');
+console.log(JSON.stringify(table,null,2));
