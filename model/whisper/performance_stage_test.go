@@ -3,6 +3,7 @@ package whisper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/audio/media"
 	"io"
@@ -11,6 +12,31 @@ import (
 	"testing"
 	"time"
 )
+
+func whisperStageMode(backend string) (vulkanLinearMode, error) {
+	switch backend {
+	case "", "vulkan-f32":
+		return vulkanDefaultLinearMode, nil
+	case "vulkan-f32-tile64-key32-scoreilp":
+		return vulkanLinearF32Tile64Key32ScoreILP, nil
+	default:
+		return 0, fmt.Errorf("unsupported stage-profile backend %q", backend)
+	}
+}
+
+func TestWhisperStageModeAdmission(t *testing.T) {
+	for backend, want := range map[string]vulkanLinearMode{"": vulkanDefaultLinearMode, "vulkan-f32": vulkanDefaultLinearMode, "vulkan-f32-tile64-key32-scoreilp": vulkanLinearF32Tile64Key32ScoreILP} {
+		got, err := whisperStageMode(backend)
+		if err != nil || got != want {
+			t.Fatal(backend, got, err)
+		}
+	}
+	for _, backend := range []string{"cpu", "vulkan-q8-mlp", "vulkan-f32-tile64-key32", "unknown"} {
+		if _, err := whisperStageMode(backend); err == nil {
+			t.Fatal("unknown backend admitted", backend)
+		}
+	}
+}
 
 // Diagnostic only: single-stage submissions change barriers/submission costs.
 // Whole-request benchmark remains the acceptance measurement.
@@ -24,6 +50,10 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 	}
 	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
 	defer cancel()
+	mode, err := whisperStageMode(os.Getenv("GO_PHERENCE_WHISPER_BENCH_BACKEND"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	model, _, _ := pinnedTurboSpeechModel(t, ctx)
 	path := os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT")
 	pinnedSpeechFile(t, path, os.Getenv("GO_PHERENCE_WHISPER_BENCH_INPUT_SHA256"))
@@ -39,10 +69,10 @@ func TestWhisperPerformanceStageProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stages []vk.VkF32Stage
-	enc, err := newVulkanEncoder(ctx, model.Encoder, model.Config.MaxLength, func(ctx context.Context, s []vk.VkF32Stage) (*vk.VkF32Plan, error) {
+	enc, err := newVulkanEncoderMode(ctx, model.Encoder, model.Config.MaxLength, func(ctx context.Context, s []vk.VkF32Stage) (*vk.VkF32Plan, error) {
 		stages = append(stages, s...)
 		return vk.NewVkF32Plan(ctx, s)
-	})
+	}, mode)
 	if err != nil {
 		if enc != nil {
 			enc.Close()

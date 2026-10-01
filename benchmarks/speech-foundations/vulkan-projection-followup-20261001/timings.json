@@ -1,0 +1,143 @@
+[
+  {
+    "variant": "linear-static",
+    "shape": [
+      1500,
+      1280,
+      1280
+    ],
+    "baseline_ns": 10594114.5,
+    "candidate_ns": 11017199,
+    "change_percent": 3.9935805866549767,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "linear-static",
+    "shape": [
+      1500,
+      1280,
+      5120
+    ],
+    "baseline_ns": 34597658.5,
+    "candidate_ns": 36342800.5,
+    "change_percent": 5.044104357524648,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "linear-static",
+    "shape": [
+      1500,
+      5120,
+      1280
+    ],
+    "baseline_ns": 36333859.5,
+    "candidate_ns": 37414286.5,
+    "change_percent": 2.9736092308057627,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "linear-column",
+    "shape": [
+      1500,
+      1280,
+      1280
+    ],
+    "baseline_ns": 9028466,
+    "candidate_ns": 9386278,
+    "change_percent": 3.9631538735373173,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "linear-column",
+    "shape": [
+      1500,
+      1280,
+      5120
+    ],
+    "baseline_ns": 34524302.5,
+    "candidate_ns": 36615225.5,
+    "change_percent": 6.056380139758066,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "linear-column",
+    "shape": [
+      1500,
+      5120,
+      1280
+    ],
+    "baseline_ns": 36350135.5,
+    "candidate_ns": 37535605.5,
+    "change_percent": 3.26125331774898,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "whisper-score4-ilp",
+    "baseline_ns": 66970465.5,
+    "candidate_ns": 74006740.5,
+    "baseline_samples_ns": [
+      66886814,
+      66920251,
+      66966989,
+      66973942,
+      67170413,
+      67333614
+    ],
+    "candidate_samples_ns": [
+      73715849,
+      73741850,
+      73991351,
+      74022130,
+      74063890,
+      74082727
+    ],
+    "change_percent": 10.506534406573586,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "whisper-attn-scorevec2-components",
+    "baseline_ns": 66869586,
+    "candidate_ns": 66989791,
+    "baseline_samples_ns": [
+      66766411,
+      66794541,
+      66836253,
+      66902919,
+      67093853,
+      67268361
+    ],
+    "candidate_samples_ns": [
+      66735931,
+      66921894,
+      66989326,
+      66990256,
+      67056935,
+      67171856
+    ],
+    "change_percent": 0.17976034725264434,
+    "max_baseline_abs": 0
+  },
+  {
+    "variant": "whisper-attn-outputvec4-components",
+    "baseline_ns": 66960072,
+    "candidate_ns": 66885776,
+    "baseline_samples_ns": [
+      66791798,
+      66876015,
+      66879861,
+      67040283,
+      67079023,
+      67412687
+    ],
+    "candidate_samples_ns": [
+      66725127,
+      66779144,
+      66863163,
+      66908389,
+      66924337,
+      66980088
+    ],
+    "change_percent": -0.11095567519699978,
+    "max_baseline_abs": 0
+  }
+]

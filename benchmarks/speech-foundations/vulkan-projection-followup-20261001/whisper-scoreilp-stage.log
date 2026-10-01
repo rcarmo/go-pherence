@@ -1,0 +1,4 @@
+=== RUN   TestWhisperPerformanceStageProfile
+    performance_stage_test.go:27: TURBO_LOAD ns=3983762857 tensors=587 checkpoint_f16=true inference_f32=true
+--- PASS: TestWhisperPerformanceStageProfile (32.02s)
+PASS

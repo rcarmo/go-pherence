@@ -1,0 +1,30 @@
+package vulkan
+
+import (
+	"context"
+	"os"
+	"testing"
+)
+
+func TestVulkanNativeLinearStaticDiagnostic(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_LINEAR_STATIC_SPV") == "" {
+		t.Skip("explicit bounded diagnostic")
+	}
+	t.Setenv("GO_PHERENCE_TEST_VULKAN_LINEAR_REGTILE", "1")
+	t.Setenv("GO_PHERENCE_TEST_VULKAN_LINEAR_TIMING", "1")
+	testVulkanNativeLinearRegTile(t, NewVkLinearRegTile64F32, func(ctx context.Context) (*VkLinearF32, error) {
+		code, err := os.ReadFile(os.Getenv("GO_PHERENCE_TEST_LINEAR_STATIC_SPV"))
+		if err != nil {
+			return nil, err
+		}
+		if err = vkAcquire(ctx); err != nil {
+			return nil, err
+		}
+		defer vkRelease()
+		k, err := vkKernelCreateLocked(code, 4, 12)
+		if err != nil {
+			return nil, err
+		}
+		return &VkLinearF32{kernel: k, outputTile: 64}, nil
+	})
+}
