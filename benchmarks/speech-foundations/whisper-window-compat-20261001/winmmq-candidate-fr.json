@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 582,
+    "WeightBytes": 503316480,
+    "ScratchBytes": 104496000
+  },
+  "ModelLoadAllocatedBytes": 5000992472,
+  "PreparationAllocatedBytes": 434277392,
+  "Backend": "vulkan-original-q5-padded-integer-dot-mmq-tanh",
+  "Language": "fr",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "OriginalDecoderCompatibility": true,
+  "OriginalWindowCompatibility": true,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+  "ModelLoadSeconds": 2.883404172,
+  "PreparationSeconds": 0.775304615,
+  "CleanupSeconds": 0.00331933,
+  "FullArmSeconds": 24.075625941,
+  "InputSamples": 60074,
+  "CPUThreads": 4,
+  "Precision": "Original-compatibility diagnostic: virtual256-padded zeroKV F32 attention + all encoder projections original Q5_0 x Q8_1 four-block-step MMQ schedule (same per-output arithmetic as padded-integer-dot-all); original GGML tanh-form encoder GELU (stem+FFN), decoder per OriginalDecoderCompatibility",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 4.07213187,
+      "AllocatedBytes": 168264240,
+      "Allocations": 33840,
+      "DecoderSelfSeconds": 0.044673036,
+      "DecoderCrossSeconds": 0.086886623,
+      "DecoderMLPSeconds": 0.071490716,
+      "DecoderHeadSeconds": 0.075573156,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 4.082045929,
+      "AllocatedBytes": 166571992,
+      "Allocations": 33693,
+      "DecoderSelfSeconds": 0.045111857,
+      "DecoderCrossSeconds": 0.087556708,
+      "DecoderMLPSeconds": 0.070862088,
+      "DecoderHeadSeconds": 0.075548204,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 4.113845906,
+      "AllocatedBytes": 166576384,
+      "Allocations": 33718,
+      "DecoderSelfSeconds": 0.044018625,
+      "DecoderCrossSeconds": 0.087151596,
+      "DecoderMLPSeconds": 0.072070386,
+      "DecoderHeadSeconds": 0.077876753,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 4.085285899,
+      "AllocatedBytes": 166572816,
+      "Allocations": 33690,
+      "DecoderSelfSeconds": 0.0445825,
+      "DecoderCrossSeconds": 0.087068488,
+      "DecoderMLPSeconds": 0.071214359,
+      "DecoderHeadSeconds": 0.075382235,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 4.059232704,
+      "AllocatedBytes": 166570440,
+      "Allocations": 33676,
+      "DecoderSelfSeconds": 0.042922606,
+      "DecoderCrossSeconds": 0.086783924,
+      "DecoderMLPSeconds": 0.07054249,
+      "DecoderHeadSeconds": 0.075510726,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

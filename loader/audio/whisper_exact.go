@@ -51,36 +51,88 @@ func WhisperLogMel(samples []float32, numMels int) ([]float32, int, error) {
 // blocks. One DFT frame, the bounded lookup-table sync.Once initialisation and
 // reflect-padding copy are not interruptible. No partial features escape.
 func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) ([]float32, int, error) {
+	out, frames, _, err := whisperLogMel(ctx, samples, numMels, nil, false)
+	return out, frames, err
+}
+
+// WhisperLogMelClipFloorContext is WhisperLogMelContext with whisper.cpp's
+// whole-clip clamp: floor = max(window max, clipMaxLog) - 8, where clipMaxLog
+// is the raw log10 maximum over every window of the clip (see
+// WhisperLogMelMaxContext). Values above the floor are unchanged. Explicit
+// compatibility only; frames at window edges still use reflect padding.
+func WhisperLogMelClipFloorContext(ctx context.Context, samples []float32, numMels int, clipMaxLog float32) ([]float32, int, error) {
+	if math.IsNaN(float64(clipMaxLog)) || math.IsInf(float64(clipMaxLog), 0) {
+		return nil, 0, fmt.Errorf("invalid Whisper clip mel maximum")
+	}
+	out, frames, _, err := whisperLogMel(ctx, samples, numMels, &clipMaxLog, false)
+	return out, frames, err
+}
+
+// WhisperLogMelMaxContext returns one window's raw log10 mel maximum (-10 for
+// digital silence) using WhisperLogMelContext's arithmetic.
+func WhisperLogMelMaxContext(ctx context.Context, samples []float32, numMels int) (float32, error) {
+	_, _, maxLog, err := whisperLogMel(ctx, samples, numMels, nil, true)
+	return maxLog, err
+}
+
+func whisperLogMel(ctx context.Context, samples []float32, numMels int, clipMaxLog *float32, maxOnly bool) ([]float32, int, float32, error) {
+	out, frames, maxLog, err := whisperLogMelRaw(ctx, samples, numMels)
+	if err != nil || frames == 0 || maxOnly {
+		return nil, frames, maxLog, err
+	}
+	if clipMaxLog != nil && *clipMaxLog > maxLog {
+		maxLog = *clipMaxLog
+	}
+	floor := maxLog - 8
+	for i, value := range out {
+		if i%16384 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, 0, 0, err
+			}
+		}
+		if value < floor {
+			value = floor
+		}
+		out[i] = (value + 4) / 4
+	}
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
+	}
+	return out, frames, maxLog, nil
+}
+
+// whisperLogMelRaw returns un-normalised log10 mel values and their maximum.
+func whisperLogMelRaw(ctx context.Context, samples []float32, numMels int) ([]float32, int, float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, 0, err
 	}
 	if numMels != 80 && numMels != 128 {
-		return nil, 0, fmt.Errorf("unsupported Whisper mel band count %d", numMels)
+		return nil, 0, 0, fmt.Errorf("unsupported Whisper mel band count %d", numMels)
 	}
 	if len(samples) < whisperHop || len(samples) > 30*16000 {
-		return nil, 0, fmt.Errorf("Whisper window requires 160..480000 mono samples")
+		return nil, 0, 0, fmt.Errorf("Whisper window requires 160..480000 mono samples")
 	}
 	for index, value := range samples {
 		if index%16384 == 0 {
 			if err := ctx.Err(); err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 		}
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-			return nil, 0, fmt.Errorf("non-finite Whisper waveform")
+			return nil, 0, 0, fmt.Errorf("non-finite Whisper waveform")
 		}
 	}
 	allFrames := 1 + len(samples)/whisperHop
 	frames := allFrames - 1 // WhisperFeatureExtractor deliberately drops this.
 	if frames <= 0 {
-		return nil, 0, nil
+		return nil, 0, 0, nil
 	}
 	out := make([]float32, numMels*frames)
 	nonzero := false
 	for index, sample := range samples {
 		if index%16384 == 0 {
 			if err := ctx.Err(); err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 		}
 		if sample != 0 {
@@ -92,22 +144,22 @@ func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) (
 		for i := range out {
 			if i%16384 == 0 {
 				if err := ctx.Err(); err != nil {
-					return nil, 0, err
+					return nil, 0, 0, err
 				}
 			}
-			out[i] = -1.5 // log10(1e-10), then (x+4)/4
+			out[i] = -10 // log10(1e-10)
 		}
 		if err := ctx.Err(); err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
-		return out, frames, nil
+		return out, frames, -10, nil
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	whisperExactTables.Do(initWhisperExactTables)
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	filters := whisperExactTables.filters
 	if numMels == 128 {
@@ -120,14 +172,14 @@ func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) (
 	maxLog := float32(-math.MaxFloat32)
 	for frame := 0; frame < frames; frame++ {
 		if err := ctx.Err(); err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 		start := frame * whisperHop
 		for sample := range windowed {
 			windowed[sample] = float64(centered[start+sample]) * whisperExactTables.window[sample]
 		}
 		if !whisperExactTables.fft400.powerSpectrum400(power, windowed, fftScratch) {
-			return nil, 0, fmt.Errorf("Whisper FFT400 rejected fixed geometry")
+			return nil, 0, 0, fmt.Errorf("Whisper FFT400 rejected fixed geometry")
 		}
 		for mel := 0; mel < numMels; mel++ {
 			energy := float64(0)
@@ -144,22 +196,10 @@ func WhisperLogMelContext(ctx context.Context, samples []float32, numMels int) (
 			}
 		}
 	}
-	floor := maxLog - 8
-	for i, value := range out {
-		if i%16384 == 0 {
-			if err := ctx.Err(); err != nil {
-				return nil, 0, err
-			}
-		}
-		if value < floor {
-			value = floor
-		}
-		out[i] = (value + 4) / 4
-	}
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
-	return out, frames, nil
+	return out, frames, maxLog, nil
 }
 
 func initWhisperExactTables() {

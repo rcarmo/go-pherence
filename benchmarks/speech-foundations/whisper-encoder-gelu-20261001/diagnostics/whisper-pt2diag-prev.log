@@ -1,0 +1,8 @@
+=== RUN   TestWhisperPT2WindowDiagnostic
+    zz_pt2_window_diag_test.go:37: LEGACY_LOAD seconds=2.832502265 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_pt2_window_diag_test.go:49: PT2DIAG start_samples=480000 valid=220160
+    zz_pt2_window_diag_test.go:116: PT2DIAG hidden=go-window vsGo max=0 rmse=0 segs=[0.00-13.76 "E aí"] fed=prev69(""),50258,50267,50360,50365,462,7461,51053
+    zz_pt2_window_diag_test.go:116: PT2DIAG hidden=orig-default vsGo max=11.25 rmse=0.361731 segs=[0.00-5.12 "E aí"] fed=prev69(""),50258,50267,50360,50365,462,7461,50621
+    zz_pt2_window_diag_test.go:116: PT2DIAG hidden=orig-nof16 vsGo max=11.18 rmse=0.360772 segs=[0.00-5.12 "E aí"] fed=prev69(""),50258,50267,50360,50365,462,7461,50621
+--- PASS: TestWhisperPT2WindowDiagnostic (12.74s)
+PASS

@@ -193,6 +193,8 @@ const (
 	vulkanLinearOriginalQ5PaddedIntegerDotMLP // private compatibility diagnostic only
 	vulkanLinearOriginalQ5PaddedIntegerDotAll // private: all encoder projections Q5×Q8_1
 	vulkanLinearOriginalQ5PaddedIntegerDotMMQ // private: same arithmetic, four-block-step schedule
+	// Private: MMQ plus the original GGML tanh-form encoder GELU (stem and FFN).
+	vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh
 )
 
 const vulkanDefaultLinearMode = vulkanLinearF32RegTile
@@ -227,7 +229,7 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5PaddedKeyExtent && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1 && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMLP && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotAll && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMMQ)) {
+	if packedOnly && (file == nil || (linearMode != vulkanLinearOriginalQ5MLP && linearMode != vulkanLinearOriginalQ5Decode4 && linearMode != vulkanLinearOriginalQ5ExactCombined && linearMode != vulkanLinearOriginalQ5AttentionOutputILP && linearMode != vulkanLinearOriginalQ5PaddedKeyExtent && linearMode != vulkanLinearOriginalQ5AttentionUnroll4 && linearMode != vulkanLinearOriginalQ5IntegerDotMLP && linearMode != vulkanLinearOriginalQ5IntegerDotFC1 && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMLP && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotAll && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMMQ && linearMode != vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh)) {
 		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
 	}
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
@@ -239,7 +241,8 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		return nil, err
 	}
 	hybrid := linearMode == vulkanLinearOriginalQ5IntegerDotFC1
-	mmq := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ
+	originalGELU := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh
+	mmq := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMMQ || originalGELU
 	dotAll := linearMode == vulkanLinearOriginalQ5PaddedIntegerDotAll || mmq
 	dot := linearMode == vulkanLinearOriginalQ5IntegerDotMLP || linearMode == vulkanLinearOriginalQ5PaddedIntegerDotMLP || dotAll || hybrid
 	if dot && !vk.VulkanIntegerDotEnabled() {
@@ -430,7 +433,11 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		}
 		s.resources = append(s.resources, s.linear)
 	}
-	if s.gelu, err = vk.NewVkGELUErfF32(ctx); err != nil {
+	newGELU := vk.NewVkGELUErfF32
+	if originalGELU {
+		newGELU = vk.NewVkGELUOriginalTanhF32
+	}
+	if s.gelu, err = newGELU(ctx); err != nil {
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)

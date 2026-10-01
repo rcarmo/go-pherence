@@ -1,0 +1,320 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 582,
+    "WeightBytes": 503316480,
+    "ScratchBytes": 104496000
+  },
+  "ModelLoadAllocatedBytes": 5000992472,
+  "PreparationAllocatedBytes": 434277568,
+  "Backend": "vulkan-original-q5-padded-integer-dot-mmq-tanh",
+  "Language": "pt",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "OriginalDecoderCompatibility": true,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+  "ModelLoadSeconds": 2.878445441,
+  "PreparationSeconds": 0.780015281,
+  "CleanupSeconds": 0.003287107,
+  "FullArmSeconds": 25.606768866,
+  "InputSamples": 144726,
+  "CPUThreads": 4,
+  "Precision": "Original-compatibility diagnostic: virtual256-padded zeroKV F32 attention + all encoder projections original Q5_0 x Q8_1 four-block-step MMQ schedule (same per-output arithmetic as padded-integer-dot-all); original GGML tanh-form encoder GELU (stem+FFN), decoder per OriginalDecoderCompatibility",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 4.340975237,
+      "AllocatedBytes": 170337776,
+      "Allocations": 39510,
+      "DecoderSelfSeconds": 0.108046358,
+      "DecoderCrossSeconds": 0.201608684,
+      "DecoderMLPSeconds": 0.166021725,
+      "DecoderHeadSeconds": 0.176622072,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 144726,
+            "EmitStart": 0,
+            "EmitEnd": 144726,
+            "InputSamples": 480000,
+            "PadSamples": 335274
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 7.36,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 4.380362768,
+      "AllocatedBytes": 168626496,
+      "Allocations": 39343,
+      "DecoderSelfSeconds": 0.105045032,
+      "DecoderCrossSeconds": 0.202112777,
+      "DecoderMLPSeconds": 0.166654041,
+      "DecoderHeadSeconds": 0.177751707,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 144726,
+            "EmitStart": 0,
+            "EmitEnd": 144726,
+            "InputSamples": 480000,
+            "PadSamples": 335274
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 7.36,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 4.449694564,
+      "AllocatedBytes": 168619384,
+      "Allocations": 39342,
+      "DecoderSelfSeconds": 0.104320096,
+      "DecoderCrossSeconds": 0.201594121,
+      "DecoderMLPSeconds": 0.166165977,
+      "DecoderHeadSeconds": 0.174997593,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 144726,
+            "EmitStart": 0,
+            "EmitEnd": 144726,
+            "InputSamples": 480000,
+            "PadSamples": 335274
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 7.36,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 4.376339465,
+      "AllocatedBytes": 168620232,
+      "Allocations": 39349,
+      "DecoderSelfSeconds": 0.103437358,
+      "DecoderCrossSeconds": 0.201283744,
+      "DecoderMLPSeconds": 0.16312402,
+      "DecoderHeadSeconds": 0.175253304,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 144726,
+            "EmitStart": 0,
+            "EmitEnd": 144726,
+            "InputSamples": 480000,
+            "PadSamples": 335274
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 7.36,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 4.396772618,
+      "AllocatedBytes": 168619504,
+      "Allocations": 39349,
+      "DecoderSelfSeconds": 0.103959092,
+      "DecoderCrossSeconds": 0.203755985,
+      "DecoderMLPSeconds": 0.166214295,
+      "DecoderHeadSeconds": 0.177931917,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 144726,
+            "EmitStart": 0,
+            "EmitEnd": 144726,
+            "InputSamples": 480000,
+            "PadSamples": 335274
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 7.36,
+              "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "Tokens": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

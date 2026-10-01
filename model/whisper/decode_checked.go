@@ -17,6 +17,7 @@ var (
 type timestampVocabulary struct {
 	sot, eot, language, transcribe, noTimestamps, timestampBegin int
 	vocabSize                                                    int
+	previous                                                     int // <|startofprev|>, 0 when absent
 }
 
 func checkedTimestampVocabulary(cfg Config, tokenizer *Tokenizer, language string) (timestampVocabulary, error) {
@@ -67,6 +68,12 @@ func checkedTimestampVocabulary(cfg Config, tokenizer *Tokenizer, language strin
 		if tokenizer.Vocab[v.timestampBegin+i] != fmt.Sprintf("<|%.2f|>", float64(i)/50) {
 			return v, fmt.Errorf("invalid timestamp token at index %d", i)
 		}
+	}
+	if id, err := find("<|startofprev|>"); err == nil {
+		if id != v.transcribe+2 {
+			return v, fmt.Errorf("incompatible multilingual tokenizer layout")
+		}
+		v.previous = id
 	}
 	v.vocabSize = cfg.VocabSize
 	return v, nil
@@ -129,10 +136,37 @@ func checkedTimestampMask(logits []float32, generated []int, v timestampVocabula
 // decodeCheckedTimestamps is separated from tensor execution for deterministic
 // token/logit control-flow tests. Such tests do not qualify real-model output.
 func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, forward func(int) ([]float32, error)) ([]Segment, error) {
+	segments, _, err := decodeCheckedTimestampsPrompted(ctx, cfg, tokenizer, v, opts, suppress, beginSuppress, nil, forward, nil)
+	return segments, err
+}
+
+// maxPreviousTextTokens is whisper.cpp's n_text_ctx/2 prompt budget minus the
+// <|startofprev|> marker (224-1 for every Whisper text context of 448).
+const maxPreviousTextTokens = 223
+
+// decodeCheckedTimestampsPrompted optionally conditions on previous decoded
+// tokens as whisper.cpp does: <|startofprev|> + previous, then SOT/language/
+// task. previous must be non-empty only with a vocabulary that has the marker;
+// it is truncated to the last maxPreviousTextTokens. It also returns the full
+// generated sequence (text and timestamp tokens, without EOT). When advance is
+// non-nil it feeds every prompt token except the last without computing logits
+// (those logits are never read); forward still produces all used logits.
+func decodeCheckedTimestampsPrompted(ctx context.Context, cfg Config, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, previous []int, forward func(int) ([]float32, error), advance func(int) error) ([]Segment, []int, error) {
+	if len(previous) > 0 && v.previous == 0 {
+		return nil, nil, fmt.Errorf("previous-text prompt requires <|startofprev|>")
+	}
+	if len(previous) > maxPreviousTextTokens {
+		previous = previous[len(previous)-maxPreviousTextTokens:]
+	}
+	for _, id := range previous {
+		if id < 0 || id >= v.vocabSize || (id >= v.eot && id < v.timestampBegin) {
+			return nil, nil, fmt.Errorf("invalid previous-text token %d", id)
+		}
+	}
 	for _, ids := range [][]int{suppress, beginSuppress} {
 		for _, id := range ids {
 			if id < 0 || id >= v.vocabSize {
-				return nil, fmt.Errorf("invalid suppression token %d", id)
+				return nil, nil, fmt.Errorf("invalid suppression token %d", id)
 			}
 		}
 	}
@@ -141,7 +175,7 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 		maxTokens = cfg.MaxDecoderLength - 3
 	}
 	if maxTokens < 1 || maxTokens > cfg.MaxDecoderLength-3 || opts.MaxInitialTimestampIndex < 0 || opts.MaxInitialTimestampIndex > 1500 {
-		return nil, fmt.Errorf("invalid checked generation bounds")
+		return nil, nil, fmt.Errorf("invalid checked generation bounds")
 	}
 	step := func(token int) ([]float32, error) {
 		if err := ctx.Err(); err != nil {
@@ -166,10 +200,23 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 	}
 	var logits []float32
 	var err error
-	for _, token := range []int{v.sot, v.language, v.transcribe} {
+	prompt := []int{v.sot, v.language, v.transcribe}
+	if len(previous) > 0 {
+		prompt = append(append([]int{v.previous}, previous...), prompt...)
+	}
+	for i, token := range prompt {
+		if advance != nil && i+1 < len(prompt) {
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
+			if err := advance(token); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
 		logits, err = step(token)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	generated := make([]int, 0, maxTokens)
@@ -178,7 +225,7 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 	start := -1
 	for i := 0; i < maxTokens; i++ {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, id := range suppress {
 			logits[id] = float32(math.Inf(-1))
@@ -191,19 +238,19 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 		checkedTimestampMask(logits, generated, v, opts.MaxInitialTimestampIndex)
 		next := argmax(logits)
 		if math.IsInf(float64(logits[next]), -1) {
-			return nil, fmt.Errorf("all decoder tokens are suppressed")
+			return nil, nil, fmt.Errorf("all decoder tokens are suppressed")
 		}
 		if next == v.eot {
 			if len(text) != 0 {
-				return nil, ErrIncompleteTimestamp
+				return nil, nil, ErrIncompleteTimestamp
 			}
-			return segments, nil
+			return segments, generated, nil
 		}
 		if next >= v.timestampBegin {
 			end := next - v.timestampBegin
 			if len(text) != 0 {
 				if start < 0 || end <= start {
-					return nil, fmt.Errorf("invalid segment timestamp order")
+					return nil, nil, fmt.Errorf("invalid segment timestamp order")
 				}
 				segments = append(segments, Segment{Start: float64(start) / 50, End: float64(end) / 50, Text: tokenizer.Decode(text), Tokens: text})
 				text = nil
@@ -211,7 +258,7 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 			start = end
 		} else {
 			if start < 0 || next >= v.eot {
-				return nil, fmt.Errorf("unexpected token outside timestamp segment")
+				return nil, nil, fmt.Errorf("unexpected token outside timestamp segment")
 			}
 			text = append(text, next)
 		}
@@ -221,9 +268,9 @@ func decodeCheckedTimestamps(ctx context.Context, cfg Config, tokenizer *Tokeniz
 		if i+1 < maxTokens {
 			logits, err = step(next)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
-	return nil, ErrGenerationLimit
+	return nil, nil, ErrGenerationLimit
 }

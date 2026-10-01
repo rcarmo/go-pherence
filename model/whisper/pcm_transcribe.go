@@ -7,6 +7,8 @@ import (
 	"math"
 	"sort"
 	"strings"
+
+	"github.com/rcarmo/go-pherence/loader/audio"
 )
 
 // PCMTranscribeOptions configures the opt-in checked path. Language is an
@@ -39,6 +41,15 @@ type PCMTranscribeOptions struct {
 	// the original's zero-padded key extent (multiple of 256) and the decoder
 	// MLP uses the original tanh-form GELU. Default false keeps existing output.
 	OriginalDecoderCompatibility bool
+	// OriginalWindowCompatibility is experimental and applies across the 30 s
+	// windows of one TranscribePCMWindows call, as whisper.cpp's whisper_full
+	// does: (1) every window's log-mel uses the whole-clip clamp floor (an extra
+	// mel pass over all windows computes the clip maximum first); (2) each
+	// window after the first is prompted with <|startofprev|> plus the last
+	// <=223 previously decoded tokens (timestamps included), cleared when at
+	// most 5 s of audio remain. Requires firstWindow 0 (no resume). Default
+	// false keeps independent windows and existing output.
+	OriginalWindowCompatibility bool
 }
 
 // WindowTranscript contains raw per-window output in canonical PCM seconds.
@@ -153,6 +164,22 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	if plan.Count() > 10000 {
 		return fmt.Errorf("checked PCM plan exceeds 10000 windows")
 	}
+	var clipMaxLog *float32
+	var history *[]int
+	nextWindow := firstWindow
+	if opts.OriginalWindowCompatibility {
+		if firstWindow != 0 {
+			return fmt.Errorf("original window compatibility cannot resume mid-clip")
+		}
+		if v.previous == 0 {
+			return fmt.Errorf("original window compatibility requires <|startofprev|>")
+		}
+		maxLog, err := pcmClipMelMax(ctx, source, plan, w.Config)
+		if err != nil {
+			return err
+		}
+		clipMaxLog, history = &maxLog, new([]int)
+	}
 	detectedLanguage := "auto"
 	emitWindow := emit
 	if auto {
@@ -162,6 +189,18 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 		}
 	}
 	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emitWindow, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
+		if history != nil {
+			window, err := plan.At(nextWindow)
+			if err != nil {
+				return nil, nil, err
+			}
+			nextWindow++
+			// whisper.cpp clears the rolling context for a short tail:
+			// seek > 0 && seek+500 >= n_len_org, n_len_org = 1+(n+200-400)/160.
+			if seek, seekEnd := window.Start/160, 1+(totalSamples-200)/160; seek > 0 && seek+500 >= seekEnd {
+				*history = nil
+			}
+		}
 		if opts.SkipDigitalSilence {
 			zero, err := pcmDigitalSilence(ctx, samples)
 			if err != nil {
@@ -171,7 +210,7 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, nil
 			}
 		}
-		output, frames, err := w.encodePCMWindow(ctx, samples, opts.VulkanEncoder)
+		output, frames, err := w.encodePCMWindow(ctx, samples, opts.VulkanEncoder, clipMaxLog)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -195,16 +234,16 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, err
 			}
 		}
-		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress)
+		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress, history)
 		if !errors.Is(err, ErrGenerationLimit) || validSamples < 2*int(MinWindowSamples) {
 			return segments, words, err
 		}
-		return w.decodePCMWindowHalves(ctx, samples, validSamples, tokenizer, windowV, windowOpts, windowSuppress, windowBeginSuppress)
+		return w.decodePCMWindowHalves(ctx, samples, validSamples, tokenizer, windowV, windowOpts, windowSuppress, windowBeginSuppress, clipMaxLog, history)
 	})
 }
 
-func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encoder *VulkanEncoder) ([]float32, int, error) {
-	mel, frames, err := MelFlatFromSamplesCheckedContext(ctx, samples, w.Config)
+func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encoder *VulkanEncoder, clipMaxLog *float32) ([]float32, int, error) {
+	mel, frames, err := melFlatChecked(ctx, samples, w.Config, clipMaxLog)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -239,7 +278,10 @@ func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encode
 	return output, (frames + 1) / 2, nil
 }
 
-func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, output []float32, frames, validSamples int, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int) ([]Segment, []WordTiming, error) {
+// history, when non-nil, is the whisper.cpp rolling previous-text context: the
+// prompt uses its last 223 tokens and, on success, it becomes those prompt
+// tokens plus this window's generated tokens (prompt_past1 semantics).
+func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, output []float32, frames, validSamples int, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, history *[]int) ([]Segment, []WordTiming, error) {
 	state, err := NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
 	if err != nil {
 		return nil, nil, err
@@ -247,12 +289,28 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 	if opts.OriginalDecoderCompatibility {
 		state.applyOriginalDecoderCompatibility(frames)
 	}
-	segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
+	var previous []int
+	if history != nil {
+		previous = *history
+		if len(previous) > maxPreviousTextTokens {
+			previous = previous[len(previous)-maxPreviousTextTokens:]
+		}
+	}
+	segments, generated, err := decodeCheckedTimestampsPrompted(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, previous, func(token int) ([]float32, error) {
 		if state.Pos >= w.Config.MaxDecoderLength {
 			return nil, ErrGenerationLimit
 		}
 		return w.Decoder.ForwardToken(token, state), nil
+	}, func(token int) error {
+		if state.Pos >= w.Config.MaxDecoderLength {
+			return ErrGenerationLimit
+		}
+		w.Decoder.AdvanceToken(token, state)
+		return nil
 	})
+	if err == nil && history != nil {
+		*history = append(append([]int(nil), previous...), generated...)
+	}
 	if err != nil || !opts.WordTimestamps {
 		return segments, nil, err
 	}
@@ -279,13 +337,13 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 // decodePCMWindowHalves recovers only a full-window generation limit. Failing
 // halves may be subdivided a bounded number of times; successful halves are
 // never decoded twice. The detected language is shared across the whole window.
-func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, validSamples int, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int) ([]Segment, []WordTiming, error) {
+func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, validSamples int, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, clipMaxLog *float32, history *[]int) ([]Segment, []WordTiming, error) {
 	return splitPCMGenerationLimit(ctx, samples, validSamples, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
-		output, frames, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder)
+		output, frames, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder, clipMaxLog)
 		if err != nil {
 			return nil, nil, err
 		}
-		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress)
+		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress, history)
 	})
 }
 
@@ -478,4 +536,34 @@ func canonicalWindowOutput(window Window, segments []Segment, words []WordTiming
 		mappedWords = append(mappedWords, word)
 	}
 	return out, mappedWords, nil
+}
+
+// pcmClipMelMax is the explicit OriginalWindowCompatibility pre-pass: the raw
+// log10 mel maximum over every planned (zero-padded) window, matching the
+// maximum whisper.cpp takes over its whole-clip spectrogram except for frames
+// at internal window edges (reflect padding). Reads only; no inference.
+func pcmClipMelMax(ctx context.Context, source SampleReader, plan WindowPlan, cfg Config) (float32, error) {
+	first, err := plan.At(0)
+	if err != nil {
+		return 0, err
+	}
+	scratch := make([]float32, int(first.InputSamples))
+	maxLog := float32(math.Inf(-1))
+	for i := int64(0); i < plan.Count(); i++ {
+		window, err := plan.ReadWindow(ctx, source, i, scratch)
+		if err != nil {
+			return 0, err
+		}
+		m, err := audio.WhisperLogMelMaxContext(ctx, scratch[:window.InputSamples], cfg.NumMelBins)
+		if err != nil {
+			return 0, err
+		}
+		if m > maxLog {
+			maxLog = m
+		}
+	}
+	if math.IsInf(float64(maxLog), -1) {
+		return 0, fmt.Errorf("empty PCM clip for mel maximum")
+	}
+	return maxLog, ctx.Err()
 }

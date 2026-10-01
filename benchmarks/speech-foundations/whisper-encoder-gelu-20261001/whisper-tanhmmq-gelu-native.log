@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeGELUOriginalTanh
+    vulkan_gelu_original_test.go:144: NATIVE_GELU_ORIGINAL device="Intel(R) Iris(R) Xe Graphics (RPL-P)" samples=7680769 bit_equal_model=6731015 max_abs=6.264890544116497e-07
+--- PASS: TestVulkanNativeGELUOriginalTanh (0.28s)
+PASS

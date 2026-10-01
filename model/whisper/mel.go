@@ -39,6 +39,15 @@ func MelFlatFromSamplesCheckedContext(ctx context.Context, samples []float32, cf
 	return audio.WhisperLogMelContext(ctx, samples, cfg.NumMelBins)
 }
 
+// melFlatChecked applies whisper.cpp's whole-clip clamp floor when clipMaxLog
+// is non-nil (OriginalWindowCompatibility); nil keeps the per-window contract.
+func melFlatChecked(ctx context.Context, samples []float32, cfg Config, clipMaxLog *float32) ([]float32, int, error) {
+	if clipMaxLog == nil {
+		return MelFlatFromSamplesCheckedContext(ctx, samples, cfg)
+	}
+	return audio.WhisperLogMelClipFloorContext(ctx, samples, cfg.NumMelBins, *clipMaxLog)
+}
+
 func flattenMel(mel [][]float32, numMels int) ([]float32, int) {
 	if len(mel) == 0 || len(mel[0]) == 0 || numMels <= 0 {
 		return nil, 0

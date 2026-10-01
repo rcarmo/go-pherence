@@ -1,0 +1,250 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 582,
+    "WeightBytes": 503316480,
+    "ScratchBytes": 104496000
+  },
+  "ModelLoadAllocatedBytes": 5000992472,
+  "PreparationAllocatedBytes": 434277744,
+  "Backend": "vulkan-original-q5-padded-integer-dot-mmq-tanh",
+  "Language": "pt",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "OriginalDecoderCompatibility": true,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045",
+  "ModelLoadSeconds": 2.879939371,
+  "PreparationSeconds": 0.778544435,
+  "CleanupSeconds": 0.003495638,
+  "FullArmSeconds": 23.884926924,
+  "InputSamples": 75094,
+  "CPUThreads": 4,
+  "Precision": "Original-compatibility diagnostic: virtual256-padded zeroKV F32 attention + all encoder projections original Q5_0 x Q8_1 four-block-step MMQ schedule (same per-output arithmetic as padded-integer-dot-all); original GGML tanh-form encoder GELU (stem+FFN), decoder per OriginalDecoderCompatibility",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 4.03019163,
+      "AllocatedBytes": 164192504,
+      "Allocations": 34822,
+      "DecoderSelfSeconds": 0.055937971,
+      "DecoderCrossSeconds": 0.107199968,
+      "DecoderMLPSeconds": 0.089381334,
+      "DecoderHeadSeconds": 0.095141373,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 75094,
+            "EmitStart": 0,
+            "EmitEnd": 75094,
+            "InputSamples": 480000,
+            "PadSamples": 404906
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.693375,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 4.030333595,
+      "AllocatedBytes": 162509496,
+      "Allocations": 34708,
+      "DecoderSelfSeconds": 0.053816514,
+      "DecoderCrossSeconds": 0.105558889,
+      "DecoderMLPSeconds": 0.088107151,
+      "DecoderHeadSeconds": 0.095438275,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 75094,
+            "EmitStart": 0,
+            "EmitEnd": 75094,
+            "InputSamples": 480000,
+            "PadSamples": 404906
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.693375,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 4.053532064,
+      "AllocatedBytes": 162496072,
+      "Allocations": 34676,
+      "DecoderSelfSeconds": 0.054758368,
+      "DecoderCrossSeconds": 0.106308474,
+      "DecoderMLPSeconds": 0.08684325,
+      "DecoderHeadSeconds": 0.093037849,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 75094,
+            "EmitStart": 0,
+            "EmitEnd": 75094,
+            "InputSamples": 480000,
+            "PadSamples": 404906
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.693375,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 4.069749012,
+      "AllocatedBytes": 162491728,
+      "Allocations": 34680,
+      "DecoderSelfSeconds": 0.054607316,
+      "DecoderCrossSeconds": 0.105933179,
+      "DecoderMLPSeconds": 0.087227767,
+      "DecoderHeadSeconds": 0.09262348,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 75094,
+            "EmitStart": 0,
+            "EmitEnd": 75094,
+            "InputSamples": 480000,
+            "PadSamples": 404906
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.693375,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 4.038399682,
+      "AllocatedBytes": 162492752,
+      "Allocations": 34678,
+      "DecoderSelfSeconds": 0.054490388,
+      "DecoderCrossSeconds": 0.10717395,
+      "DecoderMLPSeconds": 0.087213501,
+      "DecoderHeadSeconds": 0.092544022,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 75094,
+            "EmitStart": 0,
+            "EmitEnd": 75094,
+            "InputSamples": 480000,
+            "PadSamples": 404906
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 4.693375,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

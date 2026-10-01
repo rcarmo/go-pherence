@@ -74,6 +74,10 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Decoder compatibility](../../docs/validation/whisper-decoder-compat-20261001.md): explicit `OriginalDecoderCompatibility` adds the original's zero-padded cross-attention extent (1536 keys) and tanh GELU to the decoder. CPU emulation and original-decoder swaps show these two, not F16 caches or Q8_1 activations, flip PT row 0; with the MMQ encoder PT moves 9.04→7.38 s (original 7.36/no-F16 7.38) at no cost. JFK 11.00 vs 10.40 s is attributed to the encoder. Default off.
 
+[Encoder GELU](../../docs/validation/whisper-encoder-gelu-20261001.md): with Q5×Q8_1 MMQ projections the encoder GELU form decides JFK. Private backend `vulkan-original-q5-padded-integer-dot-mmq-tanh` (original GGML tanh GELU shader, 33-shader gate) plus decoder compatibility gives JFK 0–10.40 and PT 0–7.36, matching the original exactly, at tied cost (~4.40 s vs original ~3.02 s).
+
+[Window compatibility](../../docs/validation/whisper-window-compat-20261001.md): explicit `OriginalWindowCompatibility` (whole-clip mel floor + `<|startofprev|>` previous-text prompt) makes PT2 match the original on all six segments. Exact `AdvanceToken` skips unused prompt logits. Cost: +0.04–0.1 s per single-window clip; PT2 +1.26 s from the token-by-token CPU prompt (batched GPU decoder next). Defaults unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

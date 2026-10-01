@@ -1,0 +1,16 @@
+=== RUN   TestWhisperDecoderEmulationDiagnostic
+    zz_decoder_emu_diag_test.go:232: LEGACY_LOAD seconds=2.829810825 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=base 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=all 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=padtanh 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=padtanhfc2 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=padtanhkv 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-default arm=nopromptq8 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=base 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=all 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=padtanh 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=padtanhfc2 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=padtanhkv 0.00-13.76 "E aí"
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=nopromptq8 0.00-13.76 "E aí"
+--- PASS: TestWhisperDecoderEmulationDiagnostic (12.37s)
+PASS

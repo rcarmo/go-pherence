@@ -244,6 +244,17 @@ var (
 )
 
 func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
+	return dec.forwardToken(tokenID, state, true)
+}
+
+// AdvanceToken runs the same decoder step as ForwardToken (identical self-
+// attention KV, position and LastToken updates) but skips the final LayerNorm
+// and vocabulary projection, for prompt positions whose logits are unused.
+func (dec *Decoder) AdvanceToken(tokenID int, state *DecoderState) {
+	dec.forwardToken(tokenID, state, false)
+}
+
+func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bool) []float32 {
 	cfg := dec.cfg
 	dModel := cfg.DecoderDModel
 	pos := state.Pos
@@ -339,6 +350,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		decMlpNs += nowNs() - tphase
 	}
 
+	if !wantLogits {
+		state.LastToken = tokenID
+		state.Pos++
+		return nil
+	}
 	// Final LayerNorm
 	tphase := nowNs()
 	layerNormInto(bufs.normed, x, dec.FinalLNWeight, dec.FinalLNBias, dModel)
