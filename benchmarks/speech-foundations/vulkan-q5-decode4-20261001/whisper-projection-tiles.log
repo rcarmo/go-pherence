@@ -1,0 +1,216 @@
+=== RUN   TestVulkanNativeProjectionTiles
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit4
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit4/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit4/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.025642630
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.026634786
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.022454185
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.014010613
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.014302064
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.018986037
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.018687763
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.013988684
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.014054477
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.018806865
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit8
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit8/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/f32-explicit8/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.012550538
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.016249270
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.016077348
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.011724594
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012037160
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.016025412
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.016069636
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.011993251
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012578445
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.016613143
+=== RUN   TestVulkanNativeProjectionTiles/f32-row128col32
+=== RUN   TestVulkanNativeProjectionTiles/f32-row128col32/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/f32-row128col32/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.012741643
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.021512994
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.021593920
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.011808828
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012202913
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.018860921
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.018830514
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012577744
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.011838008
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.018864102
+=== RUN   TestVulkanNativeProjectionTiles/f32-row32col128
+=== RUN   TestVulkanNativeProjectionTiles/f32-row32col128/[33_96_63]
+    vulkan_projection_tiles_diagnostic_test.go:145: ordered bits drift kind=f32 variant=row32col128 shape=[33 96 63] i=32 got-0.049481016 want-0.2567556
+=== RUN   TestVulkanNativeProjectionTiles/f32-row32col128/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.011789978
+    vulkan_projection_tiles_diagnostic_test.go:145: ordered bits drift kind=f32 variant=row32col128 shape=[1500 1280 1280] i=32 got-0.049481016 want-0.16178104
+=== RUN   TestVulkanNativeProjectionTiles/f32-transpose4
+=== RUN   TestVulkanNativeProjectionTiles/f32-transpose4/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/f32-transpose4/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.011769339
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.016628927
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.016411565
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.012052976
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012642600
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.016035967
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.016214913
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012450238
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012650565
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=f32 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.016381318
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit4
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit4/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit4/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.011862926
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.015643675
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.016231045
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.012337216
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012501687
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.016384230
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.016406591
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012441650
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012499708
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.016393940
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit4/[1500_5120_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.044746341
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.045565024
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.045148365
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.033765534
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.033801696
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.045335366
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.045589536
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.038037053
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.038971592
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit4 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.054973963
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit8
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit8/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit8/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.008790427
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.011864603
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.012491388
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.009026465
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.009003620
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.012419209
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.011313624
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.008906935
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.008911122
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.012132607
+=== RUN   TestVulkanNativeProjectionTiles/q5-explicit8/[1500_5120_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.034063168
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.045477444
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.045262450
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.033810307
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.033928806
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.045255831
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.045192598
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.033825407
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.034030677
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=explicit8 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.045685144
+=== RUN   TestVulkanNativeProjectionTiles/q5-row128col32
+=== RUN   TestVulkanNativeProjectionTiles/q5-row128col32/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/q5-row128col32/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.008804729
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.012709867
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.012785493
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.008864533
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.008870218
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.012755422
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.012640665
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.008839747
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.008734592
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.012728545
+=== RUN   TestVulkanNativeProjectionTiles/q5-row128col32/[1500_5120_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.038981968
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.060343597
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.058778886
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.038945036
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.039018909
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.058997375
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.059177272
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.039007105
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.039230963
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row128col32 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.060312355
+=== RUN   TestVulkanNativeProjectionTiles/q5-row32col128
+=== RUN   TestVulkanNativeProjectionTiles/q5-row32col128/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/q5-row32col128/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.009905167
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.016968142
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.017105849
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.010196685
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.010069107
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.017089297
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.017028510
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.010135557
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.010157149
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.017081828
+=== RUN   TestVulkanNativeProjectionTiles/q5-row32col128/[1500_5120_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.038851182
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.066572714
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.066680539
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.039396936
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.038946263
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.066666013
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.068683907
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.039698505
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.038866689
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=row32col128 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.066205165
+=== RUN   TestVulkanNativeProjectionTiles/q5-transpose4
+=== RUN   TestVulkanNativeProjectionTiles/q5-transpose4/[33_96_63]
+=== RUN   TestVulkanNativeProjectionTiles/q5-transpose4/[1500_1280_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.009991589
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.013456630
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.013442931
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.010019187
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.010094189
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.013497673
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.013386842
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.010070757
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.010040771
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.013314371
+=== RUN   TestVulkanNativeProjectionTiles/q5-transpose4/[1500_5120_1280]
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.043104946
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.057290139
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.056938340
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.042274265
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.042228386
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.057584981
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.058004558
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.042337314
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.042372416
+    vulkan_projection_tiles_diagnostic_test.go:151: PROJECTION_TILE kind=q5 variant=transpose4 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.057596647
+--- FAIL: TestVulkanNativeProjectionTiles (7.65s)
+    --- PASS: TestVulkanNativeProjectionTiles/f32-explicit4 (0.53s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-explicit4/[33_96_63] (0.07s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-explicit4/[1500_1280_1280] (0.40s)
+    --- PASS: TestVulkanNativeProjectionTiles/f32-explicit8 (0.41s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-explicit8/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-explicit8/[1500_1280_1280] (0.32s)
+    --- PASS: TestVulkanNativeProjectionTiles/f32-row128col32 (0.44s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-row128col32/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-row128col32/[1500_1280_1280] (0.33s)
+    --- FAIL: TestVulkanNativeProjectionTiles/f32-row32col128 (0.16s)
+        --- FAIL: TestVulkanNativeProjectionTiles/f32-row32col128/[33_96_63] (0.02s)
+        --- FAIL: TestVulkanNativeProjectionTiles/f32-row32col128/[1500_1280_1280] (0.10s)
+    --- PASS: TestVulkanNativeProjectionTiles/f32-transpose4 (0.41s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-transpose4/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/f32-transpose4/[1500_1280_1280] (0.32s)
+    --- PASS: TestVulkanNativeProjectionTiles/q5-explicit4 (1.15s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit4/[33_96_63] (0.06s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit4/[1500_1280_1280] (0.31s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit4/[1500_5120_1280] (0.70s)
+    --- PASS: TestVulkanNativeProjectionTiles/q5-explicit8 (1.04s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit8/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit8/[1500_1280_1280] (0.27s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-explicit8/[1500_5120_1280] (0.68s)
+    --- PASS: TestVulkanNativeProjectionTiles/q5-row128col32 (1.14s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row128col32/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row128col32/[1500_1280_1280] (0.26s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row128col32/[1500_5120_1280] (0.78s)
+    --- PASS: TestVulkanNativeProjectionTiles/q5-row32col128 (1.19s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row32col128/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row32col128/[1500_1280_1280] (0.30s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-row32col128/[1500_5120_1280] (0.80s)
+    --- PASS: TestVulkanNativeProjectionTiles/q5-transpose4 (1.17s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-transpose4/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-transpose4/[1500_1280_1280] (0.28s)
+        --- PASS: TestVulkanNativeProjectionTiles/q5-transpose4/[1500_5120_1280] (0.80s)
+FAIL

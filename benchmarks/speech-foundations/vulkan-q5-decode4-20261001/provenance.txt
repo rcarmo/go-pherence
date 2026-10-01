@@ -1,0 +1,6 @@
+2026-10-01T13:54:35Z
+187c0991130bd0878ab0203fd556929aa88e848c
+89b9b5719232bf9b9dd3ac4d022d0f9afef6e8887040b9d94f23e64b3d9b059f  tmp/whisper-vad-parity-20261001/whisper-q5decode4-backend.test
+874ebbf1162a2b6c379c5ef9ac77bd1dc5ed19b4fb3f893c20bfbe36185335ba  tmp/whisper-vad-parity-20261001/whisper-q5decode4-model.test
+cf71ac44d16516e311ccfb9796757d6d11d7a59d4a733aa27214bef4cef381ad  tools/vulkan-offline/usr/bin/glslangValidator
+49044b2fffb78a93ab7016d46a50d156088598162de8b8a523f3308ea5b3f2f8  tools/vulkan-offline/usr/bin/spirv-val

@@ -1,0 +1,5 @@
+Q5DECODE4_ARM64_PASS
+Q5DECODE4_RISCV64_PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.053s
+ok  	github.com/rcarmo/go-pherence/model/whisper	36.391s
+Q5DECODE4_AFFECTED_RACE_PASS

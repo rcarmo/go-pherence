@@ -42,6 +42,8 @@ The separately named `vulkan-original-q5-integer-dot-fc1` candidate quantises on
 
 The explicit `vulkan-original-q5-attention-unroll4` arm retains original packed FFN with F32 activations and uses the headDim64-only exact-order attention unroll. [Qualification](../../docs/validation/vulkan-attention-unroll4-20261001.md) records fresh0.9–2.0% request gains, expanded baseline-output equality and hidden-bit/cancellation gates. Other head dimensions are refused; no fallback/default selection occurs. Original timing/quality gaps remain open.
 
+The explicit `vulkan-original-q5-decode4` arm retains original Q5 storage and ordered F32 arithmetic but assigns four lanes per block for shared decode. [Qualification](../../docs/validation/vulkan-q5-decode4-20261001.md) records native/pinned6.7–6.8% kernel gains, fresh1.3–2.2% request gains and expanded exact-output gates. It does not automatically combine attention unroll or quantisation, and defaults remain unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

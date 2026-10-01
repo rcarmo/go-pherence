@@ -1,0 +1,57 @@
+=== RUN   TestVulkanNativeProjectionDiagnostic
+=== RUN   TestVulkanNativeProjectionDiagnostic/[1_1_1]
+    vulkan_projection_diagnostic_test.go:83: NATIVE_METRIC {"name":"projected","values":1,"max_abs":9.078530704975663e-10,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[2_3_5]
+    vulkan_projection_diagnostic_test.go:83: NATIVE_METRIC {"name":"projected","values":10,"max_abs":2.9382765109886577e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[65_33_127]
+    vulkan_projection_diagnostic_test.go:83: NATIVE_METRIC {"name":"projected","values":8255,"max_abs":2.5028647543390292e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[67_65_129]
+    vulkan_projection_diagnostic_test.go:83: NATIVE_METRIC {"name":"projected","values":8643,"max_abs":6.285983378262472e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[1500_1280_1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=11953774 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=19104919 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=18966300 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=12740029 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=19107101 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=12008597 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=12614830 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=19116113 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=11837882 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=18926281 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=19142202 shape=[1500 1280 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=12347234 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeProjectionDiagnostic/[1500_1280_5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=34494675 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=56128144 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=56142361 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=34624423 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=56340382 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=34629084 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=34521242 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=56768380 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=34605472 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=56679007 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=56580140 shape=[1500 1280 5120]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=34601698 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeProjectionDiagnostic/[1500_5120_1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=36849682 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=58322225 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=0 ns=58793445 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=0 ns=36247377 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=58796312 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=36397389 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=1 ns=35836567 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=1 ns=59051057 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=36039144 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=58630120 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=true block=2 ns=58712772 shape=[1500 5120 1280]
+    vulkan_projection_diagnostic_test.go:101: PROJECTION_SAMPLE candidate=false block=2 ns=36133534 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeProjectionDiagnostic (2.45s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[1_1_1] (0.01s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[2_3_5] (0.01s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[65_33_127] (0.01s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[67_65_129] (0.01s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[1500_1280_1280] (0.37s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[1500_1280_5120] (1.02s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[1500_5120_1280] (0.88s)
+PASS

@@ -182,6 +182,16 @@ func TestVulkanOfflineQ5StreamConstruction(t *testing.T) {
 	if memory.frees != 1 {
 		t.Fatal("cleanup count", memory.frees)
 	}
+	decode4, e := NewVkLinearQ5Decode4SetStream(context.Background(), []VkLinearQ5Shape{{1, 32}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+	if e != nil || decode4 == nil || decode4.StorageBytes() != 24 {
+		t.Fatal("decode4 constructor", e)
+	}
+	if e = decode4.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = decode4.Close(); e != nil {
+		t.Fatal(e)
+	}
 	for _, arm := range []string{"reader", "extent", "scale", "cancel"} {
 		before := memory.frees
 		ctx, stop := context.WithCancel(context.Background())

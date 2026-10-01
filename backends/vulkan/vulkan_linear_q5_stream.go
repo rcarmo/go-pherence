@@ -92,7 +92,14 @@ func packQ5Into(ctx context.Context, raw []byte, dst []uint32) error {
 func NewVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error)) (*VkLinearQ5Set, error) {
 	return newVkLinearQ5SetStream(ctx, shapes, read, false)
 }
-func newVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error), integerDot bool) (result *VkLinearQ5Set, err error) {
+func newVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error), integerDot bool) (*VkLinearQ5Set, error) {
+	code := spirv_linear_q5_grouped_f32
+	if integerDot {
+		code = spirv_linear_q5_integer_dot
+	}
+	return newVkLinearQ5SetStreamCode(ctx, shapes, read, code, integerDot)
+}
+func newVkLinearQ5SetStreamCode(ctx context.Context, shapes []VkLinearQ5Shape, read func(context.Context, int) ([]byte, error), code []byte, integerDot bool) (result *VkLinearQ5Set, err error) {
 	if read == nil {
 		return nil, fmt.Errorf("Q5 stream: nil reader")
 	}
@@ -106,9 +113,9 @@ func newVkLinearQ5SetStream(ctx context.Context, shapes []VkLinearQ5Shape, read 
 	}
 	var kernel *VkComputeKernel
 	if integerDot {
-		kernel, err = vkKernelCreateModeLocked(spirv_linear_q5_integer_dot, 4, 12, true)
+		kernel, err = vkKernelCreateModeLocked(code, 4, 12, true)
 	} else {
-		kernel, err = vkKernelCreateLocked(spirv_linear_q5_grouped_f32, 4, 12)
+		kernel, err = vkKernelCreateLocked(code, 4, 12)
 	}
 	if err != nil {
 		return nil, err

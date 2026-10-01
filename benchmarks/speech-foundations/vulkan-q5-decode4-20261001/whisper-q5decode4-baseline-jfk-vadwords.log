@@ -1,0 +1,9 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:128: LEGACY_LOAD seconds=2.832563402 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    performance_goal_test.go:295: WHISPER_GOAL backend=vulkan-original-q5-source VAD=true words=true repeat=0 seconds=8.225622 bytes=206493712 allocations=28167
+    performance_goal_test.go:295: WHISPER_GOAL backend=vulkan-original-q5-source VAD=true words=true repeat=1 seconds=8.060002 bytes=204810032 allocations=27955
+    performance_goal_test.go:295: WHISPER_GOAL backend=vulkan-original-q5-source VAD=true words=true repeat=2 seconds=8.093772 bytes=204805648 allocations=27964
+    performance_goal_test.go:295: WHISPER_GOAL backend=vulkan-original-q5-source VAD=true words=true repeat=3 seconds=8.091970 bytes=204799736 allocations=27961
+    performance_goal_test.go:295: WHISPER_GOAL backend=vulkan-original-q5-source VAD=true words=true repeat=4 seconds=8.103821 bytes=204798576 allocations=27947
+--- PASS: TestWhisperPerformanceGoalArm (44.35s)
+PASS
