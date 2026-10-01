@@ -1,0 +1,8 @@
+const root='tmp/whisper-q5-scheduling-20261001';const source=await Bun.file('projects/go-pherence-transcribe-web/backends/vulkan/shaders/linear_q5_decode4_f32.glsl').text();
+for(const variant of ['wrotate1','wrotate2','bothrotate','colmajor','colmajorrotate']){
+ let s=source;const rotateW=variant!=='colmajor',rotateX=variant==='bothrotate',factor=variant==='wrotate2'?2:1;
+ if(rotateW){s=s.replaceAll('wt[r*32u+index]',`wt[r*32u+((index+(r%16u)*${factor}u)%32u)]`).replaceAll('wt[r*32u+index+16u]',`wt[r*32u+((index+16u+(r%16u)*${factor}u)%32u)]`).replaceAll('wt[(cx+c*16)*32+k]',`wt[(cx+c*16)*32+((k+cx*${factor}u)%32u)]`);}
+ if(rotateX){s=s.replace('xt[i]=a;', 'xt[(i/32u)*32u+((i%32u+(i/32u)%16u)%32u)]=a;').replaceAll('xt[(ry+r*16)*32+k]','xt[(ry+r*16)*32+((k+ry)%32u)]');}
+ if(variant.startsWith('colmajor')){const old='for(uint r=0;r<4;r++) { float a=xt[(ry+r*16)*32+k];\n    for(uint c=0;c<4;c++)sums[r*4+c]+=a*';const at=s.indexOf(old);if(at<0)throw Error('schedule anchor');const end=s.indexOf(';\n   }',at);if(end<0)throw Error('schedule end');const w=s.slice(at+old.length,end);s=s.slice(0,at)+`for(uint c=0;c<4;c++) { float b=${w};\n    for(uint r=0;r<4;r++)sums[r*4+c]+=xt[(ry+r*16)*32+k]*b`+s.slice(end);}
+ await Bun.write(`${root}/${variant}.glsl`,s);
+}

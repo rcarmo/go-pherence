@@ -50,6 +50,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Exact Q5 preparation trials](../../docs/validation/vulkan-q5-preparation-20261001.md) reject signed-byte and scale-only widening: trained kernels slow down. Paired offset bytes gain only about 2% per operator while increasing packed storage by 50% and CPU packing cost. No prepared-weight mode is retained, and no request/RSS/quality gain is claimed.
 
+[Compact projection scheduling trials](../../docs/validation/vulkan-projection-scheduling-20261001.md) reject 13 original-Q5 and four F32 shared-layout/geometry/barrier/K-tile variants. All tested operator outputs stay exact, but no useful trained gain is measured. Diagnostics remain archived only; the retained outputILP/decode4 path and defaults are unchanged.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

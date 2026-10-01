@@ -1,0 +1,237 @@
+package vulkan
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestVulkanNativeQ5SchedulingDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_Q5_SCHEDULING_DIR")
+	if dir == "" {
+		t.Skip("explicit exact signed Q5 diagnostic")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	variants := strings.Split(os.Getenv("GO_PHERENCE_TEST_Q5_SCHEDULING_VARIANTS"), ",")
+	if len(variants) == 1 && variants[0] == "" {
+		variants = []string{"wrotate1", "wrotate2", "bothrotate", "colmajor", "colmajorrotate"}
+	}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(fmt.Sprintf("%s/%s.spv", dir, variant))
+			if e != nil {
+				t.Fatal(e)
+			}
+			kernel, e := VkKernelCreate(code, 4, 12)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, shape := range [][3]int{{33, 96, 63}, {1500, 1280, 5120}, {1500, 5120, 1280}} {
+				t.Run(fmt.Sprint(shape), func(t *testing.T) {
+					m, k, n := shape[0], shape[1], shape[2]
+					raw := make([]byte, n*(k/32)*22)
+					for b := 0; b < len(raw)/22; b++ {
+						binary.LittleEndian.PutUint16(raw[b*22:], []uint16{0x2800, 0xa800, 0x0001, 0x8000}[b%4])
+						for j := 2; j < 22; j++ {
+							raw[b*22+j] = byte(b*17 + j*31)
+						}
+					}
+					packed, e := packLinearQ5Blocks(context.Background(), raw)
+					if e != nil {
+						t.Fatal(e)
+					}
+					signed := make([]float32, len(packed))
+					for i, v := range packed {
+						signed[i] = math.Float32frombits(v)
+					}
+					base, e := NewVkLinearQ5Decode4SetStream(context.Background(), []VkLinearQ5Shape{{n, k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, base)
+					a, e := NewVkTensorArena(context.Background(), 180<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					tx := nativeTensor(t, a, nativeData(m*k, 11, .5), m, k)
+					tw := nativeTensor(t, a, signed, len(signed))
+					bias := nativeTensor(t, a, nativeData(n, 13, .1), n)
+					out := nativeTensor(t, a, nil, m, n)
+					right := nativeGuard(t, a)
+					bs, e := base.Stage(context.Background(), 0, out, tx, bias)
+					if e != nil {
+						t.Fatal(e)
+					}
+					bp, e := NewVkF32Plan(context.Background(), []VkF32Stage{bs})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bp)
+					cp, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((n + 63) / 64), uint32((m + 63) / 64), 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, cp)
+					nativeRun(t, bp.Run)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							plan := bp
+							if candidate {
+								plan = cp
+							}
+							wall := nativeRun(t, plan.Run)
+							got := nativeDownload(t, out)
+							for i, v := range got {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("bits", i, v, ref[i])
+								}
+							}
+							left()
+							right()
+							if m == 1500 {
+								t.Logf("Q5_SCHEDULING variant=%s shape=%v candidate=%t repeat=%d seconds=%.9f sourceBytes=%d candidateBytes=%d", variant, shape, candidate, repeat, wall.Seconds(), len(raw)/22*24, len(signed)*4)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestVulkanNativeQ5SchedulingTrained(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_Q5_SCHEDULING_INPUTS")
+	if dir == "" {
+		t.Skip("explicit retained Q5decode4 trained qualification")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
+	defer cancel()
+	pin := "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+	if os.Getenv("GO_PHERENCE_WHISPER_GGML_SHA256") != pin {
+		t.Fatal("modelpin")
+	}
+	file, e := legacy.Open(ctx, os.Getenv("GO_PHERENCE_WHISPER_GGML"), pin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer file.Close()
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	for _, variant := range strings.Split(os.Getenv("GO_PHERENCE_TEST_Q5_SCHEDULING_VARIANTS"), ",") {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(os.Getenv("GO_PHERENCE_TEST_Q5_SCHEDULING_DIR") + "/" + variant + ".spv")
+			if e != nil {
+				t.Fatal(e)
+			}
+			kernel, e := VkKernelCreate(code, 4, 12)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, part := range []struct {
+				name, input, pin string
+				k, n             int
+			}{{"encoder.blocks.0.mlp.0.weight", "ff-norm", "e43e03363bafbf2f3cdbca5290e92cd5547406c3a601e37f80d365926a8333db", 1280, 5120}, {"encoder.blocks.0.mlp.2.weight", "tmp-ff", "07cdaf0e8c75e8fa7c1977c6a0bbf2a753fb7b27f3402ba575eaf9dbe0113f3f", 5120, 1280}} {
+				t.Run(part.name, func(t *testing.T) {
+					raw, shape, e := file.Q5Blocks(ctx, part.name)
+					if e != nil || len(shape) != 2 || shape[0] != part.k || shape[1] != part.n {
+						t.Fatal("tensor", e)
+					}
+					b, e := os.ReadFile(dir + "/" + part.input + ".f32")
+					if e != nil || len(b) != 1500*part.k*4 || fmt.Sprintf("%x", sha256.Sum256(b)) != part.pin {
+						t.Fatal("inputpin", e)
+					}
+					x := make([]float32, len(b)/4)
+					for i := range x {
+						x[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+					}
+					baseline, e := NewVkLinearQ5Decode4SetStream(ctx, []VkLinearQ5Shape{{part.n, part.k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, baseline)
+					packed, e := packLinearQ5Blocks(ctx, raw)
+					if e != nil {
+						t.Fatal(e)
+					}
+					wf := make([]float32, len(packed))
+					for i, v := range packed {
+						wf[i] = math.Float32frombits(v)
+					}
+					a, e := NewVkTensorArena(ctx, 150<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					tx := nativeTensor(t, a, x, 1500, part.k)
+					tw := nativeTensor(t, a, wf, len(wf))
+					bias := nativeTensor(t, a, nil, part.n)
+					out := nativeTensor(t, a, nil, 1500, part.n)
+					right := nativeGuard(t, a)
+					plan, e := NewVkF32Plan(ctx, []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((part.n + 63) / 64), uint32((1500 + 63) / 64), 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{1500, uint32(part.k), uint32(part.n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, plan)
+					bs, e := baseline.Stage(ctx, 0, out, tx, bias)
+					if e != nil {
+						t.Fatal(e)
+					}
+					bp, e := NewVkF32Plan(ctx, []VkF32Stage{bs})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bp)
+					baseRun := bp.Run
+					nativeRun(t, baseRun)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							fn := baseRun
+							if candidate {
+								fn = plan.Run
+							}
+							wall := nativeRun(t, fn)
+							got := nativeDownload(t, out)
+							for i, v := range got {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("trainedbits", i)
+								}
+							}
+							left()
+							right()
+							t.Logf("Q5_SCHEDULING_TRAINED variant=%s tensor=%s candidate=%t repeat=%d seconds=%.9f values=%d", variant, part.name, candidate, repeat, wall.Seconds(), len(got))
+						}
+					}
+				})
+			}
+		})
+	}
+}

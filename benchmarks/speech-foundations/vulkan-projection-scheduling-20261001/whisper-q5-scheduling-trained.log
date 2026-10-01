@@ -1,0 +1,29 @@
+=== RUN   TestVulkanNativeQ5SchedulingTrained
+=== RUN   TestVulkanNativeQ5SchedulingTrained/colmajor
+=== RUN   TestVulkanNativeQ5SchedulingTrained/colmajor/encoder.blocks.0.mlp.0.weight
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.031045175 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.031228551 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.030907452 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.030603718 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.030770036 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.030836232 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.030978585 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.030711866 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.030660851 values=7680000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.030687345 values=7680000
+=== RUN   TestVulkanNativeQ5SchedulingTrained/colmajor/encoder.blocks.0.mlp.2.weight
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.031531281 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.031681273 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.031972432 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.031573495 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.031508669 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.031679138 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.032125981 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.031499993 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.031552973 values=1920000
+    vulkan_q5_scheduling_diagnostic_test.go:230: Q5_SCHEDULING_TRAINED variant=colmajor tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.031931757 values=1920000
+--- PASS: TestVulkanNativeQ5SchedulingTrained (1.63s)
+    --- PASS: TestVulkanNativeQ5SchedulingTrained/colmajor (1.22s)
+        --- PASS: TestVulkanNativeQ5SchedulingTrained/colmajor/encoder.blocks.0.mlp.0.weight (0.66s)
+        --- PASS: TestVulkanNativeQ5SchedulingTrained/colmajor/encoder.blocks.0.mlp.2.weight (0.52s)
+PASS
