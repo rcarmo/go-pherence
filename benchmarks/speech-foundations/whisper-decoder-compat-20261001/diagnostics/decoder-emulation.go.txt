@@ -1,0 +1,303 @@
+package whisper
+
+// Temporary CPU emulation of original decoder arithmetic boundaries. Diagnostic only.
+
+import (
+	"context"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/rcarmo/go-pherence/half"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
+)
+
+type emuFlags struct{ pad, f16kv, q8fc2, q8prompt, tanhGELU bool }
+
+type emuQ5 struct {
+	raw     []byte
+	out, in int
+}
+
+func readF32(t *testing.T, path string) []float32 {
+	b, err := os.ReadFile(path)
+	if err != nil || len(b)%4 != 0 {
+		t.Fatal(path, err)
+	}
+	v := make([]float32, len(b)/4)
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+	}
+	return v
+}
+
+func f16r(v float32) float32 { return half.F16ToF32(half.F32ToF16Even(v)) }
+
+// Q8_1 quantisation (original operation order) then Q5_0 block dot.
+func emuQ8Linear(w emuQ5, x, bias []float32) []float32 {
+	nb := w.in / 32
+	type blk struct {
+		d, s float32
+		q    [32]int32
+	}
+	xb := make([]blk, nb)
+	for b := 0; b < nb; b++ {
+		var amax float32
+		for j := 0; j < 32; j++ {
+			amax = float32(math.Max(float64(amax), math.Abs(float64(x[b*32+j]))))
+		}
+		d := amax * (1.0 / 127.0)
+		var inv float32
+		if amax > 0 {
+			inv = 127.0 / amax
+		}
+		var sum int32
+		for j := 0; j < 32; j++ {
+			r := int32(math.RoundToEven(float64(x[b*32+j] * inv)))
+			xb[b].q[j] = r
+			sum += r
+		}
+		xb[b].d = half.F16ToF32(half.F32ToF16Even(d))
+		xb[b].s = half.F16ToF32(half.F32ToF16Even(float32(sum) * d))
+	}
+	y := make([]float32, w.out)
+	for o := 0; o < w.out; o++ {
+		var acc float32
+		for b := 0; b < nb; b++ {
+			p := w.raw[(o*nb+b)*22 : (o*nb+b+1)*22]
+			high := binary.LittleEndian.Uint32(p[2:6])
+			var dot int32
+			for j := 0; j < 32; j++ {
+				v := uint32(p[6+j%16])
+				if j >= 16 {
+					v >>= 4
+				}
+				v = (v & 15) | ((high>>uint(j))&1)<<4
+				dot += int32(v) * xb[b].q[j]
+			}
+			dw := half.F16ToF32(binary.LittleEndian.Uint16(p))
+			acc += dw * (float32(dot)*xb[b].d - 16*xb[b].s)
+		}
+		if bias != nil {
+			acc += bias[o]
+		}
+		y[o] = acc
+	}
+	return y
+}
+
+func emuLinear(x, w, b []float32, in, out int) []float32 {
+	y := make([]float32, out)
+	linearInto(y, x, w, b, in, out)
+	return y
+}
+
+func emuGELU(x []float32, tanhForm bool) {
+	if !tanhForm {
+		gelu(x)
+		return
+	}
+	const c = 0.7978845608028654
+	for i, v := range x {
+		val := float32(c) * v * (1 + 0.044715*v*v)
+		x[i] = 0.5 * v * (2 - 2/(float32(math.Exp(float64(2*val)))+1))
+	}
+}
+
+func emuAttention(q []float32, k, v [][]float32, extra, heads, hd int) []float32 {
+	out := make([]float32, heads*hd)
+	scale := float32(1 / math.Sqrt(float64(hd)))
+	for h := 0; h < heads; h++ {
+		s := make([]float32, len(k))
+		mx := float32(math.Inf(-1))
+		for t := range k {
+			var d float32
+			for i := 0; i < hd; i++ {
+				d += q[h*hd+i] * k[t][h*hd+i]
+			}
+			s[t] = d * scale
+			if s[t] > mx {
+				mx = s[t]
+			}
+		}
+		if extra > 0 && mx < 0 {
+			mx = 0
+		}
+		var sum float32
+		for t := range s {
+			s[t] = float32(math.Exp(float64(s[t] - mx)))
+			sum += s[t]
+		}
+		sum += float32(extra) * float32(math.Exp(float64(-mx)))
+		for t := range k {
+			for i := 0; i < hd; i++ {
+				out[h*hd+i] += s[t] / sum * v[t][h*hd+i]
+			}
+		}
+	}
+	return out
+}
+
+type emuDecoder struct {
+	t      *testing.T
+	m      *Whisper
+	f      emuFlags
+	q5     map[string]emuQ5
+	crossK [][][]float32
+	crossV [][][]float32
+	selfK  [][][]float32
+	selfV  [][][]float32
+	pos    int
+}
+
+func (e *emuDecoder) lin(name string, x, w, b []float32, in, out int, q8 bool) []float32 {
+	if q8 {
+		return emuQ8Linear(e.q5[name], x, b)
+	}
+	return emuLinear(x, w, b, in, out)
+}
+
+func (e *emuDecoder) forward(token int) []float32 {
+	cfg := e.m.Config
+	dec := e.m.Decoder
+	d := cfg.DecoderDModel
+	x := make([]float32, d)
+	copy(x, dec.TokenEmbed[token*d:(token+1)*d])
+	for i := range x {
+		x[i] += dec.PosEmbed[e.pos*d+i]
+	}
+	prompt := e.f.q8prompt && e.pos < 3
+	normed := make([]float32, d)
+	for l := range dec.Layers {
+		L := &dec.Layers[l]
+		p := fmt.Sprintf("decoder.blocks.%d.", l)
+		layerNormInto(normed, x, L.SelfAttnLNWeight, L.SelfAttnLNBias, d)
+		q := e.lin(p+"attn.query.weight", normed, L.SelfQWeight, L.SelfQBias, d, d, prompt)
+		k := e.lin(p+"attn.key.weight", normed, L.SelfKWeight, L.SelfKBias, d, d, prompt)
+		v := e.lin(p+"attn.value.weight", normed, L.SelfVWeight, L.SelfVBias, d, d, prompt)
+		if e.f.f16kv {
+			for i := range k {
+				k[i], v[i] = f16r(k[i]), f16r(v[i])
+			}
+		}
+		e.selfK[l] = append(e.selfK[l], k)
+		e.selfV[l] = append(e.selfV[l], v)
+		a := emuAttention(q, e.selfK[l], e.selfV[l], 0, cfg.DecoderHeads, cfg.HeadDim)
+		o := e.lin(p+"attn.out.weight", a, L.SelfOWeight, L.SelfOBias, d, d, prompt)
+		for i := range x {
+			x[i] += o[i]
+		}
+		layerNormInto(normed, x, L.CrossAttnLNWeight, L.CrossAttnLNBias, d)
+		cq := e.lin(p+"cross_attn.query.weight", normed, L.CrossQWeight, L.CrossQBias, d, d, prompt)
+		extra := 0
+		if e.f.pad {
+			extra = 36
+		}
+		ca := emuAttention(cq, e.crossK[l], e.crossV[l], extra, cfg.DecoderHeads, cfg.HeadDim)
+		co := e.lin(p+"cross_attn.out.weight", ca, L.CrossOWeight, L.CrossOBias, d, d, prompt)
+		for i := range x {
+			x[i] += co[i]
+		}
+		layerNormInto(normed, x, L.MLPLNWeight, L.MLPLNBias, d)
+		h := e.lin(p+"mlp.0.weight", normed, L.FC1Weight, L.FC1Bias, d, cfg.DecoderFFNDim, prompt)
+		emuGELU(h, e.f.tanhGELU)
+		m := e.lin(p+"mlp.2.weight", h, L.FC2Weight, L.FC2Bias, cfg.DecoderFFNDim, d, prompt || e.f.q8fc2)
+		for i := range x {
+			x[i] += m[i]
+		}
+	}
+	layerNormInto(normed, x, dec.FinalLNWeight, dec.FinalLNBias, d)
+	var logits []float32
+	if prompt {
+		logits = emuQ8Linear(e.q5["decoder.token_embedding.weight"], normed, nil)
+	} else {
+		logits = linearForwardOpt(normed, dec.TokenEmbed, nil, 1, d, cfg.VocabSize)
+	}
+	e.pos++
+	return logits
+}
+
+func TestWhisperDecoderEmulationDiagnostic(t *testing.T) {
+	prefix := os.Getenv("GO_PHERENCE_TEST_DECEMU_PREFIX")
+	if prefix == "" {
+		t.Skip("explicit diagnostic")
+	}
+	d, _ := t.Deadline()
+	ctx, cancel := context.WithDeadline(context.Background(), d.Add(-time.Second))
+	defer cancel()
+	model, tok, policy, file := pinnedLegacyWhisperModelMode(t, ctx, true)
+	defer file.Close()
+	cfg := model.Config
+	q5 := map[string]emuQ5{}
+	load := func(f *legacy.File, name string) {
+		raw, shape, err := f.Q5Blocks(ctx, name)
+		if err != nil {
+			t.Fatal(name, err)
+		}
+		q5[name] = emuQ5{raw: raw, in: shape[0], out: shape[1]}
+	}
+	for l := 0; l < cfg.DecoderLayers; l++ {
+		for _, s := range []string{"attn.query", "attn.key", "attn.value", "attn.out", "cross_attn.query", "cross_attn.out", "mlp.0", "mlp.2"} {
+			load(file, fmt.Sprintf("decoder.blocks.%d.%s.weight", l, s))
+		}
+	}
+	load(file, "decoder.token_embedding.weight")
+	arms := []struct {
+		name string
+		f    emuFlags
+	}{{"base", emuFlags{}}, {"pad", emuFlags{pad: true}}, {"f16kv", emuFlags{f16kv: true}}, {"q8fc2", emuFlags{q8fc2: true}}, {"q8prompt", emuFlags{q8prompt: true}}, {"tanh", emuFlags{tanhGELU: true}}, {"all", emuFlags{true, true, true, true, true}}, {"padtanh", emuFlags{pad: true, tanhGELU: true}}, {"padtanhfc2", emuFlags{pad: true, tanhGELU: true, q8fc2: true}}, {"padtanhkv", emuFlags{pad: true, tanhGELU: true, f16kv: true}}, {"nopromptq8", emuFlags{pad: true, tanhGELU: true, f16kv: true, q8fc2: true}}}
+	if only := os.Getenv("GO_PHERENCE_TEST_DECEMU_ARMS"); only != "" {
+		var keep = arms[:0]
+		for _, a := range arms {
+			if strings.Contains(","+only+",", ","+a.name+",") {
+				keep = append(keep, a)
+			}
+		}
+		arms = keep
+	}
+	for _, hiddenName := range strings.Split(os.Getenv("GO_PHERENCE_TEST_DECEMU_HIDDEN"), ",") {
+		hidden := readF32(t, prefix+"-"+hiddenName+"-hidden.f32")
+		state, err := NewDecoderStateContext(ctx, cfg, hidden, 1500, model.Decoder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, arm := range arms {
+			e := &emuDecoder{t: t, m: model, f: arm.f, q5: q5, crossK: make([][][]float32, cfg.DecoderLayers), crossV: make([][][]float32, cfg.DecoderLayers), selfK: make([][][]float32, cfg.DecoderLayers), selfV: make([][][]float32, cfg.DecoderLayers)}
+			for l := 0; l < cfg.DecoderLayers; l++ {
+				for tt := 0; tt < 1500; tt++ {
+					k := append([]float32(nil), state.CrossK[l][tt*cfg.DecoderDModel:(tt+1)*cfg.DecoderDModel]...)
+					v := append([]float32(nil), state.CrossV[l][tt*cfg.DecoderDModel:(tt+1)*cfg.DecoderDModel]...)
+					if arm.f.f16kv {
+						for i := range k {
+							k[i], v[i] = f16r(k[i]), f16r(v[i])
+						}
+					}
+					e.crossK[l] = append(e.crossK[l], k)
+					e.crossV[l] = append(e.crossV[l], v)
+				}
+			}
+			lang := os.Getenv("GO_PHERENCE_TEST_DECEMU_LANGUAGE")
+			vocab, err := checkedTimestampVocabulary(cfg, tok, lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts, suppress, begin, err := resolvePCMGeneration(cfg, vocab, PCMTranscribeOptions{Language: lang, Generation: policy}, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens)
+			if err != nil {
+				t.Fatal(err)
+			}
+			segs, err := decodeCheckedTimestamps(ctx, cfg, tok, vocab, opts, suppress, begin, func(token int) ([]float32, error) { return e.forward(token), ctx.Err() })
+			if err != nil {
+				t.Fatal(err)
+			}
+			var parts []string
+			for _, s := range segs {
+				parts = append(parts, fmt.Sprintf("%.2f-%.2f %q", s.Start, s.End, s.Text))
+			}
+			t.Logf("DECEMU hidden=%s arm=%s %s", hiddenName, arm.name, strings.Join(parts, " | "))
+		}
+	}
+}

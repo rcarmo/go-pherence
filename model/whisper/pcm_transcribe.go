@@ -35,6 +35,10 @@ type PCMTranscribeOptions struct {
 	// Caller excludes Close/other use throughout transcription and handles any
 	// retained submission with VulkanDrain before reuse/Close. Nil keeps CPU path.
 	VulkanEncoder *VulkanEncoder
+	// OriginalDecoderCompatibility is experimental: decoder cross-attention adds
+	// the original's zero-padded key extent (multiple of 256) and the decoder
+	// MLP uses the original tanh-form GELU. Default false keeps existing output.
+	OriginalDecoderCompatibility bool
 }
 
 // WindowTranscript contains raw per-window output in canonical PCM seconds.
@@ -240,6 +244,9 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 	if err != nil {
 		return nil, nil, err
 	}
+	if opts.OriginalDecoderCompatibility {
+		state.applyOriginalDecoderCompatibility(frames)
+	}
 	segments, err := decodeCheckedTimestamps(ctx, w.Config, tokenizer, v, opts, suppress, beginSuppress, func(token int) ([]float32, error) {
 		if state.Pos >= w.Config.MaxDecoderLength {
 			return nil, ErrGenerationLimit
@@ -260,6 +267,7 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 	if err != nil {
 		return nil, nil, err
 	}
+	alignmentState.crossPadKeys, alignmentState.tanhGELU = state.crossPadKeys, state.tanhGELU
 	audioFrames := (validSamples + 159) / 160
 	words, err := AlignWordsChecked(ctx, w.Decoder, alignmentState, tokenizer, opts.Generation, opts.Language, allTokens, audioFrames)
 	if err != nil {

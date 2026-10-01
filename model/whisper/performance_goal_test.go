@@ -314,7 +314,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	}
 	prepareSeconds := time.Since(prepareStarted).Seconds()
 	runtime.ReadMemStats(&prepareAfter)
-	decodeOptions := PCMTranscribeOptions{Language: language, Generation: policy, WordTimestamps: opts.words, VulkanEncoder: encoder}
+	decodeOptions := PCMTranscribeOptions{Language: language, Generation: policy, WordTimestamps: opts.words, VulkanEncoder: encoder, OriginalDecoderCompatibility: os.Getenv("GO_PHERENCE_WHISPER_BENCH_ORIGINAL_DECODER") == "1"}
 	var samples []whisperGoalSample
 	for repeat := 0; repeat < opts.repeats; repeat++ {
 		if err := ctx.Err(); err != nil {
@@ -373,6 +373,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		VAD, WordTimestamps, VADPreserveWindowGaps                           bool
 		DecoderParallelRows                                                  bool
 		DecoderProjectionWorkers                                             int
+		OriginalDecoderCompatibility                                         bool
 		ModelPin, InputPin                                                   string
 		ModelLoadSeconds, PreparationSeconds, CleanupSeconds, FullArmSeconds float64
 		InputSamples                                                         int64
@@ -380,7 +381,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		Precision                                                            string
 		GoMemoryLimit                                                        string
 		Samples                                                              []whisperGoalSample
-	}{1, encoderStats, loadAfter.TotalAlloc - loadBefore.TotalAlloc, prepareAfter.TotalAlloc - loadAfter.TotalAlloc, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", os.Getenv(envDecoderParallelRows) == "1", decoderRowWorkers(model.Config.DecoderFFNDim), modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
+	}{1, encoderStats, loadAfter.TotalAlloc - loadBefore.TotalAlloc, prepareAfter.TotalAlloc - loadAfter.TotalAlloc, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", os.Getenv(envDecoderParallelRows) == "1", decoderRowWorkers(model.Config.DecoderFFNDim), decodeOptions.OriginalDecoderCompatibility, modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
 	if err := ctx.Err(); err != nil {
 		t.Fatal(err)
 	}

@@ -98,9 +98,13 @@ type DecoderState struct {
 	CrossKGPU []*nv.DevBuf
 	CrossVGPU []*nv.DevBuf
 
-	Pos       int          // Current token position
-	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
-	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
+	Pos       int // Current token position
+	LastToken int // Last token fed into ForwardToken, or -1 before prompt
+	// Private original-decoder compatibility (explicit option only): number of
+	// virtual zero cross-attention keys and the original tanh-form GELU.
+	crossPadKeys int
+	tanhGELU     bool
+	Bufs         *decoderBufs // Reusable buffers (nil = allocate per call)
 	// CrossAttentionObserver is invoked synchronously only on the CPU
 	// cross-attention path. Callers must not mutate or retain weights.
 	CrossAttentionObserver CrossAttentionObserver
@@ -303,11 +307,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		if state.CrossAttentionObserver != nil || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
+		if state.CrossAttentionObserver != nil || state.crossPadKeys > 0 || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
 			// Alignment explicitly observes the same CPU probabilities used for
 			// this attention result; it never combines hidden GPU output with a
 			// separately reconstructed diagnostic row.
-			crossAttentionHeadMajorObserved(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver)
+			crossAttentionHeadMajorPadded(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver, state.crossPadKeys)
 		}
 		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
 		for d := range x {
@@ -321,7 +325,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		if !bufs.linearGPU(bufs.hidden, bufs.mlpIn, layer.gpuFC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim) {
 			linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
 		}
-		gelu(bufs.hidden)
+		if state.tanhGELU {
+			geluOriginalTanh(bufs.hidden)
+		} else {
+			gelu(bufs.hidden)
+		}
 		if !bufs.linearGPU(bufs.mlpOut, bufs.hidden, layer.gpuFC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel) {
 			linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
 		}
@@ -425,6 +433,14 @@ func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, he
 }
 
 func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver) {
+	crossAttentionHeadMajorPadded(out, q, kHead, vHead, seqKV, numHeads, headDim, scores, layer, position, observe, 0)
+}
+
+// crossAttentionHeadMajorPadded adds padKeys virtual zero keys/values. Their
+// score is exactly zero and they contribute only to the softmax denominator,
+// matching the original's unmasked zero-padded flash-attention extent. The
+// observer sees the real-key probabilities. padKeys==0 is the unchanged path.
+func crossAttentionHeadMajorPadded(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver, padKeys int) {
 	dModel := numHeads * headDim
 	zeroFloat32s(out[:dModel])
 	if seqKV <= 0 {
@@ -454,7 +470,11 @@ func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numH
 			ko := base + tkv*headDim
 			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
 		}
-		softmax(scores[:seqKV])
+		if padKeys > 0 {
+			softmaxPadded(scores[:seqKV], padKeys)
+		} else {
+			softmax(scores[:seqKV])
+		}
 		if observe != nil {
 			observe(layer, h, position, scores[:seqKV])
 		}

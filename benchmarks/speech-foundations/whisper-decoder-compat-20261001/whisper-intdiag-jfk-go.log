@@ -1,0 +1,6 @@
+=== RUN   TestWhisperIntDotStateDiagnostic
+    zz_intdot_state_diag_test.go:35: LEGACY_LOAD seconds=2.849684167 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_intdot_state_diag_test.go:53: INTDIAG orig-default vs orig-nof16 max=5.68957 rmse=0.0654188
+    zz_intdot_state_diag_test.go:85: whisper Vulkan: layer0.fc2.w length 0, want 6553600
+--- FAIL: TestWhisperIntDotStateDiagnostic (2.94s)
+FAIL
