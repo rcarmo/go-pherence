@@ -1,0 +1,31 @@
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+=== RUN   TestPinnedSileroReferenceProbabilities
+    reference_test.go:125: scores=157 max_abs=5.508773028850555e-07 mean_abs=7.978527788903302e-09 threshold_flips=0 end_threshold_flips=0
+--- PASS: TestPinnedSileroReferenceProbabilities (0.02s)
+PASS
