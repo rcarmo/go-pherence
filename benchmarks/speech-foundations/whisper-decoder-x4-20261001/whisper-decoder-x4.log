@@ -1,0 +1,75 @@
+=== RUN   TestDecoderX4Diagnostic
+=== RUN   TestDecoderX4Diagnostic/K16N7
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=false repeat=0 seconds=0.000043980 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=true repeat=0 seconds=0.000067437 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=true repeat=1 seconds=0.000130919 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=false repeat=1 seconds=0.000073385 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=false repeat=2 seconds=0.000102461 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=true repeat=2 seconds=0.000066029 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=true repeat=3 seconds=0.000035079 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=false repeat=3 seconds=0.000062316 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=false repeat=4 seconds=0.000053368 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=16 N=7 candidate=true repeat=4 seconds=0.000058150 calls=30
+=== RUN   TestDecoderX4Diagnostic/K32N519
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=false repeat=0 seconds=0.000166828 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=true repeat=0 seconds=0.000153038 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=true repeat=1 seconds=0.000141758 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=false repeat=1 seconds=0.000159343 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=false repeat=2 seconds=0.000157713 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=true repeat=2 seconds=0.000097939 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=true repeat=3 seconds=0.000105546 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=false repeat=3 seconds=0.000179424 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=false repeat=4 seconds=0.000181871 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=32 N=519 candidate=true repeat=4 seconds=0.000104065 calls=30
+=== RUN   TestDecoderX4Diagnostic/K1280N1280
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=false repeat=0 seconds=0.002703054 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=true repeat=0 seconds=0.002286323 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=true repeat=1 seconds=0.002228979 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=false repeat=1 seconds=0.002398916 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=false repeat=2 seconds=0.002676572 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=true repeat=2 seconds=0.002530627 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=true repeat=3 seconds=0.002266065 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=false repeat=3 seconds=0.002373984 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=false repeat=4 seconds=0.002421276 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=1280 candidate=true repeat=4 seconds=0.002300547 calls=30
+=== RUN   TestDecoderX4Diagnostic/K1280N5120
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=false repeat=0 seconds=0.018590185 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=true repeat=0 seconds=0.014727976 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=true repeat=1 seconds=0.014306352 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=false repeat=1 seconds=0.014503512 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=false repeat=2 seconds=0.014150084 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=true repeat=2 seconds=0.012575970 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=true repeat=3 seconds=0.013106473 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=false repeat=3 seconds=0.013380350 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=false repeat=4 seconds=0.014311759 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=5120 candidate=true repeat=4 seconds=0.014098902 calls=30
+=== RUN   TestDecoderX4Diagnostic/K5120N1280
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=false repeat=0 seconds=0.015702544 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=true repeat=0 seconds=0.012930873 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=true repeat=1 seconds=0.012400567 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=false repeat=1 seconds=0.014653671 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=false repeat=2 seconds=0.016271565 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=true repeat=2 seconds=0.012860083 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=true repeat=3 seconds=0.012251183 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=false repeat=3 seconds=0.013928877 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=false repeat=4 seconds=0.016090013 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=5120 N=1280 candidate=true repeat=4 seconds=0.016534542 calls=30
+=== RUN   TestDecoderX4Diagnostic/K1280N51866
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=false repeat=0 seconds=0.183566437 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=true repeat=0 seconds=0.175561221 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=true repeat=1 seconds=0.176923484 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=false repeat=1 seconds=0.182015596 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=false repeat=2 seconds=0.235632968 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=true repeat=2 seconds=0.233421035 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=true repeat=3 seconds=0.215179083 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=false repeat=3 seconds=0.216625900 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=false repeat=4 seconds=0.218621681 calls=30
+    decoder_x4_diagnostic_test.go:97: DECODER_X4 K=1280 N=51866 candidate=true repeat=4 seconds=0.224235935 calls=30
+--- PASS: TestDecoderX4Diagnostic (3.22s)
+    --- PASS: TestDecoderX4Diagnostic/K16N7 (0.00s)
+    --- PASS: TestDecoderX4Diagnostic/K32N519 (0.00s)
+    --- PASS: TestDecoderX4Diagnostic/K1280N1280 (0.04s)
+    --- PASS: TestDecoderX4Diagnostic/K1280N5120 (0.20s)
+    --- PASS: TestDecoderX4Diagnostic/K5120N1280 (0.20s)
+    --- PASS: TestDecoderX4Diagnostic/K1280N51866 (2.77s)
+PASS

@@ -1,0 +1,93 @@
+package whisper
+
+import (
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"math"
+	"runtime"
+	"testing"
+)
+
+func TestDecoderX4Exact(t *testing.T) {
+	for _, shape := range [][2]int{{16, 7}, {32, 519}, {33, 519}, {1280, 1280}, {1280, 5120}, {5120, 1280}} {
+		k, n := shape[0], shape[1]
+		x := make([]float32, k)
+		w := make([]float32, k*n)
+		for i := range x {
+			x[i] = float32(math.Sin(float64(i*19+3))) * .0317
+		}
+		for i := range w {
+			w[i] = float32(math.Cos(float64(i*13+7))) * .0731
+		}
+		for _, bn := range []int{0, 3, n} {
+			b := make([]float32, bn)
+			for i := range b {
+				b[i] = float32(i%7-3) * .0173
+			}
+			for _, workers := range []int{1, 2, 4, 7} {
+				a := make([]float32, n)
+				bOut := make([]float32, n+2)
+				bOut[0] = 3
+				bOut[n+1] = 7
+				t.Setenv(envDecoderRowsX4, "0")
+				decoderLinearRowsInto(a, x, w, b, k, n, workers)
+				t.Setenv(envDecoderRowsX4, "1")
+				decoderLinearRowsInto(bOut[1:n+1], x, w, b, k, n, workers)
+				for i, v := range a {
+					if math.Float32bits(v) != math.Float32bits(bOut[i+1]) {
+						t.Fatal("bits", shape, bn, workers, i)
+					}
+				}
+				if bOut[0] != 3 || bOut[n+1] != 7 {
+					t.Fatal("guard")
+				}
+			}
+		}
+	}
+}
+func TestDecoderX4StrictGate(t *testing.T) {
+	for _, v := range []string{"", "0", "true", "2"} {
+		t.Setenv(envDecoderRowsX4, v)
+		if decoderRowsX4Enabled(1280) {
+			t.Fatal("gate", v)
+		}
+	}
+	t.Setenv(envDecoderRowsX4, "1")
+	if decoderRowsX4Enabled(0) || decoderRowsX4Enabled(33) {
+		t.Fatal("extentgate")
+	}
+	want := runtime.GOARCH == "amd64" && simdrt.HasSdotx4SIMD && simdrt.HasDotAsm
+	if decoderRowsX4Enabled(1280) != want {
+		t.Fatal("ISA")
+	}
+}
+func TestDecoderX4TwoChainSdotBits(t *testing.T) {
+	if runtime.GOARCH != "amd64" || !simdrt.HasDotAsm {
+		t.Skip("AVX2bitcontract")
+	}
+	for _, k := range []int{16, 32, 64, 1280, 5120} {
+		x := make([]float32, k)
+		w := make([]float32, 4*k)
+		for mode := 0; mode < 5; mode++ {
+			for i := range x {
+				x[i] = float32(math.Sin(float64(i*17+mode))) * .17
+			}
+			for i := range w {
+				w[i] = float32(math.Cos(float64(i*13+mode))) * .031
+			}
+			if mode == 4 {
+				x[0] = math.Float32frombits(0x80000000)
+				w[0] = math.Float32frombits(1)
+			}
+			a, b, c, d, ok := simdrt.Sdotx4(x, w, k)
+			if !ok {
+				t.Fatal("admission")
+			}
+			for j, v := range []float32{a, b, c, d} {
+				want := simdrt.Sdot(x, w[j*k:(j+1)*k])
+				if math.Float32bits(v) != math.Float32bits(want) {
+					t.Fatal("samechain", k, mode, j)
+				}
+			}
+		}
+	}
+}

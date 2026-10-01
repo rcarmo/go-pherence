@@ -56,6 +56,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Exact CPU decoder row scheduling](../../docs/validation/whisper-decoder-parallel-rows-20261001.md) adds `GO_PHERENCE_WHISPER_DECODER_PARALLEL_ROWS=1`. It splits independent `linearInto` outputs across the existing bounded thread budget while preserving each SIMD dot and bias operation. Fresh requests improve 1.1–3.6% for language fixtures and 6.6–6.9% for VAD/words; trained logits/caches/observations and expanded output timings stay bit-exact. Serial defaults and services remain unchanged. Extra goroutine allocations and original speed/VAD-quality gaps are recorded.
 
+[Exact CPU four-dot trial](../../docs/validation/whisper-decoder-x4-20261001.md) reuses the existing two-chain AVX2 `Sdotx4` for neighbouring decoder output rows. Synthetic FC2 gains 18%, but fresh language requests are effectively tied and VAD/word requests improve only 0.7–1.0%. The second opt-in is rejected; the accepted parallel-row path stays unchanged. Exact tested outputs and the limited qualification scope are archived.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
