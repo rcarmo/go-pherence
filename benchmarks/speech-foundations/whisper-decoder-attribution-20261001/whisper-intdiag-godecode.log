@@ -1,0 +1,9 @@
+=== RUN   TestWhisperIntDotStateDiagnostic
+    zz_intdot_state_diag_test.go:35: LEGACY_LOAD seconds=2.846264477 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_intdot_state_diag_test.go:53: INTDIAG orig-default vs orig-nof16 max=5.92029 rmse=0.0726686
+    zz_intdot_state_diag_test.go:74: INTDIAG_GODECODE hidden=orig-default start=0 end=7.38 text="Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta." tokens=[19812 6801 11 17660 257 11742 289 4021 7974 4061 368 42542 5473 2617 1136 631 2228 22501 19930 3981 23760 1667 11720 24001 13]
+    zz_intdot_state_diag_test.go:74: INTDIAG_GODECODE hidden=orig-nof16 start=0 end=9.04 text="Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta." tokens=[19812 6801 11 17660 257 11742 289 4021 7974 4061 368 42542 5473 2617 1136 631 2228 22501 19930 3981 23760 1667 11720 24001 13]
+    zz_intdot_state_diag_test.go:74: INTDIAG_GODECODE hidden=go-padded-exact start=0 end=7.38 text="Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta." tokens=[19812 6801 11 17660 257 11742 289 4021 7974 4061 368 42542 5473 2617 1136 631 2228 22501 19930 3981 23760 1667 11720 24001 13]
+    zz_intdot_state_diag_test.go:74: INTDIAG_GODECODE hidden=go-padded-intdot-all start=0 end=9.04 text="Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta." tokens=[19812 6801 11 17660 257 11742 289 4021 7974 4061 368 42542 5473 2617 1136 631 2228 22501 19930 3981 23760 1667 11720 24001 13]
+--- PASS: TestWhisperIntDotStateDiagnostic (6.61s)
+PASS

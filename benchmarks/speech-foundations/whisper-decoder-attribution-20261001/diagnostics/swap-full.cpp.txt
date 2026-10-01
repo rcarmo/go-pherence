@@ -1,0 +1,34 @@
+// Diagnostic only: pinned original library, reusable context, five requests.
+#include "whisper-diagnostic.cpp"
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+using Clock=std::chrono::steady_clock;
+static double seconds(Clock::time_point a){return std::chrono::duration<double>(Clock::now()-a).count();}
+static bool abort_deadline(void *p){return seconds(*static_cast<Clock::time_point*>(p))>110;}
+static std::string quoted(const char *s){std::ostringstream o;o<<'"';for(const unsigned char *p=reinterpret_cast<const unsigned char*>(s);*p;p++){unsigned char c=*p;switch(c){case '"':o<<"\\\"";break;case '\\':o<<"\\\\";break;case '\n':o<<"\\n";break;case '\r':o<<"\\r";break;case '\t':o<<"\\t";break;default:if(c<32)o<<"\\u"<<std::hex<<std::setw(4)<<std::setfill('0')<<int(c)<<std::dec;else o<<char(c);}}o<<'"';return o.str();}
+int main(int argc,char**argv){
+ if(argc!=8){std::cerr<<"MODEL PCM_F32 LANGUAGE VADMODEL VAD0/1 TOKENTIMES0/1 REPORT\n";return 2;}
+ const auto fullStart=Clock::now();std::ifstream input(argv[2],std::ios::binary|std::ios::ate);auto bytes=input.tellg();if(bytes<640||bytes>60*16000*4||bytes%4)return 3;std::vector<float> pcm(size_t(bytes)/4);input.seekg(0);input.read(reinterpret_cast<char*>(pcm.data()),bytes);if(!input)return 4;for(float v:pcm)if(!std::isfinite(v))return 5;
+ bool vad=std::string(argv[5])=="1",words=std::string(argv[6])=="1";if(std::string(argv[5])!="0"&&!vad)return 6;if(std::string(argv[6])!="0"&&!words)return 6;
+ auto cp=whisper_context_default_params();cp.use_gpu=true;cp.flash_attn=true;cp.gpu_device=0;cp.dtw_token_timestamps=false;
+ const auto loadStart=Clock::now();auto*ctx=whisper_init_from_file_with_params(argv[1],cp);const double load=seconds(loadStart);if(!ctx)return 7;
+ auto p=whisper_full_default_params(WHISPER_SAMPLING_GREEDY);p.n_threads=4;p.greedy.best_of=1;p.language=argv[3];p.detect_language=false;p.no_context=true;p.print_progress=false;p.print_realtime=false;p.print_timestamps=false;p.print_special=false;p.temperature=0;p.temperature_inc=0;p.entropy_thold=2.4f;p.logprob_thold=-1.0f;p.no_speech_thold=.6f;p.token_timestamps=words;p.max_len=0;p.split_on_word=false;p.suppress_nst=false;p.vad=vad;p.vad_model_path=argv[4];p.vad_params=whisper_vad_default_params();p.abort_callback=abort_deadline;p.abort_callback_user_data=const_cast<Clock::time_point*>(&fullStart);
+ std::ostringstream report;report<<std::setprecision(12)<<"{\"schema\":1,\"engine\":\"pinned whisper.cpp reusable context\",\"flash\":true,\"gpu\":true,\"cpu_threads\":4,\"language\":"<<quoted(argv[3])<<",\"VAD\":"<<(vad?"true":"false")<<",\"TokenTimestamps\":"<<(words?"true":"false")<<",\"DTW\":false,\"input_samples\":"<<pcm.size()<<",\"model_load_seconds\":"<<load<<",\"vad_options\":{\"threshold\":"<<p.vad_params.threshold<<",\"min_speech_ms\":"<<p.vad_params.min_speech_duration_ms<<",\"min_silence_ms\":"<<p.vad_params.min_silence_duration_ms<<",\"speech_pad_ms\":"<<p.vad_params.speech_pad_ms<<",\"samples_overlap_seconds\":"<<p.vad_params.samples_overlap<<"},\"samples\":[";
+ for(int repeat=0;repeat<5;repeat++){
+  if(seconds(fullStart)>110){whisper_free(ctx);return 8;}
+  whisper_reset_timings(ctx);const auto start=Clock::now();int status=whisper_full(ctx,p,pcm.data(),int(pcm.size()));double wall=seconds(start);if(status){whisper_free(ctx);return 9;}
+  auto t=whisper_get_timings(ctx);if(repeat)report<<',';report<<"{\"index\":"<<repeat<<",\"request_seconds\":"<<wall<<",\"timing_seconds\":{\"sample\":"<<t->sample_ms/1000<<",\"encode\":"<<t->encode_ms/1000<<",\"decode\":"<<t->decode_ms/1000<<",\"batchd\":"<<t->batchd_ms/1000<<",\"prompt\":"<<t->prompt_ms/1000<<"},\"segments\":[";delete t;
+  for(int s=0;s<whisper_full_n_segments(ctx);s++){if(s)report<<',';report<<"{\"start_cs\":"<<whisper_full_get_segment_t0(ctx,s)<<",\"end_cs\":"<<whisper_full_get_segment_t1(ctx,s)<<",\"text\":"<<quoted(whisper_full_get_segment_text(ctx,s))<<",\"tokens\":[";for(int j=0;j<whisper_full_n_tokens(ctx,s);j++){if(j)report<<',';auto d=whisper_full_get_token_data(ctx,s,j);report<<"{\"id\":"<<d.id<<",\"text\":"<<quoted(whisper_full_get_token_text(ctx,s,j))<<",\"start_cs\":"<<d.t0<<",\"end_cs\":"<<d.t1<<",\"dtw_cs\":"<<d.t_dtw<<"}";}report<<"]}";}
+  report<<"]}";std::cerr<<"ORIGINAL_REQUEST repeat="<<repeat<<" seconds="<<wall<<" segments="<<whisper_full_n_segments(ctx)<<"\n";
+ }
+ const auto closeStart=Clock::now();whisper_free(ctx);const double close=seconds(closeStart);report<<"],\"cleanup_seconds\":"<<close<<",\"full_arm_seconds\":"<<seconds(fullStart)<<"}\n";
+ std::ifstream previous(argv[7]);if(previous.good())return 10;std::ofstream out(argv[7]);out<<report.str();return out?0:11;
+}

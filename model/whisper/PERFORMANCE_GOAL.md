@@ -70,6 +70,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Integer-dot MMQ schedule](../../docs/validation/whisper-intdot-mmq-20261001.md): the original's Intel MMQ structure (128 invocations, 64×64 tile, four blocks per stage, register Q5 unpack) with unchanged Go block arithmetic. Encoder hidden values are bit-identical to all-projection integer-dot. JFK request 5.230→4.409 s (padded exact F32 6.13 s, whisper.cpp 3.02 s). Private benchmark modes only; integer-dot PT/JFK endpoints (9.04/11.0 s) remain unqualified. Next: original F16 flash attention, GPU decoder/cross K/V.
 
+[Decoder attribution](../../docs/validation/whisper-decoder-attribution-20261001.md): the integer-dot PT 9.04 s endpoint comes from the Go CPU decoder. The original decoder fed Go integer-dot hidden states ends at 7.38 s; the Go decoder fed the original's no-F16 hidden ends at 9.04 s. Original no-F16 is 7.38 s and ~4% faster than default, so F16 attention is not the cause. Next: a GPU decoder following the original's MMVQ/F16-cache arithmetic.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.
