@@ -1,0 +1,245 @@
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed4
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed4/[33_96_63]
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed4/[1500_1280_5120]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.036170169 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.035323437 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.034323189 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.030795929 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030815697 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.034349319 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.034043470 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030777724 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.030791516 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.034149199 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed4/[1500_5120_1280]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031555337 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.035967174 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.036083547 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.031650478 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031432952 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.035051591 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.035313971 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031772157 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.031688094 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed4 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.035971594 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed8
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed8/[33_96_63]
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed8/[1500_1280_5120]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.030939530 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.039173673 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.039345350 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.030745463 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030739872 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.039273795 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.038939314 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030672825 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.030733412 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.038911903 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed8/[1500_5120_1280]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031572275 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.040085038 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.040051057 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.031438788 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031451643 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.040046712 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.040065674 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031742442 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.031560270 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed8 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.040168669 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed16
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed16/[33_96_63]
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed16/[1500_1280_5120]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.030806454 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.040599532 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.046476791 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.035246542 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.033498405 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.041659172 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.040440644 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030869923 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.031119864 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.040311461 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/signed16/[1500_5120_1280]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031606728 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.041298186 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.041510020 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.032224230 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031557322 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.041462238 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.042274030 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031586534 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.032149317 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=signed16 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.041303016 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/offset4
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/offset4/[33_96_63]
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/offset4/[1500_1280_5120]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.030688332 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.035761807 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.037646436 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.030823346 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030841000 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.036510600 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.036168056 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030719354 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.030668313 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.036347500 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/offset4/[1500_5120_1280]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031781124 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.036609023 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.036318081 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.031633225 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031651815 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.037041478 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.037111858 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031688616 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.032051287 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=offset4 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.036517030 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/pair4
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/pair4/[33_96_63]
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/pair4/[1500_1280_5120]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.030655995 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.030778491 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.030317568 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.030824491 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030556238 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.029912415 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.029952995 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030521348 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.031764717 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.031139508 sourceBytes=4915200 candidateBytes=7372800
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/pair4/[1500_5120_1280]
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.032731609 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.032162603 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.032056951 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.032853546 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.034397493 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.032562154 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.032645427 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.036650237 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.033638547 sourceBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:187: Q5_PREPARED variant=pair4 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.032179670 sourceBytes=4915200 candidateBytes=7372800
+--- PASS: TestVulkanNativeQ5PredecodeDiagnostic (6.42s)
+    --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed4 (1.32s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed4/[33_96_63] (0.07s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed4/[1500_1280_5120] (0.65s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed4/[1500_5120_1280] (0.54s)
+    --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed8 (1.32s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed8/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed8/[1500_1280_5120] (0.68s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed8/[1500_5120_1280] (0.57s)
+    --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed16 (1.32s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed16/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed16/[1500_1280_5120] (0.66s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/signed16/[1500_5120_1280] (0.59s)
+    --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/offset4 (1.24s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/offset4/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/offset4/[1500_1280_5120] (0.64s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/offset4/[1500_5120_1280] (0.54s)
+    --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/pair4 (1.20s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/pair4/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/pair4/[1500_1280_5120] (0.62s)
+        --- PASS: TestVulkanNativeQ5PredecodeDiagnostic/pair4/[1500_5120_1280] (0.52s)
+=== RUN   TestVulkanOfflineQ5PreparedDiagnostic
+--- PASS: TestVulkanOfflineQ5PreparedDiagnostic (0.01s)
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4
+    vulkan_q5_predecode_diagnostic_test.go:334: PREPARED_CONTRACT variant=signed4 contract={LocalSize:[16 16 1] SharedBytes:16384 StorageBindings:15 PushBytes:12 IntegerDot:false}
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4/encoder.blocks.0.mlp.0.weight
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.001368279 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.019298892 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.017414666 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.001351614 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.002409799 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.019460686 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.017378947 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.002242891 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.001038701 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.017561582 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.031821242 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.035426003 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.036152096 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.031716232 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.031760798 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.036196898 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.035072382 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.031731000 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.031713954 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.036411765 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:451: PREPARED_CANCEL_REUSE_EXACT
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4/encoder.blocks.0.mlp.2.weight
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.002057652 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.018029404 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.017165005 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.001391380 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.001330710 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.017168897 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.018947031 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.002252149 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.002287998 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.018763348 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.033097223 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.036804147 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.036529069 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.032792465 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.033011697 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.036572764 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.036366124 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.032593877 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.032568500 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=signed4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.036432914 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:451: PREPARED_CANCEL_REUSE_EXACT
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4
+    vulkan_q5_predecode_diagnostic_test.go:334: PREPARED_CONTRACT variant=pair4 contract={LocalSize:[16 16 1] SharedBytes:16384 StorageBindings:15 PushBytes:12 IntegerDot:false}
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4/encoder.blocks.0.mlp.0.weight
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.002092908 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.023378639 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.021271173 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.001354394 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.002096484 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.022816796 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.021216438 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.001764511 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.001336998 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.021083552 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.031860494 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.031005632 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.031172450 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.031810175 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.031667379 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.031246931 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.031149477 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.031576638 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.031719496 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.031028480 values=7680000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:451: PREPARED_CANCEL_REUSE_EXACT
+=== RUN   TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4/encoder.blocks.0.mlp.2.weight
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.000970548 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.021846810 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.021049457 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.000972658 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.000982793 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.021353383 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.021885008 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.002322975 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.001894710 packedBytes=4915200 allocatedBytes=4915200
+    vulkan_q5_predecode_diagnostic_test.go:380: Q5_PREP_COST variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.023044238 packedBytes=7372800 allocatedBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.032912192 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.032216837 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.033963252 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.035506532 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.034020284 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.033687318 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.032800121 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.033460843 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.032753451 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:434: Q5_PREPARED_TRAINED variant=pair4 tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.032041420 values=1920000 baselineBytes=4915200 candidateBytes=7372800
+    vulkan_q5_predecode_diagnostic_test.go:451: PREPARED_CANCEL_REUSE_EXACT
+--- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic (3.36s)
+    --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4 (1.48s)
+        --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4/encoder.blocks.0.mlp.0.weight (0.79s)
+        --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/signed4/encoder.blocks.0.mlp.2.weight (0.70s)
+    --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4 (1.49s)
+        --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4/encoder.blocks.0.mlp.0.weight (0.80s)
+        --- PASS: TestVulkanNativeQ5PreparedTrainedDiagnostic/pair4/encoder.blocks.0.mlp.2.weight (0.69s)
+PASS

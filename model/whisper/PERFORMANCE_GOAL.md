@@ -48,6 +48,8 @@ The explicit `vulkan-original-q5-exact-combined` arm combines the retained decod
 
 The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 values and interleaves four headDim64 attention output columns while preserving each key-ordered FMA chain. [Qualification](../../docs/validation/vulkan-attention-outputilp-20261001.md) records measured4.6–5.9% fresh request gains over combined exact, expanded word-output equality and hidden/cancel gates. Other head dimensions are refused; no fallback/default/quantisation change occurs. Original workflow/quality acceptance remains open.
 
+[Exact Q5 preparation trials](../../docs/validation/vulkan-q5-preparation-20261001.md) reject signed-byte and scale-only widening: trained kernels slow down. Paired offset bytes gain only about 2% per operator while increasing packed storage by 50% and CPU packing cost. No prepared-weight mode is retained, and no request/RSS/quality gain is claimed.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

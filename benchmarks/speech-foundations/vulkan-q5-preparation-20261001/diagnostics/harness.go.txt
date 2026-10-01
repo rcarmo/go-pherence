@@ -1,0 +1,456 @@
+package vulkan
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"github.com/rcarmo/go-pherence/half"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
+	"math"
+	"os"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+)
+
+// Lossless diagnostic packing, not requantisation: exactly original signedQ5
+// values and widenedF16 scale. Original22bytes ->36bytes per32 values.
+func packQ5PreparedDiagnostic(ctx context.Context, raw []byte, variant string) ([]float32, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if variant == "scale6" {
+		packed, err := packLinearQ5Blocks(ctx, raw)
+		if err != nil {
+			return nil, err
+		}
+		words := make([]float32, len(packed))
+		for i, v := range packed {
+			if i%6144 == 0 {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+			}
+			if i%6 == 0 {
+				words[i] = half.F16ToF32(uint16(v))
+			} else {
+				words[i] = math.Float32frombits(v)
+			}
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return words, nil
+	}
+	if variant != "signed4" && variant != "signed8" && variant != "signed16" && variant != "offset4" && variant != "pair4" {
+		return nil, fmt.Errorf("variant")
+	}
+	if len(raw) == 0 || len(raw)%22 != 0 || len(raw)/22 > 16384*(16384/32) {
+		return nil, fmt.Errorf("extent")
+	}
+	words := make([]float32, len(raw)/22*9)
+	for b := 0; b < len(raw)/22; b++ {
+		if b%1024 == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
+		p := raw[b*22:]
+		h := binary.LittleEndian.Uint16(p)
+		if h&0x7c00 == 0x7c00 {
+			return nil, fmt.Errorf("nonfinite")
+		}
+		words[b*9] = half.F16ToF32(h)
+		high := binary.LittleEndian.Uint32(p[2:])
+		for g := 0; g < 8; g++ {
+			var packed uint32
+			for j := 0; j < 4; j++ {
+				k := g*4 + j
+				if variant == "pair4" {
+					k = (g/2)*4 + ((g%2)*4+j)/2 + (((g%2)*4+j)%2)*16
+				}
+				v := uint32(p[6+k%16])
+				if k >= 16 {
+					v >>= 4
+				}
+				q := uint8((v & 15) | ((high>>uint(k))&1)<<4)
+				if strings.HasPrefix(variant, "signed") {
+					q = uint8(int8(int(q) - 16))
+				}
+				packed |= uint32(q) << uint(j*8)
+			}
+			words[b*9+1+g] = math.Float32frombits(packed)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return words, nil
+}
+func TestVulkanNativeQ5PredecodeDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_DIR")
+	if dir == "" {
+		t.Skip("explicit exact signed Q5 diagnostic")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	variants := strings.Split(os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_VARIANTS"), ",")
+	if len(variants) == 1 && variants[0] == "" {
+		variants = []string{"signed4", "signed8", "signed16", "offset4", "pair4"}
+	}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(fmt.Sprintf("%s/%s.spv", dir, variant))
+			if e != nil {
+				t.Fatal(e)
+			}
+			kernel, e := VkKernelCreate(code, 4, 12)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, shape := range [][3]int{{33, 96, 63}, {1500, 1280, 5120}, {1500, 5120, 1280}} {
+				t.Run(fmt.Sprint(shape), func(t *testing.T) {
+					m, k, n := shape[0], shape[1], shape[2]
+					raw := make([]byte, n*(k/32)*22)
+					for b := 0; b < len(raw)/22; b++ {
+						binary.LittleEndian.PutUint16(raw[b*22:], []uint16{0x2800, 0xa800, 0x0001, 0x8000}[b%4])
+						for j := 2; j < 22; j++ {
+							raw[b*22+j] = byte(b*17 + j*31)
+						}
+					}
+					signed, e := packQ5PreparedDiagnostic(context.Background(), raw, variant)
+					if e != nil {
+						t.Fatal(e)
+					}
+					base, e := NewVkLinearQ5Decode4SetStream(context.Background(), []VkLinearQ5Shape{{n, k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, base)
+					a, e := NewVkTensorArena(context.Background(), 180<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					tx := nativeTensor(t, a, nativeData(m*k, 11, .5), m, k)
+					tw := nativeTensor(t, a, signed, len(signed))
+					bias := nativeTensor(t, a, nativeData(n, 13, .1), n)
+					out := nativeTensor(t, a, nil, m, n)
+					right := nativeGuard(t, a)
+					bs, e := base.Stage(context.Background(), 0, out, tx, bias)
+					if e != nil {
+						t.Fatal(e)
+					}
+					bp, e := NewVkF32Plan(context.Background(), []VkF32Stage{bs})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bp)
+					cp, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((n + 63) / 64), uint32((m + 63) / 64), 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, cp)
+					nativeRun(t, bp.Run)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							plan := bp
+							if candidate {
+								plan = cp
+							}
+							wall := nativeRun(t, plan.Run)
+							got := nativeDownload(t, out)
+							for i, v := range got {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("bits", i, v, ref[i])
+								}
+							}
+							left()
+							right()
+							if m == 1500 {
+								t.Logf("Q5_PREPARED variant=%s shape=%v candidate=%t repeat=%d seconds=%.9f sourceBytes=%d candidateBytes=%d", variant, shape, candidate, repeat, wall.Seconds(), len(raw)/22*24, len(signed)*4)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestVulkanOfflineQ5PreparedDiagnostic(t *testing.T) {
+	for _, variant := range []string{"signed4", "pair4", "offset4", "scale6"} {
+		for _, scale := range []uint16{0, 0x8000, 1, 0x8001, 0x3ff, 0x83ff, 0x400, 0x8400, 0x3c00, 0xbc00, 0x7bff, 0xfbff} {
+			raw := make([]byte, 22)
+			binary.LittleEndian.PutUint16(raw, scale)
+			binary.LittleEndian.PutUint32(raw[2:], 0xffff0000)
+			for j := 0; j < 16; j++ {
+				raw[6+j] = byte(j | j<<4)
+			}
+			got, e := packQ5PreparedDiagnostic(context.Background(), raw, variant)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if math.Float32bits(got[0]) != math.Float32bits(half.F16ToF32(scale)) {
+				t.Fatal("scale")
+			}
+			for index := 0; index < 32; index++ {
+				slot := index
+				if variant == "pair4" {
+					slot = (index%16/4)*8 + (index%4)*2 + index/16
+				}
+				byteValue := uint8(0)
+				if variant != "scale6" {
+					byteValue = uint8(math.Float32bits(got[1+slot/4]) >> uint(slot%4*8))
+				}
+				q := int(byteValue) - 16
+				if variant == "signed4" {
+					q = int(int8(byteValue))
+				} else if variant == "scale6" {
+					packed := math.Float32bits(got[2+index%16/4]) >> uint(index%4*8)
+					if index >= 16 {
+						packed >>= 4
+					}
+					q = int((packed&15)|((math.Float32bits(got[1])>>uint(index))&1)<<4) - 16
+				}
+				if q != index-16 {
+					t.Fatal("all signed values", variant, index, q)
+				}
+				want := half.F16ToF32(scale) * float32(index-16)
+				if math.Float32bits(got[0]*float32(q)) != math.Float32bits(want) {
+					t.Fatal("scale-product bits")
+				}
+			}
+		}
+	}
+	for _, raw := range [][]byte{nil, make([]byte, 21), make([]byte, 23)} {
+		if _, e := packQ5PreparedDiagnostic(context.Background(), raw, "pair4"); e == nil {
+			t.Fatal("extent")
+		}
+	}
+	for _, scale := range []uint16{0x7c00, 0xfc00, 0x7e00} {
+		raw := make([]byte, 22)
+		binary.LittleEndian.PutUint16(raw, scale)
+		if _, e := packQ5PreparedDiagnostic(context.Background(), raw, "pair4"); e == nil {
+			t.Fatal("nonfinite")
+		}
+	}
+	if _, e := packQ5PreparedDiagnostic(nil, make([]byte, 22), "pair4"); e == nil {
+		t.Fatal("nil ctx")
+	}
+	if _, e := packQ5PreparedDiagnostic(context.Background(), make([]byte, 22), "unknown"); e == nil {
+		t.Fatal("variant")
+	}
+	for _, variant := range []string{"pair4", "scale6"} {
+		for _, size := range []int{22, 1025 * 22} {
+			ctx := &q5StreamCancelContext{Context: context.Background(), at: 3}
+			if _, e := packQ5PreparedDiagnostic(ctx, make([]byte, size), variant); !errors.Is(e, context.Canceled) {
+				t.Fatal("cancel", variant, size, e)
+			}
+		}
+	}
+	// Every finite half bit pattern widens identically, including signed zero.
+	raw := make([]byte, 22*65536)
+	for h := 0; h < 65536; h++ {
+		v := uint16(h)
+		if v&0x7c00 == 0x7c00 {
+			v = 0
+		}
+		binary.LittleEndian.PutUint16(raw[h*22:], v)
+	}
+	for _, variant := range []string{"signed4", "pair4", "scale6"} {
+		words, e := packQ5PreparedDiagnostic(context.Background(), raw, variant)
+		if e != nil {
+			t.Fatal(e)
+		}
+		stride := 9
+		if variant == "scale6" {
+			stride = 6
+		}
+		for h := 0; h < 65536; h++ {
+			v := binary.LittleEndian.Uint16(raw[h*22:])
+			if math.Float32bits(words[h*stride]) != math.Float32bits(half.F16ToF32(v)) {
+				t.Fatal("finite scale bits", variant, h)
+			}
+		}
+	}
+}
+
+func TestVulkanNativeQ5PreparedTrainedDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_DIR")
+	if dir == "" || os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_TRAINED") == "" {
+		t.Skip("explicit diagnostic trained admission")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
+	defer cancel()
+	pin := "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+	if os.Getenv("GO_PHERENCE_WHISPER_GGML_SHA256") != pin {
+		t.Fatal("modelpin")
+	}
+	file, e := legacy.Open(ctx, os.Getenv("GO_PHERENCE_WHISPER_GGML"), pin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer file.Close()
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	variants := strings.Split(os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_VARIANTS"), ",")
+	if len(variants) == 1 && variants[0] == "" {
+		variants = []string{"signed4", "pair4"}
+	}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(dir + "/" + variant + ".spv")
+			if e != nil {
+				t.Fatal(e)
+			}
+			contract, e := InspectVulkanShader(code)
+			if e != nil {
+				t.Fatal(e)
+			}
+			t.Logf("PREPARED_CONTRACT variant=%s contract=%+v", variant, contract)
+			kernel, e := VkKernelCreate(code, 4, 12)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, part := range []struct {
+				name, input, pin string
+				k, n             int
+			}{{"encoder.blocks.0.mlp.0.weight", "ff-norm", "e43e03363bafbf2f3cdbca5290e92cd5547406c3a601e37f80d365926a8333db", 1280, 5120}, {"encoder.blocks.0.mlp.2.weight", "tmp-ff", "07cdaf0e8c75e8fa7c1977c6a0bbf2a753fb7b27f3402ba575eaf9dbe0113f3f", 5120, 1280}} {
+				t.Run(part.name, func(t *testing.T) {
+					raw, shape, e := file.Q5Blocks(ctx, part.name)
+					if e != nil || len(shape) != 2 || shape[0] != part.k || shape[1] != part.n {
+						t.Fatal("tensor", e)
+					}
+					b, e := os.ReadFile(os.Getenv("GO_PHERENCE_TEST_Q5_PREDECODE_INPUTS") + "/" + part.input + ".f32")
+					if e != nil || len(b) != 1500*part.k*4 || fmt.Sprintf("%x", sha256.Sum256(b)) != part.pin {
+						t.Fatal("inputpin", e)
+					}
+					x := make([]float32, len(b)/4)
+					for i := range x {
+						x[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+					}
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							var a, z runtime.MemStats
+							runtime.ReadMemStats(&a)
+							start := time.Now()
+							var size int
+							if candidate {
+								w, e := packQ5PreparedDiagnostic(ctx, raw, variant)
+								if e != nil {
+									t.Fatal(e)
+								}
+								size = len(w) * 4
+								runtime.KeepAlive(w)
+							} else {
+								w, e := packLinearQ5Blocks(ctx, raw)
+								if e != nil {
+									t.Fatal(e)
+								}
+								size = len(w) * 4
+								runtime.KeepAlive(w)
+							}
+							wall := time.Since(start)
+							runtime.ReadMemStats(&z)
+							t.Logf("Q5_PREP_COST variant=%s tensor=%s candidate=%t repeat=%d seconds=%.9f packedBytes=%d allocatedBytes=%d", variant, part.name, candidate, repeat, wall.Seconds(), size, z.TotalAlloc-a.TotalAlloc)
+						}
+					}
+					prepared, e := packQ5PreparedDiagnostic(ctx, raw, variant)
+					if e != nil {
+						t.Fatal(e)
+					}
+					base, e := NewVkLinearQ5Decode4SetStream(ctx, []VkLinearQ5Shape{{part.n, part.k}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, base)
+					arena, e := NewVkTensorArena(ctx, 150<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, arena)
+					left := nativeGuard(t, arena)
+					tx := nativeTensor(t, arena, x, 1500, part.k)
+					tw := nativeTensor(t, arena, prepared, len(prepared))
+					bias := nativeTensor(t, arena, nil, part.n)
+					out := nativeTensor(t, arena, nil, 1500, part.n)
+					right := nativeGuard(t, arena)
+					stage, e := base.Stage(ctx, 0, out, tx, bias)
+					if e != nil {
+						t.Fatal(e)
+					}
+					bp, e := NewVkF32Plan(ctx, []VkF32Stage{stage})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bp)
+					cp, e := NewVkF32Plan(ctx, []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((part.n + 63) / 64), 24, 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{1500, uint32(part.k), uint32(part.n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, cp)
+					nativeRun(t, bp.Run)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							plan := bp
+							if candidate {
+								plan = cp
+							}
+							wall := nativeRun(t, plan.Run)
+							got := nativeDownload(t, out)
+							for i, v := range got {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("trainedbits", i, v, ref[i])
+								}
+							}
+							left()
+							right()
+							t.Logf("Q5_PREPARED_TRAINED variant=%s tensor=%s candidate=%t repeat=%d seconds=%.9f values=%d baselineBytes=%d candidateBytes=%d", variant, part.name, candidate, repeat, wall.Seconds(), len(got), len(raw)/22*24, len(prepared)*4)
+						}
+					}
+					cancelled, stop := context.WithCancel(ctx)
+					stop()
+					if e := cp.Run(cancelled); !errors.Is(e, context.Canceled) {
+						t.Fatal("cancel", e)
+					}
+					nativeRun(t, cp.Run)
+					got := nativeDownload(t, out)
+					for i, v := range got {
+						if math.Float32bits(v) != math.Float32bits(ref[i]) {
+							t.Fatal("reuse", i)
+						}
+					}
+					left()
+					right()
+					t.Log("PREPARED_CANCEL_REUSE_EXACT")
+				})
+			}
+		})
+	}
+}
