@@ -1,0 +1,7 @@
+SCORER_CHECK pt1 baseline 0 9
+SCORER_CHECK pt1 candidate 0 9
+SCORER_CHECK pt1 original 0 9
+SCORER_CHECK pt2 baseline 8 47
+SCORER_CHECK pt2 candidate 8 47
+SCORER_CHECK pt2 original 8 47
+INDEPENDENT_ROLLING_DISTANCE_PASS

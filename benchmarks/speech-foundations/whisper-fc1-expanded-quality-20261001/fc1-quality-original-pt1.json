@@ -1,0 +1,227 @@
+{
+	"systeminfo": "WHISPER : VITISAI = 0 | COREML = 0 | OPENVINO = 0 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | OPENMP = 1 | REPACK = 1 | ",
+	"model": {
+		"type": "large",
+		"multilingual": true,
+		"vocab": 51866,
+		"audio": {
+			"ctx": 1500,
+			"state": 1280,
+			"head": 20,
+			"layer": 32
+		},
+		"text": {
+			"ctx": 448,
+			"state": 1280,
+			"head": 20,
+			"layer": 4
+		},
+		"mels": 128,
+		"ftype": 8
+	},
+	"params": {
+		"model": "/var/home/agent/workspace/projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin",
+		"language": "pt",
+		"translate": false
+	},
+	"result": {
+		"language": "pt"
+	},
+	"transcription": [
+		{
+			"timestamps": {
+				"from": "00:00:00,000",
+				"to": "00:00:04,580"
+			},
+			"offsets": {
+				"from": 0,
+				"to": 4580
+			},
+			"text": " Como faço para transferir dinheiro para a minha conta?",
+			"tokens": [
+				{
+					"text": "[_BEG_]",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,000"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 0
+					},
+					"id": 50365,
+					"p": 0.858887,
+					"t_dtw": -1
+				},
+				{
+					"text": " Como",
+					"timestamps": {
+						"from": "00:00:00,020",
+						"to": "00:00:00,380"
+					},
+					"offsets": {
+						"from": 20,
+						"to": 380
+					},
+					"id": 11913,
+					"p": 0.878261,
+					"t_dtw": -1
+				},
+				{
+					"text": " faço",
+					"timestamps": {
+						"from": "00:00:00,380",
+						"to": "00:00:00,680"
+					},
+					"offsets": {
+						"from": 380,
+						"to": 680
+					},
+					"id": 38091,
+					"p": 0.95383,
+					"t_dtw": -1
+				},
+				{
+					"text": " para",
+					"timestamps": {
+						"from": "00:00:00,880",
+						"to": "00:00:01,110"
+					},
+					"offsets": {
+						"from": 880,
+						"to": 1110
+					},
+					"id": 1690,
+					"p": 0.998058,
+					"t_dtw": -1
+				},
+				{
+					"text": " transfer",
+					"timestamps": {
+						"from": "00:00:01,140",
+						"to": "00:00:01,900"
+					},
+					"offsets": {
+						"from": 1140,
+						"to": 1900
+					},
+					"id": 5003,
+					"p": 0.998103,
+					"t_dtw": -1
+				},
+				{
+					"text": "ir",
+					"timestamps": {
+						"from": "00:00:01,900",
+						"to": "00:00:02,090"
+					},
+					"offsets": {
+						"from": 1900,
+						"to": 2090
+					},
+					"id": 347,
+					"p": 0.999952,
+					"t_dtw": -1
+				},
+				{
+					"text": " dinheiro",
+					"timestamps": {
+						"from": "00:00:02,090",
+						"to": "00:00:02,850"
+					},
+					"offsets": {
+						"from": 2090,
+						"to": 2850
+					},
+					"id": 23760,
+					"p": 0.954247,
+					"t_dtw": -1
+				},
+				{
+					"text": " para",
+					"timestamps": {
+						"from": "00:00:02,850",
+						"to": "00:00:03,230"
+					},
+					"offsets": {
+						"from": 2850,
+						"to": 3230
+					},
+					"id": 1690,
+					"p": 0.987119,
+					"t_dtw": -1
+				},
+				{
+					"text": " a",
+					"timestamps": {
+						"from": "00:00:03,230",
+						"to": "00:00:03,320"
+					},
+					"offsets": {
+						"from": 3230,
+						"to": 3320
+					},
+					"id": 257,
+					"p": 0.958731,
+					"t_dtw": -1
+				},
+				{
+					"text": " minha",
+					"timestamps": {
+						"from": "00:00:03,320",
+						"to": "00:00:03,540"
+					},
+					"offsets": {
+						"from": 3320,
+						"to": 3540
+					},
+					"id": 11720,
+					"p": 0.990144,
+					"t_dtw": -1
+				},
+				{
+					"text": " conta",
+					"timestamps": {
+						"from": "00:00:03,540",
+						"to": "00:00:04,260"
+					},
+					"offsets": {
+						"from": 3540,
+						"to": 4260
+					},
+					"id": 24001,
+					"p": 0.992634,
+					"t_dtw": -1
+				},
+				{
+					"text": "?",
+					"timestamps": {
+						"from": "00:00:04,260",
+						"to": "00:00:04,580"
+					},
+					"offsets": {
+						"from": 4260,
+						"to": 4580
+					},
+					"id": 30,
+					"p": 0.918189,
+					"t_dtw": -1
+				},
+				{
+					"text": "[_TT_229]",
+					"timestamps": {
+						"from": "00:00:04,580",
+						"to": "00:00:04,580"
+					},
+					"offsets": {
+						"from": 4580,
+						"to": 4580
+					},
+					"id": 50594,
+					"p": 0.0494396,
+					"t_dtw": -1
+				}
+			]
+		}
+	]
+}

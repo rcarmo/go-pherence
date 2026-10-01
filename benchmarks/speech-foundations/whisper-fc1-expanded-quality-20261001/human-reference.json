@@ -1,0 +1,17 @@
+[
+  {
+    "fixture": "minds-pt-0",
+    "text": "Bom dia estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta",
+    "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/0/audio/audio.wav"
+  },
+  {
+    "fixture": "minds-pt-1",
+    "text": "Como faço para transferir dinheiro para a minha conta",
+    "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/1/audio/audio.wav"
+  },
+  {
+    "fixture": "minds-pt-2",
+    "text": "estava interessado em depositar dinheiro na minha conta e em primeiro lugar queria perguntar se era possível se posso visitar e como é que posso transferir dinheiro para a conta ou se tem que ir ao banco Onde posso fazer esse esse propósito se calhar é isso",
+    "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/2/audio/audio.wav"
+  }
+]

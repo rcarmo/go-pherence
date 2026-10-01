@@ -38,6 +38,8 @@ The explicit experimental `vulkan-original-q5-integer-dot` arm loads original pa
 
 The separately named `vulkan-original-q5-integer-dot-fc1` candidate quantises only FC1; FC2 keeps ordered packed-Q5/F32 arithmetic on shared original weight storage. [Timestamp attribution and FC1 qualification](../../docs/validation/whisper-integer-dot-fc1-20261001.md) records exact five-repeat small-fixture/VADword outputs and limited request gains. Independent quality/long-form/resume and matched original-speed acceptance remain open; this mode is never selected by defaults.
 
+[Expanded FC1 qualification](../../docs/validation/whisper-fc1-expanded-quality-20261001.md) finds a podcast word/segment change without VAD, and a20ms word-boundary change with native VAD. Additional Portuguese supplied-label scoring does not establish broad accuracy or original timing parity. The candidate stays experimental. Stage profiling now admits FC1 explicitly and reports quantisation as a separate labelled stage; individually fenced samples are diagnostic, not speed acceptance.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

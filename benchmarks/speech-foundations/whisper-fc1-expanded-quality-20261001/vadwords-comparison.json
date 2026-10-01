@@ -1,0 +1,273 @@
+{
+  "baseline": 12.214761809,
+  "candidate": 11.90921949,
+  "exact": false,
+  "baselineSegments": [
+    {
+      "Start": 0.034,
+      "End": 3.114,
+      "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+      "Tokens": [
+        286,
+        600,
+        1009,
+        1415,
+        452,
+        3360,
+        281,
+        362,
+        257,
+        2068,
+        5056,
+        6814,
+        562,
+        2878,
+        1487
+      ]
+    },
+    {
+      "Start": 3.114,
+      "End": 5.914,
+      "Text": "across my content or my website or my products.",
+      "Tokens": [
+        2108,
+        452,
+        2701,
+        420,
+        452,
+        3144,
+        420,
+        452,
+        3383,
+        13
+      ]
+    },
+    {
+      "Start": 6.114,
+      "End": 9.374,
+      "Text": "You know, like the vibe that you get when you walk through the storefront of a shop",
+      "Tokens": [
+        509,
+        458,
+        11,
+        411,
+        264,
+        14606,
+        300,
+        291,
+        483,
+        562,
+        291,
+        1792,
+        807,
+        264,
+        3531,
+        11496,
+        295,
+        257,
+        3945
+      ]
+    },
+    {
+      "Start": 9.374,
+      "End": 13.754,
+      "Text": "in your neighborhood. But my writing and my videos can only do so much to set that",
+      "Tokens": [
+        294,
+        428,
+        7630,
+        13,
+        583,
+        452,
+        3579,
+        293,
+        452,
+        2145,
+        393,
+        787,
+        360,
+        370,
+        709,
+        281,
+        992,
+        300
+      ]
+    },
+    {
+      "Start": 13.754,
+      "End": 18.274,
+      "Text": "tone. And so I've always tried to create strong visuals to complete the experience.",
+      "Tokens": [
+        8027,
+        13,
+        400,
+        370,
+        286,
+        600,
+        1009,
+        3031,
+        281,
+        1884,
+        2068,
+        26035,
+        281,
+        3566,
+        264,
+        1752,
+        13
+      ]
+    },
+    {
+      "Start": 18.514,
+      "End": 19.994,
+      "Text": "The problem is I'm not an illiterate.",
+      "Tokens": [
+        440,
+        1154,
+        307,
+        286,
+        478,
+        406,
+        364,
+        3171,
+        1681,
+        473,
+        13
+      ]
+    }
+  ],
+  "candidateSegments": [
+    {
+      "Start": 0.034,
+      "End": 3.114,
+      "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+      "Tokens": [
+        286,
+        600,
+        1009,
+        1415,
+        452,
+        3360,
+        281,
+        362,
+        257,
+        2068,
+        5056,
+        6814,
+        562,
+        2878,
+        1487
+      ]
+    },
+    {
+      "Start": 3.114,
+      "End": 5.914,
+      "Text": "across my content or my website or my products.",
+      "Tokens": [
+        2108,
+        452,
+        2701,
+        420,
+        452,
+        3144,
+        420,
+        452,
+        3383,
+        13
+      ]
+    },
+    {
+      "Start": 6.114,
+      "End": 9.374,
+      "Text": "You know, like the vibe that you get when you walk through the storefront of a shop",
+      "Tokens": [
+        509,
+        458,
+        11,
+        411,
+        264,
+        14606,
+        300,
+        291,
+        483,
+        562,
+        291,
+        1792,
+        807,
+        264,
+        3531,
+        11496,
+        295,
+        257,
+        3945
+      ]
+    },
+    {
+      "Start": 9.374,
+      "End": 13.754,
+      "Text": "in your neighborhood. But my writing and my videos can only do so much to set that",
+      "Tokens": [
+        294,
+        428,
+        7630,
+        13,
+        583,
+        452,
+        3579,
+        293,
+        452,
+        2145,
+        393,
+        787,
+        360,
+        370,
+        709,
+        281,
+        992,
+        300
+      ]
+    },
+    {
+      "Start": 13.754,
+      "End": 18.274,
+      "Text": "tone. And so I've always tried to create strong visuals to complete the experience.",
+      "Tokens": [
+        8027,
+        13,
+        400,
+        370,
+        286,
+        600,
+        1009,
+        3031,
+        281,
+        1884,
+        2068,
+        26035,
+        281,
+        3566,
+        264,
+        1752,
+        13
+      ]
+    },
+    {
+      "Start": 18.514,
+      "End": 19.994,
+      "Text": "The problem is I'm not an illiterate.",
+      "Tokens": [
+        440,
+        1154,
+        307,
+        286,
+        478,
+        406,
+        364,
+        3171,
+        1681,
+        473,
+        13
+      ]
+    }
+  ]
+}

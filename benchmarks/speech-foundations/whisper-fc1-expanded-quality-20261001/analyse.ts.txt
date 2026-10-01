@@ -1,0 +1,27 @@
+// Read-only analysis of retained exact samples. No latency samples are invented
+// or discarded; original single diagnostic CLI phase timings stay separate.
+const root='tmp/whisper-vad-parity-20261001';
+const normalise=(s:string)=>s.normalize('NFKC').toLocaleLowerCase('pt-PT').replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/u).filter(Boolean);
+function edits(ref:string[],hyp:string[]){
+ const d=Array.from({length:ref.length+1},()=>new Array(hyp.length+1).fill(0));for(let i=0;i<=ref.length;i++)d[i][0]=i;for(let j=0;j<=hyp.length;j++)d[0][j]=j;
+ for(let i=1;i<=ref.length;i++)for(let j=1;j<=hyp.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(ref[i-1]===hyp[j-1]?0:1));
+ let i=ref.length,j=hyp.length,S=0,D=0,I=0;const operations:any[]=[];while(i||j){if(i&&j&&ref[i-1]===hyp[j-1]&&d[i][j]===d[i-1][j-1]){i--;j--}else if(i&&j&&d[i][j]===d[i-1][j-1]+1){S++;operations.push({operation:'substitute',reference:ref[i-1],hypothesis:hyp[j-1]});i--;j--}else if(i&&d[i][j]===d[i-1][j]+1){D++;operations.push({operation:'delete',reference:ref[i-1]});i--}else{I++;operations.push({operation:'insert',hypothesis:hyp[j-1]});j--}}
+ return {S,D,I,N:ref.length,total:d[ref.length][hyp.length],wer:ref.length?(S+D+I)/ref.length:null,operations:operations.reverse()};
+}
+for(const [r,h,w]of [['a b c','a x c',[1,0,0]],['a b','a',[0,1,0]],['a','a b',[0,0,1]],['a b','a b',[0,0,0]]] as [string,string,number[]][]){const e=edits(normalise(r),normalise(h));if([e.S,e.D,e.I].some((v,i)=>v!==w[i]))throw Error('independent hand-count regression')}
+const refs=await Bun.file('tmp/whisper-fc1-quality-20261001/human-reference.json').json();
+const median=(v:number[])=>v.toSorted((a,b)=>a-b)[Math.floor(v.length/2)];const results=[];
+for(const fixture of ['pt1','pt2','podcast']){
+ const baseline=await Bun.file(`${root}/fc1-quality-baseline-${fixture}.json`).json(),candidate=await Bun.file(`${root}/fc1-quality-fc1-${fixture}.json`).json(),original=await Bun.file(`${root}/fc1-quality-original-${fixture}.json`).json();
+ const segments=(r:any)=>r.Samples[0].windows.flatMap((w:any)=>w.Segments);const texts=(s:any[])=>s.map(s=>s.Text??s.text).join(' ').trim();
+ const bsegments=segments(baseline),csegments=segments(candidate),osegments=original.transcription;
+ const equal=(a:any,b:any)=>JSON.stringify(a)===JSON.stringify(b);const decision=(r:any)=>r.Samples.map((s:any)=>s.windows);
+ const times=(s:any[],orig=false)=>s.map(s=>({start:orig?s.offsets.from/1000:s.Start,end:orig?s.offsets.to/1000:s.End}));
+ const human=fixture.startsWith('pt')?refs.find((r:any)=>r.fixture==='minds-pt-'+fixture.slice(2)):null;
+ const row:any={fixture,input_pin:candidate.InputPin,input_samples:candidate.InputSamples,repeats:{baseline:baseline.Samples.length,candidate:candidate.Samples.length},median_seconds:{baseline:median(baseline.Samples.map((s:any)=>s.request_seconds)),candidate:median(candidate.Samples.map((s:any)=>s.request_seconds))},candidate_vs_baseline_all_outputs_exact:equal(decision(baseline),decision(candidate)),candidate_repeat_decisions_identical:candidate.Samples.every((s:any)=>equal(s.windows,candidate.Samples[0].windows)),baseline_text:texts(bsegments),candidate_text:texts(csegments),original_text:texts(osegments),candidate_vs_original_normalised_text_equal:equal(normalise(texts(csegments)),normalise(texts(osegments))),times:{baseline:times(bsegments),candidate:times(csegments),original:times(osegments,true)},word_disagreement_vs_original:edits(normalise(texts(osegments)),normalise(texts(csegments)))};
+ row.latency_change_percent=100*(row.median_seconds.candidate/row.median_seconds.baseline-1);
+ if(human)row.human_reference={text:human.text,url:human.url,baseline:edits(normalise(human.text),normalise(row.baseline_text)),candidate:edits(normalise(human.text),normalise(row.candidate_text)),original:edits(normalise(human.text),normalise(row.original_text))};else row.human_reference=null;
+ results.push(row);
+}
+const data={schema:1,normalisation:'NFKC, pt-PT lowercase, all non-letter/non-digit spans to whitespace; whitespace word tokens. Equal-cost alignment priority match/substitution/deletion/insertion.',results,acceptance:'Candidate general output parity FAIL on podcast; original timing parity unqualified; human-reference scoring limited to2MINDS records, not population accuracy.'};await Bun.write('tmp/whisper-fc1-quality-20261001/quality-results.json',JSON.stringify(data,null,2));
+for(const r of results)console.log({fixture:r.fixture,exact:r.candidate_vs_baseline_all_outputs_exact,medians:r.median_seconds,change:r.latency_change_percent,human:r.human_reference?{baseline:r.human_reference.baseline,candidate:r.human_reference.candidate,original:r.human_reference.original}:null,originalWords:r.word_disagreement_vs_original,times:r.times});

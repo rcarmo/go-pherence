@@ -1,0 +1,459 @@
+{
+  "schema": 1,
+  "normalisation": "NFKC, pt-PT lowercase, all non-letter/non-digit spans to whitespace; whitespace word tokens. Equal-cost alignment priority match/substitution/deletion/insertion.",
+  "results": [
+    {
+      "fixture": "pt1",
+      "input_pin": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045",
+      "input_samples": 75094,
+      "repeats": {
+        "baseline": 5,
+        "candidate": 5
+      },
+      "median_seconds": {
+        "baseline": 6.443919207,
+        "candidate": 6.110729511
+      },
+      "candidate_vs_baseline_all_outputs_exact": true,
+      "candidate_repeat_decisions_identical": true,
+      "baseline_text": "Como faço para transferir dinheiro para a minha conta?",
+      "candidate_text": "Como faço para transferir dinheiro para a minha conta?",
+      "original_text": "Como faço para transferir dinheiro para a minha conta?",
+      "candidate_vs_original_normalised_text_equal": true,
+      "times": {
+        "baseline": [
+          {
+            "start": 0,
+            "end": 4.693375
+          }
+        ],
+        "candidate": [
+          {
+            "start": 0,
+            "end": 4.693375
+          }
+        ],
+        "original": [
+          {
+            "start": 0,
+            "end": 4.58
+          }
+        ]
+      },
+      "word_disagreement_vs_original": {
+        "S": 0,
+        "D": 0,
+        "I": 0,
+        "N": 9,
+        "total": 0,
+        "wer": 0,
+        "operations": []
+      },
+      "latency_change_percent": -5.170606354562269,
+      "human_reference": {
+        "text": "Como faço para transferir dinheiro para a minha conta",
+        "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/1/audio/audio.wav",
+        "baseline": {
+          "S": 0,
+          "D": 0,
+          "I": 0,
+          "N": 9,
+          "total": 0,
+          "wer": 0,
+          "operations": []
+        },
+        "candidate": {
+          "S": 0,
+          "D": 0,
+          "I": 0,
+          "N": 9,
+          "total": 0,
+          "wer": 0,
+          "operations": []
+        },
+        "original": {
+          "S": 0,
+          "D": 0,
+          "I": 0,
+          "N": 9,
+          "total": 0,
+          "wer": 0,
+          "operations": []
+        }
+      }
+    },
+    {
+      "fixture": "pt2",
+      "input_pin": "bda07e92625321318397e41cfa8169839d361c67442befea86a1ef2e047e919f",
+      "input_samples": 700160,
+      "repeats": {
+        "baseline": 5,
+        "candidate": 5
+      },
+      "median_seconds": {
+        "baseline": 14.425392744,
+        "candidate": 13.754134857
+      },
+      "candidate_vs_baseline_all_outputs_exact": true,
+      "candidate_repeat_decisions_identical": true,
+      "baseline_text": "Estava interessado em depositar dinheiro na minha conta e, em primeiro lugar, queria perguntar se era possível, se posso visitar e como é que posso transferir dinheiro para a conta ou se tenho que ir ao banco, onde eu posso fazer esse depósito. Seguim até isso. E aí",
+      "candidate_text": "Estava interessado em depositar dinheiro na minha conta e, em primeiro lugar, queria perguntar se era possível, se posso visitar e como é que posso transferir dinheiro para a conta ou se tenho que ir ao banco, onde eu posso fazer esse depósito. Seguim até isso. E aí",
+      "original_text": "Estava interessado em depositar dinheiro na minha conta  e, em primeiro lugar, queria perguntar se era possível, se posso visitar  e como é que posso transferir dinheiro para a conta  ou se tenho que ir ao banco, onde eu posso fazer esse depósito.  Seguim até isso.  E aí",
+      "candidate_vs_original_normalised_text_equal": true,
+      "times": {
+        "baseline": [
+          {
+            "start": 0,
+            "end": 4.98
+          },
+          {
+            "start": 4.98,
+            "end": 10.28
+          },
+          {
+            "start": 10.28,
+            "end": 13.86
+          },
+          {
+            "start": 13.86,
+            "end": 19.6
+          },
+          {
+            "start": 21.44,
+            "end": 22.14
+          },
+          {
+            "start": 30,
+            "end": 43.76
+          }
+        ],
+        "candidate": [
+          {
+            "start": 0,
+            "end": 4.98
+          },
+          {
+            "start": 4.98,
+            "end": 10.28
+          },
+          {
+            "start": 10.28,
+            "end": 13.86
+          },
+          {
+            "start": 13.86,
+            "end": 19.6
+          },
+          {
+            "start": 21.44,
+            "end": 22.14
+          },
+          {
+            "start": 30,
+            "end": 43.76
+          }
+        ],
+        "original": [
+          {
+            "start": 0,
+            "end": 4.96
+          },
+          {
+            "start": 4.96,
+            "end": 10.28
+          },
+          {
+            "start": 10.28,
+            "end": 13.86
+          },
+          {
+            "start": 13.86,
+            "end": 19.6
+          },
+          {
+            "start": 21.44,
+            "end": 22.14
+          },
+          {
+            "start": 30,
+            "end": 35.12
+          }
+        ]
+      },
+      "word_disagreement_vs_original": {
+        "S": 0,
+        "D": 0,
+        "I": 0,
+        "N": 48,
+        "total": 0,
+        "wer": 0,
+        "operations": []
+      },
+      "latency_change_percent": -4.653307531465289,
+      "human_reference": {
+        "text": "estava interessado em depositar dinheiro na minha conta e em primeiro lugar queria perguntar se era possível se posso visitar e como é que posso transferir dinheiro para a conta ou se tem que ir ao banco Onde posso fazer esse esse propósito se calhar é isso",
+        "url": "https://datasets-server.huggingface.co/assets/PolyAI/minds14/--/40ce77cb32a384e4d50a568e1ec39ac804019d33/--/pt-PT/train/2/audio/audio.wav",
+        "baseline": {
+          "S": 7,
+          "D": 0,
+          "I": 1,
+          "N": 47,
+          "total": 8,
+          "wer": 0.1702127659574468,
+          "operations": [
+            {
+              "operation": "substitute",
+              "reference": "tem",
+              "hypothesis": "tenho"
+            },
+            {
+              "operation": "insert",
+              "hypothesis": "eu"
+            },
+            {
+              "operation": "substitute",
+              "reference": "esse",
+              "hypothesis": "depósito"
+            },
+            {
+              "operation": "substitute",
+              "reference": "propósito",
+              "hypothesis": "seguim"
+            },
+            {
+              "operation": "substitute",
+              "reference": "se",
+              "hypothesis": "até"
+            },
+            {
+              "operation": "substitute",
+              "reference": "calhar",
+              "hypothesis": "isso"
+            },
+            {
+              "operation": "substitute",
+              "reference": "é",
+              "hypothesis": "e"
+            },
+            {
+              "operation": "substitute",
+              "reference": "isso",
+              "hypothesis": "aí"
+            }
+          ]
+        },
+        "candidate": {
+          "S": 7,
+          "D": 0,
+          "I": 1,
+          "N": 47,
+          "total": 8,
+          "wer": 0.1702127659574468,
+          "operations": [
+            {
+              "operation": "substitute",
+              "reference": "tem",
+              "hypothesis": "tenho"
+            },
+            {
+              "operation": "insert",
+              "hypothesis": "eu"
+            },
+            {
+              "operation": "substitute",
+              "reference": "esse",
+              "hypothesis": "depósito"
+            },
+            {
+              "operation": "substitute",
+              "reference": "propósito",
+              "hypothesis": "seguim"
+            },
+            {
+              "operation": "substitute",
+              "reference": "se",
+              "hypothesis": "até"
+            },
+            {
+              "operation": "substitute",
+              "reference": "calhar",
+              "hypothesis": "isso"
+            },
+            {
+              "operation": "substitute",
+              "reference": "é",
+              "hypothesis": "e"
+            },
+            {
+              "operation": "substitute",
+              "reference": "isso",
+              "hypothesis": "aí"
+            }
+          ]
+        },
+        "original": {
+          "S": 7,
+          "D": 0,
+          "I": 1,
+          "N": 47,
+          "total": 8,
+          "wer": 0.1702127659574468,
+          "operations": [
+            {
+              "operation": "substitute",
+              "reference": "tem",
+              "hypothesis": "tenho"
+            },
+            {
+              "operation": "insert",
+              "hypothesis": "eu"
+            },
+            {
+              "operation": "substitute",
+              "reference": "esse",
+              "hypothesis": "depósito"
+            },
+            {
+              "operation": "substitute",
+              "reference": "propósito",
+              "hypothesis": "seguim"
+            },
+            {
+              "operation": "substitute",
+              "reference": "se",
+              "hypothesis": "até"
+            },
+            {
+              "operation": "substitute",
+              "reference": "calhar",
+              "hypothesis": "isso"
+            },
+            {
+              "operation": "substitute",
+              "reference": "é",
+              "hypothesis": "e"
+            },
+            {
+              "operation": "substitute",
+              "reference": "isso",
+              "hypothesis": "aí"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "podcast",
+      "input_pin": "a68c5cffadd6098504a83b223b003bfb8330fca4198533ee4b861f70a7e23646",
+      "input_samples": 320000,
+      "repeats": {
+        "baseline": 5,
+        "candidate": 5
+      },
+      "median_seconds": {
+        "baseline": 9.207257108,
+        "candidate": 8.809031706
+      },
+      "candidate_vs_baseline_all_outputs_exact": false,
+      "candidate_repeat_decisions_identical": true,
+      "baseline_text": "I've always wanted my brand to have a strong visual presence when anyone comes across my content or my website or my products, you know, like the vibe that you get when you walk through the storefront of a shop in your neighborhood. But my writing and my videos can only do so much to set that tone. And so I've always tried to create strong visuals to complete the experience. The problem is I'm not an illogist.",
+      "candidate_text": "I've always wanted my brand to have a strong visual presence when anyone comes across my content or my website or my products, you know, like the vibe that you get when you walk through the storefront of a shop in your neighborhood. But my writing and my videos can only do so much to set that tone. And so I've always tried to create strong visuals to complete the experience. The problem is I'm not an illiterate.",
+      "original_text": "I've always wanted my brand to have a strong visual presence when anyone comes across my content or my website or my products.  You know, like the vibe that you get when you walk through the storefront of a shop in your neighborhood.  But my writing and my videos can only do so much to set that tone.  And so I've always tried to create strong visuals to complete the experience.  The problem is I'm not an illogist.",
+      "candidate_vs_original_normalised_text_equal": false,
+      "times": {
+        "baseline": [
+          {
+            "start": 0,
+            "end": 3.12
+          },
+          {
+            "start": 3.12,
+            "end": 6.36
+          },
+          {
+            "start": 6.36,
+            "end": 9.46
+          },
+          {
+            "start": 9.46,
+            "end": 13.74
+          },
+          {
+            "start": 13.74,
+            "end": 17.52
+          },
+          {
+            "start": 17.52,
+            "end": 20
+          }
+        ],
+        "candidate": [
+          {
+            "start": 0,
+            "end": 3.12
+          },
+          {
+            "start": 3.12,
+            "end": 6.36
+          },
+          {
+            "start": 6.36,
+            "end": 9.56
+          },
+          {
+            "start": 9.56,
+            "end": 14.16
+          },
+          {
+            "start": 14.28,
+            "end": 18.24
+          },
+          {
+            "start": 18.52,
+            "end": 20
+          }
+        ],
+        "original": [
+          {
+            "start": 0,
+            "end": 6
+          },
+          {
+            "start": 6,
+            "end": 10
+          },
+          {
+            "start": 10,
+            "end": 14
+          },
+          {
+            "start": 14,
+            "end": 18
+          },
+          {
+            "start": 18,
+            "end": 20
+          }
+        ]
+      },
+      "word_disagreement_vs_original": {
+        "S": 1,
+        "D": 0,
+        "I": 0,
+        "N": 81,
+        "total": 1,
+        "wer": 0.012345679012345678,
+        "operations": [
+          {
+            "operation": "substitute",
+            "reference": "illogist",
+            "hypothesis": "illiterate"
+          }
+        ]
+      },
+      "latency_change_percent": -4.325125249885653,
+      "human_reference": null
+    }
+  ],
+  "acceptance": "Candidate general output parity FAIL on podcast; original timing parity unqualified; human-reference scoring limited to2MINDS records, not population accuracy."
+}
