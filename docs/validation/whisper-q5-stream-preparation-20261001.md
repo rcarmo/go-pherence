@@ -45,4 +45,4 @@ The coordinated Intel runner retained four-CPU quota, `taskset -c 0-7`, 8 GiB me
 
 `TestVulkanQ5PreparationComparison` requires `GO_PHERENCE_TEST_Q5_PREPARATION=1`, pinned original-Q5 and HF metadata paths, named Intel device and timeout no longer than 300 seconds. Run only in a coordinated guarded window; ordinary tests skip native work. Reproduce with new report paths and do not overwrite retained evidence.
 
-Removing CPU FFN widening needs a separate checked model/source contract; supplying fabricated F32 slices to bypass layout admission is not acceptable. That work, independent quality/word timing, long-form/resume and the original Vulkan+flash+VAD speed comparison remain open.
+The later [checked packed-source loader](whisper-q5-packed-source-20261001.md) removes CPU FFN widening through a separate resident-only contract, retaining full metadata admission and rejecting CPU fallback. No fabricated F32 slices bypass layout admission. That work, independent quality/word timing, long-form/resume and the original Vulkan+flash+VAD speed comparison remain open.

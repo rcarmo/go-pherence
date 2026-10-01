@@ -1,0 +1,5 @@
+2026-10-01T08:21:26Z
+19869ca76093ee399d214b3c1dd84714be339e38
+go version go1.26.2 linux/amd64
+d66978a7b38341e4e4834c33ce4bb3048c4dad1ad7c152f304e45525e3a1071d  tmp/whisper-vad-parity-20261001/whisper-source-final.test
+f0fd9e4576e2665547bdde9d966681da016ccbc750c95605e53d9b59293915c4  tmp/whisper-vad-parity-20261001/whisper-source-native.test

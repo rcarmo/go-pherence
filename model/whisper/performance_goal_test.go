@@ -26,7 +26,7 @@ type whisperGoalOptions struct {
 
 func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisperGoalOptions, error) {
 	opts := whisperGoalOptions{backend: backend}
-	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
+	if backend != "cpu" && backend != "vulkan-f32" && backend != "vulkan-f32-tile64" && backend != "vulkan-f32-tile64-key32" && backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" && backend != "vulkan-original-q5-source" && backend != "vulkan-q8-mlp" && backend != "vulkan-q8-kv-mlp" {
 		return opts, fmt.Errorf("select explicit CPU/F32/selective-Q8 backend")
 	}
 	n, err := strconv.Atoi(repeats)
@@ -50,7 +50,7 @@ func parseWhisperGoalOptions(backend, repeats, vadFlag, wordsFlag string) (whisp
 	return opts, nil
 }
 func TestWhisperGoalOptionsAdmission(t *testing.T) {
-	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
+	for _, backend := range []string{"cpu", "vulkan-f32", "vulkan-f32-tile64", "vulkan-f32-tile64-key32", "vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp", "vulkan-original-q5-source", "vulkan-q8-mlp", "vulkan-q8-kv-mlp"} {
 		opts, err := parseWhisperGoalOptions(backend, "5", "1", "0")
 		if err != nil || opts.repeats != 5 || !opts.vad || opts.words {
 			t.Fatal(opts, err)
@@ -107,6 +107,8 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	}
 	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-time.Second))
 	defer cancel()
+	var loadBefore, loadAfter, prepareAfter runtime.MemStats
+	runtime.ReadMemStats(&loadBefore)
 	started := time.Now()
 	var model *Whisper
 	var tok *Tokenizer
@@ -119,10 +121,12 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		if modelPin != "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" && modelPin != "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69" {
 			t.Fatal("retained original model pin required")
 		}
-		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" {
+		if opts.backend != "cpu" && opts.backend != "vulkan-f32-tile64-key32" && opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" && opts.backend != "vulkan-original-q5-source" {
 			t.Fatal("legacy-value diagnostic must preserve stored values without extra quantisation")
 		}
-		if opts.backend == "vulkan-original-q5-mlp" {
+		if opts.backend == "vulkan-original-q5-source" {
+			model, tok, policy, packedFile = pinnedLegacyWhisperModelMode(t, ctx, true)
+		} else if opts.backend == "vulkan-original-q5-mlp" {
 			model, tok, policy, packedFile = pinnedLegacyWhisperModelOpen(t, ctx)
 		} else {
 			model, tok, policy = pinnedLegacyWhisperModel(t, ctx)
@@ -131,10 +135,11 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	} else {
 		model, tok, policy = pinnedTurboSpeechModel(t, ctx)
 	}
-	if opts.backend == "vulkan-original-q5-mlp" && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
+	if (opts.backend == "vulkan-original-q5-mlp" || opts.backend == "vulkan-original-q5-source") && os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES") != "1" {
 		t.Fatal("packed mode requires original stored-value model")
 	}
 	loadSeconds := time.Since(started).Seconds()
+	runtime.ReadMemStats(&loadAfter)
 	reader, err := media.OpenCanonicalPCM(ctx, input)
 	if err != nil {
 		t.Fatal(err)
@@ -190,6 +195,15 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 			if closeErr := packedFile.Close(); err == nil {
 				err = closeErr
 			}
+		case "vulkan-original-q5-source":
+			precision = "Original Q5_0 encoder FC1/FC2 never CPU-widened; native packed FFN plus F32 other weights/attention/decoder"
+			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5MLP, packedFile, true)
+			if closeErr := packedFile.Close(); err == nil {
+				err = closeErr
+			}
+			if err == nil {
+				model.Encoder = nil
+			}
 		case "vulkan-q8-mlp":
 			encoder, err = NewVulkanEncoderQ8MLPWeight(ctx, model.Encoder, model.Config.MaxLength)
 		case "vulkan-q8-kv-mlp":
@@ -207,6 +221,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		}
 	}
 	prepareSeconds := time.Since(prepareStarted).Seconds()
+	runtime.ReadMemStats(&prepareAfter)
 	decodeOptions := PCMTranscribeOptions{Language: language, Generation: policy, WordTimestamps: opts.words, VulkanEncoder: encoder}
 	var samples []whisperGoalSample
 	for repeat := 0; repeat < opts.repeats; repeat++ {
@@ -261,6 +276,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	report := struct {
 		Schema                                                               int `json:"schema"`
 		EncoderStats                                                         VulkanEncoderStats
+		ModelLoadAllocatedBytes, PreparationAllocatedBytes                   uint64
 		Backend, Language                                                    string
 		VAD, WordTimestamps, VADPreserveWindowGaps                           bool
 		ModelPin, InputPin                                                   string
@@ -270,7 +286,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		Precision                                                            string
 		GoMemoryLimit                                                        string
 		Samples                                                              []whisperGoalSample
-	}{1, encoderStats, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
+	}{1, encoderStats, loadAfter.TotalAlloc - loadBefore.TotalAlloc, prepareAfter.TotalAlloc - loadAfter.TotalAlloc, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
 	if err := ctx.Err(); err != nil {
 		t.Fatal(err)
 	}

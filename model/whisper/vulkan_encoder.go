@@ -149,11 +149,17 @@ func vulkanQ8WeightSelected(mode vulkanLinearMode, name string) bool {
 func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (*VulkanEncoder, error) {
 	return newVulkanEncoderPackedMode(ctx, source, frames, makePlan, linearMode, nil)
 }
-func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File) (result *VulkanEncoder, err error) {
+func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedOnlyMode(ctx, source, frames, makePlan, linearMode, file, false)
+}
+func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool) (result *VulkanEncoder, err error) {
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
-	layout, err := describeVulkanEncoder(ctx, source, frames)
+	if packedOnly && (file == nil || linearMode != vulkanLinearOriginalQ5MLP) {
+		return nil, fmt.Errorf("whisper Vulkan: packed-only mode requires Q5 source")
+	}
+	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -256,8 +262,10 @@ func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int
 			if len(shape) != 2 || shape[0] != spec.shape[1] || shape[1] != spec.shape[0] {
 				return nil, fmt.Errorf("whisper Vulkan Q5: shape %s", names[index])
 			}
-			if e := checkOriginalQ5Values(ctx, raw, spec.data); e != nil {
-				return nil, e
+			if !packedOnly {
+				if e := checkOriginalQ5Values(ctx, raw, spec.data); e != nil {
+					return nil, e
+				}
 			}
 			return raw, nil
 		})

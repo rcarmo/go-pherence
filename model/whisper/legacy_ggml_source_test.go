@@ -35,6 +35,9 @@ func pinnedLegacyWhisperModel(t *testing.T, ctx context.Context) (*Whisper, *Tok
 // Construction callers can use the same verified open file for packed reads;
 // avoid reopening and hashing the model twice. Close remains caller-owned.
 func pinnedLegacyWhisperModelOpen(t *testing.T, ctx context.Context) (*Whisper, *Tokenizer, *CheckedGenerationConfig, *legacy.File) {
+	return pinnedLegacyWhisperModelMode(t, ctx, false)
+}
+func pinnedLegacyWhisperModelMode(t *testing.T, ctx context.Context, packedOnly bool) (*Whisper, *Tokenizer, *CheckedGenerationConfig, *legacy.File) {
 	t.Helper()
 	dir := os.Getenv("GO_PHERENCE_WHISPER_TURBO_DIR")
 	if dir == "" {
@@ -89,7 +92,12 @@ func pinnedLegacyWhisperModelOpen(t *testing.T, ctx context.Context) (*Whisper, 
 	if len(source.infos) != 587 {
 		t.Fatal("inventory", len(source.infos))
 	}
-	model, err := LoadModelSourceChecked(ctx, source, cfg)
+	if packedOnly {
+		if err := checkOriginalQ5FFNMetadata(file, cfg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	model, err := loadModelSourceCheckedMode(ctx, source, cfg, packedOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

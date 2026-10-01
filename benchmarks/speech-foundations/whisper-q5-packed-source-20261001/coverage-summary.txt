@@ -1,0 +1,6 @@
+github.com/rcarmo/go-pherence/model/whisper/legacy_packed_load.go:12:		isEncoderFFNSourceName			100.0%
+github.com/rcarmo/go-pherence/model/whisper/legacy_packed_load.go:24:		checkOriginalQ5FFNMetadata		40.0%
+github.com/rcarmo/go-pherence/model/whisper/legacy_packed_load.go:33:		checkOriginalQ5FFNTensors		100.0%
+github.com/rcarmo/go-pherence/model/whisper/legacy_packed_load.go:64:		LoadOriginalQ5ResidentChecked		27.3%
+github.com/rcarmo/go-pherence/model/whisper/load_checked.go:121:		loadModelSourceCheckedMode		73.7%
+github.com/rcarmo/go-pherence/model/whisper/vulkan_encoder_layout.go:37:	describeVulkanEncoderMode		84.8%

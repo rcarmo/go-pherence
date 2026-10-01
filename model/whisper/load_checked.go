@@ -112,6 +112,16 @@ func speechTensorBindings(w *Whisper) []speechTensorBinding {
 // Config/tokenizer/generation provenance and admission to load real weights are
 // the caller's responsibility. Legacy LoadModel/LoadEncoderSource are unchanged.
 func LoadModelSourceChecked(ctx context.Context, source CheckedTensorSource, cfg Config) (*Whisper, error) {
+	return loadModelSourceCheckedMode(ctx, source, cfg, false)
+}
+
+// skipEncoderFFN is private to the original-Q5 resident loader. Required
+// metadata still validates in full before materialisation; no CPU-ready model
+// may escape this helper until a checked native graph has adopted the weights.
+func loadModelSourceCheckedMode(ctx context.Context, source CheckedTensorSource, cfg Config, skipEncoderFFN bool) (*Whisper, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("nil checked load context")
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -225,6 +235,9 @@ func LoadModelSourceChecked(ctx context.Context, source CheckedTensorSource, cfg
 		return owned, nil
 	}
 	for _, b := range bindings {
+		if skipEncoderFFN && isEncoderFFNSourceName(b.name) {
+			continue
+		}
 		values, err := load(b.name, b.shape)
 		if err != nil {
 			return nil, err
@@ -247,7 +260,7 @@ func LoadModelSourceChecked(ctx context.Context, source CheckedTensorSource, cfg
 			}
 		}
 	}
-	if err := w.validatePCMModel(); err != nil {
+	if err := w.validatePCMModelForEncoder(skipEncoderFFN); err != nil {
 		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
