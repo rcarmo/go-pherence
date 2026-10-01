@@ -66,6 +66,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Experimental padded-key-extent mode](../../docs/validation/whisper-padded-keyextent-20261001.md) adds explicit `NewVulkanEncoderOriginalQ5PaddedKeyExtent` / `vulkan-original-q5-padded-keyextent`. Virtual zero K/V positions reproduce physical padding bit-for-bit without added storage/stages. JFK VAD extra tails disappear, but PT/podcast timestamps and words shift and original quality parity fails. A noisy initial speed result is excluded; a later JFK pair is +0.61% slower. No default/deployment/speed/quality acceptance is granted; erf GELU and CPU decoder remain unchanged.
 
+[Original-style GELU trial](../../docs/validation/whisper-gelu-compat-20261001.md) matches the original tanh-form GELU bit-for-bit on 7.68M captured FC1 values, but substituting it into the padded-key encoder leaves all ten tested fixture outputs unchanged (PT row0 still 7.38s) and request costs tied (−0.36..+0.09%). Rejected as a runtime mode; K/V storage rounding remains untested.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992456,
+  "PreparationAllocatedBytes": 293956456,
+  "Backend": "vulkan-original-q5-padded-keyextent",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "EncoderGELUDiagnosticSHA256": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "6516da2b046a1040ba05a312c042bb45a0329baa73fd8b4907c7904bf367d363",
+  "ModelLoadSeconds": 2.885770318,
+  "PreparationSeconds": 0.885330617,
+  "CleanupSeconds": 0.004482417,
+  "FullArmSeconds": 3.877636397,
+  "InputSamples": 80000,
+  "CPUThreads": 4,
+  "Precision": "Diagnostic original GGML Vulkan encoder GELU expression + padded256keys/decode4; decoder and KV storage unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 0.020475041,
+      "AllocatedBytes": 311792,
+      "Allocations": 3008,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 1,
+      "request_seconds": 0.021808145,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 2,
+      "request_seconds": 0.019762988,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 3,
+      "request_seconds": 0.019511363,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 4,
+      "request_seconds": 0.019748333,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    }
+  ]
+}

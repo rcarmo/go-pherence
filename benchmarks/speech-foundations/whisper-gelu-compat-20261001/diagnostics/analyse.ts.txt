@@ -1,0 +1,24 @@
+import { readFileSync, writeFileSync, existsSync } from "fs";
+const R = "tmp/whisper-vad-parity-20261001";
+const K = "projects/go-pherence-transcribe-web/benchmarks/speech-foundations/whisper-padded-keyextent-20261001";
+const load = (p: string) => JSON.parse(readFileSync(p, "utf8"));
+const outputs = (j: any) => j.Samples.map((s: any) => JSON.stringify({ w: s.windows, words: s.words ?? s.Words ?? null }));
+const median = (a: number[]) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+const res: any = { pairs: {}, expanded: {} };
+for (const f of ["jfk", "pt", "fr", "jfk-vadwords", "groups"]) {
+  const b = load(`${R}/gelu-compat-baseline-${f}.json`), c = load(`${R}/gelu-compat-candidate-${f}.json`);
+  const bo = outputs(b), co = outputs(c), ref = outputs(load(`${K}/keyextent-candidate-${f}.json`));
+  const bm = median(b.Samples.map((s: any) => s.request_seconds)), cm = median(c.Samples.map((s: any) => s.request_seconds));
+  res.pairs[f] = { baselineBackend: b.Backend, candidateGELU: c.EncoderGELUDiagnosticSHA256, baselineGELU: b.EncoderGELUDiagnosticSHA256,
+    baselineMedian: bm, candidateMedian: cm, changePct: +(100 * (cm / bm - 1)).toFixed(3),
+    baselineStable: new Set(bo).size === 1, candidateStable: new Set(co).size === 1,
+    candidateEqualsBaseline: co.every((x: string, i: number) => x === bo[i]), candidateEqualsPaddedRef: co[0] === ref[0],
+    stats: JSON.stringify(b.EncoderStats) === JSON.stringify(c.EncoderStats), n: [b.Samples.length, c.Samples.length] };
+}
+for (const f of ["pt1", "pt2", "podcast", "podcast-vadwords", "silence"]) {
+  const p = `${R}/gelu-compat-candidate-${f}.json`; if (!existsSync(p)) { res.expanded[f] = "missing"; continue; }
+  const c = load(p), co = outputs(c), ref = outputs(load(`${K}/keyextent-candidate-${f}.json`));
+  res.expanded[f] = { gelu: c.EncoderGELUDiagnosticSHA256, n: c.Samples.length, stable: new Set(co).size === 1, equalsPaddedErf: co[0] === ref[0] };
+}
+writeFileSync("tmp/whisper-gelu-compat-20261001/comparison.json", JSON.stringify(res, null, 2));
+console.log(JSON.stringify(res, null, 1));

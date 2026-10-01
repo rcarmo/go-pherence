@@ -1,0 +1,34 @@
+diff --git a/model/whisper/performance_goal_test.go b/model/whisper/performance_goal_test.go
+index c5449bea..0d2ef338 100644
+--- a/model/whisper/performance_goal_test.go
++++ b/model/whisper/performance_goal_test.go
+@@ -228,7 +228,11 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
+ 			}
+ 		case "vulkan-original-q5-padded-keyextent":
+ 			precision = "Original Q5_0 decode4 FFN + virtual256-padded zeroKV F32 attention; erf GELU/decoder unchanged"
+-			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedKeyExtent, packedFile, true)
++			factory, geluPin := geluCompatibilityFactory(t, ctx)
++			if geluPin != "" {
++				precision = "Diagnostic original GGML Vulkan encoder GELU expression + padded256keys/decode4; decoder and KV storage unchanged"
++			}
++			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, factory, vulkanLinearOriginalQ5PaddedKeyExtent, packedFile, true)
+ 			if err == nil {
+ 				err = packedFile.Close()
+ 				model.Encoder = nil
+@@ -344,6 +348,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
+ 		ModelLoadAllocatedBytes, PreparationAllocatedBytes                   uint64
+ 		Backend, Language                                                    string
+ 		VAD, WordTimestamps, VADPreserveWindowGaps                           bool
++		EncoderGELUDiagnosticSHA256                                          string
+ 		DecoderParallelRows                                                  bool
+ 		DecoderProjectionWorkers                                             int
+ 		ModelPin, InputPin                                                   string
+@@ -353,7 +358,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
+ 		Precision                                                            string
+ 		GoMemoryLimit                                                        string
+ 		Samples                                                              []whisperGoalSample
+-	}{1, encoderStats, loadAfter.TotalAlloc - loadBefore.TotalAlloc, prepareAfter.TotalAlloc - loadAfter.TotalAlloc, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", os.Getenv(envDecoderParallelRows) == "1", decoderRowWorkers(model.Config.DecoderFFNDim), modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
++	}{1, encoderStats, loadAfter.TotalAlloc - loadBefore.TotalAlloc, prepareAfter.TotalAlloc - loadAfter.TotalAlloc, opts.backend, language, opts.vad, opts.words, os.Getenv("GO_PHERENCE_WHISPER_BENCH_VAD_KEEP_GAPS") == "1", os.Getenv("GO_PHERENCE_TEST_ENCODER_GELU_SHA"), os.Getenv(envDecoderParallelRows) == "1", decoderRowWorkers(model.Config.DecoderFFNDim), modelPin, pin, loadSeconds, prepareSeconds, cleanupSeconds, time.Since(started).Seconds(), total, runtime.GOMAXPROCS(0), precision, os.Getenv("GOMEMLIMIT"), samples}
+ 	if err := ctx.Err(); err != nil {
+ 		t.Fatal(err)
+ 	}

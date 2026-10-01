@@ -1,0 +1,325 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992792,
+  "PreparationAllocatedBytes": 289362096,
+  "Backend": "vulkan-original-q5-padded-keyextent",
+  "Language": "en",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "EncoderGELUDiagnosticSHA256": "",
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+  "ModelLoadSeconds": 2.89277187,
+  "PreparationSeconds": 0.888909482,
+  "CleanupSeconds": 0.006729397,
+  "FullArmSeconds": 34.613167526,
+  "InputSamples": 176000,
+  "CPUThreads": 4,
+  "Precision": "Original Q5_0 decode4 FFN + virtual256-padded zeroKV F32 attention; erf GELU/decoder unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 6.271388458,
+      "AllocatedBytes": 170570464,
+      "Allocations": 33959,
+      "DecoderSelfSeconds": 0.110511976,
+      "DecoderCrossSeconds": 0.206354173,
+      "DecoderMLPSeconds": 0.208001,
+      "DecoderHeadSeconds": 0.19267718,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.4,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 6.12728538,
+      "AllocatedBytes": 168872152,
+      "Allocations": 33707,
+      "DecoderSelfSeconds": 0.110147552,
+      "DecoderCrossSeconds": 0.20620499,
+      "DecoderMLPSeconds": 0.207400818,
+      "DecoderHeadSeconds": 0.190133509,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.4,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 6.17366092,
+      "AllocatedBytes": 168856336,
+      "Allocations": 33687,
+      "DecoderSelfSeconds": 0.110815398,
+      "DecoderCrossSeconds": 0.209596748,
+      "DecoderMLPSeconds": 0.207703451,
+      "DecoderHeadSeconds": 0.181766188,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.4,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 6.133209706,
+      "AllocatedBytes": 168855688,
+      "Allocations": 33675,
+      "DecoderSelfSeconds": 0.110181038,
+      "DecoderCrossSeconds": 0.209622934,
+      "DecoderMLPSeconds": 0.204382349,
+      "DecoderHeadSeconds": 0.181062054,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.4,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 6.118370772,
+      "AllocatedBytes": 168854712,
+      "Allocations": 33654,
+      "DecoderSelfSeconds": 0.112447543,
+      "DecoderCrossSeconds": 0.210554334,
+      "DecoderMLPSeconds": 0.208009986,
+      "DecoderHeadSeconds": 0.183975809,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 176000,
+            "EmitStart": 0,
+            "EmitEnd": 176000,
+            "InputSamples": 480000,
+            "PadSamples": 304000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 10.4,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

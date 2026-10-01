@@ -1,0 +1,9 @@
+=== RUN   TestVulkanOriginalGELUCommonInput
+    vulkan_gelu_compat_diagnostic_test.go:171: GELU_COMMON repeat=0 values=7680000 differingBits=0 maxAbs=0 meanAbs=0 rmse=0 seconds=0.003115500
+    vulkan_gelu_compat_diagnostic_test.go:171: GELU_COMMON repeat=1 values=7680000 differingBits=0 maxAbs=0 meanAbs=0 rmse=0 seconds=0.002115506
+    vulkan_gelu_compat_diagnostic_test.go:171: GELU_COMMON repeat=2 values=7680000 differingBits=0 maxAbs=0 meanAbs=0 rmse=0 seconds=0.002653608
+    vulkan_gelu_compat_diagnostic_test.go:171: GELU_COMMON repeat=3 values=7680000 differingBits=0 maxAbs=0 meanAbs=0 rmse=0 seconds=0.002676884
+    vulkan_gelu_compat_diagnostic_test.go:171: GELU_COMMON repeat=4 values=7680000 differingBits=0 maxAbs=0 meanAbs=0 rmse=0 seconds=0.002659704
+    vulkan_gelu_compat_diagnostic_test.go:187: GELU_COMMON_FIVE_REPEAT_PRE_CANCEL_REUSE_GUARDS_PASS
+--- PASS: TestVulkanOriginalGELUCommonInput (0.35s)
+PASS
