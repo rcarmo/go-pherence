@@ -1,0 +1,14 @@
+import{join}from'node:path';import{mkdir,readdir,copyFile}from'node:fs/promises';
+const root='/var/home/agent/workspace',src=join(root,'tmp/whisper-vad-parity-20261001'),out=join(root,'projects/go-pherence-transcribe-web/benchmarks/speech-foundations/whisper-packed-ffn-20261001');await mkdir(out,{recursive:true});
+const rows:any[]=[],median=(j:any)=>j.Samples.map((s:any)=>s.request_seconds).sort((a:number,b:number)=>a-b)[2];
+for(const fixture of ['jfk','pt','fr','jfk-vadwords','two-groups','onehash-jfk']){
+ const name=(a:string)=>fixture==='two-groups'?`packed-${a}-two-groups.json`:fixture==='onehash-jfk'?`packed-onehash-${a}-jfk.json`:`packed-final-${a}-${fixture}.json`;
+ const a=await Bun.file(join(src,name('baseline'))).json(),b=await Bun.file(join(src,name('candidate'))).json(),key=fixture.includes('vadwords')||fixture==='two-groups'?'vad_windows':'windows';
+ if(a.Samples.length!==5||b.Samples.length!==5||!a.Samples[0][key])throw Error('empty fixture');
+ for(const s of [...a.Samples,...b.Samples])if(JSON.stringify(s[key])!==JSON.stringify(a.Samples[0][key]))throw Error('semantic drift '+fixture);
+ rows.push({fixture,samples_per_arm:5,exact_windows:true,baseline_median_seconds:median(a),candidate_median_seconds:median(b),change_percent:100*(median(b)/median(a)-1),preparation_seconds:{baseline:a.PreparationSeconds,candidate:b.PreparationSeconds},full_arm_seconds:{baseline:a.FullArmSeconds,candidate:b.FullArmSeconds},weight_bytes:{baseline:a.EncoderStats.WeightBytes,candidate:b.EncoderStats.WeightBytes},input_pin:a.InputPin,model_pin:a.ModelPin});
+}
+for(const f of await readdir(src))if(/^(packed-|whisper-packed-)/.test(f)&&/\.(json|log|txt|env)$/.test(f))await copyFile(join(src,f),join(out,f));
+await copyFile(join(src,'run-guarded.sh'),join(out,'run-guarded.sh'));
+for(const f of ['coverage-final.out','coverage-summary.txt','integrate.ts'])await copyFile(join(root,'tmp/whisper-packed-encoder-20261001',f),join(out,f==='integrate.ts'?'integration-script.ts.txt':f));
+await Bun.write(join(out,'comparison.json'),JSON.stringify({rows,summary:{weight_bytes_saved:rows[0].weight_bytes.baseline-rows[0].weight_bytes.candidate,scope:'Original Q5_0 encoder FC1/FC2 on Vulkan only; CPU decoder remains widened F32',review:'read-only source judge timed out70s; no independent approval'}},null,2)+'\n');console.log(rows);

@@ -1,0 +1,8 @@
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:30:		prepareQ5Set				86.7%
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:74:		NewVkLinearQ5Set			76.9%
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:112:		StorageBytes				100.0%
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:118:		Stage					87.5%
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:130:		Close					66.7%
+github.com/rcarmo/go-pherence/backends/vulkan/vulkan_linear_q5_set.go:140:		closeLocked				77.8%
+github.com/rcarmo/go-pherence/loader/whisperggml/raw.go:10:				Q5Blocks				95.7%
+github.com/rcarmo/go-pherence/model/whisper/vulkan_q5_source.go:14:			checkOriginalQ5Values			95.8%

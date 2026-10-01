@@ -25,6 +25,17 @@ func TestLegacyWhisperNameMapping(t *testing.T) {
 }
 func pinnedLegacyWhisperModel(t *testing.T, ctx context.Context) (*Whisper, *Tokenizer, *CheckedGenerationConfig) {
 	t.Helper()
+	m, tok, policy, file := pinnedLegacyWhisperModelOpen(t, ctx)
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return m, tok, policy
+}
+
+// Construction callers can use the same verified open file for packed reads;
+// avoid reopening and hashing the model twice. Close remains caller-owned.
+func pinnedLegacyWhisperModelOpen(t *testing.T, ctx context.Context) (*Whisper, *Tokenizer, *CheckedGenerationConfig, *legacy.File) {
+	t.Helper()
 	dir := os.Getenv("GO_PHERENCE_WHISPER_TURBO_DIR")
 	if dir == "" {
 		t.Fatal("HF config/tokenizer provenance required")
@@ -57,11 +68,11 @@ func pinnedLegacyWhisperModel(t *testing.T, ctx context.Context) (*Whisper, *Tok
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		if err := file.Close(); err != nil {
 			t.Error(err)
 		}
-	}()
+	})
 	vocab := file.Vocabulary()
 	if len(vocab) != TokenEOT {
 		t.Fatal("legacy vocabulary incomplete")
@@ -83,7 +94,7 @@ func pinnedLegacyWhisperModel(t *testing.T, ctx context.Context) (*Whisper, *Tok
 		t.Fatal(err)
 	}
 	t.Logf("LEGACY_LOAD seconds=%g storage=%d tensors=%d pin=%s explicit_widened_values=true", time.Since(start).Seconds(), file.Header().FileType, len(source.infos), file.SHA256())
-	return model, tok, policy
+	return model, tok, policy, file
 }
 func TestPinnedLegacyWhisperValueLoad(t *testing.T) {
 	if os.Getenv("GO_PHERENCE_TEST_LEGACY_WHISPER_LOAD") != "1" {

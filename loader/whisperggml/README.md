@@ -6,6 +6,8 @@ This loader reads the retained whisper.cpp GGML file format without inference or
 
 `Tensors`, `Filters` and `Vocabulary` return metadata copies. `Float32(ctx, name)` reads and decodes one tensor in bounded chunks, rejects nonfinite values and returns owned output. Errors and cancellation return no partial tensor. Calls serialize with `Close`; waiting for the mutex itself is not cancellable. File mutation after open is outside the contract; short/truncated reads and nonfinite data fail. The hash is checked at open, not repeated for every read.
 
+`Q5Blocks(ctx, name)` returns owned original packed bytes for rank-two Q5_0 matrices up to 64 MiB. It preserves row-major block order, copies shape metadata, and checks cancellation before, between and after reads. Other tensor types fail; there is no implicit widening or requantisation. The explicit [packed-FFN encoder](../../docs/validation/whisper-packed-ffn-20261001.md) consumes these blocks separately from the widened compatibility bridge.
+
 Ordinary tests use tiny synthetic fixtures for all three types and exercise pinning, ownership, malformed geometry, duplicate/truncated records, nonfinite payloads, closure and every parser-read cancellation. Optional independent block/reference and retained-model tests require explicit paths and pins. No downloads or local model-cache access occur by default.
 
 The private checked-model bridge in [Whisper](../../model/whisper/legacy_ggml_source.go) maps legacy names/shapes to logical HF-shaped F32 metadata for numerical qualification. It preserves original file/type provenance separately. It does not advertise Q5 storage as original F32, provide a packed-Q5 kernel or change production loading.

@@ -13,7 +13,8 @@ import (
 // 22 bytes/block), losslessly repacked into aligned 24-byte blocks. Eight lanes
 // per block widen stored values into F32 shared memory. Input, bias, ordered
 // accumulation and output remain F32. No quantisation or F16 activation rounding
-// is performed. Standalone opt-in; not admitted to VkF32Plan or serving defaults.
+// is performed. This standalone owner is not admitted to VkF32Plan or defaults.
+// VkLinearQ5Set provides checked plan bindings over shared packed storage.
 // Copies share native closure; callers must exclude Forward from Close.
 type VkLinearQ5GroupedF32 struct {
 	kernel        *VkComputeKernel
@@ -149,52 +150,66 @@ func (op *VkLinearQ5GroupedF32) Forward(ctx context.Context, out, x, bias *VkTen
 		return err
 	}
 	defer vkRelease()
-	if op == nil || op.kernel == nil || op.weight == nil {
-		return fmt.Errorf("Vulkan LinearQ5GroupedF32: closed/uninitialized operator")
+	size := uint64(0)
+	if op != nil {
+		size = uint64(op.weightValues / 32 * 24)
 	}
-	if err := vkStatusLocked(); err != nil {
+	stage, err := op.stageLocked(out, x, bias, 0, size)
+	if err != nil {
 		return err
 	}
+	err = op.kernel.dispatchBindingsLocked(ctx, stage.Groups[0], stage.Groups[1], 1, stage.bindings, unsafePushWords(stage.PushWords))
+	runtime.KeepAlive(stage)
+	runtime.KeepAlive(op)
+	return err
+}
+func (op *VkLinearQ5GroupedF32) stageLocked(out, x, bias *VkTensorF32, offset, size uint64) (VkF32Stage, error) {
+	if op == nil || op.kernel == nil || op.weight == nil {
+		return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ5GroupedF32: closed/uninitialized operator")
+	}
+	if err := vkStatusLocked(); err != nil {
+		return VkF32Stage{}, err
+	}
 	if op.kernel.closed || op.weight.closed || op.kernel.device != vkDevice || op.weight.device != vkDevice || op.weight.mapped == nil || op.weight.buf == 0 || op.weight.mem == 0 {
-		return ErrVulkanClosed
+		return VkF32Stage{}, ErrVulkanClosed
 	}
 	xb, err := x.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	bb, err := bias.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	ob, err := out.bindingLocked()
 	if err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
 	if x.rank != 2 || bias.rank != 1 || out.rank != 2 {
-		return fmt.Errorf("Vulkan LinearQ5GroupedF32: rank mismatch")
+		return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ5GroupedF32: rank mismatch")
 	}
 	rows := x.shape[0]
 	if rows < 1 || rows > 16384 || x.shape[1] != op.inDim || bias.shape[0] != op.outDim || out.shape[0] != rows || out.shape[1] != op.outDim {
-		return fmt.Errorf("Vulkan LinearQ5GroupedF32: projection shapes mismatch")
+		return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ5GroupedF32: projection shapes mismatch")
 	}
 	packedBytes := uint64(op.weightValues / 32 * 24)
-	bindings := []vkBufferBinding{xb, {buffer: op.weight, size: packedBytes}, bb, ob}
+	if size != packedBytes {
+		return VkF32Stage{}, fmt.Errorf("Q5 stage: packed extent")
+	}
+	bindings := []vkBufferBinding{xb, {buffer: op.weight, offset: offset, size: packedBytes}, bb, ob}
 	want := [4]uint64{uint64(rows * op.inDim * 4), packedBytes, uint64(op.outDim * 4), uint64(rows * op.outDim * 4)}
 	for i, binding := range bindings {
 		if binding.size != want[i] {
-			return fmt.Errorf("Vulkan LinearQ5GroupedF32: shape/storage size mismatch")
+			return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ5GroupedF32: shape/storage size mismatch")
 		}
 		if i != 3 && vkBindingsOverlap(binding, ob) {
-			return fmt.Errorf("Vulkan LinearQ5GroupedF32: output overlaps input")
+			return VkF32Stage{}, fmt.Errorf("Vulkan LinearQ5GroupedF32: output overlaps input")
 		}
 	}
 	groups := [3]uint32{(uint32(op.outDim) + 63) / 64, (uint32(rows) + 63) / 64, 1}
 	push := []uint32{uint32(rows), uint32(op.inDim), uint32(op.outDim)}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], groups[2], bindings, unsafePushWords(push)); err != nil {
-		return err
+		return VkF32Stage{}, err
 	}
-	err = op.kernel.dispatchBindingsLocked(ctx, groups[0], groups[1], 1, bindings, unsafePushWords(push))
-	runtime.KeepAlive(push)
-	runtime.KeepAlive(op)
-	return err
+	return VkF32Stage{Kernel: op.kernel, Groups: groups, PushWords: push, bindings: bindings}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
 	"math"
 	"strings"
 
@@ -35,6 +36,7 @@ type vulkanEncoderState struct {
 	norm             *vk.VkLayerNormF32
 	linear           *vk.VkLinearF32
 	q8Linear         *vk.VkLinearQ8WeightSet
+	q5Linear         *vk.VkLinearQ5Set
 	gelu             *vk.VkGELUErfF32
 	attention        *vk.VkAttentionF32
 }
@@ -67,6 +69,17 @@ func NewVulkanEncoderTile64Key32(ctx context.Context, source *Encoder, frames in
 // explicit key32 score-interleaved attention. Defaults remain unchanged.
 func NewVulkanEncoderTile64Key32ScoreILP(ctx context.Context, source *Encoder, frames int) (*VulkanEncoder, error) {
 	return newVulkanEncoderMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearF32Tile64Key32ScoreILP)
+}
+
+// NewVulkanEncoderOriginalQ5MLP retains original Q5_0 FC1/FC2 weights on-device.
+// source and file must identify the same checkpoint. File is used synchronously
+// during construction; no file handle or source bytes escape. All other weights,
+// activations, decoder and attention remain F32. No requantisation or fallback.
+func NewVulkanEncoderOriginalQ5MLP(ctx context.Context, source *Encoder, frames int, file *legacy.File) (*VulkanEncoder, error) {
+	if file == nil {
+		return nil, fmt.Errorf("whisper Vulkan Q5: nil pinned file")
+	}
+	return newVulkanEncoderPackedMode(ctx, source, frames, vk.NewVkF32Plan, vulkanLinearOriginalQ5MLP, file)
 }
 
 // NewVulkanEncoderQ8Weight explicitly selects per-output-row symmetric Q8 for
@@ -114,6 +127,7 @@ const (
 	vulkanLinearF32RegTile64
 	vulkanLinearF32Tile64Key32
 	vulkanLinearF32Tile64Key32ScoreILP
+	vulkanLinearOriginalQ5MLP
 	vulkanLinearQ8Weight
 	vulkanLinearQ8MLPWeight
 	vulkanLinearQ8KVMLPWeight
@@ -132,7 +146,10 @@ func vulkanQ8WeightSelected(mode vulkanLinearMode, name string) bool {
 	return mode == vulkanLinearQ8KVMLPWeight && (mlp || strings.HasSuffix(name, ".k.w") || strings.HasSuffix(name, ".v.w"))
 }
 
-func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (result *VulkanEncoder, err error) {
+func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (*VulkanEncoder, error) {
+	return newVulkanEncoderPackedMode(ctx, source, frames, makePlan, linearMode, nil)
+}
+func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File) (result *VulkanEncoder, err error) {
 	if makePlan == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil plan constructor")
 	}
@@ -144,14 +161,18 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 	if err != nil {
 		return nil, err
 	}
+	q5 := linearMode == vulkanLinearOriginalQ5MLP
+	if q5 && file == nil {
+		return nil, fmt.Errorf("whisper Vulkan Q5: require pinned original file")
+	}
 	weightSpecs := layout.weights
 	linearWeights := map[string]vkEncoderTensor{}
 	linearIndexes := map[string]int{}
-	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
+	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight || q5 {
 		weightSpecs = make([][]vkEncoderTensor, len(layout.weights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
-				if step.op == "linear" && vulkanQ8WeightSelected(linearMode, step.in[1]) {
+				if step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && isVulkanMLPWeight(step.in[1])) {
 					linearWeights[step.in[1]] = vkEncoderTensor{}
 				}
 			}
@@ -207,7 +228,38 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.norm)
-	if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
+	if q5 {
+		matrices := make([]vk.VkLinearQ5Matrix, 0, len(linearWeights))
+		for layer := 0; layer < layout.cfg.EncoderLayers; layer++ {
+			for _, part := range []struct {
+				step string
+				mlp  int
+			}{{"fc1", 0}, {"fc2", 2}} {
+				name := fmt.Sprintf("layer%d.%s.w", layer, part.step)
+				spec := linearWeights[name]
+				raw, shape, e := file.Q5Blocks(ctx, fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight", layer, part.mlp))
+				if e != nil {
+					return nil, e
+				}
+				if len(spec.shape) != 2 || len(shape) != 2 || shape[0] != spec.shape[1] || shape[1] != spec.shape[0] {
+					return nil, fmt.Errorf("whisper Vulkan Q5: shape %s", name)
+				}
+				if e := checkOriginalQ5Values(ctx, raw, spec.data); e != nil {
+					return nil, e
+				}
+				linearIndexes[name] = len(matrices)
+				matrices = append(matrices, vk.VkLinearQ5Matrix{Blocks: raw, OutDim: spec.shape[0], InDim: spec.shape[1]})
+			}
+		}
+		s.q5Linear, err = vk.NewVkLinearQ5Set(ctx, matrices)
+		if s.q5Linear != nil {
+			s.resources = append(s.resources, s.q5Linear)
+			s.stats.WeightBytes += s.q5Linear.StorageBytes()
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
 		matrices := make([]vk.VkLinearQ8WeightMatrix, 0, len(linearWeights))
 		for _, plan := range layout.plans {
 			for _, step := range plan {
@@ -232,7 +284,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		}
 	}
 	if linearMode != vulkanLinearQ8Weight {
-		if linearMode == vulkanLinearF32RegTile64 || linearMode == vulkanLinearF32Tile64Key32 || linearMode == vulkanLinearF32Tile64Key32ScoreILP {
+		if linearMode == vulkanLinearF32RegTile64 || linearMode == vulkanLinearF32Tile64Key32 || (linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5) {
 			s.linear, err = vk.NewVkLinearRegTile64F32(ctx)
 		} else if linearMode == vulkanLinearF32RegTile {
 			s.linear, err = vk.NewVkLinearRegTileF32(ctx)
@@ -248,7 +300,7 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 		return nil, err
 	}
 	s.resources = append(s.resources, s.gelu)
-	if linearMode == vulkanLinearF32Tile64Key32ScoreILP {
+	if linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5 {
 		s.attention, err = vk.NewVkAttentionKey32ScoreILPF32(ctx)
 	} else if linearMode == vulkanLinearF32Tile64Key32 {
 		s.attention, err = vk.NewVkAttentionKey32F32(ctx)
@@ -306,7 +358,9 @@ func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, make
 			case "norm":
 				stage, err = s.norm.Stage(ctx, out, in[0], in[1], in[2], 1e-5)
 			case "linear":
-				if index, quantized := linearIndexes[step.in[1]]; quantized {
+				if index, quantized := linearIndexes[step.in[1]]; quantized && q5 {
+					stage, err = s.q5Linear.Stage(ctx, index, out, in[0], in[2])
+				} else if index, quantized := linearIndexes[step.in[1]]; quantized {
 					stage, err = s.q8Linear.Stage(ctx, index, out, in[0], in[2])
 				} else {
 					stage, err = s.linear.Stage(ctx, out, in[0], in[1], in[2])
@@ -480,4 +534,8 @@ func (e *VulkanEncoder) Close() error {
 	s.input = nil
 	s.output = nil
 	return nil
+}
+
+func isVulkanMLPWeight(name string) bool {
+	return strings.HasSuffix(name, ".fc1.w") || strings.HasSuffix(name, ".fc2.w")
 }
