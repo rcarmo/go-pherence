@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeIntegerQ8Oracle
+    vulkan_q8_integer_oracle_test.go:155: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeIntegerQ8Oracle (0.03s)
+FAIL

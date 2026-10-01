@@ -27,6 +27,8 @@ type VulkanShaderContract struct {
 	// module declarations, not entrypoint liveness analysis.
 	StorageBindings uint32
 	PushBytes       uint32
+	// IntegerDot is explicit packed mixed-signedness dot arithmetic only.
+	IntegerDot bool
 }
 
 type vkSPIRVType struct {
@@ -37,7 +39,9 @@ type vkSPIRVConstant struct{ typ, value uint32 }
 
 // InspectVulkanShader does no driver calls. It copies the input before parsing;
 // callers must not mutate input concurrently. Admission is capped at1MiB/65536
-// IDs, with a closed opcode envelope and unique result IDs. Known instructions
+// IDs, with a closed opcode envelope and unique result IDs. Optional arithmetic
+// stays rejected here; the explicit integer-dot constructor uses a separate
+// narrow envelope. Known instructions
 // still need normal offline spirv-val validation: function/control-flow/operand
 // semantics remain outside this check. Interfaces support set0 storage blocks
 // of one runtime array of32-bit scalars and one flat32-bit-scalar push block.
@@ -51,7 +55,8 @@ func InspectVulkanShader(code []byte) (VulkanShaderContract, error) {
 	}
 	return vkInspectSPIRV(words)
 }
-func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
+func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) { return vkInspectSPIRVMode(w, false) }
+func vkInspectSPIRVMode(w []uint32, integerDot bool) (VulkanShaderContract, error) {
 	fail := func(reason string) (VulkanShaderContract, error) {
 		return VulkanShaderContract{}, fmt.Errorf("%w: %s", ErrVulkanShaderContract, reason)
 	}
@@ -61,6 +66,10 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 	bound := w[3]
 	ids := make([]bool, bound)
 	types := map[uint32]vkSPIRVType{}
+	var packedCap, dotCap, dotExtension bool
+	var dots [][3]uint32
+	var quantOps [][4]uint32 // operation, result type, first and second operands
+	valueTypes := map[uint32]uint32{}
 	constants := map[uint32]vkSPIRVConstant{}
 	composites := map[uint32][]uint32{}
 	variables := map[uint32]uint32{}
@@ -91,13 +100,41 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 				return fail("duplicate/out-of-bound result ID")
 			}
 			ids[a[info.result]] = true
+			if info.result == 2 {
+				valueTypes[a[2]] = a[1]
+			}
 		}
 		switch op {
-		case 17: // Capability
-			if count != 2 || a[1] != 1 || capability {
-				return fail("only Shader capability supported")
+		case 110, 111: // Quantisation conversions, explicit mode only.
+			quantOps = append(quantOps, [4]uint32{uint32(op), a[1], a[3], 0})
+			if !integerDot {
+				return fail("optional quantisation conversion")
 			}
-			capability = true
+		case 17: // Capability
+			if count != 2 {
+				return fail("capability arity")
+			}
+			switch {
+			case a[1] == 1 && !capability:
+				capability = true
+			case integerDot && a[1] == 6018 && !packedCap:
+				packedCap = true
+			case integerDot && a[1] == 6019 && !dotCap:
+				dotCap = true
+			default:
+				return fail("only requested packed-dot capability supported")
+			}
+		case 10: // One pinned packed-dot extension, explicit mode only.
+			name, n, ok := vkSPIRVString(a[1:])
+			if !integerDot || !ok || n != len(a)-1 || name != "SPV_KHR_integer_dot_product" || dotExtension {
+				return fail("extension not admitted")
+			}
+			dotExtension = true
+		case 4452: // OpSUDot: signed32 packed X unsigned32 -> signed32.
+			if !integerDot || count != 6 || a[5] != 0 {
+				return fail("packed mixed dot framing")
+			}
+			dots = append(dots, [3]uint32{a[1], a[3], a[4]})
 		case 11: // ExtInstImport (only baseline GLSL.std.450)
 			name, n, ok := vkSPIRVString(a[2:])
 			if !ok || n != len(a)-2 || name != "GLSL.std.450" {
@@ -107,8 +144,16 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 		case 12: // GLSL.std.450 FAbs/Exp/InverseSqrt or ternary Fma.
 			unary := count == 6 && (a[4] == 4 || a[4] == 27 || a[4] == 32)
 			ternary := count == 8 && a[4] == 50
-			if !unary && !ternary {
+			quant := integerDot && ((count == 6 && (a[4] == 1 || a[4] == 58 || a[4] == 62)) || (count == 7 && a[4] == 40)) // Round, half pack/unpack, FMax
+			if !unary && !ternary && !quant {
 				return fail("extended instruction not admitted")
+			}
+			if quant {
+				var second uint32
+				if count == 7 {
+					second = a[6]
+				}
+				quantOps = append(quantOps, [4]uint32{10000 + a[4], a[1], a[5], second})
 			}
 			extSets = append(extSets, a[3])
 		case 14: // MemoryModel
@@ -263,6 +308,43 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 	}
 	if !capability || !memory || !entrySeen || !modeSeen || entry != modeEntry || !functions[entry] || insideFunction {
 		return fail("missing/inconsistent compute declarations")
+	}
+	for _, q := range quantOps {
+		r, v := types[q[1]], types[valueTypes[q[2]]]
+		float := func(t vkSPIRVType) bool { return t.op == 22 && t.a == 32 }
+		signed := func(t vkSPIRVType) bool { return t.op == 21 && t.a == 32 && t.b == 1 }
+		unsigned := func(t vkSPIRVType) bool { return t.op == 21 && t.a == 32 && t.b == 0 }
+		vec2 := func(t vkSPIRVType) bool { return t.op == 23 && t.b == 2 && float(types[t.a]) }
+		ok := false
+		switch q[0] {
+		case 110:
+			ok = signed(r) && float(v)
+		case 111:
+			ok = float(r) && signed(v)
+		case 10001:
+			ok = float(r) && float(v)
+		case 10040:
+			ok = float(r) && float(v) && float(types[valueTypes[q[3]]])
+		case 10058:
+			ok = unsigned(r) && vec2(v)
+		case 10062:
+			ok = vec2(r) && unsigned(v)
+		}
+		if !ok {
+			return fail("quantisation operand/result types")
+		}
+	}
+	if packedCap || dotCap || dotExtension || len(dots) > 0 {
+		if !integerDot || !packedCap || !dotCap || !dotExtension || len(dots) == 0 {
+			return fail("integer-dot declarations")
+		}
+		for _, dot := range dots {
+			result, left, right := types[dot[0]], types[valueTypes[dot[1]]], types[valueTypes[dot[2]]]
+			if result.op != 21 || result.a != 32 || result.b != 1 || left.op != 21 || left.a != 32 || left.b != 1 || right.op != 21 || right.a != 32 || right.b != 0 {
+				return fail("integer-dot operand/result types")
+			}
+		}
+		contract.IntegerDot = true
 	}
 	for _, set := range extSets {
 		if !imports[set] {

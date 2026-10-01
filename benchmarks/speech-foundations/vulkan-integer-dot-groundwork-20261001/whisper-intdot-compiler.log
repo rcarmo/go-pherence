@@ -1,0 +1,3 @@
+/usr/sbin/glslc
+shaderc v2026.1 2026-01-23spirv-tools v2026.1 2026-02-03glslang 301b4ede53d59b68bf55f95bb26412d9233c8187
+Target: SPIR-V 1.0

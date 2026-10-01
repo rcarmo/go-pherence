@@ -59,7 +59,23 @@ func VkKernelCreate(spirv []byte, numBuffers int, pushConstantSize int) (*VkComp
 }
 
 // Caller owns vkLane, including the one-shot cache construction below.
-func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*VkComputeKernel, error) {
+func vkKernelCreateLocked(spirv []byte, numBuffers, pushConstantSize int) (*VkComputeKernel, error) {
+	return vkKernelCreateModeLocked(spirv, numBuffers, pushConstantSize, false)
+}
+
+// VkKernelCreateIntegerDot admits a packed mixed-signedness integer-dot module
+// only on a device explicitly enabled by VulkanInitIntegerDot. No fallback.
+func VkKernelCreateIntegerDot(spirv []byte, numBuffers, pushConstantSize int) (*VkComputeKernel, error) {
+	if err := vkAcquire(context.Background()); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	return vkKernelCreateModeLocked(spirv, numBuffers, pushConstantSize, true)
+}
+func vkKernelCreateModeLocked(spirv []byte, numBuffers int, pushConstantSize int, integerDot bool) (*VkComputeKernel, error) {
+	if integerDot && !vkIntegerDotEnabled {
+		return nil, fmt.Errorf("Vulkan integer-dot not explicitly enabled")
+	}
 	if err := vkStatusLocked(); err != nil {
 		return nil, err
 	}
@@ -91,7 +107,7 @@ func vkKernelCreateLocked(spirv []byte, numBuffers int, pushConstantSize int) (*
 	for i := range code {
 		code[i] = binary.LittleEndian.Uint32(spirv[4*i:])
 	}
-	contract, err := vkInspectSPIRV(code)
+	contract, err := vkInspectSPIRVMode(code, integerDot)
 	if err != nil {
 		return nil, err
 	}
