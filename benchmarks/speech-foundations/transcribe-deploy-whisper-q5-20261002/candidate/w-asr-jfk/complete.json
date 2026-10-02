@@ -1,0 +1,28 @@
+{
+ "id": "cedb986ee5213435bba7d8bef6838480",
+ "name": "jfk-w1.wav",
+ "title": "JFK W 1",
+ "language": "en",
+ "speaker_labels": false,
+ "profile": "asr-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "created": "2026-10-02T14:54:18.637691103Z",
+ "updated": "2026-10-02T14:54:21.702960362Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-w-1.en.transcript.json",
+   "bytes": 1951,
+   "sha256": "4085c4194ce5abab905f41d8218401a41cb9bf8a7257e3daeb36d92e5ea5b417"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-w-1.en.transcript.vtt",
+   "bytes": 150,
+   "sha256": "f1cb7d34e3b4bc4eb1dabb80c5d9e00604bbad23dac4ad3a696c0ebf8fd3c7c3"
+  }
+ ]
+}

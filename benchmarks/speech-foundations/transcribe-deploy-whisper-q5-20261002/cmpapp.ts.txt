@@ -1,0 +1,7 @@
+const [app,harness]=process.argv.slice(2);
+const a=await Bun.file(app).json(), h=await Bun.file(harness).json();
+const ac=a.cues.map((c:any)=>[c.start_sample/16000, c.end_sample/16000, (c.text??'').trim()]);
+const hc=h.Samples[0].windows.flatMap((w:any)=>w.Segments.map((s:any)=>[s.Start,s.End,s.Text.trim()]));
+const r=(x:any)=>JSON.stringify(x.map((c:any)=>[Math.round(c[0]*100)/100,Math.round(c[1]*100)/100,c[2]]));
+console.log(app.split('/').slice(-2,-1)[0], r(ac)===r(hc)?'IDENTICAL':'DIFF', ac.length, hc.length);
+if(r(ac)!==r(hc)){console.log(' app',r(ac).slice(0,600));console.log(' har',r(hc).slice(0,600));}

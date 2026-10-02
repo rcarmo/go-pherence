@@ -1,0 +1,28 @@
+{
+ "id": "b9c95fa518563e404770b21493415ba3",
+ "name": "jfk-whisper-q5-smoke.wav",
+ "title": "JFK Whisper Q 5 Smoke",
+ "language": "en",
+ "speaker_labels": false,
+ "profile": "asr-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "created": "2026-10-02T14:57:37.118482449Z",
+ "updated": "2026-10-02T14:57:40.476342171Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-whisper-q-5-smoke.en.transcript.json",
+   "bytes": 1951,
+   "sha256": "4085c4194ce5abab905f41d8218401a41cb9bf8a7257e3daeb36d92e5ea5b417"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-whisper-q-5-smoke.en.transcript.vtt",
+   "bytes": 150,
+   "sha256": "f1cb7d34e3b4bc4eb1dabb80c5d9e00604bbad23dac4ad3a696c0ebf8fd3c7c3"
+  }
+ ]
+}

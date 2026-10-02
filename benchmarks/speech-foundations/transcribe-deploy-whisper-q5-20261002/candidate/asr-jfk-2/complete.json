@@ -1,0 +1,28 @@
+{
+ "id": "04d180ba683c5b38ff0b622eabdfa9fb",
+ "name": "jfk-2.wav",
+ "title": "JFK 2",
+ "language": "en",
+ "speaker_labels": false,
+ "profile": "asr-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "created": "2026-10-02T14:52:40.195387204Z",
+ "updated": "2026-10-02T14:52:43.083132961Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-2.en.transcript.json",
+   "bytes": 403,
+   "sha256": "aff040a976e91032c0d5422f2e7bafd8bcb906b5bcd931b0c1ee4c940d05aab1"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-2.en.transcript.vtt",
+   "bytes": 150,
+   "sha256": "f1cb7d34e3b4bc4eb1dabb80c5d9e00604bbad23dac4ad3a696c0ebf8fd3c7c3"
+  }
+ ]
+}

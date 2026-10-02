@@ -1,0 +1,41 @@
+{
+ "id": "b56f554a9ace4757195768397d947dff",
+ "name": "jfk-diar.wav",
+ "title": "JFK Diar",
+ "language": "en",
+ "speaker_labels": true,
+ "profile": "diar-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "media_released": true,
+ "created": "2026-10-02T14:52:49.668874733Z",
+ "updated": "2026-10-02T14:52:55.183491034Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-diar.en.transcript.json",
+   "bytes": 403,
+   "sha256": "aff040a976e91032c0d5422f2e7bafd8bcb906b5bcd931b0c1ee4c940d05aab1"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-diar.en.transcript.vtt",
+   "bytes": 150,
+   "sha256": "f1cb7d34e3b4bc4eb1dabb80c5d9e00604bbad23dac4ad3a696c0ebf8fd3c7c3"
+  },
+  {
+   "name": "speaker-transcript",
+   "filename": "jfk-diar.en.speakers.json",
+   "bytes": 784,
+   "sha256": "1d06cf44af8c24886d4c47c98082a3dc5d8ea1125ecab70c84d8e6d514e4b767"
+  },
+  {
+   "name": "speaker-vtt",
+   "filename": "jfk-diar.en.speakers.vtt",
+   "bytes": 245,
+   "sha256": "3c380781aa78d50691908a77896bceedb48788397c3088f3af4637ee2700ac1f"
+  }
+ ]
+}

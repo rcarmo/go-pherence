@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "threads": 4,
+  "runtime_sha256": "83be19c369387273be89dc2f5a07013b9dd94b3bb297ae8ccab4162252e96fa9",
+  "weights": {
+    "path": "/var/home/agent/workspace/projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin",
+    "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+  },
+  "model_config": {
+    "path": "/var/home/agent/workspace/projects/models/whisper-turbo-41f01f3/config.json",
+    "sha256": "c5b526b3e3cd64cd8940dabb45e8ba726629e22d8ed389c29b552f9140daf04a"
+  },
+  "tokenizer": {
+    "path": "/var/home/agent/workspace/projects/models/whisper-turbo-41f01f3/tokenizer.json",
+    "sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd"
+  },
+  "generation": {
+    "path": "/var/home/agent/workspace/projects/models/whisper-turbo-41f01f3/generation_config.json",
+    "sha256": "cce11bfe3aaa6ae9e072ea2637caaec8795e68d9b67e655a5af16ee509681a4c"
+  },
+  "resources": {
+    "cpu_slots": 4,
+    "memory_bytes": 17179869184,
+    "max_waiting": 5,
+    "load_bytes": 15032385536,
+    "resident_bytes": 8589934592,
+    "work_bytes": 8589934592
+  },
+  "profile0": {
+    "id": "asr-auto-m4a",
+    "language": "auto",
+    "word_timestamps": true,
+    "vulkan": {
+      "backend": "original-q5",
+      "enable": true,
+      "allow_experimental": true,
+      "device_contains": "Intel(R) Iris(R) Xe Graphics (RPL-P)",
+      "backend_sha256": "4f92d1c99bc9ea814eab1e927325ff74c58812fc4f2c180c67556e4cf1c9143c",
+      "drain_milliseconds": 10
+    }
+  }
+}

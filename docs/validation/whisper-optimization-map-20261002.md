@@ -4,6 +4,8 @@ This map starts from the [final comparison](whisper-final-comparison-20261002.md
 
 ## 1. Use it in the app (largest user-visible gain)
 
+**Done:** [deployed](transcribe-web-whisper-q5-deploy-20261002.md) on 2 October 2026 (`2dc4a9df`). The packed-only GGML load and the resident model are in place; peak memory is 4.06 GB.
+
 | Item | Why | Size | Blocker |
 |---|---|---|---|
 | Wire the Q5 Vulkan Whisper path into `speechjobserve` | The app runs CPU Nemotron (JFK job 7.0 s wall, speakers included). Whisper Vulkan ASR is about 2.8 s per 30 s window; Nemotron CPU runs at RTF ≈ 0.6. | ~2–4× faster ASR; word-level speaker labels return (Nemotron currently labels 0 JFK words) | The service needs GPU access: removing `PrivateDevices=yes` from the `nemotron-cpu` drop-in means sharing the Intel GPU with Qwen. Also needs a public constructor (GGML Q5 file → MMQ-tanh encoder + GPU cross + Q5 decoder + compat options; today it is wired only in the test harness), a pinned GGML asset and config/profile schema. |
