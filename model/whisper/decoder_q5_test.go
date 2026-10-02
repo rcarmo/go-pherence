@@ -11,9 +11,10 @@ import (
 
 // Packed Q5 decoding must leave every logit bit-identical to the widened F32
 // decoder (default and original-compat arithmetic, single and parallel rows).
-func TestDecoderQ5MatchesF32(t *testing.T) {
-	cfg := Config{EncoderDModel: 64, DecoderDModel: 64, DecoderLayers: 2, DecoderHeads: 2, EncoderHeads: 2, HeadDim: 32, DecoderFFNDim: 128, EncoderFFNDim: 128, MaxDecoderLength: 8, VocabSize: 96}
-	r := rand.New(rand.NewSource(7))
+// newTestQ5Decoder builds a random packed-Q5 decoder with matching widened
+// F32 weights and a random encoder output of the given number of frames.
+func newTestQ5Decoder(cfg Config, seed int64, frames int) (*Decoder, []decoderLayerQ5, []byte, []float32) {
+	r := rand.New(rand.NewSource(seed))
 	q5 := func(out, in int) ([]byte, []float32) {
 		raw := make([]byte, out*in/32*simdrt.Q5_0BlockBytes)
 		for b := 0; b < len(raw)/simdrt.Q5_0BlockBytes; b++ {
@@ -55,8 +56,13 @@ func TestDecoderQ5MatchesF32(t *testing.T) {
 		L.SelfQBias, L.SelfVBias, L.SelfOBias, L.CrossQBias, L.CrossOBias, L.CrossVBias = vec(d, .1), vec(d, .1), vec(d, .1), vec(d, .1), vec(d, .1), vec(d, .1)
 		L.FC1Bias, L.FC2Bias = vec(f, .1), vec(d, .1)
 	}
+	return dec, layers, head, vec(frames*cfg.DecoderDModel, 1)
+}
+
+func TestDecoderQ5MatchesF32(t *testing.T) {
+	cfg := Config{EncoderDModel: 64, DecoderDModel: 64, DecoderLayers: 2, DecoderHeads: 2, EncoderHeads: 2, HeadDim: 32, DecoderFFNDim: 128, EncoderFFNDim: 128, MaxDecoderLength: 8, VocabSize: 96}
 	frames := 7
-	enc := vec(frames*d, 1)
+	dec, layers, head, enc := newTestQ5Decoder(cfg, 7, frames)
 	old := linearWorkers
 	defer func() { linearWorkers = old }()
 	for _, workers := range []int{1, 4} {

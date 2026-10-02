@@ -151,7 +151,7 @@ const maxPreviousTextTokens = 223
 // generated sequence (text and timestamp tokens, without EOT). When advance is
 // non-nil it feeds every prompt token except the last without computing logits
 // (those logits are never read); forward still produces all used logits.
-func decodeCheckedTimestampsPrompted(ctx context.Context, cfg Config, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, previous []int, forward func(int) ([]float32, error), advance func(int) error) ([]Segment, []int, error) {
+func decodeCheckedTimestampsPrompted(ctx context.Context, cfg Config, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, previous []int, forward func(int) ([]float32, error), advance func([]int) error) ([]Segment, []int, error) {
 	if len(previous) > 0 && v.previous == 0 {
 		return nil, nil, fmt.Errorf("previous-text prompt requires <|startofprev|>")
 	}
@@ -204,16 +204,18 @@ func decodeCheckedTimestampsPrompted(ctx context.Context, cfg Config, tokenizer 
 	if len(previous) > 0 {
 		prompt = append(append([]int{v.previous}, previous...), prompt...)
 	}
-	for i, token := range prompt {
-		if advance != nil && i+1 < len(prompt) {
-			if err := ctx.Err(); err != nil {
-				return nil, nil, err
-			}
-			if err := advance(token); err != nil {
-				return nil, nil, err
-			}
-			continue
+	if advance != nil && len(prompt) > 1 {
+		// Positions before the last prompt token need no logits; the decoder
+		// may feed them as one batch with bit-identical state.
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
 		}
+		if err := advance(prompt[:len(prompt)-1]); err != nil {
+			return nil, nil, err
+		}
+		prompt = prompt[len(prompt)-1:]
+	}
+	for _, token := range prompt {
 		logits, err = step(token)
 		if err != nil {
 			return nil, nil, err

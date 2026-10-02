@@ -1,0 +1,21 @@
+orig jfk-a rc=0
+go jfk-a rc=0
+orig pt-a rc=0
+go pt-a rc=0
+orig pt2-a rc=0
+go pt2-a rc=0
+orig jfkvad-a rc=0
+go jfkvad-a rc=0
+orig groupsvad-a rc=0
+go groupsvad-a rc=0
+go jfk-b rc=0
+orig jfk-b rc=0
+go pt-b rc=0
+orig pt-b rc=0
+go pt2-b rc=0
+orig pt2-b rc=0
+go jfkvad-b rc=0
+orig jfkvad-b rc=0
+go groupsvad-b rc=0
+orig groupsvad-b rc=0
+DRIVE_DONE

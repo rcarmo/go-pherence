@@ -323,11 +323,11 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 			return nil, ErrGenerationLimit
 		}
 		return w.Decoder.ForwardToken(token, state), nil
-	}, func(token int) error {
-		if state.Pos >= w.Config.MaxDecoderLength {
+	}, func(tokens []int) error {
+		if state.Pos+len(tokens) > w.Config.MaxDecoderLength {
 			return ErrGenerationLimit
 		}
-		w.Decoder.AdvanceToken(token, state)
+		w.Decoder.AdvanceTokens(tokens, state)
 		return nil
 	})
 	if err == nil && history != nil {

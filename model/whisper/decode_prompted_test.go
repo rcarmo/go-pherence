@@ -68,7 +68,7 @@ func TestCheckedPreviousTextPrompt(t *testing.T) {
 	// Advance path: every prompt token but the last skips logits; generation
 	// and the logits actually read are unchanged.
 	var advanced, forwarded []int
-	step := 0
+	step, calls := 0, 0
 	_, generated2, err := decodeCheckedTimestampsPrompted(context.Background(), cfg, tok, v, PCMTranscribeOptions{MaxInitialTimestampIndex: 50}, nil, nil, long, func(token int) ([]float32, error) {
 		forwarded = append(forwarded, token)
 		logits := make([]float32, cfg.VocabSize)
@@ -80,8 +80,8 @@ func TestCheckedPreviousTextPrompt(t *testing.T) {
 			step++
 		}
 		return logits, nil
-	}, func(token int) error { advanced = append(advanced, token); return nil })
-	if err != nil || !reflect.DeepEqual(advanced, want[:len(want)-1]) || forwarded[0] != v.transcribe || !reflect.DeepEqual(generated2, script[:3]) {
+	}, func(tokens []int) error { advanced = append(advanced, tokens...); calls++; return nil })
+	if err != nil || calls != 1 || !reflect.DeepEqual(advanced, want[:len(want)-1]) || forwarded[0] != v.transcribe || !reflect.DeepEqual(generated2, script[:3]) {
 		t.Fatal("advance path", advanced, forwarded, generated2, err)
 	}
 	if _, _, _, err := run(plain, []int{1}); err == nil {
