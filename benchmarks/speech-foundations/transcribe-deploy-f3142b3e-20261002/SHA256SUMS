@@ -1,0 +1,9 @@
+a7bef677336d28f175eb54a496b5a59eb8947ea773e3c3a68a74dd0a0a78e8c2  complete.json
+26ed84a828eee762ff1f5af170f31fa92fbf7cee241c29f7b68b91ca2ebc289f  jfk-deploy-smoke-f-3142-b-3-e.en.speakers.json
+fb0548825cd1f3fca42fa10e87607349350d391a0f4add88eaf38987605ed7d5  jfk-deploy-smoke-f-3142-b-3-e.en.speakers.vtt
+b9a3f15980ddbe8061c9297e1e0e7aa0ca552b86ffdfd60502c4f163f373c814  jfk-deploy-smoke-f-3142-b-3-e.en.transcript.json
+687d127906586a04b639a9ef72791f8883d2a98a582449055d13e27669075205  jfk-deploy-smoke-f-3142-b-3-e.en.transcript.vtt
+5c11793f5ef101435572cc90ee76acf1c107d77da615e3461a05834ac1cbb064  manifests-after.sha256
+2e35bd24b40eda7c9136805e44e6c23612faf41f719baaca429e5502d5750e12  metadata-check.json
+421c2b0a7d98b18e270a463cecdfdb4df5c0dd34678a6ab7efb7e2de42747e2e  predeploy-queue.json
+9c6858a79f1e076506354918d40aee8cb017e0f86229de572449b4fcac1654f4  smoke.ts.txt

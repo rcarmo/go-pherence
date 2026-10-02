@@ -1,0 +1,12 @@
+const base='http://127.0.0.1:8093/api', out=process.argv[2];
+const wav=await Bun.file('/var/home/agent/workspace/projects/go-pherence-transcribe-web/testdata/jfk.wav').bytes();
+const j=async(r:Response)=>{if(!r.ok)throw Error(r.status+' '+await r.text());return r.json()};
+const t0=performance.now();
+const job=await j(await fetch(`${base}/v1/jobs?`+new URLSearchParams({profile:'nem-en-wav',name:'jfk-deploy-smoke-f3142b3e.wav'}),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:wav}));
+await j(await fetch(`${base}/v1/jobs/${job.id}/enqueue`,{method:'POST'}));
+let s:any;for(let i=0;i<240;i++){s=await j(await fetch(`${base}/v1/jobs/${job.id}`));if(!['pending','queued','running'].includes(s.status))break;await Bun.sleep(1000)}
+const secs=(performance.now()-t0)/1000;
+await Bun.write(`${out}/complete.json`,JSON.stringify(s,null,1));
+console.log('job',job.id,'status',s.status,'wall',secs.toFixed(1),'s artifacts',s.artifacts?.length);
+const crypto=await import('node:crypto');
+for(const a of s.artifacts??[]){const r=await fetch(`${base}/v1/jobs/${job.id}/artifacts/${a.name}`);const b=new Uint8Array(await r.arrayBuffer());const h=crypto.createHash('sha256').update(b).digest('hex');await Bun.write(`${out}/${a.filename}`,b);console.log(a.name,a.filename,b.length===a.bytes&&h===a.sha256&&r.headers.get('etag')===`"sha256-${a.sha256}"`?'VERIFIED':'MISMATCH')}
