@@ -95,3 +95,5 @@ F32 and selective-Q8 arms are distinct numerical candidates. CPU versus Vulkan a
 The existing CPU no-VAD API and separate [experimental VAD API](pcm_vad.go) keep their respective output-coordinate contracts. Trained benchmark output is not a serving profile or checkpoint default.
 
 Acceptance: [native Go performance contract](../../docs/speech/whisper-go-performance-contract-20260930.md). Feasibility findings: [Sigma assessment](../../docs/validation/whisper-sigma-speed-assessment-20260930.md).
+
+**Goal met (2 October 2026):** in the [final interleaved comparison](../../docs/validation/whisper-final-comparison-20261002.md), Go is faster than pinned whisper.cpp in every matched Vulkan + flash-attention configuration: JFK −7.7%, PT −7.7%, PT2 −2.9%, JFK + VAD −6.0%, groups + VAD −2.7%. Outputs are identical without VAD; with VAD the text matches.
