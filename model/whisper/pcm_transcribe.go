@@ -167,10 +167,12 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	var clipMaxLog *float32
 	var history *[]int
 	nextWindow := firstWindow
+	startWindow := firstWindow
 	if opts.OriginalWindowCompatibility {
-		if firstWindow != 0 {
-			return fmt.Errorf("original window compatibility cannot resume mid-clip")
-		}
+		// The rolling prompt depends on every earlier window's generated tokens.
+		// A resume replays windows 0..firstWindow-1 deterministically without
+		// emitting them, so emitted windows equal an uninterrupted run.
+		startWindow, nextWindow = 0, 0
 		if v.previous == 0 {
 			return fmt.Errorf("original window compatibility requires <|startofprev|>")
 		}
@@ -188,7 +190,16 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 			return emit(window)
 		}
 	}
-	return transcribePCMPlanFrom(ctx, source, plan, firstWindow, emitWindow, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
+	if startWindow < firstWindow {
+		emitAll := emitWindow
+		emitWindow = func(window WindowTranscript) error {
+			if window.Window.Index < firstWindow {
+				return nil
+			}
+			return emitAll(window)
+		}
+	}
+	return transcribePCMPlanFrom(ctx, source, plan, startWindow, emitWindow, func(samples []float32, validSamples int) ([]Segment, []WordTiming, error) {
 		if history != nil {
 			window, err := plan.At(nextWindow)
 			if err != nil {

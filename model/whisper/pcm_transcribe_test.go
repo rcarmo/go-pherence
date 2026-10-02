@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -420,5 +422,55 @@ func TestPCMResumeActualToyAndHostOnly(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "0")
 	if e := w.ValidatePCMHostOnly(); e == nil {
 		t.Fatal("NVIDIA not disabled")
+	}
+}
+
+// Original window compatibility carries a rolling prompt across windows, so a
+// resume must replay earlier windows silently and emit exactly what an
+// uninterrupted run emits from the first missing window onward.
+func TestPCMOriginalWindowCompatibilityResumeReplays(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	w := toyPCMModel()
+	tok := checkedTestTokenizer(w.Config.VocabSize)
+	tok.Vocab[w.Config.VocabSize-1506+2] = "<|startofprev|>" // transcribe+2, as in the multilingual layout
+	r := rand.New(rand.NewSource(3))
+	pcm := make([]float32, 5*320+7)
+	for i := range pcm {
+		pcm[i] = float32(r.NormFloat64() * 0.1)
+	}
+	reads := map[int64]int{}
+	source := sampleReadFunc(func(_ context.Context, dst []float32, start int64) (int, error) {
+		reads[start]++
+		n := copy(dst, pcm[min(int(start), len(pcm)):])
+		for i := n; i < len(dst); i++ {
+			dst[i] = 0
+		}
+		return len(dst), nil
+	})
+	opts := PCMTranscribeOptions{Language: "pt", OriginalDecoderCompatibility: true, OriginalWindowCompatibility: true}
+	run := func(first int64) []WindowTranscript {
+		clear(reads)
+		var out []WindowTranscript
+		if e := w.TranscribePCMWindowsFrom(context.Background(), source, int64(len(pcm)), tok, opts, first, func(r WindowTranscript) error { out = append(out, r); return nil }); e != nil {
+			t.Fatal(first, e)
+		}
+		return out
+	}
+	full := run(0)
+	if len(full) < 4 {
+		t.Fatal("windows", len(full))
+	}
+	for _, first := range []int64{1, 3, int64(len(full) - 1)} {
+		got := run(first)
+		if !reflect.DeepEqual(got, full[first:]) {
+			t.Fatalf("resume %d differs: %+v vs %+v", first, got, full[first:])
+		}
+		// Every window is read by the whole-clip mel pass and again for inference,
+		// including the silently replayed windows before first.
+		for _, f := range full {
+			if reads[f.Window.Start] < 2 {
+				t.Fatalf("resume %d did not replay window %d (reads %d)", first, f.Window.Index, reads[f.Window.Start])
+			}
+		}
 	}
 }

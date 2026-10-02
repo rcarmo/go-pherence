@@ -315,3 +315,36 @@ func TestVulkanConfigRequiresExplicitConsentAndResources(t *testing.T) {
 		}
 	}
 }
+
+func TestOriginalQ5VulkanBackendConfig(t *testing.T) {
+	c := baseConfig(t)
+	r := ResourceSettings{CPUSlots: 2, MemoryBytes: 64 << 20, MaxWaiting: 4, LoadBytes: 32 << 20, ResidentBytes: 16 << 20, WorkBytes: 16 << 20}
+	c.Resources = &r
+	good := VulkanSettings{Backend: "original-q5", Enable: true, AllowExperimental: true, DeviceContains: "Intel fixture", BackendSHA256: hashBytes([]byte("backend")), DrainMilliseconds: 10}
+	c.Profile.Vulkan = &good
+	if e := c.validate(); e != nil {
+		t.Fatal(e)
+	}
+	b, _ := json.Marshal(c)
+	parsed, e := parseConfig(b)
+	if e != nil || parsed.Profile.Vulkan == nil || *parsed.Profile.Vulkan != good || !originalQ5([]ProfileSettings{parsed.Profile}) {
+		t.Fatal(parsed, e)
+	}
+	plain := good
+	plain.Backend = ""
+	if originalQ5([]ProfileSettings{{Vulkan: &plain}}) || originalQ5(nil) {
+		t.Fatal("F32 backend selected original Q5")
+	}
+	unknown := good
+	unknown.Backend = "original-q8"
+	bad := c
+	bad.Profile.Vulkan = &unknown
+	if e := bad.validate(); e == nil {
+		t.Fatal("unknown backend accepted")
+	}
+	withNemotron := c
+	withNemotron.NemotronASR = &NemotronASRSettings{Enable: true, AllowExperimental: true, ModelRevision: "ea30d66debe3740a08b573244286791d423d6b3e"}
+	if e := withNemotron.validate(); e == nil {
+		t.Fatal("original Q5 Whisper accepted alongside Nemotron ASR")
+	}
+}

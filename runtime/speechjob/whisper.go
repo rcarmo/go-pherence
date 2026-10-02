@@ -34,6 +34,10 @@ type WhisperStageConfig struct {
 	WordTimestamps                         bool
 	GenerationJSON                         []byte
 	MaxWindowBytes, MaxResultBytes         int64
+	// OriginalCompatibility selects whisper.cpp-compatible decoding (padded cross
+	// extent, rolling <|startofprev|> prompt, whole-clip mel floor). It is part of
+	// the stage identity only when set, so existing checkpoint keys are unchanged.
+	OriginalCompatibility bool `json:",omitempty"`
 }
 
 // NewWhisperWindowStage emits "asr-windows" JSONL, NOT final transcript JSON or
@@ -66,7 +70,7 @@ func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 	if e := validate(); e != nil {
 		return Stage{}, e
 	}
-	opts := whisper.PCMTranscribeOptions{Language: cfg.Language, OverlapSamples: cfg.OverlapSamples, MaxNewTokens: cfg.MaxNewTokens, MaxInitialTimestampIndex: cfg.MaxInitialTimestampIndex, SkipDigitalSilence: cfg.SkipDigitalSilence, WordTimestamps: cfg.WordTimestamps}
+	opts := whisper.PCMTranscribeOptions{Language: cfg.Language, OverlapSamples: cfg.OverlapSamples, MaxNewTokens: cfg.MaxNewTokens, MaxInitialTimestampIndex: cfg.MaxInitialTimestampIndex, SkipDigitalSilence: cfg.SkipDigitalSilence, WordTimestamps: cfg.WordTimestamps, OriginalDecoderCompatibility: cfg.OriginalCompatibility, OriginalWindowCompatibility: cfg.OriginalCompatibility}
 	if resident != nil {
 		opts.VulkanEncoder = resident.encoder
 	}

@@ -50,7 +50,14 @@ type HTTPSettings struct {
 	MaxRequests       int      `json:"max_requests"`
 	MaxConnections    int      `json:"max_connections"`
 }
+
+// VulkanSettings opts Whisper ASR into a resident encoder. Backend "" keeps the
+// F32 safetensors encoder; "original-q5" selects the whisper.cpp-compatible
+// path: weights is then the pinned GGML Q5_0 file, the encoder runs Q5_0 x Q8_1
+// MMQ projections with 48-query flash attention and cross K/V, the CPU decoder
+// reads packed Q5_0 rows and decoding uses original compatibility.
 type VulkanSettings struct {
+	Backend           string `json:"backend,omitempty"`
 	Enable            bool   `json:"enable"`
 	AllowExperimental bool   `json:"allow_experimental"`
 	DeviceContains    string `json:"device_contains"`
@@ -494,6 +501,9 @@ func (c ServerConfig) validate() error {
 		return fmt.Errorf("invalid media backend")
 	}
 	if v := f.Vulkan; v != nil {
+		if v.Backend != "" && (v.Backend != "original-q5" || c.NemotronASR != nil) {
+			return fmt.Errorf("invalid Whisper Vulkan backend")
+		}
 		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}

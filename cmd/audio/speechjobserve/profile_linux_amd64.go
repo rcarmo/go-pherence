@@ -15,6 +15,7 @@ import (
 
 	vk "github.com/rcarmo/go-pherence/backends/vulkan"
 	"github.com/rcarmo/go-pherence/loader/safetensors"
+	legacy "github.com/rcarmo/go-pherence/loader/whisperggml"
 	"github.com/rcarmo/go-pherence/model/whisper"
 	"github.com/rcarmo/go-pherence/runtime/speechjob"
 	"github.com/rcarmo/go-pherence/runtime/speechjob/httpapi"
@@ -126,6 +127,13 @@ func prepareModel(ctx context.Context, c ServerConfig) (*preparedModel, error) {
 	if _, e = newDecodeStage(c); e != nil {
 		return nil, fmt.Errorf("decode configuration rejected")
 	}
+	if originalQ5(profiles) {
+		// The GGML file is hashed here and again by the checked loader.
+		if e = verifyAsset(ctx, c.Weights, c.Limits.WeightBytes, false); e != nil {
+			return nil, e
+		}
+		return &preparedModel{cfg, modelJSON, generation, tokenizer, nil}, nil
+	}
 	if e = preflightSafetensors(ctx, c.Weights, c.Limits.WeightBytes, c.Limits.OwnedWeightBytes); e != nil {
 		return nil, e
 	}
@@ -233,16 +241,19 @@ type profileRuntimes struct {
 	Community communityRuntime
 }
 type vulkanProfileRuntime struct {
-	init       func() bool
-	deviceName func() string
-	newEncoder func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
-	newStage   func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error)
-	newStages  func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, []speechjob.VulkanWhisperStageConfig) (*speechjob.VulkanWhisperStage, error)
-	drain      func(context.Context, time.Duration) error
+	init func() bool
+	// original-q5 backend: integer-dot device init and resident encoder.
+	initIntegerDot func() bool
+	newOriginalQ5  func(context.Context, *whisper.Whisper, *legacy.File) (*whisper.VulkanEncoder, error)
+	deviceName     func() string
+	newEncoder     func(context.Context, *whisper.Encoder, int) (*whisper.VulkanEncoder, error)
+	newStage       func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, speechjob.VulkanWhisperStageConfig) (stageOwner, error)
+	newStages      func(*whisper.Whisper, *whisper.Tokenizer, *whisper.VulkanEncoder, []speechjob.VulkanWhisperStageConfig) (*speechjob.VulkanWhisperStage, error)
+	drain          func(context.Context, time.Duration) error
 }
 
 func defaultVulkanProfileRuntime() vulkanProfileRuntime {
-	return vulkanProfileRuntime{init: vk.VulkanInit, deviceName: vk.VulkanDeviceName, newEncoder: whisper.NewVulkanEncoder, newStage: func(m *whisper.Whisper, t *whisper.Tokenizer, e *whisper.VulkanEncoder, c speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
+	return vulkanProfileRuntime{init: vk.VulkanInit, initIntegerDot: vk.VulkanInitIntegerDot, newOriginalQ5: whisper.NewVulkanEncoderOriginalQ5, deviceName: vk.VulkanDeviceName, newEncoder: whisper.NewVulkanEncoder, newStage: func(m *whisper.Whisper, t *whisper.Tokenizer, e *whisper.VulkanEncoder, c speechjob.VulkanWhisperStageConfig) (stageOwner, error) {
 		return speechjob.NewVulkanWhisperWindowStage(m, t, e, c)
 	}, newStages: speechjob.NewVulkanWhisperWindowStages, drain: vk.VulkanDrain}
 }
@@ -268,20 +279,33 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	if e != nil {
 		return nil, e
 	}
-	defer p.source.Close()
+	if p.source != nil {
+		defer p.source.Close()
+	}
 	if !load {
 		return &builtProfiles{}, nil
-	}
-	model, _, e := whisper.LoadConfiguredModelSourceChecked(ctx, p.source, p.modelJSON, p.generation, p.tokenizer)
-	if e != nil {
-		return nil, fmt.Errorf("checked model loading failed")
-	}
-	if e = model.ValidatePCMHostOnly(); e != nil {
-		return nil, e
 	}
 	profiles, e := c.configuredProfiles()
 	if e != nil {
 		return nil, e
+	}
+	fast := originalQ5(profiles)
+	var model *whisper.Whisper
+	var ggml *legacy.File
+	if fast {
+		model, _, ggml, e = whisper.LoadOriginalQ5Model(ctx, c.Weights.Path, c.Weights.SHA256, p.modelJSON, p.generation, p.tokenizer)
+		if e != nil {
+			return nil, fmt.Errorf("checked original Q5 model loading failed: %w", e)
+		}
+		defer ggml.Close()
+	} else {
+		model, _, e = whisper.LoadConfiguredModelSourceChecked(ctx, p.source, p.modelJSON, p.generation, p.tokenizer)
+		if e != nil {
+			return nil, fmt.Errorf("checked model loading failed")
+		}
+		if e = model.ValidatePCMHostOnly(); e != nil {
+			return nil, e
+		}
 	}
 	decodeStages := make([]speechjob.Stage, len(profiles))
 	whisperConfigs := make([]speechjob.WhisperStageConfig, len(profiles))
@@ -291,7 +315,10 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		if e != nil {
 			return nil, e
 		}
-		whisperConfigs[i] = speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, WordTimestamps: opts.WordTimestamps, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes}
+		whisperConfigs[i] = speechjob.WhisperStageConfig{ModelSHA256: c.Weights.SHA256, RuntimeSHA256: c.RuntimeSHA256, Language: opts.Language, OverlapSamples: opts.OverlapSamples, MaxNewTokens: opts.MaxNewTokens, MaxInitialTimestampIndex: opts.MaxInitialTimestampIndex, SkipDigitalSilence: opts.SkipDigitalSilence, WordTimestamps: opts.WordTimestamps, GenerationJSON: p.generation, MaxWindowBytes: opts.WindowBytes, MaxResultBytes: opts.ResultBytes, OriginalCompatibility: fast}
+		if fast {
+			continue // packed-only model has no host encoder; the resident owner supplies every stage
+		}
 		asrStages[i], e = speechjob.NewWhisperWindowStage(model, p.tokenizer, whisperConfigs[i])
 		if e != nil {
 			return nil, e
@@ -299,13 +326,24 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	}
 	result := &builtProfiles{}
 	if v := profiles[0].Vulkan; v != nil {
-		if runtime.init == nil || runtime.deviceName == nil || runtime.newEncoder == nil || runtime.drain == nil || len(profiles) == 1 && runtime.newStage == nil || len(profiles) > 1 && runtime.newStages == nil || !runtime.init() {
+		init, newEncoder := runtime.init, func() (*whisper.VulkanEncoder, error) {
+			return runtime.newEncoder(ctx, model.Encoder, model.Config.MaxLength)
+		}
+		if fast {
+			init, newEncoder = runtime.initIntegerDot, func() (*whisper.VulkanEncoder, error) {
+				if runtime.newOriginalQ5 == nil {
+					return nil, fmt.Errorf("original Q5 encoder constructor missing")
+				}
+				return runtime.newOriginalQ5(ctx, model, ggml)
+			}
+		}
+		if init == nil || runtime.deviceName == nil || runtime.newEncoder == nil || runtime.drain == nil || len(profiles) == 1 && runtime.newStage == nil || len(profiles) > 1 && runtime.newStages == nil || !init() {
 			return nil, fmt.Errorf("experimental Vulkan initialisation failed")
 		}
 		if name := runtime.deviceName(); name == "" || !strings.Contains(name, v.DeviceContains) {
 			return nil, fmt.Errorf("configured Vulkan device identity rejected")
 		}
-		encoder, e := runtime.newEncoder(ctx, model.Encoder, model.Config.MaxLength)
+		encoder, e := newEncoder()
 		if e != nil {
 			if encoder != nil {
 				closeVulkanEncoder(encoder, time.Duration(v.DrainMilliseconds)*time.Millisecond, runtime.drain)
@@ -419,4 +457,10 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 		result.Profiles = append(result.Profiles, httpapi.Profile{ID: opts.ID, Configuration: identity, Stages: stages})
 	}
 	return result, nil
+}
+
+// originalQ5 reports the whisper.cpp-compatible resident backend; the profile
+// set shares one Vulkan configuration, so the first profile decides.
+func originalQ5(profiles []ProfileSettings) bool {
+	return len(profiles) > 0 && profiles[0].Vulkan != nil && profiles[0].Vulkan.Backend == "original-q5"
 }

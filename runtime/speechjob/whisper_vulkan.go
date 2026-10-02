@@ -59,7 +59,7 @@ func NewVulkanWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Toke
 // serial resident encoder owner. All configs must attest the same backend and
 // drain policy. The returned owner closes the encoder exactly once.
 func NewVulkanWhisperWindowStages(model *whisper.Whisper, tokenizer *whisper.Tokenizer, encoder *whisper.VulkanEncoder, cfgs []VulkanWhisperStageConfig) (*VulkanWhisperStage, error) {
-	if len(cfgs) < 1 || len(cfgs) > 32 || encoder == nil {
+	if len(cfgs) < 1 || len(cfgs) > 48 || encoder == nil { // server profile sets allow up to 48
 		return nil, ErrConfiguration
 	}
 	first := cfgs[0]
