@@ -1,0 +1,12 @@
+padext rc=0
+fast4 jfk rc=0
+fast4 pt rc=0
+fast4 fr rc=0
+fast4 jfk-vadwords rc=0
+fast4 groups rc=0
+fast4 pt2 rc=0
+fast4 podcast rc=0
+fast4 podcast-vadwords rc=0
+fast4 pt1 rc=0
+fast4 silence rc=0
+DRIVE_DONE

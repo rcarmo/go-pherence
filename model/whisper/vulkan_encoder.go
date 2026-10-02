@@ -480,7 +480,7 @@ func newVulkanEncoderBuild(ctx context.Context, source *Encoder, frames int, mak
 	}
 	s.resources = append(s.resources, s.gelu)
 	if paddedExtent {
-		s.attention, err = vk.NewVkAttentionKey32PaddedExtentF32(ctx)
+		s.attention, err = vk.NewVkAttentionKey32PaddedExtentQ48F32(ctx) // bit-identical to the 16-query padded-extent kernel
 	} else if outputILP {
 		s.attention, err = vk.NewVkAttentionKey32OutputILPF32(ctx)
 	} else if unroll {

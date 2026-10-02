@@ -82,6 +82,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Wide-load MMQ](../../docs/validation/whisper-mmq-wideload-20261002.md): `uvec4` Q8_1 activation loads in the MMQ projection kernel are bit-identical and cut the JFK encoder from 3.49 s to 3.20 s. JFK is now 3.506 s and PT2 7.59 s, with identical output on all 10 fixtures. The original is still ~3.02 s on JFK.
 
+[48-query attention](../../docs/validation/whisper-attention-q48-20261002.md): bit-identical 48-query flash-attention tiles take attention from 54.2 to 33.1 ms per layer (whisper.cpp: 49.4 ms). JFK is now 2.835 s against 3.018 s, PT 2.816 s against 3.019 s, and compact VAD JFK 2.881 s against 3.028 s, with identical output on all 10 fixtures. PT2 (6.19 s against 6.21 s) and groups VAD (3.242 s against 3.257 s) are ties.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

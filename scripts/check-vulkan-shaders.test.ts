@@ -30,7 +30,7 @@ describe('offline SPIR-V comparison',()=>{
  });
  test('extracts exact checked-in inventory and rejects duplicate/missing bytes',async()=>{
   const source=await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_embedded.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_linear_regtile64.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_attention_key32.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_attention_scoreilp.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_linear_q5_grouped.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_attention_unroll.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_attention_outputilp.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_attention_padded_extent.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_linear_q5_decode4.go`).text()+'\n'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_gelu_original.go`).text();
-  const values=embeddedShaders(source);expect(values.size).toBe(33);
+  const values=embeddedShaders(source);expect(values.size).toBe(34);
   for(const name of shaderNames){
    expect(values.get(name)).toEqual(await Bun.file(`${import.meta.dir}/../backends/vulkan/shaders/${name}.spv`).bytes());
    expect(()=>normalisedWords(values.get(name)!)).not.toThrow();

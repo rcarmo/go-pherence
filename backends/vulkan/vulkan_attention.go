@@ -17,6 +17,7 @@ import (
 type VkAttentionF32 struct {
 	kernel          *VkComputeKernel
 	requiredHeadDim int
+	queryTile       int // queries per workgroup; 0 means 16
 }
 
 func NewVkAttentionF32(ctx context.Context) (*VkAttentionF32, error) {
@@ -108,7 +109,11 @@ func (op *VkAttentionF32) stageLocked(out, q, k, v *VkTensorF32, heads int) (VkF
 			return fail("output overlaps input")
 		}
 	}
-	groups := [3]uint32{uint32((seqQ + 15) / 16), uint32(heads), 1}
+	tile := op.queryTile
+	if tile == 0 {
+		tile = 16
+	}
+	groups := [3]uint32{uint32((seqQ + tile - 1) / tile), uint32(heads), 1}
 	push := []uint32{uint32(seqQ), uint32(seqKV), uint32(heads), uint32(dim), math.Float32bits(float32(1 / math.Sqrt(float64(dim))))}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], groups[2], bindings, unsafePushWords(push)); err != nil {
 		return VkF32Stage{}, err

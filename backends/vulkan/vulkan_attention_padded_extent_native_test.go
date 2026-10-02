@@ -34,6 +34,11 @@ func TestVulkanNativePaddedExtent(t *testing.T) {
 		t.Fatal(e)
 	}
 	nativeClose(t, refop)
+	q48, e := NewVkAttentionKey32PaddedExtentQ48F32(context.Background())
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, q48)
 	for _, shape := range [][3]int{{1, 1, 1}, {17, 37, 2}, {33, 65, 3}, {16, 255, 2}, {16, 256, 2}, {16, 257, 2}, {1500, 1500, 20}, {1, 4095, 1}, {4096, 1, 1}, {2, 33, 32}} {
 		sq, sk, h := shape[0], shape[1], shape[2]
 		extent := (sk + 255) / 256 * 256
@@ -75,6 +80,10 @@ func TestVulkanNativePaddedExtent(t *testing.T) {
 				nativeRun(t, func(c context.Context) error { return op.Forward(c, out, tq, tk, tv, h) })
 				check()
 			}
+			for repeat := 0; repeat < 2; repeat++ { // 48-query tiles: identical bits
+				nativeRun(t, func(c context.Context) error { return q48.Forward(c, out, tq, tk, tv, h) })
+				check()
+			}
 			if sq*extent*h <= 70000 {
 				nativeCompare(t, "padded64float64", want, attentionReference(q, pk, pv, sq, extent, h, 64), 2e-5, 2e-5, 0)
 			}
@@ -90,6 +99,6 @@ func TestVulkanNativePaddedExtent(t *testing.T) {
 			}
 		})
 	}
-	t.Log("VIRTUAL_PAD_EXPLICIT_ZERO_ORACLE10_SHAPES_BITS_CANCEL_REUSE_GUARDS_PASS")
+	t.Log("VIRTUAL_PAD_EXPLICIT_ZERO_ORACLE10_SHAPES_BITS_CANCEL_REUSE_GUARDS_Q48_PASS")
 }
 func fmtI(v int) string { return fmt.Sprint(v) }
