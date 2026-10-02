@@ -56,9 +56,13 @@ loop; the segment-run test fixed a 5× "I'm not an N8N expert." loop at 780 s.
 
 ## Known limits
 
-- Any redeploy changes the runtime hash in the profile identity, so failed
-  jobs from an older runtime return `profile_changed` on retry and must be
-  resubmitted. Cancelled jobs resume within the same runtime.
+- A redeploy that changes the `speechjobserve` binary changes the runtime
+  hash in the profile identity. Unfinished jobs from the older runtime then
+  report `profile_available: false` and return `profile_changed` on retry.
+  The UI now says the engine was updated, hides Retry and offers "Upload
+  again" (Playwright-checked on the stale podcast job). `-trimpath` rebuilds
+  of the same source keep the hash, so UI-only redeploys do not invalidate
+  jobs. Cancelled jobs resume within the same runtime.
 - Resume replays completed windows to rebuild the rolling prompt, so a
   resume saves little time. Storing each window's generated tokens in its
   checkpoint would remove the replay.
