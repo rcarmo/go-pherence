@@ -1,0 +1,38 @@
+package whisper
+
+import (
+	"math/rand"
+	"testing"
+	"time"
+)
+
+func TestZZCrossAttnSplit(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	const T, H, D = 1500, 20, 64
+	k, v := make([]float32, T*H*D), make([]float32, T*H*D)
+	for i := range k {
+		k[i], v[i] = float32(r.NormFloat64()), float32(r.NormFloat64())
+	}
+	q := make([]float32, H*D)
+	for i := range q {
+		q[i] = float32(r.NormFloat64())
+	}
+	out := make([]float32, H*D)
+	scores := make([]float32, T)
+	n := 200
+	st := time.Now()
+	for i := 0; i < n; i++ {
+		crossAttentionHeads(out, q, k, v, T, D, scores, 0, 0, nil, 0, 0.125, 0, H)
+	}
+	full := time.Since(st).Seconds() / float64(n)
+	sc := make([]float32, T)
+	st = time.Now()
+	for i := 0; i < n*H; i++ {
+		for j := range sc {
+			sc[j] = float32(j%37) * -0.1
+		}
+		softmax(sc)
+	}
+	sm := time.Since(st).Seconds() / float64(n)
+	t.Logf("cross layer single-thread %.3f ms; softmax part %.3f ms (%.0f%%)", full*1e3, sm*1e3, sm/full*100)
+}
