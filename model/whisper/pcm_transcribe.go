@@ -1,6 +1,8 @@
 package whisper
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
 	"errors"
 	"fmt"
@@ -245,7 +247,9 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, err
 			}
 		}
-		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress, history, cross)
+		segments, words, err := decodeDroppingHistoryOnLimit(history, func() ([]Segment, []WordTiming, error) {
+			return w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress, history, cross)
+		})
 		if !errors.Is(err, ErrGenerationLimit) || validSamples < 2*int(MinWindowSamples) {
 			return segments, words, err
 		}
@@ -376,8 +380,88 @@ func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, 
 		if err != nil {
 			return nil, nil, err
 		}
-		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress, history, cross)
+		return decodeDroppingHistoryOnLimit(history, func() ([]Segment, []WordTiming, error) {
+			return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress, history, cross)
+		})
 	})
+}
+
+// decodeDroppingHistoryOnLimit mirrors whisper.cpp's fallback: past the
+// temperature cutoff (0.5) it decodes without the previous-text prompt, which
+// is what breaks repetition loops seeded by repetitive context. whisper.cpp
+// fails a decode on a generation limit/repetition loop or when the last 32
+// generated tokens have entropy < 2.4 (entropy_thold); OpenAI Whisper also
+// fails text whose zlib compression ratio exceeds 2.4. Three consecutive
+// identical segments are also treated as a loop. Here the greedy retry
+// without the prompt runs once, only when a rolling prompt was present; its
+// result is accepted as whisper.cpp accepts its best decoder.
+func decodeDroppingHistoryOnLimit(history *[]int, decode func() ([]Segment, []WordTiming, error)) ([]Segment, []WordTiming, error) {
+	if history == nil || len(*history) == 0 {
+		return decode()
+	}
+	previous := min(len(*history), maxPreviousTextTokens)
+	segments, words, err := decode()
+	if err == nil && len(*history) >= previous && !repetitiveGeneration((*history)[previous:]) && !highCompressionRatio(segments) && !repeatedSegments(segments) {
+		return segments, words, nil
+	}
+	if err != nil && !errors.Is(err, ErrGenerationLimit) {
+		return segments, words, err
+	}
+	*history = nil
+	return decode()
+}
+
+// repeatedSegments reports three consecutive identical non-empty segment
+// texts, a prompt-seeded loop too short to move the compression ratio.
+func repeatedSegments(segments []Segment) bool {
+	run := 1
+	for i := 1; i < len(segments); i++ {
+		text := strings.TrimSpace(segments[i].Text)
+		if text != "" && text == strings.TrimSpace(segments[i-1].Text) {
+			if run++; run >= 3 {
+				return true
+			}
+		} else {
+			run = 1
+		}
+	}
+	return false
+}
+
+// highCompressionRatio is OpenAI Whisper's compression_ratio_threshold test
+// (2.4) on the decoded text: repeated sentences compress far better than speech.
+func highCompressionRatio(segments []Segment) bool {
+	var text strings.Builder
+	for _, s := range segments {
+		text.WriteString(s.Text)
+	}
+	if text.Len() == 0 {
+		return false
+	}
+	var packed bytes.Buffer
+	z := zlib.NewWriter(&packed)
+	z.Write([]byte(text.String()))
+	z.Close()
+	return float64(text.Len())/float64(packed.Len()) > 2.4
+}
+
+// repetitiveGeneration is whisper.cpp's sequence entropy test: more than 32
+// tokens and entropy of the last 32 token ids below 2.4 nats.
+func repetitiveGeneration(tokens []int) bool {
+	const n, threshold = 32, 2.4
+	if len(tokens) <= n {
+		return false
+	}
+	counts := map[int]int{}
+	for _, t := range tokens[len(tokens)-n:] {
+		counts[t]++
+	}
+	entropy := 0.0
+	for _, c := range counts {
+		p := float64(c) / n
+		entropy -= p * math.Log(p)
+	}
+	return entropy < threshold
 }
 
 const maxPCMSplitDepth = 4 // at most 16 leaves, each independently bounded by the decoder

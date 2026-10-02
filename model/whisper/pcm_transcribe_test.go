@@ -474,3 +474,110 @@ func TestPCMOriginalWindowCompatibilityResumeReplays(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeDroppingHistoryOnLimit(t *testing.T) {
+	history := []int{1, 2, 3}
+	calls := 0
+	_, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			return nil, nil, ErrGenerationLimit
+		}
+		history = []int{9}
+		return []Segment{{Text: "ok"}}, nil, nil
+	})
+	if err != nil || calls != 2 || len(history) != 1 || history[0] != 9 {
+		t.Fatal(err, calls, history)
+	}
+	// No history: the limit is returned unchanged for split recovery.
+	empty := []int{}
+	calls = 0
+	if _, _, err := decodeDroppingHistoryOnLimit(&empty, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, ErrGenerationLimit }); !errors.Is(err, ErrGenerationLimit) || calls != 1 {
+		t.Fatal(err, calls)
+	}
+	// Non-limit errors and nil history (no window compatibility) never retry.
+	calls = 0
+	if _, _, err := decodeDroppingHistoryOnLimit(nil, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, ErrGenerationLimit }); !errors.Is(err, ErrGenerationLimit) || calls != 1 {
+		t.Fatal(err, calls)
+	}
+	history = []int{1}
+	calls = 0
+	boom := errors.New("boom")
+	if _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, boom }); err != boom || calls != 1 || len(history) != 1 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestDecodeRetriesRepetitiveGenerationWithoutHistory(t *testing.T) {
+	loop := make([]int, 0, 40)
+	for len(loop) < 40 {
+		loop = append(loop, 7, 8) // entropy ln2 < 2.4
+	}
+	varied := make([]int, 40)
+	for i := range varied {
+		varied[i] = 100 + i // entropy ln32 > 2.4
+	}
+	if !repetitiveGeneration(loop) || repetitiveGeneration(varied) || repetitiveGeneration(loop[:32]) {
+		t.Fatal("entropy test")
+	}
+	history := []int{1, 2, 3}
+	calls := 0
+	_, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			history = append(history, loop...) // decodePCMWindow appends generated tokens
+			return []Segment{{Text: "loop"}}, nil, nil
+		}
+		history = append(history, varied...)
+		return []Segment{{Text: "ok"}}, nil, nil
+	})
+	if err != nil || calls != 2 || len(history) != len(varied) {
+		t.Fatal(err, calls, len(history))
+	}
+	// A varied generation with history is kept after one decode.
+	history = []int{1, 2, 3}
+	calls = 0
+	if _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		history = append(history, varied...)
+		return nil, nil, nil
+	}); err != nil || calls != 1 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestHighCompressionRatioFlagsRepeatedText(t *testing.T) {
+	loop := make([]Segment, 9)
+	for i := range loop {
+		loop[i] = Segment{Text: " So I was able to do this in the next phase."}
+	}
+	speech := []Segment{{Text: " And so, my fellow Americans, ask not what your country can do for you,"}, {Text: " ask what you can do for your country."}}
+	if !highCompressionRatio(loop) || highCompressionRatio(speech) || highCompressionRatio(nil) {
+		t.Fatal("compression ratio test")
+	}
+	history := []int{1, 2, 3}
+	calls := 0
+	segments, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			return loop, nil, nil
+		}
+		return speech, nil, nil
+	})
+	if err != nil || calls != 2 || segments[0].Text != speech[0].Text {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestRepeatedSegments(t *testing.T) {
+	seg := func(texts ...string) []Segment {
+		out := make([]Segment, len(texts))
+		for i, text := range texts {
+			out[i] = Segment{Text: text}
+		}
+		return out
+	}
+	if !repeatedSegments(seg(" a", " x.", " x.", "x. ", " b")) || repeatedSegments(seg(" x.", " x.", " y", " x.")) || repeatedSegments(seg("", "", "")) || repeatedSegments(nil) {
+		t.Fatal("repeated segment test")
+	}
+}
