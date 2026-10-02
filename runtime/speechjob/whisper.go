@@ -104,7 +104,7 @@ func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 		Model           whisper.Config
 		Tokenizer       *whisper.Tokenizer
 		Suppress, Begin []int
-	}{"speechjob-go-whisper-windows-word-zero-span-v2", cfg, model.Config, tokenizer, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens})
+	}{whisperStageSchema(cfg.OriginalCompatibility), cfg, model.Config, tokenizer, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens})
 	if e != nil {
 		return Stage{}, e
 	}
@@ -116,19 +116,64 @@ func newWhisperWindowStage(model *whisper.Whisper, tokenizer *whisper.Tokenizer,
 		}
 		version = hash(b)
 	}
-	infer := windowInfer(func(ctx context.Context, source whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+	infer := windowInfer(func(ctx context.Context, source whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
 		if e := validate(); e != nil {
 			return e
+		}
+		if resume != nil && first > 0 && opts.OriginalWindowCompatibility {
+			return model.TranscribePCMWindowsFromPrompt(ctx, source, total, tokenizer, opts, first, *resume, emit)
 		}
 		return model.TranscribePCMWindowsFrom(ctx, source, total, tokenizer, opts, first, emit)
 	})
 	if resident != nil {
 		infer = resident.wrap(infer)
 	}
-	return whisperWindowStage(version, int64(model.Config.MaxLength)*160, cfg.OverlapSamples, cfg.MaxWindowBytes, cfg.MaxResultBytes, model.Config.MaxDecoderLength, model.Config.VocabSize, infer), nil
+	return whisperWindowStageMode(cfg.OriginalCompatibility, version, int64(model.Config.MaxLength)*160, cfg.OverlapSamples, cfg.MaxWindowBytes, cfg.MaxResultBytes, model.Config.MaxDecoderLength, model.Config.VocabSize, infer), nil
 }
 
-type windowInfer func(context.Context, whisper.SampleReader, int64, int64, func(whisper.WindowTranscript) error) error
+// windowInfer resumes at first; resume carries the next seek and rolling
+// previous-text context persisted with window first-1, or is nil (replay).
+// whisperStageSchema separates whisper.cpp seek windows (original
+// compatibility) from the fixed-plan stage identity.
+func whisperStageSchema(seek bool) string {
+	if seek {
+		return "speechjob-go-whisper-seek-windows-v3"
+	}
+	return "speechjob-go-whisper-windows-word-zero-span-v2"
+}
+
+type windowInfer func(context.Context, whisper.SampleReader, int64, int64, *whisper.WindowResume, func(whisper.WindowTranscript) error) error
+
+// windowGeometry validates ASR window records: a fixed plan (index → geometry)
+// or, for original compatibility, whisper.cpp seek windows chained by EmitEnd.
+type windowGeometry struct {
+	plan          whisper.WindowPlan
+	seek          bool
+	total, length int64
+}
+
+func (g windowGeometry) done(index, start int64) bool {
+	if g.seek {
+		return whisper.WhisperSeekDone(start, g.total)
+	}
+	return index >= g.plan.Count()
+}
+
+func (g windowGeometry) valid(w whisper.Window, index, start int64) bool {
+	if g.seek {
+		return whisper.ValidSeekWindow(w, index, start, g.total, g.length)
+	}
+	expected, e := g.plan.At(index)
+	return e == nil && w == expected
+}
+
+// reserve is the window-count bound used for the storage precheck.
+func (g windowGeometry) reserve() int64 {
+	if g.seek {
+		return 2*g.plan.Count() + 1
+	}
+	return g.plan.Count()
+}
 
 // windowRecord binds payloads to the full stage dependency key and geometry.
 // Its hash is separately recorded in an atomic acknowledgement. A published
@@ -137,7 +182,28 @@ type windowRecord struct {
 	Schema int                      `json:"schema"`
 	Key    string                   `json:"key"`
 	Result whisper.WindowTranscript `json:"result"`
+	// Prompt is the original-compatible rolling context after this window
+	// (at most 223 token ids). It lets a resume skip re-inferring the prefix.
+	Prompt *[]int `json:"prompt,omitempty"`
 }
+
+const maxWindowPrompt = 223
+
+func validWindowPrompt(prompt *[]int, vocab int) bool {
+	if prompt == nil {
+		return true
+	}
+	if len(*prompt) > maxWindowPrompt {
+		return false
+	}
+	for _, t := range *prompt {
+		if t < 0 || t >= vocab {
+			return false
+		}
+	}
+	return true
+}
+
 type windowAck struct {
 	Schema int    `json:"schema"`
 	Key    string `json:"key"`
@@ -148,6 +214,10 @@ type windowAck struct {
 func windowBase(key string, index int64) string { return fmt.Sprintf("window-%s-%05d", key, index) }
 
 func whisperWindowStage(version string, length, overlap, windowLimit, resultLimit int64, maxTokens, vocab int, infer windowInfer) Stage {
+	return whisperWindowStageMode(false, version, length, overlap, windowLimit, resultLimit, maxTokens, vocab, infer)
+}
+
+func whisperWindowStageMode(seek bool, version string, length, overlap, windowLimit, resultLimit int64, maxTokens, vocab int, infer windowInfer) Stage {
 	return Stage{Name: "asr-windows", Version: version, Run: func(ctx context.Context, in *Input, out io.Writer) (err error) {
 		var decoded Blob
 		for _, cp := range in.job.Checkpoints {
@@ -177,9 +247,10 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 		if e != nil {
 			return e
 		}
-		if overlap > length/2 || plan.Count() > 10000 {
+		if overlap > length/2 || plan.Count() > 10000 || seek && overlap != 0 {
 			return ErrLimit
 		}
+		geometry := windowGeometry{plan: plan, seek: seek, total: total, length: length}
 		key := checkpointKey(in.job, Stage{Name: "asr-windows", Version: version})
 		// Reserve final stream + all new window payloads + bounded acknowledgements.
 		// Existing journals/orphans already count; conservative double reservation on
@@ -188,7 +259,7 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 		if e != nil {
 			return e
 		}
-		if resultLimit > in.store.limits.MaxArtifactBytes || 2*resultLimit+plan.Count()*4096+maxManifest > in.store.limits.MaxBytes-used {
+		if resultLimit > in.store.limits.MaxArtifactBytes || 2*resultLimit+geometry.reserve()*4096+maxManifest > in.store.limits.MaxBytes-used {
 			return ErrLimit
 		}
 		entries, e := os.ReadDir(filepath.Join(in.store.root.Name(), in.job.ID))
@@ -202,12 +273,13 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 				continue
 			}
 			var index int64
-			if _, e = fmt.Sscanf(strings.TrimSuffix(strings.TrimPrefix(name, "window-"+key+"-"), ".ack"), "%d", &index); e != nil || index < 0 || index >= plan.Count() || name != windowBase(key, index)+".ack" || entry.IsDir() {
+			if _, e = fmt.Sscanf(strings.TrimSuffix(strings.TrimPrefix(name, "window-"+key+"-"), ".ack"), "%d", &index); e != nil || index < 0 || index >= 10000 || !seek && index >= plan.Count() || name != windowBase(key, index)+".ack" || entry.IsDir() {
 				return ErrCorrupt
 			}
 			acks[index] = true
 		}
-		var next, bytes int64
+		var next, nextStart, bytes int64
+		var prompt *[]int
 		emitStored := func(data []byte) error {
 			if int64(len(data)) > resultLimit-bytes {
 				return ErrLimit
@@ -218,11 +290,16 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 			bytes += int64(len(data))
 			return nil
 		}
-		for next < plan.Count() && acks[next] {
-			data, e := in.store.readWindow(ctx, in.job.ID, key, next, plan, windowLimit, maxTokens, vocab)
+		for !geometry.done(next, nextStart) && acks[next] {
+			data, e := in.store.readWindow(ctx, in.job.ID, key, next, nextStart, geometry, windowLimit, maxTokens, vocab)
 			if e != nil {
 				return e
 			}
+			var record windowRecord
+			if e = json.Unmarshal(data, &record); e != nil {
+				return ErrCorrupt
+			}
+			prompt, nextStart = record.Prompt, record.Result.Window.EmitEnd
 			if e = emitStored(data); e != nil {
 				return e
 			}
@@ -231,7 +308,14 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 		if int64(len(acks)) != next {
 			return fmt.Errorf("%w: non-prefix window journal", ErrCorrupt)
 		}
-		reportWorkProgress(ctx, "asr-windows", next, plan.Count(), "windows")
+		progress := func() {
+			if seek {
+				reportWorkProgress(ctx, "asr-windows", min(nextStart, total), total, "samples")
+			} else {
+				reportWorkProgress(ctx, "asr-windows", next, plan.Count(), "windows")
+			}
+		}
+		progress()
 		publish := func(result whisper.WindowTranscript) error {
 			if e := ctx.Err(); e != nil {
 				return e
@@ -239,10 +323,13 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 			if result.Window.Index != next {
 				return fmt.Errorf("%w: out-of-order ASR window", ErrCorrupt)
 			}
-			if e := validateWindow(result, plan, maxTokens, vocab); e != nil {
+			if e := validateWindow(result, geometry, next, nextStart, maxTokens, vocab); e != nil {
 				return e
 			}
-			data, e := json.Marshal(windowRecord{Schema: 1, Key: key, Result: result})
+			if !validWindowPrompt(result.Prompt, vocab) {
+				return fmt.Errorf("%w: window prompt", ErrCorrupt)
+			}
+			data, e := json.Marshal(windowRecord{Schema: 1, Key: key, Result: result, Prompt: result.Prompt})
 			if e != nil {
 				return e
 			}
@@ -253,35 +340,41 @@ func whisperWindowStage(version string, length, overlap, windowLimit, resultLimi
 			if e = in.store.publishWindow(ctx, in.job.ID, key, next, data, windowLimit); e != nil {
 				return e
 			}
-			next++
+			next, nextStart = next+1, result.Window.EmitEnd
 			if e = emitStored(data); e != nil {
 				return e
 			}
-			reportWorkProgress(ctx, "asr-windows", next, plan.Count(), "windows")
+			progress()
 			return nil
 		}
 		var callbackErr error
-		e = infer(ctx, pcm, total, next, func(result whisper.WindowTranscript) error {
-			if callbackErr != nil {
-				return callbackErr
+		if !geometry.done(next, nextStart) {
+			var resume *whisper.WindowResume
+			if seek && next > 0 && prompt != nil {
+				resume = &whisper.WindowResume{Start: nextStart, Prompt: *prompt}
 			}
-			callbackErr = publish(result)
-			return callbackErr
-		})
-		if e != nil || callbackErr != nil {
-			return errors.Join(e, callbackErr)
+			e = infer(ctx, pcm, total, next, resume, func(result whisper.WindowTranscript) error {
+				if callbackErr != nil {
+					return callbackErr
+				}
+				callbackErr = publish(result)
+				return callbackErr
+			})
+			if e != nil || callbackErr != nil {
+				return errors.Join(e, callbackErr)
+			}
 		}
-		if next != plan.Count() {
+		if !geometry.done(next, nextStart) {
 			return fmt.Errorf("%w: incomplete ASR window stream", ErrCorrupt)
 		}
 		return ctx.Err()
 	}}
 }
-func validateWindow(result whisper.WindowTranscript, plan whisper.WindowPlan, maxTokens, vocab int) error {
-	expected, e := plan.At(result.Window.Index)
-	if e != nil || result.Window != expected {
+func validateWindow(result whisper.WindowTranscript, geometry windowGeometry, index, start int64, maxTokens, vocab int) error {
+	if !geometry.valid(result.Window, index, start) {
 		return fmt.Errorf("%w: window geometry", ErrCorrupt)
 	}
+	expected := result.Window
 	if len(result.Language) > 32 {
 		return fmt.Errorf("%w: window language", ErrCorrupt)
 	}
@@ -343,7 +436,7 @@ func (s *Store) publishWindow(ctx context.Context, id, key string, index int64, 
 	}
 	return s.hit("window-ack-published")
 }
-func (s *Store) readWindow(ctx context.Context, id, key string, index int64, plan whisper.WindowPlan, limit int64, maxTokens, vocab int) ([]byte, error) {
+func (s *Store) readWindow(ctx context.Context, id, key string, index, start int64, geometry windowGeometry, limit int64, maxTokens, vocab int) ([]byte, error) {
 	base := windowBase(key, index)
 	f, e := s.root.Open(id + "/" + base + ".ack")
 	if e != nil {
@@ -386,10 +479,10 @@ func (s *Store) readWindow(ctx context.Context, id, key string, index int64, pla
 	}
 	canonical, _ = json.Marshal(record)
 	canonical = append(canonical, '\n')
-	if string(canonical) != string(data) || record.Schema != 1 || record.Key != key {
+	if string(canonical) != string(data) || record.Schema != 1 || record.Key != key || !validWindowPrompt(record.Prompt, vocab) {
 		return nil, ErrCorrupt
 	}
-	if e = validateWindow(record.Result, plan, maxTokens, vocab); e != nil {
+	if e = validateWindow(record.Result, geometry, index, start, maxTokens, vocab); e != nil {
 		return nil, e
 	}
 	if record.Result.Window.Index != index {

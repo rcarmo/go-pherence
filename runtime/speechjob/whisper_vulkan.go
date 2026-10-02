@@ -189,7 +189,7 @@ func (s *vulkanWhisperStageState) settle(cause error) {
 	}
 }
 func (s *vulkanWhisperStageState) wrap(infer windowInfer) windowInfer {
-	return func(ctx context.Context, source whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) (err error) {
+	return func(ctx context.Context, source whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) (err error) {
 		if e := s.acquire(ctx); e != nil {
 			return e
 		}
@@ -204,7 +204,7 @@ func (s *vulkanWhisperStageState) wrap(infer windowInfer) windowInfer {
 		defer func() { s.mu.Lock(); s.status.Running = false; s.mu.Unlock() }()
 		// Contain a panic here, before the generic executor can drop native ownership.
 		returned := false
-		err = callStage(func() error { e := infer(ctx, source, total, first, emit); returned = true; return e })
+		err = callStage(func() error { e := infer(ctx, source, total, first, resume, emit); returned = true; return e })
 		if !returned {
 			s.quarantine("inference_panicked")
 			return err

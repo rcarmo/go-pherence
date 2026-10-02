@@ -57,7 +57,7 @@ func TestVulkanJobCancellationRetainsAdmissionAndStore(t *testing.T) {
 		close(draining)
 		<-release
 		return nil
-	}, func() error { closes.Add(1); return nil }, func(ctx context.Context, _ whisper.SampleReader, _, _ int64, _ func(whisper.WindowTranscript) error) error {
+	}, func() error { closes.Add(1); return nil }, func(ctx context.Context, _ whisper.SampleReader, _, _ int64, _ *whisper.WindowResume, _ func(whisper.WindowTranscript) error) error {
 		close(entered)
 		<-ctx.Done()
 		return errors.Join(ctx.Err(), vk.ErrVulkanInFlight)
@@ -107,13 +107,13 @@ func TestVulkanJobJournalResumeAfterDrain(t *testing.T) {
 	var starts []int64
 	var calls int
 	var polls int
-	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
 		calls++
 		if calls == 1 {
-			e := fixtureWindows(&starts, 2)(ctx, r, total, first, emit)
+			e := fixtureWindows(&starts, 2)(ctx, r, total, first, resume, emit)
 			return errors.Join(e, vk.ErrVulkanInFlight)
 		}
-		return fixtureWindows(&starts, -1)(ctx, r, total, first, emit)
+		return fixtureWindows(&starts, -1)(ctx, r, total, first, resume, emit)
 	}
 	owner := mockVulkanJob(time.Millisecond, func(context.Context, time.Duration) error {
 		polls++
@@ -158,13 +158,13 @@ func TestVulkanJobCloseSerialisesAndRetainsFailedResources(t *testing.T) {
 	})
 	owner := &VulkanWhisperStage{s: s}
 	copyOwner := *owner
-	infer := s.wrap(func(context.Context, whisper.SampleReader, int64, int64, func(whisper.WindowTranscript) error) error {
+	infer := s.wrap(func(context.Context, whisper.SampleReader, int64, int64, *whisper.WindowResume, func(whisper.WindowTranscript) error) error {
 		close(entered)
 		<-release
 		return nil
 	})
 	done := make(chan error, 1)
-	go func() { done <- infer(context.Background(), nil, 0, 0, nil) }()
+	go func() { done <- infer(context.Background(), nil, 0, 0, nil, nil) }()
 	<-entered
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
@@ -178,7 +178,7 @@ func TestVulkanJobCloseSerialisesAndRetainsFailedResources(t *testing.T) {
 	if e := <-done; e != nil {
 		t.Fatal(e)
 	}
-	if e := infer(context.Background(), nil, 0, 0, nil); !errors.Is(e, ErrClosed) {
+	if e := infer(context.Background(), nil, 0, 0, nil, nil); !errors.Is(e, ErrClosed) {
 		t.Fatal("run after stopping", e)
 	}
 	if e := owner.Close(context.Background()); !errors.Is(e, io.ErrClosedPipe) {
@@ -316,10 +316,10 @@ func TestVulkanJobDrainIgnoresCancelledRequestAndFastTimeouts(t *testing.T) {
 	}, func() error { return nil })
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if e := s.wrap(func(context.Context, whisper.SampleReader, int64, int64, func(whisper.WindowTranscript) error) error {
+	if e := s.wrap(func(context.Context, whisper.SampleReader, int64, int64, *whisper.WindowResume, func(whisper.WindowTranscript) error) error {
 		t.Fatal("cancelled inference ran")
 		return nil
-	})(ctx, nil, 0, 0, nil); !errors.Is(e, context.Canceled) || polls != 0 {
+	})(ctx, nil, 0, 0, nil, nil); !errors.Is(e, context.Canceled) || polls != 0 {
 		t.Fatal(e, polls)
 	}
 	if e := s.acquire(nil); !errors.Is(e, ErrConfiguration) {

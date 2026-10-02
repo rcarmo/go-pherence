@@ -56,15 +56,7 @@ loop; the segment-run test fixed a 5× "I'm not an N8N expert." loop at 780 s.
 
 ## Known limits
 
-- A redeploy that changes the `speechjobserve` binary changes the runtime
-  hash in the profile identity. Unfinished jobs from the older runtime then
-  report `profile_available: false` and return `profile_changed` on retry.
-  The UI now says the engine was updated, hides Retry and offers "Upload
-  again" (Playwright-checked on the stale podcast job). `-trimpath` rebuilds
-  of the same source keep the hash, so UI-only redeploys do not invalidate
-  jobs. Cancelled jobs resume within the same runtime.
-- Resume replays completed windows to rebuild the rolling prompt, so a
-  resume saves little time. Storing each window's generated tokens in its
-  checkpoint would remove the replay.
-- Long-form accuracy is not measured against a reference transcript; the
-  checks above cover loops and failures only.
+All three limits recorded here were fixed afterwards: seek windows (Go had
+been dropping speech at 30 s boundaries), prompt-based resume, and retry
+after an engine update. See
+[transcribe-web-seek-resume-rebind-20261002.md](transcribe-web-seek-resume-rebind-20261002.md).

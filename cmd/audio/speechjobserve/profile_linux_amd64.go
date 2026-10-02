@@ -405,7 +405,7 @@ func buildProfileOwnedRuntimes(ctx context.Context, c ServerConfig, load bool, r
 	}
 	for i, opts := range profiles {
 		asr := asrStages[i]
-		text, err := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples})
+		text, err := speechjob.NewTranscriptStage(speechjob.TranscriptStageConfig{ASRVersion: asr.Version, Language: opts.Language, WindowSamples: int64(p.cfg.MaxLength) * 160, OverlapSamples: opts.OverlapSamples, SeekWindows: fast})
 		if err != nil {
 			closeBuiltProfiles(result)
 			return nil, err

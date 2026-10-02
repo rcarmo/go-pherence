@@ -33,13 +33,16 @@ type TranscriptStageConfig struct {
 	ASRVersion                    string
 	Language                      string
 	WindowSamples, OverlapSamples int64
+	// SeekWindows reads whisper.cpp seek windows (original compatibility):
+	// a chain of windows each starting at its predecessor's EmitEnd.
+	SeekWindows bool
 }
 
 func validateTranscriptStageConfig(cfg TranscriptStageConfig) error {
 	if !validHash(cfg.ASRVersion) {
 		return ErrConfiguration
 	}
-	if _, e := whisper.NewWindowPlan(0, cfg.WindowSamples, cfg.OverlapSamples); e != nil || cfg.OverlapSamples > cfg.WindowSamples/2 {
+	if _, e := whisper.NewWindowPlan(0, cfg.WindowSamples, cfg.OverlapSamples); e != nil || cfg.OverlapSamples > cfg.WindowSamples/2 || cfg.SeekWindows && cfg.OverlapSamples != 0 {
 		return ErrConfiguration
 	}
 	return validateTranscript(context.Background(), Transcript{Schema: 2, SampleRate: 16000, Language: cfg.Language})
@@ -158,7 +161,9 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 	var textBytes int
 	detected := map[string]bool{}
 	raw := make([]rawCue, 0)
-	for i := int64(0); i < plan.Count(); i++ {
+	geometry := windowGeometry{plan: plan, seek: cfg.SeekWindows, total: total, length: cfg.WindowSamples}
+	var start int64
+	for i := int64(0); !geometry.done(i, start); i++ {
 		line, e := readASRLine(ctx, r, &consumed)
 		if e != nil {
 			return zero, fmt.Errorf("read ASR window %d: %w", i, e)
@@ -175,9 +180,10 @@ func reconcileASR(ctx context.Context, reader io.Reader, total int64, key string
 		if !bytes.Equal(canonical, line) || record.Schema != 1 || record.Key != key || record.Result.Window.Index != i {
 			return zero, ErrCorrupt
 		}
-		if e = validateWindow(record.Result, plan, 448, 51866); e != nil {
+		if e = validateWindow(record.Result, geometry, i, start, 448, 51866); e != nil {
 			return zero, e
 		}
+		start = record.Result.Window.EmitEnd
 		if cfg.Language == "auto" {
 			if len(record.Result.Language) < 2 {
 				return zero, fmt.Errorf("%w: missing detected language", ErrCorrupt)

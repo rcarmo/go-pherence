@@ -23,7 +23,7 @@ func fixturePCMStage(samples int) Stage {
 	})
 }
 func fixtureWindows(firstSeen *[]int64, failAt int64) windowInfer {
-	return func(ctx context.Context, source whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+	return func(ctx context.Context, source whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
 		*firstSeen = append(*firstSeen, first)
 		plan, e := whisper.NewWindowPlan(total, 320, 160)
 		if e != nil {
@@ -189,8 +189,8 @@ func TestWhisperWindowPublicationRetryAndConflict(t *testing.T) {
 	}
 	s.fault = nil
 	original := fixtureWindows(&starts, -1)
-	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
-		return original(ctx, r, total, first, func(w whisper.WindowTranscript) error {
+	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
+		return original(ctx, r, total, first, resume, func(w whisper.WindowTranscript) error {
 			w.Segments[0].Text = "changed under same identity"
 			return emit(w)
 		})
@@ -210,11 +210,11 @@ func TestWhisperJournalAdmissionValidationCancel(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			original := fixtureWindows(&starts, -1)
-			infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+			infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
 				if kind == "incomplete" {
 					return nil
 				}
-				return original(ctx, r, total, first, func(w whisper.WindowTranscript) error {
+				return original(ctx, r, total, first, resume, func(w whisper.WindowTranscript) error {
 					switch kind {
 					case "bad-order":
 						w.Window.Index++
@@ -405,10 +405,10 @@ func TestWhisperJournalMoreThanHundredWindows(t *testing.T) {
 func TestWhisperJournalIgnoredCallbackErrorFailsClosed(t *testing.T) {
 	s, _ := openTest(t)
 	job := createTest(t, s)
-	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
+	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
 		_ = emit(whisper.WindowTranscript{})
 		var starts []int64
-		_ = fixtureWindows(&starts, -1)(ctx, r, total, first, emit)
+		_ = fixtureWindows(&starts, -1)(ctx, r, total, first, resume, emit)
 		return nil
 	}
 	st := whisperWindowStage(hash([]byte("ignored-error")), 320, 160, 4096, 128<<10, 448, 51865, infer)
@@ -463,5 +463,85 @@ func TestWhisperConstructorBounds(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "0")
 	if _, e := NewWhisperWindowStage(model, tok, good); e == nil {
 		t.Fatal("unrestricted GPU accepted")
+	}
+}
+
+// Original-compatible (whisper.cpp seek) windows persist the rolling prompt
+// and chain by EmitEnd; a resume receives the next seek and prompt of the last
+// acknowledged window, and the transcript stage reads the chain to its end.
+func TestWhisperSeekJournalResumeAndReconcile(t *testing.T) {
+	const total, length, step = 48000, 16000, 8000
+	s, _ := openTest(t)
+	job := createTest(t, s)
+	var firsts []int64
+	var resumes []string
+	infer := func(failAt int64) windowInfer {
+		return func(ctx context.Context, r whisper.SampleReader, n, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
+			firsts = append(firsts, first)
+			start := int64(0)
+			if resume == nil {
+				resumes = append(resumes, "nil")
+			} else {
+				start = resume.Start
+				resumes = append(resumes, fmt.Sprint(resume.Start, resume.Prompt))
+			}
+			for i := first; !whisper.WhisperSeekDone(start, n); i++ {
+				if i == failAt {
+					return io.ErrUnexpectedEOF
+				}
+				valid := min(int64(length), n-start)
+				w := whisper.Window{Index: i, Start: start, End: start + valid, EmitStart: start, EmitEnd: min(start+step, start+valid), InputSamples: length, PadSamples: length - valid}
+				p := []int{100 + int(i), 7}
+				if i == 0 {
+					p = []int{} // an empty context is persisted, not omitted
+				}
+				segment := whisper.Segment{Start: float64(start) / 16000, End: float64(start+800) / 16000, Text: fmt.Sprintf("window%d", i), Tokens: []int{42}}
+				if e := emit(whisper.WindowTranscript{Window: w, Segments: []whisper.Segment{segment}, Prompt: &p}); e != nil {
+					return e
+				}
+				start = w.EmitEnd
+			}
+			return nil
+		}
+	}
+	version := hash([]byte("seek-v1"))
+	st := func(failAt int64) Stage {
+		return whisperWindowStageMode(true, version, length, 0, 4096, 128<<10, 448, 51865, infer(failAt))
+	}
+	if _, e := s.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(total), st(2)}, nil); !errors.Is(e, io.ErrUnexpectedEOF) {
+		t.Fatal(e)
+	}
+	job, e := s.Run(context.Background(), job.ID, config, []Stage{fixturePCMStage(total), st(-1)}, nil)
+	if e != nil || fmt.Sprint(firsts) != "[0 2]" || fmt.Sprint(resumes) != "[nil 16000 [101 7]]" {
+		t.Fatal(job, e, firsts, resumes)
+	}
+	r, e := s.OpenCheckpoint(context.Background(), job.ID, "asr-windows")
+	raw := readAll(t, r, e)
+	rows := strings.Split(strings.TrimSpace(raw), "\n")
+	if len(rows) != 6 { // starts 0, 0.5 … 2.5 s; the next seek is within delta_min of the end
+		t.Fatal("windows", len(rows))
+	}
+	for i, row := range rows {
+		var record windowRecord
+		if e = json.Unmarshal([]byte(row), &record); e != nil || record.Prompt == nil || (i == 0) != (len(*record.Prompt) == 0) || record.Result.Window.Start != int64(i)*step {
+			t.Fatal(i, row, e)
+		}
+	}
+	var first windowRecord
+	_ = json.Unmarshal([]byte(rows[0]), &first)
+	key := first.Key
+	cfg := TranscriptStageConfig{ASRVersion: version, Language: "en", WindowSamples: length, SeekWindows: true}
+	transcript, e := reconcileASR(context.Background(), strings.NewReader(raw), total, key, cfg)
+	if e != nil || len(transcript.Cues) != 6 || transcript.Cues[5].Text != "window5" {
+		t.Fatal(transcript, e)
+	}
+	cfg.SeekWindows = false // a fixed plan rejects seek geometry
+	if _, e := reconcileASR(context.Background(), strings.NewReader(raw), total, key, cfg); e == nil {
+		t.Fatal("fixed plan accepted seek windows")
+	}
+	for _, bad := range [][]int{{-1}, {51865}, make([]int, maxWindowPrompt+1)} {
+		if validWindowPrompt(&bad, 51865) {
+			t.Fatal("invalid prompt accepted", len(bad))
+		}
 	}
 }
