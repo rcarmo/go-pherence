@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"runtime"
 	"sync"
 )
 
@@ -22,6 +23,8 @@ var whisperExactTables struct {
 	fft400     whisperFFT400Plan
 	filters    []float64 // [bin, mel], matching Transformers (80 bands)
 	filters128 []float64
+	// Per-mel [lo, hi) bin spans outside which the filter is exactly zero.
+	spans, spans128 [][2]int
 }
 
 // WhisperLogMel80 computes the Transformers WhisperFeatureExtractor contract:
@@ -165,35 +168,34 @@ func whisperLogMelRaw(ctx context.Context, samples []float32, numMels int) ([]fl
 	if numMels == 128 {
 		filters = whisperExactTables.filters128
 	}
+	spans := whisperExactTables.spans
+	if numMels == 128 {
+		spans = whisperExactTables.spans128
+	}
 	centered := reflectCenter(samples, whisperFFTSize/2)
-	power := make([]float64, whisperBins)
-	windowed := make([]float64, whisperFFTSize)
-	fftScratch := make([]complex128, whisperFFTSize)
+	// Frames are independent; each worker keeps the exact per-frame arithmetic
+	// and its own scratch. The maximum is order-independent.
+	workers := max(1, min(whisperMelWorkers, runtime.GOMAXPROCS(0), frames/64))
+	chunk := (frames + workers - 1) / workers
+	maxes := make([]float32, workers)
+	errs := make([]error, workers)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		lo, hi := w*chunk, min((w+1)*chunk, frames)
+		wg.Add(1)
+		go func(w, lo, hi int) {
+			defer wg.Done()
+			maxes[w], errs[w] = whisperLogMelFrames(ctx, out, centered, filters, spans, numMels, frames, lo, hi)
+		}(w, lo, hi)
+	}
+	wg.Wait()
 	maxLog := float32(-math.MaxFloat32)
-	for frame := 0; frame < frames; frame++ {
-		if err := ctx.Err(); err != nil {
-			return nil, 0, 0, err
+	for w := range maxes {
+		if errs[w] != nil {
+			return nil, 0, 0, errs[w]
 		}
-		start := frame * whisperHop
-		for sample := range windowed {
-			windowed[sample] = float64(centered[start+sample]) * whisperExactTables.window[sample]
-		}
-		if !whisperExactTables.fft400.powerSpectrum400(power, windowed, fftScratch) {
-			return nil, 0, 0, fmt.Errorf("Whisper FFT400 rejected fixed geometry")
-		}
-		for mel := 0; mel < numMels; mel++ {
-			energy := float64(0)
-			for bin := 0; bin < whisperBins; bin++ {
-				energy += filters[bin*numMels+mel] * power[bin]
-			}
-			if energy < 1e-10 {
-				energy = 1e-10
-			}
-			value := float32(math.Log10(energy))
-			out[mel*frames+frame] = value
-			if value > maxLog {
-				maxLog = value
-			}
+		if maxes[w] > maxLog {
+			maxLog = maxes[w]
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -218,6 +220,29 @@ func initWhisperExactTables() {
 	t.fft400 = newWhisperFFT400Plan()
 	t.filters = whisperSlaneyFilters()
 	t.filters128 = whisperSlaneyFiltersFor(128)
+	t.spans = whisperFilterSpans(t.filters, 80)
+	t.spans128 = whisperFilterSpans(t.filters128, 128)
+}
+
+// whisperFilterSpans returns each mel's nonzero bin range. Skipping exact-zero
+// weights is bit-exact: the power spectrum is finite and non-negative, the sum
+// starts at +0, and adding +0*power never changes it; retained terms keep
+// their ascending-bin order.
+func whisperFilterSpans(filters []float64, numMels int) [][2]int {
+	spans := make([][2]int, numMels)
+	for mel := range spans {
+		lo, hi := whisperBins, 0
+		for bin := 0; bin < whisperBins; bin++ {
+			if filters[bin*numMels+mel] != 0 {
+				lo, hi = min(lo, bin), bin+1
+			}
+		}
+		if hi == 0 {
+			lo = 0
+		}
+		spans[mel] = [2]int{lo, hi}
+	}
+	return spans
 }
 
 func whisperSlaneyFilters() []float64 { return whisperSlaneyFiltersFor(80) }
@@ -279,4 +304,44 @@ func reflectCenter(samples []float32, padding int) []float32 {
 		out[padding+len(samples)+i] = samples[reflectIndex(len(samples)+i)]
 	}
 	return out
+}
+
+// whisperMelWorkers bounds mel frame parallelism (matching the CPU encoder's
+// four-worker budget).
+var whisperMelWorkers = 4
+
+func whisperLogMelFrames(ctx context.Context, out []float32, centered []float32, filters []float64, spans [][2]int, numMels, frames, lo, hi int) (float32, error) {
+	power := make([]float64, whisperBins)
+	windowed := make([]float64, whisperFFTSize)
+	fftScratch := make([]complex128, whisperFFTSize)
+	maxLog := float32(-math.MaxFloat32)
+	for frame := lo; frame < hi; frame++ {
+		if (frame-lo)%64 == 0 {
+			if err := ctx.Err(); err != nil {
+				return 0, err
+			}
+		}
+		start := frame * whisperHop
+		for sample := range windowed {
+			windowed[sample] = float64(centered[start+sample]) * whisperExactTables.window[sample]
+		}
+		if !whisperExactTables.fft400.powerSpectrum400(power, windowed, fftScratch) {
+			return 0, fmt.Errorf("Whisper FFT400 rejected fixed geometry")
+		}
+		for mel := 0; mel < numMels; mel++ {
+			energy := float64(0)
+			for bin := spans[mel][0]; bin < spans[mel][1]; bin++ {
+				energy += filters[bin*numMels+mel] * power[bin]
+			}
+			if energy < 1e-10 {
+				energy = 1e-10
+			}
+			value := float32(math.Log10(energy))
+			out[mel*frames+frame] = value
+			if value > maxLog {
+				maxLog = value
+			}
+		}
+	}
+	return maxLog, nil
 }

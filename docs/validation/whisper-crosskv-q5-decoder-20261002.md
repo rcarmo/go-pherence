@@ -51,11 +51,41 @@ The GPU cross K/V column shows two separate runs. The Q5 column ran interleaved 
 
 JFK decoder phases (self / cross / MLP / head): 0.104 / 0.213 / 0.168 / 0.169 s became 0.047 / 0.153 / 0.087 / 0.084 s. The remaining cross phase is mostly CPU cross-attention over 1,500 keys.
 
-## Remaining gap (JFK 4.06 s vs 3.02 s)
+## Follow-up: parallel cross-attention heads and sparse mel
 
-- Encoder: 3.49 s vs 2.78 s. Projections (vector loads / Q8_1 x4 layout) and attention (flash attention, F16 K/V) are the targets.
-- Decoder: 0.36 s vs ~0.2 s. CPU cross-attention, then batched prompt tokens.
-- Mel and window-compat pre-pass: about 0.18 s vs 0.01 s.
+Both changes are exact:
+
+- **Parallel cross-attention heads.** The attached fast decoder splits unobserved cross-attention heads across workers. Each head keeps its serial arithmetic and writes only its own output slice. Alignment-observed attention stays serial.
+- **Sparse mel filterbank.** The filterbank sums only each mel's non-zero bin span. The power spectrum is finite and non-negative, and adding `+0·power` to a sum that starts at +0 never changes it. Retained terms keep ascending bin order. Frames are split across up to 4 workers.
+
+Mel output and maximum are bit-identical to the dense serial loop for 80 and 128 bands, window lengths 160–480,000 samples, at 1, 3 and 4 workers. Parallel heads are bit-identical at 2, 3, 4 and 7 workers, with 0 and 36 padded keys. Mel time per 30 s window fell from 93 ms to 12.5 ms.
+
+| Fixture | Q5 decoder | **+ parallel heads, sparse mel** | Output |
+|---|---:|---:|---|
+| JFK | 4.064 | **3.825** | same |
+| PT row 0 | 4.054 | **3.784** | same |
+| FR row 0 | 3.842 | **3.662** | same |
+| JFK VAD+words | 4.439 | **4.153** | same |
+| groups | 8.970 | **8.344** | same |
+| PT2 | 8.912 | **8.118** | same |
+| podcast | 4.854 | **4.410** | same |
+| podcast VAD+words | 5.871 | **5.462** | same |
+| PT1 | 3.851 | **3.690** | same |
+| silence | 0.021 | 0.021 | same |
+
+JFK stages (median request) are now:
+
+| Stage | Time |
+|---|---:|
+| mel | 0.012 s |
+| encoder | 3.529 s |
+| decoder state | 0.021 s |
+| decoder: self / cross / MLP / head | 0.038 / 0.062 / 0.066 / 0.068 s |
+
+## Remaining gap (JFK 3.83 s vs 3.02 s)
+
+- Encoder: 3.53 s vs 2.78 s. This is now almost the whole gap. Targets are projections (Q8_1 x4 layout / 128-bit loads) and attention (flash attention, F16 K/V).
+- Decoder: 0.23 s vs ~0.2 s. Prompt tokens are still decoded one at a time, which matters for multi-window clips.
 
 ## Evidence
 
@@ -64,6 +94,7 @@ JFK decoder phases (self / cross / MLP / head): 0.104 / 0.213 / 0.168 / 0.169 s 
 - `stageprof-mmqtanh.json`: fenced operator profile;
 - `xkvbase-*`, `xkv-*`: GPU cross K/V arms;
 - `q5ref-*`, `q5dec-*`: Q5 decoder arms;
+- `fast2-*`: parallel-heads / sparse-mel arm;
 - driver scripts and logs, plus `SHA256SUMS`.
 
 All runs used the isolated window: CPU4, 8 GiB, no swap, physical Intel Iris Xe, Qwen idle. The first cross-K/V drive was interrupted after 4 runs (logged), and the remaining 16 ran in a fresh window.

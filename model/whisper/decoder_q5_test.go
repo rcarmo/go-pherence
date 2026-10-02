@@ -126,3 +126,26 @@ func TestLinearQ5IntoMatchesLinearInto(t *testing.T) {
 		}
 	}
 }
+
+func TestCrossAttentionParallelHeadsExact(t *testing.T) {
+	r := rand.New(rand.NewSource(11))
+	heads, hd, seq := 20, 64, 1500
+	q, k, v := make([]float32, heads*hd), make([]float32, heads*seq*hd), make([]float32, heads*seq*hd)
+	for _, s := range [][]float32{q, k, v} {
+		for i := range s {
+			s[i] = float32(r.NormFloat64())
+		}
+	}
+	for _, pad := range []int{0, 36} {
+		want, got := make([]float32, heads*hd), make([]float32, heads*hd)
+		crossAttentionHeadMajorPadded(want, q, k, v, seq, heads, hd, make([]float32, seq), 0, 0, nil, pad)
+		for _, workers := range []int{2, 3, 4, 7} {
+			crossAttentionHeadMajorParallel(got, q, k, v, seq, heads, hd, make([]float32, workers*seq), 0, 0, nil, pad, workers)
+			for i := range want {
+				if math.Float32bits(want[i]) != math.Float32bits(got[i]) {
+					t.Fatalf("pad=%d workers=%d out %d", pad, workers, i)
+				}
+			}
+		}
+	}
+}

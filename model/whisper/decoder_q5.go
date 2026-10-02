@@ -21,6 +21,8 @@ type decoderLayerQ5 struct {
 // and the kernel accumulates in Sdot's order, so logits are bit-identical to
 // the F32 decoder while reading ~5.8x fewer weight bytes. Explicit only; there
 // is no fallback: unsupported CPUs, int8 or GPU decoder paths are rejected.
+// The attached (fast) decoder also splits unobserved cross-attention heads
+// across workers; per-head arithmetic is unchanged, so results stay identical.
 func (dec *Decoder) attachOriginalQ5(ctx context.Context, file *legacy.File) error {
 	if ctx == nil || dec == nil || file == nil {
 		return fmt.Errorf("whisper Q5 decoder: nil argument")

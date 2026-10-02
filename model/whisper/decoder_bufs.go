@@ -10,24 +10,26 @@ import (
 // decoderBufs holds pre-allocated working buffers for one decoder forward token step.
 // This eliminates per-token allocations in the hot path.
 type decoderBufs struct {
-	dModel     int
-	ffnDim     int
-	x          []float32
-	normed     []float32
-	q, k, v    []float32
-	selfOut    []float32
-	proj       []float32
-	crossQ     []float32
-	crossOut   []float32
-	crossProj  []float32
-	mlpIn      []float32
-	hidden     []float32
-	mlpOut     []float32
-	scores     []float32
-	gpuX       *nv.DevBuf
-	gpuOut     *nv.DevBuf
-	gpuAttnOut *nv.DevBuf
-	gpuLogits  *nv.DevBuf
+	dModel    int
+	ffnDim    int
+	x         []float32
+	normed    []float32
+	q, k, v   []float32
+	selfOut   []float32
+	proj      []float32
+	crossQ    []float32
+	crossOut  []float32
+	crossProj []float32
+	mlpIn     []float32
+	hidden    []float32
+	mlpOut    []float32
+	scores    []float32
+	// Per-worker cross-attention scores for the parallel-head fast decoder.
+	crossScores []float32
+	gpuX        *nv.DevBuf
+	gpuOut      *nv.DevBuf
+	gpuAttnOut  *nv.DevBuf
+	gpuLogits   *nv.DevBuf
 }
 
 func newDecoderBufs(cfg Config) *decoderBufs {

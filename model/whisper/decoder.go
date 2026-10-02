@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -357,7 +359,14 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 			// Alignment explicitly observes the same CPU probabilities used for
 			// this attention result; it never combines hidden GPU output with a
 			// separately reconstructed diagnostic row.
-			crossAttentionHeadMajorPadded(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver, state.crossPadKeys)
+			if dec.q5Layers != nil {
+				if need := linearWorkers * encLen; len(bufs.crossScores) < need {
+					bufs.crossScores = make([]float32, need)
+				}
+				crossAttentionHeadMajorParallel(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.crossScores, l, pos, state.CrossAttentionObserver, state.crossPadKeys, min(linearWorkers, runtime.GOMAXPROCS(0)))
+			} else {
+				crossAttentionHeadMajorPadded(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver, state.crossPadKeys)
+			}
 		}
 		decoderLinear(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, q5.crossO, layer.CrossOBias, dModel, dModel)
 		for d := range x {
@@ -503,7 +512,34 @@ func crossAttentionHeadMajorPadded(out, q, kHead, vHead []float32, seqKV, numHea
 		scores = make([]float32, seqKV)
 	}
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
-	for h := 0; h < numHeads; h++ {
+	crossAttentionHeads(out, q, kHead, vHead, seqKV, headDim, scores, layer, position, observe, padKeys, scale, 0, numHeads)
+}
+
+// crossAttentionHeadMajorParallel splits heads across workers. Each head keeps
+// the exact serial arithmetic and writes only its own output slice, so results
+// are bit-identical. Observed (alignment) runs stay serial in head order.
+func crossAttentionHeadMajorParallel(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scratch []float32, layer, position int, observe CrossAttentionObserver, padKeys, workers int) {
+	workers = min(workers, numHeads)
+	if observe != nil || workers <= 1 || seqKV <= 0 || len(scratch) < workers*seqKV {
+		crossAttentionHeadMajorPadded(out, q, kHead, vHead, seqKV, numHeads, headDim, scratch, layer, position, observe, padKeys)
+		return
+	}
+	zeroFloat32s(out[:numHeads*headDim])
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+	chunk := (numHeads + workers - 1) / workers
+	var wg sync.WaitGroup
+	for w, lo := 0, 0; lo < numHeads; w, lo = w+1, lo+chunk {
+		wg.Add(1)
+		go func(scores []float32, lo, hi int) {
+			defer wg.Done()
+			crossAttentionHeads(out, q, kHead, vHead, seqKV, headDim, scores, layer, position, nil, padKeys, scale, lo, hi)
+		}(scratch[w*seqKV:(w+1)*seqKV], lo, min(lo+chunk, numHeads))
+	}
+	wg.Wait()
+}
+
+func crossAttentionHeads(out, q, kHead, vHead []float32, seqKV, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver, padKeys int, scale float32, h0, h1 int) {
+	for h := h0; h < h1; h++ {
 		hOff := h * headDim
 		qHead := q[hOff : hOff+headDim]
 		base := h * seqKV * headDim // contiguous block for this head
