@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeQ5IntegerDotMMQExact
+    vulkan_q5_integer_mmq_native_test.go:98: Q5 integer-dot MMQ scratch must be 16-byte aligned
+--- FAIL: TestVulkanNativeQ5IntegerDotMMQExact (0.13s)
+FAIL

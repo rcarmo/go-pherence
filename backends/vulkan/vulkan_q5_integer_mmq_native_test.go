@@ -79,7 +79,7 @@ func TestVulkanNativeQ5IntegerDotMMQExact(t *testing.T) {
 			t.Fatal(e)
 		}
 		nativeClose(t, mmq)
-		a, e := NewVkTensorArena(ctx, 4*(shape.rows*shape.in+shape.out+2*shape.rows*shape.out+2*shape.rows*nb*9)+(16<<10))
+		a, e := NewVkTensorArena(ctx, 4*(shape.rows*shape.in+shape.out+2*shape.rows*shape.out+3*shape.rows*nb*9)+(16<<10))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -90,7 +90,18 @@ func TestVulkanNativeQ5IntegerDotMMQExact(t *testing.T) {
 		outBase := nativeTensor(t, a, nil, shape.rows, shape.out)
 		outMMQ := nativeTensor(t, a, nil, shape.rows, shape.out)
 		qBase := nativeTensor(t, a, nil, shape.rows*nb*9)
-		qMMQ := nativeTensor(t, a, nil, shape.rows*nb*9)
+		qMMQ, e := a.AllocF32Aligned(ctx, 16, shape.rows*nb*9) // uvec4 activation view
+		if e != nil {
+			t.Fatal(e)
+		}
+		nativeTensor(t, a, nil, 1) // shift by 4 bytes so the next view can be misaligned
+		if mis, e := a.AllocF32(ctx, shape.rows*nb*9); e != nil {
+			t.Fatal(e)
+		} else if mis.offset%16 != 0 {
+			if _, e := mmq.Stages(ctx, 0, outMMQ, tx, bias, mis); e == nil {
+				t.Fatal("misaligned MMQ scratch accepted")
+			}
+		}
 		right := nativeGuard(t, a)
 		plan := func(op *VkLinearQ5IntegerDotSet, out, q *VkTensorF32) *VkF32Plan {
 			stages, e := op.Stages(ctx, 0, out, tx, bias, q)

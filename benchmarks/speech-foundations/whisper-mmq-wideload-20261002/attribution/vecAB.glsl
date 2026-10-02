@@ -5,13 +5,11 @@
 // F32 epilogue are identical to linear.glsl: precise dot*ds.x-16*ds.y, then
 // fma(d,corrected,acc) in increasing block order, bias added last.
 // Requires K%128==0. Weight blocks: [d|0, qh, qs0..qs3]; activations: [ds, q0..q7].
-// Activations are read as uvec4 (each row's four-block step is 36 contiguous,
-// 16-byte-aligned words); shared-memory layout and arithmetic are unchanged.
 layout(local_size_x=128) in;
-layout(set=0,binding=1) readonly buffer W {uint w[];};
 layout(set=0,binding=2) readonly buffer B {float bias[];};
 layout(set=0,binding=3) buffer Y {float y[];};
 layout(set=0,binding=0) readonly buffer X4 {uvec4 x4[];};
+layout(set=0,binding=1) readonly buffer W2 {uvec2 w2[];};
 layout(push_constant) uniform P {uint M;uint K;uint N;};
 const uint STEP=4;
 shared uint as_[64*STEP*9];
@@ -23,11 +21,12 @@ void main(){
  float acc[4][8];
  for(uint i=0;i<4;i++)for(uint j=0;j<8;j++)acc[i][j]=0.0;
  for(uint block=0;block<nb;block+=STEP){
-  // A: 64 features x STEP blocks, unpack to 8 signed-free bytes (0..31) per block.
+  // A: 64 features x STEP blocks, three uvec2 loads per 6-word block.
   for(uint item=tid;item<64*STEP;item+=128){
    uint f=item/STEP,s=item%STEP,c=col0+f;uint dst=(s*64+f)*9;
-   if(c<N){uint base=(c*nb+block+s)*6;uint qh=w[base+1];as_[dst]=w[base];
-    for(uint i=0;i<4;i++){uint vui=w[base+2+i];uint lo=vui&0x0F0F0F0Fu,hi=(vui>>4)&0x0F0F0F0Fu;
+   if(c<N){uint base2=(c*nb+block+s)*3;uvec2 p0=w2[base2],p1=w2[base2+1],p2=w2[base2+2];
+    uint qh=p0.y;as_[dst]=p0.x;uint q[4];q[0]=p1.x;q[1]=p1.y;q[2]=p2.x;q[3]=p2.y;
+    for(uint i=0;i<4;i++){uint vui=q[i];uint lo=vui&0x0F0F0F0Fu,hi=(vui>>4)&0x0F0F0F0Fu;
      uint h0=(((qh>>(4*i))&0xFu)*0x02040810u)&0x10101010u;uint h1=(((qh>>(16+4*i))&0xFu)*0x02040810u)&0x10101010u;
      as_[dst+1+i]=lo|h0;as_[dst+5+i]=hi|h1;}
    }else{for(uint g=0;g<9;g++)as_[dst+g]=0;}

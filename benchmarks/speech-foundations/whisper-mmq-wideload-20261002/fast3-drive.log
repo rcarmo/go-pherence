@@ -1,0 +1,12 @@
+mmqexact rc=1
+fast3 jfk rc=0
+fast3 pt rc=0
+fast3 fr rc=0
+fast3 jfk-vadwords rc=0
+fast3 groups rc=0
+fast3 pt2 rc=0
+fast3 podcast rc=0
+fast3 podcast-vadwords rc=0
+fast3 pt1 rc=0
+fast3 silence rc=0
+DRIVE_DONE

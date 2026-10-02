@@ -313,7 +313,7 @@ func newVulkanEncoderBuild(ctx context.Context, source *Encoder, frames int, mak
 	allSpecs := append(append([][]vkEncoderTensor(nil), weightSpecs...), layout.scratch)
 	sizes := make([]uint64, len(allSpecs))
 	for i, specs := range allSpecs {
-		sizes[i], err = vkEncoderArenaBytes(specs, limits.StorageBufferOffsetAlignment)
+		sizes[i], err = vkEncoderArenaBytes(specs, vkEncoderTensorAlignment(limits.StorageBufferOffsetAlignment))
 		if err != nil {
 			return nil, err
 		}
@@ -507,7 +507,7 @@ func newVulkanEncoderBuild(ctx context.Context, source *Encoder, frames int, mak
 		s.resources = append(s.resources, arena)
 		for _, spec := range specs {
 			var t *vk.VkTensorF32
-			t, err = arena.AllocF32(ctx, spec.shape...)
+			t, err = arena.AllocF32Aligned(ctx, vkEncoderTensorAlignment(limits.StorageBufferOffsetAlignment), spec.shape...)
 			if err != nil {
 				return nil, err
 			}
@@ -849,4 +849,14 @@ func addVulkanEncoderCrossKV(layout *vkEncoderLayout, dec *Decoder, mode vulkanL
 	layout.scratch = scratch
 	layout.plans = append(append([][]vkEncoderStep(nil), layout.plans[:len(layout.plans)-1]...), final)
 	return nil
+}
+
+// vkEncoderTensorAlignment aligns every encoder tensor to at least 16 bytes so
+// wide (uvec4) shader views, such as the MMQ Q8_1 activation reads, are valid
+// even on devices reporting a 4-byte storage offset alignment.
+func vkEncoderTensorAlignment(device uint64) uint64 {
+	if device < 16 {
+		return 16
+	}
+	return device
 }

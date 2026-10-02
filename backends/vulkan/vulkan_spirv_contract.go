@@ -412,7 +412,7 @@ func vkInspectSPIRVMode(w []uint32, integerDot bool) (VulkanShaderContract, erro
 		}
 	}
 	contract.SharedBytes = uint32(shared)
-	bindings, pushBytes, err := layout.inspect(types, w[1])
+	bindings, pushBytes, err := layout.inspect(types, w[1], integerDot)
 	if err != nil {
 		return fail(err.Error())
 	}

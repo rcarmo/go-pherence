@@ -5,13 +5,11 @@
 // F32 epilogue are identical to linear.glsl: precise dot*ds.x-16*ds.y, then
 // fma(d,corrected,acc) in increasing block order, bias added last.
 // Requires K%128==0. Weight blocks: [d|0, qh, qs0..qs3]; activations: [ds, q0..q7].
-// Activations are read as uvec4 (each row's four-block step is 36 contiguous,
-// 16-byte-aligned words); shared-memory layout and arithmetic are unchanged.
 layout(local_size_x=128) in;
+layout(set=0,binding=0) readonly buffer X {uint x[];};
 layout(set=0,binding=1) readonly buffer W {uint w[];};
 layout(set=0,binding=2) readonly buffer B {float bias[];};
 layout(set=0,binding=3) buffer Y {float y[];};
-layout(set=0,binding=0) readonly buffer X4 {uvec4 x4[];};
 layout(push_constant) uniform P {uint M;uint K;uint N;};
 const uint STEP=4;
 shared uint as_[64*STEP*9];
@@ -32,15 +30,10 @@ void main(){
      as_[dst+1+i]=lo|h0;as_[dst+5+i]=hi|h1;}
    }else{for(uint g=0;g<9;g++)as_[dst+g]=0;}
   }
-  // B: 64 rows x STEP blocks x 9 words, read as 9 uvec4 per row (16-byte aligned).
-  for(uint item=tid;item<64*9;item+=128){
-   uint r=item/9,o4=item%9,row=row0+r;uvec4 v;
-   if(row<M){v=x4[(row*nb+block)*9/4+o4];}else{v=uvec4(0u);}
-   uint o=o4*4;
-   bs_[((o/9)*64+r)*9+o%9]=v.x;o++;
-   bs_[((o/9)*64+r)*9+o%9]=v.y;o++;
-   bs_[((o/9)*64+r)*9+o%9]=v.z;o++;
-   bs_[((o/9)*64+r)*9+o%9]=v.w;
+  // B: 64 rows x STEP blocks x 9 words, contiguous per row.
+  for(uint item=tid;item<64*STEP*9;item+=128){
+   uint r=item/(STEP*9),o=item%(STEP*9),s=o/9,g=o%9,row=row0+r;
+   bs_[(s*64+r)*9+g]=row<M?x[(row*nb+block)*9+o]:0;
   }
   barrier();
   for(uint s=0;s<STEP;s++){

@@ -165,6 +165,11 @@ func (s *VkLinearQ5IntegerDotSet) Stages(ctx context.Context, index int, out, x,
 	if e != nil {
 		return nil, e
 	}
+	// The MMQ kernel reads Q8_1 activations as uvec4: require a 16-byte aligned
+	// scratch view (fail closed; no scalar fallback).
+	if s.mmq && qb.offset%16 != 0 {
+		return nil, fmt.Errorf("Q5 integer-dot MMQ scratch must be 16-byte aligned")
+	}
 	for _, b := range []vkBufferBinding{xb, yb, bb} {
 		if vkBindingsOverlap(qb, b) {
 			return nil, fmt.Errorf("Q5 integer-dot scratch overlap")

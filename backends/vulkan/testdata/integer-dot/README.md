@@ -7,7 +7,7 @@ Default shader admission refuses these optional arithmetic modules. `VulkanInitI
 - `q5q8`: independent-block Q5_0×Q8_1 correction in F32.
 - `linear`: K32 tiled Q5_0×Q8_1, F32 correction and explicit FMA across blocks, then F32 bias. This is not ordered F32 per-element arithmetic.
 - `q8-coop`: the same Q8_1 words as `q8`, computed by eight invocations per block with coalesced loads; maximum, invalid flags and integer sums are order-independent.
-- `linear-mmq`: the `linear` per-output arithmetic (integer block sums, precise `dot*ds.x-16*ds.y`, block-ordered FMA, bias last) on the original MMQ schedule: 128 invocations, 64×64 tile, four K blocks per shared-memory stage, register-resident Q5 unpack. Requires K%128==0.
+- `linear-mmq`: the `linear` per-output arithmetic (integer block sums, precise `dot*ds.x-16*ds.y`, block-ordered FMA, bias last) on the original MMQ schedule: 128 invocations, 64×64 tile, four K blocks per shared-memory stage, register-resident Q5 unpack. Requires K%128==0. Q8_1 activations are read as `uvec4` (explicit integer-dot admission of tightly strided unsigned `uvec2`/`uvec4` storage views); the scratch view must be 16-byte aligned.
 
 The explicit experimental `VkLinearQ5IntegerDotSet` embeds `q8` and `linear` (or `q8-coop` and `linear-mmq` through `NewVkLinearQ5IntegerDotMMQSetStream`) from `shaders/integer-dot/`; matching diagnostic copies remain here. The mode is not selected by defaults. Its trained Portuguese segment end regresses, so it has no overall timing/accuracy acceptance.
 

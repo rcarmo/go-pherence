@@ -68,6 +68,16 @@ func newVkTensorArena(ctx context.Context, capacityBytes int, flags uint32) (*Vk
 // dimensions>0 and the complete shape/rounded offset must fit before mutation.
 // Pending use of ANY view blocks reservations/transfers/Close for the arena.
 func (a *VkTensorArena) AllocF32(ctx context.Context, shape ...int) (*VkTensorF32, error) {
+	return a.AllocF32Aligned(ctx, 0, shape...)
+}
+
+// AllocF32Aligned is AllocF32 with the view offset additionally aligned to
+// align bytes (a power of two; 0 keeps the device storage alignment), e.g. for
+// shaders that read the view as uvec4.
+func (a *VkTensorArena) AllocF32Aligned(ctx context.Context, align uint64, shape ...int) (*VkTensorF32, error) {
+	if align&(align-1) != 0 || align > 1<<16 {
+		return nil, fmt.Errorf("Vulkan arena alignment must be a power of two up to64KiB")
+	}
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err
 	}
@@ -87,7 +97,8 @@ func (a *VkTensorArena) AllocF32(ctx context.Context, shape ...int) (*VkTensorF3
 		return nil, fmt.Errorf("Vulkan arena tensor count exceeds65536")
 	}
 	// Difference-based checks avoid overflowing used+alignment-1 or offset+size.
-	pad := (s.alignment - s.used%s.alignment) % s.alignment
+	alignment := max(s.alignment, align)
+	pad := (alignment - s.used%alignment) % alignment
 	if s.used > s.buffer.size || pad > s.buffer.size-s.used {
 		return nil, fmt.Errorf("Vulkan arena exhausted by alignment")
 	}

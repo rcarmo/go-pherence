@@ -5,8 +5,6 @@
 // F32 epilogue are identical to linear.glsl: precise dot*ds.x-16*ds.y, then
 // fma(d,corrected,acc) in increasing block order, bias added last.
 // Requires K%128==0. Weight blocks: [d|0, qh, qs0..qs3]; activations: [ds, q0..q7].
-// Activations are read as uvec4 (each row's four-block step is 36 contiguous,
-// 16-byte-aligned words); shared-memory layout and arithmetic are unchanged.
 layout(local_size_x=128) in;
 layout(set=0,binding=1) readonly buffer W {uint w[];};
 layout(set=0,binding=2) readonly buffer B {float bias[];};

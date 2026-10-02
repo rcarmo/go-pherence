@@ -1,0 +1,145 @@
+package vulkan
+
+import (
+	"context"
+	"encoding/binary"
+	"math"
+	"math/rand"
+	"os"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/rcarmo/go-pherence/half"
+)
+
+// Diagnostic only (archived after use): per-dispatch MMQ kernel time from 16
+// identical dispatches per plan, for source/ablation variants.
+func TestZZMMQAttributionDiagnostic(t *testing.T) {
+	if os.Getenv("MMQDIAG_VARIANTS") == "" {
+		t.Skip("diagnostic")
+	}
+	d, _ := t.Deadline()
+	ctx, cancel := context.WithDeadline(context.Background(), d.Add(-2*time.Second))
+	defer cancel()
+	if !VulkanInitIntegerDot() || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("device")
+	}
+	embedded := spirv_linear_q5_integer_dot_mmq
+	defer func() { spirv_linear_q5_integer_dot_mmq = embedded }()
+	const reps = 16
+	median := func(v []float64) float64 { sort.Float64s(v); return v[len(v)/2] }
+	for si, shape := range []struct{ rows, in, out int }{{1500, 1280, 1280}, {1500, 1280, 5120}, {1500, 5120, 1280}} {
+		rng := rand.New(rand.NewSource(int64(41 + si)))
+		nb := shape.in / 32
+		raw := make([]byte, shape.out*nb*22)
+		for b := 0; b < shape.out*nb; b++ {
+			p := raw[b*22 : (b+1)*22]
+			binary.LittleEndian.PutUint16(p, half.F32ToF16(float32(rng.Float64()*0.02+1e-4)))
+			rng.Read(p[2:])
+		}
+		x := make([]float32, shape.rows*shape.in)
+		for j := range x {
+			x[j] = float32(rng.NormFloat64())
+		}
+		bv := make([]float32, shape.out)
+		var baseOut []float32
+		for _, spec := range strings.Split(os.Getenv("MMQDIAG_VARIANTS"), ",") {
+			name, path, _ := strings.Cut(spec, "=")
+			spirv_linear_q5_integer_dot_mmq = embedded
+			if path != "" {
+				b, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				spirv_linear_q5_integer_dot_mmq = b
+			}
+			set, err := NewVkLinearQ5IntegerDotMMQSetStream(ctx, []VkLinearQ5Shape{{shape.out, shape.in}}, func(context.Context, int) ([]byte, error) { return raw, nil })
+			if err != nil {
+				t.Logf("MMQDIAG %s shape=%v create error: %v", name, shape, err)
+				continue
+			}
+			a, err := NewVkTensorArena(ctx, 4*(shape.rows*shape.in+shape.out+shape.rows*shape.out+shape.rows*nb*9)+(16<<10))
+			if err != nil {
+				t.Fatal(err)
+			}
+			tx, _ := a.AllocF32(ctx, shape.rows, shape.in)
+			tb, _ := a.AllocF32(ctx, shape.out)
+			ty, _ := a.AllocF32(ctx, shape.rows, shape.out)
+			tq, _ := a.AllocF32(ctx, shape.rows*nb*9)
+			if err := tx.Upload(ctx, x); err != nil {
+				t.Fatal(err)
+			}
+			if err := tb.Upload(ctx, bv); err != nil {
+				t.Fatal(err)
+			}
+			pair, err := set.Stages(ctx, 0, ty, tx, tb, tq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var qs, ms []VkF32Stage
+			for i := 0; i < reps; i++ {
+				qs, ms = append(qs, pair[0]), append(ms, pair[1])
+			}
+			pq, err := NewVkF32Plan(ctx, qs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pm, err := NewVkF32Plan(ctx, ms)
+			if err != nil {
+				t.Fatal(err)
+			}
+			time1 := func(p *VkF32Plan) float64 {
+				var v []float64
+				for r := 0; r < 6; r++ {
+					st := time.Now()
+					if err := p.Run(ctx); err != nil {
+						t.Fatal(err)
+					}
+					if r > 0 {
+						v = append(v, time.Since(st).Seconds()/reps*1000)
+					}
+				}
+				return median(v)
+			}
+			qms, mms := time1(pq), time1(pm)
+			out := make([]float32, shape.rows*shape.out)
+			if err := ty.Download(ctx, out); err != nil {
+				t.Fatal(err)
+			}
+			cmp := "base"
+			if baseOut == nil {
+				baseOut = out
+			} else {
+				diff := 0
+				for i := range out {
+					if math.Float32bits(out[i]) != math.Float32bits(baseOut[i]) {
+						diff++
+					}
+				}
+				cmp = map[bool]string{true: "BITEXACT", false: "differ"}[diff == 0]
+				if diff != 0 {
+					cmp += " n=" + itoa(diff)
+				}
+			}
+			t.Logf("MMQDIAG %s rows=%d in=%d out=%d quant_ms=%.3f mmq_ms=%.3f %s", name, shape.rows, shape.in, shape.out, qms, mms, cmp)
+			for _, c := range []interface{ Close() error }{pq, pm, a, set} {
+				if err := c.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	s := ""
+	for ; n > 0; n /= 10 {
+		s = string(rune('0'+n%10)) + s
+	}
+	return s
+}

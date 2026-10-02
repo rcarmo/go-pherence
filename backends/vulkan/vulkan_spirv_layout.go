@@ -18,7 +18,7 @@ type vkSPIRVLayout struct {
 // arrays, multiple sets, UBOs, nested blocks, matrices/vectors or decorated shared
 // layouts. Declarations are counted even if unused by main. General descriptor
 // liveness and instruction/variable-use validation still require spirv-val.
-func (l vkSPIRVLayout) inspect(types map[uint32]vkSPIRVType, version uint32) (uint32, uint32, error) {
+func (l vkSPIRVLayout) inspect(types map[uint32]vkSPIRVType, version uint32, integerDot bool) (uint32, uint32, error) {
 	fail := func(s string) (uint32, uint32, error) { return 0, 0, fmt.Errorf("shader interface: %s", s) }
 	dec := func(id, kind uint32) (uint32, bool) { v, ok := l.decorations[[2]uint32{id, kind}]; return v, ok }
 	scalar := func(id uint32) bool { t := types[id]; return t.op == 21 || t.op == 22 }
@@ -91,11 +91,20 @@ func (l vkSPIRVLayout) inspect(types map[uint32]vkSPIRVType, version uint32) (ui
 				return fail("storage member must start at0")
 			}
 			array := types[members[0]]
-			if array.op != 29 || !scalar(array.a) {
+			stride, ok := dec(members[0], 6)
+			// Explicit integer-dot mode also admits uvec2/uvec4 element views
+			// (unsigned 32-bit components, tightly strided) for wide loads.
+			elem := types[array.a]
+			comp := types[elem.a]
+			wide := integerDot && elem.op == 23 && (elem.b == 2 || elem.b == 4) && comp.op == 21 && comp.a == 32 && comp.b == 0
+			if array.op != 29 || (!scalar(array.a) && !wide) {
 				return fail("storage requires runtime array of32-bit scalars")
 			}
-			stride, ok := dec(members[0], 6)
-			if !ok || stride != 4 {
+			if wide {
+				if !ok || stride != 4*elem.b {
+					return fail("storage vector stride must equal its size")
+				}
+			} else if !ok || stride != 4 {
 				return fail("storage scalar stride must be4")
 			}
 		case 9:
