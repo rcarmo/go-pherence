@@ -10,25 +10,7 @@ import (
 func TestDecoderAdvanceTokenExact(t *testing.T) {
 	for _, compat := range []bool{false, true} {
 		cfg, dec, enc, frames := syntheticDecoderStateFixture()
-		d, f := cfg.DecoderDModel, cfg.DecoderFFNDim
-		seed := 0
-		fill := func(n int, scale float32) []float32 {
-			v := make([]float32, n)
-			for i := range v {
-				seed = (seed*1103515245 + 12345) & 0x7fffffff
-				v[i] = (float32(seed%2001)/1000 - 1) * scale
-			}
-			return v
-		}
-		dec.TokenEmbed, dec.PosEmbed = fill(cfg.VocabSize*d, 0.5), fill(cfg.MaxDecoderLength*d, 0.3)
-		dec.FinalLNWeight, dec.FinalLNBias = fill(d, 1), fill(d, 0.1)
-		for l := range dec.Layers {
-			L := &dec.Layers[l]
-			L.SelfAttnLNWeight, L.SelfAttnLNBias, L.CrossAttnLNWeight, L.CrossAttnLNBias, L.MLPLNWeight, L.MLPLNBias = fill(d, 1), fill(d, 0.1), fill(d, 1), fill(d, 0.1), fill(d, 1), fill(d, 0.1)
-			L.SelfQWeight, L.SelfKWeight, L.SelfVWeight, L.SelfOWeight, L.CrossQWeight, L.CrossOWeight = fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4)
-			L.SelfQBias, L.SelfKBias, L.SelfVBias, L.SelfOBias, L.CrossQBias, L.CrossOBias = fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1)
-			L.FC1Weight, L.FC1Bias, L.FC2Weight, L.FC2Bias = fill(f*d, 0.4), fill(f, 0.1), fill(d*f, 0.4), fill(d, 0.1)
-		}
+		fillSyntheticDecoderWeights(cfg, dec)
 		a := NewDecoderState(cfg, enc, frames, dec)
 		b := NewDecoderState(cfg, enc, frames, dec)
 		if compat {
@@ -54,5 +36,28 @@ func TestDecoderAdvanceTokenExact(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// fillSyntheticDecoderWeights gives the synthetic fixture deterministic weights.
+func fillSyntheticDecoderWeights(cfg Config, dec *Decoder) {
+	d, f := cfg.DecoderDModel, cfg.DecoderFFNDim
+	seed := 0
+	fill := func(n int, scale float32) []float32 {
+		v := make([]float32, n)
+		for i := range v {
+			seed = (seed*1103515245 + 12345) & 0x7fffffff
+			v[i] = (float32(seed%2001)/1000 - 1) * scale
+		}
+		return v
+	}
+	dec.TokenEmbed, dec.PosEmbed = fill(cfg.VocabSize*d, 0.5), fill(cfg.MaxDecoderLength*d, 0.3)
+	dec.FinalLNWeight, dec.FinalLNBias = fill(d, 1), fill(d, 0.1)
+	for l := range dec.Layers {
+		L := &dec.Layers[l]
+		L.SelfAttnLNWeight, L.SelfAttnLNBias, L.CrossAttnLNWeight, L.CrossAttnLNBias, L.MLPLNWeight, L.MLPLNBias = fill(d, 1), fill(d, 0.1), fill(d, 1), fill(d, 0.1), fill(d, 1), fill(d, 0.1)
+		L.SelfQWeight, L.SelfKWeight, L.SelfVWeight, L.SelfOWeight, L.CrossQWeight, L.CrossOWeight = fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4), fill(d*d, 0.4)
+		L.SelfQBias, L.SelfKBias, L.SelfVBias, L.SelfOBias, L.CrossQBias, L.CrossOBias = fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1), fill(d, 0.1)
+		L.FC1Weight, L.FC1Bias, L.FC2Weight, L.FC2Bias = fill(f*d, 0.4), fill(f, 0.1), fill(d*f, 0.4), fill(d, 0.1)
 	}
 }

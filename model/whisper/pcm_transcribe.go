@@ -210,7 +210,7 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, nil
 			}
 		}
-		output, frames, err := w.encodePCMWindow(ctx, samples, opts.VulkanEncoder, clipMaxLog)
+		output, frames, cross, err := w.encodePCMWindow(ctx, samples, opts.VulkanEncoder, clipMaxLog)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -234,7 +234,7 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 				return nil, nil, err
 			}
 		}
-		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress, history)
+		segments, words, err := w.decodePCMWindow(ctx, tokenizer, output, frames, validSamples, windowV, windowOpts, windowSuppress, windowBeginSuppress, history, cross)
 		if !errors.Is(err, ErrGenerationLimit) || validSamples < 2*int(MinWindowSamples) {
 			return segments, words, err
 		}
@@ -242,47 +242,69 @@ func (w *Whisper) TranscribePCMWindowsFrom(ctx context.Context, source SampleRea
 	})
 }
 
-func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encoder *VulkanEncoder, clipMaxLog *float32) ([]float32, int, error) {
+// Process-local stage timers (checked requests serialise); benchmark only.
+var pcmMelNs, pcmEncodeNs, pcmDecoderStateNs int64
+
+// windowCrossKV carries original-compatible cross K/V computed by the encoder.
+type windowCrossKV struct{ k, v [][]float32 }
+
+func (w *Whisper) encodePCMWindow(ctx context.Context, samples []float32, encoder *VulkanEncoder, clipMaxLog *float32) ([]float32, int, *windowCrossKV, error) {
+	melStart := nowNs()
 	mel, frames, err := melFlatChecked(ctx, samples, w.Config, clipMaxLog)
+	pcmMelNs += nowNs() - melStart
+	defer func(start int64) { pcmEncodeNs += nowNs() - start }(nowNs())
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	var output []float32
-	if encoder != nil {
+	var cross *windowCrossKV
+	if encoder != nil && encoder.hasCrossKV() {
+		var k, v [][]float32
+		output, k, v, err = encoder.ForwardCross(ctx, mel)
+		cross = &windowCrossKV{k: k, v: v}
+	} else if encoder != nil {
 		output, err = encoder.Forward(ctx, mel)
 	} else {
 		output, err = w.Encoder.ForwardContext(ctx, mel, frames)
 	}
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	if len(output) != ((frames+1)/2)*w.Config.EncoderDModel {
-		return nil, 0, fmt.Errorf("invalid encoder output shape")
+		return nil, 0, nil, fmt.Errorf("invalid encoder output shape")
 	}
 	for index, value := range output {
 		if index%16384 == 0 {
 			if err := ctx.Err(); err != nil {
-				return nil, 0, err
+				return nil, 0, nil, err
 			}
 		}
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
-			return nil, 0, fmt.Errorf("non-finite encoder output")
+			return nil, 0, nil, fmt.Errorf("non-finite encoder output")
 		}
 	}
-	return output, (frames + 1) / 2, nil
+	return output, (frames + 1) / 2, cross, nil
 }
 
 // history, when non-nil, is the whisper.cpp rolling previous-text context: the
 // prompt uses its last 223 tokens and, on success, it becomes those prompt
 // tokens plus this window's generated tokens (prompt_past1 semantics).
-func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, output []float32, frames, validSamples int, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, history *[]int) ([]Segment, []WordTiming, error) {
-	state, err := NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
+func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, output []float32, frames, validSamples int, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, history *[]int, cross *windowCrossKV) ([]Segment, []WordTiming, error) {
+	stateStart := nowNs()
+	var state *DecoderState
+	var err error
+	if cross != nil {
+		state, err = newDecoderStateFromCrossContext(ctx, w.Config, cross.k, cross.v, frames)
+	} else {
+		state, err = NewDecoderStateContext(ctx, w.Config, output, frames, w.Decoder)
+	}
+	pcmDecoderStateNs += nowNs() - stateStart
 	if err != nil {
 		return nil, nil, err
 	}
@@ -339,11 +361,11 @@ func (w *Whisper) decodePCMWindow(ctx context.Context, tokenizer *Tokenizer, out
 // never decoded twice. The detected language is shared across the whole window.
 func (w *Whisper) decodePCMWindowHalves(ctx context.Context, samples []float32, validSamples int, tokenizer *Tokenizer, v timestampVocabulary, opts PCMTranscribeOptions, suppress, beginSuppress []int, clipMaxLog *float32, history *[]int) ([]Segment, []WordTiming, error) {
 	return splitPCMGenerationLimit(ctx, samples, validSamples, func(padded []float32, valid int) ([]Segment, []WordTiming, error) {
-		output, frames, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder, clipMaxLog)
+		output, frames, cross, err := w.encodePCMWindow(ctx, padded, opts.VulkanEncoder, clipMaxLog)
 		if err != nil {
 			return nil, nil, err
 		}
-		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress, history)
+		return w.decodePCMWindow(ctx, tokenizer, output, frames, valid, v, opts, suppress, beginSuppress, history, cross)
 	})
 }
 

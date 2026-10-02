@@ -41,6 +41,8 @@ type vulkanEncoderState struct {
 	q5Dot            *vk.VkLinearQ5IntegerDotSet
 	gelu             *vk.VkGELUErfF32
 	attention        *vk.VkAttentionF32
+	// Optional original-compatible decoder cross K/V (per decoder layer).
+	crossK, crossV []*vk.VkTensorF32
 }
 
 // NewVulkanEncoder requires explicit prior VulkanInit by the caller. It validates
@@ -223,6 +225,22 @@ func newVulkanEncoderPackedOnlyMode(ctx context.Context, source *Encoder, frames
 // Private selector seam for numerical attribution only. Public constructors use
 // nil (all FFN). Partial selection requires the complete widened source.
 func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool, dotSelect func(string) bool) (result *VulkanEncoder, err error) {
+	return newVulkanEncoderBuild(ctx, source, frames, makePlan, linearMode, file, packedOnly, dotSelect, nil)
+}
+
+// newVulkanEncoderOriginalCross builds the private MMQ-tanh encoder and also
+// computes every decoder layer's cross-attention K/V in its final plan as
+// original-format Q5_0 x Q8_1 projections of the final hidden state (one shared
+// Q8_1 quantisation), as whisper.cpp's encode graph does. dec supplies only the
+// cross biases; Q5 weights come from the pinned packed file. Explicit only.
+func newVulkanEncoderOriginalCross(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), file *legacy.File, dec *Decoder) (*VulkanEncoder, error) {
+	if dec == nil {
+		return nil, fmt.Errorf("whisper Vulkan cross K/V: nil decoder")
+	}
+	return newVulkanEncoderBuild(ctx, source, frames, makePlan, vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh, file, true, nil, dec)
+}
+
+func newVulkanEncoderBuild(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode, file *legacy.File, packedOnly bool, dotSelect func(string) bool, cross *Decoder) (result *VulkanEncoder, err error) {
 	if dotSelect != nil && (packedOnly || linearMode != vulkanLinearOriginalQ5IntegerDotMLP) {
 		return nil, fmt.Errorf("Whisper: diagnostic selection requires widened integer-dot source")
 	}
@@ -235,6 +253,11 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 	layout, err := describeVulkanEncoderMode(ctx, source, frames, packedOnly)
 	if err != nil {
 		return nil, err
+	}
+	if cross != nil {
+		if err := addVulkanEncoderCrossKV(layout, cross, linearMode, packedOnly); err != nil {
+			return nil, err
+		}
 	}
 	limits, err := vk.VulkanLimits()
 	if err != nil {
@@ -347,6 +370,21 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 				shapes = append(shapes, vk.VkLinearQ5Shape{OutDim: spec.shape[0], InDim: spec.shape[1]})
 				names = append(names, name)
 				originalNames = append(originalNames, fmt.Sprintf("encoder.blocks.%d.%s.weight", layer, part.original))
+			}
+		}
+		if cross != nil {
+			for layer := 0; layer < layout.cfg.DecoderLayers; layer++ {
+				for _, part := range []struct{ step, original string }{{"xk", "key"}, {"xv", "value"}} {
+					name := fmt.Sprintf("dec%d.%s.w", layer, part.step)
+					spec, selected := linearWeights[name]
+					if !selected || len(spec.shape) != 2 {
+						return nil, fmt.Errorf("whisper Vulkan cross K/V: weight %s", name)
+					}
+					linearIndexes[name] = len(shapes)
+					shapes = append(shapes, vk.VkLinearQ5Shape{OutDim: spec.shape[0], InDim: spec.shape[1]})
+					names = append(names, name)
+					originalNames = append(originalNames, fmt.Sprintf("decoder.blocks.%d.cross_attn.%s.weight", layer, part.original))
+				}
 			}
 		}
 		reader := func(ctx context.Context, index int) ([]byte, error) {
@@ -485,8 +523,15 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 		}
 	}
 	s.input, s.output = tensors["mel"], tensors["h"]
+	if cross != nil {
+		for layer := 0; layer < layout.cfg.DecoderLayers; layer++ {
+			s.crossK = append(s.crossK, tensors[fmt.Sprintf("xk%d", layer)])
+			s.crossV = append(s.crossV, tensors[fmt.Sprintf("xv%d", layer)])
+		}
+	}
 	for _, steps := range layout.plans {
 		stages := make([]vk.VkF32Stage, 0, len(steps))
+		crossQ8Ready := false
 		for _, step := range steps {
 			var stage vk.VkF32Stage
 			out := tensors[step.out]
@@ -516,6 +561,13 @@ func newVulkanEncoderPackedSelected(ctx context.Context, source *Encoder, frames
 					pair, e := s.q5Dot.Stages(ctx, index, out, in[0], in[2], scratch)
 					if e != nil {
 						return nil, e
+					}
+					// Cross K/V steps all read the unchanged final "h": quantise once.
+					if strings.HasPrefix(step.in[1], "dec") {
+						if crossQ8Ready {
+							pair = pair[1:]
+						}
+						crossQ8Ready = true
 					}
 					stages = append(stages, pair...)
 					continue
@@ -608,6 +660,57 @@ func (e *VulkanEncoder) checkPCMConfig(ctx context.Context, c Config) error {
 	return nil
 }
 func (e *VulkanEncoder) Forward(ctx context.Context, mel []float32) ([]float32, error) {
+	out, _, _, err := e.forward(ctx, mel, false)
+	return out, err
+}
+
+// hasCrossKV reports whether this encoder also computes decoder cross K/V.
+func (e *VulkanEncoder) hasCrossKV() bool {
+	return e != nil && e.s != nil && len(e.s.crossK) > 0
+}
+
+// ForwardCross returns the hidden state and, per decoder layer, the cross K/V
+// rows (time-major [rows*d]) computed in the same submission sequence.
+func (e *VulkanEncoder) ForwardCross(ctx context.Context, mel []float32) ([]float32, [][]float32, [][]float32, error) {
+	if !e.hasCrossKV() {
+		return nil, nil, nil, fmt.Errorf("whisper Vulkan: encoder has no cross K/V")
+	}
+	return e.forward(ctx, mel, true)
+}
+
+func (e *VulkanEncoder) forward(ctx context.Context, mel []float32, wantCross bool) (out []float32, crossK, crossV [][]float32, err error) {
+	defer func() {
+		if err != nil {
+			out, crossK, crossV = nil, nil, nil
+		}
+	}()
+	out, err = e.forwardHidden(ctx, mel, func(s *vulkanEncoderState) error {
+		if !wantCross {
+			return nil
+		}
+		for _, pair := range []struct {
+			src []*vk.VkTensorF32
+			dst *[][]float32
+		}{{s.crossK, &crossK}, {s.crossV, &crossV}} {
+			for _, t := range pair.src {
+				buf := make([]float32, t.Elements())
+				if err := t.Download(ctx, buf); err != nil {
+					return err
+				}
+				for i, v := range buf {
+					if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+						return fmt.Errorf("whisper Vulkan: nonfinite cross K/V[%d]", i)
+					}
+				}
+				*pair.dst = append(*pair.dst, buf)
+			}
+		}
+		return nil
+	})
+	return out, crossK, crossV, err
+}
+
+func (e *VulkanEncoder) forwardHidden(ctx context.Context, mel []float32, extra func(*vulkanEncoderState) error) ([]float32, error) {
 	s, err := e.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -654,6 +757,11 @@ func (e *VulkanEncoder) Forward(ctx context.Context, mel []float32) ([]float32, 
 			return nil, fmt.Errorf("whisper Vulkan: nonfinite output[%d]", i)
 		}
 	}
+	if extra != nil {
+		if err := extra(s); err != nil {
+			return nil, err
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -695,9 +803,50 @@ func (e *VulkanEncoder) Close() error {
 	s.tensors = nil
 	s.input = nil
 	s.output = nil
+	s.crossK, s.crossV = nil, nil
 	return nil
 }
 
 func isVulkanMLPWeight(name string) bool {
 	return strings.HasSuffix(name, ".fc1.w") || strings.HasSuffix(name, ".fc2.w")
+}
+
+// addVulkanEncoderCrossKV appends decoder cross K/V weights, scratch outputs and
+// final-plan projection steps (after the final LayerNorm of "h").
+func addVulkanEncoderCrossKV(layout *vkEncoderLayout, dec *Decoder, mode vulkanLinearMode, packedOnly bool) error {
+	cfg := layout.cfg
+	d := cfg.DecoderDModel
+	if mode != vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh || !packedOnly || d != cfg.EncoderDModel || len(dec.Layers) != cfg.DecoderLayers || len(layout.plans) == 0 {
+		return fmt.Errorf("whisper Vulkan cross K/V: requires packed MMQ-tanh geometry")
+	}
+	var weights []vkEncoderTensor
+	final := append([]vkEncoderStep(nil), layout.plans[len(layout.plans)-1]...)
+	if len(final) != 1 || final[0].op != "norm" || final[0].out != "h" {
+		return fmt.Errorf("whisper Vulkan cross K/V: unexpected final plan")
+	}
+	scratch := append([]vkEncoderTensor(nil), layout.scratch...)
+	for l, layer := range dec.Layers {
+		kb := vkEncoderTensor{name: fmt.Sprintf("dec%d.xk.b", l), shape: []int{d}, zero: true}
+		if layer.CrossKBias != nil {
+			if len(layer.CrossKBias) != d {
+				return fmt.Errorf("whisper Vulkan cross K/V: key bias %d", l)
+			}
+			kb = vkEncoderTensor{name: kb.name, shape: kb.shape, data: layer.CrossKBias}
+		}
+		if len(layer.CrossVBias) != d {
+			return fmt.Errorf("whisper Vulkan cross K/V: value bias %d", l)
+		}
+		weights = append(weights,
+			vkEncoderTensor{name: fmt.Sprintf("dec%d.xk.w", l), shape: []int{d, d}}, kb,
+			vkEncoderTensor{name: fmt.Sprintf("dec%d.xv.w", l), shape: []int{d, d}},
+			vkEncoderTensor{name: fmt.Sprintf("dec%d.xv.b", l), shape: []int{d}, data: layer.CrossVBias})
+		scratch = append(scratch, vkEncoderTensor{name: fmt.Sprintf("xk%d", l), shape: []int{layout.rows, d}}, vkEncoderTensor{name: fmt.Sprintf("xv%d", l), shape: []int{layout.rows, d}})
+		final = append(final,
+			vkEncoderStep{op: "linear", out: fmt.Sprintf("xk%d", l), in: []string{"h", fmt.Sprintf("dec%d.xk.w", l), fmt.Sprintf("dec%d.xk.b", l)}},
+			vkEncoderStep{op: "linear", out: fmt.Sprintf("xv%d", l), in: []string{"h", fmt.Sprintf("dec%d.xv.w", l), fmt.Sprintf("dec%d.xv.b", l)}})
+	}
+	layout.weights = append(append([][]vkEncoderTensor(nil), layout.weights...), weights)
+	layout.scratch = scratch
+	layout.plans = append(append([][]vkEncoderStep(nil), layout.plans[:len(layout.plans)-1]...), final)
+	return nil
 }

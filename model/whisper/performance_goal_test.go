@@ -68,6 +68,7 @@ type whisperGoalSample struct {
 	RequestSeconds                                                                 float64 `json:"request_seconds"`
 	AllocatedBytes, Allocations                                                    uint64
 	DecoderSelfSeconds, DecoderCrossSeconds, DecoderMLPSeconds, DecoderHeadSeconds float64
+	MelSeconds, EncodeSeconds, DecoderStateSeconds                                 float64
 	Windows                                                                        []WindowTranscript    `json:"windows,omitempty"`
 	VADWindows                                                                     []VADWindowTranscript `json:"vad_windows,omitempty"`
 }
@@ -210,7 +211,16 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 			}
 		case "vulkan-original-q5-padded-integer-dot-mmq-tanh":
 			precision = "Original-compatibility diagnostic: virtual256-padded zeroKV F32 attention + all encoder projections original Q5_0 x Q8_1 four-block-step MMQ schedule (same per-output arithmetic as padded-integer-dot-all); original GGML tanh-form encoder GELU (stem+FFN), decoder per OriginalDecoderCompatibility"
-			encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh, packedFile, true)
+			if os.Getenv("GO_PHERENCE_WHISPER_BENCH_GPU_CROSS") == "1" {
+				precision += "; decoder cross K/V as original Q5_0 x Q8_1 MMQ in the encoder's final plan"
+				encoder, err = newVulkanEncoderOriginalCross(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, packedFile, model.Decoder)
+			} else {
+				encoder, err = newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh, packedFile, true)
+			}
+			if err == nil && os.Getenv("GO_PHERENCE_WHISPER_BENCH_DECODER_Q5") == "1" {
+				precision += "; CPU decoder projections+LM head read packed original Q5_0 rows via fused Sdot-order AVX2 kernel (bit-identical)"
+				err = model.Decoder.attachOriginalQ5(ctx, packedFile)
+			}
 			if closeErr := packedFile.Close(); err == nil {
 				err = closeErr
 			}
@@ -332,6 +342,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		// Existing timers are process-local and checked Whisper requests serialize.
 		// Timing counters include the alignment decoder when word timing is enabled.
 		decSelfNs, decCrossNs, decMlpNs, decLmNs = 0, 0, 0, 0
+		pcmMelNs, pcmEncodeNs, pcmDecoderStateNs = 0, 0, 0
 		var before, after runtime.MemStats
 		runtime.ReadMemStats(&before)
 		sample := whisperGoalSample{Index: repeat}
@@ -352,6 +363,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		sample.DecoderCrossSeconds = float64(decCrossNs) / 1e9
 		sample.DecoderMLPSeconds = float64(decMlpNs) / 1e9
 		sample.DecoderHeadSeconds = float64(decLmNs) / 1e9
+		sample.MelSeconds, sample.EncodeSeconds, sample.DecoderStateSeconds = float64(pcmMelNs)/1e9, float64(pcmEncodeNs)/1e9, float64(pcmDecoderStateNs)/1e9
 		samples = append(samples, sample)
 		t.Logf("WHISPER_GOAL backend=%s VAD=%t words=%t repeat=%d seconds=%.6f bytes=%d allocations=%d", opts.backend, opts.vad, opts.words, repeat, sample.RequestSeconds, sample.AllocatedBytes, sample.Allocations)
 	}

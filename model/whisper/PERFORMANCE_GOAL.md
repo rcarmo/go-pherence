@@ -78,6 +78,8 @@ The explicit `vulkan-original-q5-attention-outputilp` arm keeps decode4 FFN/F32 
 
 [Window compatibility](../../docs/validation/whisper-window-compat-20261001.md): explicit `OriginalWindowCompatibility` (whole-clip mel floor + `<|startofprev|>` previous-text prompt) makes PT2 match the original on all six segments. Exact `AdvanceToken` skips unused prompt logits. Cost: +0.04–0.1 s per single-window clip; PT2 +1.26 s from the token-by-token CPU prompt (batched GPU decoder next). Defaults unchanged.
 
+[GPU cross K/V and Q5 decoder](../../docs/validation/whisper-crosskv-q5-decoder-20261002.md): explicit `GO_PHERENCE_WHISPER_BENCH_GPU_CROSS=1` (decoder cross K/V as original Q5×Q8_1 MMQ in the encoder's final plan) and `GO_PHERENCE_WHISPER_BENCH_DECODER_Q5=1` (fused AVX2 Q5_0 decoder, bit-identical to F32) leave all 10 fixtures' outputs unchanged. JFK 4.456→4.064 s, PT2 10.44→8.91 s, podcast VAD+words 8.37→5.87 s. Original JFK is still ~3.02 s.
+
 ## Evidence
 
 The arm reports model loading, native/VAD preparation, cleanup and full-arm time separately from each request. Each request records allocation bytes/counts, existing decoder phase counters and full returned windows/word timing. Allocation counters include owned evidence outputs; they are not internal-only inference allocations. Word-timing decoder work contributes to phase counters when enabled.

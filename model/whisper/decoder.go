@@ -18,6 +18,9 @@ type Decoder struct {
 	TokenEmbed []float32 // [vocabSize, dModel]
 	PosEmbed   []float32 // [maxDecoderLength, dModel]
 	lmHeadGPU  *nv.DevBuf
+	// Optional original packed Q5_0 rows (attachOriginalQ5); nil = F32 path.
+	q5Layers []decoderLayerQ5
+	lmHeadQ5 []byte
 
 	// Decoder layers
 	Layers []DecoderLayer
@@ -181,6 +184,34 @@ func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []flo
 	return state, nil
 }
 
+// newDecoderStateFromCrossContext adopts precomputed time-major cross K/V
+// (e.g. the original-compatible Vulkan projections) instead of computing them.
+func newDecoderStateFromCrossContext(ctx context.Context, cfg Config, crossK, crossV [][]float32, encLen int) (*DecoderState, error) {
+	if len(crossK) != cfg.DecoderLayers || len(crossV) != cfg.DecoderLayers || encLen < 1 {
+		return nil, fmt.Errorf("decoder state: cross K/V geometry")
+	}
+	for l := range crossK {
+		if len(crossK[l]) != encLen*cfg.DecoderDModel || len(crossV[l]) != encLen*cfg.DecoderDModel {
+			return nil, fmt.Errorf("decoder state: cross K/V layer %d shape", l)
+		}
+	}
+	state, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	state.CrossK, state.CrossV = crossK, crossV
+	state.CrossKHead = make([][]float32, cfg.DecoderLayers)
+	state.CrossVHead = make([][]float32, cfg.DecoderLayers)
+	for l := range crossK {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		state.CrossKHead[l] = toHeadMajor(crossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		state.CrossVHead[l] = toHeadMajor(crossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+	}
+	return state, speechContextErr(ctx)
+}
+
 func newDecoderSelfStateContext(ctx context.Context, cfg Config) (*DecoderState, error) {
 	if err := speechContextErr(ctx); err != nil {
 		return nil, err
@@ -286,13 +317,17 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 
 	for l := range dec.Layers {
 		layer := &dec.Layers[l]
+		var q5 decoderLayerQ5
+		if dec.q5Layers != nil {
+			q5 = dec.q5Layers[l]
+		}
 
 		// --- Causal self-attention ---
 		tphase := nowNs()
 		layerNormInto(bufs.normed, x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, dModel)
-		linearInto(bufs.q, bufs.normed, layer.SelfQWeight, layer.SelfQBias, dModel, dModel)
-		linearInto(bufs.k, bufs.normed, layer.SelfKWeight, layer.SelfKBias, dModel, dModel)
-		linearInto(bufs.v, bufs.normed, layer.SelfVWeight, layer.SelfVBias, dModel, dModel)
+		decoderLinear(bufs.q, bufs.normed, layer.SelfQWeight, q5.selfQ, layer.SelfQBias, dModel, dModel)
+		decoderLinear(bufs.k, bufs.normed, layer.SelfKWeight, q5.selfK, layer.SelfKBias, dModel, dModel)
+		decoderLinear(bufs.v, bufs.normed, layer.SelfVWeight, q5.selfV, layer.SelfVBias, dModel, dModel)
 
 		// Append to KV cache
 		state.SelfKCache[l] = append(state.SelfKCache[l], bufs.k...)
@@ -306,7 +341,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 			attentionSingleInto(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim, bufs.scores)
 		}
 
-		linearInto(bufs.proj, bufs.selfOut, layer.SelfOWeight, layer.SelfOBias, dModel, dModel)
+		decoderLinear(bufs.proj, bufs.selfOut, layer.SelfOWeight, q5.selfO, layer.SelfOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.proj[d]
 		}
@@ -315,7 +350,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 		// --- Cross-attention ---
 		tphase = nowNs()
 		layerNormInto(bufs.normed, x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, dModel)
-		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
+		decoderLinear(bufs.crossQ, bufs.normed, layer.CrossQWeight, q5.crossQ, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
 		if state.CrossAttentionObserver != nil || state.crossPadKeys > 0 || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
@@ -324,7 +359,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 			// separately reconstructed diagnostic row.
 			crossAttentionHeadMajorPadded(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver, state.crossPadKeys)
 		}
-		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
+		decoderLinear(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, q5.crossO, layer.CrossOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.crossProj[d]
 		}
@@ -334,7 +369,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 		tphase = nowNs()
 		layerNormInto(bufs.mlpIn, x, layer.MLPLNWeight, layer.MLPLNBias, dModel)
 		if !bufs.linearGPU(bufs.hidden, bufs.mlpIn, layer.gpuFC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim) {
-			linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
+			decoderLinear(bufs.hidden, bufs.mlpIn, layer.FC1Weight, q5.fc1, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
 		}
 		if state.tanhGELU {
 			geluOriginalTanh(bufs.hidden)
@@ -342,7 +377,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 			gelu(bufs.hidden)
 		}
 		if !bufs.linearGPU(bufs.mlpOut, bufs.hidden, layer.gpuFC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel) {
-			linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
+			decoderLinear(bufs.mlpOut, bufs.hidden, layer.FC2Weight, q5.fc2, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
 		}
 		for d := range x {
 			x[d] += bufs.mlpOut[d]
@@ -367,7 +402,9 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 		state.Pos++
 		return logits
 	}
-	if dec.TokenEmbed != nil {
+	if dec.lmHeadQ5 != nil {
+		linearQ5Into(logits, x[:dModel], dec.lmHeadQ5, nil, dModel, cfg.VocabSize)
+	} else if dec.TokenEmbed != nil {
 		// Tied-embedding projection x @ TokenEmbed^T over the full vocab; reuse
 		// the threaded RVV seqLen=1 path instead of a scalar double loop.
 		logits = linearForwardOpt(x[:dModel], dec.TokenEmbed, nil, 1, dModel, cfg.VocabSize)
