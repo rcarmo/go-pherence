@@ -14,6 +14,8 @@ type TrainingWorkspace struct {
 	frames, hidden, latent                                                       int
 	weightRows                                                                   int
 	flowLM                                                                       *FlowLMTrainingCPU
+	zeroGradientOwner                                                            *ResidentTrainingBackend
+	zeroGradientPool                                                             *trainingZeroPool
 	transformerWidth, transformerHeads, transformerHeadDim, transformerContext   int
 	transformerMaxPeriod                                                         float64
 	flow                                                                         *FlowHeadCPU
@@ -97,10 +99,23 @@ func NewAdmittedTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, 
 	if elements != a.parameterElements {
 		return nil, fmt.Errorf("Pocket TTS training parameters do not match admitted shape")
 	}
-	return NewTrainingWorkspace(flowLM, flow, batch)
+	pooled := false
+	if owner, ok := flow.TrainingBackend.(*ResidentTrainingBackend); ok {
+		pooled = sharedZeroGradientOwner(owner, flowLM, flow)
+	}
+	return newTrainingWorkspace(flowLM, flow, batch, pooled)
+}
+
+// Only the complete tape-only shared owner may use immutable host zeros. Any
+// changed/missing backend rejects reuse before reset or CPU arithmetic.
+func sharedZeroGradientOwner(b *ResidentTrainingBackend, lm *FlowLMTrainingCPU, flow *FlowHeadCPU) bool {
+	return b != nil && lm != nil && flow != nil && b.sharedWorkspaceEnabled() && b.forwardResultsEnabled() && b.stepBackboneEnabled() && b.DistillEnabled() && lm.AttentionBackwardBackend == nil && flow.TrainingBackend == b && flow.LossBackend == b && flow.BranchBackend == b && flow.StepReductionBackend == b && lm.TransformerBackend == b && lm.ProjectionBackend == b && lm.SequenceBackend == b && lm.EOSBackend == b
 }
 
 func NewTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch FlowLMTrainingBatch) (*TrainingWorkspace, error) {
+	return newTrainingWorkspace(flowLM, flow, batch, false)
+}
+func newTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch FlowLMTrainingBatch, pooled bool) (*TrainingWorkspace, error) {
 	if flowLM == nil || flowLM.Transformer == nil || flow == nil || len(flow.Time) != 2 || batch.Frames <= 0 || flowLM.Hidden <= 0 || flowLM.LatentDim <= 0 {
 		return nil, fmt.Errorf("invalid Pocket TTS training workspace")
 	}
@@ -137,7 +152,19 @@ func NewTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch Fl
 	if !ok {
 		return nil, fmt.Errorf("invalid Pocket TTS workspace latent shape")
 	}
+	storage := func(n int) []float32 { return make([]float32, n) }
+	var zeroOwner *ResidentTrainingBackend
+	var pool *trainingZeroPool
+	if pooled {
+		zeroOwner, _ = flow.TrainingBackend.(*ResidentTrainingBackend)
+		if !sharedZeroGradientOwner(zeroOwner, flowLM, flow) {
+			return nil, fmt.Errorf("shared zero-gradient workspace owner")
+		}
+		pool = &trainingZeroPool{}
+		storage = pool.values
+	}
 	w := &TrainingWorkspace{
+		zeroGradientOwner: zeroOwner, zeroGradientPool: pool,
 		frames: frames, hidden: hidden, latent: latent, weightRows: weightRows, flowLM: flowLM,
 		transformerWidth: flowLM.Transformer.Width, transformerHeads: flowLM.Transformer.Heads,
 		transformerHeadDim: flowLM.Transformer.HeadDim, transformerContext: flowLM.Transformer.Context,
@@ -146,8 +173,8 @@ func NewTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch Fl
 		dZ: make([]float32, hiddenElements), directTarget: make([]float32, latentElements), dEOS: make([]float32, frames),
 		dDiagLogvar: make([]float32, frames), dDistillLogvar: make([]float32, frames), dLogvars: make([]float32, weightRows),
 		xTime: make([]float32, latent), desired: make([]float32, latent),
-		flowGradients: newFlowHeadGradients(flow), discardFlowGradients: newFlowHeadGradients(flow),
-		flowLMGradients:      newFlowLMTrainingGradients(flowLM),
+		flowGradients: newFlowHeadGradientStorage(flow, storage), discardFlowGradients: newFlowHeadGradientStorage(flow, storage),
+		flowLMGradients:      newFlowLMGradientStorage(flowLM, storage),
 		flowLMInputGradients: FlowLMTrainingInputGradients{NormalizedLatents: make([]float32, len(batch.NormalizedLatents)), VoiceLatents: make([]float32, len(batch.VoiceLatents))},
 		primaryFlowTape:      primaryFlowTape, endpointFlowTape: endpointFlowTape, primaryFlowBackward: primaryFlowBackward, endpointFlowBackward: endpointFlowBackward,
 	}
@@ -155,6 +182,16 @@ func NewTrainingWorkspace(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, batch Fl
 }
 
 func (w *TrainingWorkspace) compatible(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU) bool {
+	if w != nil && w.zeroGradientOwner != nil {
+		if !sharedZeroGradientOwner(w.zeroGradientOwner, flowLM, flow) {
+			return false
+		}
+		for _, values := range *w.zeroGradientPool {
+			if !zeroTrainingSeed(values) {
+				return false
+			}
+		}
+	}
 	if w == nil || flowLM == nil || flowLM.Transformer == nil || flow == nil || w.flowLM != flowLM || w.flow != flow || w.transformerWidth != flowLM.Transformer.Width || w.transformerHeads != flowLM.Transformer.Heads || w.transformerHeadDim != flowLM.Transformer.HeadDim || w.transformerContext != flowLM.Transformer.Context || w.transformerMaxPeriod != flowLM.Transformer.MaxPeriod || w.flowLMGradients == nil || w.flowLMGradients.Transformer == nil || w.flowGradients == nil || w.discardFlowGradients == nil || w.primaryFlowTape == nil || w.endpointFlowTape == nil || w.primaryFlowBackward == nil || w.endpointFlowBackward == nil || len(flow.Time) != len(w.flowGradients.Time) || len(flow.Blocks) != len(w.flowGradients.Blocks) || !flowLMGradientMatches(w.flowLMGradients, flowLM) {
 		return false
 	}
@@ -207,9 +244,11 @@ func (w *TrainingWorkspace) reset() {
 	clear(w.dLogvars)
 	clear(w.xTime)
 	clear(w.desired)
-	clearFlowHeadGradients(w.flowGradients)
-	clearFlowHeadGradients(w.discardFlowGradients)
-	clearFlowLMTrainingGradients(w.flowLMGradients)
+	if w.zeroGradientOwner == nil {
+		clearFlowHeadGradients(w.flowGradients)
+		clearFlowHeadGradients(w.discardFlowGradients)
+		clearFlowLMTrainingGradients(w.flowLMGradients)
+	}
 	clear(w.flowLMInputGradients.NormalizedLatents)
 	clear(w.flowLMInputGradients.VoiceLatents)
 	w.primaryFlowTape.reset()

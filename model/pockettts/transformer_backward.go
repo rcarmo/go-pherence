@@ -45,8 +45,8 @@ func (m *TransformerCPU) ForwardBackward(sequence, dOutput []float32, rows int) 
 	}
 	tape, output := m.forwardTraining(rows, sequence)
 	gradients = newTransformerGradients(m)
-	dSequence = m.backwardTraining(rows, tape, dOutput, gradients)
-	return output, gradients, dSequence, nil
+	dSequence, err = m.backwardTrainingWithAttention(rows, tape, dOutput, gradients, nil)
+	return output, gradients, dSequence, err
 }
 
 func validateTrainableTransformer(m *TransformerCPU, sequence, dOutput []float32, rows int) error {
@@ -85,23 +85,27 @@ func validateTrainableTransformer(m *TransformerCPU, sequence, dOutput []float32
 }
 
 func newTransformerGradients(m *TransformerCPU) *TransformerGradients {
+	return newTransformerGradientStorage(m, func(n int) []float32 { return make([]float32, n) })
+}
+func newTransformerGradientStorage(m *TransformerCPU, storage func(int) []float32) *TransformerGradients {
+	linear := func(l LinearF32) LinearF32Gradient { return newLinearGradientStorage(l, storage) }
 	g := &TransformerGradients{Layers: make([]TransformerLayerGradient, len(m.Layers))}
 	for i, layer := range m.Layers {
 		g.Layers[i] = TransformerLayerGradient{
-			Norm1Weight: make([]float32, m.Width), Norm1Bias: make([]float32, m.Width),
-			Norm2Weight: make([]float32, m.Width), Norm2Bias: make([]float32, m.Width),
-			InProjection: newLinearGradient(layer.InProjection), OutProjection: newLinearGradient(layer.OutProjection),
-			FC1: newLinearGradient(layer.FC1), FC2: newLinearGradient(layer.FC2),
+			Norm1Weight: storage(m.Width), Norm1Bias: storage(m.Width),
+			Norm2Weight: storage(m.Width), Norm2Bias: storage(m.Width),
+			InProjection: linear(layer.InProjection), OutProjection: linear(layer.OutProjection),
+			FC1: linear(layer.FC1), FC2: linear(layer.FC2),
 		}
 		if layer.LayerScale1 != nil {
-			g.Layers[i].LayerScale1 = make([]float32, m.Width)
+			g.Layers[i].LayerScale1 = storage(m.Width)
 		}
 		if layer.LayerScale2 != nil {
-			g.Layers[i].LayerScale2 = make([]float32, m.Width)
+			g.Layers[i].LayerScale2 = storage(m.Width)
 		}
 	}
 	if m.FinalWeight != nil {
-		g.FinalWeight, g.FinalBias = make([]float32, m.Width), make([]float32, m.Width)
+		g.FinalWeight, g.FinalBias = storage(m.Width), storage(m.Width)
 	}
 	return g
 }
@@ -213,7 +217,7 @@ func transformerNormForward(rows, width int, input, weight, bias []float32, epsi
 	return tape, tape.normalized
 }
 
-func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutput []float32, gradients *TransformerGradients) []float32 {
+func (m *TransformerCPU) backwardTrainingWithAttention(rows int, tape *transformerTape, dOutput []float32, gradients *TransformerGradients, backend TrainingAttentionBackend) ([]float32, error) {
 	// Final norm and each layer only read their incoming gradient and return
 	// owned storage; the caller's dOutput never needs an entry copy.
 	dHidden := dOutput
@@ -221,12 +225,16 @@ func (m *TransformerCPU) backwardTraining(rows int, tape *transformerTape, dOutp
 		dHidden = transformerNormBackward(rows, m.Width, tape.final, dHidden, m.FinalWeight, gradients.FinalWeight, gradients.FinalBias)
 	}
 	for i := len(m.Layers) - 1; i >= 0; i-- {
-		dHidden = m.Layers[i].backwardTraining(rows, m.Width, m.Heads, m.HeadDim, m.Context, m.MaxPeriod, tape.layers[i], dHidden, &gradients.Layers[i])
+		var err error
+		dHidden, err = m.Layers[i].backwardTrainingWithAttention(rows, m.Width, m.Heads, m.HeadDim, m.Context, m.MaxPeriod, tape.layers[i], dHidden, &gradients.Layers[i], backend)
+		if err != nil {
+			return nil, fmt.Errorf("transformer layer%d attention backward: %w", i, err)
+		}
 	}
-	return dHidden
+	return dHidden, nil
 }
 
-func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, context int, maxPeriod float64, tape transformerLayerTape, dOutput []float32, gradient *TransformerLayerGradient) []float32 {
+func (l TransformerLayerCPU) backwardTrainingWithAttention(rows, width, heads, headDim, context int, maxPeriod float64, tape transformerLayerTape, dOutput []float32, gradient *TransformerLayerGradient, backend TrainingAttentionBackend) ([]float32, error) {
 	// Calls run sequentially; retain only the largest transposed output row
 	// needed by the weight-gradient GEMMs in this layer.
 	var transpose []float32
@@ -267,31 +275,45 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 	}
 	dAttention := linearBackwardRowsTrainingScratch(l.OutProjection, tape.attention, dProjected, rows, &gradient.OutProjection, transpose)
 	dQ, dK, dV := make([]float32, rows*width), make([]float32, rows*width), make([]float32, rows*width)
-	scale := float32(1 / math.Sqrt(float64(headDim)))
-	// Each query/head consumes dProb before the next one starts. Reuse one
-	// layer-local row instead of allocating per attention head and query.
-	dProb := make([]float32, rows)
-	for query := 0; query < rows; query++ {
-		start := 0
-		if context > 0 && query-context+1 > 0 {
-			start = query - context + 1
+	if backend != nil {
+		var err error
+		dQ, dK, dV, err = backend.AttentionBackward(tape.q, tape.k, tape.v, tape.probabilities, dAttention, rows, heads, headDim, context)
+		if err != nil {
+			return nil, err
 		}
-		for head := 0; head < heads; head++ {
-			base := (head*rows + query) * rows
-			clear(dProb)
-			weighted := float32(0)
-			for key := start; key <= query; key++ {
-				for d := 0; d < headDim; d++ {
-					dProb[key] += dAttention[query*width+head*headDim+d] * tape.v[key*width+head*headDim+d]
-					dV[key*width+head*headDim+d] += tape.probabilities[base+key] * dAttention[query*width+head*headDim+d]
-				}
-				weighted += dProb[key] * tape.probabilities[base+key]
+		if err := validateAttentionDerivatives(dQ, dK, dV, rows*width); err != nil {
+			return nil, err
+		}
+		if err := validateAttentionInputOwnership(dQ, dK, dV, tape.q, tape.k, tape.v, tape.probabilities, dAttention); err != nil {
+			return nil, err
+		}
+	} else {
+		scale := float32(1 / math.Sqrt(float64(headDim)))
+		// Each query/head consumes dProb before the next one starts. Reuse one
+		// layer-local row instead of allocating per attention head and query.
+		dProb := make([]float32, rows)
+		for query := 0; query < rows; query++ {
+			start := 0
+			if context > 0 && query-context+1 > 0 {
+				start = query - context + 1
 			}
-			for key := start; key <= query; key++ {
-				ds := tape.probabilities[base+key] * (dProb[key] - weighted) * scale
-				for d := 0; d < headDim; d++ {
-					dQ[query*width+head*headDim+d] += ds * tape.k[key*width+head*headDim+d]
-					dK[key*width+head*headDim+d] += ds * tape.q[query*width+head*headDim+d]
+			for head := 0; head < heads; head++ {
+				base := (head*rows + query) * rows
+				clear(dProb)
+				weighted := float32(0)
+				for key := start; key <= query; key++ {
+					for d := 0; d < headDim; d++ {
+						dProb[key] += dAttention[query*width+head*headDim+d] * tape.v[key*width+head*headDim+d]
+						dV[key*width+head*headDim+d] += tape.probabilities[base+key] * dAttention[query*width+head*headDim+d]
+					}
+					weighted += dProb[key] * tape.probabilities[base+key]
+				}
+				for key := start; key <= query; key++ {
+					ds := tape.probabilities[base+key] * (dProb[key] - weighted) * scale
+					for d := 0; d < headDim; d++ {
+						dQ[query*width+head*headDim+d] += ds * tape.k[key*width+head*headDim+d]
+						dK[key*width+head*headDim+d] += ds * tape.q[query*width+head*headDim+d]
+					}
 				}
 			}
 		}
@@ -308,7 +330,7 @@ func (l TransformerLayerCPU) backwardTraining(rows, width, heads, headDim, conte
 	}
 	dNorm1 := linearBackwardRowsTrainingScratch(l.InProjection, tape.norm1.normalized, packed, rows, &gradient.InProjection, transpose)
 	addInPlace(dInput, transformerNormBackward(rows, width, tape.norm1, dNorm1, l.Norm1Weight, gradient.Norm1Weight, gradient.Norm1Bias))
-	return dInput
+	return dInput, nil
 }
 
 func transformerNormBackward(rows, width int, tape transformerNormTape, dOutput, weight, dWeight, dBias []float32) []float32 {

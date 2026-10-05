@@ -86,7 +86,19 @@ func (m *FlowHeadCPU) ForwardBackward(condition, times, input, dOutput []float32
 }
 
 func validateTrainableFlowHead(m *FlowHeadCPU, condition, times, input, dOutput []float32) error {
-	if m == nil || len(m.Blocks) == 0 || len(times) != len(m.Time) || len(input) != m.Input.In || len(condition) != m.Condition.In || len(dOutput) != m.Final.Linear.Out {
+	if err := validateTrainableFlowHeadSizes(m, len(condition), len(times), len(input), len(dOutput)); err != nil {
+		return err
+	}
+	if !finiteF32(condition) || !finiteF32(times) || !finiteF32(input) || !finiteF32(dOutput) {
+		return fmt.Errorf("Pocket TTS trainable flow-head input is non-finite")
+	}
+	return nil
+}
+
+// Size/topology validation is shared by host-input and private device-input
+// builders. It never supplies numerical input admission for device storage.
+func validateTrainableFlowHeadSizes(m *FlowHeadCPU, conditionSize, timeSize, inputSize, outputSize int) error {
+	if m == nil || len(m.Blocks) == 0 || timeSize != len(m.Time) || inputSize != m.Input.In || conditionSize != m.Condition.In || outputSize != m.Final.Linear.Out {
 		return fmt.Errorf("invalid Pocket TTS trainable flow-head input")
 	}
 	d := m.Input.Out
@@ -131,9 +143,6 @@ func validateTrainableFlowHead(m *FlowHeadCPU, condition, times, input, dOutput 
 			return fmt.Errorf("invalid Pocket TTS trainable residual block")
 		}
 	}
-	if !finiteF32(condition) || !finiteF32(times) || !finiteF32(input) || !finiteF32(dOutput) {
-		return fmt.Errorf("Pocket TTS trainable flow-head input is non-finite")
-	}
 	return nil
 }
 
@@ -145,34 +154,41 @@ func validateTrainableFlowLinear(linear LinearF32) error {
 }
 
 func newLinearGradient(linear LinearF32) LinearF32Gradient {
-	gradient := LinearF32Gradient{Weight: make([]float32, len(linear.Weight))}
+	return newLinearGradientStorage(linear, func(n int) []float32 { return make([]float32, n) })
+}
+func newLinearGradientStorage(linear LinearF32, storage func(int) []float32) LinearF32Gradient {
+	gradient := LinearF32Gradient{Weight: storage(len(linear.Weight))}
 	if linear.Bias != nil {
-		gradient.Bias = make([]float32, len(linear.Bias))
+		gradient.Bias = storage(len(linear.Bias))
 	}
 	return gradient
 }
 
 func newFlowHeadGradients(m *FlowHeadCPU) *FlowHeadGradients {
+	return newFlowHeadGradientStorage(m, func(n int) []float32 { return make([]float32, n) })
+}
+func newFlowHeadGradientStorage(m *FlowHeadCPU, storage func(int) []float32) *FlowHeadGradients {
+	linear := func(l LinearF32) LinearF32Gradient { return newLinearGradientStorage(l, storage) }
 	g := &FlowHeadGradients{
-		Input:     newLinearGradient(m.Input),
-		Condition: newLinearGradient(m.Condition),
+		Input:     linear(m.Input),
+		Condition: linear(m.Condition),
 		Time:      make([]TimestepMLPGradient, len(m.Time)),
 		Blocks:    make([]AdaLNResidualGradient, len(m.Blocks)),
 		Final: AdaLNFinalGradient{
-			Linear:     newLinearGradient(m.Final.Linear),
-			Modulation: newLinearGradient(m.Final.Modulation),
+			Linear:     linear(m.Final.Linear),
+			Modulation: linear(m.Final.Modulation),
 		},
 	}
 	for i, time := range m.Time {
-		g.Time[i] = TimestepMLPGradient{FC1: newLinearGradient(time.FC1), FC2: newLinearGradient(time.FC2), RMSWeight: make([]float32, len(time.RMSWeight))}
+		g.Time[i] = TimestepMLPGradient{FC1: linear(time.FC1), FC2: linear(time.FC2), RMSWeight: storage(len(time.RMSWeight))}
 	}
 	for i, block := range m.Blocks {
 		g.Blocks[i] = AdaLNResidualGradient{
-			NormWeight: make([]float32, len(block.NormWeight)),
-			NormBias:   make([]float32, len(block.NormBias)),
-			FC1:        newLinearGradient(block.FC1),
-			FC2:        newLinearGradient(block.FC2),
-			Modulation: newLinearGradient(block.Modulation),
+			NormWeight: storage(len(block.NormWeight)),
+			NormBias:   storage(len(block.NormBias)),
+			FC1:        linear(block.FC1),
+			FC2:        linear(block.FC2),
+			Modulation: linear(block.Modulation),
 		}
 	}
 	return g

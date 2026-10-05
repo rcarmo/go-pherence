@@ -25,6 +25,26 @@ import (
 	"unsafe"
 )
 
+// Vulkan consumes descriptor writes synchronously under vkAcquire. Scratch
+// belongs to the kernel; it never retains caller buffers across submissions.
+type vkDescriptorBufferInfo struct {
+	buffer VkBuffer
+	offset uint64
+	rng    uint64
+}
+type vkDescriptorWrite struct {
+	sType            uint32
+	pNext            uintptr
+	dstSet           VkDescriptorSet
+	dstBinding       uint32
+	dstArrayElement  uint32
+	descriptorCount  uint32
+	descriptorType   uint32
+	pImageInfo       uintptr
+	pBufferInfo      unsafe.Pointer
+	pTexelBufferView uintptr
+}
+
 // VkComputeKernel is a ready-to-dispatch Vulkan compute shader.
 type VkComputeKernel struct {
 	device         VkDevice
@@ -40,6 +60,10 @@ type VkComputeKernel struct {
 	fence          VkFence
 	numBuffers     int
 	pushSize       int
+
+	// Kernel admission bounds bindings at 16; no step/shape-sized scratch.
+	descriptorWrites  [16]vkDescriptorWrite
+	descriptorBuffers [16]vkDescriptorBufferInfo
 }
 
 // VkKernelCreate builds a compute kernel with1..16 buffers and0..128 push bytes
@@ -518,30 +542,13 @@ func (k *VkComputeKernel) validateBindingsLocked(groupsX, groupsY, groupsZ uint3
 }
 
 func (k *VkComputeKernel) updateBindingsLocked(set VkDescriptorSet, bindings []vkBufferBinding) {
-	// Update descriptor set with buffer bindings
-	type bufInfo struct {
-		buffer VkBuffer
-		offset uint64
-		rng    uint64 // VK_WHOLE_SIZE = 0xFFFFFFFFFFFFFFFF
-	}
-	type writeDS struct {
-		sType            uint32
-		pNext            uintptr
-		dstSet           VkDescriptorSet
-		dstBinding       uint32
-		dstArrayElement  uint32
-		descriptorCount  uint32
-		descriptorType   uint32
-		pImageInfo       uintptr
-		pBufferInfo      unsafe.Pointer
-		pTexelBufferView uintptr
-	}
-	writes := make([]writeDS, len(bindings))
-	bufInfos := make([]bufInfo, len(bindings))
+	// Callers have already validated 1..16 bindings under the Vulkan lock.
+	writes := k.descriptorWrites[:len(bindings)]
+	bufInfos := k.descriptorBuffers[:len(bindings)]
 	for i, binding := range bindings {
 		buf := binding.buffer
-		bufInfos[i] = bufInfo{buffer: buf.buf, offset: bindings[i].offset, rng: bindings[i].size} // explicit checked range
-		writes[i] = writeDS{
+		bufInfos[i] = vkDescriptorBufferInfo{buffer: buf.buf, offset: bindings[i].offset, rng: bindings[i].size} // explicit checked range
+		writes[i] = vkDescriptorWrite{
 			sType:           VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			dstSet:          set,
 			dstBinding:      uint32(i),
@@ -592,7 +599,17 @@ func vkSubmitLocked(ctx context.Context, device VkDevice, queue VkQueue, cmd VkC
 		return errors.Join(ErrVulkanInFlight, ErrVulkanUncertain, vkDriverError("vkQueueSubmit", r))
 	}
 	vkPending = pending
-	return vkWaitPendingLocked(ctx, time.Second)
+	return vkWaitPendingLocked(ctx, vkSubmissionWaitBudget(ctx))
+}
+
+// Explicit caller deadlines bound the complete submission, including long
+// composed plans. The legacy background-context entry points remain bounded.
+// A timeout never releases or resubmits the retained pending owner.
+func vkSubmissionWaitBudget(ctx context.Context) time.Duration {
+	if deadline, ok := ctx.Deadline(); ok {
+		return max(time.Until(deadline), 0)
+	}
+	return time.Second
 }
 
 func vkKernelFunctionsReady() bool {

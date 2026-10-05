@@ -27,8 +27,11 @@ type VulkanMemoryBudget struct {
 // DeviceLost/InFlight/Uncertain explain retained usage; inspecting it is allowed
 // even when new work and destruction are blocked.
 type VulkanMemoryUsage struct {
-	Bytes                           uint64
-	Allocations                     uint32
+	Bytes       uint64
+	Allocations uint32
+	// Peaks cover the ledger lifetime; freeing buffers never clears them.
+	PeakBytes                       uint64
+	PeakAllocations                 uint32
 	HeapBytes                       [16]uint64
 	Budget                          VulkanMemoryBudget
 	DeviceAllocationLimit           uint32
@@ -36,9 +39,11 @@ type VulkanMemoryUsage struct {
 }
 
 type vkMemoryLedger struct {
-	bytes       uint64
-	allocations uint32
-	heaps       [16]uint64
+	bytes           uint64
+	allocations     uint32
+	peakBytes       uint64
+	peakAllocations uint32
+	heaps           [16]uint64
 }
 
 var vkMemoryBudget VulkanMemoryBudget
@@ -65,7 +70,7 @@ func VulkanSetMemoryBudget(budget VulkanMemoryBudget) error {
 func VulkanMemoryStats() VulkanMemoryUsage {
 	_ = vkAcquire(context.Background())
 	defer vkRelease()
-	out := VulkanMemoryUsage{Bytes: vkMemoryUsed.bytes, Allocations: vkMemoryUsed.allocations, HeapBytes: vkMemoryUsed.heaps, Budget: vkMemoryBudget, DeviceAllocationLimit: vkLimits.MemoryAllocationCount, InFlight: vkPending != nil, DeviceLost: vkLost}
+	out := VulkanMemoryUsage{Bytes: vkMemoryUsed.bytes, Allocations: vkMemoryUsed.allocations, PeakBytes: vkMemoryUsed.peakBytes, PeakAllocations: vkMemoryUsed.peakAllocations, HeapBytes: vkMemoryUsed.heaps, Budget: vkMemoryBudget, DeviceAllocationLimit: vkLimits.MemoryAllocationCount, InFlight: vkPending != nil, DeviceLost: vkLost}
 	if vkPending != nil {
 		out.Uncertain = vkPending.uncertain
 	}
@@ -102,6 +107,8 @@ func vkChargeMemoryLocked(heap uint32, bytes uint64) {
 	vkMemoryUsed.allocations++
 	vkMemoryUsed.bytes += bytes
 	vkMemoryUsed.heaps[heap] += bytes
+	vkMemoryUsed.peakBytes = max(vkMemoryUsed.peakBytes, vkMemoryUsed.bytes)
+	vkMemoryUsed.peakAllocations = max(vkMemoryUsed.peakAllocations, vkMemoryUsed.allocations)
 }
 func vkUnchargeMemoryLocked(heap uint32, bytes uint64) {
 	vkMemoryUsed.allocations--

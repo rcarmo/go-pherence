@@ -14,7 +14,6 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	5:    {3, 0, 0}, // OpName
 	6:    {4, 0, 0}, // OpMemberName
 	10:   {2, 0, 0}, // OpExtension (explicit packed integer-dot envelope only)
-	4452: {6, 6, 2}, // OpSUDot packed 4x8 format (optional base operand fixed here)
 	11:   {3, 0, 1}, // OpExtInstImport
 	12:   {5, 0, 2}, // OpExtInst
 	14:   {3, 3, 0}, // OpMemoryModel
@@ -43,6 +42,7 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	65:   {4, 0, 2}, // OpAccessChain
 	71:   {3, 0, 0}, // OpDecorate
 	72:   {4, 0, 0}, // OpMemberDecorate
+	109:  {4, 4, 2}, // OpConvertFToU (embedding ID, guarded before conversion)
 	110:  {4, 4, 2}, // OpConvertFToS (explicit Q8_1 mode only)
 	111:  {4, 4, 2}, // OpConvertSToF (explicit Q8_1 mode only)
 	112:  {4, 4, 2}, // OpConvertUToF
@@ -63,6 +63,7 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	172:  {5, 5, 2}, // OpUGreaterThan
 	174:  {5, 5, 2}, // OpUGreaterThanEqual
 	176:  {5, 5, 2}, // OpULessThan
+	180:  {5, 5, 2}, // OpFOrdEqual
 	184:  {5, 5, 2}, // OpFOrdLessThan
 	186:  {5, 5, 2}, // OpFOrdGreaterThan
 	188:  {5, 5, 2}, // OpFOrdLessThanEqual
@@ -80,4 +81,5 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	250:  {4, 0, 0}, // OpBranchConditional
 	253:  {1, 1, 0}, // OpReturn
 	254:  {2, 2, 0}, // OpReturnValue
+	4452: {6, 6, 2}, // OpSUDot packed 4x8 format (optional base operand fixed here)
 }

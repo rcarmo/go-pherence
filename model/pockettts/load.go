@@ -8,14 +8,37 @@ import (
 )
 
 func loadLinearF32(src *safetensors.File, prefix string, in, out int, bias bool) (LinearF32, error) {
-	weight, shape, err := src.GetBF16(prefix + ".weight")
+	if src == nil || in <= 0 || out <= 0 || in > int(^uint(0)>>1)/out {
+		return LinearF32{}, fmt.Errorf("invalid Pocket TTS linear source/shape")
+	}
+	_, dtype, shape, err := src.GetRaw(prefix + ".weight")
 	if err != nil {
 		return LinearF32{}, err
 	}
-	if !equalShape(shape, []int{out, in}) || len(weight) != in*out {
-		return LinearF32{}, fmt.Errorf("Pocket TTS %s.weight shape=%v values=%d", prefix, shape, len(weight))
+	if !equalShape(shape, []int{out, in}) {
+		return LinearF32{}, fmt.Errorf("Pocket TTS %s.weight shape=%v", prefix, shape)
 	}
-	linear := LinearF32{WeightBF16: weight, In: in, Out: out}
+	linear := LinearF32{In: in, Out: out}
+	if dtype == "F32" {
+		// Training exports contain F32 updates that must not be implicitly
+		// truncated by GetBF16. Preserve the file precision on inference load.
+		linear.Weight, shape, err = src.GetFloat32(prefix + ".weight")
+		if err != nil {
+			return LinearF32{}, err
+		}
+		if len(linear.Weight) != in*out || !finiteF32(linear.Weight) {
+			return LinearF32{}, fmt.Errorf("invalid Pocket TTS %s F32 weight", prefix)
+		}
+	} else {
+		// Preserve the existing BF16/F16 input dispatch and conversion contract.
+		linear.WeightBF16, shape, err = src.GetBF16(prefix + ".weight")
+		if err != nil {
+			return LinearF32{}, err
+		}
+		if len(linear.WeightBF16) != in*out {
+			return LinearF32{}, fmt.Errorf("Pocket TTS %s.weight values=%d", prefix, len(linear.WeightBF16))
+		}
+	}
 	if bias {
 		linear.Bias, shape, err = src.GetFloat32(prefix + ".bias")
 		if err != nil {

@@ -9,7 +9,9 @@ import (
 // LSDWeightMLP implements upstream w_s_t: affine/ReLU hidden layers followed
 // by one affine output. All linears own mutable F32 weights and biases.
 type LSDWeightMLP struct {
-	Layers []LinearF32
+	// Optional resident weighting backend; nil keeps CPU arithmetic.
+	TrainingBackend TrainingWeightBackend
+	Layers          []LinearF32
 }
 
 type LSDWeightGradients struct {

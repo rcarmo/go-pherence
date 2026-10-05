@@ -91,6 +91,9 @@ func TestVulkanOfflineMemoryBudgetBoundaries(t *testing.T) {
 	}
 	b := mustMemoryBuffer(t)
 	assertMemory(t, 1, 64)
+	if u := VulkanMemoryStats(); u.PeakBytes != 64 || u.PeakAllocations != 1 {
+		t.Fatal("native high water", u)
+	}
 	if b.size != 16 || b.allocationBytes != 64 {
 		t.Fatal("charged requested rather than padded bytes")
 	}
@@ -113,6 +116,9 @@ func TestVulkanOfflineMemoryBudgetBoundaries(t *testing.T) {
 	}
 	b.Free()
 	assertMemory(t, 0, 0)
+	if u := VulkanMemoryStats(); u.PeakBytes != 64 || u.PeakAllocations != 1 {
+		t.Fatal("free cleared native high water", u)
+	}
 	if m.frees != 1 {
 		t.Fatal("double free")
 	}
