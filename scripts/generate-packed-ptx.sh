@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 nvcc=${NVCC:-/usr/local/cuda/bin/nvcc}
 tmp=$(mktemp -d)

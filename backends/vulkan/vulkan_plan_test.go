@@ -215,6 +215,43 @@ func mustPlan(t *testing.T, stages ...VkF32Stage) *VkF32Plan {
 	return p
 }
 
+// Bounded repeated use exposes escaping stage copies during preflight. Mock
+// descriptor/event bookkeeping is included and identical before/after; this
+// cannot estimate driver/GPU latency or reflection allocations.
+func TestVulkanOfflinePlanRunAllocationProfile(t *testing.T) {
+	m, k, a, x := newPlanMock(t)
+	k.pushSize = 4
+	stages := make([]VkF32Stage, 64)
+	for i := range stages {
+		stages[i] = onePlanStage(k, x)
+		stages[i].PushWords = []uint32{uint32(i)}
+	}
+	p := mustPlan(t, stages...)
+	run := func() {
+		m.events = m.events[:0]
+		m.pushes = m.pushes[:0]
+		m.dispatchSets = m.dispatchSets[:0]
+		if err := p.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if len(m.pushes) != 64 || len(m.dispatchSets) != 64 {
+			t.Fatal("stage work missing")
+		}
+	}
+	run()
+	allocations := testing.AllocsPerRun(100, run)
+	t.Logf("64-stage plan allocations/run=%g (includes mock descriptor lists)", allocations)
+	if allocations > 70 {
+		t.Fatalf("per-stage recording allocation regression: %g > 70", allocations)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVulkanOfflinePlanRebindAtomic(t *testing.T) {
 	m, k, a, x := newPlanMock(t)
 	y := mustTensor(t, a, 4, 2)

@@ -82,10 +82,60 @@ Tests must be repeatable from a clean checkout. A passing local run is evidence 
 - For foreign architectures, use `go test -c` with an explicit output path or `go build`; plain `go test` tries to execute the foreign binary and is an invalid cross-build check.
 - Keep benchmark and correctness fixtures separate. Strip or normalise nondeterministic timings from golden files, but preserve raw timing samples in validation evidence when performance is under review.
 
+### Project caches, builds and isolated scratch
+
+Mandatory from 2026-10-05 (portable amendment relayed 19:22 UTC): on this
+local host prefer `/workspace/tmp/go-pherence/`. Vendored
+`scripts/project-tmp.sh` validates explicit absolute `PROJECT_TMP_BASE`,
+selecting `<base>/go-pherence`; compatible `PROJECT_TMP_ROOT` must be absolute
+and end in `go-pherence`. If both are provided they must agree; invalid or
+unusable overrides fail without fallback. CI prefers `${RUNNER_TEMP}`, then
+the original inherited `${TMPDIR}`, then platform `/tmp`, even when workspace
+exists. Local mode prefers usable `/workspace/tmp`, then platform `/tmp`.
+Always append `go-pherence`. Snapshot `PROJECT_ORIGINAL_TMPDIR`, resolve once,
+and export root before changing child temp so subprocesses never nest roots.
+CI does not require `/workspace/Makefile` or unvendored tools.
+
+`cache/<tool>/` holds Go build/module, Bun/npm, pip/uv and bytecode caches;
+`build/` holds generated binaries; `tests/` and `logs/` are available for
+explicit disposable test/log scratch; `runs/<purpose>/<run-id>/` holds isolated
+command/test scratch. Do not use unnamespaced `/tmp`, HOME build caches,
+repository `bin/` or ad-hoc top-level workspace paths.
+
+Every Make recipe sources `scripts/project-env.sh`; Go test recipes use
+`scripts/test-profile.sh` to retain per-package CPU/heap profiles and matching
+binaries under `/workspace/exports/go-pherence-test-profiles/` on this host.
+CI uses `PROFILE_EVIDENCE_ROOT` or its retained `artifacts/` directory, outside
+the disposable project root. No-test packages
+and missing captures are reported, not called a profiling pass. Analyse the
+cumulative CPU/alloc_space/alloc_objects outputs after each invocation; profiles
+alone are not performance acceptance. Cross-compiled `-c` binaries are build-only,
+not test evidence. Fuzz/subprocess activity requires separate representative
+profiles. For direct commands and helpers, source `scripts/project-env.sh` first,
+setting `GO_PHERENCE_RUN_PURPOSE` and a unique
+`GO_PHERENCE_RUN_ID` when coordinating concurrent runs/worktrees. It routes
+`TMPDIR`, `TMP`, `TEMP`, `GOTMPDIR`, `GOCACHE`, `GOMODCACHE`, `GOPATH` and the
+applicable tool caches. Go `t.TempDir`/subprocesses inherit the isolated run
+root; keep their ownership/symlink checks. `make project-paths` prints the
+resolved layout; `make project-tmp-init` initialises owned directories.
+
+Retained profiles, matching test binaries, logs, receipts, datasets and trained
+checkpoints belong under `/workspace/exports/` or durable checkpoint roots,
+not disposable scratch. `clean` must affect only this project's build output;
+cache/run cleanup is manual after checking active users and retaining evidence.
+Never delete toolchains, installed dependencies, another project's files or
+model assets as incidental scratch. Existing active paths stay untouched until
+the job completes. Legacy read-only fixture/data paths require explicit
+migration or approval; do not silently rename input pins.
+
+Remote/CI hosts use the validated generic fallback with the same layout.
+Document explicit root mappings and preserve filesystem isolation. Other
+unnamespaced or HOME cache fallbacks are forbidden.
+
 ### Remote K3 development
 
 When working on the Milk-V/K3 board via SSH:
-- Set `HOME=/home/me TMPDIR=/tmp GOCACHE=/home/me/.cache/go-build GOMODCACHE=/home/me/go/pkg/mod` explicitly — SSH-backed tool environments may not inherit the correct home directory.
+- Set `HOME=/home/me` for toolchain discovery, then source `scripts/project-env.sh` for cache/build/run paths. The remote uses the same validated project resolver/fallback; never use unnamespaced `/tmp` or `/home/me/.cache`.
 - Use `nohup` for long-running generation commands; the board has 31 GB RAM and no swap, so aggressive memory use can trigger the OOM killer or reboot.
 - After installing packages, use `--user --break-system-packages` for pip since `python3-venv` may not be available and `sudo` may require a TTY.
 

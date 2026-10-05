@@ -49,7 +49,74 @@ The full joint run on the corrected source still rejects **two of 89,449,730 par
 
 Native peak is **2,137,332,320 bytes / 929 allocations**; sampled peak RSS is **5,702,246,400 bytes**. These stay below 2GiB/4096/6GiB, with no cap hit, in-flight work, uncertain state or device loss at completed comparison. This is not complete acceptance: the unchanged numerical gate fences checkpoint publication, fresh native resume, EMA/export and ordinary closure proof. Remaining propagated-boundary drift must be fixed, not hidden by a larger tolerance. Evidence: `integrated-joint-correct-association`.
 
-CLI host admission remains conservative and unchanged. Final-source native soak, matched efficiency, listening and Samantha comparisons remain open.
+Joint-maximum CLI host admission remains conservative and rejects. The released short-row CLI chain and six-step continuation now pass as described below. Matched efficiency, listening and Samantha comparisons remain open.
+
+### Remaining rounding-noise investigation
+
+On merged source `8c7eabb0`, independently captured 950-row CPU inputs and adjoints isolate each native transformer layer. All inspected intermediates through FC1 preactivation agree numerically. The first differences occur at GELU: 380 of 11,673,600 inspected values differ across layers 2–4, by at most 3.725290298461914e-9. Only 18 residual outputs differ, by at most 1.4901161193847656e-8. Five layer input VJPs and final norm agree; layer 3's VJP has relative L2 error 6.6210407e-9 and maximum absolute error 2.3283064365386963e-10. Fixed-input native weight-gradient reduction matches the CPU result.
+
+Independent MPFR evaluation at 256-bit precision uses the exact CPU binary64 GELU coefficients, then rounds to F32. Among the 380 differing outputs, 372 CPU values and 7 native values match the correctly rounded result. Neither implementation is universally correctly rounded: the CPU reaches 4.53 ULP error at a tiny negative output due to cancellation in `1+tanh`; the native maximum is 1.22 ULP. Most other points sit near an F32 half-ULP boundary. These results identify computational rounding noise rather than another shape/reduction or ownership defect.
+
+This does not establish harmless downstream impact. Near-zero gradients make the first AdamW denominator sensitive enough to amplify the perturbation beyond the existing 4e-6 parameter gate. No selected-value correction, CPU-oracle change or tolerance increase is applied. Joint acceptance remains open pending update/EMA/inference sensitivity assessment; matching the CPU's rounding artifacts is not a valid accuracy objective. Evidence: `joint-all-cpu-boundaries`, `joint-fixed-boundaries-native`, `joint-forward-rounding-detail` and `joint-gelu-rounding-points`.
+
+### Two-coordinate downstream sensitivity
+
+The independent joint step-one CPU checkpoint is perturbed only at the two rejected native parameter coordinates. Three deterministic requests (3 tokens, reversed 3 tokens and 512 tokens), four recurrent frames and repeated session resets pass the unchanged hidden/EOS 3e-5, flow 2e-5 and PCM 3e-5 gates. Reconstructed step-one EMA offsets are +4.8894435e-9 and -4.1909516e-9, below the 6e-8 stored-value gate. This experiment holds every other parameter fixed; it is not a whole-native-model comparison or listening evidence.
+
+A separate fixed-gradient scalar Adam replay uses both pinned independent CPU checkpoints. It reproduces CPU step-two parameters, then measures the retained native step-one perturbation under identical CPU step-two gradients. Parameter offsets remain +4.7986396e-6 and -4.1224994e-6; they do not automatically vanish. EMA offsets remain below 1e-8. Recomputed gradients, long-term convergence and native fresh resume remain unqualified. Evidence: `rounding-inference-impact-streamed`, `rounding-fixed-gradient-step2` and `rounding-impact-final`. No numerical gate was waived.
+
+### CLI native allocation ceiling prerequisite
+
+The shared CLI now installs a combined Vulkan allocation budget before kernel setup: caller byte ceiling (at most 2GiB), at most 4096 allocations, preserving stricter existing caps. Any pre-existing live, pending, uncertain or lost native owner rejects. Complete-source and resident logical admission remain unchanged. Ten offline budget-policy repetitions and an explicit native constructor/closure check pass; the latter allocates no model/state/tapes. Evidence: `cli-native-cap` and `cli-native-cap-installed`.
+
+### Bounded short-row CLI and six-step continuation
+
+The shared command now charges the conservative CPU planner, an independent completed P/M/V/EMA host boundary (4P), and one enforced combined native cap. It no longer double-counts a copied checkpoint snapshot: shared serialization borrows the validated private boundary synchronously. CPU/legacy routes retain their original copied-snapshot admission. Model mapping and corpus reserves remain. A fail-closed 10ms RSS watchdog cancels on over-cap or capture failure; RSS failure fences updates and checkpoint/export publication rather than using ordinary cancellation's dirty-save path. No GC, eviction, reset or retry is used to pass admission. A separate resource-cancellation context observes RSS during checkpoint serialization/copy operations; ordinary user cancellation still saves a dirty completed boundary. Cancellation before publication keeps the old pointer. Cancellation racing a completed pointer rename is publication-visible and is never rolled back. CLI export checks before scratch preparation and the exclusive final link; blocked IO/syscalls and link races cannot be interrupted atomically. Sampling cannot prevent a between-sample overshoot, so pre-allocation owner accounting remains necessary. Context/RSS/publication tests pass with profiles (`checkpoint-rss-context`, `rss-checkpoint-cancellation-lanes`, `resource-publication-final`).
+
+For 14 target / 13 voice / one text token, CPU upper storage is 1,916,017,880 bytes; the 4P guard adds 1,431,195,680 bytes and the combined native cap adds 2,147,483,648 bytes. This leaves 947,753,736 bytes before model mapping/corpus charges. The 219,029,196-byte model fits. Joint 375 / 62 / 512 geometry still rejects under the conservative CPU planner; measured RSS alone does not justify changing that estimate.
+
+The actual short-row CLI now passes update, checkpoint, fresh resume, step two, EMA export and independent CPU-backed inference/reset. A mistaken post-command CPU reference filename was corrected by comparing saved results read-only, without repeating the native update.
+
+| New command gate | Parameter maximum / failures above 4e-6 | EMA maximum | Command RSS peak | Native peak bytes / allocations |
+|---|---:|---:|---:|---:|
+| Fresh step one | 1.8533319234848022e-7 / 0 | 3.725290298461914e-9 | Watchdog passed; peak not recorded | 1,888,061,824 / 970 |
+| Fresh resume, step two and export | 2.1047890186309814e-7 / 0 | 7.450580596923828e-9 | 5,385,310,208 | 1,888,061,824 / at most 971 |
+| Continue steps three through six | at most 2.1606683731079102e-7 / 0 at each step | at most 1.4901161193847656e-8 | 5,619,322,880 | 1,888,061,824 / 971 |
+
+Each continuation step compares all 89,449,730 parameter and EMA values to its independently generated CPU checkpoint. Native closure returns bytes/allocations to zero without pending, uncertain or lost state. The command performs four **new** updates from accepted step two; steps one and two are not reexecuted. No command-phase GC, recovery or fallback occurs. Post-command comparison allocations and its diagnostic GC are a separate phase, excluded from the command-only RSS figure but retained in profiles.
+
+Step-two export checks 214 tensors / 109,502,146 values numerically at 6e-8. Prefill/flow/LSD/decoded PCM and two-frame session-reset tests pass the existing gates; recurrent PCM maximum is 7.222406566143036e-7 at 3e-5. This is synthetic engine acceptance, not listening or voice-quality evidence. Evidence: `cli-shared-bounded-native`, `cli-shared-resume-export-native`, `cli-saved-resume-comparison`, `cli-ema-inference`, `cli-cpu-continuation-six`, `cli-native-continuation-six`.
+
+### Checkpoint decode allocation reduction
+
+Detailed attribution shows that binary loader space is mostly required, independently owned P/M/V/EMA arrays—not a redundant model-sized temporary. The avoidable allocation is a 32KiB decoding buffer created for every tensor. Reusing one request-local buffer preserves format, checksums, byte/element ceilings, finite checks and returned ownership.
+
+A 128-parameter / 2,048-value benchmark drops from about 21,120,032 B/op and 2,622 allocs/op to 4,342,816 B/op and 2,110 allocs/op: 16MiB and 512 allocations removed. Five equivalent profiled samples and existing hostile-input/ownership/resume tests pass. The equivalent released read-only comparison drops sampled allocation from 3,257.78MiB to 3,229.54MiB; unavoidable full-state arrays remain. Timing differences are diagnostic, not native/CPU efficiency acceptance. Evidence: `binary-buffer-before`, `binary-buffer-after`, `binary-buffer-released`, `loader-cli-final`.
+
+### Checkpoint writer allocation reduction
+
+Writer profiles also identified a 32KiB buffer allocated for each serialised array. One request-local buffer now serves all synchronous chunks. A 128-parameter / 2,048-value fixture drops from about 16,816,464 B/op and 907 allocations to 39,248 B/op and 395 allocations. An independent field-format oracle checks chunk boundaries, separate arrays, signed zero and subnormals. Repeated error injection stops at every failed write; writer coverage reaches 98.4%.
+
+Read-only serialisation of the retained released CPU step-six checkpoint saves 17,268,736 bytes and 527 allocations per checkpoint: about 17,320,800 B/op / 934 allocations becomes 52,064 B/op / 407 allocations. Five samples per version do not establish a released-size latency improvement; SHA-256 remains the CPU hotspot. Timed serialisation excludes state loading, snapshot copies and filesystem publication. Evidence: `writer-buffer-before`, `writer-buffer-after`, `writer-overlay-verification`, `writer-buffer-released`, `writer-failure-boundaries`, `writer-publication-final`.
+
+RSS cancellation observed immediately after the exclusive export link now returns `PocketExportPublishedError` with the cancellation cause. The visible export remains in place, and directory sync is attempted. A deterministic link-boundary test covers this race. Full affected suites, ten race repetitions, vet and build pass; broad host-test completion and an independent review are still unestablished.
+
+### Matched cold-step efficiency
+
+Five fresh processes per backend restore accepted step six and compute a new step-seven update with the same 14-target / 13-voice / one-token row, sampling streams and numerical options. Timed phases separate preparation/restore, cold update, snapshot/serialization to discard and owner closure. One independent CPU step-seven checkpoint supplies post-closure numerical comparisons; previous qualification updates are not replayed. Every sample passes all 89,449,730 parameter and EMA values at 4e-6. Native maxima are 2.197921276e-7 and 2.980232239e-8.
+
+| Median phase | CPU | Shared Vulkan |
+|---|---:|---:|
+| Prepare/restore | 4.917s | 5.482s |
+| Cold update | 1.695s | 29.479s |
+| Snapshot/serialize to discard | 1.331s | 1.368s |
+| Closure | 0.000002s | 0.489s |
+
+The cold update allocates 433,903,848 bytes / 3,689 objects on CPU and 304,018,600 bytes / 2,256,848 objects on native. Native phase profiles identify about six seconds each in native calls and tape validation; reflection and per-plan metadata dominate allocated objects. Efficiency acceptance is open. Shared-GPU timing is diagnostic, and this workload excludes CLI admission, filesystem sync and publication.
+
+A plan-owned 24-byte barrier value removes escaping metadata while retaining every access mask, barrier, preflight and quarantine check. The 64-stage offline fixture drops from 135 to 70 allocations per run. Five changed-source native samples retain numerical/resource/closure acceptance and reduce median cold-step allocations to 2,219,721 objects / 301,285,840 bytes. The 27.100s median overlaps the previous timing distribution; no controlled speedup is established. Native peak remains 1,888,061,824 bytes / 971 allocations; changed-source RSS maximum is 5,129,392,128 bytes.
+
+Evidence: `efficiency-matched-step7` (raw CSV, aggregate JSON, per-process profiles and analyses), `plan-preflight-before`, `plan-preflight-after`, `plan-barrier-verification`. Broad offline host qualification passes 137 packages initially; an OmniVoice profiler-conflict test is fixed and its affected suite passes with separately profiled child execution. Fifty-six packages have no tests. Profiles for all 138 tested packages are reviewed under `host-full-20261005`. A second clean broad invocation has not run. Disk headroom is about 3.3GiB.
 
 ## Historical integration evidence
 

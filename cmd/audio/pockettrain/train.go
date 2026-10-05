@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"time"
 
 	simd "github.com/rcarmo/go-pherence/backends/simd/runtime"
 	"github.com/rcarmo/go-pherence/internal/checked"
@@ -60,7 +61,7 @@ func trainPrepared(ctx context.Context, args []string, out io.Writer) (result er
 	backend := fs.String("backend", "simd", "simd or explicit ptx-/vulkan- attention, flow, transformer, optimizer, resident, resident-weight or resident-projection or resident-sequence or resident-time or resident-eos or resident-loss or resident-branch or resident-step or resident-pruned or resident-globalnorm or resident-devicescale or resident-sampleweight or resident-lifetime or resident-statecheck or resident-zeroconst or resident-eosfused or resident-audiofused or resident-voicefused or resident-conditioner or resident-backbone or resident-eosbackbone or resident-diagfused or resident-endpointfused or resident-primaryfused or resident-distillfused or resident-forwardfused or resident-diagforward or resident-weightroots or resident-stepweight or resident-stepbackbone or resident-stepresults or resident-distillresults or resident-eosforward or resident-forwardresults or resident-embeddingindex or resident-embeddingcompact or resident-diagadmission or resident-distilladmission hybrid")
 	deviceOptin := fs.Bool("allow-experimental-device-training", false, "explicitly permit native hybrid training; no full GPU training")
 	devicePin := fs.String("device-runtime-sha256", "", "required caller pin of device/driver/runtime/numerical implementation")
-	maxDevice := fs.Int64("max-device-bytes", 256<<20, "logical byte ceiling (resident mode separately caps resident state and each tape; combined peak can reach twice this)")
+	maxDevice := fs.Int64("max-device-bytes", 256<<20, "complete-source/resident byte ceiling; sharedworkspace also bounds combined native allocations at this cap/4096 (other resident modes can reach twice the logical cap)")
 	config := fs.String("config", "", "released English YAML")
 	model := fs.String("model", "", "released safetensors including frozen Mimi")
 	modelHash := fs.String("model-sha256", "", "required checkpoint pin")
@@ -94,6 +95,17 @@ func trainPrepared(ctx context.Context, args []string, out io.Writer) (result er
 	}
 	if math.IsNaN(*lr) || math.IsInf(*lr, 0) || float32(*lr) <= 0 || math.IsInf(float64(float32(*lr)), 0) || math.IsNaN(*ema) || *ema < 0 || *ema >= 1 || float32(*ema) >= 1 || math.IsNaN(*maxNorm) || math.IsInf(*maxNorm, 0) || float32(*maxNorm) <= 0 || math.IsInf(float64(float32(*maxNorm)), 0) {
 		return fmt.Errorf("invalid optimiser/EMA/gradient options")
+	}
+	if scope == "vulkan-resident-sharedworkspace-hybrid-v1" {
+		if *maxResident > 6<<30 {
+			return fmt.Errorf("sharedworkspace RSS ceiling cannot exceed 6GiB")
+		}
+		guarded, finish, err := watchTrainingRSS(ctx, *maxResident, 10*time.Millisecond, trainingRSS)
+		if err != nil {
+			return err
+		}
+		ctx = guarded
+		defer func() { result = errors.Join(result, finish()) }()
 	}
 	if *export != "" {
 		if _, err := os.Lstat(*export); err == nil || !os.IsNotExist(err) {
@@ -137,21 +149,20 @@ func trainPrepared(ctx context.Context, args []string, out io.Writer) (result er
 		if err != nil {
 			return fmt.Errorf("row%d: %w", i, err)
 		}
-		// A state snapshot copies params/buffers/moments/EMA. Charge a second
-		// parameter-state set in addition to the training planner estimate.
-		if plan.ParameterBytes > (availableResident-plan.ResidentUpperBytes)/5 {
-			return fmt.Errorf("row%d: training plus checkpoint snapshot exceeds resident ceiling", i)
-		}
-		mappingBudget = min(mappingBudget, availableResident-plan.ResidentUpperBytes-5*plan.ParameterBytes)
 		if scope == "vulkan-resident-sharedworkspace-hybrid-v1" {
-			// Coherent native allocations count against process RAM, in addition
-			// to the independent owned completed-state mutation guard. Reserve
-			// both separately capped resident/tape sets, not only CPU scratch.
+			// Shared checkpoint borrows validated independent host state; the
+			// allocator enforces one combined coherent-native cap.
 			mapping, err := sharedWorkspaceHostMappingBudget(plan, availableResident, *maxDevice)
 			if err != nil {
 				return fmt.Errorf("row%d: %w", i, err)
 			}
 			mappingBudget = min(mappingBudget, mapping)
+		} else {
+			// Legacy/CPU snapshot APIs retain their copied 5P ownership.
+			if plan.ParameterBytes > (availableResident-plan.ResidentUpperBytes)/5 {
+				return fmt.Errorf("row%d: training plus checkpoint snapshot exceeds resident ceiling", i)
+			}
+			mappingBudget = min(mappingBudget, availableResident-plan.ResidentUpperBytes-5*plan.ParameterBytes)
 		}
 		if err := validatePreparedRow(row, cfg.Mimi.InnerDim, cfg.FlowLM.LookupTable.NBins); err != nil {
 			return fmt.Errorf("row%d: %w", i, err)
@@ -244,17 +255,24 @@ func trainPrepared(ctx context.Context, args []string, out io.Writer) (result er
 	if err != nil {
 		return err
 	}
-	limits := pockettts.TrainingBundleLimits{MaxModelBytes: *maxCheckpoint, MaxSidecarBytes: 2 << 20}
+	limits := pockettts.TrainingBundleLimits{MaxModelBytes: *maxCheckpoint, MaxSidecarBytes: pockettts.MaxTrainingRunStateBytes}
 	if *resume {
 		if err := runner.Restore(*output, limits); err != nil {
 			return err
 		}
 	}
-	if err := runPreparedUpdates(ctx, runner, *output, *steps, *every, limits, out, trainingGeneration); err != nil {
+	var updateRunner preparedUpdateRunner = runner
+	if scope == "vulkan-resident-sharedworkspace-hybrid-v1" {
+		updateRunner = rssGuardedRunner{runner, ctx}
+	}
+	if err := runPreparedUpdates(ctx, updateRunner, *output, *steps, *every, limits, out, trainingGeneration); err != nil {
 		return err
 	}
 	if *export != "" {
-		return exportNewCheckpoint(*export, cfg, trainer, source, *ema > 0)
+		if cause := context.Cause(ctx); errors.Is(cause, errTrainingRSS) {
+			return cause
+		}
+		return exportNewCheckpointContext(ctx, *export, cfg, trainer, source, *ema > 0)
 	}
 	return nil
 }
@@ -334,10 +352,16 @@ func runPreparedUpdates(ctx context.Context, runner preparedUpdateRunner, direct
 	enc := json.NewEncoder(out)
 	for i := 0; i < steps; i++ {
 		if err := ctx.Err(); err != nil {
+			if cause := context.Cause(ctx); errors.Is(cause, errTrainingRSS) {
+				return cause
+			}
 			return errors.Join(err, saveDirty())
 		}
 		metrics, err := runner.Step(ctx)
 		if err != nil {
+			if errors.Is(err, errTrainingRSS) {
+				return err
+			}
 			// TrainingRunner returns context cancellation only before an update.
 			// A cancellation racing the loop's check can therefore save earlier
 			// dirty boundaries; other Step failures may be poisoned and cannot.
@@ -397,6 +421,15 @@ func decodePrepared(data []byte) (preparedCorpus, error) {
 // file into place. The existing exporter may rename-overwrite its scratch path;
 // it must never replace a raced caller destination.
 func exportNewCheckpoint(path string, cfg pockettts.Config, trainer *pockettts.FullTrainer, source *safetensors.File, ema bool) error {
+	return exportNewCheckpointContext(context.Background(), path, cfg, trainer, source, ema)
+}
+func exportNewCheckpointContext(ctx context.Context, path string, cfg pockettts.Config, trainer *pockettts.FullTrainer, source *safetensors.File, ema bool) error {
+	if ctx == nil {
+		return fmt.Errorf("nil export context")
+	}
+	if cause := context.Cause(ctx); cause != nil {
+		return cause
+	}
 	parent := filepath.Dir(path)
 	dir, err := os.MkdirTemp(parent, ".pocket-export-*")
 	if err != nil {
@@ -407,20 +440,36 @@ func exportNewCheckpoint(path string, cfg pockettts.Config, trainer *pockettts.F
 	if err := pockettts.ExportPocketSafetensors(temp, cfg, trainer, source, ema); err != nil {
 		return err
 	}
-	return publishNewExport(temp, path)
+	return publishNewExportContext(ctx, temp, path)
+}
+func publishNewExportContext(ctx context.Context, temp, path string) error {
+	return publishNewExportWithLink(ctx, temp, path, os.Link)
 }
 func publishNewExport(temp, path string) error {
-	if err := os.Link(temp, path); err != nil {
+	return publishNewExportContext(context.Background(), temp, path)
+}
+
+// The link is the publication boundary. Cancellation observed afterwards must
+// preserve visibility in the returned error, even if the directory sync passes.
+// A local operation seam exercises that race without global hooks or retries.
+func publishNewExportWithLink(ctx context.Context, temp, path string, link func(string, string) error) error {
+	if ctx == nil || link == nil {
+		return fmt.Errorf("nil export context/link")
+	}
+	if cause := context.Cause(ctx); cause != nil {
+		return cause
+	}
+	if err := link(temp, path); err != nil {
 		return err
 	}
 	d, err := os.Open(filepath.Dir(path))
 	if err != nil {
-		return &pockettts.PocketExportPublishedError{Path: path, Err: err}
+		return &pockettts.PocketExportPublishedError{Path: path, Err: errors.Join(err, context.Cause(ctx))}
 	}
 	syncErr := d.Sync()
 	closeErr := d.Close()
-	if syncErr != nil || closeErr != nil {
-		return &pockettts.PocketExportPublishedError{Path: path, Err: errors.Join(syncErr, closeErr)}
+	if err := errors.Join(syncErr, closeErr, context.Cause(ctx)); err != nil {
+		return &pockettts.PocketExportPublishedError{Path: path, Err: err}
 	}
 	return nil
 }

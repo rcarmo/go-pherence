@@ -38,8 +38,8 @@ test("Make defaults to checkpoints and honours explicit/legacy overrides", () =>
 test("standard Make gates enforce the layout before broad validation", () => {
   for (const target of ["model-layout-check", "docs-check", "host-check"]) {
     const output = run(["make", "-n", target]);
-    expect(output, target).toContain("go test ./docs -run '^TestModelLayout' -count=1");
-    expect(output, target).toContain("bun test scripts/model-layout.test.ts");
+    expect(output, target).toContain("bash scripts/test-profile.sh ./docs -run '^TestModelLayout' -count=1");
+    expect(output, target).toContain("bun test --preload ./scripts/test-profile-bun.ts scripts/model-layout.test.ts");
     if (target === "host-check") {
       expect(output.indexOf("TestModelLayout")).toBeLessThan(output.indexOf("go build ./..."));
     }

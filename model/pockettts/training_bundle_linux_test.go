@@ -4,6 +4,7 @@ package pockettts
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -72,6 +73,49 @@ func bundleBytesFixture(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return data
+}
+
+type bundleCancelReader struct {
+	reader io.Reader
+	cancel context.CancelCauseFunc
+	reads  int
+}
+
+func (r *bundleCancelReader) Read(data []byte) (int, error) {
+	n, err := r.reader.Read(data)
+	r.reads++
+	if r.reads == 2 {
+		r.cancel(context.DeadlineExceeded)
+	}
+	return n, err
+}
+
+func TestTrainingBundleContextCancellation(t *testing.T) {
+	dir := t.TempDir()
+	run := newRunFixture(t, 3)
+	bundlePublishFixture(t, dir, "old", 0, run)
+	pointer := bundleBytesFixture(t, filepath.Join(dir, "current.json"))
+	rowAdvance(t, run, 2)
+	ctx, cancel := context.WithCancelCause(context.Background())
+	cancel(context.DeadlineExceeded)
+	if _, err := PublishTrainingBundleContext(ctx, dir, "early", bytes.NewReader(bundleModelFixture(1)), 1, run, bundleLimitsFixture()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "early.model.bin")); !os.IsNotExist(err) {
+		t.Fatal("early cancellation wrote model")
+	}
+	ctx, cancel = context.WithCancelCause(context.Background())
+	reader := &bundleCancelReader{reader: bytes.NewReader(bundleModelFixture(1)), cancel: cancel}
+	if _, err := PublishTrainingBundleContext(ctx, dir, "late", reader, 1, run, bundleLimitsFixture()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(pointer, bundleBytesFixture(t, filepath.Join(dir, "current.json"))) {
+		t.Fatal("cancelled publication replaced pointer")
+	}
+	bundleReadFixture(t, dir, 0)
+	if _, err := PublishTrainingBundleContext(nil, dir, "nil", bytes.NewReader(bundleModelFixture(1)), 1, run, bundleLimitsFixture()); err == nil {
+		t.Fatal("nil context")
+	}
 }
 
 func TestTrainingBundleRoundTrip(t *testing.T) {

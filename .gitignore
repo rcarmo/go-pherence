@@ -13,3 +13,5 @@
 # Local generated command binaries and benchmark logs.
 /bin/
 /logs/
+# Retained CI profiling artifact upload root (not disposable cache/scratch).
+/artifacts/

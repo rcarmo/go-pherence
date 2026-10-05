@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Capture bounded host RAPL counters and thermal-zone temperatures as JSONL.
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 usage() {
   echo "usage: $0 OUTPUT.jsonl COMMAND [ARG ...]" >&2

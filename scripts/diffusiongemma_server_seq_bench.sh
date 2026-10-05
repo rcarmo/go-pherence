@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 MODEL=${MODEL:-/home/me/models/diffusiongemma-26B-A4B-it-FP8}
 HOST=${HOST:-127.0.0.1}
@@ -13,8 +14,8 @@ SEED=${SEED:-1}
 PROMPT_IDS=${PROMPT_IDS:-2,106,107}
 RETURN_STEPS=${RETURN_STEPS:-1}
 STREAM=${STREAM:-0}
-OUT=${OUT:-/tmp/diffusiongemma_server_seq_bench.jsonl}
-SERVER_LOG=${SERVER_LOG:-/tmp/diffusiongemma_server_seq_bench.server.log}
+OUT=${OUT:-${PROJECT_RUN_DIR}/diffusiongemma_server_seq_bench.jsonl}
+SERVER_LOG=${SERVER_LOG:-${PROJECT_RUN_DIR}/diffusiongemma_server_seq_bench.server.log}
 SERVER_PID=""
 
 cleanup() {

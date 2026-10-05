@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 steps=${IDEOGRAM4_SWEEP_STEPS:-2}
-out_csv=${IDEOGRAM4_SWEEP_CSV:-/workspace/tmp/ideogram4/residency_sweep.csv}
+out_csv=${IDEOGRAM4_SWEEP_CSV:-${PROJECT_RUN_DIR}/residency_sweep.csv}
 windows=${IDEOGRAM4_SWEEP_WINDOWS:-0 2 4 8}
 starts=${IDEOGRAM4_SWEEP_STARTS:-0}
 model=${IDEOGRAM4_MODEL:-/srv/piclaw-dev/workspace/tmp/ideogram4-cat-model}
 prompt_file=${IDEOGRAM4_PROMPT_FILE:-prompts/ideogram4/cat.json}
-base_out_dir=${IDEOGRAM4_SWEEP_OUT_DIR:-/workspace/tmp/ideogram4/sweep}
-mkdir -p "$(dirname "$out_csv")" "$base_out_dir" "${GOTMPDIR:-/workspace/tmp}"
+base_out_dir=${IDEOGRAM4_SWEEP_OUT_DIR:-${PROJECT_RUN_DIR}/sweep}
+mkdir -p "$(dirname "$out_csv")" "$base_out_dir" "${GOTMPDIR}"
 
 echo 'window,start,steps,rc,qwen_s,denoise_s,vae_s,total_s,kernels,h2d,h2d_bytes,d2h,d2h_bytes,mallocs,malloc_bytes,log,out' > "$out_csv"
 

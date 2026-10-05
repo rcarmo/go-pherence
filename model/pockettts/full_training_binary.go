@@ -131,13 +131,15 @@ func ReadFullTrainingStateBinary(reader io.Reader, maxBytes int64) (FullTraining
 	// Charge every tensor element against the explicit file ceiling. This
 	// prevents hostile length fields from driving unbounded allocations.
 	remainingElements := uint64(maxBytes / 4)
+	// Reader is synchronous; one request-local decode buffer serves every
+	// independently owned tensor. No pooled/global scratch or returned alias.
+	var bytes [32 << 10]byte
 	readFloat32 := func(length uint64) ([]float32, error) {
 		if length == 0 || length > remainingElements || length > uint64(math.MaxInt) {
 			return nil, fmt.Errorf("Pocket TTS binary checkpoint tensor length exceeds limit")
 		}
 		remainingElements -= length
 		values := make([]float32, int(length))
-		var bytes [32 << 10]byte
 		for i := 0; i < len(values); {
 			count := min(len(values)-i, len(bytes)/4)
 			if _, err := io.ReadFull(input, bytes[:count*4]); err != nil {
@@ -250,6 +252,9 @@ func writeFullTrainingBinary(writer io.Writer, state FullTrainingState) error {
 	if _, err := output.Write(header[:]); err != nil {
 		return err
 	}
+	// Writes are synchronous. One request-local buffer serves every array;
+	// tensors remain owned and unchanged, with no retained or pooled scratch.
+	var bytes [32 << 10]byte
 	writeGroup := func(tensors []NamedTrainingTensor, adam []NamedAdamState) error {
 		count := len(tensors) + len(adam)
 		if count > maxBinaryTrainingTensors {
@@ -261,7 +266,6 @@ func writeFullTrainingBinary(writer io.Writer, state FullTrainingState) error {
 			return err
 		}
 		writeValues := func(values []float32) error {
-			var bytes [32 << 10]byte
 			for i := 0; i < len(values); {
 				count := min(len(values)-i, len(bytes)/4)
 				for j, v := range values[i : i+count] {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 MODEL=${MODEL:-/home/me/models/gguf-misc/qwen3-0.6b-q4_k_m.gguf}
 PROMPT=${PROMPT:-Once upon a time}
@@ -11,20 +12,14 @@ GO_SCALAR_THREADS=${GO_SCALAR_THREADS:-5}
 cd "$(dirname "$0")/.."
 
 if [[ -z "${HOME:-}" || ! -w "${HOME:-/nonexistent}" ]]; then export HOME=/home/me; fi
-if [[ -z "${TMPDIR:-}" || ! -d "${TMPDIR:-/nonexistent}" || ! -w "${TMPDIR:-/nonexistent}" ]]; then export TMPDIR=/home/me/tmp; fi
-export GOTMPDIR=${GOTMPDIR:-/home/me/tmp}
-export GOCACHE=${GOCACHE:-/home/me/.cache/go-build}
-export GOMODCACHE=${GOMODCACHE:-/home/me/go/pkg/mod}
-mkdir -p "$TMPDIR" "$GOTMPDIR" "$GOCACHE" "$GOMODCACHE"
-
-CGO_ENABLED=1 go build -tags llamacpp -o k3llama ./cmd/k3/k3llama
-go build -o ime2run ./cmd/k3/ime2run
+CGO_ENABLED=1 go build -tags llamacpp -o "$PROJECT_BUILD_ROOT/bin/k3llama" ./cmd/k3/k3llama
+go build -o "$PROJECT_BUILD_ROOT/bin/ime2run" ./cmd/k3/ime2run
 
 c_out=$(mktemp)
 go_out=$(mktemp)
 trap 'rm -f "$c_out" "$go_out"' EXIT
 
-./k3llama \
+"$PROJECT_BUILD_ROOT/bin/k3llama" \
   -model "$MODEL" \
   -prompt "$PROMPT" \
   -tokens "$TOKENS" \
@@ -32,7 +27,7 @@ trap 'rm -f "$c_out" "$go_out"' EXIT
   -ignore-eos \
   -trace-ids > "$c_out"
 
-./ime2run \
+"$PROJECT_BUILD_ROOT/bin/ime2run" \
   -model "$MODEL" \
   -prompt "$PROMPT" \
   -tokens "$TOKENS" \

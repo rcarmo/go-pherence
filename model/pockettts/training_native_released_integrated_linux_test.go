@@ -732,7 +732,7 @@ func TestPocketReleasedJointReductionDiagnostic(t *testing.T) {
 		t.Fatal("joint diagnostic geometry")
 	}
 	name, index := "flow_lm.transformer.layers.2.linear2.weight", 120489
-	observer := &sharedReductionSensitivityBackend{points: []sharedSensitivityPoint{{Name: name, Index: index}}, capture: true, captureLayer: 2}
+	observer := &sharedReductionSensitivityBackend{points: []sharedSensitivityPoint{{Name: name, Index: index}}, capture: true, captureLayer: 2, captureAll: os.Getenv("GO_PHERENCE_POCKET_JOINT_CAPTURE_ALL") == "1"}
 	lm.TransformerBackend = observer
 	trainer, err := NewFullTrainer(lm, flow, w, DefaultAdamWConfig(), .999)
 	if err != nil {
@@ -787,10 +787,38 @@ func TestPocketReleasedJointReductionDiagnostic(t *testing.T) {
 	if err != nil || closeErr != nil {
 		t.Fatal(err, closeErr)
 	}
-	for _, capture := range []struct {
+	captures := []struct {
 		name   string
 		values []float32
-	}{{"cpu-layer2-input.f32", observer.sequence}, {"cpu-layer2-seed.f32", observer.seed}} {
+	}{{"cpu-layer2-input.f32", observer.sequence}, {"cpu-layer2-seed.f32", observer.seed}}
+	if observer.captureAll {
+		for i := range observer.layerInputs {
+			captures = append(captures, struct {
+				name   string
+				values []float32
+			}{fmt.Sprintf("cpu-layer%d-sequence.f32", i), observer.layerInputs[i]}, struct {
+				name   string
+				values []float32
+			}{fmt.Sprintf("cpu-layer%d-adjoint.f32", i), observer.layerSeeds[i]}, struct {
+				name   string
+				values []float32
+			}{fmt.Sprintf("cpu-layer%d-output.f32", i), observer.layerOutputs[i]}, struct {
+				name   string
+				values []float32
+			}{fmt.Sprintf("cpu-layer%d-dx.f32", i), observer.layerDX[i]})
+		}
+		captures = append(captures, struct {
+			name   string
+			values []float32
+		}{"cpu-final-input.f32", observer.finalInput}, struct {
+			name   string
+			values []float32
+		}{"cpu-final-seed.f32", observer.finalSeed}, struct {
+			name   string
+			values []float32
+		}{"cpu-final-dx.f32", observer.finalDX})
+	}
+	for _, capture := range captures {
 		if len(capture.values) != 950*lm.Hidden {
 			t.Fatal("captured layer boundary extent")
 		}

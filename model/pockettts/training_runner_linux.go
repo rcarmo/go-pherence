@@ -302,6 +302,18 @@ func (r *TrainingRunner) validateUpdated() error {
 // This adds snapshot memory/file peaks; caller ceilings must include them.
 // No old generation is deleted and publication-uncertain errors are preserved.
 func (r *TrainingRunner) Checkpoint(directory, generation string, limits TrainingBundleLimits) (TrainingCheckpointBinding, error) {
+	return r.CheckpointContext(context.Background(), directory, generation, limits)
+}
+
+// CheckpointContext observes cancellation while serialising/copying and before
+// publication. Partial unselected generations remain; no automatic retry.
+func (r *TrainingRunner) CheckpointContext(ctx context.Context, directory, generation string, limits TrainingBundleLimits) (TrainingCheckpointBinding, error) {
+	if ctx == nil {
+		return TrainingCheckpointBinding{}, fmt.Errorf("nil checkpoint context")
+	}
+	if err := context.Cause(ctx); err != nil {
+		return TrainingCheckpointBinding{}, err
+	}
 	if r == nil || r.poison != nil {
 		return TrainingCheckpointBinding{}, fmt.Errorf("cannot checkpoint nil/poisoned runner")
 	}
@@ -339,11 +351,14 @@ func (r *TrainingRunner) Checkpoint(directory, generation string, limits Trainin
 	}
 	defer os.Remove(file.Name()) // Only this owned scratch file, never generations.
 	defer file.Close()
-	bounded := &runnerLimitWriter{writer: bufio.NewWriterSize(file, 64<<10), left: limits.MaxModelBytes}
+	bounded := &runnerLimitWriter{writer: bufio.NewWriterSize(file, 64<<10), left: limits.MaxModelBytes, ctx: ctx}
 	if limits.MaxModelBytes <= 0 {
 		return TrainingCheckpointBinding{}, fmt.Errorf("checkpoint byte ceiling must be positive")
 	}
 	if err := writeFullTrainingBinary(bounded, state); err != nil {
+		return TrainingCheckpointBinding{}, err
+	}
+	if err := context.Cause(ctx); err != nil {
 		return TrainingCheckpointBinding{}, err
 	}
 	if err := bounded.writer.Flush(); err != nil {
@@ -352,15 +367,21 @@ func (r *TrainingRunner) Checkpoint(directory, generation string, limits Trainin
 	if _, err := file.Seek(0, 0); err != nil {
 		return TrainingCheckpointBinding{}, err
 	}
-	return PublishTrainingBundle(directory, generation, file, step, r.run, limits)
+	return PublishTrainingBundleContext(ctx, directory, generation, file, step, r.run, limits)
 }
 
 type runnerLimitWriter struct {
 	writer *bufio.Writer
 	left   int64
+	ctx    context.Context
 }
 
 func (w *runnerLimitWriter) Write(p []byte) (int, error) {
+	if w.ctx != nil {
+		if err := context.Cause(w.ctx); err != nil {
+			return 0, err
+		}
+	}
 	if int64(len(p)) > w.left {
 		return 0, fmt.Errorf("runner checkpoint byte ceiling exceeded")
 	}

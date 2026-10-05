@@ -42,6 +42,7 @@ type vkF32PlanState struct {
 	command     VkCommandBuffer
 	fence       VkFence
 	stages      []vkF32PlanStage
+	barrier     vkMemoryBarrier // synchronous recording scratch under vk lock
 	closed      bool
 }
 
@@ -306,7 +307,7 @@ func (p *VkF32Plan) Run(ctx context.Context) error {
 	// Always finish recording after mid-record cancellation. Incomplete commands
 	// are never submitted; successful End permits a later clean implicit reset.
 	var cancelErr error
-	vkComputeAcquireLocked(s.command)
+	vkComputeAcquireBarrierLocked(s.command, &s.barrier)
 	for i := range s.stages {
 		// Address the owner-held stage, not an escaping per-Run copy of its set.
 		stage := &s.stages[i]
@@ -314,7 +315,7 @@ func (p *VkF32Plan) Run(ctx context.Context) error {
 			break
 		}
 		if i != 0 {
-			vkComputeBetweenLocked(s.command)
+			vkComputeBetweenBarrierLocked(s.command, &s.barrier)
 		}
 		vkCmdBindPipeline(s.command, VK_PIPELINE_BIND_POINT_COMPUTE, stage.kernel.pipeline)
 		vkCmdBindDescriptorSets(s.command, VK_PIPELINE_BIND_POINT_COMPUTE, stage.kernel.pipelineLayout, 0, 1, &stage.set, 0, nil)
@@ -323,7 +324,7 @@ func (p *VkF32Plan) Run(ctx context.Context) error {
 		}
 		vkCmdDispatch(s.command, stage.groups[0], stage.groups[1], stage.groups[2])
 	}
-	vkComputeReleaseLocked(s.command)
+	vkComputeReleaseBarrierLocked(s.command, &s.barrier)
 	if r := vkEndCommandBuffer(s.command); r != VK_SUCCESS {
 		return vkDriverError("vkEndCommandBuffer(plan)", r)
 	}

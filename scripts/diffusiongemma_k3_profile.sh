@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 MODEL="${MODEL:-${1:-}}"
 if [[ -z "${MODEL}" ]]; then
@@ -19,10 +20,10 @@ TAIL_AFTER_MAX_LAYERS="${TAIL_AFTER_MAX_LAYERS:-0}"
 RETAIN_SELECTED_EXPERT_LAYERS="${RETAIN_SELECTED_EXPERT_LAYERS:-30}"
 A100_WORKERS="${A100_WORKERS:-6}"
 K3_THREADS="${K3_THREADS:-8}"
-LOG_DIR="${LOG_DIR:-/tmp}"
+LOG_DIR="${LOG_DIR:-${PROJECT_RUN_DIR}}"
 TAG="${TAG:-$(date +%Y%m%d-%H%M%S)}"
 LOG="${LOG_DIR}/diffusiongemma-k3-profile-${TAG}.log"
-RUNNER_BIN="${RUNNER_BIN:-bin/diffusiongemmarun}"
+RUNNER_BIN="${RUNNER_BIN:-${PROJECT_BUILD_ROOT}/bin/diffusiongemmarun}"
 PROFILE_USE_GO_RUN="${PROFILE_USE_GO_RUN:-0}"
 KEEP_PROFILE_RUNNER="${KEEP_PROFILE_RUNNER:-0}"
 EXPECT_GENERATED="${EXPECT_GENERATED:-}"
@@ -31,14 +32,6 @@ K3_HOME="${K3_HOME:-/home/me}"
 if [[ -z "${HOME:-}" || "${HOME}" == "/home/agent" ]]; then
   export HOME="${K3_HOME}"
 fi
-if [[ -z "${TMPDIR:-}" || ! -d "${TMPDIR}" ]]; then
-  export TMPDIR="/tmp"
-fi
-if [[ -z "${GOTMPDIR:-}" || ! -d "${GOTMPDIR}" ]]; then
-  export GOTMPDIR="${TMPDIR}"
-fi
-export GOCACHE="${GOCACHE:-${K3_HOME}/.cache/go-build}"
-export GOMODCACHE="${GOMODCACHE:-${K3_HOME}/go/pkg/mod}"
 export IME2_Q80_TCM="${IME2_Q80_TCM:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3="${GO_PHERENCE_DIFFUSIONGEMMA_K3:-1}"
 export GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8="${GO_PHERENCE_DIFFUSIONGEMMA_K3_A100_Q8:-1}"

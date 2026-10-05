@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-out=${IDEOGRAM4_K3_HANDOFF_DIR:-/workspace/tmp/ideogram4/k3-handoff}
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
+out=${IDEOGRAM4_K3_HANDOFF_DIR:-${PROJECT_RUN_DIR}/k3-handoff}
 mkdir -p "$out"
 
-cp -f bin/ideogram4gen-k3 "$out/" 2>/dev/null || true
-cp -f bin/ideogram4vaeprobe-k3 "$out/" 2>/dev/null || true
+cp -f "$PROJECT_BUILD_ROOT/bin/ideogram4gen-k3" "$out/" 2>/dev/null || true
+cp -f "$PROJECT_BUILD_ROOT/bin/ideogram4vaeprobe-k3" "$out/" 2>/dev/null || true
 ./scripts/ideogram4_k3_coverage.py > "$out/coverage.json"
 
 cat > "$out/README.md" <<'MD'

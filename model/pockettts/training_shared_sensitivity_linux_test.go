@@ -163,11 +163,14 @@ type sharedReductionObservation struct {
 // Keep CPU forward and backward seeds fixed. Observe only the FC2 weight
 // gradient dot product at selected indices; no observed value is used by AD.
 type sharedReductionSensitivityBackend struct {
-	points         []sharedSensitivityPoint
-	observations   []sharedReductionObservation
-	capture        bool
-	captureLayer   int
-	sequence, seed []float32
+	points                                         []sharedSensitivityPoint
+	observations                                   []sharedReductionObservation
+	capture                                        bool
+	captureLayer                                   int
+	sequence, seed                                 []float32
+	captureAll                                     bool
+	layerInputs, layerSeeds, layerOutputs, layerDX [][]float32
+	finalInput, finalSeed, finalDX                 []float32
 }
 
 // Emulate specified F32 polynomial/exp formula at fixed CPU preactivations.
@@ -192,8 +195,16 @@ func (b *sharedReductionSensitivityBackend) EvaluateTransformer(m *TransformerCP
 	tape, output := m.forwardTraining(rows, sequence)
 	g := newTransformerGradients(m)
 	dh := seed
+	capturing := b.captureAll && !zeroTrainingSeed(seed)
+	if capturing {
+		b.layerInputs, b.layerSeeds, b.layerOutputs, b.layerDX = make([][]float32, len(m.Layers)), make([][]float32, len(m.Layers)), make([][]float32, len(m.Layers)), make([][]float32, len(m.Layers))
+		b.finalInput, b.finalSeed = append([]float32(nil), tape.final.input...), append([]float32(nil), seed...)
+	}
 	if m.FinalWeight != nil {
 		dh = transformerNormBackward(rows, m.Width, tape.final, dh, m.FinalWeight, g.FinalWeight, g.FinalBias)
+	}
+	if capturing {
+		b.finalDX = append([]float32(nil), dh...)
 	}
 	var observation []sharedReductionObservation
 	for layer := len(m.Layers) - 1; layer >= 0; layer-- {
@@ -201,6 +212,9 @@ func (b *sharedReductionSensitivityBackend) EvaluateTransformer(m *TransformerCP
 		if b.capture && layer == b.captureLayer && !zeroTrainingSeed(seed) {
 			b.sequence = append([]float32(nil), lt.norm1.input...)
 			b.seed = append([]float32(nil), dh...)
+		}
+		if capturing {
+			b.layerInputs[layer], b.layerSeeds[layer], b.layerOutputs[layer] = append([]float32(nil), lt.norm1.input...), append([]float32(nil), dh...), append([]float32(nil), lt.output...)
 		}
 		name := fmt.Sprintf("flow_lm.transformer.layers.%d.linear2.weight", layer)
 		for _, p := range b.points {
@@ -235,6 +249,9 @@ func (b *sharedReductionSensitivityBackend) EvaluateTransformer(m *TransformerCP
 		dh, err = l.backwardTrainingWithAttention(rows, m.Width, m.Heads, m.HeadDim, m.Context, m.MaxPeriod, lt, dh, &g.Layers[layer], nil)
 		if err != nil {
 			return TransformerTrainingResult{}, err
+		}
+		if capturing {
+			b.layerDX[layer] = append([]float32(nil), dh...)
 		}
 		for i := range observation {
 			if observation[i].Name == name {

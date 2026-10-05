@@ -4,6 +4,7 @@ package pockettts
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -60,6 +61,32 @@ type trainingBundlePointer struct {
 // errors may leave unselected orphans, which must not be reused or auto-loaded.
 func PublishTrainingBundle(directory, generation string, model io.Reader, modelStep uint64, run *TrainingRunState, limits TrainingBundleLimits) (TrainingCheckpointBinding, error) {
 	return publishTrainingBundle(directory, generation, model, modelStep, run, limits, nil)
+}
+
+// PublishTrainingBundleContext checks cancellation between copy chunks and
+// filesystem publication operations. It cannot interrupt a blocked Reader or
+// syscall. A cancellation racing a successful pointer rename is publication-
+// visible, never rolled back; callers must handle TrainingBundlePublishedError.
+func PublishTrainingBundleContext(ctx context.Context, directory, generation string, model io.Reader, modelStep uint64, run *TrainingRunState, limits TrainingBundleLimits) (TrainingCheckpointBinding, error) {
+	if ctx == nil || model == nil {
+		return TrainingCheckpointBinding{}, fmt.Errorf("nil checkpoint publication context/model")
+	}
+	if err := context.Cause(ctx); err != nil {
+		return TrainingCheckpointBinding{}, err
+	}
+	return publishTrainingBundle(directory, generation, &bundleContextReader{ctx, model}, modelStep, run, limits, func(string, bool) error { return context.Cause(ctx) })
+}
+
+type bundleContextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r *bundleContextReader) Read(data []byte) (int, error) {
+	if err := context.Cause(r.ctx); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(data)
 }
 
 // Tiny operation seam for before/after error injection. Production is nil;

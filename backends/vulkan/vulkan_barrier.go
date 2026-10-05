@@ -33,11 +33,18 @@ var vkCmdPipelineBarrier func(VkCommandBuffer, uint32, uint32, uint32, uint32, u
 // also order read-before-write reuse even though reads need no availability op.
 // All buffers are treated as read/write until typed operator access is known.
 func vkComputeAcquireLocked(cmd VkCommandBuffer) {
-	barrier := vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier,
+	var barrier vkMemoryBarrier
+	vkComputeAcquireBarrierLocked(cmd, &barrier)
+}
+
+// Plan-owned barrier metadata is reused only under the Vulkan lock. The driver
+// consumes this input synchronously during command recording; never retain it.
+func vkComputeAcquireBarrierLocked(cmd VkCommandBuffer, barrier *vkMemoryBarrier) {
+	*barrier = vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier,
 		srcAccessMask: vkAccessHostWrite | vkAccessShaderWrite,
 		dstAccessMask: vkAccessShaderRead | vkAccessShaderWrite}
 	vkCmdPipelineBarrier(cmd, vkPipelineStageHost|vkPipelineStageComputeShader,
-		vkPipelineStageComputeShader, 0, 1, unsafe.Pointer(&barrier), 0, nil, 0, nil)
+		vkPipelineStageComputeShader, 0, 1, unsafe.Pointer(barrier), 0, nil, 0, nil)
 }
 
 // vkComputeReleaseLocked must be recorded after Dispatch and before End.
@@ -47,15 +54,23 @@ func vkComputeAcquireLocked(cmd VkCommandBuffer) {
 // upload may overwrite the allocation. Timeout/cancellation cannot bypass quarantine.
 // This is not a transfer-stage, image, noncoherent or cross-queue barrier.
 func vkComputeReleaseLocked(cmd VkCommandBuffer) {
-	barrier := vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier,
+	var barrier vkMemoryBarrier
+	vkComputeReleaseBarrierLocked(cmd, &barrier)
+}
+func vkComputeReleaseBarrierLocked(cmd VkCommandBuffer, barrier *vkMemoryBarrier) {
+	*barrier = vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier,
 		srcAccessMask: vkAccessShaderWrite, dstAccessMask: vkAccessHostRead | vkAccessHostWrite}
 	vkCmdPipelineBarrier(cmd, vkPipelineStageComputeShader, vkPipelineStageHost,
-		0, 1, unsafe.Pointer(&barrier), 0, nil, 0, nil)
+		0, 1, unsafe.Pointer(barrier), 0, nil, 0, nil)
 }
 
 // Between compute stages on the same command buffer: all bindings conservatively
 // read/write. Execution scopes also order WAR/WAW, with no host roundtrip.
 func vkComputeBetweenLocked(cmd VkCommandBuffer) {
-	barrier := vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier, srcAccessMask: vkAccessShaderWrite, dstAccessMask: vkAccessShaderRead | vkAccessShaderWrite}
-	vkCmdPipelineBarrier(cmd, vkPipelineStageComputeShader, vkPipelineStageComputeShader, 0, 1, unsafe.Pointer(&barrier), 0, nil, 0, nil)
+	var barrier vkMemoryBarrier
+	vkComputeBetweenBarrierLocked(cmd, &barrier)
+}
+func vkComputeBetweenBarrierLocked(cmd VkCommandBuffer, barrier *vkMemoryBarrier) {
+	*barrier = vkMemoryBarrier{sType: vkStructureTypeMemoryBarrier, srcAccessMask: vkAccessShaderWrite, dstAccessMask: vkAccessShaderRead | vkAccessShaderWrite}
+	vkCmdPipelineBarrier(cmd, vkPipelineStageComputeShader, vkPipelineStageComputeShader, 0, 1, unsafe.Pointer(barrier), 0, nil, 0, nil)
 }

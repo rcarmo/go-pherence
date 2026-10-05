@@ -40,7 +40,10 @@ func writeCheckedFixture(t *testing.T, dir string, files map[string][]byte) {
 }
 func importFixture(t *testing.T) (string, string) {
 	t.Helper()
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	} // owned isolated fixture, not a production path bypass
 	sourceDir, splitDir := filepath.Join(root, "checkpoint"), filepath.Join(root, "split")
 	files := map[string][]byte{}
 	var source, train, dev bytes.Buffer

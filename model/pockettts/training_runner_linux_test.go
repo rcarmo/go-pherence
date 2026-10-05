@@ -3,8 +3,10 @@
 package pockettts
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"math"
 	"os"
 	"path/filepath"
@@ -30,6 +32,46 @@ func requireRunner(t *testing.T) *TrainingRunner {
 	}
 	return r
 }
+
+type runnerCancelSink struct {
+	cancel context.CancelCauseFunc
+	writes int
+}
+
+func (w *runnerCancelSink) Write(data []byte) (int, error) {
+	w.writes++
+	if w.writes == 1 {
+		w.cancel(context.DeadlineExceeded)
+	}
+	return len(data), nil
+}
+
+func TestTrainingRunnerCheckpointContext(t *testing.T) {
+	r := requireRunner(t)
+	if _, err := r.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancelCause(context.Background())
+	cancel(context.DeadlineExceeded)
+	dir := t.TempDir()
+	if _, err := r.CheckpointContext(ctx, dir, "cancel", TrainingBundleLimits{1 << 20, 1 << 16}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatal("cancelled checkpoint wrote files", entries, err)
+	}
+	ctx, cancel = context.WithCancelCause(context.Background())
+	sink := &runnerCancelSink{cancel: cancel}
+	writer := &runnerLimitWriter{ctx: ctx, writer: bufio.NewWriterSize(sink, 1), left: 10}
+	if _, err = writer.Write([]byte("abc")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = writer.Write([]byte("def")); !errors.Is(err, context.DeadlineExceeded) || sink.writes != 1 {
+		t.Fatal("cancelled writer continued", err, sink.writes)
+	}
+}
+
 func TestTrainingRunnerUpdateAndCancellation(t *testing.T) {
 	r := requireRunner(t)
 	before := append([]float32(nil), r.trainer.FlowLM.Input.Weight...)

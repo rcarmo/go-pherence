@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 
 # Canonical K3 DiffusionGemma comparison harness.
 # Uses a real text/chat prompt, canvas=256, and the sparse/A100 LM-head preset.
@@ -23,8 +24,8 @@ SAMPLER_MODE=${SAMPLER_MODE:-entropy_bound}
 SEED=${SEED:-1}
 LM_HEAD_TOP_K=${LM_HEAD_TOP_K:-64}
 RETURN_STEPS=${RETURN_STEPS:-0}
-OUT=${OUT:-/tmp/diffusiongemma_k3_canvas256_bench.jsonl}
-SERVER_LOG=${SERVER_LOG:-/tmp/diffusiongemma_k3_canvas256_bench.server.log}
+OUT=${OUT:-${PROJECT_RUN_DIR}/diffusiongemma_k3_canvas256_bench.jsonl}
+SERVER_LOG=${SERVER_LOG:-${PROJECT_RUN_DIR}/diffusiongemma_k3_canvas256_bench.server.log}
 SERVER_PID=""
 
 if [[ -n "${PROMPT_IDS:-}" ]]; then
