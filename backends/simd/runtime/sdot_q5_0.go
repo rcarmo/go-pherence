@@ -55,3 +55,22 @@ func DequantQ5_0Into(dst []float32, raw []byte) {
 		}
 	}
 }
+
+// SdotQ5_0x4 computes out[r] = SdotQ5_0(x[r*stride:r*stride+n], raw) for four
+// rows, n = len(raw)/22*32. The fused kernel dequantises each weight block once
+// for all four rows; every result is bit-identical to SdotQ5_0 on its row.
+// Requires stride >= n and len(x) >= 3*stride+n.
+func SdotQ5_0x4(x []float32, stride int, raw []byte, out *[4]float32) {
+	blocks := len(raw) / Q5_0BlockBytes
+	n := blocks * 32
+	if len(raw)%Q5_0BlockBytes != 0 || stride < n || len(x) < 3*stride+n {
+		panic("simd: SdotQ5_0x4 shape")
+	}
+	if HasSdotQ5_0Asm && blocks > 0 {
+		sdotQ5_0x4Asm(x, stride, raw, blocks, out)
+		return
+	}
+	for r := range out {
+		out[r] = SdotQ5_0(x[r*stride:r*stride+n], raw)
+	}
+}

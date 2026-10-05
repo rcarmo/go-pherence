@@ -82,6 +82,9 @@ type DecoderLayer struct {
 // layer/head at the token position just consumed by ForwardToken. The values are
 // transient and must be copied by the caller. It is a diagnostic/word-alignment
 // hook; nil preserves the hot path and GPU cross-attention cannot be observed.
+// Single-token steps call it serially in head order. Batched AdvanceTokens
+// may call it concurrently for distinct (head, tokenPosition) pairs in any
+// order, so an observer must key its writes by its arguments.
 type CrossAttentionObserver func(layer, head, tokenPosition int, weights []float32)
 
 type DecoderState struct {
@@ -111,7 +114,8 @@ type DecoderState struct {
 	tanhGELU     bool
 	Bufs         *decoderBufs // Reusable buffers (nil = allocate per call)
 	// CrossAttentionObserver is invoked synchronously only on the CPU
-	// cross-attention path. Callers must not mutate or retain weights.
+	// cross-attention path (concurrently within batched AdvanceTokens).
+	// Callers must not mutate or retain weights.
 	CrossAttentionObserver CrossAttentionObserver
 }
 
@@ -274,6 +278,12 @@ var (
 	decCrossNs int64
 	decMlpNs   int64
 	decLmNs    int64
+	// Process-local step counters for the benchmark harness: decStepTokens
+	// counts single-token forward steps (with or without logits), and
+	// decPrefillTokens/decPrefillNs cover batched prompt prefill.
+	decStepTokens    int64
+	decPrefillTokens int64
+	decPrefillNs     int64
 )
 
 func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
@@ -291,6 +301,7 @@ func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bo
 	cfg := dec.cfg
 	dModel := cfg.DecoderDModel
 	pos := state.Pos
+	decStepTokens++
 
 	bufs := state.Bufs
 	if bufs == nil {
