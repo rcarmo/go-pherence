@@ -69,6 +69,8 @@ type whisperGoalSample struct {
 	AllocatedBytes, Allocations                                                    uint64
 	DecoderSelfSeconds, DecoderCrossSeconds, DecoderMLPSeconds, DecoderHeadSeconds float64
 	MelSeconds, EncodeSeconds, DecoderStateSeconds                                 float64
+	DecoderStepTokens, DecoderPrefillTokens                                        int64
+	DecoderPrefillSeconds                                                          float64
 	Windows                                                                        []WindowTranscript    `json:"windows,omitempty"`
 	VADWindows                                                                     []VADWindowTranscript `json:"vad_windows,omitempty"`
 }
@@ -147,8 +149,14 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 	}
 	defer reader.Close()
 	total := int64(reader.Timeline().Samples)
-	if total < 160 || total > 60*16000 {
-		t.Fatal("first benchmark arms require10ms..60s canonical16k fixture")
+	// Long-form arms (multi-window seek decoding) are an explicit opt-in,
+	// still bounded so five repeats fit the 30-minute test deadline.
+	maxSeconds := int64(60)
+	if os.Getenv("GO_PHERENCE_WHISPER_BENCH_LONGFORM") == "1" {
+		maxSeconds = 600
+	}
+	if total < 160 || total > maxSeconds*16000 {
+		t.Fatal("benchmark arms require 10ms..60s canonical16k fixture (600s with GO_PHERENCE_WHISPER_BENCH_LONGFORM=1)")
 	}
 	var vadModel *vad.Model
 	var encoder *VulkanEncoder
@@ -342,6 +350,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		// Existing timers are process-local and checked Whisper requests serialize.
 		// Timing counters include the alignment decoder when word timing is enabled.
 		decSelfNs, decCrossNs, decMlpNs, decLmNs = 0, 0, 0, 0
+		decStepTokens, decPrefillTokens, decPrefillNs = 0, 0, 0
 		pcmMelNs, pcmEncodeNs, pcmDecoderStateNs = 0, 0, 0
 		var before, after runtime.MemStats
 		runtime.ReadMemStats(&before)
@@ -363,6 +372,7 @@ func TestWhisperPerformanceGoalArm(t *testing.T) {
 		sample.DecoderCrossSeconds = float64(decCrossNs) / 1e9
 		sample.DecoderMLPSeconds = float64(decMlpNs) / 1e9
 		sample.DecoderHeadSeconds = float64(decLmNs) / 1e9
+		sample.DecoderStepTokens, sample.DecoderPrefillTokens, sample.DecoderPrefillSeconds = decStepTokens, decPrefillTokens, float64(decPrefillNs)/1e9
 		sample.MelSeconds, sample.EncodeSeconds, sample.DecoderStateSeconds = float64(pcmMelNs)/1e9, float64(pcmEncodeNs)/1e9, float64(pcmDecoderStateNs)/1e9
 		samples = append(samples, sample)
 		t.Logf("WHISPER_GOAL backend=%s VAD=%t words=%t repeat=%d seconds=%.6f bytes=%d allocations=%d", opts.backend, opts.vad, opts.words, repeat, sample.RequestSeconds, sample.AllocatedBytes, sample.Allocations)

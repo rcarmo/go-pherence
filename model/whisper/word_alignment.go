@@ -79,37 +79,31 @@ func AlignWordsChecked(ctx context.Context, dec *Decoder, state *DecoderState, t
 	}
 	weights := make([]float32, len(generation.alignmentHeads)*len(tokens)*alignmentFrames)
 	observed := make([]bool, len(generation.alignmentHeads)*len(tokens))
-	position := -1
+	// Text token i sits at decoder position i+4, after the fixed prefix. The
+	// observer writes only the slot keyed by its own (head, position), so the
+	// batched prefill may call it concurrently across heads.
 	state.CrossAttentionObserver = func(layer, head, tokenPosition int, row []float32) {
 		index, selected := headIndex[[2]int{layer, head}]
-		if !selected || position < 0 || position >= len(tokens) || tokenPosition != position+4 || len(row) != encLen {
+		position := tokenPosition - 4
+		if !selected || position < 0 || position >= len(tokens) || len(row) != encLen {
 			return
 		}
 		copy(weights[(index*len(tokens)+position)*alignmentFrames:], row[:alignmentFrames])
 		observed[index*len(tokens)+position] = true
 	}
 	defer func() { state.CrossAttentionObserver = nil }()
-	var logits []float32
-	for index, token := range []int{generation.vocabulary.sot, languageToken, generation.vocabulary.transcribe, generation.vocabulary.noTimestamps} {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		logits = dec.ForwardToken(token, state)
-		if len(logits) != dec.cfg.VocabSize {
-			return nil, fmt.Errorf("%w: prefix logits at position %d", ErrWordAlignmentInput, index)
-		}
+	// Teacher-forced pass: no logits are needed, only the observed cross
+	// attention. AdvanceTokens leaves every KV/attention value identical to
+	// ForwardToken per token and batches the packed-Q5 decoder.
+	sequence := make([]int, 0, len(tokens)+4)
+	sequence = append(sequence, generation.vocabulary.sot, languageToken, generation.vocabulary.transcribe, generation.vocabulary.noTimestamps)
+	dec.AdvanceTokens(append(sequence, tokens...), state)
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	for index, token := range tokens {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		position = index
-		logits = dec.ForwardToken(token, state)
-		if len(logits) != dec.cfg.VocabSize {
-			return nil, fmt.Errorf("%w: text logits at position %d", ErrWordAlignmentInput, index)
-		}
+	if state.Pos != len(tokens)+4 {
+		return nil, fmt.Errorf("%w: alignment pass position %d", ErrWordAlignmentInput, state.Pos)
 	}
-	position = -1
 	if slices.Contains(observed, false) {
 		return nil, fmt.Errorf("%w: incomplete cross-attention observation", ErrWordAlignmentInput)
 	}

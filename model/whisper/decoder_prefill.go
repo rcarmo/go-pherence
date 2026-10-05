@@ -15,8 +15,9 @@ import (
 // Every row still goes through exactly the functions and per-element order of
 // sequential AdvanceToken (LayerNorm, SdotQ5_0 rows, causal attention over
 // its own prefix, cross heads, GELU, residual adds), so the KV cache, Pos and
-// all later logits are bit-identical. Other configurations (F32 weights,
-// observers, NVIDIA paths) use the sequential loop.
+// all later logits are bit-identical. A cross-attention observer sees the same
+// rows as in the sequential loop, possibly concurrently across heads. Other
+// configurations (F32 weights, NVIDIA paths) use the sequential loop.
 func (dec *Decoder) AdvanceTokens(tokens []int, state *DecoderState) {
 	if len(tokens) < 2 || !dec.batchPrefillEligible(state) {
 		for _, token := range tokens {
@@ -28,7 +29,7 @@ func (dec *Decoder) AdvanceTokens(tokens []int, state *DecoderState) {
 }
 
 func (dec *Decoder) batchPrefillEligible(state *DecoderState) bool {
-	if dec.q5Layers == nil || len(dec.q5Layers) != len(dec.Layers) || state.CrossAttentionObserver != nil ||
+	if dec.q5Layers == nil || len(dec.q5Layers) != len(dec.Layers) ||
 		nv.SgemmReady() || whisperGPUFeatureEnabled("GO_PHERENCE_WHISPER_GPU_SELF_ATTN") || len(state.CrossKHead) != len(dec.Layers) {
 		return false
 	}
@@ -41,23 +42,46 @@ func (dec *Decoder) batchPrefillEligible(state *DecoderState) bool {
 }
 
 // linearQ5Batch is linearQ5Into for n rows: out[i*outDim+o] = SdotQ5_0(x_i, row o) + bias[o].
+// Rows go four at a time through SdotQ5_0x4 (each result bit-identical to
+// SdotQ5_0), over blocks of output rows so the weight block and the four input
+// rows stay cache-resident. Tiling changes only the order in which independent
+// output elements are computed.
 func linearQ5Batch(out, x []float32, raw []byte, bias []float32, inDim, outDim, n int) {
 	rowBytes := inDim / 32 * simdrt.Q5_0BlockBytes
 	_, _, _ = out[:n*outDim], x[:n*inDim], raw[:outDim*rowBytes]
+	store := func(i, o int, sum float32) {
+		if bias != nil && o < len(bias) {
+			sum += bias[o]
+		}
+		out[i*outDim+o] = sum
+	}
 	rows := func(lo, hi int) {
-		for o := lo; o < hi; o++ {
-			w := raw[o*rowBytes : (o+1)*rowBytes]
-			for i := 0; i < n; i++ {
-				sum := simdrt.SdotQ5_0(x[i*inDim:(i+1)*inDim], w)
-				if bias != nil && o < len(bias) {
-					sum += bias[o]
+		var four [4]float32
+		for ob := lo; ob < hi; ob += linearQ5BatchRowBlock {
+			oe := min(ob+linearQ5BatchRowBlock, hi)
+			i := 0
+			for ; i+4 <= n; i += 4 {
+				xs := x[i*inDim : (i+4)*inDim]
+				for o := ob; o < oe; o++ {
+					simdrt.SdotQ5_0x4(xs, inDim, raw[o*rowBytes:(o+1)*rowBytes], &four)
+					for k, sum := range four {
+						store(i+k, o, sum)
+					}
 				}
-				out[i*outDim+o] = sum
+			}
+			for ; i < n; i++ {
+				for o := ob; o < oe; o++ {
+					store(i, o, simdrt.SdotQ5_0(x[i*inDim:(i+1)*inDim], raw[o*rowBytes:(o+1)*rowBytes]))
+				}
 			}
 		}
 	}
 	parallelRange(outDim, max(1, min(min(linearWorkers, runtime.GOMAXPROCS(0)), outDim/256)), rows)
 }
+
+// linearQ5BatchRowBlock output rows (~56 KB of Q5 weights at d=1280) are
+// reused across every four-row input tile before moving on.
+const linearQ5BatchRowBlock = 64
 
 func parallelRange(n, workers int, fn func(lo, hi int)) {
 	if workers <= 1 || n <= 1 {
@@ -74,6 +98,8 @@ func parallelRange(n, workers int, fn func(lo, hi int)) {
 }
 
 func (dec *Decoder) prefillQ5(tokens []int, state *DecoderState) {
+	started := nowNs()
+	defer func() { decPrefillNs += nowNs() - started; decPrefillTokens += int64(len(tokens)) }()
 	cfg := dec.cfg
 	d, f, n := cfg.DecoderDModel, cfg.DecoderFFNDim, len(tokens)
 	numHeads, headDim := cfg.DecoderHeads, cfg.HeadDim
@@ -174,7 +200,7 @@ func (dec *Decoder) crossAttentionBatch(out, q []float32, state *DecoderState, l
 	if hw <= 1 || encLen <= 0 {
 		scores := make([]float32, max(encLen, 1))
 		for i := 0; i < n; i++ {
-			crossAttentionHeadMajorPadded(out[i*d:(i+1)*d], q[i*d:(i+1)*d], kHead, vHead, encLen, numHeads, headDim, scores, l, pos0+i, nil, state.crossPadKeys)
+			crossAttentionHeadMajorPadded(out[i*d:(i+1)*d], q[i*d:(i+1)*d], kHead, vHead, encLen, numHeads, headDim, scores, l, pos0+i, state.CrossAttentionObserver, state.crossPadKeys)
 		}
 		return
 	}
@@ -188,7 +214,7 @@ func (dec *Decoder) crossAttentionBatch(out, q []float32, state *DecoderState, l
 			defer wg.Done()
 			scores := make([]float32, encLen)
 			for i := 0; i < n; i++ {
-				crossAttentionHeads(out[i*d:(i+1)*d], q[i*d:(i+1)*d], kHead, vHead, encLen, headDim, scores, l, pos0+i, nil, state.crossPadKeys, scale, lo, hi)
+				crossAttentionHeads(out[i*d:(i+1)*d], q[i*d:(i+1)*d], kHead, vHead, encLen, headDim, scores, l, pos0+i, state.CrossAttentionObserver, state.crossPadKeys, scale, lo, hi)
 			}
 		}(lo, min(lo+chunk, numHeads))
 	}

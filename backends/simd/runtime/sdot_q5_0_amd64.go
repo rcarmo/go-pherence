@@ -7,3 +7,6 @@ var HasSdotQ5_0Asm = cpu.X86.HasAVX2 && cpu.X86.HasFMA && hasF16CConvert && HasD
 
 //go:noescape
 func sdotQ5_0Asm(x []float32, raw []byte, blocks int) float32
+
+//go:noescape
+func sdotQ5_0x4Asm(x []float32, stride int, raw []byte, blocks int, out *[4]float32)

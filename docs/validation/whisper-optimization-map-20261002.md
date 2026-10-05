@@ -31,6 +31,11 @@ Realistic combined gain: E1–E3 and E6 together are about −0.2 s per window (
 
 ## 3. Decoder (CPU, ~7 ms per token)
 
+**Update 5 October:** on long dense audio the per-token decoder is not the
+gap; Go's 7.8 ms per token beats whisper.cpp's 8.5 ms. The cost was prompt
+prefill and the word-alignment replay. Both are now fixed exactly; see
+[whisper-longform-prefill-alignment-20261005.md](whisper-longform-prefill-alignment-20261005.md).
+
 Per token: LM head ~2 ms, cross-attention ~2 ms, MLP ~2 ms, self-attention ~1 ms. Q5 kernels are compute-bound: 4-thread throughput is 22–30 Gelem/s, against a 45 GB/s stream ceiling.
 
 | # | Item | Estimate | Notes |

@@ -97,6 +97,10 @@ whisper.cpp runs its decoder on the GPU and does no DTW by default. This
 remains the top item in
 [whisper-optimization-map-20261002.md](whisper-optimization-map-20261002.md).
 
+The 5 October [stage profile](whisper-longform-prefill-alignment-20261005.md)
+corrected this attribution: prompt prefill and the word-alignment replay
+dominated, not the per-token decoder.
+
 ## Gates
 
 - `go build ./...` and vet pass.
