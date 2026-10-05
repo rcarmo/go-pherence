@@ -62,10 +62,15 @@ type AdaLNFinal struct {
 	Epsilon            float32
 }
 type FlowHeadCPU struct {
-	Input, Condition LinearF32
-	Time             []TimestepMLP
-	Blocks           []AdaLNResidual
-	Final            AdaLNFinal
+	// Optional explicit flow-tape training backend; inference/default nil stays CPU.
+	TrainingBackend      TrainingFlowBackend
+	LossBackend          TrainingLSDLossBackend
+	BranchBackend        TrainingBranchBackend
+	StepReductionBackend TrainingStepReductionBackend
+	Input, Condition     LinearF32
+	Time                 []TimestepMLP
+	Blocks               []AdaLNResidual
+	Final                AdaLNFinal
 }
 
 type FlowHeadScratch struct {

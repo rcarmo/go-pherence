@@ -41,6 +41,7 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	65:  {4, 0, 2}, // OpAccessChain
 	71:  {3, 0, 0}, // OpDecorate
 	72:  {4, 0, 0}, // OpMemberDecorate
+	109: {4, 4, 2}, // OpConvertFToU (embedding ID, guarded before conversion)
 	112: {4, 4, 2}, // OpConvertUToF
 	124: {4, 4, 2}, // OpBitcast
 	127: {4, 4, 2}, // OpFNegate
@@ -59,6 +60,7 @@ var vkSPIRVOps = map[uint16]vkSPIRVOp{
 	172: {5, 5, 2}, // OpUGreaterThan
 	174: {5, 5, 2}, // OpUGreaterThanEqual
 	176: {5, 5, 2}, // OpULessThan
+	180: {5, 5, 2}, // OpFOrdEqual
 	184: {5, 5, 2}, // OpFOrdLessThan
 	186: {5, 5, 2}, // OpFOrdGreaterThan
 	188: {5, 5, 2}, // OpFOrdLessThanEqual

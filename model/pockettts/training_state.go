@@ -318,7 +318,9 @@ func modelFromTrainingTensors(hidden, latent int, values []NamedTrainingTensor) 
 	return model, model.Validate()
 }
 
-func tensorListToMap(list []NamedTrainingTensor, expected map[string][]float32, label string) (map[string][]float32, error) {
+// validateTensorList returns borrowed read-only views for internal validation.
+// Callers needing owned mutable state must use tensorListToMap instead.
+func validateTensorList(list []NamedTrainingTensor, expected map[string][]float32, label string) (map[string][]float32, error) {
 	if len(list) != len(expected) {
 		return nil, fmt.Errorf("Pocket TTS %s tensor count=%d want=%d", label, len(list), len(expected))
 	}
@@ -333,12 +335,13 @@ func tensorListToMap(list []NamedTrainingTensor, expected map[string][]float32, 
 				return nil, fmt.Errorf("Pocket TTS %s tensor %q is non-finite", label, tensor.Name)
 			}
 		}
-		out[tensor.Name] = append([]float32(nil), tensor.Values...)
+		out[tensor.Name] = tensor.Values
 	}
 	return out, nil
 }
 
-func adamListToMap(list []NamedAdamState, expected map[string][]float32, required bool) (map[string]NamedAdamState, error) {
+// validateAdamList borrows input moments only for read-only admission.
+func validateAdamList(list []NamedAdamState, expected map[string][]float32, required bool) (map[string]NamedAdamState, error) {
 	if !required && len(list) == 0 {
 		return make(map[string]NamedAdamState), nil
 	}
@@ -358,11 +361,32 @@ func adamListToMap(list []NamedAdamState, expected map[string][]float32, require
 				}
 			}
 		}
-		out[state.Name] = NamedAdamState{Name: state.Name, M: append([]float32(nil), state.M...), V: append([]float32(nil), state.V...)}
+		out[state.Name] = state
 	}
 	return out, nil
 }
 
+// Public checkpoint conversion helpers still return independently owned arrays.
+func tensorListToMap(list []NamedTrainingTensor, expected map[string][]float32, label string) (map[string][]float32, error) {
+	out, err := validateTensorList(list, expected, label)
+	if err != nil {
+		return nil, err
+	}
+	for name, x := range out {
+		out[name] = append([]float32(nil), x...)
+	}
+	return out, nil
+}
+func adamListToMap(list []NamedAdamState, expected map[string][]float32, required bool) (map[string]NamedAdamState, error) {
+	out, err := validateAdamList(list, expected, required)
+	if err != nil {
+		return nil, err
+	}
+	for name, x := range out {
+		out[name] = NamedAdamState{Name: x.Name, M: append([]float32(nil), x.M...), V: append([]float32(nil), x.V...)}
+	}
+	return out, nil
+}
 func trainingMapToList(values map[string][]float32) []NamedTrainingTensor {
 	out := make([]NamedTrainingTensor, 0, len(values))
 	for _, name := range sortedTrainingKeys(values) {

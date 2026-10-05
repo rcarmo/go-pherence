@@ -1,0 +1,35 @@
+## Pocket TTS resident bindings and optimiser runner -- 1 October 2026
+
+Flow/transformer tapes now publish named parameter-input and gradient-output IDs. Explicit PTX/Vulkan resident drivers can borrow current parameter buffers for tape execution and accumulate gradients on device without downloading them. Separately named optimiser-hybrid CLI modes connect resident AdamW/EMA to completed runner updates and coherent host checkpoints. Combined resident flow/transformer/optimiser orchestration is unfinished; full-device scope is not exposed.
+
+Parent: `a90aec30567d485784f2e04d1803c543c9f2817f`. Work is uncommitted, and the inference index is unchanged at eight paths / 469 insertions. Native GPU execution/recovery, real model/audio, listening and publication holds are unchanged. All tests below use host interpretation or mocked native functions.
+
+## Borrowed graph inputs and gradients
+
+`backends/training/resident_tape.go` validates names, IDs, constant parameter inputs, gradient output declarations and matching extents before binding. The resident inventory supplies current parameter allocations in place of stale graph constants. Tape constructors allocate/upload only unbound tensors, and cleanup owns only those allocations. Reshape views preserve storage. Logical tape ceilings conservatively include borrowed inputs; resident memory, native metadata/alignment and host graph copies are separate costs.
+
+PTX verifies exact buffer sizes/alignment/overlap before allocation; Vulkan validates live bindings and builds shape views. Both preflight all required kernels. Tape execution and selected output download are separate operations; parameter-gradient outputs can feed device accumulation directly. Borrowed gradient handles are read-only, cannot be closed by callers, and reject use after tape closure or terminal failure.
+
+`ResidentState.RunTape` holds an active borrow for construction, execution, whole-pass accumulation admission, optional gradient accumulation, selected downloads and cleanup. During that lifetime, update, snapshot, close and re-entrant accumulation are rejected. Forward/endpoint passes can explicitly disable parameter accumulation, preserving the minimal-LSD endpoint input-only boundary. Execution, transfer, malformed-output and cleanup failures poison the state and retain the tape/parameter owners. Pure accumulation preflight can reject with no gradient mutation and clean tape closure. No failed work is automatically retried.
+
+Host coordinator tests show stale constants replaced by current resident values, updated parameters read on a subsequent tape, gradients accumulated without a download, active-borrow guards, output selection and failure retention. Backend mock tests verify no parameter allocation/upload/free, exact binding, reshape accumulation, selected downloads, no tape replay and failed Vulkan submission retention. Those mocks do not execute native shader arithmetic.
+
+## Optimiser-hybrid runner
+
+`ptx-optimizer-hybrid` and `vulkan-optimizer-hybrid` have separate v1 replay identities and runtime-pin digests. Native/sampler opt-in and the existing byte ceiling are required. CPU computes forward/loss/backward; resident buffers accumulate uploaded gradients, device kernels emit norm summaries and run AdamW/EMA, and the small global norm reduction runs on host F64. The device state stays allocated across updates. Each successful update downloads a complete validated parameter/M/V/EMA snapshot to the host for the next CPU step and checkpoint.
+
+The model optimiser adapter creates resident state lazily on first update, after any runner restore. It starts with the restored moments/EMA rather than step-zero state. It admits gradient topology and exact named extents/finiteness before updates. Device clipping replaces CPU pre-clipping in this scope. A coherent snapshot is joined with immutable model buffers and loaded only after complete validation; runner replay commits afterwards. Native failure can mutate device buffers, but host trainer/replay remain at the previous completed boundary and the runner stops.
+
+Checkpoint and restore call optimiser boundary validation. After a completed synchronisation, exact checkpoint-state values, configuration, step, moments, EMA and frozen buffers must match the retained boundary. Caller mutation is rejected before an update or publication. This equality check applies to copied checkpoint state; generated audio is not compared. Changed/combined backend scopes reject before work. SIMD, attention, flow and transformer v1 identity construction is unchanged.
+
+Host runner tests cover actual tiny steps, CPU-update numerical comparison at the unchanged 4e-6 optimiser tolerance, checkpoint/resume, raw replay continuation, persistent allocation counts, scope changes, cross-scope rejection, update failures before/after the first parameter, host moment mutation and malformed gradient rejection before allocation. Full graph residency is not used by the optimiser-only runner; tape bindings are an explicit lower-level API awaiting combined orchestration. Full checkpoint synchronisation is an expensive baseline with no speedup or released-size memory qualification.
+
+## Offline gates and coverage
+
+Final main window: **22:55:16.584966491--22:56:22.050965438 UTC**, 1 October 2026, exit 0. Thirteen tests repeated ten times gave **130 top-level and 130 subtest passes**; race gave **13 top-level and 13 subtest passes**. Affected regressions gave **62 top-level and 76 subtest passes**. No final failures/skips. A malformed-gradient follow-up plus optimiser-resume regression then passed twenty top-level runs, with a new-only race gate, focused vet and host build.
+
+Controls: local Go 1.26.3, `GOENV=off`, empty `GOFLAGS`, `GOPROXY=off`, `GOSUMDB=off`, `GOMAXPROCS=2`, both NVIDIA/Vulkan disable flags, nice10, serial packages/tests, 30-second inner / 120-second outer deadlines. Vet, whole-tree host build, Linux ARM64/RISC-V CLI cross-builds, layout (Go docs tests and five Bun tests / 3,008 assertions) and whitespace checks pass. Foreign binaries were not executed. No shader math changed in this slice.
+
+Main scoped coverage: binding validation 94.4%, RunTape 94.8%. PTX bound construction 72.1%, Vulkan 67.9%; output-handle guards 100%. Driver binding/accumulation/lifetime methods span 57.1--100%; native successful execution and error coverage remain limited. Optimiser adapter update is 66.7%, boundary check 90%, exact host-boundary helper 82.6%; selected package total 20%. Malformed-gradient admission was added after that profile. Missing branches, hardware failures and released-size transfers remain open. No independent review was obtained for this slice.
+
+Source/logs/coverage: `/workspace/exports/pocket-gpu-training-resident-bindings-20261001/`. Next work is combined resident transformer/flow execution, host conditioner/loss branch routing and replay/checkpoint orchestration. Native numerical/performance and real-voice acceptance require separate authorised work.

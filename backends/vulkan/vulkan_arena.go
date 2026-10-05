@@ -163,6 +163,34 @@ func (t *VkTensorF32) Elements() int {
 	return int(t.size / 4)
 }
 
+// ReshapeF32 changes only owned shape metadata, never storage. It preserves
+// the exact element count and caller ownership/lifetime, with ordinary binding
+// validation. It does not authorise overlapping writable operations.
+func (t *VkTensorF32) ReshapeF32(ctx context.Context, shape ...int) (*VkTensorF32, error) {
+	if err := vkAcquire(ctx); err != nil {
+		return nil, err
+	}
+	defer vkRelease()
+	if t == nil {
+		return nil, fmt.Errorf("nil Vulkan reshape")
+	}
+	if _, err := t.bindingLocked(); err != nil {
+		return nil, err
+	}
+	bytes, err := vkF32ShapeBytes(shape)
+	if err != nil {
+		return nil, err
+	}
+	if bytes != t.size {
+		return nil, fmt.Errorf("Vulkan reshape element mismatch")
+	}
+	view := *t
+	view.rank = len(shape)
+	view.shape = [8]int{}
+	copy(view.shape[:], shape)
+	return &view, nil
+}
+
 // PrefixRows returns a non-owning [rows,width] view over the first rows of a
 // rank-two tensor. It does not allocate storage or alter the parent. The
 // arena owner must outlive all uses of the view; transfers and stages still

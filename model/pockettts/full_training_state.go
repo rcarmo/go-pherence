@@ -31,10 +31,12 @@ type FullTrainer struct {
 	StepCount int
 	Moments   map[string]NamedAdamState
 	EMA       map[string][]float32
-	params    map[string][]float32
-	bindings  []fullParamBinding
-	names     []string
-	topology  fullTrainerTopology
+	// Runner-only explicit optimiser hybrid; direct Step remains CPU.
+	OptimizerBackend TrainingOptimizerBackend
+	params           map[string][]float32
+	bindings         []fullParamBinding
+	names            []string
+	topology         fullTrainerTopology
 }
 
 func NewFullTrainer(flowLM *FlowLMTrainingCPU, flow *FlowHeadCPU, weighting *LSDWeightMLP, config AdamWConfig, emaDecay float32) (*FullTrainer, error) {
@@ -158,7 +160,7 @@ func (s FullTrainingState) Validate() error {
 				return fmt.Errorf("Pocket TTS full parameter %q is non-finite", p.Name)
 			}
 		}
-		specs[p.Name] = make([]float32, len(p.Values))
+		specs[p.Name] = p.Values
 	}
 	if len(specs) == 0 {
 		return fmt.Errorf("Pocket TTS full training state has no parameters")
@@ -178,14 +180,14 @@ func (s FullTrainingState) Validate() error {
 	if len(buffers) == 0 {
 		return fmt.Errorf("Pocket TTS full training state has no buffers")
 	}
-	if _, err := adamListToMap(s.Adam, specs, s.Step > 0); err != nil {
+	if _, err := validateAdamList(s.Adam, specs, s.Step > 0); err != nil {
 		return err
 	}
 	if s.EMADecay == 0 {
 		if len(s.EMA) != 0 {
 			return fmt.Errorf("Pocket TTS full state has EMA with zero decay")
 		}
-	} else if _, err := tensorListToMap(s.EMA, specs, "full EMA"); err != nil {
+	} else if _, err := validateTensorList(s.EMA, specs, "full EMA"); err != nil {
 		return err
 	}
 	return nil

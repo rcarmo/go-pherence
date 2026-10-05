@@ -15,7 +15,7 @@ var ErrVulkanShaderContract = errors.New("unsupported or malformed Vulkan shader
 // the narrow scalar-buffer/flat-push envelope documented below. The supported
 // envelope is intentionally narrower than Vulkan: SPIR-V1.0..1.3, Shader only,
 // Logical/GLSL450, one GLCompute main, fixed LocalSize and core32bit types.
-// Extended instructions are limited to FAbs, Exp, InverseSqrt and Fma.
+// Extended instructions are limited to FAbs, Sin, Cos, Exp, Log, Sqrt, InverseSqrt and Fma.
 // Workgroup storage may be 32-bit scalars or fixed one-dimensional scalar arrays.
 // No specialization, extensions, optional features or decorated shared layouts.
 type VulkanShaderContract struct {
@@ -104,8 +104,8 @@ func vkInspectSPIRV(w []uint32) (VulkanShaderContract, error) {
 				return fail("extended instruction import")
 			}
 			imports[a[1]] = true
-		case 12: // GLSL.std.450 FAbs/Exp/InverseSqrt or ternary Fma.
-			unary := count == 6 && (a[4] == 4 || a[4] == 27 || a[4] == 32)
+		case 12: // GLSL.std.450 FAbs/Sin/Cos/Exp/Log/Sqrt/InverseSqrt or ternary Fma.
+			unary := count == 6 && (a[4] == 4 || a[4] == 13 || a[4] == 14 || a[4] == 27 || a[4] == 28 || a[4] == 31 || a[4] == 32)
 			ternary := count == 8 && a[4] == 50
 			if !unary && !ternary {
 				return fail("extended instruction not admitted")

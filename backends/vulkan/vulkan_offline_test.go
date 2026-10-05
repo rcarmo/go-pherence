@@ -276,7 +276,7 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 				freed = append(freed, "memory")
 			})
 			b, err := VkBufAlloc(16)
-			if failure != "success" && vkMemoryUsed != (vkMemoryLedger{}) {
+			if failure != "success" && (vkMemoryUsed.bytes != 0 || vkMemoryUsed.allocations != 0 || vkMemoryUsed.heaps != ([16]uint64{})) {
 				t.Fatal("rollback leaked accounting", vkMemoryUsed)
 			}
 			if failure == "success" {
@@ -291,7 +291,7 @@ func TestVulkanOfflineBufferRollback(t *testing.T) {
 				}
 				b.Free()
 				b.Free()
-				if vkMemoryUsed != (vkMemoryLedger{}) {
+				if vkMemoryUsed.bytes != 0 || vkMemoryUsed.allocations != 0 || vkMemoryUsed.heaps != ([16]uint64{}) {
 					t.Fatal("free leaked charge", vkMemoryUsed)
 				}
 				if !reflect.DeepEqual(freed, []string{"unmap", "buffer", "memory"}) {

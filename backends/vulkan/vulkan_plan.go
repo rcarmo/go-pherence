@@ -307,7 +307,9 @@ func (p *VkF32Plan) Run(ctx context.Context) error {
 	// are never submitted; successful End permits a later clean implicit reset.
 	var cancelErr error
 	vkComputeAcquireLocked(s.command)
-	for i, stage := range s.stages {
+	for i := range s.stages {
+		// Address the owner-held stage, not an escaping per-Run copy of its set.
+		stage := &s.stages[i]
 		if cancelErr = ctx.Err(); cancelErr != nil {
 			break
 		}
