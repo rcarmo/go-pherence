@@ -1,0 +1,67 @@
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregister
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregister/vregister-shape
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregister/vregister-shape#01
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=false repeat=0 seconds=0.064984785
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=true repeat=0 seconds=0.064807118
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=true repeat=1 seconds=0.064694572
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=false repeat=1 seconds=0.065118569
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=false repeat=2 seconds=0.065153084
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=true repeat=2 seconds=0.064642508
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=true repeat=3 seconds=0.064946893
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=false repeat=3 seconds=0.064902072
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=false repeat=4 seconds=0.064925187
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregister candidate=true repeat=4 seconds=0.064840890
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave/outinterleave-shape
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave/outinterleave-shape#01
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=false repeat=0 seconds=0.065068263
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=true repeat=0 seconds=0.057520580
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=true repeat=1 seconds=0.053643018
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=false repeat=1 seconds=0.064943304
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=false repeat=2 seconds=0.064923178
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=true repeat=2 seconds=0.053882783
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=true repeat=3 seconds=0.053780743
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=false repeat=3 seconds=0.064951670
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=false repeat=4 seconds=0.064874304
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outinterleave candidate=true repeat=4 seconds=0.053844688
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4/outunroll4-shape
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4/outunroll4-shape#01
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=false repeat=0 seconds=0.064928980
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=true repeat=0 seconds=0.053854369
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=true repeat=1 seconds=0.053937607
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=false repeat=1 seconds=0.064914040
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=false repeat=2 seconds=0.065138402
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=true repeat=2 seconds=0.053626532
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=true repeat=3 seconds=0.053650957
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=false repeat=3 seconds=0.064881896
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=false repeat=4 seconds=0.064918653
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=outunroll4 candidate=true repeat=4 seconds=0.059092978
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout/vregisterout-shape
+=== RUN   TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout/vregisterout-shape#01
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=false repeat=0 seconds=0.064964189
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=true repeat=0 seconds=0.053283739
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=true repeat=1 seconds=0.053308685
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=false repeat=1 seconds=0.065140726
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=false repeat=2 seconds=0.064886873
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=true repeat=2 seconds=0.053242438
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=true repeat=3 seconds=0.053248741
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=false repeat=3 seconds=0.064919789
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=false repeat=4 seconds=0.064908802
+    vulkan_attention_prefetch_diagnostic_test.go:79: ATTN_PREFETCH variant=vregisterout candidate=true repeat=4 seconds=0.053325912
+--- PASS: TestVulkanNativeAttentionPrefetchDiagnostic (4.00s)
+    --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregister (1.04s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregister/vregister-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregister/vregister-shape#01 (0.92s)
+    --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave (0.95s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave/outinterleave-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outinterleave/outinterleave-shape#01 (0.84s)
+    --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4 (0.95s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4/outunroll4-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/outunroll4/outunroll4-shape#01 (0.84s)
+    --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout (0.93s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout/vregisterout-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionPrefetchDiagnostic/vregisterout/vregisterout-shape#01 (0.82s)
+PASS

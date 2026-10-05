@@ -1,0 +1,22 @@
+=== RUN   TestVulkanNativeAttentionOutputILPIndependent
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":2176,"max_abs":5.1541570733615316e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":2176,"max_abs":2.773831014879491e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":2176,"max_abs":5.8619541526416796e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":6336,"max_abs":4.480996118605418e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":6336,"max_abs":2.0890281782204312e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":6336,"max_abs":3.7152057902334334e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":1.23040015363729e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":1.9930732175765797e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":64,"max_abs":2.073037884495893e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":262144,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":262144,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":262144,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":4096,"max_abs":5.5893219802483074e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":4096,"max_abs":3.2511624434294895e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:44: NATIVE_METRIC {"name":"outputilp-independent","values":4096,"max_abs":5.0663906542292025e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+    vulkan_attention_outputilp_native_test.go:52: OUTPUTILP_INDEPENDENT shapes6 signs3 float64Reference PASS
+--- PASS: TestVulkanNativeAttentionOutputILPIndependent (0.22s)
+PASS

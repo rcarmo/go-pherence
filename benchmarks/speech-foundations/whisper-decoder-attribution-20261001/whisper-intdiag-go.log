@@ -1,0 +1,8 @@
+=== RUN   TestWhisperIntDotStateDiagnostic
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.148804274 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_intdot_state_diag_test.go:53: INTDIAG orig-default vs orig-nof16 max=5.92029 rmse=0.0726686
+    zz_intdot_state_diag_test.go:69: INTDIAG padded-exact vs orig-default max=5.95444 rmse=0.0910316 | vs orig-nof16 max=7.03937 rmse=0.092138
+    zz_intdot_state_diag_test.go:69: INTDIAG padded-intdot-all vs orig-default max=3.65945 rmse=0.0753719 | vs orig-nof16 max=5.84469 rmse=0.0698424
+    zz_intdot_state_diag_test.go:69: INTDIAG padded-intdot-ffn vs orig-default max=4.23697 rmse=0.0765332 | vs orig-nof16 max=5.99548 rmse=0.0758877
+--- PASS: TestWhisperIntDotStateDiagnostic (25.24s)
+PASS

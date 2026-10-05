@@ -1,0 +1,5 @@
+In file included from ../../tmp/whisper-workflow-refresh-20261001/original.cpp:2:
+../whisper-stt/vendor/whisper.cpp/include/whisper.h:4:10: fatal error: ggml.h: No such file or directory
+    4 | #include "ggml.h"
+      |          ^~~~~~~~
+compilation terminated.

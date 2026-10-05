@@ -1,0 +1,408 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": false,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+  "ModelLoadSeconds": 5.039450632,
+  "PreparationSeconds": 1.701392678,
+  "CleanupSeconds": 0.00917772,
+  "FullArmSeconds": 46.263510191,
+  "InputSamples": 176000,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 8.037771184,
+      "AllocatedBytes": 170543768,
+      "Allocations": 28209,
+      "DecoderSelfSeconds": 0.169873747,
+      "DecoderCrossSeconds": 0.218197019,
+      "DecoderMLPSeconds": 0.354461653,
+      "DecoderHeadSeconds": 0.175642291,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 125696,
+            "EmitStart": 0,
+            "EmitEnd": 125696,
+            "InputSamples": 480000,
+            "PadSamples": 354304
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.366,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 7.886372209,
+      "AllocatedBytes": 168876648,
+      "Allocations": 28007,
+      "DecoderSelfSeconds": 0.175933574,
+      "DecoderCrossSeconds": 0.228750839,
+      "DecoderMLPSeconds": 0.365857681,
+      "DecoderHeadSeconds": 0.177756784,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 125696,
+            "EmitStart": 0,
+            "EmitEnd": 125696,
+            "InputSamples": 480000,
+            "PadSamples": 354304
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.366,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 7.833194754,
+      "AllocatedBytes": 168876000,
+      "Allocations": 28020,
+      "DecoderSelfSeconds": 0.173804245,
+      "DecoderCrossSeconds": 0.22341271,
+      "DecoderMLPSeconds": 0.363235022,
+      "DecoderHeadSeconds": 0.177558257,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 125696,
+            "EmitStart": 0,
+            "EmitEnd": 125696,
+            "InputSamples": 480000,
+            "PadSamples": 354304
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.366,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 7.851153278,
+      "AllocatedBytes": 168876968,
+      "Allocations": 28035,
+      "DecoderSelfSeconds": 0.171773126,
+      "DecoderCrossSeconds": 0.220364172,
+      "DecoderMLPSeconds": 0.3605083,
+      "DecoderHeadSeconds": 0.175475745,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 125696,
+            "EmitStart": 0,
+            "EmitEnd": 125696,
+            "InputSamples": 480000,
+            "PadSamples": 354304
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.366,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 7.904196112,
+      "AllocatedBytes": 168880560,
+      "Allocations": 28057,
+      "DecoderSelfSeconds": 0.16876768,
+      "DecoderCrossSeconds": 0.213496963,
+      "DecoderMLPSeconds": 0.354035874,
+      "DecoderHeadSeconds": 0.175028994,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 125696,
+            "EmitStart": 0,
+            "EmitEnd": 125696,
+            "InputSamples": 480000,
+            "PadSamples": 354304
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.366,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

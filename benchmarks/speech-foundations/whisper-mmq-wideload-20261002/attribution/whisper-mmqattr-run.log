@@ -1,0 +1,24 @@
+=== RUN   TestZZMMQAttributionDiagnostic
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG base rows=1500 in=1280 out=1280 quant_ms=0.367 mmq_ms=3.412 base
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noB rows=1500 in=1280 out=1280 quant_ms=0.208 mmq_ms=2.706 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noA rows=1500 in=1280 out=1280 quant_ms=0.208 mmq_ms=3.189 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noAB rows=1500 in=1280 out=1280 quant_ms=0.205 mmq_ms=2.529 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noC rows=1500 in=1280 out=1280 quant_ms=0.220 mmq_ms=2.388 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecB rows=1500 in=1280 out=1280 quant_ms=0.213 mmq_ms=2.819 BITEXACT
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecAB rows=1500 in=1280 out=1280 quant_ms=0.205 mmq_ms=2.864 BITEXACT
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG base rows=1500 in=1280 out=5120 quant_ms=0.207 mmq_ms=12.348 base
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noB rows=1500 in=1280 out=5120 quant_ms=0.207 mmq_ms=10.656 differ n=7680000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noA rows=1500 in=1280 out=5120 quant_ms=0.209 mmq_ms=11.817 differ n=7680000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noAB rows=1500 in=1280 out=5120 quant_ms=0.244 mmq_ms=9.859 differ n=7680000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noC rows=1500 in=1280 out=5120 quant_ms=0.208 mmq_ms=8.993 differ n=7680000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecB rows=1500 in=1280 out=5120 quant_ms=0.208 mmq_ms=11.071 BITEXACT
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecAB rows=1500 in=1280 out=5120 quant_ms=0.225 mmq_ms=10.954 BITEXACT
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG base rows=1500 in=5120 out=1280 quant_ms=0.899 mmq_ms=15.956 base
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noB rows=1500 in=5120 out=1280 quant_ms=0.905 mmq_ms=10.396 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noA rows=1500 in=5120 out=1280 quant_ms=0.906 mmq_ms=14.922 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noAB rows=1500 in=5120 out=1280 quant_ms=0.904 mmq_ms=9.626 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG noC rows=1500 in=5120 out=1280 quant_ms=0.909 mmq_ms=11.031 differ n=1920000
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecB rows=1500 in=5120 out=1280 quant_ms=0.912 mmq_ms=11.332 BITEXACT
+    zz_mmq_attrib_diag_test.go:126: MMQDIAG vecAB rows=1500 in=5120 out=1280 quant_ms=0.904 mmq_ms=11.330 BITEXACT
+--- PASS: TestZZMMQAttributionDiagnostic (19.39s)
+PASS

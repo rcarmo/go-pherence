@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeIntegerDotProbe
+    vulkan_integer_dot_test.go:135: accelerated physical mixed-dot init
+--- FAIL: TestVulkanNativeIntegerDotProbe (0.02s)
+FAIL

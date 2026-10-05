@@ -54,3 +54,30 @@ func TestNemotronASRCandidateMetadata(t *testing.T) {
 	}
 	t.Log("Nemotron ASR pinned metadata checked without model load")
 }
+
+func TestNemotronASRSharedProjectionConfiguration(t *testing.T) {
+	c := baseConfig(t)
+	c.NemotronASR = &NemotronASRSettings{Enable: true, AllowExperimental: true, ModelRevision: speechjob.NemotronASRRevision}
+	c.Resources = &ResourceSettings{CPUSlots: 2, MemoryBytes: 1 << 30, LoadBytes: 512 << 20, ResidentBytes: 256 << 20, WorkBytes: 256 << 20}
+	c.Profile.WordTimestamps = false
+	c.NemotronASR.Projection = &NemotronASRProjectionSettings{Backend: "vulkan-shared", AllowExperimental: true, DeviceContains: "Intel", BackendSHA256: hashBytes([]byte("backend"))}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*NemotronASRProjectionSettings){
+		func(p *NemotronASRProjectionSettings) { p.Backend = "vulkan" },
+		func(p *NemotronASRProjectionSettings) { p.AllowExperimental = false },
+		func(p *NemotronASRProjectionSettings) { p.DeviceContains = " " },
+		func(p *NemotronASRProjectionSettings) { p.BackendSHA256 = "bad" },
+	} {
+		x := *c.NemotronASR.Projection
+		mutate(&x)
+		test := c
+		settings := *c.NemotronASR
+		settings.Projection = &x
+		test.NemotronASR = &settings
+		if test.validate() == nil {
+			t.Fatal("accepted invalid shared backend")
+		}
+	}
+}

@@ -1,0 +1,5 @@
+=== RUN   TestWhisperVulkanQ5Decode4Native
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.193012423 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_q5_decode4_native_test.go:101: Q5DECODE4_HIDDEN values=1920000 checkpoints=1276 bitExact=true statsUnchanged=true cancelReuse=true
+--- PASS: TestWhisperVulkanQ5Decode4Native (51.27s)
+PASS

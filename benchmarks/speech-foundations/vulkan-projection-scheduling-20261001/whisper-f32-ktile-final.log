@@ -1,0 +1,91 @@
+=== RUN   TestVulkanNativeF32KTileDiagnostic
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16/[1_1_1]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16/[17_17_65]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16/[33_97_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16/[33_96_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16/[1500_1280_1280]
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.017687372 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.024506194 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.021326261 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.014739474 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.014773468 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.021047187 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.017816603 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012795421 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012450279 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.017971309 values=1920000
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8/[1_1_1]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8/[17_17_65]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8/[33_97_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8/[33_96_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8/[1500_1280_1280]
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.012095776 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.017933167 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.018018496 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.011785670 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012775984 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.017869357 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.018146275 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.011864390 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012438423 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8 shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.017947788 values=1920000
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping/[1_1_1]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping/[17_17_65]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping/[33_97_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping/[33_96_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k16ping/[1500_1280_1280]
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.012471050 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.016327364 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.016089232 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.012564529 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012037185 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.016309664 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.016148543 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012758554 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012033947 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k16ping shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.016383258 values=1920000
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping/[1_1_1]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping/[17_17_65]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping/[33_97_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping/[33_96_63]
+=== RUN   TestVulkanNativeF32KTileDiagnostic/f32k8ping/[1500_1280_1280]
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=false repeat=0 seconds=0.012442699 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=true repeat=0 seconds=0.017740490 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=true repeat=1 seconds=0.017726625 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=false repeat=1 seconds=0.012222826 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=false repeat=2 seconds=0.012205362 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=true repeat=2 seconds=0.017838103 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=true repeat=3 seconds=0.017738785 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=false repeat=3 seconds=0.012704608 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=false repeat=4 seconds=0.012562023 values=1920000
+    vulkan_f32_ktile_diagnostic_test.go:90: F32_KTILE variant=f32k8ping shape=[1500 1280 1280] candidate=true repeat=4 seconds=0.017826071 values=1920000
+--- PASS: TestVulkanNativeF32KTileDiagnostic (1.75s)
+    --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16 (0.52s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16/[1_1_1] (0.07s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16/[17_17_65] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16/[33_97_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16/[1500_1280_1280] (0.35s)
+    --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8 (0.40s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8/[1_1_1] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8/[17_17_65] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8/[33_97_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8/[1500_1280_1280] (0.29s)
+    --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping (0.41s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping/[1_1_1] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping/[17_17_65] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping/[33_97_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k16ping/[1500_1280_1280] (0.29s)
+    --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping (0.39s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping/[1_1_1] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping/[17_17_65] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping/[33_97_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeF32KTileDiagnostic/f32k8ping/[1500_1280_1280] (0.28s)
+PASS

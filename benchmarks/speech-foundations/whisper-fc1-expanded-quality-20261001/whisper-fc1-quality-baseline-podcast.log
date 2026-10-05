@@ -1,0 +1,4 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:101: benchmark fixture must be a bounded regular file <nil>
+--- FAIL: TestWhisperPerformanceGoalArm (0.00s)
+FAIL

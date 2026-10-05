@@ -437,6 +437,53 @@ func (s *Store) Rename(ctx context.Context, id, title string) (Manifest, error) 
 	return clone(m), nil
 }
 
+// Rebind moves an unfinished recording (failed or cancelled, original media
+// retained, not running) to a new configuration, e.g. after the engine for its
+// profile was updated. Every checkpoint is discarded because each is bound to
+// the old stage versions; stale stage/window files are then removed best-effort.
+// The caller must ensure the new configuration is for the same profile.
+func (s *Store) Rebind(ctx context.Context, id string, configuration []byte) (Manifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var zero Manifest
+	if e := s.ready(); e != nil {
+		return zero, e
+	}
+	if e := ctx.Err(); e != nil {
+		return zero, e
+	}
+	if !validID(id) || !validConfiguration(configuration) {
+		return zero, ErrConfiguration
+	}
+	if s.busy && s.runningID == id {
+		return zero, ErrBusy
+	}
+	m, e := s.load(id)
+	if e != nil {
+		return zero, e
+	}
+	if m.Status != Failed && m.Status != Cancelled || m.MediaReleased {
+		return zero, ErrQueueState
+	}
+	if hash(configuration) == m.ConfigurationSHA256 {
+		return clone(m), nil
+	}
+	m.Configuration, m.ConfigurationSHA256 = string(configuration), hash(configuration)
+	m.Checkpoints, m.ActiveStage = nil, ""
+	m.Updated = time.Now().UTC()
+	if e = s.save(m); e != nil {
+		return zero, errors.Join(ErrPersistence, e)
+	}
+	if entries, e := os.ReadDir(filepath.Join(s.root.Name(), id)); e == nil {
+		for _, entry := range entries {
+			if name := entry.Name(); !entry.IsDir() && (strings.HasPrefix(name, "stage-") || strings.HasPrefix(name, "window-")) {
+				_ = os.Remove(filepath.Join(s.root.Name(), id, name))
+			}
+		}
+	}
+	return clone(m), nil
+}
+
 func (s *Store) Get(id string) (Manifest, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -1,0 +1,39 @@
+File: refresh-go.test
+Build ID: ef13897486b395dd4d6705748103422f2afa02b0
+Type: cpu
+Time: 2026-10-01 17:12:58 WEST
+Duration: 35.71s, Total samples = 15.93s (44.61%)
+Showing nodes accounting for 15.18s, 95.29% of 15.93s total
+Dropped 173 nodes (cum <= 0.08s)
+Showing top 30 nodes out of 92
+      flat  flat%   sum%        cum   cum%
+     6.33s 39.74% 39.74%      6.33s 39.74%  github.com/rcarmo/go-pherence/backends/simd/runtime.sdotAsm
+     3.56s 22.35% 62.08%      3.56s 22.35%  github.com/rcarmo/go-pherence/backends/simd/runtime.sgemmNTTileFMA
+        1s  6.28% 68.36%         1s  6.28%  runtime.memmove
+     0.67s  4.21% 72.57%      0.72s  4.52%  github.com/rcarmo/go-pherence/loader/gguf.dequantQ5_0
+     0.54s  3.39% 75.96%      0.57s  3.58%  runtime.cgocall
+     0.42s  2.64% 78.59%      0.49s  3.08%  math.IsInf (inline)
+     0.32s  2.01% 80.60%      0.32s  2.01%  github.com/rcarmo/go-pherence/backends/simd/runtime.saxpyAsm
+     0.30s  1.88% 82.49%      2.45s 15.38%  github.com/rcarmo/go-pherence/model/whisper.loadModelSourceCheckedMode.func2
+     0.29s  1.82% 84.31%      0.45s  2.82%  github.com/rcarmo/go-pherence/loader/audio.WhisperLogMelContext
+     0.28s  1.76% 86.06%      0.28s  1.76%  crypto/internal/fips140/sha256.blockSHANI
+     0.23s  1.44% 87.51%      0.23s  1.44%  internal/runtime/syscall/linux.Syscall6
+     0.19s  1.19% 88.70%      0.37s  2.32%  github.com/rcarmo/go-pherence/loader/whisperggml.finite (inline)
+     0.19s  1.19% 89.89%      0.19s  1.19%  runtime.memclrNoHeapPointers
+     0.16s  1.00% 90.90%      0.16s  1.00%  github.com/rcarmo/go-pherence/backends/simd/runtime.sdotx4Asm
+     0.16s  1.00% 91.90%      0.16s  1.00%  github.com/rcarmo/go-pherence/loader/audio.(*whisperFFT400Plan).powerSpectrum400
+     0.09s  0.56% 92.47%      0.30s  1.88%  github.com/rcarmo/go-pherence/model/whisper.describeVulkanEncoderMode.func1
+     0.08s   0.5% 92.97%      0.08s   0.5%  math.archExp
+     0.07s  0.44% 93.41%      0.16s  1.00%  math.erf
+     0.04s  0.25% 93.66%      1.64s 10.30%  github.com/rcarmo/go-pherence/loader/whisperggml.(*File).Float32
+     0.03s  0.19% 93.85%      0.19s  1.19%  github.com/rcarmo/go-pherence/backends/simd/kernels.GELUExactScalar (inline)
+     0.03s  0.19% 94.04%      0.19s  1.19%  github.com/rcarmo/go-pherence/backends/simd/runtime.sdotx4
+     0.03s  0.19% 94.22%      0.57s  3.58%  github.com/rcarmo/go-pherence/model/whisper.(*VulkanEncoder).Forward
+     0.03s  0.19% 94.41%      1.05s  6.59%  github.com/rcarmo/go-pherence/model/whisper.(*Whisper).encodePCMWindow
+     0.03s  0.19% 94.60%      3.32s 20.84%  github.com/rcarmo/go-pherence/model/whisper.linearForwardOpt.func1
+     0.03s  0.19% 94.79%      3.09s 19.40%  github.com/rcarmo/go-pherence/model/whisper.linearInto
+     0.02s  0.13% 94.92%      0.21s  1.32%  github.com/rcarmo/go-pherence/backends/simd/kernels.GELUExact
+     0.02s  0.13% 95.04%      6.35s 39.86%  github.com/rcarmo/go-pherence/backends/simd/runtime.Sdot
+     0.02s  0.13% 95.17%      0.58s  3.64%  github.com/rcarmo/go-pherence/model/whisper.crossAttentionHeadMajorObserved
+     0.01s 0.063% 95.23%      0.60s  3.77%  github.com/ebitengine/purego.RegisterFunc.func4
+     0.01s 0.063% 95.29%      0.33s  2.07%  github.com/rcarmo/go-pherence/backends/simd/runtime.Saxpy

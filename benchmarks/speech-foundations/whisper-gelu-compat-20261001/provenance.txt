@@ -1,0 +1,9 @@
+generated=2026-10-01T19:58:03Z
+repo_head=0a922f01119f06f3f9b474bb95ba3ca7fbd46736
+original_whisper_cpp=c44b60b8053bbf2a5c1e014f11323fb3f2485177
+1e5678251aac667b6d484a64db3c8c30dc965e522212bc4529ae0fd5d42e1224  tmp/whisper-vad-parity-20261001/gelu-compat-common.test
+7722325716d4011e96f14471748b9fd210b7734485f41d43a90acbff83a8c7f1  tmp/whisper-vad-parity-20261001/gelu-compat-model.test
+23a39a884e4ebd9347b6601fc6ee8c7314bd6ebf25f3a9d364e30cfa1f3e1e8d  tmp/whisper-vad-parity-20261001/gelu-compat-vulkan.test
+e4ff6122c448e50fe8bc5699e54d2c33bacd1e6774453bb322859695c9bc0e52  tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op9-gelu.f32
+binaries and F32 state arrays are not committed
+1b48c4b664f42c7ea8ab1037704fe0cd24063f40dbb8cf3e6a24bca0e3440f75  tmp/whisper-vad-parity-20261001/state-original-ops-fixed-diag-op8-fc1.f32

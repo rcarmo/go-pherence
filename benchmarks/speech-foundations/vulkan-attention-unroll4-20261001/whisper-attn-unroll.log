@@ -1,0 +1,51 @@
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll4
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll4/unroll4-shape
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll4/unroll4-shape#01
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=false repeat=0 seconds=0.067153504
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=true repeat=0 seconds=0.065583366
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=true repeat=1 seconds=0.065273357
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=false repeat=1 seconds=0.067477041
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=false repeat=2 seconds=0.067090927
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=true repeat=2 seconds=0.064971863
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=true repeat=3 seconds=0.064840959
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=false repeat=3 seconds=0.067383098
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=false repeat=4 seconds=0.066814085
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll4 candidate=true repeat=4 seconds=0.065000552
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll8
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll8/unroll8-shape
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll8/unroll8-shape#01
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=false repeat=0 seconds=0.067198699
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=true repeat=0 seconds=0.064911954
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=true repeat=1 seconds=0.065238499
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=false repeat=1 seconds=0.066962380
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=false repeat=2 seconds=0.067136831
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=true repeat=2 seconds=0.065228590
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=true repeat=3 seconds=0.065112648
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=false repeat=3 seconds=0.066774717
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=false repeat=4 seconds=0.067050367
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll8 candidate=true repeat=4 seconds=0.065131372
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll64
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll64/unroll64-shape
+=== RUN   TestVulkanNativeAttentionUnrollDiagnostic/unroll64/unroll64-shape#01
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=false repeat=0 seconds=0.069260259
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=true repeat=0 seconds=0.064925330
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=true repeat=1 seconds=0.064926949
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=false repeat=1 seconds=0.066979048
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=false repeat=2 seconds=0.066874450
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=true repeat=2 seconds=0.064978908
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=true repeat=3 seconds=0.064854319
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=false repeat=3 seconds=0.067014616
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=false repeat=4 seconds=0.074315543
+    vulkan_attention_unroll_diagnostic_test.go:78: ATTN_UNROLL variant=unroll64 candidate=true repeat=4 seconds=0.070570244
+--- PASS: TestVulkanNativeAttentionUnrollDiagnostic (3.16s)
+    --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll4 (1.02s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll4/unroll4-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll4/unroll4-shape#01 (0.91s)
+    --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll8 (0.98s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll8/unroll8-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll8/unroll8-shape#01 (0.87s)
+    --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll64 (1.03s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll64/unroll64-shape (0.01s)
+        --- PASS: TestVulkanNativeAttentionUnrollDiagnostic/unroll64/unroll64-shape#01 (0.91s)
+PASS

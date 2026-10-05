@@ -1,0 +1,57 @@
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[32_32_64]
+    vulkan_q5_grouped_diagnostic_test.go:168: NATIVE_METRIC {"name":"Q5tile64","values":2048,"max_abs":0,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[1_32_1]
+    vulkan_q5_grouped_diagnostic_test.go:168: NATIVE_METRIC {"name":"Q5tile64","values":1,"max_abs":2.561137080192566e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[2_64_5]
+    vulkan_q5_grouped_diagnostic_test.go:168: NATIVE_METRIC {"name":"Q5tile64","values":10,"max_abs":4.3612089939415455e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[33_96_63]
+    vulkan_q5_grouped_diagnostic_test.go:168: NATIVE_METRIC {"name":"Q5tile64","values":2079,"max_abs":1.4226498024072498e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[1500_1280_1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=14836986 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=15639101 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=15685760 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=14836336 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=15737805 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=14820661 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=14724228 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=15782288 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=14751752 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=15746950 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=15652684 shape=[1500 1280 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=14754642 shape=[1500 1280 1280]
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[1500_1280_5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=34545384 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=36487366 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=35926270 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=36398539 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=36123894 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=34729832 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=34603025 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=35618441 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=34565264 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=36414856 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=35457289 shape=[1500 1280 5120]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=34581153 shape=[1500 1280 5120]
+=== RUN   TestVulkanNativeQ5GroupedDiagnostic/[1500_5120_1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=36116080 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=36344019 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=0 ns=36089587 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=0 ns=36270451 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=36239387 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=35745717 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=1 ns=36782261 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=1 ns=36075374 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=36052117 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=36092186 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=true block=2 ns=36734804 shape=[1500 5120 1280]
+    vulkan_q5_grouped_diagnostic_test.go:191: Q5GROUPED_SAMPLE candidate=false block=2 ns=35857136 shape=[1500 5120 1280]
+--- PASS: TestVulkanNativeQ5GroupedDiagnostic (2.09s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[32_32_64] (0.05s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[1_32_1] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[2_64_5] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[1500_1280_1280] (0.36s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[1500_1280_5120] (0.86s)
+    --- PASS: TestVulkanNativeQ5GroupedDiagnostic/[1500_5120_1280] (0.71s)
+PASS

@@ -1,0 +1,173 @@
+package vulkan
+
+import (
+	"context"
+	"encoding/binary"
+	"fmt"
+	"github.com/rcarmo/go-pherence/half"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+// Temporary shaders only; arithmetic/tile dispatch remains explicit per test.
+func TestVulkanNativeProjectionTiles(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_PROJECTION_TILES_DIR")
+	if dir == "" {
+		t.Skip("explicit ordered projection tiles")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physicaldevice")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	type variantType struct {
+		name string
+		r, c int
+	}
+	variants := []variantType{{"explicit4", 64, 64}, {"explicit8", 64, 64}, {"row128col32", 128, 32}, {"row32col128", 32, 128}, {"transpose4", 64, 64}}
+	if os.Getenv("GO_PHERENCE_TEST_PROJECTION_LOOP_TILES") == "1" {
+		variants = []variantType{{"loop32x64", 32, 64}, {"loop64x32", 64, 32}, {"loop32x32", 32, 32}, {"loop64k64", 64, 64}}
+	}
+	if os.Getenv("GO_PHERENCE_TEST_PROJECTION_LAYOUT_LOOPS") == "1" {
+		variants = []variantType{{"looptranspose", 64, 64}, {"looppad33", 64, 64}, {"hintK", 64, 64}, {"hintAll", 64, 64}}
+	}
+	kinds := []string{"f32", "q5"}
+	if os.Getenv("GO_PHERENCE_TEST_PROJECTION_DECODE_LANES") == "1" {
+		kinds = []string{"q5"}
+		variants = []variantType{{"decode4", 64, 64}, {"decode16", 64, 64}, {"decode32", 64, 64}}
+	}
+	for _, kind := range kinds {
+		for _, variant := range variants {
+			t.Run(kind+"-"+variant.name, func(t *testing.T) {
+				code, e := os.ReadFile(dir + "/" + kind + "-" + variant.name + ".spv")
+				if e != nil {
+					t.Fatal(e)
+				}
+				kernel, e := VkKernelCreate(code, 4, 12)
+				if e != nil {
+					t.Fatal(e)
+				}
+				nativeClose(t, kernel)
+				shapes := [][3]int{{33, 96, 63}, {1500, 1280, 1280}}
+				if kind == "q5" {
+					shapes = append(shapes, [3]int{1500, 5120, 1280})
+				}
+				for _, shape := range shapes {
+					t.Run(fmt.Sprint(shape), func(t *testing.T) {
+						m, k, n := shape[0], shape[1], shape[2]
+						x := nativeData(m*k, 11, .5)
+						bias := nativeData(n, 13, .1)
+						w := nativeData(n*k, 12, .1)
+						var q5 *VkLinearQ5GroupedF32
+						var f32 *VkLinearF32
+						var words []float32
+						if kind == "q5" {
+							raw := make([]byte, n*(k/32)*22)
+							for b := 0; b < len(raw)/22; b++ {
+								binary.LittleEndian.PutUint16(raw[b*22:], []uint16{0x2800, 0xa800, 0x2400, 0x0001}[b%4])
+								for j := 2; j < 22; j++ {
+									raw[b*22+j] = byte(b*17 + j*31)
+								}
+							}
+							packed, e := packLinearQ5Blocks(context.Background(), raw)
+							if e != nil {
+								t.Fatal(e)
+							}
+							words = make([]float32, len(packed))
+							for i, v := range packed {
+								words[i] = math.Float32frombits(v)
+							}
+							q5, e = NewVkLinearQ5GroupedF32(context.Background(), raw, n, k)
+							if e != nil {
+								t.Fatal(e)
+							}
+							nativeClose(t, q5)
+							// Independent stored-value decode checks the synthetic packed tensors.
+							for block := 0; block < len(raw)/22; block++ {
+								p := raw[block*22:]
+								scale := half.F16ToF32(binary.LittleEndian.Uint16(p))
+								high := binary.LittleEndian.Uint32(p[2:])
+								for j := 0; j < 32; j++ {
+									v := uint32(p[6+j%16])
+									if j >= 16 {
+										v >>= 4
+									}
+									q := int((v&15)|((high>>uint(j))&1)<<4) - 16
+									w[block*32+j] = scale * float32(q)
+								}
+							}
+						} else {
+							var e error
+							f32, e = NewVkLinearRegTile64F32(context.Background())
+							if e != nil {
+								t.Fatal(e)
+							}
+							nativeClose(t, f32)
+							words = w
+						}
+						a, e := NewVkTensorArena(context.Background(), 180<<20)
+						if e != nil {
+							t.Fatal(e)
+						}
+						nativeClose(t, a)
+						left := nativeGuard(t, a)
+						tx := nativeTensor(t, a, x, m, k)
+						tw := nativeTensor(t, a, words, len(words))
+						if kind == "f32" {
+							tw, e = a.AllocF32(context.Background(), n, k)
+							if e != nil {
+								t.Fatal(e)
+							}
+							if e = tw.Upload(context.Background(), w); e != nil {
+								t.Fatal(e)
+							}
+						}
+						tb := nativeTensor(t, a, bias, n)
+						out := nativeTensor(t, a, nil, m, n)
+						right := nativeGuard(t, a)
+						baseline := func(ctx context.Context) error {
+							if q5 != nil {
+								return q5.Forward(ctx, out, tx, tb)
+							}
+							return f32.Forward(ctx, out, tx, tw, tb)
+						}
+						nativeRun(t, baseline)
+						ref := nativeDownload(t, out)
+						plan, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((n + variant.c - 1) / variant.c), uint32((m + variant.r - 1) / variant.r), 1}, Tensors: []*VkTensorF32{tx, tw, tb, out}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}})
+						if e != nil {
+							t.Fatal(e)
+						}
+						nativeClose(t, plan)
+						for repeat := 0; repeat < 5; repeat++ {
+							for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+								fn := baseline
+								if candidate {
+									fn = plan.Run
+								}
+								wall := nativeRun(t, fn)
+								got := nativeDownload(t, out)
+								for i, v := range got {
+									if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || math.Float32bits(v) != math.Float32bits(ref[i]) {
+										t.Fatalf("ordered bits drift kind=%s variant=%s shape=%v i=%d got%g want%g", kind, variant.name, shape, i, v, ref[i])
+									}
+								}
+								left()
+								right()
+								if m == 1500 {
+									t.Logf("PROJECTION_TILE kind=%s variant=%s shape=%v candidate=%t repeat=%d seconds=%.9f", kind, variant.name, shape, candidate, repeat, wall.Seconds())
+								}
+							}
+						}
+					})
+				}
+			})
+		}
+	}
+}

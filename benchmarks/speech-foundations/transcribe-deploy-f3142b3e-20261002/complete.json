@@ -1,0 +1,40 @@
+{
+ "id": "803f3bf2b3ae1899efc017615c2d77ea",
+ "name": "jfk-deploy-smoke-f3142b3e.wav",
+ "title": "JFK Deploy Smoke F 3142 B 3 E",
+ "language": "en",
+ "speaker_labels": true,
+ "profile": "nem-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "created": "2026-10-02T10:39:33.43520057Z",
+ "updated": "2026-10-02T10:39:40.200695264Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-deploy-smoke-f-3142-b-3-e.en.transcript.json",
+   "bytes": 585,
+   "sha256": "b9a3f15980ddbe8061c9297e1e0e7aa0ca552b86ffdfd60502c4f163f373c814"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-deploy-smoke-f-3142-b-3-e.en.transcript.vtt",
+   "bytes": 277,
+   "sha256": "687d127906586a04b639a9ef72791f8883d2a98a582449055d13e27669075205"
+  },
+  {
+   "name": "speaker-transcript",
+   "filename": "jfk-deploy-smoke-f-3142-b-3-e.en.speakers.json",
+   "bytes": 946,
+   "sha256": "26ed84a828eee762ff1f5af170f31fa92fbf7cee241c29f7b68b91ca2ebc289f"
+  },
+  {
+   "name": "speaker-vtt",
+   "filename": "jfk-deploy-smoke-f-3142-b-3-e.en.speakers.vtt",
+   "bytes": 396,
+   "sha256": "fb0548825cd1f3fca42fa10e87607349350d391a0f4add88eaf38987605ed7d5"
+  }
+ ]
+}

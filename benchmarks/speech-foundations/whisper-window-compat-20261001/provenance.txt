@@ -1,0 +1,4 @@
+generated=2026-10-01T22:27:39Z
+repo_base=a07f83e6fa78f5b5ce09b5e8a080d5c19bab2499
+original_whisper_cpp=c44b60b8053bbf2a5c1e014f11323fb3f2485177
+test binaries deleted after runs; source tree = this commit

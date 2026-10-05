@@ -1,0 +1,257 @@
+{
+  "rows": [
+    {
+      "fixture": "jfk",
+      "exact_windows": true,
+      "samples_per_arm": 5,
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "input_pin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "request_median_seconds": {
+        "baseline": 6.882760981,
+        "source": 6.914826948
+      },
+      "request_change_percent": 0.46588813832877385,
+      "setup_seconds": {
+        "baseline": 7.650308615,
+        "source": 3.8137929560000003
+      },
+      "fullarm_seconds": {
+        "baseline": 42.140000508,
+        "source": 38.455612307
+      },
+      "setup_allocated_bytes": {
+        "baseline": 10637741640,
+        "source": 5290297504
+      },
+      "sampled_container_max_bytes": {
+        "baseline": 5507000000,
+        "source": 4163000000.0000005
+      },
+      "encoder_stats": {
+        "baseline": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        },
+        "source": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        }
+      }
+    },
+    {
+      "fixture": "pt",
+      "exact_windows": true,
+      "samples_per_arm": 5,
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "input_pin": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+      "request_median_seconds": {
+        "baseline": 6.881149774,
+        "source": 6.902753618
+      },
+      "request_change_percent": 0.3139568925185854,
+      "setup_seconds": {
+        "baseline": 7.5954631720000005,
+        "source": 3.800685025
+      },
+      "fullarm_seconds": {
+        "baseline": 42.014289822,
+        "source": 38.398168631
+      },
+      "setup_allocated_bytes": {
+        "baseline": 10637797064,
+        "source": 5290298640
+      },
+      "sampled_container_max_bytes": {
+        "baseline": 5507000000,
+        "source": 4162000000
+      },
+      "encoder_stats": {
+        "baseline": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        },
+        "source": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        }
+      }
+    },
+    {
+      "fixture": "fr",
+      "exact_windows": true,
+      "samples_per_arm": 5,
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "input_pin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+      "request_median_seconds": {
+        "baseline": 6.34403735,
+        "source": 6.358405131
+      },
+      "request_change_percent": 0.2264769295533764,
+      "setup_seconds": {
+        "baseline": 7.596936263,
+        "source": 3.800677875
+      },
+      "fullarm_seconds": {
+        "baseline": 39.308418439,
+        "source": 35.685230627
+      },
+      "setup_allocated_bytes": {
+        "baseline": 10637746928,
+        "source": 5290292792
+      },
+      "sampled_container_max_bytes": {
+        "baseline": 5521000000,
+        "source": 4165000000
+      },
+      "encoder_stats": {
+        "baseline": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        },
+        "source": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        }
+      }
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "exact_windows": true,
+      "samples_per_arm": 5,
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "input_pin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "request_median_seconds": {
+        "baseline": 8.075985777,
+        "source": 8.125867313
+      },
+      "request_change_percent": 0.617652598424101,
+      "setup_seconds": {
+        "baseline": 7.596482833,
+        "source": 3.801209545
+      },
+      "fullarm_seconds": {
+        "baseline": 48.071951835,
+        "source": 44.513979897
+      },
+      "setup_allocated_bytes": {
+        "baseline": 10642325192,
+        "source": 5294876344
+      },
+      "sampled_container_max_bytes": {
+        "baseline": 5506000000,
+        "source": 4159000000
+      },
+      "encoder_stats": {
+        "baseline": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        },
+        "source": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        }
+      }
+    },
+    {
+      "fixture": "groups",
+      "exact_windows": true,
+      "samples_per_arm": 5,
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "input_pin": "c099aafe393a0af1a29f500a811a4b52972d88ee5590fa87351c35693d366aef",
+      "request_median_seconds": {
+        "baseline": 16.264299795,
+        "source": 16.356741797
+      },
+      "request_change_percent": 0.5683736967786457,
+      "setup_seconds": {
+        "baseline": 7.603589510000001,
+        "source": 3.8103967610000002
+      },
+      "fullarm_seconds": {
+        "baseline": 89.00081513,
+        "source": 85.677618271
+      },
+      "setup_allocated_bytes": {
+        "baseline": 10642319088,
+        "source": 5294875608
+      },
+      "sampled_container_max_bytes": {
+        "baseline": 5507000000,
+        "source": 4352000000
+      },
+      "encoder_stats": {
+        "baseline": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        },
+        "source": {
+          "Frames": 3000,
+          "Rows": 1500,
+          "Width": 1280,
+          "Layers": 32,
+          "Plans": 34,
+          "Stages": 390,
+          "WeightBytes": 1184890880,
+          "ScratchBytes": 93696000
+        }
+      }
+    }
+  ],
+  "logical_CPU_FFN_bytes_removed": 1677721600,
+  "scope": "Startup and allocation optimisation; inference kernels unchanged; sampled container maximum is not true peak RSS.",
+  "review": "source-only judge timed out50s, no independent approval"
+}

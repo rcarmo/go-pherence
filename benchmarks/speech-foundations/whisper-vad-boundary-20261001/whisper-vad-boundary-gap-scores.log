@@ -1,0 +1,11 @@
+=== RUN   TestWhisperVADBoundaryDiagnostic
+    vad_boundary_native_diagnostic_test.go:33: LEGACY_LOAD seconds=2.830749818 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vad_boundary_native_diagnostic_test.go:101: GO_BOUNDARY_RAW guard=false pos=31 input=50868 eot=10.8156681 ts503=10.992569 ts515=4.46491003 thank=-2.82966566
+    vad_boundary_native_diagnostic_test.go:101: GO_BOUNDARY_RAW guard=false pos=32 input=50868 eot=0.839388251 ts503=-2.65351868 ts515=-4.1970377 thank=8.3207016
+    vad_boundary_native_diagnostic_test.go:101: GO_BOUNDARY_RAW guard=false pos=36 input=50880 eot=22.0292778 ts503=-0.267247677 ts515=8.00299835 thank=-0.138134658
+    vad_boundary_native_diagnostic_test.go:112: VAD_BOUNDARY guard=false samples=164800 calls=36 seconds=0.834325003 segments=[{Start:0 End:10.06 Text:And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country. Tokens:[400 370 11 452 7177 6280 11 1029 406 437 428 1941 393 360 337 291 11 1029 437 291 393 360 337 428 1941 13]} {Start:10.06 End:10.3 Text:Thank you. Tokens:[1044 291 13]}]
+    vad_boundary_native_diagnostic_test.go:101: GO_BOUNDARY_RAW guard=true pos=31 input=50868 eot=10.8156681 ts503=10.992569 ts515=4.46491003 thank=-2.82966566
+    vad_boundary_native_diagnostic_test.go:101: GO_BOUNDARY_RAW guard=true pos=32 input=50868 eot=0.839388251 ts503=-2.65351868 ts515=-4.1970377 thank=8.3207016
+    vad_boundary_native_diagnostic_test.go:112: VAD_BOUNDARY guard=true samples=164800 calls=35 seconds=0.809381810 segments=[{Start:0 End:10.06 Text:And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country. Tokens:[400 370 11 452 7177 6280 11 1029 406 437 428 1941 393 360 337 291 11 1029 437 291 393 360 337 428 1941 13]} {Start:10.06 End:10.3 Text:Thank you. Tokens:[1044 291 13]}]
+--- PASS: TestWhisperVADBoundaryDiagnostic (11.15s)
+PASS

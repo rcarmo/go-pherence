@@ -1,0 +1,59 @@
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode1
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode1/[33_96_63]
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode1/[1500_1280_5120]
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.037800531 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.046435712 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.043057835 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.031048025 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030755364 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.042892639 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.043037543 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030954977 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.030745778 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.043114535 sourceBytes=4915200 candidateBytes=4915200
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode1/[1500_5120_1280]
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031859444 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.044186197 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.043845880 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.031575540 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031378516 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.043785313 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.043649118 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031572265 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.031638590 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode1 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.043748230 sourceBytes=4915200 candidateBytes=4915200
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode2
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode2/[33_96_63]
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode2/[1500_1280_5120]
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=false repeat=0 seconds=0.030784867 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=true repeat=0 seconds=0.040261413 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=true repeat=1 seconds=0.040288995 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=false repeat=1 seconds=0.030940484 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=false repeat=2 seconds=0.030653688 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=true repeat=2 seconds=0.040295071 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=true repeat=3 seconds=0.040438309 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=false repeat=3 seconds=0.030813456 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=false repeat=4 seconds=0.030712351 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 1280 5120] candidate=true repeat=4 seconds=0.040890933 sourceBytes=4915200 candidateBytes=4915200
+=== RUN   TestVulkanNativeQ5SchedulingDiagnostic/decode2/[1500_5120_1280]
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=false repeat=0 seconds=0.031617199 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=true repeat=0 seconds=0.042160169 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=true repeat=1 seconds=0.041494255 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=false repeat=1 seconds=0.031628825 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=false repeat=2 seconds=0.031711735 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=true repeat=2 seconds=0.041377982 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=true repeat=3 seconds=0.041440282 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=false repeat=3 seconds=0.031855180 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=false repeat=4 seconds=0.031707674 sourceBytes=4915200 candidateBytes=4915200
+    vulkan_q5_scheduling_diagnostic_test.go:111: Q5_SCHEDULING variant=decode2 shape=[1500 5120 1280] candidate=true repeat=4 seconds=0.041489122 sourceBytes=4915200 candidateBytes=4915200
+--- PASS: TestVulkanNativeQ5SchedulingDiagnostic (2.69s)
+    --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode1 (1.40s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode1/[33_96_63] (0.07s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode1/[1500_1280_5120] (0.71s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode1/[1500_5120_1280] (0.56s)
+    --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode2 (1.26s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode2/[33_96_63] (0.02s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode2/[1500_1280_5120] (0.63s)
+        --- PASS: TestVulkanNativeQ5SchedulingDiagnostic/decode2/[1500_5120_1280] (0.55s)
+PASS

@@ -1,0 +1,297 @@
+{
+  "status": "rejected second opt-in for insufficient demonstrated whole-request benefit on tested fixtures; FC2 synthetic niche gain remains real; no runtime changes retained",
+  "exact_scope": "existing AVX2 two-chainSdotx4,finiteF32tests and pinned8tokenlogits/selfKV/960kcrossobservations; expanded recordings, fullhiddenlongresume/fault not evaluated",
+  "results": [
+    {
+      "fixture": "jfk",
+      "baseline": 6.088342958,
+      "candidate": 6.066620455,
+      "change_percent": -0.35678842584676573,
+      "exact": true,
+      "full_before": 34.351056221,
+      "full_after": 34.188835166,
+      "samples": {
+        "baseline": [
+          6.209427019,
+          6.102404705,
+          6.088342958,
+          6.085426236,
+          6.083738647
+        ],
+        "candidate": [
+          6.150149521,
+          6.066620455,
+          6.056852682,
+          6.046004047,
+          6.08832764
+        ]
+      },
+      "mlp_before": 0.206114552,
+      "mlp_after": 0.199707457
+    },
+    {
+      "fixture": "pt",
+      "baseline": 6.084249429,
+      "candidate": 6.078019133,
+      "change_percent": -0.10240040407126783,
+      "exact": true,
+      "full_before": 34.258727771,
+      "full_after": 34.071677928,
+      "samples": {
+        "baseline": [
+          6.144487596,
+          6.083054102,
+          6.072939393,
+          6.084249429,
+          6.091712891
+        ],
+        "candidate": [
+          6.134051117,
+          6.078019133,
+          6.085289989,
+          6.032011298,
+          6.05106529
+        ]
+      },
+      "mlp_before": 0.20125154,
+      "mlp_after": 0.193881157
+    },
+    {
+      "fixture": "fr",
+      "baseline": 5.655054138,
+      "candidate": 5.663347829,
+      "change_percent": 0.146659798431803,
+      "exact": true,
+      "full_before": 32.145899212,
+      "full_after": 32.077334114,
+      "samples": {
+        "baseline": [
+          5.748719621,
+          5.6392811,
+          5.655054138,
+          5.68699994,
+          5.639133241
+        ],
+        "candidate": [
+          5.685034499,
+          5.681678409,
+          5.663347829,
+          5.637282095,
+          5.623058951
+        ]
+      },
+      "mlp_before": 0.086607892,
+      "mlp_after": 0.083011569
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline": 7.015689598,
+      "candidate": 6.9656018809999996,
+      "change_percent": -0.7139386128810377,
+      "exact": true,
+      "full_before": 38.920096827,
+      "full_after": 38.694736902,
+      "samples": {
+        "baseline": [
+          7.079917646,
+          7.003762086,
+          7.003563056,
+          7.019550018,
+          7.015689598
+        ],
+        "candidate": [
+          7.019660831,
+          6.9656018809999996,
+          6.964479483,
+          6.995700229,
+          6.9604794089999995
+        ]
+      },
+      "mlp_before": 0.459773485,
+      "mlp_after": 0.44033695
+    },
+    {
+      "fixture": "groups",
+      "baseline": 14.170020257000001,
+      "candidate": 14.03093838,
+      "change_percent": -0.9815220760273413,
+      "exact": true,
+      "full_before": 74.610485704,
+      "full_after": 74.013897558,
+      "samples": {
+        "baseline": [
+          14.227283913,
+          14.13740908,
+          14.112930984,
+          14.186097312,
+          14.170020257000001
+        ],
+        "candidate": [
+          14.110308622,
+          13.96624602,
+          14.015553096,
+          14.03093838,
+          14.08980261
+        ]
+      },
+      "mlp_before": 0.9206986,
+      "mlp_after": 0.885406886
+    }
+  ],
+  "kernels": [
+    {
+      "shape": "K16/N7",
+      "baseline": 0.000062316,
+      "candidate": 0.000066029,
+      "change_percent": 5.958341356954877,
+      "samples": {
+        "baseline": [
+          0.00004398,
+          0.000073385,
+          0.000102461,
+          0.000062316,
+          0.000053368
+        ],
+        "candidate": [
+          0.000067437,
+          0.000130919,
+          0.000066029,
+          0.000035079,
+          0.00005815
+        ]
+      },
+      "calls": 30
+    },
+    {
+      "shape": "K32/N519",
+      "baseline": 0.000166828,
+      "candidate": 0.000105546,
+      "change_percent": -36.73364183470401,
+      "samples": {
+        "baseline": [
+          0.000166828,
+          0.000159343,
+          0.000157713,
+          0.000179424,
+          0.000181871
+        ],
+        "candidate": [
+          0.000153038,
+          0.000141758,
+          0.000097939,
+          0.000105546,
+          0.000104065
+        ]
+      },
+      "calls": 30
+    },
+    {
+      "shape": "K1280/N1280",
+      "baseline": 0.002421276,
+      "candidate": 0.002286323,
+      "change_percent": -5.573631424092095,
+      "samples": {
+        "baseline": [
+          0.002703054,
+          0.002398916,
+          0.002676572,
+          0.002373984,
+          0.002421276
+        ],
+        "candidate": [
+          0.002286323,
+          0.002228979,
+          0.002530627,
+          0.002266065,
+          0.002300547
+        ]
+      },
+      "calls": 30
+    },
+    {
+      "shape": "K1280/N5120",
+      "baseline": 0.014311759,
+      "candidate": 0.014098902,
+      "change_percent": -1.487287481573718,
+      "samples": {
+        "baseline": [
+          0.018590185,
+          0.014503512,
+          0.014150084,
+          0.01338035,
+          0.014311759
+        ],
+        "candidate": [
+          0.014727976,
+          0.014306352,
+          0.01257597,
+          0.013106473,
+          0.014098902
+        ]
+      },
+      "calls": 30
+    },
+    {
+      "shape": "K5120/N1280",
+      "baseline": 0.015702544,
+      "candidate": 0.012860083,
+      "change_percent": -18.101913931908097,
+      "samples": {
+        "baseline": [
+          0.015702544,
+          0.014653671,
+          0.016271565,
+          0.013928877,
+          0.016090013
+        ],
+        "candidate": [
+          0.012930873,
+          0.012400567,
+          0.012860083,
+          0.012251183,
+          0.016534542
+        ]
+      },
+      "calls": 30
+    },
+    {
+      "shape": "K1280/N51866",
+      "baseline": 0.2166259,
+      "candidate": 0.215179083,
+      "change_percent": -0.6678873578828792,
+      "samples": {
+        "baseline": [
+          0.183566437,
+          0.182015596,
+          0.235632968,
+          0.2166259,
+          0.218621681
+        ],
+        "candidate": [
+          0.175561221,
+          0.176923484,
+          0.233421035,
+          0.215179083,
+          0.224235935
+        ]
+      },
+      "calls": 30
+    }
+  ],
+  "states_verified": [
+    "whisper-decoder-x4",
+    "whisper-decoder-x4-trained",
+    "whisper-decoder-x4-diagnostic-race",
+    "whisper-decoder-x4-reverted-gates",
+    "whisper-decoder-x4-baseline-jfk",
+    "whisper-decoder-x4-candidate-jfk",
+    "whisper-decoder-x4-baseline-pt",
+    "whisper-decoder-x4-candidate-pt",
+    "whisper-decoder-x4-baseline-fr",
+    "whisper-decoder-x4-candidate-fr",
+    "whisper-decoder-x4-baseline-jfk-vadwords",
+    "whisper-decoder-x4-candidate-jfk-vadwords",
+    "whisper-decoder-x4-baseline-groups",
+    "whisper-decoder-x4-candidate-groups"
+  ]
+}

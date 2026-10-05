@@ -1,0 +1,33 @@
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1_32_1]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1 32 1] scalarchecked=1 maxAbs=0.00152778625 meanAbs=0.00152778625
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[33_96_63]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[33 96 63] scalarchecked=2079 maxAbs=0.0264282227 meanAbs=0.00596375939
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 1280 1280] scalarchecked=4 maxAbs=0.104892969 meanAbs=0.0200908978
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=0 baseline=0.011206322 quant_plus_linear=0.007896373
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=1 baseline=0.012131740 quant_plus_linear=0.007191660
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=2 baseline=0.010350831 quant_plus_linear=0.007349966
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=3 baseline=0.010454387 quant_plus_linear=0.006803972
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=4 baseline=0.009392331 quant_plus_linear=0.006619694
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 1280 5120] scalarchecked=4 maxAbs=0.104892969 meanAbs=0.0200908978
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=0 baseline=0.032804215 quant_plus_linear=0.022713824
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=1 baseline=0.032927911 quant_plus_linear=0.022765120
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=2 baseline=0.032883718 quant_plus_linear=0.022730886
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=3 baseline=0.032946795 quant_plus_linear=0.022645697
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=4 baseline=0.032877806 quant_plus_linear=0.022505756
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 5120 1280] scalarchecked=4 maxAbs=0.149562836 meanAbs=0.0282652619
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=0 baseline=0.033771059 quant_plus_linear=0.023085907
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=1 baseline=0.034219746 quant_plus_linear=0.024412292
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=2 baseline=0.034064946 quant_plus_linear=0.023337039
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=3 baseline=0.034033242 quant_plus_linear=0.024111666
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=4 baseline=0.033792671 quant_plus_linear=0.024209905
+--- PASS: TestVulkanNativeIntegerLinearDiagnostic (1.21s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1_32_1] (0.10s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[33_96_63] (0.02s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280] (0.17s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120] (0.46s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280] (0.44s)
+PASS

@@ -1,0 +1,17 @@
+=== RUN   TestVulkanNativeIntegerQ8Oracle
+    vulkan_q8_integer_oracle_test.go:209: Q8_ORACLE blocks=205 words=1845 repeat=5 Q5Q8 outputs exact; ties=nearest-even explicit diagnostic
+--- PASS: TestVulkanNativeIntegerQ8Oracle (0.05s)
+=== RUN   TestVulkanNativeQ8InvalidBlocks
+    vulkan_q8_invalid_native_test.go:59: invalid NaN/Inf/extreme/underflow rejected via NaN marker
+--- PASS: TestVulkanNativeQ8InvalidBlocks (0.00s)
+=== RUN   TestVulkanNativeQ8OriginalBytes
+=== RUN   TestVulkanNativeQ8OriginalBytes/ff-norm
+    vulkan_q8_original_native_test.go:100: ORIGINAL_Q8_BYTES fixture=ff-norm subgroup=0 blocks=60000 differentQuantWords=0 differentD=0 differentSum=0
+    vulkan_q8_original_native_test.go:100: ORIGINAL_Q8_BYTES fixture=ff-norm subgroup=1 blocks=60000 differentQuantWords=0 differentD=0 differentSum=0
+=== RUN   TestVulkanNativeQ8OriginalBytes/tmp-ff
+    vulkan_q8_original_native_test.go:100: ORIGINAL_Q8_BYTES fixture=tmp-ff subgroup=0 blocks=240000 differentQuantWords=0 differentD=0 differentSum=0
+    vulkan_q8_original_native_test.go:100: ORIGINAL_Q8_BYTES fixture=tmp-ff subgroup=1 blocks=240000 differentQuantWords=0 differentD=0 differentSum=0
+--- PASS: TestVulkanNativeQ8OriginalBytes (0.09s)
+    --- PASS: TestVulkanNativeQ8OriginalBytes/ff-norm (0.02s)
+    --- PASS: TestVulkanNativeQ8OriginalBytes/tmp-ff (0.07s)
+PASS

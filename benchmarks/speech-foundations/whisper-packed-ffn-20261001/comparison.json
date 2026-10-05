@@ -1,0 +1,141 @@
+{
+  "rows": [
+    {
+      "fixture": "jfk",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 7.095126428,
+      "candidate_median_seconds": 6.913867219,
+      "change_percent": -2.5547001993464713,
+      "preparation_seconds": {
+        "baseline": 1.7619892350000002,
+        "candidate": 2.81932602
+      },
+      "full_arm_seconds": {
+        "baseline": 42.556730179,
+        "candidate": 42.673256885
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "fixture": "pt",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 7.06271381,
+      "candidate_median_seconds": 6.877066277,
+      "change_percent": -2.628558058478092,
+      "preparation_seconds": {
+        "baseline": 1.766050933,
+        "candidate": 2.845615988
+      },
+      "full_arm_seconds": {
+        "baseline": 42.416970594,
+        "candidate": 42.55595895
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "5abe3e013b6ff54bbdd3eb013c16c421ba951a6d6126e5687fba7d7c725a9f8d",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "fixture": "fr",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 6.498900508,
+      "candidate_median_seconds": 6.345611623,
+      "change_percent": -2.35868951696222,
+      "preparation_seconds": {
+        "baseline": 1.756747994,
+        "candidate": 2.813065712
+      },
+      "full_arm_seconds": {
+        "baseline": 39.633193782,
+        "candidate": 39.782661951
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 8.284624187,
+      "candidate_median_seconds": 8.133152321,
+      "change_percent": -1.828349271867813,
+      "preparation_seconds": {
+        "baseline": 1.760089308,
+        "candidate": 2.830324193
+      },
+      "full_arm_seconds": {
+        "baseline": 48.590105024,
+        "candidate": 48.748483981
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "fixture": "two-groups",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 16.617058059,
+      "candidate_median_seconds": 16.331610257,
+      "change_percent": -1.7177998715927845,
+      "preparation_seconds": {
+        "baseline": 1.717823927,
+        "candidate": 2.464685472
+      },
+      "full_arm_seconds": {
+        "baseline": 90.30690123,
+        "candidate": 89.357841083
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "c099aafe393a0af1a29f500a811a4b52972d88ee5590fa87351c35693d366aef",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "fixture": "onehash-jfk",
+      "samples_per_arm": 5,
+      "exact_windows": true,
+      "baseline_median_seconds": 7.110277598,
+      "candidate_median_seconds": 6.931648061,
+      "change_percent": -2.5122723344900844,
+      "preparation_seconds": {
+        "baseline": 1.75903353,
+        "candidate": 2.432425318
+      },
+      "full_arm_seconds": {
+        "baseline": 42.684568644,
+        "candidate": 42.306641295
+      },
+      "weight_bytes": {
+        "baseline": 2548039680,
+        "candidate": 1184890880
+      },
+      "input_pin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "model_pin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    }
+  ],
+  "summary": {
+    "weight_bytes_saved": 1363148800,
+    "scope": "Original Q5_0 encoder FC1/FC2 on Vulkan only; CPU decoder remains widened F32",
+    "review": "read-only source judge timed out70s; no independent approval"
+  }
+}

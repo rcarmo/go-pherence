@@ -50,7 +50,14 @@ type HTTPSettings struct {
 	MaxRequests       int      `json:"max_requests"`
 	MaxConnections    int      `json:"max_connections"`
 }
+
+// VulkanSettings opts Whisper ASR into a resident encoder. Backend "" keeps the
+// F32 safetensors encoder; "original-q5" selects the whisper.cpp-compatible
+// path: weights is then the pinned GGML Q5_0 file, the encoder runs Q5_0 x Q8_1
+// MMQ projections with 48-query flash attention and cross K/V, the CPU decoder
+// reads packed Q5_0 rows and decoding uses original compatibility.
 type VulkanSettings struct {
+	Backend           string `json:"backend,omitempty"`
 	Enable            bool   `json:"enable"`
 	AllowExperimental bool   `json:"allow_experimental"`
 	DeviceContains    string `json:"device_contains"`
@@ -188,9 +195,19 @@ type ResourceSettings struct {
 	WorkBytes     int64 `json:"work_bytes"`
 }
 type NemotronASRSettings struct {
-	Enable            bool   `json:"enable"`
+	Enable            bool                           `json:"enable"`
+	AllowExperimental bool                           `json:"allow_experimental"`
+	ModelRevision     string                         `json:"model_revision"`
+	Projection        *NemotronASRProjectionSettings `json:"projection,omitempty"`
+}
+
+// NemotronASRProjectionSettings selects a separate experimental identity.
+// Omission preserves CPU execution and all legacy profile/checkpoint identities.
+type NemotronASRProjectionSettings struct {
+	Backend           string `json:"backend"`
 	AllowExperimental bool   `json:"allow_experimental"`
-	ModelRevision     string `json:"model_revision"`
+	DeviceContains    string `json:"device_contains"`
+	BackendSHA256     string `json:"backend_sha256"`
 }
 
 type ServerConfig struct {
@@ -452,9 +469,14 @@ func (c ServerConfig) validate() error {
 		if !x.Enable || !x.AllowExperimental || x.ModelRevision != "ea30d66debe3740a08b573244286791d423d6b3e" || c.Resources == nil {
 			return fmt.Errorf("invalid Nemotron ASR configuration")
 		}
+		if p := x.Projection; p != nil {
+			if p.Backend != "vulkan-shared" || !p.AllowExperimental || strings.TrimSpace(p.DeviceContains) == "" || !validHash(p.BackendSHA256) {
+				return fmt.Errorf("Nemotron ASR shared projection requires explicit experimental Vulkan backend, device and attestation")
+			}
+		}
 		for _, p := range profiles {
 			if p.Vulkan != nil || p.WordTimestamps || p.Language != "auto" && p.Language != "en" && p.Language != "pt" && p.Language != "fr" && p.Language != "es" && p.Language != "it" {
-				return fmt.Errorf("Nemotron ASR requires CPU, coarse timing and a released language prompt")
+				return fmt.Errorf("Nemotron ASR requires coarse timing, a released language prompt and no Whisper Vulkan settings")
 			}
 		}
 	}
@@ -479,6 +501,9 @@ func (c ServerConfig) validate() error {
 		return fmt.Errorf("invalid media backend")
 	}
 	if v := f.Vulkan; v != nil {
+		if v.Backend != "" && (v.Backend != "original-q5" || c.NemotronASR != nil) {
+			return fmt.Errorf("invalid Whisper Vulkan backend")
+		}
 		if !v.Enable || !v.AllowExperimental || len(v.DeviceContains) < 1 || len(v.DeviceContains) > 128 || strings.ContainsAny(v.DeviceContains, "\r\n\x00") || !validHash(v.BackendSHA256) || v.DrainMilliseconds < 1 || v.DrainMilliseconds > 30000 || c.Resources == nil {
 			return fmt.Errorf("invalid experimental Vulkan profile")
 		}

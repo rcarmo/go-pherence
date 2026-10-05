@@ -2,7 +2,10 @@ package whisper
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"runtime"
+	"sync"
 
 	nv "github.com/rcarmo/go-pherence/backends/nvidia/runtime"
 	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
@@ -17,6 +20,9 @@ type Decoder struct {
 	TokenEmbed []float32 // [vocabSize, dModel]
 	PosEmbed   []float32 // [maxDecoderLength, dModel]
 	lmHeadGPU  *nv.DevBuf
+	// Optional original packed Q5_0 rows (attachOriginalQ5); nil = F32 path.
+	q5Layers []decoderLayerQ5
+	lmHeadQ5 []byte
 
 	// Decoder layers
 	Layers []DecoderLayer
@@ -97,9 +103,13 @@ type DecoderState struct {
 	CrossKGPU []*nv.DevBuf
 	CrossVGPU []*nv.DevBuf
 
-	Pos       int          // Current token position
-	LastToken int          // Last token fed into ForwardToken, or -1 before prompt
-	Bufs      *decoderBufs // Reusable buffers (nil = allocate per call)
+	Pos       int // Current token position
+	LastToken int // Last token fed into ForwardToken, or -1 before prompt
+	// Private original-decoder compatibility (explicit option only): number of
+	// virtual zero cross-attention keys and the original tanh-form GELU.
+	crossPadKeys int
+	tanhGELU     bool
+	Bufs         *decoderBufs // Reusable buffers (nil = allocate per call)
 	// CrossAttentionObserver is invoked synchronously only on the CPU
 	// cross-attention path. Callers must not mutate or retain weights.
 	CrossAttentionObserver CrossAttentionObserver
@@ -137,25 +147,14 @@ func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []flo
 	dModel := cfg.DecoderDModel
 	numLayers := cfg.DecoderLayers
 
-	state := &DecoderState{
-		SelfKCache: make([][]float32, numLayers),
-		SelfVCache: make([][]float32, numLayers),
-		CrossK:     make([][]float32, numLayers),
-		CrossV:     make([][]float32, numLayers),
-		CrossKHead: make([][]float32, numLayers),
-		CrossVHead: make([][]float32, numLayers),
-		LastToken:  -1,
-		Bufs:       newDecoderBufs(cfg),
+	state, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	// Pre-allocate self-attention KV caches
-	for l := 0; l < numLayers; l++ {
-		if err := speechContextErr(ctx); err != nil {
-			return nil, err
-		}
-		state.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
-		state.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*dModel)
-	}
+	state.CrossK = make([][]float32, numLayers)
+	state.CrossV = make([][]float32, numLayers)
+	state.CrossKHead = make([][]float32, numLayers)
+	state.CrossVHead = make([][]float32, numLayers)
 
 	// Pre-compute cross-attention K/V from encoder output (done once)
 	// Use GPU SGEMM if available for this large batched matmul
@@ -187,6 +186,87 @@ func newDecoderStateContext(ctx context.Context, cfg Config, encoderOutput []flo
 	return state, nil
 }
 
+// newDecoderStateFromCrossContext adopts precomputed time-major cross K/V
+// (e.g. the original-compatible Vulkan projections) instead of computing them.
+func newDecoderStateFromCrossContext(ctx context.Context, cfg Config, crossK, crossV [][]float32, encLen int) (*DecoderState, error) {
+	if len(crossK) != cfg.DecoderLayers || len(crossV) != cfg.DecoderLayers || encLen < 1 {
+		return nil, fmt.Errorf("decoder state: cross K/V geometry")
+	}
+	for l := range crossK {
+		if len(crossK[l]) != encLen*cfg.DecoderDModel || len(crossV[l]) != encLen*cfg.DecoderDModel {
+			return nil, fmt.Errorf("decoder state: cross K/V layer %d shape", l)
+		}
+	}
+	state, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	state.CrossK, state.CrossV = crossK, crossV
+	state.CrossKHead = make([][]float32, cfg.DecoderLayers)
+	state.CrossVHead = make([][]float32, cfg.DecoderLayers)
+	for l := range crossK {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		state.CrossKHead[l] = toHeadMajor(crossK[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+		state.CrossVHead[l] = toHeadMajor(crossV[l], encLen, cfg.DecoderHeads, cfg.HeadDim)
+	}
+	return state, speechContextErr(ctx)
+}
+
+func newDecoderSelfStateContext(ctx context.Context, cfg Config) (*DecoderState, error) {
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	s := &DecoderState{SelfKCache: make([][]float32, cfg.DecoderLayers), SelfVCache: make([][]float32, cfg.DecoderLayers), LastToken: -1, Bufs: newDecoderBufs(cfg)}
+	for l := 0; l < cfg.DecoderLayers; l++ {
+		if err := speechContextErr(ctx); err != nil {
+			return nil, err
+		}
+		s.SelfKCache[l] = make([]float32, 0, cfg.MaxDecoderLength*cfg.DecoderDModel)
+		s.SelfVCache[l] = make([]float32, 0, cfg.MaxDecoderLength*cfg.DecoderDModel)
+	}
+	if err := speechContextErr(ctx); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// Private same-window alignment seam. The checked caller owns both states,
+// excludes concurrent use and never mutates cross-KV after construction. Only
+// immutable CPU cross-KV is shared; fresh self-KV, observer, position and scratch
+// are separate. Copy outer slice headers to keep state metadata independent.
+// No GPU lifetime or public borrowed-storage contract is introduced.
+func newAlignmentDecoderStateContext(ctx context.Context, cfg Config, encLen int, source *DecoderState) (*DecoderState, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("alignment state: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if source == nil || encLen < 1 || encLen > cfg.MaxLength || cfg.DecoderLayers < 1 || cfg.DecoderDModel < 1 || len(source.CrossKGPU) != 0 || len(source.CrossVGPU) != 0 || len(source.CrossK) != cfg.DecoderLayers || len(source.CrossV) != cfg.DecoderLayers || len(source.CrossKHead) != cfg.DecoderLayers || len(source.CrossVHead) != cfg.DecoderLayers {
+		return nil, fmt.Errorf("alignment state: CPU cross-KV geometry required")
+	}
+	for l := 0; l < cfg.DecoderLayers; l++ {
+		n := encLen * cfg.DecoderDModel
+		if len(source.CrossK[l]) != n || len(source.CrossV[l]) != n || len(source.CrossKHead[l]) != n || len(source.CrossVHead[l]) != n {
+			return nil, fmt.Errorf("alignment state: cross-KV extent mismatch")
+		}
+	}
+	s, err := newDecoderSelfStateContext(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	s.CrossK = append([][]float32(nil), source.CrossK...)
+	s.CrossV = append([][]float32(nil), source.CrossV...)
+	s.CrossKHead = append([][]float32(nil), source.CrossKHead...)
+	s.CrossVHead = append([][]float32(nil), source.CrossVHead...)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // ForwardToken runs one decoder step for a single token.
 // Returns logits [vocabSize].
 var (
@@ -197,6 +277,17 @@ var (
 )
 
 func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
+	return dec.forwardToken(tokenID, state, true)
+}
+
+// AdvanceToken runs the same decoder step as ForwardToken (identical self-
+// attention KV, position and LastToken updates) but skips the final LayerNorm
+// and vocabulary projection, for prompt positions whose logits are unused.
+func (dec *Decoder) AdvanceToken(tokenID int, state *DecoderState) {
+	dec.forwardToken(tokenID, state, false)
+}
+
+func (dec *Decoder) forwardToken(tokenID int, state *DecoderState, wantLogits bool) []float32 {
 	cfg := dec.cfg
 	dModel := cfg.DecoderDModel
 	pos := state.Pos
@@ -228,13 +319,17 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 
 	for l := range dec.Layers {
 		layer := &dec.Layers[l]
+		var q5 decoderLayerQ5
+		if dec.q5Layers != nil {
+			q5 = dec.q5Layers[l]
+		}
 
 		// --- Causal self-attention ---
 		tphase := nowNs()
 		layerNormInto(bufs.normed, x, layer.SelfAttnLNWeight, layer.SelfAttnLNBias, dModel)
-		linearInto(bufs.q, bufs.normed, layer.SelfQWeight, layer.SelfQBias, dModel, dModel)
-		linearInto(bufs.k, bufs.normed, layer.SelfKWeight, layer.SelfKBias, dModel, dModel)
-		linearInto(bufs.v, bufs.normed, layer.SelfVWeight, layer.SelfVBias, dModel, dModel)
+		decoderLinear(bufs.q, bufs.normed, layer.SelfQWeight, q5.selfQ, layer.SelfQBias, dModel, dModel)
+		decoderLinear(bufs.k, bufs.normed, layer.SelfKWeight, q5.selfK, layer.SelfKBias, dModel, dModel)
+		decoderLinear(bufs.v, bufs.normed, layer.SelfVWeight, q5.selfV, layer.SelfVBias, dModel, dModel)
 
 		// Append to KV cache
 		state.SelfKCache[l] = append(state.SelfKCache[l], bufs.k...)
@@ -248,7 +343,7 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 			attentionSingleInto(bufs.selfOut, bufs.q, state.SelfKCache[l], state.SelfVCache[l], seqKV, numHeads, headDim, bufs.scores)
 		}
 
-		linearInto(bufs.proj, bufs.selfOut, layer.SelfOWeight, layer.SelfOBias, dModel, dModel)
+		decoderLinear(bufs.proj, bufs.selfOut, layer.SelfOWeight, q5.selfO, layer.SelfOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.proj[d]
 		}
@@ -257,16 +352,23 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		// --- Cross-attention ---
 		tphase = nowNs()
 		layerNormInto(bufs.normed, x, layer.CrossAttnLNWeight, layer.CrossAttnLNBias, dModel)
-		linearInto(bufs.crossQ, bufs.normed, layer.CrossQWeight, layer.CrossQBias, dModel, dModel)
+		decoderLinear(bufs.crossQ, bufs.normed, layer.CrossQWeight, q5.crossQ, layer.CrossQBias, dModel, dModel)
 
 		// Cross-attention: Q from decoder, K/V from encoder (full, non-causal)
-		if state.CrossAttentionObserver != nil || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
+		if state.CrossAttentionObserver != nil || state.crossPadKeys > 0 || !bufs.attentionGPU(bufs.crossOut, bufs.crossQ, state.CrossKGPU, state.CrossVGPU, l, encLen, numHeads, headDim) {
 			// Alignment explicitly observes the same CPU probabilities used for
 			// this attention result; it never combines hidden GPU output with a
 			// separately reconstructed diagnostic row.
-			crossAttentionHeadMajorObserved(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver)
+			if dec.q5Layers != nil {
+				if need := linearWorkers * encLen; len(bufs.crossScores) < need {
+					bufs.crossScores = make([]float32, need)
+				}
+				crossAttentionHeadMajorParallel(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.crossScores, l, pos, state.CrossAttentionObserver, state.crossPadKeys, min(linearWorkers, runtime.GOMAXPROCS(0)))
+			} else {
+				crossAttentionHeadMajorPadded(bufs.crossOut, bufs.crossQ, state.CrossKHead[l], state.CrossVHead[l], encLen, numHeads, headDim, bufs.scores, l, pos, state.CrossAttentionObserver, state.crossPadKeys)
+			}
 		}
-		linearInto(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, layer.CrossOBias, dModel, dModel)
+		decoderLinear(bufs.crossProj, bufs.crossOut, layer.CrossOWeight, q5.crossO, layer.CrossOBias, dModel, dModel)
 		for d := range x {
 			x[d] += bufs.crossProj[d]
 		}
@@ -276,11 +378,15 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		tphase = nowNs()
 		layerNormInto(bufs.mlpIn, x, layer.MLPLNWeight, layer.MLPLNBias, dModel)
 		if !bufs.linearGPU(bufs.hidden, bufs.mlpIn, layer.gpuFC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim) {
-			linearInto(bufs.hidden, bufs.mlpIn, layer.FC1Weight, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
+			decoderLinear(bufs.hidden, bufs.mlpIn, layer.FC1Weight, q5.fc1, layer.FC1Bias, dModel, cfg.DecoderFFNDim)
 		}
-		gelu(bufs.hidden)
+		if state.tanhGELU {
+			geluOriginalTanh(bufs.hidden)
+		} else {
+			gelu(bufs.hidden)
+		}
 		if !bufs.linearGPU(bufs.mlpOut, bufs.hidden, layer.gpuFC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel) {
-			linearInto(bufs.mlpOut, bufs.hidden, layer.FC2Weight, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
+			decoderLinear(bufs.mlpOut, bufs.hidden, layer.FC2Weight, q5.fc2, layer.FC2Bias, cfg.DecoderFFNDim, dModel)
 		}
 		for d := range x {
 			x[d] += bufs.mlpOut[d]
@@ -288,6 +394,11 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		decMlpNs += nowNs() - tphase
 	}
 
+	if !wantLogits {
+		state.LastToken = tokenID
+		state.Pos++
+		return nil
+	}
 	// Final LayerNorm
 	tphase := nowNs()
 	layerNormInto(bufs.normed, x, dec.FinalLNWeight, dec.FinalLNBias, dModel)
@@ -300,7 +411,9 @@ func (dec *Decoder) ForwardToken(tokenID int, state *DecoderState) []float32 {
 		state.Pos++
 		return logits
 	}
-	if dec.TokenEmbed != nil {
+	if dec.lmHeadQ5 != nil {
+		linearQ5Into(logits, x[:dModel], dec.lmHeadQ5, nil, dModel, cfg.VocabSize)
+	} else if dec.TokenEmbed != nil {
 		// Tied-embedding projection x @ TokenEmbed^T over the full vocab; reuse
 		// the threaded RVV seqLen=1 path instead of a scalar double loop.
 		logits = linearForwardOpt(x[:dModel], dec.TokenEmbed, nil, 1, dModel, cfg.VocabSize)
@@ -382,6 +495,14 @@ func crossAttentionHeadMajor(out, q, kHead, vHead []float32, seqKV, numHeads, he
 }
 
 func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver) {
+	crossAttentionHeadMajorPadded(out, q, kHead, vHead, seqKV, numHeads, headDim, scores, layer, position, observe, 0)
+}
+
+// crossAttentionHeadMajorPadded adds padKeys virtual zero keys/values. Their
+// score is exactly zero and they contribute only to the softmax denominator,
+// matching the original's unmasked zero-padded flash-attention extent. The
+// observer sees the real-key probabilities. padKeys==0 is the unchanged path.
+func crossAttentionHeadMajorPadded(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver, padKeys int) {
 	dModel := numHeads * headDim
 	zeroFloat32s(out[:dModel])
 	if seqKV <= 0 {
@@ -391,7 +512,34 @@ func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numH
 		scores = make([]float32, seqKV)
 	}
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
-	for h := 0; h < numHeads; h++ {
+	crossAttentionHeads(out, q, kHead, vHead, seqKV, headDim, scores, layer, position, observe, padKeys, scale, 0, numHeads)
+}
+
+// crossAttentionHeadMajorParallel splits heads across workers. Each head keeps
+// the exact serial arithmetic and writes only its own output slice, so results
+// are bit-identical. Observed (alignment) runs stay serial in head order.
+func crossAttentionHeadMajorParallel(out, q, kHead, vHead []float32, seqKV, numHeads, headDim int, scratch []float32, layer, position int, observe CrossAttentionObserver, padKeys, workers int) {
+	workers = min(workers, numHeads)
+	if observe != nil || workers <= 1 || seqKV <= 0 || len(scratch) < workers*seqKV {
+		crossAttentionHeadMajorPadded(out, q, kHead, vHead, seqKV, numHeads, headDim, scratch, layer, position, observe, padKeys)
+		return
+	}
+	zeroFloat32s(out[:numHeads*headDim])
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+	chunk := (numHeads + workers - 1) / workers
+	var wg sync.WaitGroup
+	for w, lo := 0, 0; lo < numHeads; w, lo = w+1, lo+chunk {
+		wg.Add(1)
+		go func(scores []float32, lo, hi int) {
+			defer wg.Done()
+			crossAttentionHeads(out, q, kHead, vHead, seqKV, headDim, scores, layer, position, nil, padKeys, scale, lo, hi)
+		}(scratch[w*seqKV:(w+1)*seqKV], lo, min(lo+chunk, numHeads))
+	}
+	wg.Wait()
+}
+
+func crossAttentionHeads(out, q, kHead, vHead []float32, seqKV, headDim int, scores []float32, layer, position int, observe CrossAttentionObserver, padKeys int, scale float32, h0, h1 int) {
+	for h := h0; h < h1; h++ {
 		hOff := h * headDim
 		qHead := q[hOff : hOff+headDim]
 		base := h * seqKV * headDim // contiguous block for this head
@@ -411,7 +559,11 @@ func crossAttentionHeadMajorObserved(out, q, kHead, vHead []float32, seqKV, numH
 			ko := base + tkv*headDim
 			scores[tkv] = simdrt.Sdot(qHead, kHead[ko:ko+headDim]) * scale
 		}
-		softmax(scores[:seqKV])
+		if padKeys > 0 {
+			softmaxPadded(scores[:seqKV], padKeys)
+		} else {
+			softmax(scores[:seqKV])
+		}
 		if observe != nil {
 			observe(layer, h, position, scores[:seqKV])
 		}

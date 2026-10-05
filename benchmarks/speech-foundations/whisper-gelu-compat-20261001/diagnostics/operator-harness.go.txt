@@ -1,0 +1,188 @@
+package vulkan
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestVulkanOriginalGELUDiagnostic(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_TEST_ENCODER_GELU_SPV")
+	if path == "" {
+		t.Skip("explicitGELUcompat")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	code, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(code)) != os.Getenv("GO_PHERENCE_TEST_ENCODER_GELU_SHA") {
+		t.Fatal("shaderpin")
+	}
+	kernel, e := VkKernelCreate(code, 2, 4)
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, kernel)
+	data := []float32{0, math.Float32frombits(0x80000000), math.SmallestNonzeroFloat32, -math.SmallestNonzeroFloat32, math.MaxFloat32, -math.MaxFloat32, 1e20, -1e20}
+	for i := -60000; i <= 60000; i++ {
+		data = append(data, float32(i)*.0002)
+	}
+	for _, n := range []int{1, 3, 255, 256, 257, len(data)} {
+		x := data[:n]
+		a, e := NewVkTensorArena(context.Background(), (n*2+1024)*4)
+		if e != nil {
+			t.Fatal(e)
+		}
+		nativeClose(t, a)
+		left := nativeGuard(t, a)
+		tx := nativeTensor(t, a, x, n)
+		out := nativeTensor(t, a, nil, n)
+		right := nativeGuard(t, a)
+		stage := VkF32Stage{Kernel: kernel, Groups: [3]uint32{uint32((n + 255) / 256), 1, 1}, Tensors: []*VkTensorF32{tx, out}, PushWords: []uint32{uint32(n)}}
+		plan, e := NewVkF32Plan(context.Background(), []VkF32Stage{stage})
+		if e != nil {
+			t.Fatal(e)
+		}
+		nativeClose(t, plan)
+		nativeRun(t, plan.Run)
+		got := nativeDownload(t, out)
+		for i, v := range got {
+			z := float64(x[i])
+			ref := .5 * z * (1 + math.Tanh(.7978845608028654*z*(1+.044715*z*z)))
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || math.Abs(float64(v)-ref) > 3e-6+3e-6*math.Abs(ref) {
+				t.Fatal("originalGELUanalytic", i, x[i], v, ref)
+			}
+		}
+		stage.Tensors = []*VkTensorF32{tx, tx}
+		inPlace, e := NewVkF32Plan(context.Background(), []VkF32Stage{stage})
+		if e != nil {
+			t.Fatal(e)
+		}
+		nativeClose(t, inPlace)
+		nativeRun(t, inPlace.Run)
+		same := nativeDownload(t, tx)
+		for i, v := range same {
+			if math.Float32bits(v) != math.Float32bits(got[i]) {
+				t.Fatal("inplacebits")
+			}
+		}
+		left()
+		right()
+	}
+	t.Log("ORIGINAL_GELU_TANH_ANALYTIC_120009_EXTREMES_TAILS_INPLACE_GUARDS_PASS")
+}
+
+func TestVulkanOriginalGELUCommonInput(t *testing.T) {
+	path := os.Getenv("GO_PHERENCE_TEST_ENCODER_GELU_SPV")
+	if path == "" {
+		t.Skip("explicitcommoninput")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	if !VulkanInit() || !strings.Contains(VulkanDeviceName(), "Intel") {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	read := func(p, pin string) []float32 {
+		b, e := os.ReadFile(p)
+		if e != nil || len(b) != 30720000 || fmt.Sprintf("%x", sha256.Sum256(b)) != pin {
+			t.Fatal("trainedpin", p, e)
+		}
+		x := make([]float32, len(b)/4)
+		for i := range x {
+			x[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+		}
+		return x
+	}
+	root := os.Getenv("GO_PHERENCE_TEST_GELU_COMMON_DIR")
+	x := read(root+"/state-original-ops-fixed-diag-op8-fc1.f32", "1b48c4b664f42c7ea8ab1037704fe0cd24063f40dbb8cf3e6a24bca0e3440f75")
+	ref := read(root+"/state-original-ops-fixed-diag-op9-gelu.f32", "e4ff6122c448e50fe8bc5699e54d2c33bacd1e6774453bb322859695c9bc0e52")
+	code, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(code)) != os.Getenv("GO_PHERENCE_TEST_ENCODER_GELU_SHA") {
+		t.Fatal("shaderpin")
+	}
+	kernel, e := VkKernelCreate(code, 2, 4)
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, kernel)
+	a, e := NewVkTensorArena(context.Background(), len(x)*8+4096)
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, a)
+	left := nativeGuard(t, a)
+	tx := nativeTensor(t, a, x, len(x))
+	out := nativeTensor(t, a, nil, len(x))
+	right := nativeGuard(t, a)
+	plan, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((len(x) + 255) / 256), 1, 1}, Tensors: []*VkTensorF32{tx, out}, PushWords: []uint32{uint32(len(x))}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	nativeClose(t, plan)
+	var baseline []float32
+	for repeat := 0; repeat < 5; repeat++ {
+		wall := nativeRun(t, plan.Run)
+		got := nativeDownload(t, out)
+		var bits int
+		var max, sum, ss float64
+		for i, v := range got {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				t.Fatal("finite")
+			}
+			if math.Float32bits(v) != math.Float32bits(ref[i]) {
+				bits++
+			}
+			d := math.Abs(float64(v) - float64(ref[i]))
+			max = math.Max(max, d)
+			sum += d
+			ss += d * d
+			if repeat > 0 && math.Float32bits(v) != math.Float32bits(baseline[i]) {
+				t.Fatal("repeatedbits", i)
+			}
+		}
+		if repeat == 0 {
+			baseline = got
+		}
+		left()
+		right()
+		t.Logf("GELU_COMMON repeat=%d values=%d differingBits=%d maxAbs=%.9g meanAbs=%.9g rmse=%.9g seconds=%.9f", repeat, len(got), bits, max, sum/float64(len(got)), math.Sqrt(ss/float64(len(got))), wall.Seconds())
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if e := plan.Run(cancelled); !errors.Is(e, context.Canceled) {
+		t.Fatal("cancel", e)
+	}
+	nativeRun(t, plan.Run)
+	got := nativeDownload(t, out)
+	for i, v := range got {
+		if math.Float32bits(v) != math.Float32bits(baseline[i]) {
+			t.Fatal("reuse")
+		}
+	}
+	left()
+	right()
+	t.Log("GELU_COMMON_FIVE_REPEAT_PRE_CANCEL_REUSE_GUARDS_PASS")
+}

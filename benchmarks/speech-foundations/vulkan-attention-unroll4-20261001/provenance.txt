@@ -1,0 +1,6 @@
+2026-10-01T13:09:48Z
+3d5e01d4ff6412a9aae8b989012944fe26d0385d
+83d339b5b7997f18d2046f7e3da8fa8d55b119fecff9910e5d8fa6ed581d893b  tmp/whisper-vad-parity-20261001/whisper-attn-unroll.test
+a7c9ac5c02e6d6b7d2193bc181dc7bf1ab9234ac0eb7c37cd407007f804cd9d5  tmp/whisper-vad-parity-20261001/whisper-attn-unroll-model.test
+cf71ac44d16516e311ccfb9796757d6d11d7a59d4a733aa27214bef4cef381ad  tools/vulkan-offline/usr/bin/glslangValidator
+49044b2fffb78a93ab7016d46a50d156088598162de8b8a523f3308ea5b3f2f8  tools/vulkan-offline/usr/bin/spirv-val

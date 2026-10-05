@@ -1,0 +1,39 @@
+=== RUN   TestVulkanNativeIntegerDotProbe
+    vulkan_integer_dot_test.go:191: INTDOT_PROBE values=1025 repeat=5 device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+--- PASS: TestVulkanNativeIntegerDotProbe (0.04s)
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1_32_1]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1 32 1] scalarchecked=1 maxAbs=0.00152778625 meanAbs=0.00152778625
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[33_96_63]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[33 96 63] scalarchecked=2079 maxAbs=0.0264282227 meanAbs=0.00596375939
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 1280 1280] scalarchecked=4 maxAbs=0.104892969 meanAbs=0.0200908978
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=0 baseline=0.025553354 quant_plus_linear=0.014284558
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=1 baseline=0.009326267 quant_plus_linear=0.006099893
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=2 baseline=0.008814741 quant_plus_linear=0.006136899
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=3 baseline=0.008911486 quant_plus_linear=0.006211652
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=4 baseline=0.008813533 quant_plus_linear=0.005977776
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 1280 5120] scalarchecked=4 maxAbs=0.104892969 meanAbs=0.0200908978
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=0 baseline=0.032894593 quant_plus_linear=0.022980377
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=1 baseline=0.033094750 quant_plus_linear=0.022753682
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=2 baseline=0.032865141 quant_plus_linear=0.022406107
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=3 baseline=0.032984114 quant_plus_linear=0.022462236
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 5120] repeat=4 baseline=0.032616517 quant_plus_linear=0.022450957
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 5120 1280] scalarchecked=4 maxAbs=0.149562836 meanAbs=0.0282652619
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=0 baseline=0.034119204 quant_plus_linear=0.024120270
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=1 baseline=0.034042615 quant_plus_linear=0.023445064
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=2 baseline=0.034032821 quant_plus_linear=0.024175024
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=3 baseline=0.033759760 quant_plus_linear=0.023938665
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 5120 1280] repeat=4 baseline=0.033747580 quant_plus_linear=0.022895359
+--- PASS: TestVulkanNativeIntegerLinearDiagnostic (1.23s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1_32_1] (0.10s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[33_96_63] (0.02s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280] (0.22s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120] (0.46s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280] (0.43s)
+=== RUN   TestVulkanNativeIntegerQ8Oracle
+    vulkan_q8_integer_oracle_test.go:209: Q8_ORACLE blocks=205 words=1845 repeat=5 Q5Q8 outputs exact; ties=nearest-even explicit diagnostic
+--- PASS: TestVulkanNativeIntegerQ8Oracle (0.01s)
+PASS

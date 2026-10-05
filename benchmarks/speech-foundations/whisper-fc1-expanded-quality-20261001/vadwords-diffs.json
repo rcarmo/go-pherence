@@ -1,0 +1,52 @@
+[
+  {
+    "path": "samples.0.0.Words.46.End",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.0.0.Words.47.Start",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.1.0.Words.46.End",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.1.0.Words.47.Start",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.2.0.Words.46.End",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.2.0.Words.47.Start",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.3.0.Words.46.End",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.3.0.Words.47.Start",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.4.0.Words.46.End",
+    "baseline": 11.314,
+    "candidate": 11.294
+  },
+  {
+    "path": "samples.4.0.Words.47.Start",
+    "baseline": 11.314,
+    "candidate": 11.294
+  }
+]

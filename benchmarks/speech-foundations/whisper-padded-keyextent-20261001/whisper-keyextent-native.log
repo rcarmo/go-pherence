@@ -1,0 +1,33 @@
+=== RUN   TestVulkanNativePaddedExtent
+=== RUN   TestVulkanNativePaddedExtent/1/1/1
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":64,"max_abs":3.404523264867454e-10,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/17/37/2
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":2176,"max_abs":1.1689064619013756e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/33/65/3
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":6336,"max_abs":1.838564462480763e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/16/255/2
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":2048,"max_abs":3.539564112642335e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/16/256/2
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":2048,"max_abs":3.71211873878563e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/16/257/2
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":2048,"max_abs":2.8936028656501023e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/1500/1500/20
+=== RUN   TestVulkanNativePaddedExtent/1/4095/1
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":64,"max_abs":1.1032011535197506e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativePaddedExtent/4096/1/1
+=== RUN   TestVulkanNativePaddedExtent/2/33/32
+    vulkan_attention_padded_extent_native_test.go:79: NATIVE_METRIC {"name":"padded64float64","values":4096,"max_abs":9.2989984809555e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== NAME  TestVulkanNativePaddedExtent
+    vulkan_attention_padded_extent_native_test.go:93: VIRTUAL_PAD_EXPLICIT_ZERO_ORACLE10_SHAPES_BITS_CANCEL_REUSE_GUARDS_PASS
+--- PASS: TestVulkanNativePaddedExtent (0.81s)
+    --- PASS: TestVulkanNativePaddedExtent/1/1/1 (0.01s)
+    --- PASS: TestVulkanNativePaddedExtent/17/37/2 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/33/65/3 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/16/255/2 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/16/256/2 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/16/257/2 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/1500/1500/20 (0.41s)
+    --- PASS: TestVulkanNativePaddedExtent/1/4095/1 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/4096/1/1 (0.02s)
+    --- PASS: TestVulkanNativePaddedExtent/2/33/32 (0.02s)
+PASS

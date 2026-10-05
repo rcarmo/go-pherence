@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32-scoreilp",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "6516da2b046a1040ba05a312c042bb45a0329baa73fd8b4907c7904bf367d363",
+  "ModelLoadSeconds": 5.09549231,
+  "PreparationSeconds": 1.81744705,
+  "CleanupSeconds": 0.008338122,
+  "FullArmSeconds": 7.021158554,
+  "InputSamples": 80000,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 0.02076531,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 1,
+      "request_seconds": 0.019892226,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 2,
+      "request_seconds": 0.0195969,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 3,
+      "request_seconds": 0.019494189,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    },
+    {
+      "index": 4,
+      "request_seconds": 0.019511279,
+      "AllocatedBytes": 311264,
+      "Allocations": 3006,
+      "DecoderSelfSeconds": 0,
+      "DecoderCrossSeconds": 0,
+      "DecoderMLPSeconds": 0,
+      "DecoderHeadSeconds": 0
+    }
+  ]
+}

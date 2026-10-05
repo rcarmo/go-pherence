@@ -1,0 +1,12 @@
+=== RUN   TestVulkanNativeProjectionDiagnostic
+=== RUN   TestVulkanNativeProjectionDiagnostic/[1_1_1]
+    vulkan_projection_diagnostic_test.go:89: NATIVE_METRIC {"name":"projected","values":1,"max_abs":9.078530704975663e-10,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[2_3_5]
+    vulkan_projection_diagnostic_test.go:89: NATIVE_METRIC {"name":"projected","values":10,"max_abs":2.9382765109886577e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":0}
+=== RUN   TestVulkanNativeProjectionDiagnostic/[65_33_127]
+    vulkan_projection_diagnostic_test.go:83: arithmetic drift [65 33 127] 4064 NaN -0.021850474
+--- FAIL: TestVulkanNativeProjectionDiagnostic (0.17s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[1_1_1] (0.01s)
+    --- PASS: TestVulkanNativeProjectionDiagnostic/[2_3_5] (0.01s)
+    --- FAIL: TestVulkanNativeProjectionDiagnostic/[65_33_127] (0.01s)
+FAIL

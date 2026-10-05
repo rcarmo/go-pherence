@@ -1,0 +1,13 @@
+#version 450
+layout(local_size_x=8,local_size_y=8) in;
+layout(set=0,binding=0) readonly buffer X { float x[]; };
+layout(set=0,binding=1) readonly buffer W { float w[]; };
+layout(set=0,binding=2) readonly buffer B { float bias[]; };
+layout(set=0,binding=3) buffer O { float output_data[]; };
+layout(push_constant) uniform P { uint inDim; uint outDim; };
+shared float lanes[64];
+void main(){uint lane=gl_LocalInvocationID.x,row=gl_LocalInvocationID.y,o=gl_WorkGroupID.x*8u+row;precise float a=0.0,b=0.0;
+ if(o<outDim){for(uint k=lane;k<inDim;k+=16u){a=fma(x[k],w[o*inDim+k],a);b=fma(x[k+8u],w[o*inDim+k+8u],b);}}
+ lanes[row*8u+lane]=a+b;barrier();
+ if(lane==0u && o<outDim){uint p=row*8u;precise float s0=lanes[p]+lanes[p+4u],s1=lanes[p+1u]+lanes[p+5u],s2=lanes[p+2u]+lanes[p+6u],s3=lanes[p+3u]+lanes[p+7u];precise float h0=s0+s1,h1=s2+s3;output_data[o]=(h0+h1)+bias[o];}
+}

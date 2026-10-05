@@ -1,0 +1,145 @@
+package vulkan
+
+import (
+	"context"
+	"fmt"
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"math"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+func decoderGEMVCPU(out, x, w, b []float32, k, n int) {
+	var wg sync.WaitGroup
+	chunk := (n + 3) / 4
+	for start := 0; start < n; start += chunk {
+		end := min(n, start+chunk)
+		wg.Add(1)
+		go func(a, z int) {
+			defer wg.Done()
+			for i := a; i < z; i++ {
+				out[i] = simdrt.Sdot(x, w[i*k:(i+1)*k]) + b[i]
+			}
+		}(start, end)
+	}
+	wg.Wait()
+}
+func TestVulkanDecoderGEMVDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_VK_DECODER_GEMV")
+	if dir == "" {
+		t.Skip("explicit exactcpu-dot Vulkan diagnostic")
+	}
+	deadline, ok := t.Deadline()
+	if !ok || time.Until(deadline) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	if !simdrt.HasDotAsm {
+		t.Fatal("SIMDoracle")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	for _, rows := range []int{8, 16, 32} {
+		t.Run(fmt.Sprintf("rows%d", rows), func(t *testing.T) {
+			code, e := os.ReadFile(fmt.Sprintf("%s/gemv%d.spv", dir, rows))
+			if e != nil {
+				t.Fatal(e)
+			}
+			kernel, e := VkKernelCreate(code, 4, 8)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, shape := range [][2]int{{16, 7}, {32, 519}, {1280, 1280}, {1280, 5120}, {5120, 1280}, {1280, 51866}} {
+				k, n := shape[0], shape[1]
+				t.Run(fmt.Sprintf("K%dN%d", k, n), func(t *testing.T) {
+					x := make([]float32, k)
+					w := make([]float32, k*n)
+					b := make([]float32, n)
+					for i := range x {
+						x[i] = float32(math.Sin(float64(i*17+3))) * .331
+					}
+					for i := range w {
+						w[i] = float32(math.Cos(float64(i*13+7))) * .0137
+					}
+					for i := range b {
+						b[i] = float32(i%11-5) * .017
+					}
+					ref := make([]float32, n)
+					decoderGEMVCPU(ref, x, w, b, k, n)
+					a, e := NewVkTensorArena(context.Background(), (len(w)+len(x)+2*n+1024)*4)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					tx := nativeTensor(t, a, x, k)
+					tw := nativeTensor(t, a, w, n, k)
+					tb := nativeTensor(t, a, b, n)
+					out := nativeTensor(t, a, nil, n)
+					right := nativeGuard(t, a)
+					plan, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((n + rows - 1) / rows), 1, 1}, Tensors: []*VkTensorF32{tx, tw, tb, out}, PushWords: []uint32{uint32(k), uint32(n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, plan)
+					nativeRun(t, plan.Run)
+					got := nativeDownload(t, out)
+					for i, v := range got {
+						if math.Float32bits(v) != math.Float32bits(ref[i]) {
+							t.Fatal("cpu-dotbits", i, v, ref[i])
+						}
+					}
+					for repeat := 0; repeat < 5; repeat++ {
+						order := []string{"cpu4", "gpu-resident", "gpu-transfer"}
+						if repeat%2 == 1 {
+							order = []string{"gpu-transfer", "gpu-resident", "cpu4"}
+						}
+						for _, arm := range order {
+							result := make([]float32, n)
+							start := time.Now()
+							for call := 0; call < 10; call++ {
+								if arm == "cpu4" {
+									decoderGEMVCPU(result, x, w, b, k, n)
+								} else {
+									ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+									if arm == "gpu-transfer" {
+										if e := tx.Upload(ctx, x); e != nil {
+											t.Fatal(e)
+										}
+									}
+									if e := plan.Run(ctx); e != nil {
+										t.Fatal(e)
+									}
+									if arm == "gpu-transfer" {
+										if e := out.Download(ctx, result); e != nil {
+											t.Fatal(e)
+										}
+									}
+									cancel()
+								}
+							}
+							wall := time.Since(start)
+							if arm == "gpu-resident" {
+								result = nativeDownload(t, out)
+							}
+							for i, v := range result {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("bits", arm, i)
+								}
+							}
+							left()
+							right()
+							t.Logf("DECODER_GEMV rows=%d K=%d N=%d arm=%s repeat=%d seconds=%.9f calls=10", rows, k, n, arm, repeat, wall.Seconds())
+						}
+					}
+				})
+			}
+		})
+	}
+}

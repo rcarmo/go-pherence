@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -420,5 +422,270 @@ func TestPCMResumeActualToyAndHostOnly(t *testing.T) {
 	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "0")
 	if e := w.ValidatePCMHostOnly(); e == nil {
 		t.Fatal("NVIDIA not disabled")
+	}
+}
+
+// Original window compatibility carries a rolling prompt across windows, so a
+// resume must replay earlier windows silently and emit exactly what an
+// uninterrupted run emits from the first missing window onward.
+func TestPCMOriginalWindowCompatibilityResumeReplays(t *testing.T) {
+	t.Setenv("GO_PHERENCE_DISABLE_NVIDIA", "1")
+	w := toyPCMModel()
+	tok := checkedTestTokenizer(w.Config.VocabSize)
+	tok.Vocab[w.Config.VocabSize-1506+2] = "<|startofprev|>" // transcribe+2, as in the multilingual layout
+	r := rand.New(rand.NewSource(3))
+	pcm := make([]float32, 12*320+7) // > delta_min (100 ms) beyond several windows
+	for i := range pcm {
+		pcm[i] = float32(r.NormFloat64() * 0.1)
+	}
+	reads := map[int64]int{}
+	source := sampleReadFunc(func(_ context.Context, dst []float32, start int64) (int, error) {
+		reads[start]++
+		n := copy(dst, pcm[min(int(start), len(pcm)):])
+		for i := n; i < len(dst); i++ {
+			dst[i] = 0
+		}
+		return len(dst), nil
+	})
+	opts := PCMTranscribeOptions{Language: "pt", OriginalDecoderCompatibility: true, OriginalWindowCompatibility: true}
+	run := func(first int64) []WindowTranscript {
+		clear(reads)
+		var out []WindowTranscript
+		if e := w.TranscribePCMWindowsFrom(context.Background(), source, int64(len(pcm)), tok, opts, first, func(r WindowTranscript) error { out = append(out, r); return nil }); e != nil {
+			t.Fatal(first, e)
+		}
+		return out
+	}
+	full := run(0)
+	if len(full) < 4 {
+		t.Fatal("windows", len(full))
+	}
+	for _, first := range []int64{1, 3, int64(len(full) - 1)} {
+		got := run(first)
+		if !reflect.DeepEqual(got, full[first:]) {
+			t.Fatalf("resume %d differs: %+v vs %+v", first, got, full[first:])
+		}
+		// Every window is read by the whole-clip mel pass and again for inference,
+		// including the silently replayed windows before first.
+		for _, f := range full {
+			if reads[f.Window.Start] < 2 {
+				t.Fatalf("resume %d did not replay window %d (reads %d)", first, f.Window.Index, reads[f.Window.Start])
+			}
+		}
+	}
+	nonEmpty := 0
+	for _, f := range full {
+		if f.Prompt == nil || len(*f.Prompt) > maxPreviousTextTokens {
+			t.Fatalf("window %d prompt %v", f.Window.Index, f.Prompt)
+		}
+		nonEmpty += min(len(*f.Prompt), 1)
+	}
+	if nonEmpty == 0 {
+		t.Fatal("toy run carried no rolling prompt")
+	}
+	// Resuming from the persisted prompt of window first-1 skips inference of
+	// earlier windows (read once, by the whole-clip mel pass) and emits the same.
+	for _, first := range []int64{1, 3, int64(len(full) - 1)} {
+		clear(reads)
+		var got []WindowTranscript
+		if e := w.TranscribePCMWindowsFromPrompt(context.Background(), source, int64(len(pcm)), tok, opts, first, WindowResume{Start: full[first-1].Window.EmitEnd, Prompt: *full[first-1].Prompt}, func(r WindowTranscript) error { got = append(got, r); return nil }); e != nil {
+			t.Fatal(first, e)
+		}
+		if !reflect.DeepEqual(got, full[first:]) {
+			t.Fatalf("prompt resume %d differs", first)
+		}
+		for _, f := range full[:first] {
+			if reads[f.Window.Start] != 1 {
+				t.Fatalf("prompt resume %d re-inferred window %d (reads %d)", first, f.Window.Index, reads[f.Window.Start])
+			}
+		}
+	}
+	for _, bad := range [][]int{make([]int, maxPreviousTextTokens+1), {-1}, {w.Config.VocabSize}} {
+		if e := w.TranscribePCMWindowsFromPrompt(context.Background(), source, int64(len(pcm)), tok, opts, 1, WindowResume{Start: 320, Prompt: bad}, func(WindowTranscript) error { return nil }); e == nil {
+			t.Fatal("invalid prompt accepted")
+		}
+	}
+	if e := w.TranscribePCMWindowsFromPrompt(context.Background(), source, int64(len(pcm)), tok, opts, 0, WindowResume{Start: 320}, func(WindowTranscript) error { return nil }); e == nil {
+		t.Fatal("prompt resume at window 0 accepted")
+	}
+}
+
+func TestDecodeDroppingHistoryOnLimit(t *testing.T) {
+	history := []int{1, 2, 3}
+	calls := 0
+	_, _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			return nil, nil, ErrGenerationLimit
+		}
+		history = []int{9}
+		return []Segment{{Text: "ok"}}, nil, nil
+	})
+	if err != nil || calls != 2 || len(history) != 1 || history[0] != 9 {
+		t.Fatal(err, calls, history)
+	}
+	// No history: the limit is returned unchanged for split recovery.
+	empty := []int{}
+	calls = 0
+	if _, _, _, err := decodeDroppingHistoryOnLimit(&empty, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, ErrGenerationLimit }); !errors.Is(err, ErrGenerationLimit) || calls != 1 {
+		t.Fatal(err, calls)
+	}
+	// Non-limit errors and nil history (no window compatibility) never retry.
+	calls = 0
+	if _, _, _, err := decodeDroppingHistoryOnLimit(nil, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, ErrGenerationLimit }); !errors.Is(err, ErrGenerationLimit) || calls != 1 {
+		t.Fatal(err, calls)
+	}
+	history = []int{1}
+	calls = 0
+	boom := errors.New("boom")
+	if _, _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) { calls++; return nil, nil, boom }); err != boom || calls != 1 || len(history) != 1 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestDecodeRetriesRepetitiveGenerationWithoutHistory(t *testing.T) {
+	loop := make([]int, 0, 40)
+	for len(loop) < 40 {
+		loop = append(loop, 7, 8) // entropy ln2 < 2.4
+	}
+	varied := make([]int, 40)
+	for i := range varied {
+		varied[i] = 100 + i // entropy ln32 > 2.4
+	}
+	if !repetitiveGeneration(loop) || repetitiveGeneration(varied) || repetitiveGeneration(loop[:32]) {
+		t.Fatal("entropy test")
+	}
+	history := []int{1, 2, 3}
+	calls := 0
+	_, _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			history = append(history, loop...) // decodePCMWindow appends generated tokens
+			return []Segment{{Text: "loop"}}, nil, nil
+		}
+		history = append(history, varied...)
+		return []Segment{{Text: "ok"}}, nil, nil
+	})
+	if err != nil || calls != 2 || len(history) != len(varied) {
+		t.Fatal(err, calls, len(history))
+	}
+	// A varied generation with history is kept after one decode.
+	history = []int{1, 2, 3}
+	calls = 0
+	if _, _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		history = append(history, varied...)
+		return nil, nil, nil
+	}); err != nil || calls != 1 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestHighCompressionRatioFlagsRepeatedText(t *testing.T) {
+	loop := make([]Segment, 9)
+	for i := range loop {
+		loop[i] = Segment{Text: " So I was able to do this in the next phase."}
+	}
+	speech := []Segment{{Text: " And so, my fellow Americans, ask not what your country can do for you,"}, {Text: " ask what you can do for your country."}}
+	if !highCompressionRatio(loop) || highCompressionRatio(speech) || highCompressionRatio(nil) {
+		t.Fatal("compression ratio test")
+	}
+	history := []int{1, 2, 3}
+	calls := 0
+	segments, _, _, err := decodeDroppingHistoryOnLimit(&history, func() ([]Segment, []WordTiming, error) {
+		calls++
+		if len(history) > 0 {
+			return loop, nil, nil
+		}
+		return speech, nil, nil
+	})
+	if err != nil || calls != 2 || segments[0].Text != speech[0].Text {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestRepeatedSegments(t *testing.T) {
+	seg := func(texts ...string) []Segment {
+		out := make([]Segment, len(texts))
+		for i, text := range texts {
+			out[i] = Segment{Text: text}
+		}
+		return out
+	}
+	if !repeatedSegments(seg(" a", " x.", " x.", "x. ", " b")) || repeatedSegments(seg(" x.", " x.", " y", " x.")) || repeatedSegments(seg("", "", "")) || repeatedSegments(nil) {
+		t.Fatal("repeated segment test")
+	}
+}
+
+func TestWhisperSeekDeltaMatchesWhisperCpp(t *testing.T) {
+	const beg, text = 1000, 5
+	for _, c := range []struct {
+		generated []int
+		want      int64
+	}{
+		{nil, 3000},                                      // no timestamps: full chunk
+		{[]int{beg, text, beg + 100}, 3000},              // text then single timestamp: last segment closed
+		{[]int{beg, text, beg + 100, beg + 120}, 240},    // dangling start: seek to it
+		{[]int{beg + 3, text, beg + 50, beg}, 100},       // <|0.00|> never moves the seek
+		{[]int{beg, text, beg + 1500, beg + 1500}, 3000}, // 30 s timestamp
+	} {
+		if got := whisperSeekDelta(c.generated, beg); got != c.want {
+			t.Fatal(c.generated, got, c.want)
+		}
+	}
+}
+
+func TestPCMSeekWindowsChainOnLastTimestamp(t *testing.T) {
+	total := int64(75 * SpeechSampleRate)
+	source := sampleReadFunc(func(_ context.Context, dst []float32, start int64) (int, error) {
+		for i := range dst {
+			dst[i] = float32((start+int64(i))%97) / 97
+		}
+		return len(dst), nil
+	})
+	var current, delta int64
+	deltas := []int64{2000, 3000, 1234}
+	var got []Window
+	calls := 0
+	err := transcribePCMSeekFrom(context.Background(), source, total, MaxWindowSamples, 0, 0, &current, &delta, func(w WindowTranscript) error { got = append(got, w.Window); return nil }, func(samples []float32, valid int) ([]Segment, []WordTiming, error) {
+		delta = deltas[min(calls, len(deltas)-1)]
+		calls++
+		return nil, nil, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := int64(0)
+	for i, w := range got {
+		if !ValidSeekWindow(w, int64(i), start, total, MaxWindowSamples) {
+			t.Fatalf("window %d invalid: %+v", i, w)
+		}
+		start = w.EmitEnd
+	}
+	// 0→20 s (seek 2000), →50 s (full chunk), then 12.34 s steps until done.
+	if got[0].EmitEnd != 2000*160 || got[1].Start != 2000*160 || got[1].EmitEnd != 5000*160 || !WhisperSeekDone(start, total) {
+		t.Fatalf("%+v", got)
+	}
+	if ValidSeekWindow(got[1], 1, 0, total, MaxWindowSamples) || ValidSeekWindow(Window{Index: 0, Start: total - 800, End: total, EmitStart: total - 800, EmitEnd: total, InputSamples: MaxWindowSamples, PadSamples: MaxWindowSamples - 800}, 0, total-800, total, MaxWindowSamples) {
+		t.Fatal("invalid seek window accepted")
+	}
+}
+
+// Adjacent seek windows must agree on shared boundaries exactly: window 32 of
+// the podcast ended at 704.94+17.82 s, which float addition made 722.7600000000001
+// while the next window started at 722.76 s, a false transcript overlap.
+func TestCanonicalWindowOutputSampleExactBoundaries(t *testing.T) {
+	first := Window{Index: 32, Start: 11279040, End: 11279040 + MaxWindowSamples, EmitStart: 11279040, EmitEnd: 11564160, InputSamples: MaxWindowSamples}
+	second := Window{Index: 33, Start: 11564160, End: 11564160 + MaxWindowSamples, EmitStart: 11564160, EmitEnd: 11564160 + MaxWindowSamples, InputSamples: MaxWindowSamples}
+	a, _, err := canonicalWindowOutput(first, []Segment{{Start: float64(703) / 50, End: float64(891) / 50, Text: "a"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _, err := canonicalWindowOutput(second, []Segment{{Start: 0, End: 1, Text: "b"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a[0].End != b[0].Start || a[0].End != 722.76 {
+		t.Fatalf("%v != %v", a[0].End, b[0].Start)
 	}
 }

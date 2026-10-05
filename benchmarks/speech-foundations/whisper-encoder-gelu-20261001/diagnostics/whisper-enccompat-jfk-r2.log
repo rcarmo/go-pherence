@@ -1,0 +1,11 @@
+=== RUN   TestWhisperEncoderCompatDiagnostic
+    zz_encoder_compat_diag_test.go:92: LEGACY_LOAD seconds=2.771756913 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_encoder_compat_diag_test.go:130: ENCCOMPAT jfk arm=base vs-default max=6.527 rmse=0.0789822 | vs-nof16 max=6.264 rmse=0.0682719
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE jfk arm=base compat=false [0.00-11.00 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."]
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE jfk arm=base compat=true [0.00-11.00 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."]
+    zz_encoder_compat_diag_test.go:130: ENCCOMPAT jfk arm=tanh vs-default max=5.281 rmse=0.0601052 | vs-nof16 max=2.84 rmse=0.0491141
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE jfk arm=tanh compat=false [0.00-10.40 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."]
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE jfk arm=tanh compat=true [0.00-10.40 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."]
+    zz_encoder_compat_diag_test.go:29: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestWhisperEncoderCompatDiagnostic (14.62s)
+FAIL

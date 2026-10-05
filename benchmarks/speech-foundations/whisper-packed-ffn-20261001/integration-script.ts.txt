@@ -1,0 +1,46 @@
+const p='/var/home/agent/workspace/projects/go-pherence-transcribe-web/';
+const file=p+'model/whisper/vulkan_encoder.go';let s=await Bun.file(file).text();
+s=s.replace('\t"math"','\t"math"\n legacy "github.com/rcarmo/go-pherence/loader/whisperggml"');s=s.replace('\tq8Linear         *vk.VkLinearQ8WeightSet','\tq8Linear         *vk.VkLinearQ8WeightSet\n q5Linear *vk.VkLinearQ5Set');s=s.replace('\tvulkanLinearF32Tile64Key32ScoreILP\n','\tvulkanLinearF32Tile64Key32ScoreILP\n vulkanLinearOriginalQ5MLP\n');
+s=s.replace('// NewVulkanEncoderQ8Weight explicitly',`// NewVulkanEncoderOriginalQ5MLP retains original Q5_0 FC1/FC2 weights on-device.
+// source and file must identify the same checkpoint. File is used synchronously
+// during construction; no file handle or source bytes escape. All other weights,
+// activations, decoder and attention remain F32. No requantisation or fallback.
+func NewVulkanEncoderOriginalQ5MLP(ctx context.Context,source *Encoder,frames int,file *legacy.File)(*VulkanEncoder,error){
+ if file==nil{return nil,fmt.Errorf("whisper Vulkan Q5: nil pinned file")}
+ return newVulkanEncoderPackedMode(ctx,source,frames,vk.NewVkF32Plan,vulkanLinearOriginalQ5MLP,file)
+}
+
+// NewVulkanEncoderQ8Weight explicitly`);
+const sig='func newVulkanEncoderMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode) (result *VulkanEncoder, err error) {';
+s=s.replace(sig,`func newVulkanEncoderMode(ctx context.Context,source *Encoder,frames int,makePlan func(context.Context,[]vk.VkF32Stage)(*vk.VkF32Plan,error),linearMode vulkanLinearMode)(*VulkanEncoder,error){
+ return newVulkanEncoderPackedMode(ctx,source,frames,makePlan,linearMode,nil)
+}
+func newVulkanEncoderPackedMode(ctx context.Context, source *Encoder, frames int, makePlan func(context.Context, []vk.VkF32Stage) (*vk.VkF32Plan, error), linearMode vulkanLinearMode,file *legacy.File) (result *VulkanEncoder, err error) {`);
+s=s.replace('\tweightSpecs := layout.weights','\tq5:=linearMode==vulkanLinearOriginalQ5MLP\n if q5&&file==nil{return nil,fmt.Errorf("whisper Vulkan Q5: require pinned original file")}\n\tweightSpecs := layout.weights');
+s=s.replaceAll('linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {','linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight || q5 {');
+s=s.replace('step.op == "linear" && vulkanQ8WeightSelected(linearMode, step.in[1])','step.op == "linear" && (vulkanQ8WeightSelected(linearMode, step.in[1]) || q5 && isVulkanMLPWeight(step.in[1]))');
+const q8='\tif linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight || q5 {\n\t\tmatrices';
+s=s.replace(q8,` if q5 {
+  matrices:=make([]vk.VkLinearQ5Matrix,0,len(linearWeights))
+  for layer:=0;layer<layout.cfg.EncoderLayers;layer++{for _,part:=range []struct{step string;mlp int}{{"fc1",0},{"fc2",2}}{
+   name:=fmt.Sprintf("layer%d.%s.w",layer,part.step);spec:=linearWeights[name]
+   raw,shape,e:=file.Q5Blocks(ctx,fmt.Sprintf("encoder.blocks.%d.mlp.%d.weight",layer,part.mlp));if e!=nil{return nil,e}
+   if len(spec.shape)!=2||len(shape)!=2||shape[0]!=spec.shape[1]||shape[1]!=spec.shape[0]{return nil,fmt.Errorf("whisper Vulkan Q5: shape %s",name)}
+   linearIndexes[name]=len(matrices);matrices=append(matrices,vk.VkLinearQ5Matrix{Blocks:raw,OutDim:spec.shape[0],InDim:spec.shape[1]})
+  }}
+  s.q5Linear,err=vk.NewVkLinearQ5Set(ctx,matrices)
+  if s.q5Linear!=nil{s.resources=append(s.resources,s.q5Linear);s.stats.WeightBytes+=s.q5Linear.StorageBytes()}
+  if err!=nil{return nil,err}
+ } else if linearMode == vulkanLinearQ8Weight || linearMode == vulkanLinearQ8MLPWeight || linearMode == vulkanLinearQ8KVMLPWeight {
+\t\tmatrices`);
+s=s.replace('linearMode == vulkanLinearF32Tile64Key32ScoreILP {','(linearMode == vulkanLinearF32Tile64Key32ScoreILP || q5) {');
+s=s.replace('if index, quantized := linearIndexes[step.in[1]]; quantized {','if index,quantized:=linearIndexes[step.in[1]];quantized&&q5{\n stage,err=s.q5Linear.Stage(ctx,index,out,in[0],in[2])\n } else if index, quantized := linearIndexes[step.in[1]]; quantized {');
+s=s.replace('for i, name := range step.in {\n\t\t\t\tin[i] = tensors[name]','for i, name := range step.in {\n\t\t\t\tin[i] = tensors[name]');
+s+='\nfunc isVulkanMLPWeight(name string)bool{return strings.HasSuffix(name,".fc1.w")||strings.HasSuffix(name,".fc2.w")}\n';
+await Bun.write(file,s);
+let b=await Bun.file(p+'model/whisper/performance_goal_test.go').text();b=b.replace('"github.com/rcarmo/go-pherence/loader/audio/media"','"github.com/rcarmo/go-pherence/loader/audio/media"\n legacy "github.com/rcarmo/go-pherence/loader/whisperggml"');b=b.replaceAll('"vulkan-f32-tile64-key32-scoreilp",','"vulkan-f32-tile64-key32-scoreilp", "vulkan-original-q5-mlp",');b=b.replace('backend != "vulkan-f32-tile64-key32-scoreilp" &&','backend != "vulkan-f32-tile64-key32-scoreilp" && backend != "vulkan-original-q5-mlp" &&');b=b.replace('opts.backend != "vulkan-f32-tile64-key32-scoreilp" {','opts.backend != "vulkan-f32-tile64-key32-scoreilp" && opts.backend != "vulkan-original-q5-mlp" {');b=b.replace('\tloadSeconds := time.Since(started).Seconds()',' if opts.backend=="vulkan-original-q5-mlp"&&os.Getenv("GO_PHERENCE_WHISPER_BENCH_LEGACY_VALUES")!="1"{t.Fatal("packed mode requires original stored-value model")}\n\tloadSeconds := time.Since(started).Seconds()');b=b.replace('\t\tcase "vulkan-q8-mlp":',`  case "vulkan-original-q5-mlp":
+   var file *legacy.File
+   file,err=legacy.Open(ctx,os.Getenv("GO_PHERENCE_WHISPER_GGML"),modelPin)
+   if err==nil{encoder,err=NewVulkanEncoderOriginalQ5MLP(ctx,model.Encoder,model.Config.MaxLength,file);closeErr:=file.Close();if err==nil{err=closeErr}}
+\t\tcase "vulkan-q8-mlp":`);
+await Bun.write(p+'model/whisper/performance_goal_test.go',b);

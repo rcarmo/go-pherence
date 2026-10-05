@@ -1,0 +1,194 @@
+{
+  "padintdot/pt": {
+    "median": 5.56,
+    "stable": true,
+    "segs": "0-9.04",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/jfk": {
+    "median": 5.604,
+    "stable": true,
+    "segs": "0-11",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/fr": {
+    "median": 5.158,
+    "stable": true,
+    "segs": "0-2.42",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/jfk-vadwords": {
+    "median": 6.331,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/groups": {
+    "median": 12.769,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/pt1": {
+    "median": 5.251,
+    "stable": true,
+    "segs": "0-4.693375",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/pt2": {
+    "median": 11.667,
+    "stable": true,
+    "segs": "0-4.96,4.96-10.28,10.28-13.86,13.86-19.6,21.44-22.14,30-43.76",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/podcast": {
+    "median": 7.338,
+    "stable": true,
+    "segs": "0-3.12,3.12-6.36,6.36-9.56,9.56-14.16,14.28-18.24,18.52-20",
+    "sameAsAll": false,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/podcast-vadwords": {
+    "median": 9.621,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdot/silence": {
+    "median": 0.021,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 1184.9,
+    "stages": 454
+  },
+  "padintdotall/pt": {
+    "median": 5.204,
+    "stable": true,
+    "segs": "0-9.04",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/jfk": {
+    "median": 5.23,
+    "stable": true,
+    "segs": "0-11",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/fr": {
+    "median": 4.819,
+    "stable": true,
+    "segs": "0-2.42",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/jfk-vadwords": {
+    "median": 5.974,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/groups": {
+    "median": 12.057,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/pt1": {
+    "median": 4.862,
+    "stable": true,
+    "segs": "0-4.693375",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/pt2": {
+    "median": 10.914,
+    "stable": true,
+    "segs": "0-4.96,4.96-10.28,10.28-13.86,13.86-19.6,21.44-22.14,30-43.76",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/podcast": {
+    "median": 6.942,
+    "stable": true,
+    "segs": "0-3.12,3.12-6.36,6.36-9.46,9.46-13.74,13.74-17.52,17.52-20",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/podcast-vadwords": {
+    "median": 9.244,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "padintdotall/silence": {
+    "median": 0.021,
+    "stable": true,
+    "segs": "",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "mmq/pt": {
+    "median": 4.409,
+    "stable": true,
+    "segs": "0-9.04",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "mmq/jfk": {
+    "median": 4.409,
+    "stable": true,
+    "segs": "0-11",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "mmq2/pt": {
+    "median": 4.405,
+    "stable": true,
+    "segs": "0-9.04",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  },
+  "mmq2/jfk": {
+    "median": 4.439,
+    "stable": true,
+    "segs": "0-11",
+    "sameAsAll": true,
+    "weightMB": 503.3,
+    "stages": 582
+  }
+}

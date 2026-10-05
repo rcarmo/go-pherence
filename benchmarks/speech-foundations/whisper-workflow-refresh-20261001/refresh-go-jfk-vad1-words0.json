@@ -1,0 +1,502 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992584,
+  "PreparationAllocatedBytes": 293944864,
+  "Backend": "vulkan-original-q5-attention-outputilp",
+  "Language": "en",
+  "VAD": true,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+  "ModelLoadSeconds": 2.87282352,
+  "PreparationSeconds": 0.89342194,
+  "CleanupSeconds": 0.005821096,
+  "FullArmSeconds": 36.529555706,
+  "InputSamples": 176000,
+  "CPUThreads": 4,
+  "Precision": "Original Q5_0 FFN decode4 + headDim64 ordered F32 attention output ILP; stored values/decoder unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 6.599851019,
+      "AllocatedBytes": 172636728,
+      "Allocations": 26993,
+      "DecoderSelfSeconds": 0.203537571,
+      "DecoderCrossSeconds": 0.259382755,
+      "DecoderMLPSeconds": 0.424405075,
+      "DecoderHeadSeconds": 0.208657847,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "Start": 10.382,
+              "End": 10.622,
+              "Text": "Thank you.",
+              "Tokens": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 6.53421875,
+      "AllocatedBytes": 170965552,
+      "Allocations": 26881,
+      "DecoderSelfSeconds": 0.203074397,
+      "DecoderCrossSeconds": 0.257704825,
+      "DecoderMLPSeconds": 0.424282049,
+      "DecoderHeadSeconds": 0.216493659,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "Start": 10.382,
+              "End": 10.622,
+              "Text": "Thank you.",
+              "Tokens": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 6.536566684,
+      "AllocatedBytes": 170972872,
+      "Allocations": 26875,
+      "DecoderSelfSeconds": 0.200396127,
+      "DecoderCrossSeconds": 0.252394648,
+      "DecoderMLPSeconds": 0.419617997,
+      "DecoderHeadSeconds": 0.207860855,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "Start": 10.382,
+              "End": 10.622,
+              "Text": "Thank you.",
+              "Tokens": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 6.498446373,
+      "AllocatedBytes": 170950280,
+      "Allocations": 26801,
+      "DecoderSelfSeconds": 0.202736784,
+      "DecoderCrossSeconds": 0.25677896,
+      "DecoderMLPSeconds": 0.423835108,
+      "DecoderHeadSeconds": 0.208774908,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "Start": 10.382,
+              "End": 10.622,
+              "Text": "Thank you.",
+              "Tokens": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 6.587451264,
+      "AllocatedBytes": 170951064,
+      "Allocations": 26840,
+      "DecoderSelfSeconds": 0.205795482,
+      "DecoderCrossSeconds": 0.261878686,
+      "DecoderMLPSeconds": 0.428801173,
+      "DecoderHeadSeconds": 0.208872511,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 164800,
+            "EmitStart": 0,
+            "EmitEnd": 164800,
+            "InputSamples": 480000,
+            "PadSamples": 315200
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 5152,
+              "End": 36320
+            },
+            {
+              "Start": 52256,
+              "End": 70624
+            },
+            {
+              "Start": 86048,
+              "End": 122848
+            },
+            {
+              "Start": 130592,
+              "End": 169952
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 5152,
+              "End": 169952
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.322,
+              "End": 10.382,
+              "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "Tokens": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "Start": 10.382,
+              "End": 10.622,
+              "Text": "Thank you.",
+              "Tokens": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          "Words": null,
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

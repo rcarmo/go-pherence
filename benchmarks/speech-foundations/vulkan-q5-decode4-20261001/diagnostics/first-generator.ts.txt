@@ -1,0 +1,23 @@
+const root='projects/go-pherence-transcribe-web/backends/vulkan/shaders';
+for(const kind of ['f32','q5']){
+ const original=await Bun.file(`${root}/${kind==='q5'?'linear_q5_grouped_f32':'linear_f32_regtile64'}.glsl`).text();
+ for(const [name,rr,cc,unroll,transpose]of [['explicit4',4,4,4,false],['explicit8',4,4,8,false],['row128col32',8,2,4,false],['row32col128',2,8,4,false],['transpose4',4,4,4,true]] as [string,number,number,number,boolean][]){
+ let s=original.replace('shared float xt[2048];',`shared float xt[${rr*16*32}];`).replace('shared float wt[2048];',`shared float wt[${cc*16*32}];`).replace('gl_WorkGroupID.y*64,colBase=gl_WorkGroupID.x*64',`gl_WorkGroupID.y*${rr*16},colBase=gl_WorkGroupID.x*${cc*16}`);
+ s=s.replace(/float sums\[16\];for\(uint i=0;i<16;i\+\+\)sums\[i\]=0.0;/,Array.from({length:rr*cc},(_,i)=>`precise float a${i}=0.0;`).join(''));
+ const loadStart=s.indexOf('  for(uint i=lane;i<2048;i+=256)');const computeStart=s.indexOf('  for(uint k=0;k<32;k++)'),computeEnd=s.indexOf('  barrier();',computeStart);if(loadStart<0||computeStart<0||computeEnd<0)throw Error('source framing');
+ let load=s.slice(loadStart,computeStart).replace('i<2048','i<'+rr*16*32);
+ if(kind==='f32')load=load.replace('for(uint i=lane;i<2048;i+=256)','for(uint i=lane;i<'+cc*16*32+';i+=256)');else load=load.replace('id<512u','id<'+cc*16*8+'u');
+ if(transpose){if(kind==='f32')load=load.replace('wt[i]=b;','wt[(i%32)*64+i/32]=b;');else load=load.replaceAll('wt[r*32u+index]','wt[index*64u+r]').replaceAll('wt[r*32u+index+16u]','wt[(index+16u)*64u+r]')}
+ let compute=`  for(uint channel=0;channel<32;channel+=${unroll}){\n`;
+ for(let j=0;j<unroll;j++){
+  compute+=`  {uint k=channel+${j};`;
+  for(let r=0;r<rr;r++)compute+=`float x${r}=xt[(ry+${r*16})*32+k];`;
+  for(let c=0;c<cc;c++)compute+=`float w${c}=wt[${transpose?`k*64+cx+${c*16}`:`(cx+${c*16})*32+k`}];`;
+  for(let r=0;r<rr;r++)for(let c=0;c<cc;c++)compute+=`a${r*cc+c}=fma(x${r},w${c},a${r*cc+c});`;
+  compute+='}\n';
+ }
+ compute+='  }\n';s=s.slice(0,loadStart)+load+compute+s.slice(computeEnd);
+ const output=s.indexOf(' for(uint r=0;r<4;r++)for(uint c=0;c<4;c++)');if(output<0)throw Error('output');let writes='';for(let r=0;r<rr;r++)for(let c=0;c<cc;c++)writes+=` {uint row=rowBase+ry+${r*16},col=colBase+cx+${c*16};if(row<rows&&col<outDim)output_data[row*outDim+col]=a${r*cc+c}+bias[col];}\n`;s=s.slice(0,output)+writes+'}\n';
+ await Bun.write(`tmp/whisper-projection-tiles-20261001/${kind}-${name}.glsl`,s);
+ }
+}

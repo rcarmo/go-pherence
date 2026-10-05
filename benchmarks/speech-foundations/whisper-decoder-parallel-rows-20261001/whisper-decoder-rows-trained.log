@@ -1,0 +1,4 @@
+=== RUN   TestDecoderParallelRowsTrainedExact
+    decoder_rows_native_test.go:23: HF config/tokenizer provenance required
+--- FAIL: TestDecoderParallelRowsTrainedExact (0.00s)
+FAIL

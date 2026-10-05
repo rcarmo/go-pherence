@@ -1,0 +1,134 @@
+{
+  "results": [
+    {
+      "fixture": "jfk",
+      "baseline": 6.935116154,
+      "candidate": 6.222938127,
+      "percent": -10.269157879774426,
+      "all_windows_exact": true,
+      "text_tokens_exact": true,
+      "baseline_full": 38.517761736,
+      "candidate_full": 35.109097123,
+      "baseline_preparation": 0.899593197,
+      "candidate_preparation": 0.889268776,
+      "baseline_load": 2.894219096,
+      "candidate_load": 2.910827516
+    },
+    {
+      "fixture": "pt",
+      "baseline": 6.919645241,
+      "candidate": 6.229441399,
+      "percent": -9.974555312610999,
+      "all_windows_exact": false,
+      "text_tokens_exact": true,
+      "baseline_full": 38.350802133,
+      "candidate_full": 34.867979895,
+      "baseline_preparation": 0.897806501,
+      "candidate_preparation": 0.886953869,
+      "baseline_load": 2.808107221,
+      "candidate_load": 2.810631829
+    },
+    {
+      "fixture": "fr",
+      "baseline": 6.341170427,
+      "candidate": 5.648794309,
+      "percent": -10.918743250487939,
+      "all_windows_exact": true,
+      "text_tokens_exact": true,
+      "baseline_full": 35.621685012,
+      "candidate_full": 32.166985654,
+      "baseline_preparation": 0.9025993,
+      "candidate_preparation": 0.889371776,
+      "baseline_load": 2.910467051,
+      "candidate_load": 2.9118100030000003
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline": 8.095901918,
+      "candidate": 7.458815965,
+      "percent": -7.8692400112152505,
+      "all_windows_exact": true,
+      "text_tokens_exact": true,
+      "baseline_full": 44.363246526,
+      "candidate_full": 41.134870092,
+      "baseline_preparation": 0.900908806,
+      "candidate_preparation": 0.887863883,
+      "baseline_load": 2.891553238,
+      "candidate_load": 2.899806916
+    },
+    {
+      "fixture": "groups",
+      "baseline": 16.359899609,
+      "candidate": 14.958253965,
+      "percent": -8.567568735134035,
+      "all_windows_exact": true,
+      "text_tokens_exact": true,
+      "baseline_full": 85.585104668,
+      "candidate_full": 78.776264299,
+      "baseline_preparation": 0.902475811,
+      "candidate_preparation": 0.889409434,
+      "baseline_load": 2.901611782,
+      "candidate_load": 2.911069799
+    }
+  ],
+  "stages": [
+    {
+      "tensor": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.032877484,
+      "candidate": 0.022718313,
+      "percent": -30.900086515136003,
+      "rows": [
+        [
+          0.032877484,
+          0.022679585
+        ],
+        [
+          0.032982655,
+          0.022718313
+        ],
+        [
+          0.032809105,
+          0.022739955
+        ],
+        [
+          0.032943226,
+          0.02272177
+        ],
+        [
+          0.032597013,
+          0.022586744
+        ]
+      ]
+    },
+    {
+      "tensor": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.033841126,
+      "candidate": 0.023971376,
+      "percent": -29.164957454429853,
+      "rows": [
+        [
+          0.034055864,
+          0.024410426
+        ],
+        [
+          0.03372658,
+          0.023398869
+        ],
+        [
+          0.033841126,
+          0.023248899
+        ],
+        [
+          0.033811457,
+          0.024338418
+        ],
+        [
+          0.033959335,
+          0.023971376
+        ]
+      ]
+    }
+  ],
+  "silence_median": 0.019598955,
+  "status": "experimental: Portuguese segment timing regression; goal unmet"
+}

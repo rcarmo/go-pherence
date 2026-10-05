@@ -1,0 +1,49 @@
+go test ./docs -run '^TestModelLayout' -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.466s
+bun test scripts/model-layout.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/model-layout.test.ts:
+(pass) source is singular and checkpoint roots are ignored [33.21ms]
+(pass) Make defaults to checkpoints and honours explicit/legacy overrides [5.29ms]
+(pass) standard Make gates enforce the layout before broad validation [10.51ms]
+(pass) GitHub workflow runs the no-weights documentation and layout gate [0.37ms]
+(pass) Python asset helpers use checkpoints by default and preserve path overrides [115.70ms]
+
+ 5 pass
+ 0 fail
+ 3079 expect() calls
+Ran 5 tests across 1 file. [174.00ms]
+bun test scripts/check-doc-links.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/check-doc-links.test.ts:
+(pass) checks inline, reference, image and HTML targets [0.31ms]
+(pass) ignores external links, fragments and fenced examples [0.03ms]
+
+ 2 pass
+ 0 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [9.00ms]
+bun run scripts/check-doc-links.ts
+Checked 526 Markdown files (tracked + new); broken links: 0
+go test ./docs -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.632s
+bun test v1.4.2 (744846f84)
+
+scripts/check-vulkan-shaders.test.ts:
+(pass) offline SPIR-V comparison > ignores only generator and decoration order [0.49ms]
+(pass) offline SPIR-V comparison > preserves changed declaration, type and header values [0.16ms]
+(pass) offline SPIR-V comparison > retains non-decoration order [0.04ms]
+(pass) offline SPIR-V comparison > rejects malformed framing [0.13ms]
+(pass) offline SPIR-V comparison > extracts exact checked-in inventory and rejects duplicate/missing bytes [43.54ms]
+(pass) checker failure reporting > missing validator fails and writes a failed report [23.38ms]
+
+scripts/check-vulkan-integer-dot.test.ts:
+(pass) explicit shader gate refuses overwrite and reports unavailable tools [1.30ms]
+
+ 7 pass
+ 0 fail
+ 88 expect() calls
+Ran 7 tests across 2 files. [84.00ms]
+COMBINED_DOC_PASS

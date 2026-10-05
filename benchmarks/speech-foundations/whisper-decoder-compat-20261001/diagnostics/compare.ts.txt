@@ -1,0 +1,14 @@
+import { readFileSync, existsSync } from "fs";
+const R = "tmp/whisper-vad-parity-20261001", B = "projects/go-pherence-transcribe-web/benchmarks/speech-foundations";
+const origs: Record<string, string> = { pt: `${R}/f16diag-default-pt.json`, jfk: `${R}/f16diag-default-jfk.json`, "jfk-nof16": `${R}/f16diag-nof16-jfk.json`, "pt-nof16": `${R}/f16diag-nof16-pt.json`, "jfk-vadwords": `${B}/whisper-workflow-refresh-20261001/refresh-original-jfk-vad1-words1.json`, groups: `${B}/whisper-workflow-refresh-20261001/refresh-original-groups-vad1-words1.json`, pt2: `${B}/whisper-padded-keyextent-20261001/keyextent-original-pt2.json`, podcast: `${B}/whisper-padded-keyextent-20261001/keyextent-original-podcast.json`, "podcast-vadwords": `${B}/whisper-padded-keyextent-20261001/keyextent-original-podcast-vadwords.json`, pt1: `${B}/whisper-fc1-expanded-quality-20261001/fc1-quality-original-pt1.json` };
+const goSegs = (j: any) => (j.Samples[0].windows ?? j.Samples[0].vad_windows ?? []).flatMap((w: any) => (w.Segments ?? []).map((s: any) => ({ s: Math.round(s.Start * 100), e: Math.round(s.End * 100), t: s.Text.trim() })));
+const oSegs = (j: any) => j.samples ? j.samples[0].segments.map((s: any) => ({ s: s.start_cs, e: s.end_cs, t: s.text.trim() })) : j.transcription.map((s: any) => ({ s: Math.round(s.offsets.from / 10), e: Math.round(s.offsets.to / 10), t: s.text.trim() }));
+for (const arm of process.argv.slice(2)) for (const f of ["pt", "jfk", "fr", "jfk-vadwords", "groups", "pt1", "pt2", "podcast", "podcast-vadwords", "silence"]) {
+  const gp = `${R}/${arm}-candidate-${f}.json`; if (!existsSync(gp)) continue;
+  const g = goSegs(JSON.parse(readFileSync(gp, "utf8")));
+  const op = origs[f]; let o: any[] | null = null;
+  if (op) { for (const c of [op, op.replace("fc1-quality-original", "x")]) if (existsSync(c)) { o = oSegs(JSON.parse(readFileSync(c, "utf8"))); break; } }
+  const norm = (a: any[]) => a.map(x => x.t).join(" ").replace(/\s+/g, " "); const textEq = o ? norm(g) === norm(o) : null;
+  const bounds = (a: any[]) => a.map(x => `${x.s}-${x.e}`).join(",");
+  console.log([arm, f, `go=${g.length}seg`, o ? `orig=${o.length}seg` : "orig=n/a", `text=${textEq}`, `bounds=${o ? bounds(g) === bounds(o) : null}`, `go:[${bounds(g)}]`, o ? `orig:[${bounds(o)}]` : ""].join(" "));
+}

@@ -32,6 +32,9 @@ func offlineInitState(t *testing.T) {
 	mockVK(t, &vkCmdPool, VkCommandPool(0))
 	mockVK(t, &vkComputeQueueFamily, uint32(0))
 	mockVK(t, &vkDevName, "")
+	mockVK(t, &vkIntegerDotEnabled, false)
+	mockVK(t, &vkGetPhysicalDeviceFeatures2, (func(VkPhysicalDevice, unsafe.Pointer))(nil))
+	mockVK(t, &vkGetPhysicalDeviceProperties2, (func(VkPhysicalDevice, unsafe.Pointer))(nil))
 	for _, entry := range vkSymbols() {
 		slot := reflect.ValueOf(entry.target).Elem()
 		old := reflect.New(slot.Type()).Elem()

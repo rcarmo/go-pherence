@@ -1,0 +1,97 @@
+[
+  {
+    "fixture": "jfk",
+    "baseline": 6.935116154,
+    "candidate": 6.56322294,
+    "percent": -5.362465541193584,
+    "exact": true,
+    "full_before": 38.517761736,
+    "full_after": 36.746671258,
+    "stats": {
+      "Frames": 3000,
+      "Rows": 1500,
+      "Width": 1280,
+      "Layers": 32,
+      "Plans": 34,
+      "Stages": 422,
+      "WeightBytes": 1184890880,
+      "ScratchBytes": 95856000
+    }
+  },
+  {
+    "fixture": "pt",
+    "baseline": 6.919645241,
+    "candidate": 6.553042108,
+    "percent": -5.298004742032414,
+    "exact": true,
+    "full_before": 38.350802133,
+    "full_after": 36.735561896,
+    "stats": {
+      "Frames": 3000,
+      "Rows": 1500,
+      "Width": 1280,
+      "Layers": 32,
+      "Plans": 34,
+      "Stages": 422,
+      "WeightBytes": 1184890880,
+      "ScratchBytes": 95856000
+    }
+  },
+  {
+    "fixture": "fr",
+    "baseline": 6.341170427,
+    "candidate": 6.023166147,
+    "percent": -5.014914575485507,
+    "exact": true,
+    "full_before": 35.621685012,
+    "full_after": 34.046877625,
+    "stats": {
+      "Frames": 3000,
+      "Rows": 1500,
+      "Width": 1280,
+      "Layers": 32,
+      "Plans": 34,
+      "Stages": 422,
+      "WeightBytes": 1184890880,
+      "ScratchBytes": 95856000
+    }
+  },
+  {
+    "fixture": "jfk-vadwords",
+    "baseline": 8.095901918,
+    "candidate": 7.7931768550000005,
+    "percent": -3.7392382722292616,
+    "exact": true,
+    "full_before": 44.363246526,
+    "full_after": 43.022130807,
+    "stats": {
+      "Frames": 3000,
+      "Rows": 1500,
+      "Width": 1280,
+      "Layers": 32,
+      "Plans": 34,
+      "Stages": 422,
+      "WeightBytes": 1184890880,
+      "ScratchBytes": 95856000
+    }
+  },
+  {
+    "fixture": "groups",
+    "baseline": 16.359899609,
+    "candidate": 15.669998219,
+    "percent": -4.217027038603993,
+    "exact": true,
+    "full_before": 85.585104668,
+    "full_after": 82.104545988,
+    "stats": {
+      "Frames": 3000,
+      "Rows": 1500,
+      "Width": 1280,
+      "Layers": 32,
+      "Plans": 34,
+      "Stages": 422,
+      "WeightBytes": 1184890880,
+      "ScratchBytes": 95856000
+    }
+  }
+]

@@ -1,0 +1,5 @@
+FC1_ARM64_PASS
+FC1_RISCV64_PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.058s
+ok  	github.com/rcarmo/go-pherence/model/whisper	36.208s
+FC1_AFFECTED_RACE_PASS

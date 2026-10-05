@@ -1,0 +1,11 @@
+=== RUN   TestWhisperEncoderCompatDiagnostic
+    zz_encoder_compat_diag_test.go:92: LEGACY_LOAD seconds=2.845573164 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_encoder_compat_diag_test.go:130: ENCCOMPAT pt arm=base vs-default max=3.659 rmse=0.0753719 | vs-nof16 max=5.845 rmse=0.0698424
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE pt arm=base compat=false [0.00-9.04 "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta."]
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE pt arm=base compat=true [0.00-7.38 "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta."]
+    zz_encoder_compat_diag_test.go:130: ENCCOMPAT pt arm=tanh vs-default max=6.207 rmse=0.069004 | vs-nof16 max=5.089 rmse=0.0494038
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE pt arm=tanh compat=false [0.00-9.04 "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta."]
+    zz_encoder_compat_diag_test.go:162: ENCCOMPAT_DECODE pt arm=tanh compat=true [0.00-7.38 "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta."]
+    zz_encoder_compat_diag_test.go:29: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestWhisperEncoderCompatDiagnostic (14.54s)
+FAIL

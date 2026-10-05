@@ -1,0 +1,5 @@
+vadc0-jfk rc=0
+vadc0-groups rc=0
+vadc1-jfk rc=1
+vadc1-groups rc=1
+DRIVE_DONE

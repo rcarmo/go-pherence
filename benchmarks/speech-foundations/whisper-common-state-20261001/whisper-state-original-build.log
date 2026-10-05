@@ -1,0 +1,8 @@
+../../tmp/whisper-state-parity-20261001/original-state.cpp: In function 'int main(int, char**)':
+../../tmp/whisper-state-parity-20261001/original-state.cpp:14:39: error: 'cerr' is not a member of 'std'
+   14 |  scores<<"]\n";whisper_free(ctx);std::cerr<<"STATE_EXPORT_PREFIX_PASS tokens="<<tokens.size()<<"\n";return scores?0:12;}
+      |                                       ^~~~
+../../tmp/whisper-state-parity-20261001/original-state.cpp:6:1: note: 'std::cerr' is defined in header '<iostream>'; this is probably fixable by adding '#include <iostream>'
+    5 | #include <iomanip>
+  +++ |+#include <iostream>
+    6 | using Clock=std::chrono::steady_clock;

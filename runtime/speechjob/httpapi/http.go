@@ -1102,6 +1102,12 @@ func (h *Handler) enqueue(w http.ResponseWriter, r *http.Request, id string, ret
 		respondError(w, 404, "not_found", nil)
 		return
 	}
+	if retry {
+		if e := h.rebindStale(r.Context(), id); e != nil {
+			h.failure(w, e, nil)
+			return
+		}
+	}
 	entry, e := h.queue.Enqueue(r.Context(), id, retry)
 	if e != nil {
 		h.failure(w, e, nil)
@@ -1110,6 +1116,35 @@ func (h *Handler) enqueue(w http.ResponseWriter, r *http.Request, id string, ret
 	// This acknowledges durable intent, not completed execution. The worker uses
 	// its own lifetime context; request disconnect cannot cancel accepted intent.
 	respond(w, 202, entry)
+}
+
+// rebindStale lets an explicit retry move a recording whose configuration no
+// longer matches any profile (the engine was updated) to the current
+// configuration of the same profile ID. Other jobs are left to the queue.
+func (h *Handler) rebindStale(ctx context.Context, id string) error {
+	m, e := h.store.Get(id)
+	if e != nil {
+		return e
+	}
+	if _, ok := h.byConfig[m.Configuration]; ok {
+		return nil
+	}
+	var old struct{ Profile string }
+	if json.Unmarshal([]byte(m.Configuration), &old) != nil {
+		return speechjob.ErrConfiguration
+	}
+	current, ok := h.profiles[old.Profile]
+	if !ok {
+		return speechjob.ErrConfiguration
+	}
+	select {
+	case h.mutation <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-h.mutation }()
+	_, e = h.store.Rebind(ctx, id, current.configuration)
+	return e
 }
 
 func (h *Handler) markAdmissionUncertain() { h.mu.Lock(); h.admissionUncertain = true; h.mu.Unlock() }

@@ -1,0 +1,6074 @@
+[
+  {
+    "Mode": "fc1-only",
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 7.36,
+        "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+        "Tokens": [
+          19812,
+          6801,
+          11,
+          17660,
+          257,
+          11742,
+          289,
+          4021,
+          7974,
+          4061,
+          368,
+          42542,
+          5473,
+          2617,
+          1136,
+          631,
+          2228,
+          22501,
+          19930,
+          3981,
+          23760,
+          1667,
+          11720,
+          24001,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Index": 0,
+        "Selected": 50365,
+        "Scores": [
+          {
+            "Token": 50365,
+            "Text": "\u003c|0.00|\u003e",
+            "Raw": 2.1235335,
+            "Masked": 2.1235335
+          },
+          {
+            "Token": 50403,
+            "Text": "\u003c|0.76|\u003e",
+            "Raw": 0.92939806,
+            "Masked": 0.92939806
+          },
+          {
+            "Token": 50401,
+            "Text": "\u003c|0.72|\u003e",
+            "Raw": 0.8421761,
+            "Masked": 0.8421761
+          },
+          {
+            "Token": 50402,
+            "Text": "\u003c|0.74|\u003e",
+            "Raw": 0.8345787,
+            "Masked": 0.8345787
+          },
+          {
+            "Token": 50400,
+            "Text": "\u003c|0.70|\u003e",
+            "Raw": 0.7637812,
+            "Masked": 0.7637812
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -5.0576706,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -7.208911,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.5138683,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 1,
+        "Selected": 19812,
+        "Scores": [
+          {
+            "Token": 19812,
+            "Text": "ĠBom",
+            "Raw": 7.846983,
+            "Masked": 7.846983
+          },
+          {
+            "Token": 7957,
+            "Text": "Ġbom",
+            "Raw": 4.9856586,
+            "Masked": 4.9856586
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 4.4267454,
+            "Masked": 4.4267454
+          },
+          {
+            "Token": 359,
+            "Text": "Ġ-",
+            "Raw": 3.8320842,
+            "Masked": 3.8320842
+          },
+          {
+            "Token": 3286,
+            "Text": "ĠBo",
+            "Raw": 3.3419957,
+            "Masked": 3.3419957
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.28610054,
+            "Masked": 0.28610054
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -5.768481,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.070318,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 2,
+        "Selected": 6801,
+        "Scores": [
+          {
+            "Token": 6801,
+            "Text": "Ġdia",
+            "Raw": 12.862838,
+            "Masked": 12.862838
+          },
+          {
+            "Token": 22157,
+            "Text": "ĠDia",
+            "Raw": 8.982449,
+            "Masked": 8.982449
+          },
+          {
+            "Token": 413,
+            "Text": "ĠD",
+            "Raw": 7.311308,
+            "Masked": 7.311308
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.6302896,
+            "Masked": 6.6302896
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.927286,
+            "Masked": 5.927286
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.1361799,
+            "Masked": 1.1361799
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.6593206,
+            "Masked": -2.6593206
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.4650915,
+            "Masked": -1.4650915
+          }
+        ]
+      },
+      {
+        "Index": 3,
+        "Selected": 11,
+        "Scores": [
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 7.646944,
+            "Masked": 7.646944
+          },
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 6.6911607,
+            "Masked": 6.6911607
+          },
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 6.3185434,
+            "Masked": 6.3185434
+          },
+          {
+            "Token": 0,
+            "Text": "!",
+            "Raw": 5.8692102,
+            "Masked": 5.8692102
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 3.9959197,
+            "Masked": 3.9959197
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -2.7469726,
+            "Masked": -2.7469726
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.8534331,
+            "Masked": -3.8534331
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.320075,
+            "Masked": -3.320075
+          }
+        ]
+      },
+      {
+        "Index": 4,
+        "Selected": 17660,
+        "Scores": [
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 11.467735,
+            "Masked": 11.467735
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 8.361812,
+            "Masked": 8.361812
+          },
+          {
+            "Token": 20683,
+            "Text": "ĠtÃ´",
+            "Raw": 6.7351813,
+            "Masked": 6.7351813
+          },
+          {
+            "Token": 281,
+            "Text": "Ġto",
+            "Raw": 6.023857,
+            "Masked": 6.023857
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 5.091721,
+            "Masked": 5.091721
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.9945753,
+            "Masked": -0.9945753
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.3186219,
+            "Masked": -3.3186219
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.0246015,
+            "Masked": -3.0246015
+          }
+        ]
+      },
+      {
+        "Index": 5,
+        "Selected": 257,
+        "Scores": [
+          {
+            "Token": 257,
+            "Text": "Ġa",
+            "Raw": 15.63666,
+            "Masked": 15.63666
+          },
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 10.923788,
+            "Masked": 10.923788
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 8.212805,
+            "Masked": 8.212805
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 7.653536,
+            "Masked": 7.653536
+          },
+          {
+            "Token": 1531,
+            "Text": "ĠÃł",
+            "Raw": 7.4567842,
+            "Masked": 7.4567842
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.966702,
+            "Masked": 2.966702
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.9763752,
+            "Masked": -0.9763752
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.85059,
+            "Masked": -0.85059
+          }
+        ]
+      },
+      {
+        "Index": 6,
+        "Selected": 11742,
+        "Scores": [
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 16.093452,
+            "Masked": 16.093452
+          },
+          {
+            "Token": 287,
+            "Text": "Ġl",
+            "Raw": 9.797947,
+            "Masked": 9.797947
+          },
+          {
+            "Token": 503,
+            "Text": "Ġ\"",
+            "Raw": 7.256845,
+            "Masked": 7.256845
+          },
+          {
+            "Token": 441,
+            "Text": "ĠL",
+            "Raw": 7.1426153,
+            "Masked": 7.1426153
+          },
+          {
+            "Token": 385,
+            "Text": "Ġme",
+            "Raw": 6.9572496,
+            "Masked": 6.9572496
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.8739989,
+            "Masked": 2.8739989
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.2557993,
+            "Masked": -1.2557993
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.1849778,
+            "Masked": -1.1849778
+          }
+        ]
+      },
+      {
+        "Index": 7,
+        "Selected": 289,
+        "Scores": [
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 23.459013,
+            "Masked": 23.459013
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 14.239264,
+            "Masked": 14.239264
+          },
+          {
+            "Token": 2976,
+            "Text": "gar",
+            "Raw": 13.038487,
+            "Masked": 13.038487
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 13.028382,
+            "Masked": 13.028382
+          },
+          {
+            "Token": 622,
+            "Text": "ue",
+            "Raw": 12.718235,
+            "Masked": 12.718235
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.2695694,
+            "Masked": 4.2695694
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.000661,
+            "Masked": 2.000661
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.5704322,
+            "Masked": 1.5704322
+          }
+        ]
+      },
+      {
+        "Index": 8,
+        "Selected": 4021,
+        "Scores": [
+          {
+            "Token": 4021,
+            "Text": "Ġporque",
+            "Raw": 9.910438,
+            "Masked": 9.910438
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.4752026,
+            "Masked": 6.4752026
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.9986334,
+            "Masked": 5.9986334
+          },
+          {
+            "Token": 1515,
+            "Text": "Ġpor",
+            "Raw": 5.783677,
+            "Masked": 5.783677
+          },
+          {
+            "Token": 1690,
+            "Text": "Ġpara",
+            "Raw": 5.0436125,
+            "Masked": 5.0436125
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.0115607,
+            "Masked": -1.0115607
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -4.956631,
+            "Masked": -4.956631
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -4.285722,
+            "Masked": -4.285722
+          }
+        ]
+      },
+      {
+        "Index": 9,
+        "Selected": 7974,
+        "Scores": [
+          {
+            "Token": 7974,
+            "Text": "Ġprecis",
+            "Raw": 11.3789,
+            "Masked": 11.3789
+          },
+          {
+            "Token": 30109,
+            "Text": "Ġpreciso",
+            "Raw": 6.976237,
+            "Masked": 6.976237
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 6.4002852,
+            "Masked": 6.4002852
+          },
+          {
+            "Token": 18861,
+            "Text": "Ġprecisa",
+            "Raw": 6.375701,
+            "Masked": 6.375701
+          },
+          {
+            "Token": 2688,
+            "Text": "Ġnecess",
+            "Raw": 5.256395,
+            "Masked": 5.256395
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.83326876,
+            "Masked": -0.83326876
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.47668,
+            "Masked": -2.47668
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.9719439,
+            "Masked": -3.9719439
+          }
+        ]
+      },
+      {
+        "Index": 10,
+        "Selected": 4061,
+        "Scores": [
+          {
+            "Token": 4061,
+            "Text": "ava",
+            "Raw": 21.050613,
+            "Masked": 21.050613
+          },
+          {
+            "Token": 5509,
+            "Text": "aba",
+            "Raw": 15.213198,
+            "Masked": 15.213198
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 14.609502,
+            "Masked": 14.609502
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 13.841082,
+            "Masked": 13.841082
+          },
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 13.78129,
+            "Masked": 13.78129
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.4104548,
+            "Masked": 1.4104548
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.8681695,
+            "Masked": 1.8681695
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.844468,
+            "Masked": 1.844468
+          }
+        ]
+      },
+      {
+        "Index": 11,
+        "Selected": 368,
+        "Scores": [
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 13.514919,
+            "Masked": 13.514919
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.941901,
+            "Masked": 6.941901
+          },
+          {
+            "Token": 50509,
+            "Text": "\u003c|2.88|\u003e",
+            "Raw": 6.777968,
+            "Masked": 6.777968
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 6.6514964,
+            "Masked": 6.6514964
+          },
+          {
+            "Token": 50507,
+            "Text": "\u003c|2.84|\u003e",
+            "Raw": 6.482878,
+            "Masked": 6.482878
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.29396525,
+            "Masked": 0.29396525
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.607282,
+            "Masked": -1.607282
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.4588075,
+            "Masked": -2.4588075
+          }
+        ]
+      },
+      {
+        "Index": 12,
+        "Selected": 42542,
+        "Scores": [
+          {
+            "Token": 42542,
+            "Text": "ĠinformaÃ§Ãµes",
+            "Raw": 12.685829,
+            "Masked": 12.685829
+          },
+          {
+            "Token": 48403,
+            "Text": "ĠinformaÃ§Ã£o",
+            "Raw": 9.330639,
+            "Masked": 9.330639
+          },
+          {
+            "Token": 1356,
+            "Text": "Ġinform",
+            "Raw": 8.399971,
+            "Masked": 8.399971
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.370744,
+            "Masked": 6.370744
+          },
+          {
+            "Token": 2772,
+            "Text": "Ġuma",
+            "Raw": 5.94608,
+            "Masked": 5.94608
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.31007582,
+            "Masked": -0.31007582
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.2015042,
+            "Masked": -3.2015042
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.21138,
+            "Masked": -3.21138
+          }
+        ]
+      },
+      {
+        "Index": 13,
+        "Selected": 5473,
+        "Scores": [
+          {
+            "Token": 5473,
+            "Text": "Ġsobre",
+            "Raw": 11.575477,
+            "Masked": 11.575477
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.7940245,
+            "Masked": 5.7940245
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 5.7191606,
+            "Masked": 5.7191606
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 5.5455446,
+            "Masked": 5.5455446
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 5.346322,
+            "Masked": 5.346322
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.20323554,
+            "Masked": -0.20323554
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.532626,
+            "Masked": -2.532626
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.8027427,
+            "Masked": -3.8027427
+          }
+        ]
+      },
+      {
+        "Index": 14,
+        "Selected": 2617,
+        "Scores": [
+          {
+            "Token": 2617,
+            "Text": "Ġcomo",
+            "Raw": 12.6105,
+            "Masked": 12.6105
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 7.7888927,
+            "Masked": 7.7888927
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.958026,
+            "Masked": 6.958026
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.7434716,
+            "Masked": 6.7434716
+          },
+          {
+            "Token": 50567,
+            "Text": "\u003c|4.04|\u003e",
+            "Raw": 6.52415,
+            "Masked": 6.52415
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.63598526,
+            "Masked": 0.63598526
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.5873793,
+            "Masked": -1.5873793
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.0459948,
+            "Masked": -2.0459948
+          }
+        ]
+      },
+      {
+        "Index": 15,
+        "Selected": 1136,
+        "Scores": [
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 13.984661,
+            "Masked": 13.984661
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 11.7283745,
+            "Masked": 11.7283745
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 10.494906,
+            "Masked": 10.494906
+          },
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 8.574839,
+            "Masked": 8.574839
+          },
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 8.354288,
+            "Masked": 8.354288
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.2918332,
+            "Masked": 2.2918332
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.4154485,
+            "Masked": -0.4154485
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.2251491,
+            "Masked": -0.2251491
+          }
+        ]
+      },
+      {
+        "Index": 16,
+        "Selected": 631,
+        "Scores": [
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 15.561838,
+            "Masked": 15.561838
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 10.340719,
+            "Masked": 10.340719
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 9.431465,
+            "Masked": 9.431465
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 8.918995,
+            "Masked": 8.918995
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.977586,
+            "Masked": 7.977586
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.8912106,
+            "Masked": 2.8912106
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 0.67777574,
+            "Masked": 0.67777574
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.92846537,
+            "Masked": 0.92846537
+          }
+        ]
+      },
+      {
+        "Index": 17,
+        "Selected": 2228,
+        "Scores": [
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 14.228519,
+            "Masked": 14.228519
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 11.534155,
+            "Masked": 11.534155
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.1231074,
+            "Masked": 7.1231074
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.991534,
+            "Masked": 6.991534
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.333892,
+            "Masked": 6.333892
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.7277074,
+            "Masked": 1.7277074
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.2561072,
+            "Masked": -0.2561072
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.49393037,
+            "Masked": -0.49393037
+          }
+        ]
+      },
+      {
+        "Index": 18,
+        "Selected": 22501,
+        "Scores": [
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 12.665475,
+            "Masked": 12.665475
+          },
+          {
+            "Token": 41564,
+            "Text": "Ġpossa",
+            "Raw": 7.1801753,
+            "Masked": 7.1801753
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.5514083,
+            "Masked": 6.5514083
+          },
+          {
+            "Token": 50593,
+            "Text": "\u003c|4.56|\u003e",
+            "Raw": 5.87621,
+            "Masked": 5.87621
+          },
+          {
+            "Token": 50590,
+            "Text": "\u003c|4.50|\u003e",
+            "Raw": 5.7456083,
+            "Masked": 5.7456083
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.7218474,
+            "Masked": 0.7218474
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.2287215,
+            "Masked": -1.2287215
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.0298337,
+            "Masked": -1.0298337
+          }
+        ]
+      },
+      {
+        "Index": 19,
+        "Selected": 19930,
+        "Scores": [
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 10.517032,
+            "Masked": 10.517032
+          },
+          {
+            "Token": 50607,
+            "Text": "\u003c|4.84|\u003e",
+            "Raw": 6.1696835,
+            "Masked": 6.1696835
+          },
+          {
+            "Token": 50605,
+            "Text": "\u003c|4.80|\u003e",
+            "Raw": 6.109595,
+            "Masked": 6.109595
+          },
+          {
+            "Token": 50608,
+            "Text": "\u003c|4.86|\u003e",
+            "Raw": 5.766879,
+            "Masked": 5.766879
+          },
+          {
+            "Token": 50606,
+            "Text": "\u003c|4.82|\u003e",
+            "Raw": 5.6954546,
+            "Masked": 5.6954546
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.19776964,
+            "Masked": 0.19776964
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.6761341,
+            "Masked": -1.6761341
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.1198483,
+            "Masked": -1.1198483
+          }
+        ]
+      },
+      {
+        "Index": 20,
+        "Selected": 3981,
+        "Scores": [
+          {
+            "Token": 3981,
+            "Text": "itar",
+            "Raw": 23.23096,
+            "Masked": 23.23096
+          },
+          {
+            "Token": 3528,
+            "Text": "ito",
+            "Raw": 13.831129,
+            "Masked": 13.831129
+          },
+          {
+            "Token": 2786,
+            "Text": "ita",
+            "Raw": 12.3834505,
+            "Masked": 12.3834505
+          },
+          {
+            "Token": 642,
+            "Text": "ite",
+            "Raw": 11.875849,
+            "Masked": 11.875849
+          },
+          {
+            "Token": 3029,
+            "Text": "itor",
+            "Raw": 11.483852,
+            "Masked": 11.483852
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.5286045,
+            "Masked": 4.5286045
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.7725823,
+            "Masked": 1.7725823
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.40066648,
+            "Masked": 0.40066648
+          }
+        ]
+      },
+      {
+        "Index": 21,
+        "Selected": 23760,
+        "Scores": [
+          {
+            "Token": 23760,
+            "Text": "Ġdinheiro",
+            "Raw": 9.991537,
+            "Masked": 9.991537
+          },
+          {
+            "Token": 3791,
+            "Text": "Ġdin",
+            "Raw": 6.576518,
+            "Masked": 6.576518
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.379279,
+            "Masked": 6.379279
+          },
+          {
+            "Token": 50660,
+            "Text": "\u003c|5.90|\u003e",
+            "Raw": 5.4285326,
+            "Masked": 5.4285326
+          },
+          {
+            "Token": 50661,
+            "Text": "\u003c|5.92|\u003e",
+            "Raw": 5.369588,
+            "Masked": 5.369588
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.46769035,
+            "Masked": -0.46769035
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.94325733,
+            "Masked": -0.94325733
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.5343883,
+            "Masked": -0.5343883
+          }
+        ]
+      },
+      {
+        "Index": 22,
+        "Selected": 1667,
+        "Scores": [
+          {
+            "Token": 1667,
+            "Text": "Ġna",
+            "Raw": 16.15028,
+            "Masked": 16.15028
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 9.464998,
+            "Masked": 9.464998
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 8.51824,
+            "Masked": 8.51824
+          },
+          {
+            "Token": 846,
+            "Text": "Ġem",
+            "Raw": 8.404144,
+            "Masked": 8.404144
+          },
+          {
+            "Token": 5382,
+            "Text": "Ġnas",
+            "Raw": 8.279135,
+            "Masked": 8.279135
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.148603,
+            "Masked": 3.148603
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 4.8139586,
+            "Masked": 4.8139586
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 4.0734425,
+            "Masked": 4.0734425
+          }
+        ]
+      },
+      {
+        "Index": 23,
+        "Selected": 11720,
+        "Scores": [
+          {
+            "Token": 11720,
+            "Text": "Ġminha",
+            "Raw": 17.341843,
+            "Masked": 17.341843
+          },
+          {
+            "Token": 923,
+            "Text": "Ġmin",
+            "Raw": 9.9030075,
+            "Masked": 9.9030075
+          },
+          {
+            "Token": 2829,
+            "Text": "ĠMin",
+            "Raw": 9.017605,
+            "Masked": 9.017605
+          },
+          {
+            "Token": 8233,
+            "Text": "Ġsua",
+            "Raw": 8.715079,
+            "Masked": 8.715079
+          },
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 8.043121,
+            "Masked": 8.043121
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.0031881,
+            "Masked": 3.0031881
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 3.9747348,
+            "Masked": 3.9747348
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.862599,
+            "Masked": 3.862599
+          }
+        ]
+      },
+      {
+        "Index": 24,
+        "Selected": 24001,
+        "Scores": [
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 13.901806,
+            "Masked": 13.901806
+          },
+          {
+            "Token": 660,
+            "Text": "Ġcont",
+            "Raw": 7.3623896,
+            "Masked": 7.3623896
+          },
+          {
+            "Token": 17868,
+            "Text": "Ġcuenta",
+            "Raw": 6.706464,
+            "Masked": 6.706464
+          },
+          {
+            "Token": 2224,
+            "Text": "Ġcond",
+            "Raw": 6.389352,
+            "Masked": 6.389352
+          },
+          {
+            "Token": 4839,
+            "Text": "ĠCont",
+            "Raw": 5.8237586,
+            "Masked": 5.8237586
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.1735377,
+            "Masked": 1.1735377
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.206701,
+            "Masked": 2.206701
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 2.9498281,
+            "Masked": 2.9498281
+          }
+        ]
+      },
+      {
+        "Index": 25,
+        "Selected": 13,
+        "Scores": [
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 13.503962,
+            "Masked": 13.503962
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 11.612764,
+            "Masked": 11.612764
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 9.078619,
+            "Masked": 9.078619
+          },
+          {
+            "Token": 50816,
+            "Text": "\u003c|9.02|\u003e",
+            "Raw": 8.225031,
+            "Masked": 8.225031
+          },
+          {
+            "Token": 485,
+            "Text": "...",
+            "Raw": 7.8927803,
+            "Masked": 7.8927803
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.0617428,
+            "Masked": 2.0617428
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 5.3145714,
+            "Masked": 5.3145714
+          }
+        ]
+      },
+      {
+        "Index": 26,
+        "Selected": 50733,
+        "Scores": [
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 8.46667,
+            "Masked": 8.46667
+          },
+          {
+            "Token": 50734,
+            "Text": "\u003c|7.38|\u003e",
+            "Raw": 8.4463825,
+            "Masked": 8.4463825
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 8.228115,
+            "Masked": 8.228115
+          },
+          {
+            "Token": 50815,
+            "Text": "\u003c|9.00|\u003e",
+            "Raw": 8.082241,
+            "Masked": 8.082241
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 7.6149316,
+            "Masked": 7.6149316
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.026948,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 27,
+        "Selected": 50257,
+        "Scores": [
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 9.977993,
+            "Masked": 9.977993
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.762989,
+            "Masked": 2.762989
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.5525584,
+            "Masked": 1.5525584
+          },
+          {
+            "Token": 50783,
+            "Text": "\u003c|8.36|\u003e",
+            "Raw": 1.4808102,
+            "Masked": 1.4808102
+          },
+          {
+            "Token": 50788,
+            "Text": "\u003c|8.46|\u003e",
+            "Raw": 1.4601194,
+            "Masked": 1.4601194
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Mode": "fc2-only",
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 9.04,
+        "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+        "Tokens": [
+          19812,
+          6801,
+          11,
+          17660,
+          257,
+          11742,
+          289,
+          4021,
+          7974,
+          4061,
+          368,
+          42542,
+          5473,
+          2617,
+          1136,
+          631,
+          2228,
+          22501,
+          19930,
+          3981,
+          23760,
+          1667,
+          11720,
+          24001,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Index": 0,
+        "Selected": 50365,
+        "Scores": [
+          {
+            "Token": 50365,
+            "Text": "\u003c|0.00|\u003e",
+            "Raw": 2.149053,
+            "Masked": 2.149053
+          },
+          {
+            "Token": 50403,
+            "Text": "\u003c|0.76|\u003e",
+            "Raw": 0.9739714,
+            "Masked": 0.9739714
+          },
+          {
+            "Token": 50401,
+            "Text": "\u003c|0.72|\u003e",
+            "Raw": 0.8760957,
+            "Masked": 0.8760957
+          },
+          {
+            "Token": 50402,
+            "Text": "\u003c|0.74|\u003e",
+            "Raw": 0.86939883,
+            "Masked": 0.86939883
+          },
+          {
+            "Token": 50400,
+            "Text": "\u003c|0.70|\u003e",
+            "Raw": 0.7812877,
+            "Masked": 0.7812877
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -5.019952,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -7.256679,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.559133,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 1,
+        "Selected": 19812,
+        "Scores": [
+          {
+            "Token": 19812,
+            "Text": "ĠBom",
+            "Raw": 7.8162694,
+            "Masked": 7.8162694
+          },
+          {
+            "Token": 7957,
+            "Text": "Ġbom",
+            "Raw": 4.9563947,
+            "Masked": 4.9563947
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 4.392043,
+            "Masked": 4.392043
+          },
+          {
+            "Token": 359,
+            "Text": "Ġ-",
+            "Raw": 3.7517889,
+            "Masked": 3.7517889
+          },
+          {
+            "Token": 3286,
+            "Text": "ĠBo",
+            "Raw": 3.289239,
+            "Masked": 3.289239
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.23570079,
+            "Masked": 0.23570079
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -5.8209043,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.128786,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 2,
+        "Selected": 6801,
+        "Scores": [
+          {
+            "Token": 6801,
+            "Text": "Ġdia",
+            "Raw": 12.866429,
+            "Masked": 12.866429
+          },
+          {
+            "Token": 22157,
+            "Text": "ĠDia",
+            "Raw": 8.997077,
+            "Masked": 8.997077
+          },
+          {
+            "Token": 413,
+            "Text": "ĠD",
+            "Raw": 7.35195,
+            "Masked": 7.35195
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.602591,
+            "Masked": 6.602591
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.9379478,
+            "Masked": 5.9379478
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.1544626,
+            "Masked": 1.1544626
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.624414,
+            "Masked": -2.624414
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.4061698,
+            "Masked": -1.4061698
+          }
+        ]
+      },
+      {
+        "Index": 3,
+        "Selected": 11,
+        "Scores": [
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 7.6657467,
+            "Masked": 7.6657467
+          },
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 6.6972556,
+            "Masked": 6.6972556
+          },
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 6.3202314,
+            "Masked": 6.3202314
+          },
+          {
+            "Token": 0,
+            "Text": "!",
+            "Raw": 5.8662834,
+            "Masked": 5.8662834
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 3.9166114,
+            "Masked": 3.9166114
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -2.78867,
+            "Masked": -2.78867
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.8141503,
+            "Masked": -3.8141503
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.283669,
+            "Masked": -3.283669
+          }
+        ]
+      },
+      {
+        "Index": 4,
+        "Selected": 17660,
+        "Scores": [
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 11.510483,
+            "Masked": 11.510483
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 8.320709,
+            "Masked": 8.320709
+          },
+          {
+            "Token": 20683,
+            "Text": "ĠtÃ´",
+            "Raw": 6.770789,
+            "Masked": 6.770789
+          },
+          {
+            "Token": 281,
+            "Text": "Ġto",
+            "Raw": 5.9995613,
+            "Masked": 5.9995613
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 5.1045804,
+            "Masked": 5.1045804
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.0087832,
+            "Masked": -1.0087832
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.2929454,
+            "Masked": -3.2929454
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.000852,
+            "Masked": -3.000852
+          }
+        ]
+      },
+      {
+        "Index": 5,
+        "Selected": 257,
+        "Scores": [
+          {
+            "Token": 257,
+            "Text": "Ġa",
+            "Raw": 15.559425,
+            "Masked": 15.559425
+          },
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 10.921032,
+            "Masked": 10.921032
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 8.175313,
+            "Masked": 8.175313
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 7.675369,
+            "Masked": 7.675369
+          },
+          {
+            "Token": 1531,
+            "Text": "ĠÃł",
+            "Raw": 7.405592,
+            "Masked": 7.405592
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9852998,
+            "Masked": 2.9852998
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.0022807,
+            "Masked": -1.0022807
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.88466644,
+            "Masked": -0.88466644
+          }
+        ]
+      },
+      {
+        "Index": 6,
+        "Selected": 11742,
+        "Scores": [
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 16.01652,
+            "Masked": 16.01652
+          },
+          {
+            "Token": 287,
+            "Text": "Ġl",
+            "Raw": 9.747246,
+            "Masked": 9.747246
+          },
+          {
+            "Token": 503,
+            "Text": "Ġ\"",
+            "Raw": 7.22101,
+            "Masked": 7.22101
+          },
+          {
+            "Token": 441,
+            "Text": "ĠL",
+            "Raw": 7.1037908,
+            "Masked": 7.1037908
+          },
+          {
+            "Token": 385,
+            "Text": "Ġme",
+            "Raw": 6.977946,
+            "Masked": 6.977946
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9075375,
+            "Masked": 2.9075375
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.2763206,
+            "Masked": -1.2763206
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.2176969,
+            "Masked": -1.2176969
+          }
+        ]
+      },
+      {
+        "Index": 7,
+        "Selected": 289,
+        "Scores": [
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 23.432684,
+            "Masked": 23.432684
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 14.243925,
+            "Masked": 14.243925
+          },
+          {
+            "Token": 2976,
+            "Text": "gar",
+            "Raw": 12.991054,
+            "Masked": 12.991054
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 12.967948,
+            "Masked": 12.967948
+          },
+          {
+            "Token": 622,
+            "Text": "ue",
+            "Raw": 12.63966,
+            "Masked": 12.63966
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.234642,
+            "Masked": 4.234642
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.9490399,
+            "Masked": 1.9490399
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.5152766,
+            "Masked": 1.5152766
+          }
+        ]
+      },
+      {
+        "Index": 8,
+        "Selected": 4021,
+        "Scores": [
+          {
+            "Token": 4021,
+            "Text": "Ġporque",
+            "Raw": 9.965952,
+            "Masked": 9.965952
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.532896,
+            "Masked": 6.532896
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.0246716,
+            "Masked": 6.0246716
+          },
+          {
+            "Token": 1515,
+            "Text": "Ġpor",
+            "Raw": 5.8248024,
+            "Masked": 5.8248024
+          },
+          {
+            "Token": 1690,
+            "Text": "Ġpara",
+            "Raw": 5.045081,
+            "Masked": 5.045081
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.0020223,
+            "Masked": -1.0020223
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -4.9172688,
+            "Masked": -4.9172688
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -4.2524877,
+            "Masked": -4.2524877
+          }
+        ]
+      },
+      {
+        "Index": 9,
+        "Selected": 7974,
+        "Scores": [
+          {
+            "Token": 7974,
+            "Text": "Ġprecis",
+            "Raw": 11.430421,
+            "Masked": 11.430421
+          },
+          {
+            "Token": 30109,
+            "Text": "Ġpreciso",
+            "Raw": 6.8925924,
+            "Masked": 6.8925924
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 6.4674954,
+            "Masked": 6.4674954
+          },
+          {
+            "Token": 18861,
+            "Text": "Ġprecisa",
+            "Raw": 6.3220415,
+            "Masked": 6.3220415
+          },
+          {
+            "Token": 2688,
+            "Text": "Ġnecess",
+            "Raw": 5.295514,
+            "Masked": 5.295514
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.7959988,
+            "Masked": -0.7959988
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.4491358,
+            "Masked": -2.4491358
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.9664366,
+            "Masked": -3.9664366
+          }
+        ]
+      },
+      {
+        "Index": 10,
+        "Selected": 4061,
+        "Scores": [
+          {
+            "Token": 4061,
+            "Text": "ava",
+            "Raw": 21.135971,
+            "Masked": 21.135971
+          },
+          {
+            "Token": 5509,
+            "Text": "aba",
+            "Raw": 15.287415,
+            "Masked": 15.287415
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 14.7041645,
+            "Masked": 14.7041645
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 13.90757,
+            "Masked": 13.90757
+          },
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 13.777285,
+            "Masked": 13.777285
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.5007682,
+            "Masked": 1.5007682
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.9216338,
+            "Masked": 1.9216338
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.8951424,
+            "Masked": 1.8951424
+          }
+        ]
+      },
+      {
+        "Index": 11,
+        "Selected": 368,
+        "Scores": [
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 13.529157,
+            "Masked": 13.529157
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.8705707,
+            "Masked": 6.8705707
+          },
+          {
+            "Token": 50509,
+            "Text": "\u003c|2.88|\u003e",
+            "Raw": 6.7481823,
+            "Masked": 6.7481823
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 6.6045947,
+            "Masked": 6.6045947
+          },
+          {
+            "Token": 50507,
+            "Text": "\u003c|2.84|\u003e",
+            "Raw": 6.4322963,
+            "Masked": 6.4322963
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.37079483,
+            "Masked": 0.37079483
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.572413,
+            "Masked": -1.572413
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.4575238,
+            "Masked": -2.4575238
+          }
+        ]
+      },
+      {
+        "Index": 12,
+        "Selected": 42542,
+        "Scores": [
+          {
+            "Token": 42542,
+            "Text": "ĠinformaÃ§Ãµes",
+            "Raw": 12.721798,
+            "Masked": 12.721798
+          },
+          {
+            "Token": 48403,
+            "Text": "ĠinformaÃ§Ã£o",
+            "Raw": 9.271676,
+            "Masked": 9.271676
+          },
+          {
+            "Token": 1356,
+            "Text": "Ġinform",
+            "Raw": 8.356171,
+            "Masked": 8.356171
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.25694,
+            "Masked": 6.25694
+          },
+          {
+            "Token": 2772,
+            "Text": "Ġuma",
+            "Raw": 5.8552833,
+            "Masked": 5.8552833
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.29673964,
+            "Masked": -0.29673964
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.1441956,
+            "Masked": -3.1441956
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.2351072,
+            "Masked": -3.2351072
+          }
+        ]
+      },
+      {
+        "Index": 13,
+        "Selected": 5473,
+        "Scores": [
+          {
+            "Token": 5473,
+            "Text": "Ġsobre",
+            "Raw": 11.590897,
+            "Masked": 11.590897
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.8216896,
+            "Masked": 5.8216896
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 5.612037,
+            "Masked": 5.612037
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 5.5790277,
+            "Masked": 5.5790277
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 5.1889067,
+            "Masked": 5.1889067
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.18889242,
+            "Masked": -0.18889242
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.5324483,
+            "Masked": -2.5324483
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.8426023,
+            "Masked": -3.8426023
+          }
+        ]
+      },
+      {
+        "Index": 14,
+        "Selected": 2617,
+        "Scores": [
+          {
+            "Token": 2617,
+            "Text": "Ġcomo",
+            "Raw": 12.622339,
+            "Masked": 12.622339
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 7.675641,
+            "Masked": 7.675641
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.987899,
+            "Masked": 6.987899
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.7634325,
+            "Masked": 6.7634325
+          },
+          {
+            "Token": 50567,
+            "Text": "\u003c|4.04|\u003e",
+            "Raw": 6.4850416,
+            "Masked": 6.4850416
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.69800746,
+            "Masked": 0.69800746
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.5294665,
+            "Masked": -1.5294665
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.008055,
+            "Masked": -2.008055
+          }
+        ]
+      },
+      {
+        "Index": 15,
+        "Selected": 1136,
+        "Scores": [
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 13.9921875,
+            "Masked": 13.9921875
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 11.724285,
+            "Masked": 11.724285
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 10.500591,
+            "Masked": 10.500591
+          },
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 8.6137295,
+            "Masked": 8.6137295
+          },
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 8.35257,
+            "Masked": 8.35257
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.352684,
+            "Masked": 2.352684
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.36535347,
+            "Masked": -0.36535347
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.17151189,
+            "Masked": -0.17151189
+          }
+        ]
+      },
+      {
+        "Index": 16,
+        "Selected": 631,
+        "Scores": [
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 15.480584,
+            "Masked": 15.480584
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 10.334687,
+            "Masked": 10.334687
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 9.382842,
+            "Masked": 9.382842
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 8.864901,
+            "Masked": 8.864901
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.9383564,
+            "Masked": 7.9383564
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.8902614,
+            "Masked": 2.8902614
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 0.6941908,
+            "Masked": 0.6941908
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.9430785,
+            "Masked": 0.9430785
+          }
+        ]
+      },
+      {
+        "Index": 17,
+        "Selected": 2228,
+        "Scores": [
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 14.206411,
+            "Masked": 14.206411
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 11.529465,
+            "Masked": 11.529465
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.0753593,
+            "Masked": 7.0753593
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.9499826,
+            "Masked": 6.9499826
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.2878046,
+            "Masked": 6.2878046
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.7634215,
+            "Masked": 1.7634215
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.23720372,
+            "Masked": -0.23720372
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.46852875,
+            "Masked": -0.46852875
+          }
+        ]
+      },
+      {
+        "Index": 18,
+        "Selected": 22501,
+        "Scores": [
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 12.622947,
+            "Masked": 12.622947
+          },
+          {
+            "Token": 41564,
+            "Text": "Ġpossa",
+            "Raw": 7.174307,
+            "Masked": 7.174307
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.477417,
+            "Masked": 6.477417
+          },
+          {
+            "Token": 50593,
+            "Text": "\u003c|4.56|\u003e",
+            "Raw": 5.8162956,
+            "Masked": 5.8162956
+          },
+          {
+            "Token": 50590,
+            "Text": "\u003c|4.50|\u003e",
+            "Raw": 5.6272373,
+            "Masked": 5.6272373
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.736102,
+            "Masked": 0.736102
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.1926284,
+            "Masked": -1.1926284
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.9976587,
+            "Masked": -0.9976587
+          }
+        ]
+      },
+      {
+        "Index": 19,
+        "Selected": 19930,
+        "Scores": [
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 10.4373,
+            "Masked": 10.4373
+          },
+          {
+            "Token": 50607,
+            "Text": "\u003c|4.84|\u003e",
+            "Raw": 6.083872,
+            "Masked": 6.083872
+          },
+          {
+            "Token": 50605,
+            "Text": "\u003c|4.80|\u003e",
+            "Raw": 5.979738,
+            "Masked": 5.979738
+          },
+          {
+            "Token": 50608,
+            "Text": "\u003c|4.86|\u003e",
+            "Raw": 5.6970654,
+            "Masked": 5.6970654
+          },
+          {
+            "Token": 50606,
+            "Text": "\u003c|4.82|\u003e",
+            "Raw": 5.5851293,
+            "Masked": 5.5851293
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.19936097,
+            "Masked": 0.19936097
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.6640937,
+            "Masked": -1.6640937
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.1253343,
+            "Masked": -1.1253343
+          }
+        ]
+      },
+      {
+        "Index": 20,
+        "Selected": 3981,
+        "Scores": [
+          {
+            "Token": 3981,
+            "Text": "itar",
+            "Raw": 23.27115,
+            "Masked": 23.27115
+          },
+          {
+            "Token": 3528,
+            "Text": "ito",
+            "Raw": 13.767118,
+            "Masked": 13.767118
+          },
+          {
+            "Token": 2786,
+            "Text": "ita",
+            "Raw": 12.451742,
+            "Masked": 12.451742
+          },
+          {
+            "Token": 642,
+            "Text": "ite",
+            "Raw": 11.872892,
+            "Masked": 11.872892
+          },
+          {
+            "Token": 3029,
+            "Text": "itor",
+            "Raw": 11.48158,
+            "Masked": 11.48158
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.605988,
+            "Masked": 4.605988
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.8218551,
+            "Masked": 1.8218551
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.4528792,
+            "Masked": 0.4528792
+          }
+        ]
+      },
+      {
+        "Index": 21,
+        "Selected": 23760,
+        "Scores": [
+          {
+            "Token": 23760,
+            "Text": "Ġdinheiro",
+            "Raw": 9.943892,
+            "Masked": 9.943892
+          },
+          {
+            "Token": 3791,
+            "Text": "Ġdin",
+            "Raw": 6.5443354,
+            "Masked": 6.5443354
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.3499784,
+            "Masked": 6.3499784
+          },
+          {
+            "Token": 50660,
+            "Text": "\u003c|5.90|\u003e",
+            "Raw": 5.4094987,
+            "Masked": 5.4094987
+          },
+          {
+            "Token": 50661,
+            "Text": "\u003c|5.92|\u003e",
+            "Raw": 5.362458,
+            "Masked": 5.362458
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.4496085,
+            "Masked": -0.4496085
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.92594457,
+            "Masked": -0.92594457
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.5351439,
+            "Masked": -0.5351439
+          }
+        ]
+      },
+      {
+        "Index": 22,
+        "Selected": 1667,
+        "Scores": [
+          {
+            "Token": 1667,
+            "Text": "Ġna",
+            "Raw": 16.081287,
+            "Masked": 16.081287
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 9.464924,
+            "Masked": 9.464924
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 8.471643,
+            "Masked": 8.471643
+          },
+          {
+            "Token": 846,
+            "Text": "Ġem",
+            "Raw": 8.350126,
+            "Masked": 8.350126
+          },
+          {
+            "Token": 5382,
+            "Text": "Ġnas",
+            "Raw": 8.289192,
+            "Masked": 8.289192
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.1742303,
+            "Masked": 3.1742303
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 4.8500433,
+            "Masked": 4.8500433
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 4.143544,
+            "Masked": 4.143544
+          }
+        ]
+      },
+      {
+        "Index": 23,
+        "Selected": 11720,
+        "Scores": [
+          {
+            "Token": 11720,
+            "Text": "Ġminha",
+            "Raw": 17.29493,
+            "Masked": 17.29493
+          },
+          {
+            "Token": 923,
+            "Text": "Ġmin",
+            "Raw": 9.868074,
+            "Masked": 9.868074
+          },
+          {
+            "Token": 2829,
+            "Text": "ĠMin",
+            "Raw": 9.000751,
+            "Masked": 9.000751
+          },
+          {
+            "Token": 8233,
+            "Text": "Ġsua",
+            "Raw": 8.653293,
+            "Masked": 8.653293
+          },
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 7.991884,
+            "Masked": 7.991884
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9974668,
+            "Masked": 2.9974668
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 3.9503407,
+            "Masked": 3.9503407
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.8527744,
+            "Masked": 3.8527744
+          }
+        ]
+      },
+      {
+        "Index": 24,
+        "Selected": 24001,
+        "Scores": [
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 13.825968,
+            "Masked": 13.825968
+          },
+          {
+            "Token": 660,
+            "Text": "Ġcont",
+            "Raw": 7.4130707,
+            "Masked": 7.4130707
+          },
+          {
+            "Token": 17868,
+            "Text": "Ġcuenta",
+            "Raw": 6.6457944,
+            "Masked": 6.6457944
+          },
+          {
+            "Token": 2224,
+            "Text": "Ġcond",
+            "Raw": 6.358484,
+            "Masked": 6.358484
+          },
+          {
+            "Token": 4839,
+            "Text": "ĠCont",
+            "Raw": 5.8420043,
+            "Masked": 5.8420043
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.1713591,
+            "Masked": 1.1713591
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.2153358,
+            "Masked": 2.2153358
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.021971,
+            "Masked": 3.021971
+          }
+        ]
+      },
+      {
+        "Index": 25,
+        "Selected": 13,
+        "Scores": [
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 13.63661,
+            "Masked": 13.63661
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 11.82419,
+            "Masked": 11.82419
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 8.897318,
+            "Masked": 8.897318
+          },
+          {
+            "Token": 50816,
+            "Text": "\u003c|9.02|\u003e",
+            "Raw": 8.386805,
+            "Masked": 8.386805
+          },
+          {
+            "Token": 485,
+            "Text": "...",
+            "Raw": 8.041266,
+            "Masked": 8.041266
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.0297818,
+            "Masked": 2.0297818
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 5.3479033,
+            "Masked": 5.3479033
+          }
+        ]
+      },
+      {
+        "Index": 26,
+        "Selected": 50817,
+        "Scores": [
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 8.545753,
+            "Masked": 8.545753
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 8.386379,
+            "Masked": 8.386379
+          },
+          {
+            "Token": 50734,
+            "Text": "\u003c|7.38|\u003e",
+            "Raw": 8.320513,
+            "Masked": 8.320513
+          },
+          {
+            "Token": 50815,
+            "Text": "\u003c|9.00|\u003e",
+            "Raw": 8.018932,
+            "Masked": 8.018932
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 7.7415953,
+            "Masked": 7.7415953
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.1276897,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 27,
+        "Selected": 50257,
+        "Scores": [
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 16.819473,
+            "Masked": 16.819473
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 7.594466,
+            "Masked": 7.594466
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 4.503431,
+            "Masked": 4.503431
+          },
+          {
+            "Token": 50819,
+            "Text": "\u003c|9.08|\u003e",
+            "Raw": 3.367374,
+            "Masked": 3.367374
+          },
+          {
+            "Token": 50820,
+            "Text": "\u003c|9.10|\u003e",
+            "Raw": 3.0225313,
+            "Masked": 3.0225313
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.8762627,
+            "Masked": -1e+30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Mode": "early-half",
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 9.04,
+        "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+        "Tokens": [
+          19812,
+          6801,
+          11,
+          17660,
+          257,
+          11742,
+          289,
+          4021,
+          7974,
+          4061,
+          368,
+          42542,
+          5473,
+          2617,
+          1136,
+          631,
+          2228,
+          22501,
+          19930,
+          3981,
+          23760,
+          1667,
+          11720,
+          24001,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Index": 0,
+        "Selected": 50365,
+        "Scores": [
+          {
+            "Token": 50365,
+            "Text": "\u003c|0.00|\u003e",
+            "Raw": 2.115725,
+            "Masked": 2.115725
+          },
+          {
+            "Token": 50403,
+            "Text": "\u003c|0.76|\u003e",
+            "Raw": 0.9497789,
+            "Masked": 0.9497789
+          },
+          {
+            "Token": 50401,
+            "Text": "\u003c|0.72|\u003e",
+            "Raw": 0.8673996,
+            "Masked": 0.8673996
+          },
+          {
+            "Token": 50402,
+            "Text": "\u003c|0.74|\u003e",
+            "Raw": 0.8531127,
+            "Masked": 0.8531127
+          },
+          {
+            "Token": 50400,
+            "Text": "\u003c|0.70|\u003e",
+            "Raw": 0.7697111,
+            "Masked": 0.7697111
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -5.0547557,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -7.180906,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.509883,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 1,
+        "Selected": 19812,
+        "Scores": [
+          {
+            "Token": 19812,
+            "Text": "ĠBom",
+            "Raw": 7.7905116,
+            "Masked": 7.7905116
+          },
+          {
+            "Token": 7957,
+            "Text": "Ġbom",
+            "Raw": 4.982752,
+            "Masked": 4.982752
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 4.368305,
+            "Masked": 4.368305
+          },
+          {
+            "Token": 359,
+            "Text": "Ġ-",
+            "Raw": 3.7244496,
+            "Masked": 3.7244496
+          },
+          {
+            "Token": 3286,
+            "Text": "ĠBo",
+            "Raw": 3.2615538,
+            "Masked": 3.2615538
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.24167731,
+            "Masked": 0.24167731
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -5.810894,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.118243,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 2,
+        "Selected": 6801,
+        "Scores": [
+          {
+            "Token": 6801,
+            "Text": "Ġdia",
+            "Raw": 12.781095,
+            "Masked": 12.781095
+          },
+          {
+            "Token": 22157,
+            "Text": "ĠDia",
+            "Raw": 8.907612,
+            "Masked": 8.907612
+          },
+          {
+            "Token": 413,
+            "Text": "ĠD",
+            "Raw": 7.245942,
+            "Masked": 7.245942
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.501239,
+            "Masked": 6.501239
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.819892,
+            "Masked": 5.819892
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.0749551,
+            "Masked": 1.0749551
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.6472945,
+            "Masked": -2.6472945
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.3806157,
+            "Masked": -1.3806157
+          }
+        ]
+      },
+      {
+        "Index": 3,
+        "Selected": 11,
+        "Scores": [
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 7.616146,
+            "Masked": 7.616146
+          },
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 6.671662,
+            "Masked": 6.671662
+          },
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 6.263769,
+            "Masked": 6.263769
+          },
+          {
+            "Token": 0,
+            "Text": "!",
+            "Raw": 5.8236175,
+            "Masked": 5.8236175
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 3.923294,
+            "Masked": 3.923294
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -2.8328204,
+            "Masked": -2.8328204
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.764155,
+            "Masked": -3.764155
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.227065,
+            "Masked": -3.227065
+          }
+        ]
+      },
+      {
+        "Index": 4,
+        "Selected": 17660,
+        "Scores": [
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 11.494812,
+            "Masked": 11.494812
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 8.341127,
+            "Masked": 8.341127
+          },
+          {
+            "Token": 20683,
+            "Text": "ĠtÃ´",
+            "Raw": 6.763643,
+            "Masked": 6.763643
+          },
+          {
+            "Token": 281,
+            "Text": "Ġto",
+            "Raw": 6.007989,
+            "Masked": 6.007989
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 5.1018972,
+            "Masked": 5.1018972
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.0196414,
+            "Masked": -1.0196414
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.2486877,
+            "Masked": -3.2486877
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.9495397,
+            "Masked": -2.9495397
+          }
+        ]
+      },
+      {
+        "Index": 5,
+        "Selected": 257,
+        "Scores": [
+          {
+            "Token": 257,
+            "Text": "Ġa",
+            "Raw": 15.613162,
+            "Masked": 15.613162
+          },
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 10.912821,
+            "Masked": 10.912821
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 8.2330265,
+            "Masked": 8.2330265
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 7.6866293,
+            "Masked": 7.6866293
+          },
+          {
+            "Token": 1531,
+            "Text": "ĠÃł",
+            "Raw": 7.4420185,
+            "Masked": 7.4420185
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.0293841,
+            "Masked": 3.0293841
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.9525417,
+            "Masked": -0.9525417
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.82990646,
+            "Masked": -0.82990646
+          }
+        ]
+      },
+      {
+        "Index": 6,
+        "Selected": 11742,
+        "Scores": [
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 16.040771,
+            "Masked": 16.040771
+          },
+          {
+            "Token": 287,
+            "Text": "Ġl",
+            "Raw": 9.788204,
+            "Masked": 9.788204
+          },
+          {
+            "Token": 503,
+            "Text": "Ġ\"",
+            "Raw": 7.214663,
+            "Masked": 7.214663
+          },
+          {
+            "Token": 441,
+            "Text": "ĠL",
+            "Raw": 7.077242,
+            "Masked": 7.077242
+          },
+          {
+            "Token": 385,
+            "Text": "Ġme",
+            "Raw": 6.9849052,
+            "Masked": 6.9849052
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9239101,
+            "Masked": 2.9239101
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.267268,
+            "Masked": -1.267268
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.2036076,
+            "Masked": -1.2036076
+          }
+        ]
+      },
+      {
+        "Index": 7,
+        "Selected": 289,
+        "Scores": [
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 23.449066,
+            "Masked": 23.449066
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 14.204613,
+            "Masked": 14.204613
+          },
+          {
+            "Token": 2976,
+            "Text": "gar",
+            "Raw": 12.994227,
+            "Masked": 12.994227
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 12.978744,
+            "Masked": 12.978744
+          },
+          {
+            "Token": 622,
+            "Text": "ue",
+            "Raw": 12.574776,
+            "Masked": 12.574776
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.2261267,
+            "Masked": 4.2261267
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.9403939,
+            "Masked": 1.9403939
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.500397,
+            "Masked": 1.500397
+          }
+        ]
+      },
+      {
+        "Index": 8,
+        "Selected": 4021,
+        "Scores": [
+          {
+            "Token": 4021,
+            "Text": "Ġporque",
+            "Raw": 9.9599085,
+            "Masked": 9.9599085
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.4073567,
+            "Masked": 6.4073567
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.9882994,
+            "Masked": 5.9882994
+          },
+          {
+            "Token": 1515,
+            "Text": "Ġpor",
+            "Raw": 5.8221674,
+            "Masked": 5.8221674
+          },
+          {
+            "Token": 1690,
+            "Text": "Ġpara",
+            "Raw": 5.0197277,
+            "Masked": 5.0197277
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.027607,
+            "Masked": -1.027607
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -4.898689,
+            "Masked": -4.898689
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -4.223637,
+            "Masked": -4.223637
+          }
+        ]
+      },
+      {
+        "Index": 9,
+        "Selected": 7974,
+        "Scores": [
+          {
+            "Token": 7974,
+            "Text": "Ġprecis",
+            "Raw": 11.421697,
+            "Masked": 11.421697
+          },
+          {
+            "Token": 30109,
+            "Text": "Ġpreciso",
+            "Raw": 6.951599,
+            "Masked": 6.951599
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 6.444479,
+            "Masked": 6.444479
+          },
+          {
+            "Token": 18861,
+            "Text": "Ġprecisa",
+            "Raw": 6.3722963,
+            "Masked": 6.3722963
+          },
+          {
+            "Token": 2688,
+            "Text": "Ġnecess",
+            "Raw": 5.294305,
+            "Masked": 5.294305
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.79841155,
+            "Masked": -0.79841155
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.4067535,
+            "Masked": -2.4067535
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.928993,
+            "Masked": -3.928993
+          }
+        ]
+      },
+      {
+        "Index": 10,
+        "Selected": 4061,
+        "Scores": [
+          {
+            "Token": 4061,
+            "Text": "ava",
+            "Raw": 21.114279,
+            "Masked": 21.114279
+          },
+          {
+            "Token": 5509,
+            "Text": "aba",
+            "Raw": 15.291173,
+            "Masked": 15.291173
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 14.658936,
+            "Masked": 14.658936
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 13.894363,
+            "Masked": 13.894363
+          },
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 13.7876835,
+            "Masked": 13.7876835
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.4663551,
+            "Masked": 1.4663551
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.903709,
+            "Masked": 1.903709
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.883756,
+            "Masked": 1.883756
+          }
+        ]
+      },
+      {
+        "Index": 11,
+        "Selected": 368,
+        "Scores": [
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 13.554725,
+            "Masked": 13.554725
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.852734,
+            "Masked": 6.852734
+          },
+          {
+            "Token": 50509,
+            "Text": "\u003c|2.88|\u003e",
+            "Raw": 6.771889,
+            "Masked": 6.771889
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 6.6740055,
+            "Masked": 6.6740055
+          },
+          {
+            "Token": 50507,
+            "Text": "\u003c|2.84|\u003e",
+            "Raw": 6.439534,
+            "Masked": 6.439534
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.37119412,
+            "Masked": 0.37119412
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.5177596,
+            "Masked": -1.5177596
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.4153485,
+            "Masked": -2.4153485
+          }
+        ]
+      },
+      {
+        "Index": 12,
+        "Selected": 42542,
+        "Scores": [
+          {
+            "Token": 42542,
+            "Text": "ĠinformaÃ§Ãµes",
+            "Raw": 12.740716,
+            "Masked": 12.740716
+          },
+          {
+            "Token": 48403,
+            "Text": "ĠinformaÃ§Ã£o",
+            "Raw": 9.331848,
+            "Masked": 9.331848
+          },
+          {
+            "Token": 1356,
+            "Text": "Ġinform",
+            "Raw": 8.42507,
+            "Masked": 8.42507
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.313053,
+            "Masked": 6.313053
+          },
+          {
+            "Token": 2772,
+            "Text": "Ġuma",
+            "Raw": 5.9112253,
+            "Masked": 5.9112253
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.2498939,
+            "Masked": -0.2498939
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.124612,
+            "Masked": -3.124612
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.186069,
+            "Masked": -3.186069
+          }
+        ]
+      },
+      {
+        "Index": 13,
+        "Selected": 5473,
+        "Scores": [
+          {
+            "Token": 5473,
+            "Text": "Ġsobre",
+            "Raw": 11.591064,
+            "Masked": 11.591064
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.7925124,
+            "Masked": 5.7925124
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 5.614279,
+            "Masked": 5.614279
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 5.5822763,
+            "Masked": 5.5822763
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 5.1912193,
+            "Masked": 5.1912193
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.20423579,
+            "Masked": -0.20423579
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.476287,
+            "Masked": -2.476287
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.7482185,
+            "Masked": -3.7482185
+          }
+        ]
+      },
+      {
+        "Index": 14,
+        "Selected": 2617,
+        "Scores": [
+          {
+            "Token": 2617,
+            "Text": "Ġcomo",
+            "Raw": 12.623922,
+            "Masked": 12.623922
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 7.6683807,
+            "Masked": 7.6683807
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.9636145,
+            "Masked": 6.9636145
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.766074,
+            "Masked": 6.766074
+          },
+          {
+            "Token": 50567,
+            "Text": "\u003c|4.04|\u003e",
+            "Raw": 6.476478,
+            "Masked": 6.476478
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.6648426,
+            "Masked": 0.6648426
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.4898612,
+            "Masked": -1.4898612
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.9461352,
+            "Masked": -1.9461352
+          }
+        ]
+      },
+      {
+        "Index": 15,
+        "Selected": 1136,
+        "Scores": [
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 13.992575,
+            "Masked": 13.992575
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 11.750517,
+            "Masked": 11.750517
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 10.510866,
+            "Masked": 10.510866
+          },
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 8.611753,
+            "Masked": 8.611753
+          },
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 8.32687,
+            "Masked": 8.32687
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.3362412,
+            "Masked": 2.3362412
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.35895467,
+            "Masked": -0.35895467
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.1498965,
+            "Masked": -0.1498965
+          }
+        ]
+      },
+      {
+        "Index": 16,
+        "Selected": 631,
+        "Scores": [
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 15.508246,
+            "Masked": 15.508246
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 10.342945,
+            "Masked": 10.342945
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 9.396083,
+            "Masked": 9.396083
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 8.895209,
+            "Masked": 8.895209
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.9173813,
+            "Masked": 7.9173813
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.8776712,
+            "Masked": 2.8776712
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 0.74469376,
+            "Masked": 0.74469376
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.0202615,
+            "Masked": 1.0202615
+          }
+        ]
+      },
+      {
+        "Index": 17,
+        "Selected": 2228,
+        "Scores": [
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 14.254972,
+            "Masked": 14.254972
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 11.545446,
+            "Masked": 11.545446
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.093646,
+            "Masked": 7.093646
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.9677854,
+            "Masked": 6.9677854
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.314473,
+            "Masked": 6.314473
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.7655233,
+            "Masked": 1.7655233
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.19478929,
+            "Masked": -0.19478929
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.41685224,
+            "Masked": -0.41685224
+          }
+        ]
+      },
+      {
+        "Index": 18,
+        "Selected": 22501,
+        "Scores": [
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 12.63374,
+            "Masked": 12.63374
+          },
+          {
+            "Token": 41564,
+            "Text": "Ġpossa",
+            "Raw": 7.166198,
+            "Masked": 7.166198
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.474496,
+            "Masked": 6.474496
+          },
+          {
+            "Token": 50593,
+            "Text": "\u003c|4.56|\u003e",
+            "Raw": 5.7932024,
+            "Masked": 5.7932024
+          },
+          {
+            "Token": 50590,
+            "Text": "\u003c|4.50|\u003e",
+            "Raw": 5.6079493,
+            "Masked": 5.6079493
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.7160188,
+            "Masked": 0.7160188
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.1848768,
+            "Masked": -1.1848768
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.9773847,
+            "Masked": -0.9773847
+          }
+        ]
+      },
+      {
+        "Index": 19,
+        "Selected": 19930,
+        "Scores": [
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 10.449726,
+            "Masked": 10.449726
+          },
+          {
+            "Token": 50607,
+            "Text": "\u003c|4.84|\u003e",
+            "Raw": 6.153763,
+            "Masked": 6.153763
+          },
+          {
+            "Token": 50605,
+            "Text": "\u003c|4.80|\u003e",
+            "Raw": 6.0348463,
+            "Masked": 6.0348463
+          },
+          {
+            "Token": 50608,
+            "Text": "\u003c|4.86|\u003e",
+            "Raw": 5.7534056,
+            "Masked": 5.7534056
+          },
+          {
+            "Token": 50606,
+            "Text": "\u003c|4.82|\u003e",
+            "Raw": 5.659401,
+            "Masked": 5.659401
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.18478131,
+            "Masked": 0.18478131
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.6361513,
+            "Masked": -1.6361513
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.0919008,
+            "Masked": -1.0919008
+          }
+        ]
+      },
+      {
+        "Index": 20,
+        "Selected": 3981,
+        "Scores": [
+          {
+            "Token": 3981,
+            "Text": "itar",
+            "Raw": 23.266153,
+            "Masked": 23.266153
+          },
+          {
+            "Token": 3528,
+            "Text": "ito",
+            "Raw": 13.790586,
+            "Masked": 13.790586
+          },
+          {
+            "Token": 2786,
+            "Text": "ita",
+            "Raw": 12.427331,
+            "Masked": 12.427331
+          },
+          {
+            "Token": 642,
+            "Text": "ite",
+            "Raw": 11.869036,
+            "Masked": 11.869036
+          },
+          {
+            "Token": 3029,
+            "Text": "itor",
+            "Raw": 11.481432,
+            "Masked": 11.481432
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.6003623,
+            "Masked": 4.6003623
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.805755,
+            "Masked": 1.805755
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.42899626,
+            "Masked": 0.42899626
+          }
+        ]
+      },
+      {
+        "Index": 21,
+        "Selected": 23760,
+        "Scores": [
+          {
+            "Token": 23760,
+            "Text": "Ġdinheiro",
+            "Raw": 9.922449,
+            "Masked": 9.922449
+          },
+          {
+            "Token": 3791,
+            "Text": "Ġdin",
+            "Raw": 6.5723057,
+            "Masked": 6.5723057
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.413679,
+            "Masked": 6.413679
+          },
+          {
+            "Token": 50660,
+            "Text": "\u003c|5.90|\u003e",
+            "Raw": 5.5119333,
+            "Masked": 5.5119333
+          },
+          {
+            "Token": 50661,
+            "Text": "\u003c|5.92|\u003e",
+            "Raw": 5.4578443,
+            "Masked": 5.4578443
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.39824826,
+            "Masked": -0.39824826
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.8717177,
+            "Masked": -0.8717177
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.5060835,
+            "Masked": -0.5060835
+          }
+        ]
+      },
+      {
+        "Index": 22,
+        "Selected": 1667,
+        "Scores": [
+          {
+            "Token": 1667,
+            "Text": "Ġna",
+            "Raw": 16.073908,
+            "Masked": 16.073908
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 9.401655,
+            "Masked": 9.401655
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 8.439388,
+            "Masked": 8.439388
+          },
+          {
+            "Token": 846,
+            "Text": "Ġem",
+            "Raw": 8.358633,
+            "Masked": 8.358633
+          },
+          {
+            "Token": 5382,
+            "Text": "Ġnas",
+            "Raw": 8.345825,
+            "Masked": 8.345825
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.1229935,
+            "Masked": 3.1229935
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 4.8286877,
+            "Masked": 4.8286877
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 4.16393,
+            "Masked": 4.16393
+          }
+        ]
+      },
+      {
+        "Index": 23,
+        "Selected": 11720,
+        "Scores": [
+          {
+            "Token": 11720,
+            "Text": "Ġminha",
+            "Raw": 17.357378,
+            "Masked": 17.357378
+          },
+          {
+            "Token": 923,
+            "Text": "Ġmin",
+            "Raw": 9.883737,
+            "Masked": 9.883737
+          },
+          {
+            "Token": 2829,
+            "Text": "ĠMin",
+            "Raw": 8.989776,
+            "Masked": 8.989776
+          },
+          {
+            "Token": 8233,
+            "Text": "Ġsua",
+            "Raw": 8.695641,
+            "Masked": 8.695641
+          },
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 7.9683704,
+            "Masked": 7.9683704
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.012809,
+            "Masked": 3.012809
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 3.978897,
+            "Masked": 3.978897
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.916315,
+            "Masked": 3.916315
+          }
+        ]
+      },
+      {
+        "Index": 24,
+        "Selected": 24001,
+        "Scores": [
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 13.873703,
+            "Masked": 13.873703
+          },
+          {
+            "Token": 660,
+            "Text": "Ġcont",
+            "Raw": 7.444049,
+            "Masked": 7.444049
+          },
+          {
+            "Token": 17868,
+            "Text": "Ġcuenta",
+            "Raw": 6.6820173,
+            "Masked": 6.6820173
+          },
+          {
+            "Token": 2224,
+            "Text": "Ġcond",
+            "Raw": 6.4049087,
+            "Masked": 6.4049087
+          },
+          {
+            "Token": 4839,
+            "Text": "ĠCont",
+            "Raw": 5.8195763,
+            "Masked": 5.8195763
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.1688246,
+            "Masked": 1.1688246
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.2279994,
+            "Masked": 2.2279994
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.0649216,
+            "Masked": 3.0649216
+          }
+        ]
+      },
+      {
+        "Index": 25,
+        "Selected": 13,
+        "Scores": [
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 13.648296,
+            "Masked": 13.648296
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 11.845936,
+            "Masked": 11.845936
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 8.939421,
+            "Masked": 8.939421
+          },
+          {
+            "Token": 50816,
+            "Text": "\u003c|9.02|\u003e",
+            "Raw": 8.40925,
+            "Masked": 8.40925
+          },
+          {
+            "Token": 485,
+            "Text": "...",
+            "Raw": 8.022596,
+            "Masked": 8.022596
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.0056324,
+            "Masked": 2.0056324
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 5.3488054,
+            "Masked": 5.3488054
+          }
+        ]
+      },
+      {
+        "Index": 26,
+        "Selected": 50817,
+        "Scores": [
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 8.606315,
+            "Masked": 8.606315
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 8.538029,
+            "Masked": 8.538029
+          },
+          {
+            "Token": 50734,
+            "Text": "\u003c|7.38|\u003e",
+            "Raw": 8.456963,
+            "Masked": 8.456963
+          },
+          {
+            "Token": 50815,
+            "Text": "\u003c|9.00|\u003e",
+            "Raw": 8.100976,
+            "Masked": 8.100976
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 7.806712,
+            "Masked": 7.806712
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.1097577,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 27,
+        "Selected": 50257,
+        "Scores": [
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 16.860435,
+            "Masked": 16.860435
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 7.6354256,
+            "Masked": 7.6354256
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 4.547536,
+            "Masked": 4.547536
+          },
+          {
+            "Token": 50819,
+            "Text": "\u003c|9.08|\u003e",
+            "Raw": 3.4073868,
+            "Masked": 3.4073868
+          },
+          {
+            "Token": 50820,
+            "Text": "\u003c|9.10|\u003e",
+            "Raw": 3.0536706,
+            "Masked": 3.0536706
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.844871,
+            "Masked": -1e+30
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Mode": "late-half",
+    "Segments": [
+      {
+        "Start": 0,
+        "End": 7.36,
+        "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+        "Tokens": [
+          19812,
+          6801,
+          11,
+          17660,
+          257,
+          11742,
+          289,
+          4021,
+          7974,
+          4061,
+          368,
+          42542,
+          5473,
+          2617,
+          1136,
+          631,
+          2228,
+          22501,
+          19930,
+          3981,
+          23760,
+          1667,
+          11720,
+          24001,
+          13
+        ]
+      }
+    ],
+    "Steps": [
+      {
+        "Index": 0,
+        "Selected": 50365,
+        "Scores": [
+          {
+            "Token": 50365,
+            "Text": "\u003c|0.00|\u003e",
+            "Raw": 2.1305184,
+            "Masked": 2.1305184
+          },
+          {
+            "Token": 50403,
+            "Text": "\u003c|0.76|\u003e",
+            "Raw": 0.9960448,
+            "Masked": 0.9960448
+          },
+          {
+            "Token": 50401,
+            "Text": "\u003c|0.72|\u003e",
+            "Raw": 0.9143115,
+            "Masked": 0.9143115
+          },
+          {
+            "Token": 50402,
+            "Text": "\u003c|0.74|\u003e",
+            "Raw": 0.90351754,
+            "Masked": 0.90351754
+          },
+          {
+            "Token": 50400,
+            "Text": "\u003c|0.70|\u003e",
+            "Raw": 0.82878953,
+            "Masked": 0.82878953
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -5.005449,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -7.2312236,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.5242004,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 1,
+        "Selected": 19812,
+        "Scores": [
+          {
+            "Token": 19812,
+            "Text": "ĠBom",
+            "Raw": 7.833266,
+            "Masked": 7.833266
+          },
+          {
+            "Token": 7957,
+            "Text": "Ġbom",
+            "Raw": 4.9326305,
+            "Masked": 4.9326305
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 4.381959,
+            "Masked": 4.381959
+          },
+          {
+            "Token": 359,
+            "Text": "Ġ-",
+            "Raw": 3.8344018,
+            "Masked": 3.8344018
+          },
+          {
+            "Token": 3286,
+            "Text": "ĠBo",
+            "Raw": 3.3230467,
+            "Masked": 3.3230467
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.27510935,
+            "Masked": 0.27510935
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -5.791518,
+            "Masked": -1e+30
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -6.0939646,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 2,
+        "Selected": 6801,
+        "Scores": [
+          {
+            "Token": 6801,
+            "Text": "Ġdia",
+            "Raw": 12.893739,
+            "Masked": 12.893739
+          },
+          {
+            "Token": 22157,
+            "Text": "ĠDia",
+            "Raw": 8.976017,
+            "Masked": 8.976017
+          },
+          {
+            "Token": 413,
+            "Text": "ĠD",
+            "Raw": 7.349466,
+            "Masked": 7.349466
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.6872797,
+            "Masked": 6.6872797
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.9904556,
+            "Masked": 5.9904556
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.2242162,
+            "Masked": 1.2242162
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.6200864,
+            "Masked": -2.6200864
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.4244691,
+            "Masked": -1.4244691
+          }
+        ]
+      },
+      {
+        "Index": 3,
+        "Selected": 11,
+        "Scores": [
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 7.746272,
+            "Masked": 7.746272
+          },
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 6.7485642,
+            "Masked": 6.7485642
+          },
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 6.427022,
+            "Masked": 6.427022
+          },
+          {
+            "Token": 0,
+            "Text": "!",
+            "Raw": 5.9662395,
+            "Masked": 5.9662395
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 4.0169635,
+            "Masked": 4.0169635
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -2.7080023,
+            "Masked": -2.7080023
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.8044531,
+            "Masked": -3.8044531
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.285673,
+            "Masked": -3.285673
+          }
+        ]
+      },
+      {
+        "Index": 4,
+        "Selected": 17660,
+        "Scores": [
+          {
+            "Token": 17660,
+            "Text": "Ġestou",
+            "Raw": 11.454647,
+            "Masked": 11.454647
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 8.294825,
+            "Masked": 8.294825
+          },
+          {
+            "Token": 20683,
+            "Text": "ĠtÃ´",
+            "Raw": 6.7504306,
+            "Masked": 6.7504306
+          },
+          {
+            "Token": 281,
+            "Text": "Ġto",
+            "Raw": 6.0051103,
+            "Masked": 6.0051103
+          },
+          {
+            "Token": 4410,
+            "Text": "ĠEst",
+            "Raw": 5.0494633,
+            "Masked": 5.0494633
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.98975396,
+            "Masked": -0.98975396
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.3201451,
+            "Masked": -3.3201451
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.026506,
+            "Masked": -3.026506
+          }
+        ]
+      },
+      {
+        "Index": 5,
+        "Selected": 257,
+        "Scores": [
+          {
+            "Token": 257,
+            "Text": "Ġa",
+            "Raw": 15.608316,
+            "Masked": 15.608316
+          },
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 10.946433,
+            "Masked": 10.946433
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 8.197151,
+            "Masked": 8.197151
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 7.629738,
+            "Masked": 7.629738
+          },
+          {
+            "Token": 1531,
+            "Text": "ĠÃł",
+            "Raw": 7.430873,
+            "Masked": 7.430873
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.0115752,
+            "Masked": 3.0115752
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.9803081,
+            "Masked": -0.9803081
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.8499789,
+            "Masked": -0.8499789
+          }
+        ]
+      },
+      {
+        "Index": 6,
+        "Selected": 11742,
+        "Scores": [
+          {
+            "Token": 11742,
+            "Text": "Ġlig",
+            "Raw": 16.083899,
+            "Masked": 16.083899
+          },
+          {
+            "Token": 287,
+            "Text": "Ġl",
+            "Raw": 9.730521,
+            "Masked": 9.730521
+          },
+          {
+            "Token": 503,
+            "Text": "Ġ\"",
+            "Raw": 7.2464876,
+            "Masked": 7.2464876
+          },
+          {
+            "Token": 441,
+            "Text": "ĠL",
+            "Raw": 7.1471934,
+            "Masked": 7.1471934
+          },
+          {
+            "Token": 385,
+            "Text": "Ġme",
+            "Raw": 6.971387,
+            "Masked": 6.971387
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9661613,
+            "Masked": 2.9661613
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.2472382,
+            "Masked": -1.2472382
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.1738151,
+            "Masked": -1.1738151
+          }
+        ]
+      },
+      {
+        "Index": 7,
+        "Selected": 289,
+        "Scores": [
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 23.475925,
+            "Masked": 23.475925
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 14.248498,
+            "Masked": 14.248498
+          },
+          {
+            "Token": 2976,
+            "Text": "gar",
+            "Raw": 13.013603,
+            "Masked": 13.013603
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 13.010158,
+            "Masked": 13.010158
+          },
+          {
+            "Token": 622,
+            "Text": "ue",
+            "Raw": 12.656647,
+            "Masked": 12.656647
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.26587,
+            "Masked": 4.26587
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.9765146,
+            "Masked": 1.9765146
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.5531446,
+            "Masked": 1.5531446
+          }
+        ]
+      },
+      {
+        "Index": 8,
+        "Selected": 4021,
+        "Scores": [
+          {
+            "Token": 4021,
+            "Text": "Ġporque",
+            "Raw": 9.951555,
+            "Masked": 9.951555
+          },
+          {
+            "Token": 12,
+            "Text": "-",
+            "Raw": 6.506285,
+            "Masked": 6.506285
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.0368295,
+            "Masked": 6.0368295
+          },
+          {
+            "Token": 1515,
+            "Text": "Ġpor",
+            "Raw": 5.823401,
+            "Masked": 5.823401
+          },
+          {
+            "Token": 1690,
+            "Text": "Ġpara",
+            "Raw": 5.088822,
+            "Masked": 5.088822
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.94743943,
+            "Masked": -0.94743943
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -4.919629,
+            "Masked": -4.919629
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -4.2557726,
+            "Masked": -4.2557726
+          }
+        ]
+      },
+      {
+        "Index": 9,
+        "Selected": 7974,
+        "Scores": [
+          {
+            "Token": 7974,
+            "Text": "Ġprecis",
+            "Raw": 11.382856,
+            "Masked": 11.382856
+          },
+          {
+            "Token": 30109,
+            "Text": "Ġpreciso",
+            "Raw": 7.0430346,
+            "Masked": 7.0430346
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 6.449397,
+            "Masked": 6.449397
+          },
+          {
+            "Token": 18861,
+            "Text": "Ġprecisa",
+            "Raw": 6.4059386,
+            "Masked": 6.4059386
+          },
+          {
+            "Token": 2688,
+            "Text": "Ġnecess",
+            "Raw": 5.295086,
+            "Masked": 5.295086
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.769871,
+            "Masked": -0.769871
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.4429708,
+            "Masked": -2.4429708
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.9466534,
+            "Masked": -3.9466534
+          }
+        ]
+      },
+      {
+        "Index": 10,
+        "Selected": 4061,
+        "Scores": [
+          {
+            "Token": 4061,
+            "Text": "ava",
+            "Raw": 21.051025,
+            "Masked": 21.051025
+          },
+          {
+            "Token": 5509,
+            "Text": "aba",
+            "Raw": 15.191709,
+            "Masked": 15.191709
+          },
+          {
+            "Token": 842,
+            "Text": "Ã¡",
+            "Raw": 14.593163,
+            "Masked": 14.593163
+          },
+          {
+            "Token": 1573,
+            "Text": "ado",
+            "Raw": 13.840848,
+            "Masked": 13.840848
+          },
+          {
+            "Token": 289,
+            "Text": "ar",
+            "Raw": 13.80245,
+            "Masked": 13.80245
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.4410728,
+            "Masked": 1.4410728
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.8680389,
+            "Masked": 1.8680389
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.8474365,
+            "Masked": 1.8474365
+          }
+        ]
+      },
+      {
+        "Index": 11,
+        "Selected": 368,
+        "Scores": [
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 13.554265,
+            "Masked": 13.554265
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.9311852,
+            "Masked": 6.9311852
+          },
+          {
+            "Token": 50509,
+            "Text": "\u003c|2.88|\u003e",
+            "Raw": 6.7791605,
+            "Masked": 6.7791605
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 6.6557264,
+            "Masked": 6.6557264
+          },
+          {
+            "Token": 50507,
+            "Text": "\u003c|2.84|\u003e",
+            "Raw": 6.4712253,
+            "Masked": 6.4712253
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.38141793,
+            "Masked": 0.38141793
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.541101,
+            "Masked": -1.541101
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.4336276,
+            "Masked": -2.4336276
+          }
+        ]
+      },
+      {
+        "Index": 12,
+        "Selected": 42542,
+        "Scores": [
+          {
+            "Token": 42542,
+            "Text": "ĠinformaÃ§Ãµes",
+            "Raw": 12.681816,
+            "Masked": 12.681816
+          },
+          {
+            "Token": 48403,
+            "Text": "ĠinformaÃ§Ã£o",
+            "Raw": 9.270539,
+            "Masked": 9.270539
+          },
+          {
+            "Token": 1356,
+            "Text": "Ġinform",
+            "Raw": 8.376022,
+            "Masked": 8.376022
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 6.351134,
+            "Masked": 6.351134
+          },
+          {
+            "Token": 2772,
+            "Text": "Ġuma",
+            "Raw": 5.928508,
+            "Masked": 5.928508
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.24220535,
+            "Masked": -0.24220535
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -3.1637173,
+            "Masked": -3.1637173
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.206891,
+            "Masked": -3.206891
+          }
+        ]
+      },
+      {
+        "Index": 13,
+        "Selected": 5473,
+        "Scores": [
+          {
+            "Token": 5473,
+            "Text": "Ġsobre",
+            "Raw": 11.654072,
+            "Masked": 11.654072
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 5.8628526,
+            "Masked": 5.8628526
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 5.7497106,
+            "Masked": 5.7497106
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 5.601374,
+            "Masked": 5.601374
+          },
+          {
+            "Token": 50515,
+            "Text": "\u003c|3.00|\u003e",
+            "Raw": 5.3249407,
+            "Masked": 5.3249407
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.13123474,
+            "Masked": -0.13123474
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -2.4892852,
+            "Masked": -2.4892852
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -3.7862415,
+            "Masked": -3.7862415
+          }
+        ]
+      },
+      {
+        "Index": 14,
+        "Selected": 2617,
+        "Scores": [
+          {
+            "Token": 2617,
+            "Text": "Ġcomo",
+            "Raw": 12.663919,
+            "Masked": 12.663919
+          },
+          {
+            "Token": 50565,
+            "Text": "\u003c|4.00|\u003e",
+            "Raw": 7.784461,
+            "Masked": 7.784461
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 6.9921103,
+            "Masked": 6.9921103
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.784131,
+            "Masked": 6.784131
+          },
+          {
+            "Token": 50567,
+            "Text": "\u003c|4.04|\u003e",
+            "Raw": 6.549517,
+            "Masked": 6.549517
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.71046853,
+            "Masked": 0.71046853
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.5361298,
+            "Masked": -1.5361298
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -2.0025651,
+            "Masked": -2.0025651
+          }
+        ]
+      },
+      {
+        "Index": 15,
+        "Selected": 1136,
+        "Scores": [
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 14.01174,
+            "Masked": 14.01174
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 11.722401,
+            "Masked": 11.722401
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 10.506707,
+            "Masked": 10.506707
+          },
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 8.576348,
+            "Masked": 8.576348
+          },
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 8.366673,
+            "Masked": 8.366673
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.3361042,
+            "Masked": 2.3361042
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.38662803,
+            "Masked": -0.38662803
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.19159496,
+            "Masked": -0.19159496
+          }
+        ]
+      },
+      {
+        "Index": 16,
+        "Selected": 631,
+        "Scores": [
+          {
+            "Token": 631,
+            "Text": "Ġque",
+            "Raw": 15.561662,
+            "Masked": 15.561662
+          },
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 10.33657,
+            "Masked": 10.33657
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 9.42937,
+            "Masked": 9.42937
+          },
+          {
+            "Token": 368,
+            "Text": "Ġde",
+            "Raw": 8.918375,
+            "Masked": 8.918375
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.994951,
+            "Masked": 7.994951
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.9314458,
+            "Masked": 2.9314458
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 0.6981054,
+            "Masked": 0.6981054
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.95907,
+            "Masked": 0.95907
+          }
+        ]
+      },
+      {
+        "Index": 17,
+        "Selected": 2228,
+        "Scores": [
+          {
+            "Token": 2228,
+            "Text": "Ġeu",
+            "Raw": 14.228554,
+            "Masked": 14.228554
+          },
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 11.528133,
+            "Masked": 11.528133
+          },
+          {
+            "Token": 1136,
+            "Text": "ĠÃ©",
+            "Raw": 7.125928,
+            "Masked": 7.125928
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.9864597,
+            "Masked": 6.9864597
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.3690906,
+            "Masked": 6.3690906
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.774926,
+            "Masked": 1.774926
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.24358231,
+            "Masked": -0.24358231
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.4734294,
+            "Masked": -0.4734294
+          }
+        ]
+      },
+      {
+        "Index": 18,
+        "Selected": 22501,
+        "Scores": [
+          {
+            "Token": 22501,
+            "Text": "Ġposso",
+            "Raw": 12.638201,
+            "Masked": 12.638201
+          },
+          {
+            "Token": 41564,
+            "Text": "Ġpossa",
+            "Raw": 7.1810637,
+            "Masked": 7.1810637
+          },
+          {
+            "Token": 7468,
+            "Text": "Ġpode",
+            "Raw": 6.528999,
+            "Masked": 6.528999
+          },
+          {
+            "Token": 50593,
+            "Text": "\u003c|4.56|\u003e",
+            "Raw": 5.8886776,
+            "Masked": 5.8886776
+          },
+          {
+            "Token": 50590,
+            "Text": "\u003c|4.50|\u003e",
+            "Raw": 5.7479944,
+            "Masked": 5.7479944
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.76051444,
+            "Masked": 0.76051444
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.2078154,
+            "Masked": -1.2078154
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.99039453,
+            "Masked": -0.99039453
+          }
+        ]
+      },
+      {
+        "Index": 19,
+        "Selected": 19930,
+        "Scores": [
+          {
+            "Token": 19930,
+            "Text": "Ġdepos",
+            "Raw": 10.493181,
+            "Masked": 10.493181
+          },
+          {
+            "Token": 50607,
+            "Text": "\u003c|4.84|\u003e",
+            "Raw": 6.1858635,
+            "Masked": 6.1858635
+          },
+          {
+            "Token": 50605,
+            "Text": "\u003c|4.80|\u003e",
+            "Raw": 6.12825,
+            "Masked": 6.12825
+          },
+          {
+            "Token": 50608,
+            "Text": "\u003c|4.86|\u003e",
+            "Raw": 5.787153,
+            "Masked": 5.787153
+          },
+          {
+            "Token": 50606,
+            "Text": "\u003c|4.82|\u003e",
+            "Raw": 5.7060137,
+            "Masked": 5.7060137
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 0.24101615,
+            "Masked": 0.24101615
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -1.6348565,
+            "Masked": -1.6348565
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -1.0879976,
+            "Masked": -1.0879976
+          }
+        ]
+      },
+      {
+        "Index": 20,
+        "Selected": 3981,
+        "Scores": [
+          {
+            "Token": 3981,
+            "Text": "itar",
+            "Raw": 23.242521,
+            "Masked": 23.242521
+          },
+          {
+            "Token": 3528,
+            "Text": "ito",
+            "Raw": 13.839501,
+            "Masked": 13.839501
+          },
+          {
+            "Token": 2786,
+            "Text": "ita",
+            "Raw": 12.415597,
+            "Masked": 12.415597
+          },
+          {
+            "Token": 642,
+            "Text": "ite",
+            "Raw": 11.889376,
+            "Masked": 11.889376
+          },
+          {
+            "Token": 3029,
+            "Text": "itor",
+            "Raw": 11.473339,
+            "Masked": 11.473339
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 4.561151,
+            "Masked": 4.561151
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 1.7831733,
+            "Masked": 1.7831733
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 0.42384338,
+            "Masked": 0.42384338
+          }
+        ]
+      },
+      {
+        "Index": 21,
+        "Selected": 23760,
+        "Scores": [
+          {
+            "Token": 23760,
+            "Text": "Ġdinheiro",
+            "Raw": 9.871454,
+            "Masked": 9.871454
+          },
+          {
+            "Token": 3791,
+            "Text": "Ġdin",
+            "Raw": 6.476461,
+            "Masked": 6.476461
+          },
+          {
+            "Token": 277,
+            "Text": "Ġo",
+            "Raw": 6.2916856,
+            "Masked": 6.2916856
+          },
+          {
+            "Token": 50660,
+            "Text": "\u003c|5.90|\u003e",
+            "Raw": 5.439247,
+            "Masked": 5.439247
+          },
+          {
+            "Token": 50661,
+            "Text": "\u003c|5.92|\u003e",
+            "Raw": 5.379509,
+            "Masked": 5.379509
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -0.4445908,
+            "Masked": -0.4445908
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": -0.9455616,
+            "Masked": -0.9455616
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": -0.5368147,
+            "Masked": -0.5368147
+          }
+        ]
+      },
+      {
+        "Index": 22,
+        "Selected": 1667,
+        "Scores": [
+          {
+            "Token": 1667,
+            "Text": "Ġna",
+            "Raw": 16.140148,
+            "Masked": 16.140148
+          },
+          {
+            "Token": 11,
+            "Text": ",",
+            "Raw": 9.474619,
+            "Masked": 9.474619
+          },
+          {
+            "Token": 1120,
+            "Text": "Ġda",
+            "Raw": 8.476511,
+            "Masked": 8.476511
+          },
+          {
+            "Token": 846,
+            "Text": "Ġem",
+            "Raw": 8.420925,
+            "Masked": 8.420925
+          },
+          {
+            "Token": 5382,
+            "Text": "Ġnas",
+            "Raw": 8.317047,
+            "Masked": 8.317047
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 3.1880999,
+            "Masked": 3.1880999
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 4.872225,
+            "Masked": 4.872225
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 4.1360645,
+            "Masked": 4.1360645
+          }
+        ]
+      },
+      {
+        "Index": 23,
+        "Selected": 11720,
+        "Scores": [
+          {
+            "Token": 11720,
+            "Text": "Ġminha",
+            "Raw": 17.170506,
+            "Masked": 17.170506
+          },
+          {
+            "Token": 923,
+            "Text": "Ġmin",
+            "Raw": 9.782988,
+            "Masked": 9.782988
+          },
+          {
+            "Token": 2829,
+            "Text": "ĠMin",
+            "Raw": 8.901926,
+            "Masked": 8.901926
+          },
+          {
+            "Token": 8233,
+            "Text": "Ġsua",
+            "Raw": 8.545704,
+            "Masked": 8.545704
+          },
+          {
+            "Token": 257,
+            "Text": "Ġa",
+            "Raw": 7.8824406,
+            "Masked": 7.8824406
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.955364,
+            "Masked": 2.955364
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 3.9775658,
+            "Masked": 3.9775658
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 3.8312755,
+            "Masked": 3.8312755
+          }
+        ]
+      },
+      {
+        "Index": 24,
+        "Selected": 24001,
+        "Scores": [
+          {
+            "Token": 24001,
+            "Text": "Ġconta",
+            "Raw": 13.795096,
+            "Masked": 13.795096
+          },
+          {
+            "Token": 660,
+            "Text": "Ġcont",
+            "Raw": 7.291821,
+            "Masked": 7.291821
+          },
+          {
+            "Token": 17868,
+            "Text": "Ġcuenta",
+            "Raw": 6.633743,
+            "Masked": 6.633743
+          },
+          {
+            "Token": 2224,
+            "Text": "Ġcond",
+            "Raw": 6.30791,
+            "Masked": 6.30791
+          },
+          {
+            "Token": 4839,
+            "Text": "ĠCont",
+            "Raw": 5.7494144,
+            "Masked": 5.7494144
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 1.170948,
+            "Masked": 1.170948
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.2150848,
+            "Masked": 2.2150848
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 2.9644608,
+            "Masked": 2.9644608
+          }
+        ]
+      },
+      {
+        "Index": 25,
+        "Selected": 13,
+        "Scores": [
+          {
+            "Token": 13,
+            "Text": ".",
+            "Raw": 13.611746,
+            "Masked": 13.611746
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 11.634203,
+            "Masked": 11.634203
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 9.118563,
+            "Masked": 9.118563
+          },
+          {
+            "Token": 50816,
+            "Text": "\u003c|9.02|\u003e",
+            "Raw": 8.301823,
+            "Masked": 8.301823
+          },
+          {
+            "Token": 485,
+            "Text": "...",
+            "Raw": 7.977575,
+            "Masked": 7.977575
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 2.0618901,
+            "Masked": 2.0618901
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 5.3688536,
+            "Masked": 5.3688536
+          }
+        ]
+      },
+      {
+        "Index": 26,
+        "Selected": 50733,
+        "Scores": [
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 8.619143,
+            "Masked": 8.619143
+          },
+          {
+            "Token": 50734,
+            "Text": "\u003c|7.38|\u003e",
+            "Raw": 8.585582,
+            "Masked": 8.585582
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 8.207121,
+            "Masked": 8.207121
+          },
+          {
+            "Token": 50815,
+            "Text": "\u003c|9.00|\u003e",
+            "Raw": 8.099122,
+            "Masked": 8.099122
+          },
+          {
+            "Token": 50818,
+            "Text": "\u003c|9.06|\u003e",
+            "Raw": 7.620459,
+            "Masked": 7.620459
+          },
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": -1.0128098,
+            "Masked": -1e+30
+          }
+        ]
+      },
+      {
+        "Index": 27,
+        "Selected": 50257,
+        "Scores": [
+          {
+            "Token": 50257,
+            "Text": "\u003c|endoftext|\u003e",
+            "Raw": 9.9872875,
+            "Masked": 9.9872875
+          },
+          {
+            "Token": 50733,
+            "Text": "\u003c|7.36|\u003e",
+            "Raw": 2.7550392,
+            "Masked": 2.7550392
+          },
+          {
+            "Token": 50817,
+            "Text": "\u003c|9.04|\u003e",
+            "Raw": 1.5486996,
+            "Masked": 1.5486996
+          },
+          {
+            "Token": 50783,
+            "Text": "\u003c|8.36|\u003e",
+            "Raw": 1.4892257,
+            "Masked": 1.4892257
+          },
+          {
+            "Token": 50788,
+            "Text": "\u003c|8.46|\u003e",
+            "Raw": 1.4658731,
+            "Masked": 1.4658731
+          }
+        ]
+      }
+    ]
+  }
+]

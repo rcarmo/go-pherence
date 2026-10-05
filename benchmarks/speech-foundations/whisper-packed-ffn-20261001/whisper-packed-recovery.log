@@ -1,0 +1,5 @@
+=== RUN   TestVulkanOriginalQ5EncoderNative
+    vulkan_packed_native_test.go:27: LEGACY_LOAD seconds=5.188010483 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_packed_native_test.go:122: PACKED_ENCODER exact_hidden=1920000 checkpoints=1303 baseline_weights=2548039680 packed_weights=1184890880
+--- PASS: TestVulkanOriginalQ5EncoderNative (52.43s)
+PASS

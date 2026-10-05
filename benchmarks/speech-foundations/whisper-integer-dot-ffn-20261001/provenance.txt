@@ -1,0 +1,7 @@
+2026-10-01T11:08:04Z
+8e6286097cf34fd69ce136d6d11cf04cb815187d
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+a8fe461c356532c8f112da91d3f05f7aaa984478b652f8a2749d64e0973423cc  projects/whisper-stt/runtime/build-vulkan/ggml/src/ggml-vulkan/quantize_q8_1.comp.cpp
+593d7d944434c23b00cc3d640ecdebeaf8c797a26fe195d321c48f7655631c19  tmp/whisper-vad-parity-20261001/original-quant
+30a3728736d8faad5060eafb5dda18d025febf6c52028d603969e3b2b854ce9f  tmp/whisper-vad-parity-20261001/whisper-intdot-model.test
+384a2b7a136568e61848e2da09fdd918e5971d5beb88ab0ff5f2705266d85884  tmp/whisper-vad-parity-20261001/whisper-intdot-bytes.test

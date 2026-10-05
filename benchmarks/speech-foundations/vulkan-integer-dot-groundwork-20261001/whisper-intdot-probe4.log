@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeIntegerDotProbe
+    vulkan_integer_dot_test.go:191: INTDOT_PROBE values=1025 repeat=5 device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+--- PASS: TestVulkanNativeIntegerDotProbe (0.04s)
+PASS

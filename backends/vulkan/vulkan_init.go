@@ -64,12 +64,13 @@ type vkQueueFamilyProperties struct {
 // been submitted, so failure rollback may destroy the local pool/device/instance
 // without waiting for idle. Failed create outputs are undefined and discarded.
 // A failed dlclose keeps its handle as a bounded hold (no retry/reopen loop).
-func vkInitLocked(loader vkLoader) bool {
+func vkInitLocked(loader vkLoader) bool { return vkInitLockedMode(loader, false) }
+func vkInitLockedMode(loader vkLoader, integerDot bool) bool {
 	if vkLost || vkPending != nil || !vkNative64() {
 		return false
 	}
 	if vkReady {
-		return true
+		return !integerDot || vkIntegerDotEnabled
 	}
 	if vkLib != 0 {
 		return false
@@ -85,6 +86,9 @@ func vkInitLocked(loader vkLoader) bool {
 	var pool VkCommandPool
 	committed := false
 	symbols := vkSymbols()
+	if integerDot {
+		symbols = append(symbols, vkSymbol{&vkGetPhysicalDeviceFeatures2, "vkGetPhysicalDeviceFeatures2"}, vkSymbol{&vkGetPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2"})
+	}
 	clear := func() {
 		for _, entry := range symbols {
 			reflect.ValueOf(entry.target).Elem().SetZero()
@@ -117,7 +121,7 @@ func vkInitLocked(loader vkLoader) bool {
 			return false
 		}
 	}
-	return vkCreateInitialStateLocked(lib, &instance, &device, &pool, &committed)
+	return vkCreateInitialStateLocked(lib, &instance, &device, &pool, &committed, integerDot)
 }
 
 // Native pointer type used in the symbol inventory is checked by RegisterFunc.
@@ -179,7 +183,7 @@ func vkSymbols() []vkSymbol {
 	}
 }
 
-func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDevice, pool *VkCommandPool, committed *bool) bool {
+func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDevice, pool *VkCommandPool, committed *bool, integerDot bool) bool {
 	var physical VkPhysicalDevice
 	var queue VkQueue
 	var family uint32
@@ -297,6 +301,16 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 	}
 	physical = devs[bestIdx]
 	deviceName = bestName
+	var dotFeature *vkIntegerDotFeatures
+	if integerDot {
+		if bestLimits.APIVersion < (1<<22 | 3<<12) {
+			return false
+		}
+		dotFeature = vkQueryIntegerDot(physical)
+		if dotFeature == nil {
+			return false
+		}
+	}
 
 	// Find compute queue family
 	var queueCount uint32
@@ -342,7 +356,7 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 
 	deviceCreateInfo := struct {
 		sType                   uint32
-		pNext                   uintptr
+		pNext                   unsafe.Pointer
 		flags                   uint32
 		queueCreateInfoCount    uint32
 		pQueueCreateInfos       unsafe.Pointer
@@ -357,7 +371,15 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 		pQueueCreateInfos:    unsafe.Pointer(&queueCreateInfo),
 	}
 
-	if r := vkCreateDevice(physical, unsafe.Pointer(&deviceCreateInfo), nil, device); r != VK_SUCCESS {
+	var featurePin runtime.Pinner
+	if dotFeature != nil {
+		featurePin.Pin(dotFeature)
+		defer featurePin.Unpin()
+		deviceCreateInfo.pNext = unsafe.Pointer(dotFeature)
+	}
+	r := vkCreateDevice(physical, unsafe.Pointer(&deviceCreateInfo), nil, device)
+	runtime.KeepAlive(dotFeature)
+	if r != VK_SUCCESS {
 		*device = 0
 		debugf("[vulkan] vkCreateDevice failed: %d\n", r)
 		return false
@@ -393,6 +415,7 @@ func vkCreateInitialStateLocked(lib uintptr, instance *VkInstance, device *VkDev
 		return false
 	}
 	vkPublishInitialState(lib, *instance, physical, *device, queue, *pool, family, deviceName, bestLimits)
+	vkIntegerDotEnabled = dotFeature != nil
 	*committed = true
 	return true
 }

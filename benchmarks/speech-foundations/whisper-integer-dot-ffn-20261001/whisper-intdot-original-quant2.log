@@ -1,0 +1,8 @@
+original GPU quantiser device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+ORIGINAL_Q8 x4=15000 blocks=60000 subgroup=0 bytes=2160000
+original GPU quantiser device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+ORIGINAL_Q8 x4=15000 blocks=60000 subgroup=1 bytes=2160000
+original GPU quantiser device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+ORIGINAL_Q8 x4=60000 blocks=240000 subgroup=0 bytes=8640000
+original GPU quantiser device=Intel(R) Iris(R) Xe Graphics (RPL-P)
+ORIGINAL_Q8 x4=60000 blocks=240000 subgroup=1 bytes=8640000

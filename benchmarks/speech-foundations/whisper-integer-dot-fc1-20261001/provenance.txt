@@ -1,0 +1,7 @@
+2026-10-01T11:55:11Z
+3a18088be8e8949ac8b5587e26a4fddfe26f1fcf
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+f00121dd822be50117c3cac814e4a323af244b807d48dad83bb963ef040a2755  tmp/whisper-vad-parity-20261001/whisper-intdot-fc1.test
+fe3bdab509ad2534a7cd6d8afebe6957b6f9567c8a01d8b5e28e9b8dc85f7777  tmp/whisper-vad-parity-20261001/whisper-intdot-timestamp.test
+94b5ac2820311f84dbc81449f1de85926e51e97bd4673b107a7208f3b999c153  tmp/whisper-vad-parity-20261001/whisper-intdot-unfused.test
+cc8667c779e917440d0fd1efc2c029d1d52156f59366441e2a7d107a76061e3e  projects/go-pherence-transcribe-web/backends/vulkan/shaders/integer-dot/linear-stripped.spv

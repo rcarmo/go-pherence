@@ -1,0 +1,487 @@
+{
+  "status": "explicit scheduling-only exact retained-Go gains; original speed and independent quality goal unmet",
+  "env": "GO_PHERENCE_WHISPER_DECODER_PARALLEL_ROWS=1",
+  "defaults": "serial unchanged, >=512 outputs, workers=min(WHISPER_THREADS,GOMAXPROCS,outDim); int8 branch precedence unchanged",
+  "trained_exact": "8 tokens all51866logits/selfKV/960000crossobserver values; pre-cancelled construction and fresh reuse; not in-flight fault or independent acoustic acceptance",
+  "results": [
+    {
+      "fixture": "jfk",
+      "baseline": 6.3196194949999995,
+      "candidate": 6.092917187,
+      "change_percent": -3.5872778128392513,
+      "exact": true,
+      "scope": "fresh sequential pair, first included",
+      "full_before": 35.435210346,
+      "full_after": 34.28187836,
+      "load_before": 2.877610574,
+      "load_after": 2.87739468,
+      "prep_before": 0.894694572,
+      "prep_after": 0.894281045,
+      "allocated_before": 168515352,
+      "allocated_after": 168859672,
+      "allocations_before": 23761,
+      "allocations_after": 33671,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.175773437,
+        "DecoderCrossSeconds": 0.225256918,
+        "DecoderMLPSeconds": 0.366246986,
+        "DecoderHeadSeconds": 0.180038742
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.110363729,
+        "DecoderCrossSeconds": 0.208441375,
+        "DecoderMLPSeconds": 0.206799802,
+        "DecoderHeadSeconds": 0.186184796
+      }
+    },
+    {
+      "fixture": "pt",
+      "baseline": 6.281748351,
+      "candidate": 6.087535619,
+      "change_percent": -3.091698698326295,
+      "exact": true,
+      "scope": "fresh sequential pair, first included",
+      "full_before": 35.286556628,
+      "full_after": 34.147266955,
+      "load_before": 2.887080719,
+      "load_after": 2.879687097,
+      "prep_before": 0.893773361,
+      "prep_after": 0.893268957,
+      "allocated_before": 168086624,
+      "allocated_after": 168418136,
+      "allocations_before": 23750,
+      "allocations_after": 33342,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.168889034,
+        "DecoderCrossSeconds": 0.214006842,
+        "DecoderMLPSeconds": 0.351490121,
+        "DecoderHeadSeconds": 0.176532507
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.107073491,
+        "DecoderCrossSeconds": 0.202446443,
+        "DecoderMLPSeconds": 0.20027663,
+        "DecoderHeadSeconds": 0.176883479
+      }
+    },
+    {
+      "fixture": "fr",
+      "baseline": 5.760161334,
+      "candidate": 5.698578324,
+      "change_percent": -1.0691195337967363,
+      "exact": true,
+      "scope": "fresh sequential pair, first included",
+      "full_before": 32.586958481,
+      "full_after": 32.232135994,
+      "load_before": 2.8813335650000003,
+      "load_after": 2.893016232,
+      "prep_before": 0.894014205,
+      "prep_after": 0.892397832,
+      "allocated_before": 160838496,
+      "allocated_after": 160982992,
+      "allocations_before": 23536,
+      "allocations_after": 27712,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.073626832,
+        "DecoderCrossSeconds": 0.093612956,
+        "DecoderMLPSeconds": 0.153071962,
+        "DecoderHeadSeconds": 0.075397589
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.045885983,
+        "DecoderCrossSeconds": 0.087661507,
+        "DecoderMLPSeconds": 0.087270301,
+        "DecoderHeadSeconds": 0.078410259
+      }
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline": 7.516090031,
+      "candidate": 7.016709213,
+      "change_percent": -6.6441569478320694,
+      "exact": true,
+      "scope": "fresh sequential pair, first included",
+      "full_before": 41.445828253,
+      "full_after": 38.906763431,
+      "load_before": 2.87523046,
+      "load_after": 2.880540587,
+      "prep_before": 0.893055398,
+      "prep_after": 0.898358505,
+      "allocated_before": 204781056,
+      "allocated_after": 205551512,
+      "allocations_before": 27349,
+      "allocations_after": 49444,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.393600788,
+        "DecoderCrossSeconds": 0.502071305,
+        "DecoderMLPSeconds": 0.818332478,
+        "DecoderHeadSeconds": 0.40241036
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.246306036,
+        "DecoderCrossSeconds": 0.468274403,
+        "DecoderMLPSeconds": 0.459822351,
+        "DecoderHeadSeconds": 0.406575
+      }
+    },
+    {
+      "fixture": "groups",
+      "baseline": 15.192425741,
+      "candidate": 14.145632521,
+      "change_percent": -6.890230946958031,
+      "exact": true,
+      "scope": "fresh sequential pair, first included",
+      "full_before": 79.636553741,
+      "full_after": 74.597175015,
+      "load_before": 2.890536361,
+      "load_after": 2.8924316169999997,
+      "prep_before": 0.899136104,
+      "prep_after": 0.894587642,
+      "allocated_before": 409239880,
+      "allocated_after": 410795792,
+      "allocations_before": 51632,
+      "allocations_after": 95849,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.79111383,
+        "DecoderCrossSeconds": 0.999184379,
+        "DecoderMLPSeconds": 1.635236274,
+        "DecoderHeadSeconds": 0.797645346
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.494773497,
+        "DecoderCrossSeconds": 0.938677198,
+        "DecoderMLPSeconds": 0.921975741,
+        "DecoderHeadSeconds": 0.814747576
+      }
+    },
+    {
+      "fixture": "pt1",
+      "baseline": 5.8852236399999995,
+      "candidate": 5.741331754,
+      "change_percent": -2.444968871225417,
+      "exact": true,
+      "scope": "historical baseline output gate only; not fresh speed pair",
+      "full_before": 33.153830607,
+      "full_after": 32.469883,
+      "load_before": 2.8721723409999997,
+      "load_after": 2.8825535159999998,
+      "prep_before": 0.896855709,
+      "prep_after": 0.891687608,
+      "allocated_before": 162119200,
+      "allocated_after": 162295872,
+      "allocations_before": 23587,
+      "allocations_after": 28694,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.089239436,
+        "DecoderCrossSeconds": 0.114049198,
+        "DecoderMLPSeconds": 0.186878659,
+        "DecoderHeadSeconds": 0.093148086
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.056722231,
+        "DecoderCrossSeconds": 0.107285765,
+        "DecoderMLPSeconds": 0.106983924,
+        "DecoderHeadSeconds": 0.095041998
+      }
+    },
+    {
+      "fixture": "pt2",
+      "baseline": 13.244141386,
+      "candidate": 12.647888959,
+      "change_percent": -4.5020089232079785,
+      "exact": true,
+      "scope": "historical baseline output gate only; not fresh speed pair",
+      "full_before": 70.039183947,
+      "full_after": 67.203695739,
+      "load_before": 2.87605893,
+      "load_after": 2.87585539,
+      "prep_before": 0.896362527,
+      "prep_after": 0.892148928,
+      "allocated_before": 343593768,
+      "allocated_after": 344510064,
+      "allocations_before": 44751,
+      "allocations_after": 70988,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.471362157,
+        "DecoderCrossSeconds": 0.602810182,
+        "DecoderMLPSeconds": 0.969842082,
+        "DecoderHeadSeconds": 0.474699866
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.303340647,
+        "DecoderCrossSeconds": 0.553774551,
+        "DecoderMLPSeconds": 0.549127185,
+        "DecoderHeadSeconds": 0.489882494
+      }
+    },
+    {
+      "fixture": "podcast",
+      "baseline": 8.617052708,
+      "candidate": 7.809032335,
+      "change_percent": -9.376992347393209,
+      "exact": true,
+      "scope": "historical baseline output gate only; not fresh speed pair",
+      "full_before": 46.866046514,
+      "full_after": 42.944859763,
+      "load_before": 2.882591031,
+      "load_after": 2.884482564,
+      "prep_before": 0.898390887,
+      "prep_after": 0.906786688,
+      "allocated_before": 200066656,
+      "allocated_after": 201242000,
+      "allocations_before": 24680,
+      "allocations_after": 58281,
+      "decoder_before": {
+        "DecoderSelfSeconds": 0.614942739,
+        "DecoderCrossSeconds": 0.760224924,
+        "DecoderMLPSeconds": 1.239108787,
+        "DecoderHeadSeconds": 0.607531806
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.396088367,
+        "DecoderCrossSeconds": 0.707131644,
+        "DecoderMLPSeconds": 0.699066991,
+        "DecoderHeadSeconds": 0.620831193
+      }
+    },
+    {
+      "fixture": "podcast-vadwords",
+      "baseline": 11.621028429999999,
+      "candidate": 10.119120568,
+      "change_percent": -12.924052901572669,
+      "exact": true,
+      "scope": "historical baseline output gate only; not fresh speed pair",
+      "full_before": 61.980486795,
+      "full_after": 54.442199832,
+      "load_before": 2.8864400679999997,
+      "load_after": 2.88555977,
+      "prep_before": 0.904535331,
+      "prep_after": 0.902828252,
+      "allocated_before": 266616136,
+      "allocated_after": 268854248,
+      "allocations_before": 29085,
+      "allocations_after": 92759,
+      "decoder_before": {
+        "DecoderSelfSeconds": 1.16741511,
+        "DecoderCrossSeconds": 1.433219802,
+        "DecoderMLPSeconds": 2.353867634,
+        "DecoderHeadSeconds": 1.151874022
+      },
+      "decoder_after": {
+        "DecoderSelfSeconds": 0.747566185,
+        "DecoderCrossSeconds": 1.34801272,
+        "DecoderMLPSeconds": 1.330131585,
+        "DecoderHeadSeconds": 1.174232703
+      }
+    }
+  ],
+  "kernels": [
+    {
+      "shape": "K1280/N1280/workers2",
+      "baseline": 0.005147176,
+      "candidate": 0.002770295,
+      "change_percent": -46.17835100256917,
+      "samples": {
+        "baseline": [
+          0.005005564,
+          0.006210025,
+          0.005147176,
+          0.004998716,
+          0.005698054
+        ],
+        "candidate": [
+          0.003439571,
+          0.002758863,
+          0.003431261,
+          0.002770295,
+          0.002716366
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K1280/N1280/workers4",
+      "baseline": 0.004778494,
+      "candidate": 0.001770686,
+      "change_percent": -62.94468508278969,
+      "samples": {
+        "baseline": [
+          0.005023164,
+          0.004778494,
+          0.004941342,
+          0.004521458,
+          0.004762892
+        ],
+        "candidate": [
+          0.002129507,
+          0.00156913,
+          0.001980708,
+          0.001475867,
+          0.001770686
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K1280/N5120/workers2",
+      "baseline": 0.038875053,
+      "candidate": 0.021782438,
+      "change_percent": -43.96808153547725,
+      "samples": {
+        "baseline": [
+          0.036949716,
+          0.038875053,
+          0.038683956,
+          0.039830132,
+          0.039506245
+        ],
+        "candidate": [
+          0.021683582,
+          0.021782438,
+          0.021891158,
+          0.021490763,
+          0.022150233
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K1280/N5120/workers4",
+      "baseline": 0.040136079,
+      "candidate": 0.016049289,
+      "change_percent": -60.012812910797784,
+      "samples": {
+        "baseline": [
+          0.038847526,
+          0.043071428,
+          0.042350128,
+          0.040136079,
+          0.039303082
+        ],
+        "candidate": [
+          0.016049289,
+          0.015414261,
+          0.016544398,
+          0.014621364,
+          0.016421232
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K5120/N1280/workers2",
+      "baseline": 0.041633042,
+      "candidate": 0.021772749,
+      "change_percent": -47.703199300209675,
+      "samples": {
+        "baseline": [
+          0.043407576,
+          0.041633042,
+          0.041633898,
+          0.041462786,
+          0.041591652
+        ],
+        "candidate": [
+          0.021871475,
+          0.021772749,
+          0.021676121,
+          0.021419909,
+          0.022526639
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K5120/N1280/workers4",
+      "baseline": 0.041635314,
+      "candidate": 0.015295709,
+      "change_percent": -63.26265487033436,
+      "samples": {
+        "baseline": [
+          0.041635314,
+          0.042607752,
+          0.041781832,
+          0.039876705,
+          0.03888442
+        ],
+        "candidate": [
+          0.015236667,
+          0.015072777,
+          0.016648818,
+          0.015295709,
+          0.015711556
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K1280/N51866/workers2",
+      "baseline": 0.415357693,
+      "candidate": 0.246638422,
+      "change_percent": -40.62023500308685,
+      "samples": {
+        "baseline": [
+          0.407574073,
+          0.420832711,
+          0.419262122,
+          0.415357693,
+          0.413350322
+        ],
+        "candidate": [
+          0.246638422,
+          0.248005029,
+          0.245673686,
+          0.247469787,
+          0.245761854
+        ]
+      },
+      "calls_per_sample": 30
+    },
+    {
+      "shape": "K1280/N51866/workers4",
+      "baseline": 0.421361904,
+      "candidate": 0.178210198,
+      "change_percent": -57.70614374288569,
+      "samples": {
+        "baseline": [
+          0.421361904,
+          0.410858273,
+          0.409224481,
+          0.427648088,
+          0.429957734
+        ],
+        "candidate": [
+          0.178210198,
+          0.184255682,
+          0.177502015,
+          0.177858027,
+          0.180013014
+        ]
+      },
+      "calls_per_sample": 30
+    }
+  ],
+  "silence_median": 0.019790451,
+  "states_verified": [
+    "whisper-decoder-rows",
+    "whisper-decoder-rows-build",
+    "whisper-decoder-rows-trained-fixed",
+    "whisper-decoder-rows-trained-final",
+    "whisper-decoder-rows-full-gates",
+    "whisper-decoder-rows-fresh-baseline-jfk",
+    "whisper-decoder-rows-fresh-candidate-jfk",
+    "whisper-decoder-rows-fresh-baseline-pt",
+    "whisper-decoder-rows-fresh-candidate-pt",
+    "whisper-decoder-rows-fresh-baseline-fr",
+    "whisper-decoder-rows-fresh-candidate-fr",
+    "whisper-decoder-rows-fresh-baseline-jfk-vadwords",
+    "whisper-decoder-rows-fresh-candidate-jfk-vadwords",
+    "whisper-decoder-rows-fresh-baseline-groups",
+    "whisper-decoder-rows-fresh-candidate-groups",
+    "whisper-decoder-rows-expanded-pt1",
+    "whisper-decoder-rows-expanded-pt2",
+    "whisper-decoder-rows-expanded-podcast",
+    "whisper-decoder-rows-expanded-podcast-vadwords",
+    "whisper-decoder-rows-expanded-silence"
+  ]
+}

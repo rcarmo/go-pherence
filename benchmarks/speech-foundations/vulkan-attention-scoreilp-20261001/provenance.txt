@@ -1,0 +1,5 @@
+2026-10-01T05:37:47Z
+ec7714f02cbf63496898914544a2c4b5e6608c5f
+go version go1.26.2 linux/amd64
+ab666ccfe7cb9ed007e2209657f43c3d111ff36bf44001eaf7291789c1dd4ea4  tmp/whisper-vad-parity-20261001/whisper-scoreilp.test
+10441c8005e147d9bdc425415095296b07df24cac30c2477fa33c4feba7a4470  tmp/whisper-vad-parity-20261001/vulkan-scoreilp-exact.test

@@ -1,0 +1,6 @@
+2026-10-01T17:15:12Z
+a0aae9028070f06e8bf62d4669d1b2ed5c550943
+12b097e1cb0d4d502221902b6283da2fef6d71984a7f3d28e9a3d4b159de0765  tmp/whisper-vad-parity-20261001/decoder-x4.test
+89286b163d5b79d37d7ea70feb99b6f6fb1b51048fbc711c32d8901463e1f0fe  tmp/whisper-vad-parity-20261001/decoder-x4-candidate.test
+2dcff0190010dee1e2851958d7cbf0cd791d3fa98805f7b2921de536b6a20713  projects/go-pherence-transcribe-web/backends/simd/runtime/sdotx4_amd64.go
+cf86f4a48a15d00a228e8361c03e157b4630e06510e03a61e53c7470d1be76f0  projects/go-pherence-transcribe-web/backends/simd/runtime/simd_amd64.s

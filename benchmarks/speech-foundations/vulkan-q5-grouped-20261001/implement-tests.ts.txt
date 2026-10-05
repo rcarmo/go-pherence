@@ -1,0 +1,39 @@
+const p='/var/home/agent/workspace/projects/go-pherence-transcribe-web/';
+let t=await Bun.file(p+'backends/vulkan/vulkan_linear_f16_weight_test.go').text();
+const st=t.indexOf('func TestVulkanOfflineLinearF16WeightBindingsAndLifetime'),en=t.indexOf('func TestVulkanOfflineLinearF16WeightAdmissionAndContract');
+t=t.slice(st,en).replaceAll('LinearF16Weight','LinearQ5Grouped').replace('VkBufAlloc(8)','VkBufAlloc(48)').replace('weightValues: 4','weightValues: 64').replace('inDim: 2, outDim: 2','inDim: 32, outDim: 2').replace('mustArena(t, 64)','mustArena(t, 320)').replace('mustTensor(t, a, 2, 2), mustTensor(t, a, 2), mustTensor(t, a, 2, 2)','mustTensor(t, a, 2, 32), mustTensor(t, a, 2), mustTensor(t, a, 2, 2)').replace('{{arenaHandle, 0, 16}, {uint64(weight.buf), 0, 8}, {arenaHandle, 16, 8}, {arenaHandle, 32, 16}}','{{arenaHandle, 0, 256}, {uint64(weight.buf), 0, 48}, {arenaHandle, 256, 8}, {arenaHandle, 272, 16}}').replace('[]uint32{2, 2, 2}','[]uint32{2, 32, 2}');
+let head=`package vulkan
+import("context";"errors";"encoding/binary";"math";"reflect";"testing";"time";"unsafe";"os";"github.com/rcarmo/go-pherence/half")
+
+func TestVulkanOfflineQ5GroupedPacking(t *testing.T){
+ for _,count:=range []int{1,2,63,64,65,1025}{
+  raw:=make([]byte,count*22);for i:=range raw{raw[i]=byte(i*37+19)}
+  for b:=0;b<count;b++{binary.LittleEndian.PutUint16(raw[b*22:],uint16(b%0x7c00))}
+  before:=append([]byte(nil),raw...);words,err:=packLinearQ5Blocks(context.Background(),raw);if err!=nil||len(words)!=count*6{t.Fatal(count,err)}
+  if !reflect.DeepEqual(before,raw){t.Fatal("mutated source")}
+  for b:=0;b<count;b++{if words[b*6]>>16!=0{t.Fatal("padding")};for j:=0;j<22;j++{index:=j;if index>=2{index+=2};got:=byte(words[b*6+index/4]>>uint(index%4*8));if got!=raw[b*22+j]{t.Fatal("packing",b,j)}}}
+ }
+ for _,raw:=range [][]byte{nil,make([]byte,21),make([]byte,23)}{if w,err:=packLinearQ5Blocks(context.Background(),raw);w!=nil||err==nil{t.Fatal("block boundary")}}
+ for _,h:=range []uint16{0x7c00,0xfc00,0x7c01,0xffff}{raw:=make([]byte,22);binary.LittleEndian.PutUint16(raw,h);if _,err:=packLinearQ5Blocks(context.Background(),raw);err==nil{t.Fatal("nonfinite scale")}}
+ if _,err:=packLinearQ5Blocks(nil,make([]byte,22));err==nil{t.Fatal("nil context")};ctx,cancel:=context.WithCancel(context.Background());cancel();if _,err:=packLinearQ5Blocks(ctx,make([]byte,22));!errors.Is(err,context.Canceled){t.Fatal("cancel",err)}
+}
+func TestVulkanOfflineQ5GroupedIndependentValues(t *testing.T){
+ raw,err:=os.ReadFile("testdata/q5-grouped-input.bin");if err!=nil{t.Fatal(err)};oracle,err:=os.ReadFile("testdata/q5-grouped-output.f32");if err!=nil{t.Fatal(err)}
+ words,err:=packLinearQ5Blocks(context.Background(),raw);if err!=nil||len(oracle)!=len(raw)/22*32*4{t.Fatal(err)}
+ for b:=0;b<len(raw)/22;b++{scale:=half.F16ToF32(uint16(words[b*6]));high:=words[b*6+1];for i:=0;i<32;i++{j:=i%16;qbyte:=byte(words[b*6+2+j/4]>>uint(j%4*8));q:=uint32(qbyte&15);if i>=16{q=uint32(qbyte>>4)};q|=((high>>uint(i))&1)<<4;got:=scale*float32(int(q)-16);want:=binary.LittleEndian.Uint32(oracle[(b*32+i)*4:]);if math.Float32bits(got)!=want{t.Fatal("independent value",b,i,got,math.Float32frombits(want))}}}
+}
+func TestVulkanOfflineQ5GroupedAdmission(t *testing.T){
+ got,err:=InspectVulkanShader(spirv_linear_q5_grouped_f32);want:=VulkanShaderContract{LocalSize:[3]uint32{16,16,1},SharedBytes:16384,StorageBindings:15,PushBytes:12};if err!=nil||got!=want{t.Fatal(got,err)}
+ ctx,cancel:=context.WithCancel(context.Background());cancel();if op,err:=NewVkLinearQ5GroupedF32(ctx,make([]byte,22),1,32);op!=nil||!errors.Is(err,context.Canceled){t.Fatal("constructor cancel",err)}
+ if op,err:=NewVkLinearQ5GroupedF32(nil,nil,1,32);op!=nil||err==nil{t.Fatal("nil context")}
+ if err:=(*VkLinearQ5GroupedF32)(nil).Close();err!=nil{t.Fatal(err)}
+ offlineVK(t);for _,shape:=range [][2]int{{0,32},{1,31},{16385,32},{1,16416},{1,64}}{if op,err:=NewVkLinearQ5GroupedF32(context.Background(),make([]byte,22),shape[0],shape[1]);op!=nil||err==nil{t.Fatal("shape",shape)}}
+ vkLimits.SharedMemoryBytes=16383;if op,err:=NewVkLinearQ5GroupedF32(context.Background(),make([]byte,22),1,32);op!=nil||!errors.Is(err,ErrVulkanLimit){t.Fatal("shared memory",err)}
+}
+`;
+await Bun.write(p+'backends/vulkan/vulkan_linear_q5_grouped_test.go',head+t);
+const fixture=p+'benchmarks/speech-foundations/whisper-original-value-bridge-20261001/';
+await Bun.write(p+'backends/vulkan/testdata/q5-grouped-input.bin',await Bun.file(fixture+'q5-reference-input.bin').bytes());
+await Bun.write(p+'backends/vulkan/testdata/q5-grouped-output.f32',await Bun.file(fixture+'q5-reference-output.f32').bytes());
+let shader=await Bun.file(p+'scripts/check-vulkan-shaders.ts').text();shader=shader.replace("'linear_q8_weight_f32'","'linear_q8_weight_f32','linear_q5_grouped_f32'").replace("await Bun.file(join(root,'backends/vulkan/vulkan_spirv_attention_scoreilp.go')).text(),embedded","await Bun.file(join(root,'backends/vulkan/vulkan_spirv_attention_scoreilp.go')).text()+'\\n'+await Bun.file(join(root,'backends/vulkan/vulkan_spirv_linear_q5_grouped.go')).text(),embedded");await Bun.write(p+'scripts/check-vulkan-shaders.ts',shader);
+let check=await Bun.file(p+'scripts/check-vulkan-shaders.test.ts').text();check=check.replace('size).toBe(27)','size).toBe(28)').replace('await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_attention_scoreilp.go`).text();','await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_attention_scoreilp.go`).text()+\'\\n\'+await Bun.file(`${import.meta.dir}/../backends/vulkan/vulkan_spirv_linear_q5_grouped.go`).text();');await Bun.write(p+'scripts/check-vulkan-shaders.test.ts',check);

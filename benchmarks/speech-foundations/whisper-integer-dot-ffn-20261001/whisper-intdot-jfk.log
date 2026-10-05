@@ -1,0 +1,4 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:86: select explicit CPU/F32/selective-Q8 backend
+--- FAIL: TestWhisperPerformanceGoalArm (0.00s)
+FAIL

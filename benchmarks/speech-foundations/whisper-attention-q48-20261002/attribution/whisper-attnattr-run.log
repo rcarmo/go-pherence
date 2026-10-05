@@ -1,0 +1,8 @@
+=== RUN   TestZZAttentionAttributionDiagnostic
+    zz_attn_attrib_diag_test.go:115: ATTNDIAG base tile=16 attn_ms=54.224 base
+    zz_attn_attrib_diag_test.go:115: ATTNDIAG q32 tile=32 attn_ms=39.487 BITEXACT
+    zz_attn_attrib_diag_test.go:115: ATTNDIAG q32g tile=32 attn_ms=39.237 BITEXACT
+    zz_attn_attrib_diag_test.go:115: ATTNDIAG q48 tile=48 attn_ms=33.120 BITEXACT
+    zz_attn_attrib_diag_test.go:115: ATTNDIAG q64 tile=64 attn_ms=54.584 BITEXACT
+--- PASS: TestZZAttentionAttributionDiagnostic (22.17s)
+PASS

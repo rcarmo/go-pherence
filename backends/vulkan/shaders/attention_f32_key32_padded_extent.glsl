@@ -1,0 +1,117 @@
+#version 450
+layout(local_size_x=16, local_size_y=16) in;
+layout(set=0,binding=0) readonly buffer Q { float q[]; };
+layout(set=0,binding=1) readonly buffer K { float k[]; };
+layout(set=0,binding=2) readonly buffer V { float v[]; };
+layout(set=0,binding=3) buffer Out { float output_data[]; };
+layout(push_constant) uniform P { uint seqQ; uint seqKV; uint heads; uint headDim; float scale; };
+
+// Non-causal F32 attention. One group owns 16 queries of one head; lanes
+// cooperate on 32-key tiles and retain four output columns each in registers.
+// K and V reuse the same shared tile, separated by workgroup barriers.
+// Online max/sum rescaling avoids storing the full [heads,seqQ,seqKV] matrix.
+// Explicit headDim == 64 only: Q/K ordered channel FMA unrolled in groups of4.
+// Invalid query/key lanes zero-pad and reach barriers; softmax/output order unchanged.
+shared float qt[1024];
+shared float kv[2048];
+shared float probabilities[512];
+shared float rowMax[16];
+shared float rowSum[16];
+shared float rescale[16];
+
+void main() {
+    uint x = gl_LocalInvocationID.x;
+    uint y = gl_LocalInvocationID.y;
+    uint lane = y*16+x;
+    uint keyExtent=((seqKV+255u)/256u)*256u;
+    uint queryBase = gl_WorkGroupID.x*16;
+    uint headBase = gl_WorkGroupID.y*headDim;
+    uint width = heads*headDim;
+    precise float acc[4];
+    for (uint i=0; i<4; i++) acc[i]=0.0;
+    for (uint i=lane; i<1024; i+=256) {
+        uint r=i/64, d=i%64;
+        float value=0.0;
+        if (queryBase+r < seqQ) {
+            if (d < headDim) value=q[(queryBase+r)*width+headBase+d];
+        }
+        qt[i]=value;
+    }
+    if (x==0) { rowMax[y]=0.0; rowSum[y]=0.0; }
+    barrier();
+    for (uint base=0; base<keyExtent; base+=32) {
+        for (uint i=lane; i<2048; i+=256) {
+            uint r=i/64, d=i%64;
+            float value=0.0;
+            if (base+r < seqKV) {
+                if (d < headDim) value=k[(base+r)*width+headBase+d];
+            }
+            kv[i]=value;
+        }
+        barrier();
+        precise float score0=0.0,score1=0.0;
+        for(uint channel=0;channel<64;channel+=4){
+        {float qvalue=qt[y*64+(channel+0)];score0=fma(qvalue,kv[x*64+(channel+0)],score0);score1=fma(qvalue,kv[(x+16)*64+(channel+0)],score1);}
+        {float qvalue=qt[y*64+(channel+1)];score0=fma(qvalue,kv[x*64+(channel+1)],score0);score1=fma(qvalue,kv[(x+16)*64+(channel+1)],score1);}
+        {float qvalue=qt[y*64+(channel+2)];score0=fma(qvalue,kv[x*64+(channel+2)],score0);score1=fma(qvalue,kv[(x+16)*64+(channel+2)],score1);}
+        {float qvalue=qt[y*64+(channel+3)];score0=fma(qvalue,kv[x*64+(channel+3)],score0);score1=fma(qvalue,kv[(x+16)*64+(channel+3)],score1);}
+        }
+        probabilities[y*32+x]=score0*scale;
+        probabilities[y*32+x+16]=score1*scale;
+        barrier();
+        if (x==0) {
+            float m=probabilities[y*32]; // base < keyExtent: real or virtual key zero is valid.
+            for (uint j=1; j<32; j++) {
+                if (base+j < keyExtent) {
+                    if (m < probabilities[y*32+j]) m=probabilities[y*32+j];
+                }
+            }
+            precise float alpha=0.0;
+            if (base > 0) {
+                if (m < rowMax[y]) m=rowMax[y];
+                alpha=exp(rowMax[y]-m);
+            }
+            rowMax[y]=m;
+            rescale[y]=alpha;
+        }
+        barrier();
+        for(uint j=x; j<32; j+=16) {
+            precise float p=0.0;
+            if(base+j<keyExtent)p=exp(probabilities[y*32+j]-rowMax[y]);
+            probabilities[y*32+j]=p;
+        }
+        barrier();
+        if(x==0) {
+            precise float sum=0.0;
+            for(uint j=0;j<32;j++)sum+=probabilities[y*32+j];
+            rowSum[y]=rowSum[y]*rescale[y]+sum;
+        }
+        // All K readers and probability writers finish before K becomes V.
+        barrier();
+        for (uint i=lane; i<2048; i+=256) {
+            uint r=i/64, d=i%64;
+            float value=0.0;
+            if (base+r < seqKV) {
+                if (d < headDim) value=v[(base+r)*width+headBase+d];
+            }
+            kv[i]=value;
+        }
+        barrier();
+        for(uint i=0;i<4;i++)acc[i]*=rescale[y];
+        for(uint baseJ=0;baseJ<32;baseJ+=1){
+         {uint j=baseJ+0;float p=probabilities[y*32+j];
+         acc[0]=fma(p,kv[j*64+x+0],acc[0]);
+         acc[1]=fma(p,kv[j*64+x+16],acc[1]);
+         acc[2]=fma(p,kv[j*64+x+32],acc[2]);
+         acc[3]=fma(p,kv[j*64+x+48],acc[3]);
+         }
+        }
+        barrier(); // All V/probability readers finish before the next key tile.
+    }
+    if (queryBase+y < seqQ) {
+        for (uint i=0; i<4; i++) {
+            uint d=x+i*16;
+            if (d < headDim) output_data[(queryBase+y)*width+headBase+d]=acc[i]/rowSum[y];
+        }
+    }
+}

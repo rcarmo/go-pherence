@@ -1,0 +1,13 @@
+let s=await Bun.file('tmp/whisper-state-parity-20261001/whisper-diagnostic.cpp').text();const start=s.indexOf('static struct ggml_cgraph * whisper_build_graph_encoder('),end=s.indexOf('static struct ggml_cgraph * whisper_build_graph_cross',start);if(start<0||end<0)throw Error('bounds');let enc=s.slice(start,end);const edits=[
+['// self-attention','if(il==0)ggml_set_name(cur,"diag-op0-norm");\n        // self-attention'],
+['Qcur = ggml_add(ctx0, Qcur, layer.attn_q_b);','Qcur = ggml_add(ctx0, Qcur, layer.attn_q_b);\n            if(il==0)ggml_set_name(Qcur,"diag-op1-q");'],
+['struct ggml_tensor * Kcur = ggml_mul_mat(ctx0,\n                    layer.attn_k_w,\n                    cur);','struct ggml_tensor * Kcur = ggml_mul_mat(ctx0,\n                    layer.attn_k_w,\n                    cur);\n            if(il==0)ggml_set_name(Kcur,"diag-op2-k");'],
+['Vcur = ggml_add(ctx0, Vcur, layer.attn_v_b);','Vcur = ggml_add(ctx0, Vcur, layer.attn_v_b);\n            if(il==0)ggml_set_name(Vcur,"diag-op3-v");'],
+['cur = ggml_mul_mat(ctx0,\n                    layer.attn_ln_1_w,\n                    cur);','if(il==0)ggml_set_name(cur,"diag-op4-attention");\n            cur = ggml_mul_mat(ctx0,\n                    layer.attn_ln_1_w,\n                    cur);'],
+['cur = ggml_add(ctx0, cur, layer.attn_ln_1_b);','cur = ggml_add(ctx0, cur, layer.attn_ln_1_b);\n            if(il==0)ggml_set_name(cur,"diag-op5-o");'],
+['struct ggml_tensor * inpFF = cur;','struct ggml_tensor * inpFF = cur;\n        if(il==0)ggml_set_name(inpFF,"diag-op6-residual");'],
+['cur = ggml_mul_mat(ctx0,\n                    layer.mlp_0_w,\n                    cur);','if(il==0)ggml_set_name(cur,"diag-op7-ffnorm");\n            cur = ggml_mul_mat(ctx0,\n                    layer.mlp_0_w,\n                    cur);'],
+['cur = ggml_add(ctx0, cur, layer.mlp_0_b);','cur = ggml_add(ctx0, cur, layer.mlp_0_b);\n            if(il==0)ggml_set_name(cur,"diag-op8-fc1");'],
+['cur = ggml_gelu(ctx0, cur);','cur = ggml_gelu(ctx0, cur);\n            if(il==0)ggml_set_name(cur,"diag-op9-gelu");'],
+['cur = ggml_add(ctx0, cur, layer.mlp_1_b);','cur = ggml_add(ctx0, cur, layer.mlp_1_b);\n            if(il==0)ggml_set_name(cur,"diag-op10-fc2");']
+];for(const [old,replacement]of edits){if(enc.split(old).length!==2)throw Error('unique anchor '+old);enc=enc.replace(old,replacement)}await Bun.write('tmp/whisper-state-parity-20261001/whisper-diagnostic.cpp',s.slice(0,start)+enc+s.slice(end));

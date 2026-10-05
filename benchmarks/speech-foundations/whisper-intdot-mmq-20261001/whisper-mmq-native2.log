@@ -1,0 +1,13 @@
+=== RUN   TestVulkanNativeQ5IntegerDotMMQExact
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=1 in=128 out=1 values=1 repeats=5 base=0.000595 mmq=0.000452
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=1 in=128 out=64 values=64 repeats=5 base=0.000325 mmq=0.000329
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=63 in=128 out=65 values=4095 repeats=5 base=0.000344 mmq=0.000375
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=65 in=256 out=130 values=8450 repeats=5 base=0.000498 mmq=0.000442
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=2 in=384 out=191 values=382 repeats=5 base=0.000477 mmq=0.000425
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=129 in=1280 out=64 values=8256 repeats=5 base=0.001010 mmq=0.000854
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=1500 in=1280 out=1280 values=1920000 repeats=5 base=0.016253 mmq=0.009676
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=1500 in=1280 out=5120 values=7680000 repeats=5 base=0.025952 mmq=0.013455
+    vulkan_q5_integer_mmq_native_test.go:116: INTDOT_MMQ_EXACT rows=1500 in=5120 out=1280 values=1920000 repeats=5 base=0.023532 mmq=0.016252
+    vulkan_q5_integer_mmq_native_test.go:123: INTDOT_MMQ_EXACT_PASS
+--- PASS: TestVulkanNativeQ5IntegerDotMMQExact (1.14s)
+PASS

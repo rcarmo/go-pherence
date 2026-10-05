@@ -1,0 +1,45 @@
+package simd
+
+import (
+	"math"
+	"math/rand"
+	"testing"
+	"time"
+)
+
+func sdotQ5_0Asm2(x []float32, raw []byte, blocks int) float32
+
+func TestZZQ5v2Exact(t *testing.T) {
+	if !HasSdotQ5_0Asm {
+		t.Skip()
+	}
+	r := rand.New(rand.NewSource(11))
+	for it := 0; it < 3000; it++ {
+		blocks := 1 + r.Intn(200)
+		raw := randomQ5Row(r, blocks)
+		x := make([]float32, blocks*32)
+		for i := range x {
+			x[i] = float32(r.NormFloat64() * math.Pow(2, float64(r.Intn(20)-10)))
+		}
+		a, b, ref := sdotQ5_0Asm(x, raw, blocks), sdotQ5_0Asm2(x, raw, blocks), SdotQ5_0Ref(x, raw)
+		if math.Float32bits(a) != math.Float32bits(b) || math.Float32bits(ref) != math.Float32bits(b) {
+			if !(math.IsNaN(float64(a)) && math.IsNaN(float64(b))) {
+				t.Fatal(it, a, b, ref)
+			}
+		}
+	}
+	r = rand.New(rand.NewSource(3))
+	raw := randomQ5Row(r, 40)
+	x := make([]float32, 40*32)
+	for i := range x {
+		x[i] = float32(r.NormFloat64())
+	}
+	for _, f := range []func([]float32, []byte, int) float32{sdotQ5_0Asm, sdotQ5_0Asm2, sdotQ5_0Asm, sdotQ5_0Asm2} {
+		st := time.Now()
+		var s float32
+		for i := 0; i < 2000000; i++ {
+			s += f(x, raw, 40)
+		}
+		t.Logf("%.3f ns/block %v", float64(time.Since(st).Nanoseconds())/2000000/40, s)
+	}
+}

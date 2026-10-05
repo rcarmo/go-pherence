@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeIntegerQ8Oracle
+    vulkan_q8_integer_oracle_test.go:209: Q8_ORACLE blocks=205 words=1845 repeat=5 Q5Q8 outputs exact; ties=nearest-even explicit diagnostic
+--- PASS: TestVulkanNativeIntegerQ8Oracle (0.05s)
+PASS

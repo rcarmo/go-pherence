@@ -1,0 +1,185 @@
+{
+	"systeminfo": "WHISPER : VITISAI = 0 | COREML = 0 | OPENVINO = 0 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX_VNNI = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | OPENMP = 1 | REPACK = 1 | ",
+	"model": {
+		"type": "large",
+		"multilingual": true,
+		"vocab": 51866,
+		"audio": {
+			"ctx": 1500,
+			"state": 1280,
+			"head": 20,
+			"layer": 32
+		},
+		"text": {
+			"ctx": 448,
+			"state": 1280,
+			"head": 20,
+			"layer": 4
+		},
+		"mels": 128,
+		"ftype": 8
+	},
+	"params": {
+		"model": "/var/home/agent/workspace/projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin",
+		"language": "fr",
+		"translate": false
+	},
+	"result": {
+		"language": "fr"
+	},
+	"transcription": [
+		{
+			"timestamps": {
+				"from": "00:00:00,000",
+				"to": "00:00:02,420"
+			},
+			"offsets": {
+				"from": 0,
+				"to": 2420
+			},
+			"text": " Je souhaite changer mon adresse.",
+			"tokens": [
+				{
+					"text": "[_BEG_]",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,000"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 0
+					},
+					"id": 50365,
+					"p": 0.298393,
+					"t_dtw": -1
+				},
+				{
+					"text": " Je",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,170"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 170
+					},
+					"id": 2588,
+					"p": 0.902968,
+					"t_dtw": -1
+				},
+				{
+					"text": " souha",
+					"timestamps": {
+						"from": "00:00:00,290",
+						"to": "00:00:00,610"
+					},
+					"offsets": {
+						"from": 290,
+						"to": 610
+					},
+					"id": 45214,
+					"p": 0.994363,
+					"t_dtw": -1
+				},
+				{
+					"text": "ite",
+					"timestamps": {
+						"from": "00:00:00,610",
+						"to": "00:00:00,870"
+					},
+					"offsets": {
+						"from": 610,
+						"to": 870
+					},
+					"id": 642,
+					"p": 0.999312,
+					"t_dtw": -1
+				},
+				{
+					"text": " changer",
+					"timestamps": {
+						"from": "00:00:00,990",
+						"to": "00:00:01,490"
+					},
+					"offsets": {
+						"from": 990,
+						"to": 1490
+					},
+					"id": 22822,
+					"p": 0.993445,
+					"t_dtw": -1
+				},
+				{
+					"text": " mon",
+					"timestamps": {
+						"from": "00:00:01,490",
+						"to": "00:00:01,750"
+					},
+					"offsets": {
+						"from": 1490,
+						"to": 1750
+					},
+					"id": 1108,
+					"p": 0.99051,
+					"t_dtw": -1
+				},
+				{
+					"text": " ad",
+					"timestamps": {
+						"from": "00:00:01,750",
+						"to": "00:00:01,920"
+					},
+					"offsets": {
+						"from": 1750,
+						"to": 1920
+					},
+					"id": 614,
+					"p": 0.996031,
+					"t_dtw": -1
+				},
+				{
+					"text": "resse",
+					"timestamps": {
+						"from": "00:00:01,920",
+						"to": "00:00:02,280"
+					},
+					"offsets": {
+						"from": 1920,
+						"to": 2280
+					},
+					"id": 22603,
+					"p": 0.999567,
+					"t_dtw": -1
+				},
+				{
+					"text": ".",
+					"timestamps": {
+						"from": "00:00:02,280",
+						"to": "00:00:02,420"
+					},
+					"offsets": {
+						"from": 2280,
+						"to": 2420
+					},
+					"id": 13,
+					"p": 0.946576,
+					"t_dtw": -1
+				},
+				{
+					"text": "[_TT_121]",
+					"timestamps": {
+						"from": "00:00:02,420",
+						"to": "00:00:02,420"
+					},
+					"offsets": {
+						"from": 2420,
+						"to": 2420
+					},
+					"id": 50486,
+					"p": 0.483666,
+					"t_dtw": -1
+				}
+			]
+		}
+	]
+}

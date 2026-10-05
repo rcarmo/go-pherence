@@ -1,0 +1,5 @@
+2026-10-01T16:55:21Z
+b37e8cca32274f2d83f6b7cfb2720b2d30b50e2b
+9a82517c8d561baadff3aa4d98e4bb8f0bcfea27eaa8274f9b5bf528c41b6bad  tmp/whisper-vad-parity-20261001/decoder-rows.test
+c2659d1912b14427c7c49878f0aa8610588830802dd0d22a80c36a31d4832eb3  tmp/whisper-vad-parity-20261001/decoder-rows-candidate.test
+d477367b3388e0b2709fd71481dccd713fe4c4f15c7ada93ba44d598772db3ec  tmp/whisper-vad-parity-20261001/decoder-rows-final.test

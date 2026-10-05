@@ -1,0 +1,4634 @@
+{
+  "status": "original speed parity fails; quality/timing equality fails VAD fixture; goal remains open",
+  "scope": "pinned source/features/resources and reusable-request wall boundary; different arithmetic, decode placement, VAD windowing and alignment; diagnostic not general acceptance",
+  "pairs": [
+    {
+      "fixture": "jfk",
+      "options": "vad0-words0",
+      "original": {
+        "request_median": 3.017796746,
+        "samples": [
+          4.419622874,
+          3.057297067,
+          3.017796746,
+          3.004453702,
+          3.014565646
+        ],
+        "load": 0.300325096,
+        "first": 4.419622874,
+        "setup_plus_first": 4.71994797,
+        "cleanup": 0.012435539,
+        "full_five_request_arm": 16.828280502,
+        "segments": [
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50885
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50885
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50885
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50885
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50885
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 6.310709736,
+        "samples": [
+          6.350729831,
+          6.287154606,
+          6.291913214,
+          6.310709736,
+          6.350338624
+        ],
+        "load": 2.871519327,
+        "preparation": 0.891026228,
+        "first": 6.350729831,
+        "setup_plus_first": 10.113275386,
+        "cleanup": 0.005418556,
+        "full_five_request_arm": 35.359851242,
+        "segments": [
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 10.4,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.171470455,
+          "DecoderCrossSeconds": 0.217300788,
+          "DecoderMLPSeconds": 0.359585458,
+          "DecoderHeadSeconds": 0.180050236
+        }
+      },
+      "request_ratio": 2.091164603568699,
+      "content_tokens_equal": true,
+      "text_equal": true,
+      "segment_times_equal": true,
+      "scope": "same file/feature/workflow boundary, distinct arithmetic and GPU decoder vs CPU decoder"
+    },
+    {
+      "fixture": "jfk",
+      "options": "vad1-words0",
+      "original": {
+        "request_median": 3.028034427,
+        "samples": [
+          4.448967744,
+          3.084860434,
+          3.007516706,
+          3.024357434,
+          3.028034427
+        ],
+        "load": 0.283058471,
+        "first": 4.448967744,
+        "setup_plus_first": 4.732026215,
+        "cleanup": 0.010674012,
+        "full_five_request_arm": 16.889007439,
+        "segments": [
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 6.536566684,
+        "samples": [
+          6.599851019,
+          6.53421875,
+          6.536566684,
+          6.498446373,
+          6.587451264
+        ],
+        "load": 2.87282352,
+        "preparation": 0.89342194,
+        "first": 6.599851019,
+        "setup_plus_first": 10.366096479,
+        "cleanup": 0.005821096,
+        "full_five_request_arm": 36.529555706,
+        "segments": [
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.203074397,
+          "DecoderCrossSeconds": 0.257704825,
+          "DecoderMLPSeconds": 0.424282049,
+          "DecoderHeadSeconds": 0.208774908
+        }
+      },
+      "request_ratio": 2.158683080256802,
+      "content_tokens_equal": false,
+      "text_equal": false,
+      "segment_times_equal": false,
+      "scope": "same file/feature/workflow boundary, distinct arithmetic and GPU decoder vs CPU decoder"
+    },
+    {
+      "fixture": "jfk",
+      "options": "vad1-words1",
+      "original": {
+        "request_median": 3.031818391,
+        "samples": [
+          4.392212263,
+          3.067505668,
+          3.026675121,
+          3.031818391,
+          3.024185557
+        ],
+        "load": 0.284299808,
+        "first": 4.392212263,
+        "setup_plus_first": 4.676512071,
+        "cleanup": 0.01090847,
+        "full_five_request_arm": 16.838788789,
+        "segments": [
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 7.47,
+              "text": "And so, my fellow Americans, ask not what your country can do for you.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                13,
+                50644
+              ]
+            },
+            {
+              "start": 8.19,
+              "end": 10.37,
+              "text": "Ask what you can do for your country.",
+              "ids": [
+                12320,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 7.524436355,
+        "samples": [
+          7.613621689,
+          7.492934784,
+          7.5231630240000005,
+          7.524797471,
+          7.524436355
+        ],
+        "load": 2.870383893,
+        "preparation": 0.893587807,
+        "first": 7.613621689,
+        "setup_plus_first": 11.377593389000001,
+        "cleanup": 0.004672083,
+        "full_five_request_arm": 41.448500709,
+        "segments": [
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.394072256,
+          "DecoderCrossSeconds": 0.498967212,
+          "DecoderMLPSeconds": 0.821258267,
+          "DecoderHeadSeconds": 0.404898617
+        }
+      },
+      "request_ratio": 2.481822914372578,
+      "content_tokens_equal": false,
+      "text_equal": false,
+      "segment_times_equal": false,
+      "scope": "token timestamps vs Go CPU DTW; not alignment matched"
+    },
+    {
+      "fixture": "pt",
+      "options": "vad0-words0",
+      "original": {
+        "request_median": 3.018897796,
+        "samples": [
+          4.361736133,
+          3.030929339,
+          2.992304619,
+          2.990187344,
+          3.018897796
+        ],
+        "load": 0.290684482,
+        "first": 4.361736133,
+        "setup_plus_first": 4.652420615,
+        "cleanup": 0.012698831,
+        "full_five_request_arm": 16.698520459,
+        "segments": [
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                50365,
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13,
+                50733
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                50365,
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13,
+                50733
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                50365,
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13,
+                50733
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                50365,
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13,
+                50733
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                50365,
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13,
+                50733
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 6.268739023,
+        "samples": [
+          6.543676608,
+          6.291168675,
+          6.266577396,
+          6.268739023,
+          6.261885174
+        ],
+        "load": 2.868199262,
+        "preparation": 0.898260329,
+        "first": 6.543676608,
+        "setup_plus_first": 10.310136199,
+        "cleanup": 0.00572732,
+        "full_five_request_arm": 35.405214983,
+        "segments": [
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0,
+              "end": 7.36,
+              "text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+              "ids": [
+                19812,
+                6801,
+                11,
+                17660,
+                257,
+                11742,
+                289,
+                4021,
+                7974,
+                4061,
+                368,
+                42542,
+                5473,
+                2617,
+                1136,
+                631,
+                2228,
+                22501,
+                19930,
+                3981,
+                23760,
+                1667,
+                11720,
+                24001,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.166941991,
+          "DecoderCrossSeconds": 0.213270956,
+          "DecoderMLPSeconds": 0.348231584,
+          "DecoderHeadSeconds": 0.177530344
+        }
+      },
+      "request_ratio": 2.0764992545643635,
+      "content_tokens_equal": true,
+      "text_equal": true,
+      "segment_times_equal": true,
+      "scope": "same file/feature/workflow boundary, distinct arithmetic and GPU decoder vs CPU decoder"
+    },
+    {
+      "fixture": "groups",
+      "options": "vad1-words0",
+      "original": {
+        "request_median": 3.25692383,
+        "samples": [
+          4.790442645,
+          3.364028897,
+          3.256481592,
+          3.25455445,
+          3.25692383
+        ],
+        "load": 0.286514955,
+        "first": 4.790442645,
+        "setup_plus_first": 5.0769576,
+        "cleanup": 0.009870818,
+        "full_five_request_arm": 18.222946546,
+        "segments": [
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 13.18138081,
+        "samples": [
+          13.197218921,
+          13.177240937,
+          13.18138081,
+          13.212749561,
+          13.142004392
+        ],
+        "load": 2.871598448,
+        "preparation": 0.894019212,
+        "first": 13.197218921,
+        "setup_plus_first": 16.962836580999998,
+        "cleanup": 0.005575875,
+        "full_five_request_arm": 69.683096679,
+        "segments": [
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.407163843,
+          "DecoderCrossSeconds": 0.518667059,
+          "DecoderMLPSeconds": 0.850222564,
+          "DecoderHeadSeconds": 0.414609833
+        }
+      },
+      "request_ratio": 4.047187314785928,
+      "content_tokens_equal": false,
+      "text_equal": false,
+      "segment_times_equal": false,
+      "scope": "one compacted vs two gap-preserved encoder windows; not compute/output matched"
+    },
+    {
+      "fixture": "groups",
+      "options": "vad1-words1",
+      "original": {
+        "request_median": 3.309099065,
+        "samples": [
+          4.788965054,
+          3.350802097,
+          3.293583566,
+          3.289647872,
+          3.309099065
+        ],
+        "load": 0.285495351,
+        "first": 4.788965054,
+        "setup_plus_first": 5.074460405,
+        "cleanup": 0.01214325,
+        "full_five_request_arm": 18.333800413,
+        "segments": [
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.32,
+              "end": 10.37,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                50365,
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                50775
+              ]
+            },
+            {
+              "start": 10.37,
+              "end": 54.38,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13,
+                51208
+              ]
+            }
+          ]
+        ]
+      },
+      "go": {
+        "request_median": 15.157152849,
+        "samples": [
+          15.279441601,
+          15.150516083,
+          15.157152849,
+          15.156361404,
+          15.183127458
+        ],
+        "load": 2.879995427,
+        "preparation": 0.907726819,
+        "first": 15.279441601,
+        "setup_plus_first": 19.067163847,
+        "cleanup": 0.004705575,
+        "full_five_request_arm": 79.719940643,
+        "segments": [
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ],
+          [
+            {
+              "start": 0.322,
+              "end": 10.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 10.382,
+              "end": 10.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            },
+            {
+              "start": 44.322,
+              "end": 54.382,
+              "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+              "ids": [
+                400,
+                370,
+                11,
+                452,
+                7177,
+                6280,
+                11,
+                1029,
+                406,
+                437,
+                428,
+                1941,
+                393,
+                360,
+                337,
+                291,
+                11,
+                1029,
+                437,
+                291,
+                393,
+                360,
+                337,
+                428,
+                1941,
+                13
+              ]
+            },
+            {
+              "start": 54.382,
+              "end": 54.622,
+              "text": "Thank you.",
+              "ids": [
+                1044,
+                291,
+                13
+              ]
+            }
+          ]
+        ],
+        "decoder_component_medians": {
+          "DecoderSelfSeconds": 0.784724668,
+          "DecoderCrossSeconds": 1.010078191,
+          "DecoderMLPSeconds": 1.637745484,
+          "DecoderHeadSeconds": 0.803629107
+        }
+      },
+      "request_ratio": 4.580446989126329,
+      "content_tokens_equal": false,
+      "text_equal": false,
+      "segment_times_equal": false,
+      "scope": "token timestamps vs Go CPU DTW; not alignment matched"
+    }
+  ],
+  "original_additional_runs": [
+    {
+      "arm": "jfk-nointdot",
+      "request_median": 5.792018884,
+      "samples": [
+        9.26274381,
+        5.82452963,
+        5.785567686,
+        5.792018884,
+        5.777794375
+      ],
+      "load": 0.286612439,
+      "first": 9.26274381,
+      "setup_plus_first": 9.549356249,
+      "cleanup": 0.010363494,
+      "full_five_request_arm": 32.741219205,
+      "segments": [
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ]
+      ],
+      "scope": "separate arithmetic ablation/final harness rerun; not strict matched pair"
+    },
+    {
+      "arm": "jfk-nof16",
+      "request_median": 2.896999179,
+      "samples": [
+        4.191298263,
+        3.056306786,
+        2.876459576,
+        2.896999179,
+        2.887090093
+      ],
+      "load": 0.286341062,
+      "first": 4.191298263,
+      "setup_plus_first": 4.477639325,
+      "cleanup": 0.010336531,
+      "full_five_request_arm": 16.205988572,
+      "segments": [
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0,
+            "end": 10.4,
+            "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              11,
+              1029,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50885
+            ]
+          }
+        ]
+      ],
+      "scope": "separate arithmetic ablation/final harness rerun; not strict matched pair"
+    },
+    {
+      "arm": "jfk-vad1-final",
+      "request_median": 3.037484772,
+      "samples": [
+        4.398696024,
+        3.055166959,
+        3.022690202,
+        3.037484772,
+        3.022974439
+      ],
+      "load": 0.30377041,
+      "first": 4.398696024,
+      "setup_plus_first": 4.702466434000001,
+      "cleanup": 0.010549089,
+      "full_five_request_arm": 16.853092686,
+      "segments": [
+        [
+          {
+            "start": 0.32,
+            "end": 7.47,
+            "text": "And so, my fellow Americans, ask not what your country can do for you.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              13,
+              50644
+            ]
+          },
+          {
+            "start": 8.19,
+            "end": 10.37,
+            "text": "Ask what you can do for your country.",
+            "ids": [
+              12320,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50775
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0.32,
+            "end": 7.47,
+            "text": "And so, my fellow Americans, ask not what your country can do for you.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              13,
+              50644
+            ]
+          },
+          {
+            "start": 8.19,
+            "end": 10.37,
+            "text": "Ask what you can do for your country.",
+            "ids": [
+              12320,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50775
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0.32,
+            "end": 7.47,
+            "text": "And so, my fellow Americans, ask not what your country can do for you.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              13,
+              50644
+            ]
+          },
+          {
+            "start": 8.19,
+            "end": 10.37,
+            "text": "Ask what you can do for your country.",
+            "ids": [
+              12320,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50775
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0.32,
+            "end": 7.47,
+            "text": "And so, my fellow Americans, ask not what your country can do for you.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              13,
+              50644
+            ]
+          },
+          {
+            "start": 8.19,
+            "end": 10.37,
+            "text": "Ask what you can do for your country.",
+            "ids": [
+              12320,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50775
+            ]
+          }
+        ],
+        [
+          {
+            "start": 0.32,
+            "end": 7.47,
+            "text": "And so, my fellow Americans, ask not what your country can do for you.",
+            "ids": [
+              50365,
+              400,
+              370,
+              11,
+              452,
+              7177,
+              6280,
+              11,
+              1029,
+              406,
+              437,
+              428,
+              1941,
+              393,
+              360,
+              337,
+              291,
+              13,
+              50644
+            ]
+          },
+          {
+            "start": 8.19,
+            "end": 10.37,
+            "text": "Ask what you can do for your country.",
+            "ids": [
+              12320,
+              437,
+              291,
+              393,
+              360,
+              337,
+              428,
+              1941,
+              13,
+              50775
+            ]
+          }
+        ]
+      ],
+      "scope": "separate arithmetic ablation/final harness rerun; not strict matched pair"
+    }
+  ],
+  "go_compaction_diagnostic": {
+    "request_median": 7.46862146,
+    "samples": [
+      7.558389498,
+      7.471618121,
+      7.455627925,
+      7.456622448,
+      7.46862146
+    ],
+    "load": 2.891049356,
+    "preparation": 0.893344356,
+    "first": 7.558389498,
+    "setup_plus_first": 11.34278321,
+    "cleanup": 0.005855396,
+    "full_five_request_arm": 41.202036819,
+    "segments": [
+      [
+        {
+          "start": 0.322,
+          "end": 7.462,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 8.206,
+          "end": 10.366,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "start": 10.366,
+          "end": 51.446,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 52.21,
+          "end": 54.37,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      [
+        {
+          "start": 0.322,
+          "end": 7.462,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 8.206,
+          "end": 10.366,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "start": 10.366,
+          "end": 51.446,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 52.21,
+          "end": 54.37,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      [
+        {
+          "start": 0.322,
+          "end": 7.462,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 8.206,
+          "end": 10.366,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "start": 10.366,
+          "end": 51.446,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 52.21,
+          "end": 54.37,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      [
+        {
+          "start": 0.322,
+          "end": 7.462,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 8.206,
+          "end": 10.366,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "start": 10.366,
+          "end": 51.446,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 52.21,
+          "end": 54.37,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      [
+        {
+          "start": 0.322,
+          "end": 7.462,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 8.206,
+          "end": 10.366,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "start": 10.366,
+          "end": 51.446,
+          "text": "And so, my fellow Americans, ask not what your country can do for you.",
+          "ids": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            13
+          ]
+        },
+        {
+          "start": 52.21,
+          "end": 54.37,
+          "text": "Ask what you can do for your country.",
+          "ids": [
+            12320,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ]
+    ],
+    "decoder_component_medians": {
+      "DecoderSelfSeconds": 0.356032086,
+      "DecoderCrossSeconds": 0.445932546,
+      "DecoderMLPSeconds": 0.737113466,
+      "DecoderHeadSeconds": 0.364831574
+    }
+  },
+  "fenced_encoder_stage_mean_seconds": {
+    "conv": 0.11862341533333334,
+    "gelu": 0.07616109233333332,
+    "add": 0.07496472700000004,
+    "norm": 0.06459468466666664,
+    "q": 0.3018171166666666,
+    "k": 0.2994858733333333,
+    "v": 0.2995613143333335,
+    "attention": 1.7334845609999996,
+    "o": 0.298665935,
+    "fc1": 0.9967847709999994,
+    "fc2": 1.0325831239999999
+  },
+  "original_public_timings": "mean per call, not additive totals; excluded from gap sums",
+  "pins": [
+    {
+      "path": "projects/whisper-stt/models/ggml-large-v3-turbo-q5_0.bin",
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+    },
+    {
+      "path": "projects/whisper-stt/models/ggml-silero-v6.2.0.bin",
+      "sha256": "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987"
+    },
+    {
+      "path": "projects/whisper-stt/runtime/build-vulkan/bin/libwhisper.so.1.9.3",
+      "sha256": "ce2479a03c213df7ef377c9751a5d6aecfe5f90894f8e1eec20062b8bc86edad"
+    },
+    {
+      "path": "tmp/whisper-vad-parity-20261001/refresh-go.test",
+      "sha256": "866797859a8f7b5e5f976e552bed41c637c90fbf0576c43684e8d665bd128499"
+    },
+    {
+      "path": "tmp/whisper-vad-parity-20261001/refresh-original",
+      "sha256": "649d9812d2bf5e8b6033d0a7c9debdffbc2e7b894ff4842a9cca5a8148968d20"
+    },
+    {
+      "path": "tmp/whisper-vad-parity-20261001/refresh-original-final",
+      "sha256": "9e156f9723223153b3208d0745490a0f78df0862d19e989306b4016f83afc7b8"
+    }
+  ]
+}

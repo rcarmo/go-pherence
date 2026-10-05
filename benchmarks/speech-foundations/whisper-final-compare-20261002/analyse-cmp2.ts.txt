@@ -1,0 +1,22 @@
+const E='/var/home/agent/workspace/tmp/whisper-vad-parity-20261001';
+const med=(a:number[])=>{const s=[...a].sort((x,y)=>x-y);return s[s.length>>1]};
+const rows:any[]=[];
+for(const f of ['jfk','pt','pt2','jfkvad','groupsvad']){
+ const r:any={f};
+ for(const p of ['a','b']){
+  const o=await Bun.file(`${E}/cmp2-orig-${f}-${p}.json`).json(), g=await Bun.file(`${E}/cmp2-go-${f}-${p}.json`).json();
+  const os=o.samples.map((s:any)=>s.request_seconds), gs=g.Samples.map((s:any)=>s.request_seconds);
+  r[`o_${p}`]=med(os); r[`g_${p}`]=med(gs); r[`o_${p}_all`]=os.map((x:number)=>x.toFixed(3)).join(' '); r[`g_${p}_all`]=gs.map((x:number)=>x.toFixed(3)).join(' ');
+  // text
+  const ot=o.samples.map((s:any)=>s.segments.map((x:any)=>`${x.start_cs}-${x.end_cs}:${x.text.trim()}`).join(' | '));
+  const segs=(s:any)=>{const out:string[]=[];JSON.stringify(s,(k,v)=>{if(v&&typeof v==='object'&&'Text' in v&&'Start' in v)out.push(`${Math.round(v.Start*100)}-${Math.round(v.End*100)}:${String(v.Text).trim()}`);return v});return out.join(' | ')};
+  const gt=g.Samples.map(segs);
+  r[`ouniq_${p}`]=new Set(ot).size; r[`guniq_${p}`]=new Set(gt).size; r[`otext_${p}`]=ot[0]; r[`gtext_${p}`]=gt[0];
+ }
+ r.o=med([...(r.o_a_all+' '+r.o_b_all).split(' ').map(Number)]); r.g=med([...(r.g_a_all+' '+r.g_b_all).split(' ').map(Number)]);
+ r.delta=((r.g/r.o-1)*100).toFixed(1)+'%';
+ r.sameText=r.otext_a===r.gtext_a;
+ rows.push(r);
+}
+for(const r of rows){console.log(`${r.f.padEnd(10)} orig ${r.o.toFixed(3)} (A ${r.o_a.toFixed(3)} B ${r.o_b.toFixed(3)})  go ${r.g.toFixed(3)} (A ${r.g_a.toFixed(3)} B ${r.g_b.toFixed(3)})  ${r.delta}  uniq o${r.ouniq_a}${r.ouniq_b} g${r.guniq_a}${r.guniq_b} sameSegs=${r.sameText}`); if(!r.sameText){console.log('  O:',r.otext_a.slice(0,400));console.log('  G:',r.gtext_a.slice(0,400));} console.log('  orig',r.o_a_all,'/',r.o_b_all); console.log('  go  ',r.g_a_all,'/',r.g_b_all);}
+await Bun.write(`${E}/cmp2-summary.json`,JSON.stringify(rows,null,1));

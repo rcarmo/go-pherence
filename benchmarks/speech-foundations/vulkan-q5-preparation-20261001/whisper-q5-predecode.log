@@ -1,0 +1,12 @@
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/4
+    vulkan_q5_predecode_diagnostic_test.go:68: unsupported or malformed Vulkan shader contract: opcode/word framing
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/8
+    vulkan_q5_predecode_diagnostic_test.go:68: unsupported or malformed Vulkan shader contract: opcode/word framing
+=== RUN   TestVulkanNativeQ5PredecodeDiagnostic/16
+    vulkan_q5_predecode_diagnostic_test.go:68: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeQ5PredecodeDiagnostic (0.03s)
+    --- FAIL: TestVulkanNativeQ5PredecodeDiagnostic/4 (0.00s)
+    --- FAIL: TestVulkanNativeQ5PredecodeDiagnostic/8 (0.00s)
+    --- FAIL: TestVulkanNativeQ5PredecodeDiagnostic/16 (0.00s)
+FAIL

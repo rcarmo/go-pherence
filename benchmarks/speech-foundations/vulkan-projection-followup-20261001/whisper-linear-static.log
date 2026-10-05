@@ -1,0 +1,86 @@
+=== RUN   TestVulkanNativeLinearStaticDiagnostic
+=== RUN   TestVulkanNativeLinearStaticDiagnostic/numerics
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[1 1 1]","values":1,"max_abs":3.349778232575318e-9,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":1144298}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[1 1 1] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[2 3 5]","values":10,"max_abs":1.2337022736730319e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":152636}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[2 3 5] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[15 16 17]","values":255,"max_abs":1.3974010659723035e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":307998}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[15 16 17] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[16 17 15]","values":240,"max_abs":9.749137175329992e-8,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":282764}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[16 17 15] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[17 31 19]","values":323,"max_abs":1.5529887331666714e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":256537}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[17 31 19] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[31 33 7]","values":217,"max_abs":2.6790485252448093e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":284788}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[31 33 7] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[33 17 31]","values":1023,"max_abs":1.3867614767626435e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":238145}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[33 17 31] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[3 384 9]","values":27,"max_abs":0.0000017596171417721962,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":402452}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[3 384 9] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[2 1280 7]","values":14,"max_abs":0.000005361167738193728,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":864794}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[2 1280 7] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[1 16384 2]","values":2,"max_abs":0.000009660682177781155,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":6482807}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[1 16384 2] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[32 32 32]","values":1024,"max_abs":2.197767203782064e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":268079}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[32 32 32] max_baseline_abs=0
+    vulkan_linear_regtile_test.go:173: NATIVE_METRIC {"name":"regtile[33 65 63]","values":2079,"max_abs":8.343939872368367e-7,"abs_budget":0.00002,"rel_budget":0.00002,"wall_ns":250792}
+    vulkan_linear_regtile_test.go:184: REGTILE_NUMERIC shape=[33 65 63] max_baseline_abs=0
+=== RUN   TestVulkanNativeLinearStaticDiagnostic/[1500_1280_1280]
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10586955}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":11008317}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":10927608}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10619870}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":11907164}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":11188863}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10565108}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":11026081}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10601274}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":10926109}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":11045805}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10567385}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":10993051}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10601961}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,1280,1280],"wall_ns":10576215}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,1280,1280],"wall_ns":11776947}
+    vulkan_linear_regtile_test.go:258: REGTILE_TIMING {"gpu_timestamps":false,"max_baseline_abs":0,"median_ns":{"baseline":10594114.5,"candidate":11017199},"shape":[1500,1280,1280],"speedup":0.9615978162870618}
+=== RUN   TestVulkanNativeLinearStaticDiagnostic/[1500_1280_5120]
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34591674}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36354375}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36473587}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34448145}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36331226}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34535512}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34603643}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36307890}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34461098}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36108898}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36115616}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34718904}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":39038562}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34649082}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,1280,5120],"wall_ns":34692553}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,1280,5120],"wall_ns":36456623}
+    vulkan_linear_regtile_test.go:258: REGTILE_TIMING {"gpu_timestamps":false,"max_baseline_abs":0,"median_ns":{"baseline":34597658.5,"candidate":36342800.5},"shape":[1500,1280,5120],"speedup":0.9519810808195698}
+=== RUN   TestVulkanNativeLinearStaticDiagnostic/[1500_5120_1280]
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36794925}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37413025}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37270019}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":0,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":35918176}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37416097}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36694820}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36382681}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":1,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37477215}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36095669}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37370704}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37243603}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":2,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36005823}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37577044}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36705798}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"baseline","shape":[1500,5120,1280],"wall_ns":36285038}
+    vulkan_linear_regtile_test.go:249: REGTILE_SAMPLE {"block":3,"kernel":"candidate","shape":[1500,5120,1280],"wall_ns":37415548}
+    vulkan_linear_regtile_test.go:258: REGTILE_TIMING {"gpu_timestamps":false,"max_baseline_abs":0,"median_ns":{"baseline":36333859.5,"candidate":37414286.5},"shape":[1500,5120,1280],"speedup":0.9711226084720338}
+--- PASS: TestVulkanNativeLinearStaticDiagnostic (2.52s)
+    --- PASS: TestVulkanNativeLinearStaticDiagnostic/numerics (0.02s)
+    --- PASS: TestVulkanNativeLinearStaticDiagnostic/[1500_1280_1280] (0.38s)
+    --- PASS: TestVulkanNativeLinearStaticDiagnostic/[1500_1280_5120] (1.08s)
+    --- PASS: TestVulkanNativeLinearStaticDiagnostic/[1500_5120_1280] (0.92s)
+PASS

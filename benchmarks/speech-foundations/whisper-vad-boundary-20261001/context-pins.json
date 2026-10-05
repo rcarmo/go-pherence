@@ -1,0 +1,34 @@
+[
+  {
+    "mode": "prefix30",
+    "start": 4672,
+    "end": 169952,
+    "synthetic_zero_prefix": false,
+    "samples": 165280,
+    "sha256": "f581f559d922c32703579270c4c527d470c3c398e982fbc60a029ae55d88a388"
+  },
+  {
+    "mode": "prefix100",
+    "start": 3552,
+    "end": 169952,
+    "synthetic_zero_prefix": false,
+    "samples": 166400,
+    "sha256": "ccbf3bb8cf998da716fa825c3dc931795b2bfb3873c69db22b44659cb907b9b3"
+  },
+  {
+    "mode": "grid5120",
+    "start": 5120,
+    "end": 169952,
+    "synthetic_zero_prefix": false,
+    "samples": 164832,
+    "sha256": "75ac99459701748b0dac994e787720de647d8062578baa752aa6d90668d3fbdc"
+  },
+  {
+    "mode": "zero322",
+    "start": 0,
+    "end": 169952,
+    "synthetic_zero_prefix": true,
+    "samples": 169952,
+    "sha256": "d06cd1bc98fe6ccb366d5b2b952efc6e762cf924cefd6a86b28c69d9a5549a48"
+  }
+]

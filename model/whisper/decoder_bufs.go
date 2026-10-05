@@ -10,24 +10,26 @@ import (
 // decoderBufs holds pre-allocated working buffers for one decoder forward token step.
 // This eliminates per-token allocations in the hot path.
 type decoderBufs struct {
-	dModel     int
-	ffnDim     int
-	x          []float32
-	normed     []float32
-	q, k, v    []float32
-	selfOut    []float32
-	proj       []float32
-	crossQ     []float32
-	crossOut   []float32
-	crossProj  []float32
-	mlpIn      []float32
-	hidden     []float32
-	mlpOut     []float32
-	scores     []float32
-	gpuX       *nv.DevBuf
-	gpuOut     *nv.DevBuf
-	gpuAttnOut *nv.DevBuf
-	gpuLogits  *nv.DevBuf
+	dModel    int
+	ffnDim    int
+	x         []float32
+	normed    []float32
+	q, k, v   []float32
+	selfOut   []float32
+	proj      []float32
+	crossQ    []float32
+	crossOut  []float32
+	crossProj []float32
+	mlpIn     []float32
+	hidden    []float32
+	mlpOut    []float32
+	scores    []float32
+	// Per-worker cross-attention scores for the parallel-head fast decoder.
+	crossScores []float32
+	gpuX        *nv.DevBuf
+	gpuOut      *nv.DevBuf
+	gpuAttnOut  *nv.DevBuf
+	gpuLogits   *nv.DevBuf
 }
 
 func newDecoderBufs(cfg Config) *decoderBufs {
@@ -59,6 +61,10 @@ func linearInto(out, x, weight, bias []float32, inDim, outDim int) {
 	// token; int8 weights cut that traffic ~4x. M is padded 1->4 internally.
 	if useInt8 && int8Eligible(inDim, outDim) {
 		copy(out, linearForwardInt8(x[:inDim], weight, bias, 1, inDim, outDim))
+		return
+	}
+	if workers := decoderRowWorkers(outDim); workers > 1 {
+		decoderLinearRowsInto(out, x, weight, bias, inDim, outDim, workers)
 		return
 	}
 	for o := 0; o < outDim; o++ {

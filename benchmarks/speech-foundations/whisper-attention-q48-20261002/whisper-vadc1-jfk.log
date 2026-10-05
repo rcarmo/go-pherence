@@ -1,0 +1,5 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:129: LEGACY_LOAD seconds=2.871261962 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    performance_goal_test.go:358: request 0 emit PCM window 0: word crosses a removed VAD gap; original timing unavailable
+--- FAIL: TestWhisperPerformanceGoalArm (7.35s)
+FAIL

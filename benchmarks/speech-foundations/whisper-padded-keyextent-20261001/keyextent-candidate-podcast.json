@@ -1,0 +1,819 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5000992472,
+  "PreparationAllocatedBytes": 289361264,
+  "Backend": "vulkan-original-q5-padded-keyextent",
+  "Language": "en",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "a68c5cffadd6098504a83b223b003bfb8330fca4198533ee4b861f70a7e23646",
+  "ModelLoadSeconds": 2.867034737,
+  "PreparationSeconds": 0.890508772,
+  "CleanupSeconds": 0.005639971,
+  "FullArmSeconds": 43.13696046,
+  "InputSamples": 320000,
+  "CPUThreads": 4,
+  "Precision": "Original Q5_0 decode4 FFN + virtual256-padded zeroKV F32 attention; erf GELU/decoder unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 7.968404749,
+      "AllocatedBytes": 202966232,
+      "Allocations": 58558,
+      "DecoderSelfSeconds": 0.396631,
+      "DecoderCrossSeconds": 0.707286071,
+      "DecoderMLPSeconds": 0.702021848,
+      "DecoderHeadSeconds": 0.622245102,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 320000,
+            "EmitStart": 0,
+            "EmitEnd": 320000,
+            "InputSamples": 480000,
+            "PadSamples": 160000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 3.12,
+              "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+              "Tokens": [
+                286,
+                600,
+                1009,
+                1415,
+                452,
+                3360,
+                281,
+                362,
+                257,
+                2068,
+                5056,
+                6814,
+                562,
+                2878,
+                1487
+              ]
+            },
+            {
+              "Start": 3.12,
+              "End": 6.36,
+              "Text": "across my content or my website or my products, you know,",
+              "Tokens": [
+                2108,
+                452,
+                2701,
+                420,
+                452,
+                3144,
+                420,
+                452,
+                3383,
+                11,
+                291,
+                458,
+                11
+              ]
+            },
+            {
+              "Start": 6.36,
+              "End": 9.44,
+              "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+              "Tokens": [
+                411,
+                264,
+                14606,
+                300,
+                291,
+                483,
+                562,
+                291,
+                1792,
+                807,
+                264,
+                3531,
+                11496,
+                295,
+                257,
+                3945,
+                294
+              ]
+            },
+            {
+              "Start": 9.44,
+              "End": 13.72,
+              "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+              "Tokens": [
+                428,
+                7630,
+                13,
+                583,
+                452,
+                3579,
+                293,
+                452,
+                2145,
+                393,
+                787,
+                360,
+                370,
+                709,
+                281,
+                992,
+                300
+              ]
+            },
+            {
+              "Start": 13.72,
+              "End": 17.52,
+              "Text": "tone. And so I've always tried to create strong visuals to complete the",
+              "Tokens": [
+                8027,
+                13,
+                400,
+                370,
+                286,
+                600,
+                1009,
+                3031,
+                281,
+                1884,
+                2068,
+                26035,
+                281,
+                3566,
+                264
+              ]
+            },
+            {
+              "Start": 17.52,
+              "End": 20,
+              "Text": "experience. The problem is I'm not an illogist.",
+              "Tokens": [
+                1752,
+                13,
+                440,
+                1154,
+                307,
+                286,
+                478,
+                406,
+                364,
+                3171,
+                664,
+                468,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 7.848368549,
+      "AllocatedBytes": 201252112,
+      "Allocations": 58295,
+      "DecoderSelfSeconds": 0.398712661,
+      "DecoderCrossSeconds": 0.705778862,
+      "DecoderMLPSeconds": 0.701062941,
+      "DecoderHeadSeconds": 0.625527254,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 320000,
+            "EmitStart": 0,
+            "EmitEnd": 320000,
+            "InputSamples": 480000,
+            "PadSamples": 160000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 3.12,
+              "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+              "Tokens": [
+                286,
+                600,
+                1009,
+                1415,
+                452,
+                3360,
+                281,
+                362,
+                257,
+                2068,
+                5056,
+                6814,
+                562,
+                2878,
+                1487
+              ]
+            },
+            {
+              "Start": 3.12,
+              "End": 6.36,
+              "Text": "across my content or my website or my products, you know,",
+              "Tokens": [
+                2108,
+                452,
+                2701,
+                420,
+                452,
+                3144,
+                420,
+                452,
+                3383,
+                11,
+                291,
+                458,
+                11
+              ]
+            },
+            {
+              "Start": 6.36,
+              "End": 9.44,
+              "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+              "Tokens": [
+                411,
+                264,
+                14606,
+                300,
+                291,
+                483,
+                562,
+                291,
+                1792,
+                807,
+                264,
+                3531,
+                11496,
+                295,
+                257,
+                3945,
+                294
+              ]
+            },
+            {
+              "Start": 9.44,
+              "End": 13.72,
+              "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+              "Tokens": [
+                428,
+                7630,
+                13,
+                583,
+                452,
+                3579,
+                293,
+                452,
+                2145,
+                393,
+                787,
+                360,
+                370,
+                709,
+                281,
+                992,
+                300
+              ]
+            },
+            {
+              "Start": 13.72,
+              "End": 17.52,
+              "Text": "tone. And so I've always tried to create strong visuals to complete the",
+              "Tokens": [
+                8027,
+                13,
+                400,
+                370,
+                286,
+                600,
+                1009,
+                3031,
+                281,
+                1884,
+                2068,
+                26035,
+                281,
+                3566,
+                264
+              ]
+            },
+            {
+              "Start": 17.52,
+              "End": 20,
+              "Text": "experience. The problem is I'm not an illogist.",
+              "Tokens": [
+                1752,
+                13,
+                440,
+                1154,
+                307,
+                286,
+                478,
+                406,
+                364,
+                3171,
+                664,
+                468,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 7.840921521,
+      "AllocatedBytes": 201241680,
+      "Allocations": 58274,
+      "DecoderSelfSeconds": 0.397517622,
+      "DecoderCrossSeconds": 0.713366998,
+      "DecoderMLPSeconds": 0.702591806,
+      "DecoderHeadSeconds": 0.623804476,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 320000,
+            "EmitStart": 0,
+            "EmitEnd": 320000,
+            "InputSamples": 480000,
+            "PadSamples": 160000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 3.12,
+              "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+              "Tokens": [
+                286,
+                600,
+                1009,
+                1415,
+                452,
+                3360,
+                281,
+                362,
+                257,
+                2068,
+                5056,
+                6814,
+                562,
+                2878,
+                1487
+              ]
+            },
+            {
+              "Start": 3.12,
+              "End": 6.36,
+              "Text": "across my content or my website or my products, you know,",
+              "Tokens": [
+                2108,
+                452,
+                2701,
+                420,
+                452,
+                3144,
+                420,
+                452,
+                3383,
+                11,
+                291,
+                458,
+                11
+              ]
+            },
+            {
+              "Start": 6.36,
+              "End": 9.44,
+              "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+              "Tokens": [
+                411,
+                264,
+                14606,
+                300,
+                291,
+                483,
+                562,
+                291,
+                1792,
+                807,
+                264,
+                3531,
+                11496,
+                295,
+                257,
+                3945,
+                294
+              ]
+            },
+            {
+              "Start": 9.44,
+              "End": 13.72,
+              "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+              "Tokens": [
+                428,
+                7630,
+                13,
+                583,
+                452,
+                3579,
+                293,
+                452,
+                2145,
+                393,
+                787,
+                360,
+                370,
+                709,
+                281,
+                992,
+                300
+              ]
+            },
+            {
+              "Start": 13.72,
+              "End": 17.52,
+              "Text": "tone. And so I've always tried to create strong visuals to complete the",
+              "Tokens": [
+                8027,
+                13,
+                400,
+                370,
+                286,
+                600,
+                1009,
+                3031,
+                281,
+                1884,
+                2068,
+                26035,
+                281,
+                3566,
+                264
+              ]
+            },
+            {
+              "Start": 17.52,
+              "End": 20,
+              "Text": "experience. The problem is I'm not an illogist.",
+              "Tokens": [
+                1752,
+                13,
+                440,
+                1154,
+                307,
+                286,
+                478,
+                406,
+                364,
+                3171,
+                664,
+                468,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 7.846509043,
+      "AllocatedBytes": 201240488,
+      "Allocations": 58269,
+      "DecoderSelfSeconds": 0.397425208,
+      "DecoderCrossSeconds": 0.708700597,
+      "DecoderMLPSeconds": 0.699985143,
+      "DecoderHeadSeconds": 0.617774663,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 320000,
+            "EmitStart": 0,
+            "EmitEnd": 320000,
+            "InputSamples": 480000,
+            "PadSamples": 160000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 3.12,
+              "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+              "Tokens": [
+                286,
+                600,
+                1009,
+                1415,
+                452,
+                3360,
+                281,
+                362,
+                257,
+                2068,
+                5056,
+                6814,
+                562,
+                2878,
+                1487
+              ]
+            },
+            {
+              "Start": 3.12,
+              "End": 6.36,
+              "Text": "across my content or my website or my products, you know,",
+              "Tokens": [
+                2108,
+                452,
+                2701,
+                420,
+                452,
+                3144,
+                420,
+                452,
+                3383,
+                11,
+                291,
+                458,
+                11
+              ]
+            },
+            {
+              "Start": 6.36,
+              "End": 9.44,
+              "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+              "Tokens": [
+                411,
+                264,
+                14606,
+                300,
+                291,
+                483,
+                562,
+                291,
+                1792,
+                807,
+                264,
+                3531,
+                11496,
+                295,
+                257,
+                3945,
+                294
+              ]
+            },
+            {
+              "Start": 9.44,
+              "End": 13.72,
+              "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+              "Tokens": [
+                428,
+                7630,
+                13,
+                583,
+                452,
+                3579,
+                293,
+                452,
+                2145,
+                393,
+                787,
+                360,
+                370,
+                709,
+                281,
+                992,
+                300
+              ]
+            },
+            {
+              "Start": 13.72,
+              "End": 17.52,
+              "Text": "tone. And so I've always tried to create strong visuals to complete the",
+              "Tokens": [
+                8027,
+                13,
+                400,
+                370,
+                286,
+                600,
+                1009,
+                3031,
+                281,
+                1884,
+                2068,
+                26035,
+                281,
+                3566,
+                264
+              ]
+            },
+            {
+              "Start": 17.52,
+              "End": 20,
+              "Text": "experience. The problem is I'm not an illogist.",
+              "Tokens": [
+                1752,
+                13,
+                440,
+                1154,
+                307,
+                286,
+                478,
+                406,
+                364,
+                3171,
+                664,
+                468,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 7.868617264,
+      "AllocatedBytes": 201242152,
+      "Allocations": 58285,
+      "DecoderSelfSeconds": 0.397114881,
+      "DecoderCrossSeconds": 0.707971258,
+      "DecoderMLPSeconds": 0.70430212,
+      "DecoderHeadSeconds": 0.627984653,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 320000,
+            "EmitStart": 0,
+            "EmitEnd": 320000,
+            "InputSamples": 480000,
+            "PadSamples": 160000
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 3.12,
+              "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+              "Tokens": [
+                286,
+                600,
+                1009,
+                1415,
+                452,
+                3360,
+                281,
+                362,
+                257,
+                2068,
+                5056,
+                6814,
+                562,
+                2878,
+                1487
+              ]
+            },
+            {
+              "Start": 3.12,
+              "End": 6.36,
+              "Text": "across my content or my website or my products, you know,",
+              "Tokens": [
+                2108,
+                452,
+                2701,
+                420,
+                452,
+                3144,
+                420,
+                452,
+                3383,
+                11,
+                291,
+                458,
+                11
+              ]
+            },
+            {
+              "Start": 6.36,
+              "End": 9.44,
+              "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+              "Tokens": [
+                411,
+                264,
+                14606,
+                300,
+                291,
+                483,
+                562,
+                291,
+                1792,
+                807,
+                264,
+                3531,
+                11496,
+                295,
+                257,
+                3945,
+                294
+              ]
+            },
+            {
+              "Start": 9.44,
+              "End": 13.72,
+              "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+              "Tokens": [
+                428,
+                7630,
+                13,
+                583,
+                452,
+                3579,
+                293,
+                452,
+                2145,
+                393,
+                787,
+                360,
+                370,
+                709,
+                281,
+                992,
+                300
+              ]
+            },
+            {
+              "Start": 13.72,
+              "End": 17.52,
+              "Text": "tone. And so I've always tried to create strong visuals to complete the",
+              "Tokens": [
+                8027,
+                13,
+                400,
+                370,
+                286,
+                600,
+                1009,
+                3031,
+                281,
+                1884,
+                2068,
+                26035,
+                281,
+                3566,
+                264
+              ]
+            },
+            {
+              "Start": 17.52,
+              "End": 20,
+              "Text": "experience. The problem is I'm not an illogist.",
+              "Tokens": [
+                1752,
+                13,
+                440,
+                1154,
+                307,
+                286,
+                478,
+                406,
+                364,
+                3171,
+                664,
+                468,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

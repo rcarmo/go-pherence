@@ -27,8 +27,8 @@ func TestVulkanJobQuarantineChild(t *testing.T) {
 		t.Fatal(e)
 	}
 	var starts []int64
-	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, emit func(whisper.WindowTranscript) error) error {
-		e := fixtureWindows(&starts, 1)(ctx, r, total, first, emit)
+	infer := func(ctx context.Context, r whisper.SampleReader, total, first int64, resume *whisper.WindowResume, emit func(whisper.WindowTranscript) error) error {
+		e := fixtureWindows(&starts, 1)(ctx, r, total, first, resume, emit)
 		switch mode {
 		case "infer-panic":
 			panic("fixture")

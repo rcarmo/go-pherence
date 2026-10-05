@@ -1,0 +1,178 @@
+{
+  "schema": 1,
+  "source_revision": "c44b60b8053bbf2a5c1e014f11323fb3f2485177",
+  "tolerance": {
+    "max_absolute": 0.0001,
+    "mean_absolute": 0.00001
+  },
+  "tolerance_history": "Fixed before first JFK comparison; unchanged after padded fixture failed. Final reductions match original.",
+  "fixture_semantics": {
+    "quiet": "JFK gain0.1",
+    "padded": "15s exact digital silence before/after JFK",
+    "island": "96ms JFK samples at2s in5s silence",
+    "overlap": "0.5*(JFK+JFK shifted8000samples cyclically); synthetic, not natural overlap"
+  },
+  "cpu": "Intel i5-1340P AVX2/FMA",
+  "limits": {
+    "cpus": 4,
+    "affinity": "0-7",
+    "memory": "8GiB",
+    "process_swap": 0,
+    "network": "none",
+    "gpu": "none"
+  },
+  "pins": [
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/silero-reference",
+      "bytes": 23800,
+      "sha256": "fd732b425188eb37d54fc4e08104576e87bf95a93ae046d9685848a9a3398dca"
+    },
+    {
+      "path": "/var/home/agent/workspace/tmp/whisper-vad-parity-20261001/silero.test",
+      "bytes": 5095351,
+      "sha256": "9caf8101ca4181864620e431f0a9a0bcc8aca8b1c3053c54c14baf5ed8ca57aa"
+    },
+    {
+      "path": "/var/home/agent/workspace/projects/go-pherence-transcribe-web/scripts/silero-vad-reference.cpp",
+      "bytes": 3772,
+      "sha256": "3cd8f02576973249b3796fe06863f3ea5634965d5b391c737670fe4393a57ded"
+    },
+    {
+      "path": "/var/home/agent/workspace/projects/whisper-stt/runtime/build-vulkan/bin/libwhisper.so.1.9.3",
+      "bytes": 613640,
+      "sha256": "ce2479a03c213df7ef377c9751a5d6aecfe5f90894f8e1eec20062b8bc86edad"
+    },
+    {
+      "path": "/var/home/agent/workspace/projects/whisper-stt/runtime/build-vulkan/bin/libggml-cpu.so",
+      "bytes": 1318864,
+      "sha256": "5f5c0ea042f87cee01097dfa714b642b9bca5ab7e58e765edc4aaadb28dda5ad"
+    },
+    {
+      "path": "/var/home/agent/workspace/projects/whisper-stt/vendor/whisper.cpp/include/whisper.h",
+      "bytes": 37439,
+      "sha256": "a7d19f7feb5be52426628ff07e0602de28a30dc4312d0d0603e1e536753f76dd"
+    },
+    {
+      "path": "/var/home/agent/workspace/projects/whisper-stt/models/ggml-silero-v6.2.0.bin",
+      "bytes": 885098,
+      "sha256": "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987"
+    }
+  ],
+  "fixtures": [
+    {
+      "name": "jfk",
+      "samples": 176000,
+      "input_sha256": "ebd52851100536db02d12c49fddd010372dcdc70243562e057553d476b706ae0",
+      "reference_sha256": "6ff09bfa4e5b835c65b1efc767883e4daad734c4c064d2dde489a1e7d05d0ad2",
+      "scores": 344,
+      "max_abs": 0.000003874301910400391,
+      "mean_abs": 1.8339812603974064e-8,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "silence",
+      "samples": 80000,
+      "input_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b",
+      "reference_sha256": "421c81c1217a2478f33a2e9e9abea74fcfa5028a7ee4629597d973be94b8ea65",
+      "scores": 157,
+      "max_abs": 5.508773028850555e-7,
+      "mean_abs": 7.978527788903302e-9,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "quiet",
+      "samples": 176000,
+      "input_sha256": "390858d42a8b35b4f7cad54168b8812e40f028cd842b80f498f8be64629f553c",
+      "reference_sha256": "bbb9915e3813c9adae081f1628dda1bc60997a6995e805c4e78fcf7b3bce7612",
+      "scores": 344,
+      "max_abs": 0.000011444091796875,
+      "mean_abs": 4.8651113608029e-8,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "padded",
+      "samples": 656000,
+      "input_sha256": "e48c9d19cc3d8bb7bbfe056120fe5952af3d4645a10ca645a86396ab7b814539",
+      "reference_sha256": "2b1caca519028a3c102e6abc202f26c65bfdbea2fb52a5afb56a1222d9d721cb",
+      "scores": 1282,
+      "max_abs": 0.000002086162567138672,
+      "mean_abs": 3.302195065839335e-9,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "island",
+      "samples": 80000,
+      "input_sha256": "603da7a37e2a0279214f20d642349c078c1fa5be59e19d8b0041aae367b54ce1",
+      "reference_sha256": "74d0d8bbc4879b71389d4dda9d3e5bb98d38313fd98188e54253e8d0db97584b",
+      "scores": 157,
+      "max_abs": 3.818422555923462e-8,
+      "mean_abs": 4.6047079525176125e-10,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "overlap",
+      "samples": 176000,
+      "input_sha256": "15d8f1eb7c7c9f23db96abe2abb1e35acdc1cd921504442c1f9d963014a20050",
+      "reference_sha256": "7053eb7bd835ffb34766379aae92ed5729e38829b1ac6dd805909b3254c72ca4",
+      "scores": 344,
+      "max_abs": 1.1920928955078125e-7,
+      "mean_abs": 1.0937625585600388e-9,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "minds-pt-0",
+      "samples": 144726,
+      "input_sha256": "c21ff590f8718096aaaa08d1fb29d16c07d83af466920645beaf6cb73cc96ed7",
+      "reference_sha256": "0490a1aeeb047dfe94e42fe9ffab5af3d4fd3ab4af1f022c3fa56f9a869702e8",
+      "scores": 283,
+      "max_abs": 0.0000013150274753570557,
+      "mean_abs": 7.968073440946033e-9,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "minds-pt-1",
+      "samples": 75094,
+      "input_sha256": "df8087c5af966af53ccf6638a46f0d3d9dfcca6c04a7e726bae6e99b2754ad4b",
+      "reference_sha256": "662ab2d0c8a20bcb1fd02c6939550a5665c669e34227aa4b0463f3f204a07d99",
+      "scores": 147,
+      "max_abs": 0.0000015702098608016968,
+      "mean_abs": 1.2557015938012779e-8,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    },
+    {
+      "name": "minds-fr-0",
+      "samples": 60074,
+      "input_sha256": "25963d7ef60903be543f71b9a268da746ed7adbdea04bc6c26ac61f41beba90d",
+      "reference_sha256": "8d5885f6992231b6418c3db1d376cb29025508f852e6446ce9d7409ae5f4b3a6",
+      "scores": 118,
+      "max_abs": 4.470348358154297e-8,
+      "mean_abs": 2.695310671450728e-9,
+      "start_flips": 0,
+      "end_flips": 0,
+      "repeats": 10
+    }
+  ],
+  "checks": [
+    "both hysteresis thresholds",
+    "exact sample spans from both sets of probabilities",
+    "original rounded-centisecond export, actual EOF clipped",
+    "fresh stream, reset, final-operator cancellation/retry",
+    "ten repeats each"
+  ]
+}

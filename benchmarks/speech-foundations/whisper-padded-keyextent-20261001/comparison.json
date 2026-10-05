@@ -1,0 +1,1767 @@
+{
+  "status": "explicit experimental original-keyextent compatibility; no quality/speed/default acceptance",
+  "records": [
+    {
+      "fixture": "jfk",
+      "baseline_report": "keyextent-baseline-jfk",
+      "candidate_report": "keyextent-candidate-jfk",
+      "scope": "fresh sequential processes, candidate collected earlier than baseline; changed outputs/work can confound timings",
+      "baseline": 6.568868159,
+      "candidate": 6.143641703,
+      "raw_percent": -6.47335957591716,
+      "baseline_samples": [
+        6.697055782,
+        6.568868159,
+        6.624714901,
+        6.523333887,
+        6.549175382
+      ],
+      "candidate_samples": [
+        6.176372765,
+        6.147870073,
+        6.107952658,
+        6.112609159,
+        6.143641703
+      ],
+      "full_before": 36.850731565,
+      "full_after": 34.452351954,
+      "exact_output": true,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 10.4,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "pt",
+      "baseline_report": "keyextent-baseline-pt",
+      "candidate_report": "keyextent-candidate-pt",
+      "scope": "fresh sequential processes, candidate collected earlier than baseline; changed outputs/work can confound timings",
+      "baseline": 6.215064751,
+      "candidate": 6.104179447,
+      "raw_percent": -1.7841375503313772,
+      "baseline_samples": [
+        6.458357032,
+        6.417327716,
+        6.10492413,
+        6.215064751,
+        6.117159875
+      ],
+      "candidate_samples": [
+        6.195575629,
+        6.104179447,
+        6.1022591330000004,
+        6.07175215,
+        6.125513572
+      ],
+      "full_before": 35.312387108,
+      "full_after": 34.375306445,
+      "exact_output": false,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 7.36,
+          "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+          "Tokens": [
+            19812,
+            6801,
+            11,
+            17660,
+            257,
+            11742,
+            289,
+            4021,
+            7974,
+            4061,
+            368,
+            42542,
+            5473,
+            2617,
+            1136,
+            631,
+            2228,
+            22501,
+            19930,
+            3981,
+            23760,
+            1667,
+            11720,
+            24001,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 7.38,
+          "Text": "Bom dia, estou a ligar porque precisava de informações sobre como é que eu posso depositar dinheiro na minha conta.",
+          "Tokens": [
+            19812,
+            6801,
+            11,
+            17660,
+            257,
+            11742,
+            289,
+            4021,
+            7974,
+            4061,
+            368,
+            42542,
+            5473,
+            2617,
+            1136,
+            631,
+            2228,
+            22501,
+            19930,
+            3981,
+            23760,
+            1667,
+            11720,
+            24001,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "fr",
+      "baseline_report": "keyextent-baseline-fr",
+      "candidate_report": "keyextent-candidate-fr",
+      "scope": "fresh sequential processes, candidate collected earlier than baseline; changed outputs/work can confound timings",
+      "baseline": 5.652216625,
+      "candidate": 5.703914951,
+      "raw_percent": 0.9146557789617482,
+      "baseline_samples": [
+        5.734571693,
+        5.636992123,
+        5.659807632,
+        5.652216625,
+        5.628946849
+      ],
+      "candidate_samples": [
+        5.792084315,
+        5.702141149,
+        5.703914951,
+        5.734610212,
+        5.70363929
+      ],
+      "full_before": 32.088946513,
+      "full_after": 32.411155395,
+      "exact_output": true,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 2.42,
+          "Text": "Je souhaite changer mon adresse.",
+          "Tokens": [
+            2588,
+            45214,
+            642,
+            22822,
+            1108,
+            614,
+            22603,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 2.42,
+          "Text": "Je souhaite changer mon adresse.",
+          "Tokens": [
+            2588,
+            45214,
+            642,
+            22822,
+            1108,
+            614,
+            22603,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "jfk-vadwords",
+      "baseline_report": "keyextent-baseline-jfk-vadwords",
+      "candidate_report": "keyextent-candidate-jfk-vadwords",
+      "scope": "fresh sequential processes, candidate collected earlier than baseline; changed outputs/work can confound timings",
+      "baseline": 7.02198549,
+      "candidate": 6.8536484699999995,
+      "raw_percent": -2.3972852156947444,
+      "baseline_samples": [
+        7.096378437,
+        7.013012121,
+        7.02198549,
+        7.007158414,
+        7.031337077
+      ],
+      "candidate_samples": [
+        6.925787735,
+        6.864007738,
+        6.848972765,
+        6.823782952,
+        6.8536484699999995
+      ],
+      "full_before": 38.944847091,
+      "full_after": 38.086608125,
+      "exact_output": false,
+      "content_tokens_equal": false,
+      "baseline_segments": [
+        {
+          "Start": 0.322,
+          "End": 10.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.382,
+          "End": 10.622,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0.322,
+          "End": 10.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 24,
+      "candidate_word_count": 22,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 24,
+          "candidate_words": 22,
+          "shared_prefix_timing_changes": 2,
+          "max_shared_prefix_boundary_shift_seconds": 0.019999999999999574
+        }
+      ]
+    },
+    {
+      "fixture": "groups",
+      "baseline_report": "keyextent-baseline-groups",
+      "candidate_report": "keyextent-candidate-groups",
+      "scope": "fresh sequential processes, candidate collected earlier than baseline; changed outputs/work can confound timings",
+      "baseline": 14.156130732,
+      "candidate": 13.860643837,
+      "raw_percent": -2.0873422306849077,
+      "baseline_samples": [
+        14.200109777,
+        14.088231843,
+        14.092190975,
+        14.156130732,
+        14.173694621
+      ],
+      "candidate_samples": [
+        13.92213824,
+        13.826855915,
+        13.866755969,
+        13.860643837,
+        13.84121584
+      ],
+      "full_before": 74.497794905,
+      "full_after": 73.104364608,
+      "exact_output": false,
+      "content_tokens_equal": false,
+      "baseline_segments": [
+        {
+          "Start": 0.322,
+          "End": 10.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 10.382,
+          "End": 10.622,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        },
+        {
+          "Start": 44.322,
+          "End": 54.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 54.382,
+          "End": 54.622,
+          "Text": "Thank you.",
+          "Tokens": [
+            1044,
+            291,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0.322,
+          "End": 10.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        },
+        {
+          "Start": 44.322,
+          "End": 54.382,
+          "Text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "Tokens": [
+            400,
+            370,
+            11,
+            452,
+            7177,
+            6280,
+            11,
+            1029,
+            406,
+            437,
+            428,
+            1941,
+            393,
+            360,
+            337,
+            291,
+            11,
+            1029,
+            437,
+            291,
+            393,
+            360,
+            337,
+            428,
+            1941,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 48,
+      "candidate_word_count": 44,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 24,
+          "candidate_words": 22,
+          "shared_prefix_timing_changes": 2,
+          "max_shared_prefix_boundary_shift_seconds": 0.019999999999999574
+        },
+        {
+          "window": 1,
+          "baseline_words": 24,
+          "candidate_words": 22,
+          "shared_prefix_timing_changes": 2,
+          "max_shared_prefix_boundary_shift_seconds": 0.020000000000003126
+        }
+      ]
+    },
+    {
+      "fixture": "pt1",
+      "baseline_report": "decoder-rows-candidate-pt1",
+      "candidate_report": "keyextent-candidate-pt1",
+      "scope": "earlier baseline output gate; not speed pair",
+      "baseline": 5.741331754,
+      "candidate": 5.757905034,
+      "raw_percent": 0.2886661267823998,
+      "baseline_samples": [
+        5.777194335,
+        5.741331754,
+        5.711506902,
+        5.700252842,
+        5.758631386
+      ],
+      "candidate_samples": [
+        5.866723662,
+        5.734068232,
+        5.757905034,
+        5.764383612,
+        5.749368577
+      ],
+      "full_before": 32.469883,
+      "full_after": 32.658775033,
+      "exact_output": true,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 4.693375,
+          "Text": "Como faço para transferir dinheiro para a minha conta?",
+          "Tokens": [
+            11913,
+            38091,
+            1690,
+            5003,
+            347,
+            23760,
+            1690,
+            257,
+            11720,
+            24001,
+            30
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 4.693375,
+          "Text": "Como faço para transferir dinheiro para a minha conta?",
+          "Tokens": [
+            11913,
+            38091,
+            1690,
+            5003,
+            347,
+            23760,
+            1690,
+            257,
+            11720,
+            24001,
+            30
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "pt2",
+      "baseline_report": "decoder-rows-candidate-pt2",
+      "candidate_report": "keyextent-candidate-pt2",
+      "scope": "earlier baseline output gate; not speed pair",
+      "baseline": 12.647888959,
+      "candidate": 12.708005725,
+      "raw_percent": 0.47531067196175947,
+      "baseline_samples": [
+        12.699837198,
+        12.625284787,
+        12.842442133,
+        12.613451117,
+        12.647888959
+      ],
+      "candidate_samples": [
+        12.72160561,
+        12.69773549,
+        12.706853281,
+        12.70914947,
+        12.708005725
+      ],
+      "full_before": 67.203695739,
+      "full_after": 67.333320109,
+      "exact_output": false,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 4.98,
+          "Text": "Estava interessado em depositar dinheiro na minha conta",
+          "Tokens": [
+            4410,
+            4061,
+            12478,
+            1573,
+            846,
+            19930,
+            3981,
+            23760,
+            1667,
+            11720,
+            24001
+          ]
+        },
+        {
+          "Start": 4.98,
+          "End": 10.28,
+          "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+          "Tokens": [
+            308,
+            11,
+            846,
+            18314,
+            11467,
+            11,
+            27955,
+            31060,
+            289,
+            369,
+            4249,
+            29322,
+            11,
+            369,
+            22501,
+            3441,
+            289
+          ]
+        },
+        {
+          "Start": 10.28,
+          "End": 13.86,
+          "Text": "e como é que posso transferir dinheiro para a conta",
+          "Tokens": [
+            308,
+            2617,
+            1136,
+            631,
+            22501,
+            5003,
+            347,
+            23760,
+            1690,
+            257,
+            24001
+          ]
+        },
+        {
+          "Start": 13.86,
+          "End": 19.6,
+          "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+          "Tokens": [
+            2820,
+            369,
+            14291,
+            631,
+            3418,
+            8130,
+            45498,
+            11,
+            14396,
+            2228,
+            22501,
+            6736,
+            6755,
+            1367,
+            12994,
+            3528,
+            13
+          ]
+        },
+        {
+          "Start": 21.44,
+          "End": 22.14,
+          "Text": "Seguim até isso.",
+          "Tokens": [
+            1100,
+            2794,
+            332,
+            8784,
+            4616,
+            13
+          ]
+        },
+        {
+          "Start": 30,
+          "End": 43.76,
+          "Text": "E aí",
+          "Tokens": [
+            462,
+            7461
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 4.96,
+          "Text": "Estava interessado em depositar dinheiro na minha conta",
+          "Tokens": [
+            4410,
+            4061,
+            12478,
+            1573,
+            846,
+            19930,
+            3981,
+            23760,
+            1667,
+            11720,
+            24001
+          ]
+        },
+        {
+          "Start": 4.96,
+          "End": 10.28,
+          "Text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar",
+          "Tokens": [
+            308,
+            11,
+            846,
+            18314,
+            11467,
+            11,
+            27955,
+            31060,
+            289,
+            369,
+            4249,
+            29322,
+            11,
+            369,
+            22501,
+            3441,
+            289
+          ]
+        },
+        {
+          "Start": 10.28,
+          "End": 13.86,
+          "Text": "e como é que posso transferir dinheiro para a conta",
+          "Tokens": [
+            308,
+            2617,
+            1136,
+            631,
+            22501,
+            5003,
+            347,
+            23760,
+            1690,
+            257,
+            24001
+          ]
+        },
+        {
+          "Start": 13.86,
+          "End": 19.6,
+          "Text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito.",
+          "Tokens": [
+            2820,
+            369,
+            14291,
+            631,
+            3418,
+            8130,
+            45498,
+            11,
+            14396,
+            2228,
+            22501,
+            6736,
+            6755,
+            1367,
+            12994,
+            3528,
+            13
+          ]
+        },
+        {
+          "Start": 21.44,
+          "End": 22.14,
+          "Text": "Seguim até isso.",
+          "Tokens": [
+            1100,
+            2794,
+            332,
+            8784,
+            4616,
+            13
+          ]
+        },
+        {
+          "Start": 30,
+          "End": 43.76,
+          "Text": "E aí",
+          "Tokens": [
+            462,
+            7461
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        },
+        {
+          "window": 1,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "podcast",
+      "baseline_report": "decoder-rows-candidate-podcast",
+      "candidate_report": "keyextent-candidate-podcast",
+      "scope": "earlier baseline output gate; not speed pair",
+      "baseline": 7.809032335,
+      "candidate": 7.848368549,
+      "raw_percent": 0.5037271240854624,
+      "baseline_samples": [
+        7.912917156,
+        7.806078872,
+        7.803144054,
+        7.815435549,
+        7.809032335
+      ],
+      "candidate_samples": [
+        7.968404749,
+        7.848368549,
+        7.840921521,
+        7.846509043,
+        7.868617264
+      ],
+      "full_before": 42.944859763,
+      "full_after": 43.13696046,
+      "exact_output": false,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0,
+          "End": 3.12,
+          "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+          "Tokens": [
+            286,
+            600,
+            1009,
+            1415,
+            452,
+            3360,
+            281,
+            362,
+            257,
+            2068,
+            5056,
+            6814,
+            562,
+            2878,
+            1487
+          ]
+        },
+        {
+          "Start": 3.12,
+          "End": 6.36,
+          "Text": "across my content or my website or my products, you know,",
+          "Tokens": [
+            2108,
+            452,
+            2701,
+            420,
+            452,
+            3144,
+            420,
+            452,
+            3383,
+            11,
+            291,
+            458,
+            11
+          ]
+        },
+        {
+          "Start": 6.36,
+          "End": 9.46,
+          "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+          "Tokens": [
+            411,
+            264,
+            14606,
+            300,
+            291,
+            483,
+            562,
+            291,
+            1792,
+            807,
+            264,
+            3531,
+            11496,
+            295,
+            257,
+            3945,
+            294
+          ]
+        },
+        {
+          "Start": 9.46,
+          "End": 13.74,
+          "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+          "Tokens": [
+            428,
+            7630,
+            13,
+            583,
+            452,
+            3579,
+            293,
+            452,
+            2145,
+            393,
+            787,
+            360,
+            370,
+            709,
+            281,
+            992,
+            300
+          ]
+        },
+        {
+          "Start": 13.74,
+          "End": 17.52,
+          "Text": "tone. And so I've always tried to create strong visuals to complete the",
+          "Tokens": [
+            8027,
+            13,
+            400,
+            370,
+            286,
+            600,
+            1009,
+            3031,
+            281,
+            1884,
+            2068,
+            26035,
+            281,
+            3566,
+            264
+          ]
+        },
+        {
+          "Start": 17.52,
+          "End": 20,
+          "Text": "experience. The problem is I'm not an illogist.",
+          "Tokens": [
+            1752,
+            13,
+            440,
+            1154,
+            307,
+            286,
+            478,
+            406,
+            364,
+            3171,
+            664,
+            468,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0,
+          "End": 3.12,
+          "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+          "Tokens": [
+            286,
+            600,
+            1009,
+            1415,
+            452,
+            3360,
+            281,
+            362,
+            257,
+            2068,
+            5056,
+            6814,
+            562,
+            2878,
+            1487
+          ]
+        },
+        {
+          "Start": 3.12,
+          "End": 6.36,
+          "Text": "across my content or my website or my products, you know,",
+          "Tokens": [
+            2108,
+            452,
+            2701,
+            420,
+            452,
+            3144,
+            420,
+            452,
+            3383,
+            11,
+            291,
+            458,
+            11
+          ]
+        },
+        {
+          "Start": 6.36,
+          "End": 9.44,
+          "Text": "like the vibe that you get when you walk through the storefront of a shop in",
+          "Tokens": [
+            411,
+            264,
+            14606,
+            300,
+            291,
+            483,
+            562,
+            291,
+            1792,
+            807,
+            264,
+            3531,
+            11496,
+            295,
+            257,
+            3945,
+            294
+          ]
+        },
+        {
+          "Start": 9.44,
+          "End": 13.72,
+          "Text": "your neighborhood. But my writing and my videos can only do so much to set that",
+          "Tokens": [
+            428,
+            7630,
+            13,
+            583,
+            452,
+            3579,
+            293,
+            452,
+            2145,
+            393,
+            787,
+            360,
+            370,
+            709,
+            281,
+            992,
+            300
+          ]
+        },
+        {
+          "Start": 13.72,
+          "End": 17.52,
+          "Text": "tone. And so I've always tried to create strong visuals to complete the",
+          "Tokens": [
+            8027,
+            13,
+            400,
+            370,
+            286,
+            600,
+            1009,
+            3031,
+            281,
+            1884,
+            2068,
+            26035,
+            281,
+            3566,
+            264
+          ]
+        },
+        {
+          "Start": 17.52,
+          "End": 20,
+          "Text": "experience. The problem is I'm not an illogist.",
+          "Tokens": [
+            1752,
+            13,
+            440,
+            1154,
+            307,
+            286,
+            478,
+            406,
+            364,
+            3171,
+            664,
+            468,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 0,
+          "candidate_words": 0,
+          "shared_prefix_timing_changes": 0,
+          "max_shared_prefix_boundary_shift_seconds": 0
+        }
+      ]
+    },
+    {
+      "fixture": "podcast-vadwords",
+      "baseline_report": "decoder-rows-candidate-podcast-vadwords",
+      "candidate_report": "keyextent-candidate-podcast-vadwords",
+      "scope": "earlier baseline output gate; not speed pair",
+      "baseline": 10.119120568,
+      "candidate": 10.199377784,
+      "raw_percent": 0.7931244168964513,
+      "baseline_samples": [
+        10.207352188,
+        10.104737434,
+        10.088078869,
+        10.119120568,
+        10.128458816
+      ],
+      "candidate_samples": [
+        10.276893158,
+        10.198126378,
+        10.169193117,
+        10.199377784,
+        10.201005278
+      ],
+      "full_before": 54.442199832,
+      "full_after": 54.8228972,
+      "exact_output": false,
+      "content_tokens_equal": true,
+      "baseline_segments": [
+        {
+          "Start": 0.034,
+          "End": 3.114,
+          "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+          "Tokens": [
+            286,
+            600,
+            1009,
+            1415,
+            452,
+            3360,
+            281,
+            362,
+            257,
+            2068,
+            5056,
+            6814,
+            562,
+            2878,
+            1487
+          ]
+        },
+        {
+          "Start": 3.114,
+          "End": 5.914,
+          "Text": "across my content or my website or my products.",
+          "Tokens": [
+            2108,
+            452,
+            2701,
+            420,
+            452,
+            3144,
+            420,
+            452,
+            3383,
+            13
+          ]
+        },
+        {
+          "Start": 6.114,
+          "End": 9.374,
+          "Text": "You know, like the vibe that you get when you walk through the storefront of a shop",
+          "Tokens": [
+            509,
+            458,
+            11,
+            411,
+            264,
+            14606,
+            300,
+            291,
+            483,
+            562,
+            291,
+            1792,
+            807,
+            264,
+            3531,
+            11496,
+            295,
+            257,
+            3945
+          ]
+        },
+        {
+          "Start": 9.374,
+          "End": 13.754,
+          "Text": "in your neighborhood. But my writing and my videos can only do so much to set that",
+          "Tokens": [
+            294,
+            428,
+            7630,
+            13,
+            583,
+            452,
+            3579,
+            293,
+            452,
+            2145,
+            393,
+            787,
+            360,
+            370,
+            709,
+            281,
+            992,
+            300
+          ]
+        },
+        {
+          "Start": 13.754,
+          "End": 18.274,
+          "Text": "tone. And so I've always tried to create strong visuals to complete the experience.",
+          "Tokens": [
+            8027,
+            13,
+            400,
+            370,
+            286,
+            600,
+            1009,
+            3031,
+            281,
+            1884,
+            2068,
+            26035,
+            281,
+            3566,
+            264,
+            1752,
+            13
+          ]
+        },
+        {
+          "Start": 18.514,
+          "End": 19.994,
+          "Text": "The problem is I'm not an illiterate.",
+          "Tokens": [
+            440,
+            1154,
+            307,
+            286,
+            478,
+            406,
+            364,
+            3171,
+            1681,
+            473,
+            13
+          ]
+        }
+      ],
+      "candidate_segments": [
+        {
+          "Start": 0.034,
+          "End": 3.114,
+          "Text": "I've always wanted my brand to have a strong visual presence when anyone comes",
+          "Tokens": [
+            286,
+            600,
+            1009,
+            1415,
+            452,
+            3360,
+            281,
+            362,
+            257,
+            2068,
+            5056,
+            6814,
+            562,
+            2878,
+            1487
+          ]
+        },
+        {
+          "Start": 3.114,
+          "End": 5.914,
+          "Text": "across my content or my website or my products.",
+          "Tokens": [
+            2108,
+            452,
+            2701,
+            420,
+            452,
+            3144,
+            420,
+            452,
+            3383,
+            13
+          ]
+        },
+        {
+          "Start": 6.114,
+          "End": 9.374,
+          "Text": "You know, like the vibe that you get when you walk through the storefront of a shop",
+          "Tokens": [
+            509,
+            458,
+            11,
+            411,
+            264,
+            14606,
+            300,
+            291,
+            483,
+            562,
+            291,
+            1792,
+            807,
+            264,
+            3531,
+            11496,
+            295,
+            257,
+            3945
+          ]
+        },
+        {
+          "Start": 9.374,
+          "End": 10.214,
+          "Text": "in your neighborhood.",
+          "Tokens": [
+            294,
+            428,
+            7630,
+            13
+          ]
+        },
+        {
+          "Start": 10.214,
+          "End": 14.174,
+          "Text": "But my writing and my videos can only do so much to set that tone.",
+          "Tokens": [
+            583,
+            452,
+            3579,
+            293,
+            452,
+            2145,
+            393,
+            787,
+            360,
+            370,
+            709,
+            281,
+            992,
+            300,
+            8027,
+            13
+          ]
+        },
+        {
+          "Start": 14.254,
+          "End": 18.214,
+          "Text": "And so I've always tried to create strong visuals to complete the experience.",
+          "Tokens": [
+            400,
+            370,
+            286,
+            600,
+            1009,
+            3031,
+            281,
+            1884,
+            2068,
+            26035,
+            281,
+            3566,
+            264,
+            1752,
+            13
+          ]
+        },
+        {
+          "Start": 18.514,
+          "End": 19.994,
+          "Text": "The problem is I'm not an illiterate.",
+          "Tokens": [
+            440,
+            1154,
+            307,
+            286,
+            478,
+            406,
+            364,
+            3171,
+            1681,
+            473,
+            13
+          ]
+        }
+      ],
+      "baseline_word_count": 78,
+      "candidate_word_count": 78,
+      "wordDiff": [
+        {
+          "window": 0,
+          "baseline_words": 78,
+          "candidate_words": 78,
+          "shared_prefix_timing_changes": 6,
+          "max_shared_prefix_boundary_shift_seconds": 0.02000000000000135
+        }
+      ]
+    },
+    {
+      "fixture": "silence",
+      "baseline_report": "decoder-rows-candidate-silence",
+      "candidate_report": "keyextent-candidate-silence",
+      "scope": "earlier baseline output gate; not speed pair",
+      "baseline": 0.019790451,
+      "candidate": 0.019504711,
+      "raw_percent": -1.4438276318210264,
+      "baseline_samples": [
+        0.020653027,
+        0.019947662,
+        0.019790451,
+        0.019718916,
+        0.019508632
+      ],
+      "candidate_samples": [
+        0.020279632,
+        0.019782391,
+        0.019504711,
+        0.019429781,
+        0.01943888
+      ],
+      "full_before": 3.8938182770000003,
+      "full_after": 3.8847198240000003,
+      "exact_output": true,
+      "content_tokens_equal": true,
+      "baseline_segments": [],
+      "candidate_segments": [],
+      "baseline_word_count": 0,
+      "candidate_word_count": 0,
+      "wordDiff": []
+    }
+  ],
+  "rerun_jfk": {
+    "baseline": 6.097402746,
+    "candidate": 6.134627745,
+    "percent": 0.6105058260161833,
+    "samples": [
+      {
+        "arm": "baseline",
+        "samples": [
+          6.163409639,
+          6.098903459,
+          6.097402746,
+          6.097216718,
+          6.062807398
+        ]
+      },
+      {
+        "arm": "candidate",
+        "samples": [
+          6.2038603,
+          6.126829985,
+          6.134627745,
+          6.105112001,
+          6.147965527
+        ]
+      }
+    ],
+    "scope": "later same-executable fresh pair; earlier apparentJFKgain not accepted"
+  },
+  "originals": [
+    {
+      "fixture": "pt2",
+      "scope": "same canonical PCM; original no-DTW, VAD compaction/windowing differs when enabled; transcription comparison not aligned word gate",
+      "segments": [
+        {
+          "start": 0,
+          "end": 4.96,
+          "text": "Estava interessado em depositar dinheiro na minha conta"
+        },
+        {
+          "start": 4.96,
+          "end": 10.28,
+          "text": "e, em primeiro lugar, queria perguntar se era possível, se posso visitar"
+        },
+        {
+          "start": 10.28,
+          "end": 13.86,
+          "text": "e como é que posso transferir dinheiro para a conta"
+        },
+        {
+          "start": 13.86,
+          "end": 19.6,
+          "text": "ou se tenho que ir ao banco, onde eu posso fazer esse depósito."
+        },
+        {
+          "start": 21.44,
+          "end": 22.14,
+          "text": "Seguim até isso."
+        },
+        {
+          "start": 30,
+          "end": 35.12,
+          "text": "E aí"
+        }
+      ]
+    },
+    {
+      "fixture": "podcast",
+      "scope": "same canonical PCM; original no-DTW, VAD compaction/windowing differs when enabled; transcription comparison not aligned word gate",
+      "segments": [
+        {
+          "start": 0,
+          "end": 6,
+          "text": "I've always wanted my brand to have a strong visual presence when anyone comes across my content or my website or my products."
+        },
+        {
+          "start": 6,
+          "end": 10,
+          "text": "You know, like the vibe that you get when you walk through the storefront of a shop in your neighborhood."
+        },
+        {
+          "start": 10,
+          "end": 14,
+          "text": "But my writing and my videos can only do so much to set that tone."
+        },
+        {
+          "start": 14,
+          "end": 18,
+          "text": "And so I've always tried to create strong visuals to complete the experience."
+        },
+        {
+          "start": 18,
+          "end": 20,
+          "text": "The problem is I'm not an illogist."
+        }
+      ]
+    },
+    {
+      "fixture": "podcast-vadwords",
+      "scope": "same canonical PCM; original no-DTW, VAD compaction/windowing differs when enabled; transcription comparison not aligned word gate",
+      "segments": [
+        {
+          "start": 0.03,
+          "end": 3.13,
+          "text": "I've always wanted my brand to have a strong visual presence when anyone comes"
+        },
+        {
+          "start": 3.13,
+          "end": 5.97,
+          "text": "across my content or my website or my products."
+        },
+        {
+          "start": 6.15,
+          "end": 9.01,
+          "text": "You know, like the vibe that you get when you walk through the storefront of a"
+        },
+        {
+          "start": 9.01,
+          "end": 10.05,
+          "text": "shop in your neighborhood."
+        },
+        {
+          "start": 10.28,
+          "end": 14.18,
+          "text": "But my writing and my videos can only do so much to set that tone."
+        },
+        {
+          "start": 14.34,
+          "end": 18.32,
+          "text": "And so I've always tried to create strong visuals to complete the experience."
+        },
+        {
+          "start": 18.56,
+          "end": 20,
+          "text": "The problem is I'm not an illiterate."
+        }
+      ]
+    }
+  ],
+  "oracle": "tennative shapes virtualvsphysicalzeros bitexact;1.92Mencoderhiddenphysicaloracle bitexact/cancellationreuse/statsunchanged",
+  "states_verified": [
+    "whisper-keyextent-native",
+    "whisper-keyextent-native-final",
+    "whisper-keyextent-hidden",
+    "whisper-keyextent-hidden-final",
+    "whisper-keyextent-full-gates",
+    "whisper-keyextent-model-final-build",
+    "whisper-keyextent-candidate-jfk",
+    "whisper-keyextent-baseline-jfk",
+    "whisper-keyextent-candidate-pt",
+    "whisper-keyextent-baseline-pt",
+    "whisper-keyextent-candidate-fr",
+    "whisper-keyextent-baseline-fr",
+    "whisper-keyextent-candidate-jfk-vadwords",
+    "whisper-keyextent-baseline-jfk-vadwords",
+    "whisper-keyextent-candidate-groups",
+    "whisper-keyextent-baseline-groups",
+    "whisper-keyextent-expanded-pt1",
+    "whisper-keyextent-expanded-pt2",
+    "whisper-keyextent-expanded-podcast",
+    "whisper-keyextent-expanded-podcast-vadwords",
+    "whisper-keyextent-expanded-silence",
+    "whisper-keyextent-rerun-baseline-jfk",
+    "whisper-keyextent-rerun-candidate-jfk",
+    "whisper-keyextent-original-pt2",
+    "whisper-keyextent-original-podcast",
+    "whisper-keyextent-original-podcast-vadwords"
+  ]
+}

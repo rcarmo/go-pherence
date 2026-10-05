@@ -1,0 +1,5 @@
+In file included from swap-full.cpp:2:
+whisper-diagnostic.cpp: In function 'const char* whisper_version()':
+whisper-diagnostic.cpp:9322:12: error: 'WHISPER_VERSION' was not declared in this scope
+ 9322 |     return WHISPER_VERSION;
+      |            ^~~~~~~~~~~~~~~

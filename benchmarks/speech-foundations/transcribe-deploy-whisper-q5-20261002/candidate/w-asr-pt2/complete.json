@@ -1,0 +1,29 @@
+{
+ "id": "56d67246f8501776695a39e5272ff789",
+ "name": "pt2-w.wav",
+ "title": "PT 2 W",
+ "language": "pt",
+ "speaker_labels": false,
+ "profile": "asr-pt-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 1400398,
+ "media_released": true,
+ "created": "2026-10-02T14:54:21.971590713Z",
+ "updated": "2026-10-02T14:54:28.881692675Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "pt-2-w.pt.transcript.json",
+   "bytes": 4323,
+   "sha256": "e95c85ed2c4d04558bbbafde1bb1726246daa6311e36a1599f270e973174526e"
+  },
+  {
+   "name": "vtt",
+   "filename": "pt-2-w.pt.transcript.vtt",
+   "bytes": 478,
+   "sha256": "7f264c1028c6f312a53790924d1c476b2de95767a08cdaf3dc28eb1975a2a8cd"
+  }
+ ]
+}

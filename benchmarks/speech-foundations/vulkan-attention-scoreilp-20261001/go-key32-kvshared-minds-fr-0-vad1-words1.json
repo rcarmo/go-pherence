@@ -1,0 +1,470 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32",
+  "Language": "fr",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+  "ModelLoadSeconds": 5.070304802,
+  "PreparationSeconds": 1.729991412,
+  "CleanupSeconds": 0.010533318,
+  "FullArmSeconds": 43.307273781,
+  "InputSamples": 60074,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 7.365083514,
+      "AllocatedBytes": 186474928,
+      "Allocations": 27846,
+      "DecoderSelfSeconds": 0.138449009,
+      "DecoderCrossSeconds": 0.178925378,
+      "DecoderMLPSeconds": 0.293278831,
+      "DecoderHeadSeconds": 0.143589557,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 22976,
+            "EmitStart": 0,
+            "EmitEnd": 22976,
+            "InputSamples": 480000,
+            "PadSamples": 457024
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.026,
+              "End": 2.462,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Je",
+              "Start": 1.026,
+              "End": 1.286,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "souhaite",
+              "Start": 1.286,
+              "End": 1.726,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "changer",
+              "Start": 1.726,
+              "End": 1.966,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "mon",
+              "Start": 1.966,
+              "End": 2.126,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "adresse.",
+              "Start": 2.126,
+              "End": 2.446,
+              "TokenStart": 5,
+              "TokenEnd": 8
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 7.268260752,
+      "AllocatedBytes": 184814576,
+      "Allocations": 27724,
+      "DecoderSelfSeconds": 0.1407048,
+      "DecoderCrossSeconds": 0.183152339,
+      "DecoderMLPSeconds": 0.29717084,
+      "DecoderHeadSeconds": 0.142058675,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 22976,
+            "EmitStart": 0,
+            "EmitEnd": 22976,
+            "InputSamples": 480000,
+            "PadSamples": 457024
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.026,
+              "End": 2.462,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Je",
+              "Start": 1.026,
+              "End": 1.286,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "souhaite",
+              "Start": 1.286,
+              "End": 1.726,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "changer",
+              "Start": 1.726,
+              "End": 1.966,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "mon",
+              "Start": 1.966,
+              "End": 2.126,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "adresse.",
+              "Start": 2.126,
+              "End": 2.446,
+              "TokenStart": 5,
+              "TokenEnd": 8
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 7.270116921,
+      "AllocatedBytes": 184813272,
+      "Allocations": 27712,
+      "DecoderSelfSeconds": 0.139576863,
+      "DecoderCrossSeconds": 0.177435241,
+      "DecoderMLPSeconds": 0.290876929,
+      "DecoderHeadSeconds": 0.142177534,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 22976,
+            "EmitStart": 0,
+            "EmitEnd": 22976,
+            "InputSamples": 480000,
+            "PadSamples": 457024
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.026,
+              "End": 2.462,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Je",
+              "Start": 1.026,
+              "End": 1.286,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "souhaite",
+              "Start": 1.286,
+              "End": 1.726,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "changer",
+              "Start": 1.726,
+              "End": 1.966,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "mon",
+              "Start": 1.966,
+              "End": 2.126,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "adresse.",
+              "Start": 2.126,
+              "End": 2.446,
+              "TokenStart": 5,
+              "TokenEnd": 8
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 7.299662846,
+      "AllocatedBytes": 184800848,
+      "Allocations": 27677,
+      "DecoderSelfSeconds": 0.139925166,
+      "DecoderCrossSeconds": 0.182635509,
+      "DecoderMLPSeconds": 0.297278391,
+      "DecoderHeadSeconds": 0.146589336,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 22976,
+            "EmitStart": 0,
+            "EmitEnd": 22976,
+            "InputSamples": 480000,
+            "PadSamples": 457024
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.026,
+              "End": 2.462,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Je",
+              "Start": 1.026,
+              "End": 1.286,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "souhaite",
+              "Start": 1.286,
+              "End": 1.726,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "changer",
+              "Start": 1.726,
+              "End": 1.966,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "mon",
+              "Start": 1.966,
+              "End": 2.126,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "adresse.",
+              "Start": 2.126,
+              "End": 2.446,
+              "TokenStart": 5,
+              "TokenEnd": 8
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 7.2923729250000004,
+      "AllocatedBytes": 184801664,
+      "Allocations": 27688,
+      "DecoderSelfSeconds": 0.138153834,
+      "DecoderCrossSeconds": 0.181975062,
+      "DecoderMLPSeconds": 0.292654709,
+      "DecoderHeadSeconds": 0.145547929,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 22976,
+            "EmitStart": 0,
+            "EmitEnd": 22976,
+            "InputSamples": 480000,
+            "PadSamples": 457024
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 16416,
+              "End": 39392
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 1.026,
+              "End": 2.462,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Je",
+              "Start": 1.026,
+              "End": 1.286,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "souhaite",
+              "Start": 1.286,
+              "End": 1.726,
+              "TokenStart": 1,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "changer",
+              "Start": 1.726,
+              "End": 1.966,
+              "TokenStart": 3,
+              "TokenEnd": 4
+            },
+            {
+              "Word": "mon",
+              "Start": 1.966,
+              "End": 2.126,
+              "TokenStart": 4,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "adresse.",
+              "Start": 2.126,
+              "End": 2.446,
+              "TokenStart": 5,
+              "TokenEnd": 8
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

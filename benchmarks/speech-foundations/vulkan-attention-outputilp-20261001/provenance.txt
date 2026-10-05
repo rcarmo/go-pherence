@@ -1,0 +1,6 @@
+2026-10-01T15:05:56Z
+869d672bf0ff1313bf603915ea24805d29db8e4c
+426663a5a032a85a8c19936f51ce8c28bc97b2d26c93edff868a3a0fcc9d680c  tmp/whisper-vad-parity-20261001/whisper-attention-outputilp.test
+62b533d0766fd1ee48a0447d20fc145fefff19174437614e5259d010cbb04e63  tmp/whisper-vad-parity-20261001/whisper-attention-outputilp-model.test
+cf71ac44d16516e311ccfb9796757d6d11d7a59d4a733aa27214bef4cef381ad  tools/vulkan-offline/usr/bin/glslangValidator
+49044b2fffb78a93ab7016d46a50d156088598162de8b8a523f3308ea5b3f2f8  tools/vulkan-offline/usr/bin/spirv-val

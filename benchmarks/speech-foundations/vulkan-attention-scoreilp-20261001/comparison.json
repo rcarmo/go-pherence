@@ -1,0 +1,188 @@
+{
+  "table": [
+    {
+      "fixture": "jfk",
+      "mode": "noVAD/noWords",
+      "baseline": 7.46707895,
+      "candidate": 7.088643944,
+      "change_percent": -5.068046133354464,
+      "output_exact": true,
+      "samples_per_arm": 5
+    },
+    {
+      "fixture": "pt",
+      "mode": "noVAD/noWords",
+      "baseline": 7.437387591,
+      "candidate": 7.078809143,
+      "change_percent": -4.821295698423955,
+      "output_exact": true,
+      "samples_per_arm": 5
+    },
+    {
+      "fixture": "fr",
+      "mode": "noVAD/noWords",
+      "baseline": 6.909588461,
+      "candidate": 6.538659623,
+      "change_percent": -5.368320271079019,
+      "output_exact": true,
+      "samples_per_arm": 5
+    },
+    {
+      "fixture": "jfk",
+      "mode": "VAD/words",
+      "output_exact": true,
+      "candidate": 8.059627047,
+      "samples": 5,
+      "baseline_report": "go-key32-kvshared-keepgaps-gclimit-jfk-vad1-words1.json",
+      "timing_baseline": "historical; no speed claim"
+    },
+    {
+      "fixture": "twogroups",
+      "mode": "VAD/words",
+      "output_exact": true,
+      "candidate": 16.1725195,
+      "samples": 5,
+      "baseline_report": "go-key32-kvshared-twogroups-gclimit-vad1-words1.json",
+      "timing_baseline": "historical; no speed claim"
+    },
+    {
+      "fixture": "minds-pt-0",
+      "mode": "VAD/words",
+      "output_exact": true,
+      "candidate": 7.9923262390000005,
+      "samples": 5,
+      "baseline_report": "go-key32-kvshared-minds-pt-0-vad1-words1.json",
+      "timing_baseline": "historical; no speed claim"
+    },
+    {
+      "fixture": "minds-fr-0",
+      "mode": "VAD/words",
+      "output_exact": true,
+      "candidate": 6.921174693,
+      "samples": 5,
+      "baseline_report": "go-key32-kvshared-minds-fr-0-vad1-words1.json",
+      "timing_baseline": "historical; no speed claim"
+    },
+    {
+      "fixture": "silence",
+      "mode": "VAD/words",
+      "output_exact": true,
+      "candidate": 0.0195969,
+      "samples": 5,
+      "baseline_report": "go-key32-keepgaps-silence-vad1-words1.json",
+      "timing_baseline": "historical; no speed claim"
+    },
+    {
+      "fixture": "jfk",
+      "mode": "VAD/words/matched",
+      "baseline": 8.412198393,
+      "candidate": 8.059627047,
+      "change_percent": -4.191191523649573,
+      "output_exact": true,
+      "samples_per_arm": 5
+    }
+  ],
+  "experiments": [
+    {
+      "variant": "ilp",
+      "baseline_ns": [
+        78281341,
+        78359858,
+        78291644,
+        78996645,
+        78836094,
+        78246024
+      ],
+      "candidate_ns": [
+        85170079,
+        84734351,
+        85423108,
+        84734952,
+        85265828,
+        84525045
+      ],
+      "change_percent": 8.460518303871734
+    },
+    {
+      "variant": "barrier",
+      "baseline_ns": [
+        78395256,
+        78556074,
+        78325578,
+        78469947,
+        78513942,
+        78340705
+      ],
+      "candidate_ns": [
+        78258793,
+        77921233,
+        78471442,
+        78105506,
+        77960801,
+        78079935
+      ],
+      "change_percent": -0.43334148491810387
+    },
+    {
+      "variant": "combined",
+      "baseline_ns": [
+        78372766,
+        78560109,
+        78258736,
+        78613713,
+        78266158,
+        78449923
+      ],
+      "candidate_ns": [
+        84488118,
+        84479049,
+        84175671,
+        84592106,
+        84346234,
+        84497223
+      ],
+      "change_percent": 7.744082235447447
+    },
+    {
+      "variant": "query32",
+      "baseline_ns": [
+        78283983,
+        78435374,
+        78628597,
+        78351727,
+        78661688,
+        78537307
+      ],
+      "candidate_ns": [
+        82267994,
+        81735108,
+        81750977,
+        82288293,
+        82317816,
+        82412208
+      ],
+      "change_percent": 4.831162946117984
+    },
+    {
+      "variant": "score-ilp",
+      "baseline_ns": [
+        78091378,
+        78433274,
+        78429696,
+        78372496,
+        78469766,
+        78327859
+      ],
+      "candidate_ns": [
+        67142096,
+        66929067,
+        66941573,
+        67581937,
+        66874999,
+        66910273
+      ],
+      "change_percent": -14.624509841035893
+    }
+  ],
+  "review": "focused independent source-only delegate completed, no concrete issue; no independent model accuracy review"
+}

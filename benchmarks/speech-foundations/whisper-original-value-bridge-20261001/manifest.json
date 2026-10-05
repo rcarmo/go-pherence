@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "date": "2026-10-01",
+  "original_revision": "c44b60b8053bbf2a5c1e014f11323fb3f2485177",
+  "scope": "explicit original GGML F32-widened stored values; no packed inference/speed acceptance",
+  "model_pins": {
+    "q5": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+    "f16": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
+  },
+  "checks": {
+    "block_values": 2048,
+    "block_comparison": "bit exact independently decoded",
+    "block_repeats": 10,
+    "tensor_count": 587,
+    "text_vocabulary_checked": 50257,
+    "fixtures": [
+      "JFK",
+      "Portuguese0",
+      "French0"
+    ],
+    "go_repeats": 5,
+    "original_quality_arms_ptfr_repeats": 1,
+    "independent_acoustic_accuracy": false
+  },
+  "limits": {
+    "cpus": 4,
+    "affinity": "0-7",
+    "memory_gib": 8,
+    "process_swap": 0,
+    "heap": "GOMEMLIMIT4GiB",
+    "gpu": "IntelIrisXeMesa26.1.5"
+  },
+  "pins": [
+    {
+      "file": "go-vulkan-key32-original-q5-values-jfk-vad0-words0.json",
+      "bytes": 7781,
+      "sha256": "f116a7ae6e533a77e2b229d47f8de8e1fa5b54c1d0ac8a7e95f481bdffd4f9b6"
+    },
+    {
+      "file": "go-original-q5-values-minds-pt-0-vad0-words0.json",
+      "bytes": 7846,
+      "sha256": "42dc7b608edbd80f273cdda9b212838b2bf226280a7e23fea81a203206ce5cb4"
+    },
+    {
+      "file": "go-original-q5-values-minds-fr-0-vad0-words0.json",
+      "bytes": 5526,
+      "sha256": "a75af68fd5e495b3ae86bdd750684908b51dd029a2936d8d209d7d21351d773a"
+    },
+    {
+      "file": "original-q5-samevalue-minds-pt-0.json",
+      "bytes": 7384,
+      "sha256": "f47d13a792de2e4a2ffd1188326dac36e68f1cf28915ec7458e2285fa239af55"
+    },
+    {
+      "file": "original-q5-samevalue-minds-fr-0.json",
+      "bytes": 3247,
+      "sha256": "13b7b25e40d808bc07e48f3487cfcd9e4b57d257090dd665d8745f05f797bbb5"
+    },
+    {
+      "file": "whisper-q5-value-load3.log",
+      "bytes": 358,
+      "sha256": "e0b699f8a9b64c8e73c5af8fcf8adad7fadb8fe1079930399dafd4412a48dcd3"
+    },
+    {
+      "file": "whisper-q5-vocabulary2.log",
+      "bytes": 358,
+      "sha256": "699db6e6eaafc6d2735bdf876a7156048b70c210d7636e8cc1271a7702496983"
+    },
+    {
+      "file": "whisper-original-f16-value-load.log",
+      "bytes": 355,
+      "sha256": "8fb3ff44400aa810f888c3cf9bf1977894c966bdebe1b405279e0516e9234893"
+    },
+    {
+      "file": "whisper-legacy-final-tree-exit.txt",
+      "bytes": 28,
+      "sha256": "08289145c4a22801a0628c5c3871717f7742cba48b02b278ca466de9e93bb9a8"
+    },
+    {
+      "file": "whisper-legacy-final-tree-state.json",
+      "bytes": 331,
+      "sha256": "37914e46e9f93a2fb52adc833ddb9875280861e00141c9e6cfd51651eff58119"
+    },
+    {
+      "file": "q5-reference-output.f32",
+      "bytes": 8192,
+      "sha256": "d44a59144d4ea8153421604d78e1d87d07fd72a50d4586e8b2587988ede1ee15"
+    },
+    {
+      "file": "q5-reference-input.bin",
+      "bytes": 1408,
+      "sha256": "2f540db499b6e8c083b0d8fc92d0b1f9f249d322c52012642264dc05a3589c55"
+    },
+    {
+      "file": "q5-reference.cpp",
+      "bytes": 711,
+      "sha256": "cc20541a1ef29b24124ea4e056d1562ba1f68c2ca5cb2891f153ce3ecc907326"
+    },
+    {
+      "file": "independent-q5-go.log",
+      "bytes": 1626,
+      "sha256": "6f3d09c37166fa98efe8d9095c823be4194efaf440a19455b9819a5bea3714d5"
+    }
+  ],
+  "oraclePins": [
+    {
+      "path": "tmp/whisper-vad-parity-20261001/q5-reference",
+      "bytes": 13328,
+      "sha256": "1773ace1deaf80d029bb03fad5c4a18aaeed08cf2cc18668d911bf886dafaa87"
+    },
+    {
+      "path": "projects/whisper-stt/runtime/build-vulkan/bin/libggml-base.so",
+      "bytes": 913960,
+      "sha256": "c6087f04d69e438b597f8e0cd98cf7eb6af538f6e57605b444bb9c0f520598b6"
+    },
+    {
+      "path": "projects/whisper-stt/vendor/whisper.cpp/ggml/include/ggml.h",
+      "bytes": 113310,
+      "sha256": "34192eac913444df9dc1d23025a618448cdee1ee7d78597af4979d8edc77b695"
+    }
+  ]
+}

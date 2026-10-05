@@ -1,0 +1,6 @@
+=== RUN   TestVulkanNativeAttentionScore4Diagnostic
+=== RUN   TestVulkanNativeAttentionScore4Diagnostic/independent
+    vulkan_speech_native_test.go:300: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeAttentionScore4Diagnostic (0.13s)
+    --- FAIL: TestVulkanNativeAttentionScore4Diagnostic/independent (0.00s)
+FAIL

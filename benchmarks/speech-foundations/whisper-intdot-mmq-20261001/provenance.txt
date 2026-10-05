@@ -1,0 +1,13 @@
+generated=2026-10-01T20:44:12Z
+repo_base=261a197112c5de916b0c843abd0e075148b81c70
+original_whisper_cpp=c44b60b8053bbf2a5c1e014f11323fb3f2485177
+glslc=shaderc v2026.1 2026-01-23spirv-tools v2026.1 2026-02-03glslang 301b4ede53d59b68bf55f95bb26412d9233c8187
+85365a1f6e439c17cb9d71045d8306c018782359a466ae65c1806be4f7f0cd87  /var/home/agent/.local/share/containers/storage/overlay/fd146f67161b3a5dc37bd241a6853f9a1c4ff7ef07929199bfe708c569c6d332/diff/usr/bin/glslc
+30791f7b5ed757c6297bc939d27bcc848067558bfeaa346e8adbca05c85939a8  tmp/whisper-vad-parity-20261001/mmq-vulkan.test
+ac0125d75367ebbaab3b65606f2b2aa9b7e2623d82010862876efc14f3f78924  tmp/whisper-vad-parity-20261001/mmq-model.test
+d2be7c0e73f163c618e5831f53ce7a745d83380d500d20d46462fea5f7dedd03  tmp/whisper-vad-parity-20261001/mmq2-model.test
+63d85abcb0454e97a6c506d682a34a348cc0fe48f21ebc73bd6f9ff5bc2a2ef0  tmp/whisper-vad-parity-20261001/mmq-hidden.test
+1621645d1a078d1ae30e6013d06a95326b92f2f0f5f01d7d0de8c65d4cbfad3f  tmp/whisper-vad-parity-20261001/padintdot-model.test
+ee0046bdd1918f3ad7393f36a7a11d779d9a1e7738a6bb8eaeae8ed2fc79a2b6  tmp/whisper-vad-parity-20261001/padintdotall-model.test
+9361c4ebadb57671ba495b9461683cc5868d95f5a9edf9de8bc8ee9d36dce387  tmp/whisper-vad-parity-20261001/padintdotall-stage.test
+test binaries recorded by hash only

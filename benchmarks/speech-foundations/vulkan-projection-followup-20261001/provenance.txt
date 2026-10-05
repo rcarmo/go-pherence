@@ -1,0 +1,6 @@
+2026-10-01T05:53:30Z
+445b6cadd566a8b11d021020dccac2c916b20773
+go version go1.26.2 linux/amd64
+c0cbf1fd436255e890d62544fa54a2d581f907c2425ca392c615bdca1484fe2c  ../../tmp/whisper-vad-parity-20261001/whisper-stage-scoreilp.test
+308770f456ec12754d5373cab91c728d140987c5e90fdce0e3faa9cf13e79663  ../../tmp/whisper-vad-parity-20261001/linear-static.test
+25d07e11d700ec69eeeadcdb4ca834129bcde55a2c2104850a8fb9a4d1ee1ea9  ../../tmp/whisper-vad-parity-20261001/attention-score4.test

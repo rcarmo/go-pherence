@@ -1,0 +1,12 @@
+const root='tmp/whisper-vad-parity-20261001';const median=(v:number[])=>v.toSorted((a,b)=>a-b)[Math.floor(v.length/2)];const results=[];
+for(const fixture of ['jfk','pt','fr','jfk-vadwords','groups']){
+ const a=await Bun.file(`${root}/intdot-trained-baseline-${fixture}.json`).json(),b=await Bun.file(`${root}/intdot-final-candidate-${fixture}.json`).json();
+ const snapshots=(r:any)=>r.Samples.map((s:any)=>s.windows??s.vad_windows??[]);const textTokens=(r:any)=>r.Samples.map((s:any)=>(s.windows??s.vad_windows??[]).map((w:any)=>w.Segments.map((segment:any)=>({Text:segment.Text,Tokens:segment.Tokens}))));
+ if(a.Samples.length!==5||b.Samples.length!==5)throw Error('repeat count');
+ const baseline=median(a.Samples.map((s:any)=>s.request_seconds)),candidate=median(b.Samples.map((s:any)=>s.request_seconds));
+ results.push({fixture,baseline,candidate,percent:100*(candidate/baseline-1),all_windows_exact:JSON.stringify(snapshots(a))===JSON.stringify(snapshots(b)),text_tokens_exact:JSON.stringify(textTokens(a))===JSON.stringify(textTokens(b)),baseline_full:a.FullArmSeconds,candidate_full:b.FullArmSeconds,baseline_preparation:a.PreparationSeconds,candidate_preparation:b.PreparationSeconds,baseline_load:a.ModelLoadSeconds,candidate_load:b.ModelLoadSeconds});
+}
+const silence=await Bun.file(`${root}/intdot-final-candidate-silence.json`).json();if(silence.Samples.length!==5||silence.Samples.some((s:any)=>(s.windows??s.vad_windows??[]).length!==0))throw Error('silence');
+const log=await Bun.file(`${root}/whisper-intdot-trained-operator.log`).text();const pairs=new Map<string,number[][]>();for(const line of log.split('\n')){const match=line.match(/INTDOT_TRAINED_SAMPLE tensor=(\S+) repeat=\d+ baseline=([\d.]+) candidate=([\d.]+)/);if(match){const rows=pairs.get(match[1])??[];rows.push([+match[2],+match[3]]);pairs.set(match[1],rows)}}
+const stages=[...pairs].map(([tensor,rows])=>{const baseline=median(rows.map(r=>r[0])),candidate=median(rows.map(r=>r[1]));return{tensor,baseline,candidate,percent:100*(candidate/baseline-1),rows}});
+const data={results,stages,silence_median:median(silence.Samples.map((s:any)=>s.request_seconds)),status:'experimental: Portuguese segment timing regression; goal unmet'};await Bun.write('tmp/whisper-intdot-original-20261001/final-comparison.json',JSON.stringify(data,null,2));console.log(JSON.stringify(data,null,2));

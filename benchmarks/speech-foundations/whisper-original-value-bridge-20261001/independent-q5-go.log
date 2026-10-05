@@ -1,0 +1,32 @@
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+=== RUN   TestPinnedQ5IndependentDecode
+    reference_test.go:45: independent_q5_values=2048 bit_exact=true
+--- PASS: TestPinnedQ5IndependentDecode (0.00s)
+PASS
+ok  	github.com/rcarmo/go-pherence/loader/whisperggml	0.003s

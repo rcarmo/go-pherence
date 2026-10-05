@@ -1,0 +1,103 @@
+package whisper
+
+import (
+	"context"
+	"encoding/binary"
+	"fmt"
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func readF32File(t *testing.T, path string) []float32 {
+	b, err := os.ReadFile(path)
+	if err != nil || len(b)%4 != 0 {
+		t.Fatal(path, err)
+	}
+	v := make([]float32, len(b)/4)
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+	}
+	return v
+}
+
+func TestWhisperIntDotStateDiagnostic(t *testing.T) {
+	prefix := os.Getenv("GO_PHERENCE_TEST_INTDIAG_PREFIX")
+	if prefix == "" {
+		t.Skip("explicit diagnostic")
+	}
+	d, _ := t.Deadline()
+	ctx, cancel := context.WithDeadline(context.Background(), d.Add(-time.Second))
+	defer cancel()
+	model, tok, policy, file := pinnedLegacyWhisperModelMode(t, ctx, true)
+	defer file.Close()
+	if !vk.VulkanInitIntegerDot() || !strings.Contains(vk.VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("device")
+	}
+	mel := readF32File(t, prefix+"-orig-default-mel.f32")
+	refs := map[string][]float32{"default": readF32File(t, prefix+"-orig-default-hidden.f32"), "nof16": readF32File(t, prefix+"-orig-nof16-hidden.f32")}
+	stats := func(a, b []float32) string {
+		var mx, se float64
+		for i := range a {
+			d := float64(a[i] - b[i])
+			se += d * d
+			if math.Abs(d) > mx {
+				mx = math.Abs(d)
+			}
+		}
+		return fmt.Sprintf("max=%.6g rmse=%.6g", mx, math.Sqrt(se/float64(len(a))))
+	}
+	t.Logf("INTDIAG orig-default vs orig-nof16 %s", stats(refs["default"], refs["nof16"]))
+	if os.Getenv("GO_PHERENCE_TEST_INTDIAG_DECODE") == "1" {
+		for _, name := range []string{"orig-default", "orig-nof16", "go-padded-exact", "go-padded-intdot-all"} {
+			hidden := readF32File(t, prefix+"-"+name+"-hidden.f32")
+			v, e := checkedTimestampVocabulary(model.Config, tok, "pt")
+			if e != nil {
+				t.Fatal(e)
+			}
+			opts, suppress, begin, e := resolvePCMGeneration(model.Config, v, PCMTranscribeOptions{Language: "pt", Generation: policy}, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens)
+			if e != nil {
+				t.Fatal(e)
+			}
+			state, e := NewDecoderStateContext(ctx, model.Config, hidden, 1500, model.Decoder)
+			if e != nil {
+				t.Fatal(e)
+			}
+			segs, e := decodeCheckedTimestamps(ctx, model.Config, tok, v, opts, suppress, begin, func(token int) ([]float32, error) { return model.Decoder.ForwardToken(token, state), ctx.Err() })
+			if e != nil {
+				t.Fatal(e)
+			}
+			for _, s := range segs {
+				t.Logf("INTDIAG_GODECODE hidden=%s start=%v end=%v text=%q tokens=%v", name, s.Start, s.End, s.Text, s.Tokens)
+			}
+		}
+		return
+	}
+	for _, m := range []struct {
+		name string
+		mode vulkanLinearMode
+	}{{"padded-exact", vulkanLinearOriginalQ5PaddedKeyExtent}, {"padded-intdot-all", vulkanLinearOriginalQ5PaddedIntegerDotMMQ}, {"padded-intdot-ffn", vulkanLinearOriginalQ5PaddedIntegerDotMLP}} {
+		enc, err := newVulkanEncoderPackedMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, m.mode, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := enc.Forward(ctx, mel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := enc.Close(); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("INTDIAG %s vs orig-default %s | vs orig-nof16 %s", m.name, stats(out, refs["default"]), stats(out, refs["nof16"]))
+		buf := make([]byte, len(out)*4)
+		for i, v := range out {
+			binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
+		}
+		if err := os.WriteFile(prefix+"-go-"+m.name+"-hidden.f32", buf, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

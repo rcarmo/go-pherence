@@ -1,0 +1,27 @@
+=== RUN   TestVulkanNativeQ5Decode4Trained
+=== RUN   TestVulkanNativeQ5Decode4Trained/encoder.blocks.0.mlp.0.weight
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=0 seconds=0.032856294 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=0 seconds=0.030629747 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=1 seconds=0.030795257 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=1 seconds=0.032803239 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=2 seconds=0.032907768 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=2 seconds=0.030653285 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=3 seconds=0.030656220 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=3 seconds=0.032705927 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=false repeat=4 seconds=0.033174301 values=7680000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.0.weight candidate=true repeat=4 seconds=0.030732595 values=7680000
+=== RUN   TestVulkanNativeQ5Decode4Trained/encoder.blocks.0.mlp.2.weight
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=0 seconds=0.033910426 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=0 seconds=0.031419837 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=1 seconds=0.031590661 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=1 seconds=0.033893827 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=2 seconds=0.033871574 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=2 seconds=0.031723558 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=3 seconds=0.031585342 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=3 seconds=0.033867300 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=false repeat=4 seconds=0.034057981 values=1920000
+    vulkan_q5_decode4_diagnostic_test.go:114: DECODE4_TRAINED tensor=encoder.blocks.0.mlp.2.weight candidate=true repeat=4 seconds=0.032011338 values=1920000
+--- PASS: TestVulkanNativeQ5Decode4Trained (1.72s)
+    --- PASS: TestVulkanNativeQ5Decode4Trained/encoder.blocks.0.mlp.0.weight (0.71s)
+    --- PASS: TestVulkanNativeQ5Decode4Trained/encoder.blocks.0.mlp.2.weight (0.54s)
+PASS

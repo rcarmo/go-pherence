@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeProjectionDiagnostic
+    vulkan_projection_diagnostic_test.go:44: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeProjectionDiagnostic (0.08s)
+FAIL

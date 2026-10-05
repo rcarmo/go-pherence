@@ -1,0 +1,205 @@
+{
+  "rows": [
+    {
+      "kind": "QKV fused32",
+      "log": "whisper-qkv-tile32.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        25627803,
+        26415203,
+        25683248,
+        25861294,
+        25844511,
+        25639918,
+        27467181,
+        26910514
+      ],
+      "candidate_ns": [
+        29310407,
+        28630491,
+        28543549,
+        28684063,
+        28568390,
+        28633022,
+        28686468,
+        28583495
+      ],
+      "baseline_median_ms": 25.8529025,
+      "candidate_median_ms": 28.6317565,
+      "time_change_percent": 10.74871187093982,
+      "max_abs": 0
+    },
+    {
+      "kind": "QKV fused64",
+      "log": "whisper-qkv-tile64.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        31887055,
+        26338380,
+        25789466,
+        25940067,
+        25701232,
+        25601932,
+        25637246,
+        25663496
+      ],
+      "candidate_ns": [
+        32433494,
+        29704984,
+        29114972,
+        28740437,
+        29388015,
+        28984026,
+        29524833,
+        29068857
+      ],
+      "baseline_median_ms": 25.745349,
+      "candidate_median_ms": 29.2514935,
+      "time_change_percent": 13.618554947536342,
+      "max_abs": 0
+    },
+    {
+      "kind": "QKV band64",
+      "log": "whisper-qkv-band.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        32008678,
+        25725667,
+        25774274,
+        26160029,
+        25749681,
+        25710071,
+        25755019,
+        25749028
+      ],
+      "candidate_ns": [
+        30458165,
+        28697833,
+        27542042,
+        27515963,
+        27702341,
+        27599738,
+        27706833,
+        27434467
+      ],
+      "baseline_median_ms": 25.75235,
+      "candidate_median_ms": 27.6510395,
+      "time_change_percent": 7.372878591662513,
+      "max_abs": 0
+    },
+    {
+      "kind": "splitkey2",
+      "log": "whisper-splitkey2-fixed.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        67253448,
+        67146490,
+        67099096,
+        66963722,
+        66923845,
+        67130208,
+        67153501,
+        67131205
+      ],
+      "candidate_ns": [
+        66965354,
+        67501180,
+        67141805,
+        67770356,
+        67273713,
+        67133157,
+        67627034,
+        67222994
+      ],
+      "baseline_median_ms": 67.1307065,
+      "candidate_median_ms": 67.2483535,
+      "time_change_percent": 0.1752506507584517,
+      "max_abs": 5.4016709327697754e-8
+    },
+    {
+      "kind": "splitkey4",
+      "log": "whisper-splitkey4-fixed.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        66978866,
+        66903439,
+        67169927,
+        66828124,
+        67014204,
+        67273527,
+        67134046,
+        66876318
+      ],
+      "candidate_ns": [
+        67820531,
+        68008860,
+        67805644,
+        67909445,
+        67774782,
+        67980623,
+        67814526,
+        68057935
+      ],
+      "baseline_median_ms": 66.996535,
+      "candidate_median_ms": 67.864988,
+      "time_change_percent": 1.2962655456733696,
+      "max_abs": 5.21540641784668e-8
+    },
+    {
+      "kind": "splitkey8",
+      "log": "whisper-splitkey8-fixed.log",
+      "samples_per_arm": 8,
+      "baseline_ns": [
+        66893580,
+        66860392,
+        67555172,
+        67002720,
+        66860147,
+        67195824,
+        67420282,
+        67017299
+      ],
+      "candidate_ns": [
+        68857941,
+        69292012,
+        69080566,
+        68865782,
+        68839583,
+        69247669,
+        68978693,
+        69119165
+      ],
+      "baseline_median_ms": 67.0100095,
+      "candidate_median_ms": 69.0296295,
+      "time_change_percent": 3.013907944603411,
+      "max_abs": 5.4016709327697754e-8
+    },
+    {
+      "kind": "KV together",
+      "log": "whisper-kv-together.log",
+      "samples_per_arm": 6,
+      "baseline_ns": [
+        66876229,
+        66941515,
+        66924536,
+        67316347,
+        67043080,
+        67173099
+      ],
+      "candidate_ns": [
+        89846522,
+        89930983,
+        89936031,
+        89802689,
+        89905517,
+        90118763
+      ],
+      "baseline_median_ms": 66.9922975,
+      "candidate_median_ms": 89.91825,
+      "time_change_percent": 34.22177377929157,
+      "max_abs": 0
+    }
+  ],
+  "status": "all candidates rejected; no model integration",
+  "scope": "synthetic native operators; no end-to-end accuracy/speed acceptance"
+}

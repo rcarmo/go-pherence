@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeSplitKeyDiagnostic
+    vulkan_splitkey_diagnostic_test.go:43: unsupported or malformed Vulkan shader contract: extended instruction not admitted
+--- FAIL: TestVulkanNativeSplitKeyDiagnostic (0.12s)
+FAIL

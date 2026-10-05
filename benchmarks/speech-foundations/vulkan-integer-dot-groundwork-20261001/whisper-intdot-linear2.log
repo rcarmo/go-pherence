@@ -1,0 +1,23 @@
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1_32_1]
+    vulkan_integer_linear_diagnostic_test.go:99: Vulkan LinearQ5GroupedF32: invalid weight shape
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[33_96_63]
+    vulkan_integer_linear_diagnostic_test.go:99: Vulkan LinearQ5GroupedF32: invalid weight shape
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280]
+    vulkan_integer_linear_diagnostic_test.go:155: INTDOT_DRIFT shape=[1500 1280 1280] scalarchecked=4 maxAbs=0.104892969 meanAbs=0.0200908978
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=0 baseline=0.025474792 quant_plus_linear=0.014458007
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=1 baseline=0.009299970 quant_plus_linear=0.006421920
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=2 baseline=0.009270694 quant_plus_linear=0.006446085
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=3 baseline=0.009050389 quant_plus_linear=0.005997362
+    vulkan_integer_linear_diagnostic_test.go:165: INTDOT_LINEAR_SAMPLE shape=[1500 1280 1280] repeat=4 baseline=0.008974222 quant_plus_linear=0.006294791
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120]
+    vulkan_integer_linear_diagnostic_test.go:145: native dispatch Vulkan LinearQ5GroupedF32: projection shapes mismatch
+=== RUN   TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280]
+    vulkan_integer_linear_diagnostic_test.go:145: native dispatch Vulkan LinearQ5GroupedF32: projection shapes mismatch
+--- FAIL: TestVulkanNativeIntegerLinearDiagnostic (0.51s)
+    --- FAIL: TestVulkanNativeIntegerLinearDiagnostic/[1_32_1] (0.05s)
+    --- FAIL: TestVulkanNativeIntegerLinearDiagnostic/[33_96_63] (0.01s)
+    --- PASS: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_1280] (0.27s)
+    --- FAIL: TestVulkanNativeIntegerLinearDiagnostic/[1500_1280_5120] (0.07s)
+    --- FAIL: TestVulkanNativeIntegerLinearDiagnostic/[1500_5120_1280] (0.08s)
+FAIL

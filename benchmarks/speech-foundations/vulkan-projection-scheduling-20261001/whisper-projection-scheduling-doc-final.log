@@ -1,0 +1,32 @@
+go test ./docs -run '^TestModelLayout' -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.478s
+bun test scripts/model-layout.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/model-layout.test.ts:
+(pass) source is singular and checkpoint roots are ignored [32.13ms]
+(pass) Make defaults to checkpoints and honours explicit/legacy overrides [5.08ms]
+(pass) standard Make gates enforce the layout before broad validation [9.40ms]
+(pass) GitHub workflow runs the no-weights documentation and layout gate [0.24ms]
+(pass) Python asset helpers use checkpoints by default and preserve path overrides [116.01ms]
+
+ 5 pass
+ 0 fail
+ 3084 expect() calls
+Ran 5 tests across 1 file. [172.00ms]
+bun test scripts/check-doc-links.test.ts
+bun test v1.4.2 (744846f84)
+
+scripts/check-doc-links.test.ts:
+(pass) checks inline, reference, image and HTML targets [0.29ms]
+(pass) ignores external links, fragments and fenced examples [0.03ms]
+
+ 2 pass
+ 0 fail
+ 2 expect() calls
+Ran 2 tests across 1 file. [9.00ms]
+bun run scripts/check-doc-links.ts
+Checked 529 Markdown files (tracked + new); broken links: 0
+go test ./docs -count=1
+ok  	github.com/rcarmo/go-pherence/docs	5.525s
+PROJECTION_SCHEDULING_DOC_PASS

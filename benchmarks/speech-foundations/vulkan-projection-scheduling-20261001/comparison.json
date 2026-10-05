@@ -1,0 +1,1564 @@
+{
+  "status": "all variants rejected; exact operator parity only; no model/request/original speed acceptance",
+  "expected": {
+    "q5_variants": 13,
+    "q5_shapes": 3,
+    "q5_timed_shapes": 2,
+    "f32_variants": 4,
+    "f32_shapes": 5,
+    "f32_timed_shapes": 1
+  },
+  "storage": "Q5 original24byte aligned blocks unchanged; shared16KiB except Q5pingpong32KiB; F32K16/K8 8/4KiB and ping16/8KiB",
+  "results": [
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate1",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030779383,
+      "candidate": 0.03653776,
+      "change_percent": 18.708552409903746,
+      "samples": {
+        "baseline": [
+          0.030832814,
+          0.030605391,
+          0.030779383,
+          0.034065012,
+          0.030762725
+        ],
+        "candidate": [
+          0.036448092,
+          0.03653776,
+          0.036715891,
+          0.037200144,
+          0.036511446
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate1",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031577313,
+      "candidate": 0.037575277,
+      "change_percent": 18.994535728863294,
+      "samples": {
+        "baseline": [
+          0.031577313,
+          0.031754112,
+          0.03150029,
+          0.031511296,
+          0.03185385
+        ],
+        "candidate": [
+          0.037619823,
+          0.037559812,
+          0.037589616,
+          0.037575277,
+          0.03744621
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate2",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030716882,
+      "candidate": 0.039531482,
+      "change_percent": 28.696271971875277,
+      "samples": {
+        "baseline": [
+          0.030691621,
+          0.030871529,
+          0.030686396,
+          0.030838744,
+          0.030716882
+        ],
+        "candidate": [
+          0.039533973,
+          0.039462834,
+          0.039506707,
+          0.039547075,
+          0.039531482
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate2",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031709006,
+      "candidate": 0.040351951,
+      "change_percent": 27.257066967031385,
+      "samples": {
+        "baseline": [
+          0.031826748,
+          0.031709006,
+          0.031571252,
+          0.032026931,
+          0.031468098
+        ],
+        "candidate": [
+          0.040358478,
+          0.040387255,
+          0.040351951,
+          0.040284979,
+          0.040293344
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "bothrotate",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031002585,
+      "candidate": 0.037411514,
+      "change_percent": 20.67224071799174,
+      "samples": {
+        "baseline": [
+          0.030669274,
+          0.033410648,
+          0.035166896,
+          0.031002585,
+          0.03061837
+        ],
+        "candidate": [
+          0.037341104,
+          0.037411514,
+          0.043321271,
+          0.039831858,
+          0.03735582
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "bothrotate",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031567617,
+      "candidate": 0.038575496,
+      "change_percent": 22.199581932332755,
+      "samples": {
+        "baseline": [
+          0.031420548,
+          0.0315683,
+          0.031282326,
+          0.031567617,
+          0.031726355
+        ],
+        "candidate": [
+          0.038598181,
+          0.038150243,
+          0.038575496,
+          0.038269578,
+          0.038933109
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajor",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030643049,
+      "candidate": 0.030860606,
+      "change_percent": 0.7099717785916226,
+      "samples": {
+        "baseline": [
+          0.030643049,
+          0.030661469,
+          0.030720495,
+          0.030505042,
+          0.030512905
+        ],
+        "candidate": [
+          0.030849562,
+          0.031340928,
+          0.030860606,
+          0.031127951,
+          0.030767491
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajor",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.032594408,
+      "candidate": 0.032767051,
+      "change_percent": 0.5296706109833238,
+      "samples": {
+        "baseline": [
+          0.033020903,
+          0.032569865,
+          0.032640283,
+          0.032594408,
+          0.032577156
+        ],
+        "candidate": [
+          0.032810315,
+          0.032624184,
+          0.032686637,
+          0.032918648,
+          0.032767051
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajorrotate",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.032136717,
+      "candidate": 0.042612419,
+      "change_percent": 32.5972998424201,
+      "samples": {
+        "baseline": [
+          0.031692562,
+          0.031858614,
+          0.032136717,
+          0.034208973,
+          0.03399606
+        ],
+        "candidate": [
+          0.039614441,
+          0.03970563,
+          0.04267587,
+          0.042612419,
+          0.042619293
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajorrotate",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.036436337,
+      "candidate": 0.045542929,
+      "change_percent": 24.99315998751468,
+      "samples": {
+        "baseline": [
+          0.036171884,
+          0.036671651,
+          0.03641706,
+          0.036436337,
+          0.036621367
+        ],
+        "candidate": [
+          0.043987031,
+          0.045542929,
+          0.045597839,
+          0.045524496,
+          0.045638038
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030681389,
+      "candidate": 0.034140005,
+      "change_percent": 11.272683906194736,
+      "samples": {
+        "baseline": [
+          0.032152,
+          0.030681389,
+          0.030552649,
+          0.030738373,
+          0.030647933
+        ],
+        "candidate": [
+          0.034112322,
+          0.034140005,
+          0.036193429,
+          0.03410532,
+          0.034208781
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031707836,
+      "candidate": 0.035407235,
+      "change_percent": 11.66714436141274,
+      "samples": {
+        "baseline": [
+          0.031922562,
+          0.031807089,
+          0.031482401,
+          0.03158255,
+          0.031707836
+        ],
+        "candidate": [
+          0.035407235,
+          0.035887269,
+          0.035095095,
+          0.036060575,
+          0.034971732
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030721731,
+      "candidate": 0.032789355,
+      "change_percent": 6.73016764582699,
+      "samples": {
+        "baseline": [
+          0.030894434,
+          0.030721731,
+          0.030775777,
+          0.030695405,
+          0.030658694
+        ],
+        "candidate": [
+          0.032957278,
+          0.032670263,
+          0.032789355,
+          0.032876946,
+          0.032606577
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.032691811,
+      "candidate": 0.03427647,
+      "change_percent": 4.847265879519491,
+      "samples": {
+        "baseline": [
+          0.032806129,
+          0.033609215,
+          0.032609365,
+          0.032591848,
+          0.032691811
+        ],
+        "candidate": [
+          0.034367891,
+          0.034456736,
+          0.034170572,
+          0.03427647,
+          0.034260807
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8col",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031995981,
+      "candidate": 0.035821947,
+      "change_percent": 11.957645555546502,
+      "samples": {
+        "baseline": [
+          0.031729777,
+          0.031995981,
+          0.031993764,
+          0.036731418,
+          0.034635813
+        ],
+        "candidate": [
+          0.03496541,
+          0.035821947,
+          0.035542809,
+          0.039331487,
+          0.038117819
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8col",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.035018213,
+      "candidate": 0.038473389,
+      "change_percent": 9.866797029305863,
+      "samples": {
+        "baseline": [
+          0.036129191,
+          0.03500384,
+          0.035081344,
+          0.035018213,
+          0.034980028
+        ],
+        "candidate": [
+          0.03848269,
+          0.038473389,
+          0.038411483,
+          0.038456814,
+          0.038495086
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32col",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.034174929,
+      "candidate": 0.037481138,
+      "change_percent": 9.674369769722112,
+      "samples": {
+        "baseline": [
+          0.03422668,
+          0.034145774,
+          0.034204059,
+          0.034163782,
+          0.034174929
+        ],
+        "candidate": [
+          0.037469097,
+          0.037473614,
+          0.037481138,
+          0.037537004,
+          0.037544752
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-geometry",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32col",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03531533,
+      "candidate": 0.038458167,
+      "change_percent": 8.89935617195139,
+      "samples": {
+        "baseline": [
+          0.03531533,
+          0.035026699,
+          0.035446609,
+          0.035344642,
+          0.034822709
+        ],
+        "candidate": [
+          0.038503045,
+          0.038371844,
+          0.038411118,
+          0.038458167,
+          0.038547812
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-decode",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode1",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030954977,
+      "candidate": 0.043057835,
+      "change_percent": 39.098261969311096,
+      "samples": {
+        "baseline": [
+          0.037800531,
+          0.031048025,
+          0.030755364,
+          0.030954977,
+          0.030745778
+        ],
+        "candidate": [
+          0.046435712,
+          0.043057835,
+          0.042892639,
+          0.043037543,
+          0.043114535
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-decode",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode1",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03157554,
+      "candidate": 0.043785313,
+      "change_percent": 38.66845349279855,
+      "samples": {
+        "baseline": [
+          0.031859444,
+          0.03157554,
+          0.031378516,
+          0.031572265,
+          0.03163859
+        ],
+        "candidate": [
+          0.044186197,
+          0.04384588,
+          0.043785313,
+          0.043649118,
+          0.04374823
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-decode",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode2",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030784867,
+      "candidate": 0.040295071,
+      "change_percent": 30.89246414480207,
+      "samples": {
+        "baseline": [
+          0.030784867,
+          0.030940484,
+          0.030653688,
+          0.030813456,
+          0.030712351
+        ],
+        "candidate": [
+          0.040261413,
+          0.040288995,
+          0.040295071,
+          0.040438309,
+          0.040890933
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-decode",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode2",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031707674,
+      "candidate": 0.041489122,
+      "change_percent": 30.848834890884792,
+      "samples": {
+        "baseline": [
+          0.031617199,
+          0.031628825,
+          0.031711735,
+          0.03185518,
+          0.031707674
+        ],
+        "candidate": [
+          0.042160169,
+          0.041494255,
+          0.041377982,
+          0.041440282,
+          0.041489122
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-pingpong",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpong",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030720026,
+      "candidate": 0.048616257,
+      "change_percent": 58.25591098132534,
+      "samples": {
+        "baseline": [
+          0.031211992,
+          0.030720026,
+          0.030967177,
+          0.030616976,
+          0.030576036
+        ],
+        "candidate": [
+          0.049057636,
+          0.048493596,
+          0.048616257,
+          0.048660827,
+          0.048505284
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-pingpong",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpong",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031631304,
+      "candidate": 0.050747534,
+      "change_percent": 60.434530299478006,
+      "samples": {
+        "baseline": [
+          0.031858307,
+          0.031313243,
+          0.031895096,
+          0.031631304,
+          0.031494334
+        ],
+        "candidate": [
+          0.050715925,
+          0.0508338,
+          0.051029173,
+          0.050747534,
+          0.050737594
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-pingpong",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpongcol",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030905664,
+      "candidate": 0.042602403,
+      "change_percent": 37.846586955711416,
+      "samples": {
+        "baseline": [
+          0.030905664,
+          0.030938949,
+          0.030743209,
+          0.031171805,
+          0.030709027
+        ],
+        "candidate": [
+          0.043599701,
+          0.042602403,
+          0.042848925,
+          0.042347556,
+          0.042298881
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-pingpong",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpongcol",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031635092,
+      "candidate": 0.046126396,
+      "change_percent": 45.80768723542832,
+      "samples": {
+        "baseline": [
+          0.031471512,
+          0.031635092,
+          0.031971843,
+          0.031569838,
+          0.031744835
+        ],
+        "candidate": [
+          0.046105606,
+          0.046304591,
+          0.046318969,
+          0.046126396,
+          0.045883716
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-trained",
+      "kind": "Q5_SCHEDULING_TRAINED",
+      "variant": "colmajor",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.030711866,
+      "candidate": 0.030907452,
+      "change_percent": 0.6368417991925224,
+      "samples": {
+        "baseline": [
+          0.031045175,
+          0.030603718,
+          0.030770036,
+          0.030711866,
+          0.030660851
+        ],
+        "candidate": [
+          0.031228551,
+          0.030907452,
+          0.030836232,
+          0.030978585,
+          0.030687345
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-trained",
+      "kind": "Q5_SCHEDULING_TRAINED",
+      "variant": "colmajor",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.031531281,
+      "candidate": 0.031931757,
+      "change_percent": 1.2700911199897025,
+      "samples": {
+        "baseline": [
+          0.031531281,
+          0.031573495,
+          0.031508669,
+          0.031499993,
+          0.031552973
+        ],
+        "candidate": [
+          0.031681273,
+          0.031972432,
+          0.031679138,
+          0.032125981,
+          0.031931757
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile",
+      "kind": "F32_KTILE",
+      "variant": "f32k16",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.015477428,
+      "candidate": 0.022076576,
+      "change_percent": 42.63723921054585,
+      "samples": {
+        "baseline": [
+          0.01901633,
+          0.015477428,
+          0.015517929,
+          0.013345609,
+          0.013168802
+        ],
+        "candidate": [
+          0.026261349,
+          0.022216982,
+          0.022076576,
+          0.018804324,
+          0.018725523
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile",
+      "kind": "F32_KTILE",
+      "variant": "f32k8",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.012093372,
+      "candidate": 0.018075541,
+      "change_percent": 49.46650942350901,
+      "samples": {
+        "baseline": [
+          0.012185284,
+          0.01147634,
+          0.011401849,
+          0.012093372,
+          0.012595548
+        ],
+        "candidate": [
+          0.017936,
+          0.017969525,
+          0.018077029,
+          0.018075541,
+          0.018167428
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile",
+      "kind": "F32_KTILE",
+      "variant": "f32k16ping",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.010342854,
+      "candidate": 0.013747957,
+      "change_percent": 32.922276578592324,
+      "samples": {
+        "baseline": [
+          0.011864355,
+          0.010246818,
+          0.010342854,
+          0.010375735,
+          0.01020225
+        ],
+        "candidate": [
+          0.013747957,
+          0.013534639,
+          0.013763042,
+          0.01371931,
+          0.013800246
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile",
+      "kind": "F32_KTILE",
+      "variant": "f32k8ping",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.010276703,
+      "candidate": 0.015115533,
+      "change_percent": 47.085431971713106,
+      "samples": {
+        "baseline": [
+          0.010300981,
+          0.010254586,
+          0.010143994,
+          0.010329076,
+          0.010276703
+        ],
+        "candidate": [
+          0.015142949,
+          0.014951564,
+          0.015106422,
+          0.015180005,
+          0.015115533
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate1",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030797661,
+      "candidate": 0.036736814,
+      "change_percent": 19.28442877528913,
+      "samples": {
+        "baseline": [
+          0.030870897,
+          0.030728396,
+          0.031159083,
+          0.030734599,
+          0.030797661
+        ],
+        "candidate": [
+          0.036928068,
+          0.036577019,
+          0.036778059,
+          0.036617505,
+          0.036736814
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate1",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03177476,
+      "candidate": 0.037611022,
+      "change_percent": 18.367603720688997,
+      "samples": {
+        "baseline": [
+          0.031822071,
+          0.031858766,
+          0.03177476,
+          0.031642264,
+          0.031579741
+        ],
+        "candidate": [
+          0.037644828,
+          0.037611022,
+          0.037454538,
+          0.037407558,
+          0.037614901
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate2",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.03111167,
+      "candidate": 0.040083942,
+      "change_percent": 28.838927643549827,
+      "samples": {
+        "baseline": [
+          0.030774266,
+          0.030726498,
+          0.03111167,
+          0.031746717,
+          0.031760849
+        ],
+        "candidate": [
+          0.0394731,
+          0.039420778,
+          0.040083942,
+          0.04087455,
+          0.04108406
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "wrotate2",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.032740812,
+      "candidate": 0.041864788,
+      "change_percent": 27.867286858981988,
+      "samples": {
+        "baseline": [
+          0.032683523,
+          0.032686727,
+          0.032959256,
+          0.032828038,
+          0.032740812
+        ],
+        "candidate": [
+          0.041979799,
+          0.041904612,
+          0.041864788,
+          0.041704168,
+          0.04176901
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "bothrotate",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031810697,
+      "candidate": 0.038756287,
+      "change_percent": 21.834133342001284,
+      "samples": {
+        "baseline": [
+          0.031783934,
+          0.034753707,
+          0.034625116,
+          0.031590826,
+          0.031810697
+        ],
+        "candidate": [
+          0.038756287,
+          0.038702041,
+          0.041892799,
+          0.0391969,
+          0.038661405
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "bothrotate",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03279296,
+      "candidate": 0.039561861,
+      "change_percent": 20.641323625558638,
+      "samples": {
+        "baseline": [
+          0.03279296,
+          0.032799114,
+          0.032809622,
+          0.032677986,
+          0.032420927
+        ],
+        "candidate": [
+          0.039624264,
+          0.039572834,
+          0.039459987,
+          0.039561861,
+          0.039529425
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajor",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031612904,
+      "candidate": 0.031882914,
+      "change_percent": 0.8541132443890653,
+      "samples": {
+        "baseline": [
+          0.031627346,
+          0.031525865,
+          0.031598222,
+          0.031706321,
+          0.031612904
+        ],
+        "candidate": [
+          0.032001354,
+          0.031882914,
+          0.031680485,
+          0.031985066,
+          0.031880403
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajor",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.032570225,
+      "candidate": 0.032849075,
+      "change_percent": 0.8561500572992653,
+      "samples": {
+        "baseline": [
+          0.032681557,
+          0.032555156,
+          0.032570225,
+          0.032489456,
+          0.032641733
+        ],
+        "candidate": [
+          0.032856413,
+          0.032917999,
+          0.032849075,
+          0.032741225,
+          0.032766259
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajorrotate",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031854146,
+      "candidate": 0.042641414,
+      "change_percent": 33.86456507105857,
+      "samples": {
+        "baseline": [
+          0.031818184,
+          0.031727308,
+          0.031854146,
+          0.03397294,
+          0.034083878
+        ],
+        "candidate": [
+          0.03954086,
+          0.039683518,
+          0.042673911,
+          0.042665572,
+          0.042641414
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "colmajorrotate",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.034888766,
+      "candidate": 0.04388237,
+      "change_percent": 25.777936657318268,
+      "samples": {
+        "baseline": [
+          0.036064712,
+          0.034914842,
+          0.034888766,
+          0.03484307,
+          0.034730143
+        ],
+        "candidate": [
+          0.04388237,
+          0.043816626,
+          0.043965839,
+          0.043610856,
+          0.044191269
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.034220921,
+      "candidate": 0.037827427,
+      "change_percent": 10.538892275868307,
+      "samples": {
+        "baseline": [
+          0.034220921,
+          0.033994959,
+          0.034172349,
+          0.03612125,
+          0.035895728
+        ],
+        "candidate": [
+          0.037807286,
+          0.037780345,
+          0.037933119,
+          0.037827427,
+          0.039275567
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.036568159,
+      "candidate": 0.040434134,
+      "change_percent": 10.571970549570175,
+      "samples": {
+        "baseline": [
+          0.036568159,
+          0.036128371,
+          0.036867503,
+          0.036738043,
+          0.036369642
+        ],
+        "candidate": [
+          0.040414103,
+          0.040434134,
+          0.040496621,
+          0.040314182,
+          0.040495052
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.036111182,
+      "candidate": 0.037655375,
+      "change_percent": 4.276218374685148,
+      "samples": {
+        "baseline": [
+          0.036032359,
+          0.036667513,
+          0.036424781,
+          0.035205507,
+          0.036111182
+        ],
+        "candidate": [
+          0.037673358,
+          0.037687392,
+          0.037655375,
+          0.03760796,
+          0.037543974
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.036306675,
+      "candidate": 0.038394237,
+      "change_percent": 5.749802205792731,
+      "samples": {
+        "baseline": [
+          0.036289028,
+          0.036306675,
+          0.036480728,
+          0.036215206,
+          0.036514835
+        ],
+        "candidate": [
+          0.038383084,
+          0.038394237,
+          0.038287134,
+          0.038413008,
+          0.038395519
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8col",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.035938121,
+      "candidate": 0.038945325,
+      "change_percent": 8.367727405670422,
+      "samples": {
+        "baseline": [
+          0.036280996,
+          0.035938121,
+          0.03565851,
+          0.035346898,
+          0.036250729
+        ],
+        "candidate": [
+          0.039012278,
+          0.038945325,
+          0.038814265,
+          0.039615144,
+          0.038927295
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local32x8col",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.037833246,
+      "candidate": 0.04164478,
+      "change_percent": 10.074562462866643,
+      "samples": {
+        "baseline": [
+          0.038305519,
+          0.03765604,
+          0.037788969,
+          0.037833246,
+          0.038485521
+        ],
+        "candidate": [
+          0.041576032,
+          0.041665488,
+          0.041621264,
+          0.041711501,
+          0.04164478
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32col",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.036696964,
+      "candidate": 0.040430651,
+      "change_percent": 10.174375733098785,
+      "samples": {
+        "baseline": [
+          0.036696964,
+          0.036663398,
+          0.037024342,
+          0.036678516,
+          0.03676707
+        ],
+        "candidate": [
+          0.04044676,
+          0.04034753,
+          0.040247259,
+          0.040522673,
+          0.040430651
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "local8x32col",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.037795471,
+      "candidate": 0.041578395,
+      "change_percent": 10.008934668389236,
+      "samples": {
+        "baseline": [
+          0.037829822,
+          0.037636547,
+          0.037795471,
+          0.037873892,
+          0.037763075
+        ],
+        "candidate": [
+          0.041621176,
+          0.041600679,
+          0.041578395,
+          0.041550372,
+          0.041528582
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode1",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.036731606,
+      "candidate": 0.051813714,
+      "change_percent": 41.06030103883831,
+      "samples": {
+        "baseline": [
+          0.036731606,
+          0.036817772,
+          0.036699857,
+          0.036568719,
+          0.036824392
+        ],
+        "candidate": [
+          0.051742685,
+          0.051830486,
+          0.051813714,
+          0.05188353,
+          0.051648307
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode1",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.037770651,
+      "candidate": 0.052680042,
+      "change_percent": 39.473481672317476,
+      "samples": {
+        "baseline": [
+          0.037559728,
+          0.037828979,
+          0.03775853,
+          0.037770651,
+          0.037865003
+        ],
+        "candidate": [
+          0.052680042,
+          0.053488371,
+          0.052602739,
+          0.052738436,
+          0.05257175
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode2",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.036694602,
+      "candidate": 0.04852804,
+      "change_percent": 32.24844351765963,
+      "samples": {
+        "baseline": [
+          0.03696177,
+          0.036598507,
+          0.036636157,
+          0.036694602,
+          0.036825819
+        ],
+        "candidate": [
+          0.04852804,
+          0.048405473,
+          0.048669289,
+          0.048643387,
+          0.048343946
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "decode2",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.037811084,
+      "candidate": 0.049935564,
+      "change_percent": 32.06594129911748,
+      "samples": {
+        "baseline": [
+          0.038298849,
+          0.037745475,
+          0.037696898,
+          0.038260371,
+          0.037811084
+        ],
+        "candidate": [
+          0.050111899,
+          0.049960713,
+          0.049927303,
+          0.049885523,
+          0.049935564
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpong",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.03667928,
+      "candidate": 0.058503862,
+      "change_percent": 59.501118887829854,
+      "samples": {
+        "baseline": [
+          0.036602984,
+          0.036967669,
+          0.036896555,
+          0.036637916,
+          0.03667928
+        ],
+        "candidate": [
+          0.058503862,
+          0.058505477,
+          0.058438193,
+          0.058470603,
+          0.058612586
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpong",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.037965754,
+      "candidate": 0.060727522,
+      "change_percent": 59.9534201269913,
+      "samples": {
+        "baseline": [
+          0.038062465,
+          0.037683139,
+          0.037825787,
+          0.038057726,
+          0.037965754
+        ],
+        "candidate": [
+          0.060727522,
+          0.060838753,
+          0.061421867,
+          0.060561032,
+          0.060464615
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpongcol",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.037537576,
+      "candidate": 0.053025876,
+      "change_percent": 41.26078892254523,
+      "samples": {
+        "baseline": [
+          0.036777646,
+          0.036898255,
+          0.037537576,
+          0.038520037,
+          0.03820268
+        ],
+        "candidate": [
+          0.050742627,
+          0.050652753,
+          0.053025876,
+          0.053051284,
+          0.053030188
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-scheduling-final",
+      "kind": "Q5_SCHEDULING",
+      "variant": "pingpongcol",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.039499036,
+      "candidate": 0.056238076,
+      "change_percent": 42.37835070202725,
+      "samples": {
+        "baseline": [
+          0.039787139,
+          0.039499036,
+          0.039451208,
+          0.039833741,
+          0.039311037
+        ],
+        "candidate": [
+          0.056641575,
+          0.056238076,
+          0.056318008,
+          0.056236309,
+          0.055925454
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile-final",
+      "kind": "F32_KTILE",
+      "variant": "f32k16",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.014739474,
+      "candidate": 0.021047187,
+      "change_percent": 42.79469538736591,
+      "samples": {
+        "baseline": [
+          0.017687372,
+          0.014739474,
+          0.014773468,
+          0.012795421,
+          0.012450279
+        ],
+        "candidate": [
+          0.024506194,
+          0.021326261,
+          0.021047187,
+          0.017816603,
+          0.017971309
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile-final",
+      "kind": "F32_KTILE",
+      "variant": "f32k8",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.012095776,
+      "candidate": 0.017947788,
+      "change_percent": 48.38062477347462,
+      "samples": {
+        "baseline": [
+          0.012095776,
+          0.01178567,
+          0.012775984,
+          0.01186439,
+          0.012438423
+        ],
+        "candidate": [
+          0.017933167,
+          0.018018496,
+          0.017869357,
+          0.018146275,
+          0.017947788
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile-final",
+      "kind": "F32_KTILE",
+      "variant": "f32k16ping",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.01247105,
+      "candidate": 0.016309664,
+      "change_percent": 30.780198940746793,
+      "samples": {
+        "baseline": [
+          0.01247105,
+          0.012564529,
+          0.012037185,
+          0.012758554,
+          0.012033947
+        ],
+        "candidate": [
+          0.016327364,
+          0.016089232,
+          0.016309664,
+          0.016148543,
+          0.016383258
+        ]
+      }
+    },
+    {
+      "run": "whisper-f32-ktile-final",
+      "kind": "F32_KTILE",
+      "variant": "f32k8ping",
+      "shape": "[1500 1280 1280]",
+      "baseline": 0.012442699,
+      "candidate": 0.01774049,
+      "change_percent": 42.57750669689913,
+      "samples": {
+        "baseline": [
+          0.012442699,
+          0.012222826,
+          0.012205362,
+          0.012704608,
+          0.012562023
+        ],
+        "candidate": [
+          0.01774049,
+          0.017726625,
+          0.017838103,
+          0.017738785,
+          0.017826071
+        ]
+      }
+    }
+  ]
+}

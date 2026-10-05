@@ -1,0 +1,7 @@
+2026-10-01T08:41:32Z
+eb1582ce585febfb11ee6819d86d7ef6c848d6d5
+go version go1.26.2 linux/amd64
+5cc37048f7f8fa0188df998749e58813b554d0186f495506f963f717474ad547  tmp/whisper-vad-parity-20261001/qkv-fusion.test
+146a38a543db915cd6cbeaa76b86af06f49896a5dae20fa2b41fc00e65a12d9f  tmp/whisper-vad-parity-20261001/qkv-band.test
+525469653c44f36babe13a9f12e27b1cdf0aa1b31145a76231f3f926e47f61cf  tmp/whisper-vad-parity-20261001/splitkey.test
+21f9ca658759d109404cb1cfd14065fe654a3cc4ad2082aaf16b4f8c4130fff6  tmp/whisper-vad-parity-20261001/kv-together.test

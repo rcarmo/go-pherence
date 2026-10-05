@@ -1,0 +1,624 @@
+{
+  "schema": 1,
+  "Backend": "vulkan-f32-tile64-key32",
+  "Language": "pt",
+  "VAD": true,
+  "WordTimestamps": true,
+  "VADPreserveWindowGaps": true,
+  "ModelPin": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1",
+  "InputPin": "f6624137df0a2a33f1e523eb7ffce50e7d0b5624a6b736772b6f6f0645bcf045",
+  "ModelLoadSeconds": 5.020570254,
+  "PreparationSeconds": 1.736933707,
+  "CleanupSeconds": 0.009996153,
+  "FullArmSeconds": 45.063729977,
+  "InputSamples": 75094,
+  "CPUThreads": 4,
+  "Precision": "F16 checkpoint widened toF32; selectiveQ8 explicitbackend only",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 7.747655191,
+      "AllocatedBytes": 312084072,
+      "Allocations": 28016,
+      "DecoderSelfSeconds": 0.173161709,
+      "DecoderCrossSeconds": 0.222725506,
+      "DecoderMLPSeconds": 0.365305597,
+      "DecoderHeadSeconds": 0.177446837,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 44992,
+            "EmitStart": 0,
+            "EmitEnd": 44992,
+            "InputSamples": 480000,
+            "PadSamples": 435008
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.866,
+              "End": 3.446,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Como",
+              "Start": 0.866,
+              "End": 1.346,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "faço",
+              "Start": 1.346,
+              "End": 1.586,
+              "TokenStart": 1,
+              "TokenEnd": 2
+            },
+            {
+              "Word": "para",
+              "Start": 1.586,
+              "End": 1.946,
+              "TokenStart": 2,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "transferir",
+              "Start": 1.946,
+              "End": 2.466,
+              "TokenStart": 3,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 2.466,
+              "End": 2.706,
+              "TokenStart": 5,
+              "TokenEnd": 6
+            },
+            {
+              "Word": "para",
+              "Start": 2.706,
+              "End": 2.806,
+              "TokenStart": 6,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "a",
+              "Start": 2.806,
+              "End": 2.966,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "minha",
+              "Start": 2.966,
+              "End": 3.426,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "conta?",
+              "Start": 3.426,
+              "End": 3.666,
+              "TokenStart": 9,
+              "TokenEnd": 11
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 7.634876188,
+      "AllocatedBytes": 310429448,
+      "Allocations": 27913,
+      "DecoderSelfSeconds": 0.169741299,
+      "DecoderCrossSeconds": 0.218948341,
+      "DecoderMLPSeconds": 0.357448712,
+      "DecoderHeadSeconds": 0.178559197,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 44992,
+            "EmitStart": 0,
+            "EmitEnd": 44992,
+            "InputSamples": 480000,
+            "PadSamples": 435008
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.866,
+              "End": 3.446,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Como",
+              "Start": 0.866,
+              "End": 1.346,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "faço",
+              "Start": 1.346,
+              "End": 1.586,
+              "TokenStart": 1,
+              "TokenEnd": 2
+            },
+            {
+              "Word": "para",
+              "Start": 1.586,
+              "End": 1.946,
+              "TokenStart": 2,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "transferir",
+              "Start": 1.946,
+              "End": 2.466,
+              "TokenStart": 3,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 2.466,
+              "End": 2.706,
+              "TokenStart": 5,
+              "TokenEnd": 6
+            },
+            {
+              "Word": "para",
+              "Start": 2.706,
+              "End": 2.806,
+              "TokenStart": 6,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "a",
+              "Start": 2.806,
+              "End": 2.966,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "minha",
+              "Start": 2.966,
+              "End": 3.426,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "conta?",
+              "Start": 3.426,
+              "End": 3.666,
+              "TokenStart": 9,
+              "TokenEnd": 11
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 7.611330301,
+      "AllocatedBytes": 310416056,
+      "Allocations": 27835,
+      "DecoderSelfSeconds": 0.171575514,
+      "DecoderCrossSeconds": 0.220330305,
+      "DecoderMLPSeconds": 0.362415987,
+      "DecoderHeadSeconds": 0.181562673,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 44992,
+            "EmitStart": 0,
+            "EmitEnd": 44992,
+            "InputSamples": 480000,
+            "PadSamples": 435008
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.866,
+              "End": 3.446,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Como",
+              "Start": 0.866,
+              "End": 1.346,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "faço",
+              "Start": 1.346,
+              "End": 1.586,
+              "TokenStart": 1,
+              "TokenEnd": 2
+            },
+            {
+              "Word": "para",
+              "Start": 1.586,
+              "End": 1.946,
+              "TokenStart": 2,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "transferir",
+              "Start": 1.946,
+              "End": 2.466,
+              "TokenStart": 3,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 2.466,
+              "End": 2.706,
+              "TokenStart": 5,
+              "TokenEnd": 6
+            },
+            {
+              "Word": "para",
+              "Start": 2.706,
+              "End": 2.806,
+              "TokenStart": 6,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "a",
+              "Start": 2.806,
+              "End": 2.966,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "minha",
+              "Start": 2.966,
+              "End": 3.426,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "conta?",
+              "Start": 3.426,
+              "End": 3.666,
+              "TokenStart": 9,
+              "TokenEnd": 11
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 7.625769394,
+      "AllocatedBytes": 310409736,
+      "Allocations": 27896,
+      "DecoderSelfSeconds": 0.170339443,
+      "DecoderCrossSeconds": 0.217667001,
+      "DecoderMLPSeconds": 0.359409826,
+      "DecoderHeadSeconds": 0.177679423,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 44992,
+            "EmitStart": 0,
+            "EmitEnd": 44992,
+            "InputSamples": 480000,
+            "PadSamples": 435008
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.866,
+              "End": 3.446,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Como",
+              "Start": 0.866,
+              "End": 1.346,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "faço",
+              "Start": 1.346,
+              "End": 1.586,
+              "TokenStart": 1,
+              "TokenEnd": 2
+            },
+            {
+              "Word": "para",
+              "Start": 1.586,
+              "End": 1.946,
+              "TokenStart": 2,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "transferir",
+              "Start": 1.946,
+              "End": 2.466,
+              "TokenStart": 3,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 2.466,
+              "End": 2.706,
+              "TokenStart": 5,
+              "TokenEnd": 6
+            },
+            {
+              "Word": "para",
+              "Start": 2.706,
+              "End": 2.806,
+              "TokenStart": 6,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "a",
+              "Start": 2.806,
+              "End": 2.966,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "minha",
+              "Start": 2.966,
+              "End": 3.426,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "conta?",
+              "Start": 3.426,
+              "End": 3.666,
+              "TokenStart": 9,
+              "TokenEnd": 11
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 7.675713928,
+      "AllocatedBytes": 310408408,
+      "Allocations": 27858,
+      "DecoderSelfSeconds": 0.173252645,
+      "DecoderCrossSeconds": 0.227340579,
+      "DecoderMLPSeconds": 0.364070951,
+      "DecoderHeadSeconds": 0.177135164,
+      "vad_windows": [
+        {
+          "CompactedWindow": {
+            "Index": 0,
+            "Start": 0,
+            "End": 44992,
+            "EmitStart": 0,
+            "EmitEnd": 44992,
+            "InputSamples": 480000,
+            "PadSamples": 435008
+          },
+          "OriginalSpeech": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "OriginalAudio": [
+            {
+              "Start": 13856,
+              "End": 58848
+            }
+          ],
+          "Segments": [
+            {
+              "Start": 0.866,
+              "End": 3.446,
+              "Text": "Como faço para transferir dinheiro para a minha conta?",
+              "Tokens": [
+                11913,
+                38091,
+                1690,
+                5003,
+                347,
+                23760,
+                1690,
+                257,
+                11720,
+                24001,
+                30
+              ]
+            }
+          ],
+          "Words": [
+            {
+              "Word": "Como",
+              "Start": 0.866,
+              "End": 1.346,
+              "TokenStart": 0,
+              "TokenEnd": 1
+            },
+            {
+              "Word": "faço",
+              "Start": 1.346,
+              "End": 1.586,
+              "TokenStart": 1,
+              "TokenEnd": 2
+            },
+            {
+              "Word": "para",
+              "Start": 1.586,
+              "End": 1.946,
+              "TokenStart": 2,
+              "TokenEnd": 3
+            },
+            {
+              "Word": "transferir",
+              "Start": 1.946,
+              "End": 2.466,
+              "TokenStart": 3,
+              "TokenEnd": 5
+            },
+            {
+              "Word": "dinheiro",
+              "Start": 2.466,
+              "End": 2.706,
+              "TokenStart": 5,
+              "TokenEnd": 6
+            },
+            {
+              "Word": "para",
+              "Start": 2.706,
+              "End": 2.806,
+              "TokenStart": 6,
+              "TokenEnd": 7
+            },
+            {
+              "Word": "a",
+              "Start": 2.806,
+              "End": 2.966,
+              "TokenStart": 7,
+              "TokenEnd": 8
+            },
+            {
+              "Word": "minha",
+              "Start": 2.966,
+              "End": 3.426,
+              "TokenStart": 8,
+              "TokenEnd": 9
+            },
+            {
+              "Word": "conta?",
+              "Start": 3.426,
+              "End": 3.666,
+              "TokenStart": 9,
+              "TokenEnd": 11
+            }
+          ],
+          "Language": ""
+        }
+      ]
+    }
+  ]
+}

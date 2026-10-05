@@ -1,0 +1,1074 @@
+{
+  "status": "all preparation variants rejected; no runtime/default/model changes or end-to-end gain claimed",
+  "comparison_scope": "five alternating samples including first; per-stage synthetic/trained only; not request timings or original-engine comparisons",
+  "packed_bytes_per_32": {
+    "source": 22,
+    "baseline": 24,
+    "signed": 36,
+    "offset": 36,
+    "scale_only": 24
+  },
+  "trained_weight_bytes": {
+    "baseline": 4915200,
+    "signed_or_offset": 7372800,
+    "scale_only": 4915200
+  },
+  "turbo_ffn_64_matrix_storage_extrapolation_bytes": {
+    "baseline": 314572800,
+    "prepared_signed_or_offset": 471859200,
+    "increase": 157286400,
+    "measured_model_rss": false
+  },
+  "comparisons": [
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030773858,
+      "candidate": 0.034264423,
+      "change_percent": 11.342630488513983,
+      "samples": {
+        "baseline": [
+          0.030773858,
+          0.030873343,
+          0.030738191,
+          0.030805035,
+          0.030729807
+        ],
+        "candidate": [
+          0.034422068,
+          0.034127131,
+          0.034176535,
+          0.034264423,
+          0.034311853
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031580559,
+      "candidate": 0.035391837,
+      "change_percent": 12.068431087619459,
+      "samples": {
+        "baseline": [
+          0.031580559,
+          0.031653647,
+          0.031432235,
+          0.031489981,
+          0.031666118
+        ],
+        "candidate": [
+          0.034970906,
+          0.035391837,
+          0.03588547,
+          0.035244313,
+          0.03585091
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed8",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031716305,
+      "candidate": 0.04041015,
+      "change_percent": 27.411279466507832,
+      "samples": {
+        "baseline": [
+          0.031458598,
+          0.031716305,
+          0.031640631,
+          0.031908025,
+          0.031733905
+        ],
+        "candidate": [
+          0.040022818,
+          0.040369528,
+          0.04064307,
+          0.04041015,
+          0.040764719
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed8",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.032608476,
+      "candidate": 0.041472882,
+      "change_percent": 27.184361513859166,
+      "samples": {
+        "baseline": [
+          0.032878508,
+          0.03254936,
+          0.032487334,
+          0.032608476,
+          0.032697722
+        ],
+        "candidate": [
+          0.041726798,
+          0.041513924,
+          0.04134816,
+          0.041380877,
+          0.041472882
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed16",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031871028,
+      "candidate": 0.041709609,
+      "change_percent": 30.869983233675423,
+      "samples": {
+        "baseline": [
+          0.031808226,
+          0.035539561,
+          0.033201229,
+          0.031544476,
+          0.031871028
+        ],
+        "candidate": [
+          0.045410974,
+          0.046330721,
+          0.0416346,
+          0.041709609,
+          0.041682701
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-fixed",
+      "kind": "Q5_SIGNED",
+      "variant": "signed16",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03285078,
+      "candidate": 0.042844437,
+      "change_percent": 30.421368990325327,
+      "samples": {
+        "baseline": [
+          0.03285078,
+          0.032699005,
+          0.032544564,
+          0.032970897,
+          0.032871415
+        ],
+        "candidate": [
+          0.042870489,
+          0.042590248,
+          0.042652353,
+          0.042844437,
+          0.043041031
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-offset",
+      "kind": "Q5_PREPARED",
+      "variant": "offset4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030775526,
+      "candidate": 0.036282803,
+      "change_percent": 17.894989024720488,
+      "samples": {
+        "baseline": [
+          0.03084609,
+          0.03071436,
+          0.030770512,
+          0.030921228,
+          0.030775526
+        ],
+        "candidate": [
+          0.036203257,
+          0.036329052,
+          0.035560461,
+          0.036282803,
+          0.036343589
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-offset",
+      "kind": "Q5_PREPARED",
+      "variant": "offset4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031668589,
+      "candidate": 0.036776214,
+      "change_percent": 16.128363028741212,
+      "samples": {
+        "baseline": [
+          0.031735056,
+          0.031668589,
+          0.031611697,
+          0.031598836,
+          0.031671333
+        ],
+        "candidate": [
+          0.036504629,
+          0.036776214,
+          0.036850652,
+          0.036478533,
+          0.037003749
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-offset",
+      "kind": "Q5_PREPARED",
+      "variant": "pair4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030871946,
+      "candidate": 0.029978097,
+      "change_percent": -2.895343882760104,
+      "samples": {
+        "baseline": [
+          0.030871946,
+          0.030655796,
+          0.03088223,
+          0.030790337,
+          0.030905423
+        ],
+        "candidate": [
+          0.029978097,
+          0.030125528,
+          0.029898769,
+          0.030135366,
+          0.029959428
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-offset",
+      "kind": "Q5_PREPARED",
+      "variant": "pair4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.0326419,
+      "candidate": 0.03212094,
+      "change_percent": -1.5959855278032231,
+      "samples": {
+        "baseline": [
+          0.032678342,
+          0.032701403,
+          0.0326419,
+          0.032553266,
+          0.032568193
+        ],
+        "candidate": [
+          0.03197128,
+          0.032146776,
+          0.031998626,
+          0.032121537,
+          0.03212094
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREP_COST",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.001685238,
+      "candidate": 0.017440757,
+      "change_percent": 934.9135849061083,
+      "samples": {
+        "baseline": [
+          0.001885126,
+          0.001685238,
+          0.002499939,
+          0.001337564,
+          0.000982686
+        ],
+        "candidate": [
+          0.019352962,
+          0.017440757,
+          0.019555072,
+          0.017128973,
+          0.01727982
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.03076436,
+      "candidate": 0.034125988,
+      "change_percent": 10.927020747384319,
+      "samples": {
+        "baseline": [
+          0.03076436,
+          0.031133749,
+          0.030753247,
+          0.030870006,
+          0.030685826
+        ],
+        "candidate": [
+          0.034110643,
+          0.034054695,
+          0.034295449,
+          0.034168813,
+          0.034125988
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREP_COST",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.001361285,
+      "candidate": 0.017241754,
+      "change_percent": 1166.5792982365926,
+      "samples": {
+        "baseline": [
+          0.001883939,
+          0.001341841,
+          0.001154433,
+          0.001361285,
+          0.001588058
+        ],
+        "candidate": [
+          0.017241754,
+          0.017448556,
+          0.017123228,
+          0.017114653,
+          0.019801758
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.033798668,
+      "candidate": 0.03773977,
+      "change_percent": 11.660524610023092,
+      "samples": {
+        "baseline": [
+          0.033997513,
+          0.033798668,
+          0.033804277,
+          0.033794549,
+          0.033760884
+        ],
+        "candidate": [
+          0.037543319,
+          0.037787961,
+          0.037587233,
+          0.03773977,
+          0.037802561
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREP_COST",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.001518041,
+      "candidate": 0.021443105,
+      "change_percent": 1312.5511102796302,
+      "samples": {
+        "baseline": [
+          0.001918746,
+          0.001348204,
+          0.002110468,
+          0.001518041,
+          0.001436127
+        ],
+        "candidate": [
+          0.021759558,
+          0.021413534,
+          0.022842655,
+          0.021443105,
+          0.021244532
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.032876235,
+      "candidate": 0.032191468,
+      "change_percent": -2.082863198903395,
+      "samples": {
+        "baseline": [
+          0.032811668,
+          0.0328605,
+          0.032907053,
+          0.032887556,
+          0.032876235
+        ],
+        "candidate": [
+          0.032061883,
+          0.032191468,
+          0.032168216,
+          0.03223244,
+          0.032302811
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREP_COST",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.001902212,
+      "candidate": 0.02215191,
+      "change_percent": 1064.5342369830494,
+      "samples": {
+        "baseline": [
+          0.001902212,
+          0.000990904,
+          0.001037375,
+          0.001993001,
+          0.001958
+        ],
+        "candidate": [
+          0.021232409,
+          0.021476623,
+          0.02215191,
+          0.023480418,
+          0.024907163
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-trained",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.03388153,
+      "candidate": 0.03328828,
+      "change_percent": -1.7509539858441947,
+      "samples": {
+        "baseline": [
+          0.033950145,
+          0.033804446,
+          0.034170741,
+          0.03388153,
+          0.033767858
+        ],
+        "candidate": [
+          0.033153037,
+          0.03328828,
+          0.03311675,
+          0.033439462,
+          0.033346654
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREPARED",
+      "variant": "scale6",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030644444,
+      "candidate": 0.032514228,
+      "change_percent": 6.101543235700402,
+      "samples": {
+        "baseline": [
+          0.030644444,
+          0.030640936,
+          0.03040591,
+          0.030696187,
+          0.030783982
+        ],
+        "candidate": [
+          0.032535306,
+          0.032548516,
+          0.032514228,
+          0.032513203,
+          0.032507584
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREPARED",
+      "variant": "scale6",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031570605,
+      "candidate": 0.03359763,
+      "change_percent": 6.420608664293903,
+      "samples": {
+        "baseline": [
+          0.031570605,
+          0.031496359,
+          0.031595031,
+          0.031256042,
+          0.031769031
+        ],
+        "candidate": [
+          0.03359763,
+          0.034048205,
+          0.033486827,
+          0.033302818,
+          0.033602218
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREP_COST",
+      "variant": "scale6",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.000989013,
+      "candidate": 0.002586143,
+      "change_percent": 161.48726053145913,
+      "samples": {
+        "baseline": [
+          0.002136584,
+          0.000989013,
+          0.001007877,
+          0.000981597,
+          0.000964356
+        ],
+        "candidate": [
+          0.002549133,
+          0.003555693,
+          0.00242196,
+          0.003680149,
+          0.002586143
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "scale6",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.030795645,
+      "candidate": 0.032569733,
+      "change_percent": 5.760840534432687,
+      "samples": {
+        "baseline": [
+          0.030990399,
+          0.030795645,
+          0.030717225,
+          0.030655277,
+          0.030821499
+        ],
+        "candidate": [
+          0.032540762,
+          0.032557978,
+          0.032569733,
+          0.032717,
+          0.033064505
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREP_COST",
+      "variant": "scale6",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.001018832,
+      "candidate": 0.003744315,
+      "change_percent": 267.510541482796,
+      "samples": {
+        "baseline": [
+          0.002006654,
+          0.001279713,
+          0.000977446,
+          0.001002347,
+          0.001018832
+        ],
+        "candidate": [
+          0.003744315,
+          0.002421522,
+          0.004188415,
+          0.004481312,
+          0.002475794
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-scale",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "scale6",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.031733682,
+      "candidate": 0.033562584,
+      "change_percent": 5.76328331518543,
+      "samples": {
+        "baseline": [
+          0.031733682,
+          0.031524087,
+          0.031549945,
+          0.032079592,
+          0.031866159
+        ],
+        "candidate": [
+          0.033621669,
+          0.033416907,
+          0.033666562,
+          0.033499112,
+          0.033562584
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030795929,
+      "candidate": 0.034323189,
+      "change_percent": 11.453656747942231,
+      "samples": {
+        "baseline": [
+          0.036170169,
+          0.030795929,
+          0.030815697,
+          0.030777724,
+          0.030791516
+        ],
+        "candidate": [
+          0.035323437,
+          0.034323189,
+          0.034349319,
+          0.03404347,
+          0.034149199
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031650478,
+      "candidate": 0.035967174,
+      "change_percent": 13.638643940859275,
+      "samples": {
+        "baseline": [
+          0.031555337,
+          0.031650478,
+          0.031432952,
+          0.031772157,
+          0.031688094
+        ],
+        "candidate": [
+          0.035967174,
+          0.036083547,
+          0.035051591,
+          0.035313971,
+          0.035971594
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed8",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030739872,
+      "candidate": 0.039173673,
+      "change_percent": 27.43603161392474,
+      "samples": {
+        "baseline": [
+          0.03093953,
+          0.030745463,
+          0.030739872,
+          0.030672825,
+          0.030733412
+        ],
+        "candidate": [
+          0.039173673,
+          0.03934535,
+          0.039273795,
+          0.038939314,
+          0.038911903
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed8",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.03156027,
+      "candidate": 0.040065674,
+      "change_percent": 26.949718744484752,
+      "samples": {
+        "baseline": [
+          0.031572275,
+          0.031438788,
+          0.031451643,
+          0.031742442,
+          0.03156027
+        ],
+        "candidate": [
+          0.040085038,
+          0.040051057,
+          0.040046712,
+          0.040065674,
+          0.040168669
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed16",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.031119864,
+      "candidate": 0.040599532,
+      "change_percent": 30.46179122119557,
+      "samples": {
+        "baseline": [
+          0.030806454,
+          0.035246542,
+          0.033498405,
+          0.030869923,
+          0.031119864
+        ],
+        "candidate": [
+          0.040599532,
+          0.046476791,
+          0.041659172,
+          0.040440644,
+          0.040311461
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "signed16",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031606728,
+      "candidate": 0.041462238,
+      "change_percent": 31.181683849084287,
+      "samples": {
+        "baseline": [
+          0.031606728,
+          0.03222423,
+          0.031557322,
+          0.031586534,
+          0.032149317
+        ],
+        "candidate": [
+          0.041298186,
+          0.04151002,
+          0.041462238,
+          0.04227403,
+          0.041303016
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "offset4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030719354,
+      "candidate": 0.0363475,
+      "change_percent": 18.32117302987555,
+      "samples": {
+        "baseline": [
+          0.030688332,
+          0.030823346,
+          0.030841,
+          0.030719354,
+          0.030668313
+        ],
+        "candidate": [
+          0.035761807,
+          0.037646436,
+          0.0365106,
+          0.036168056,
+          0.0363475
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "offset4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.031688616,
+      "candidate": 0.036609023,
+      "change_percent": 15.52736477983132,
+      "samples": {
+        "baseline": [
+          0.031781124,
+          0.031633225,
+          0.031651815,
+          0.031688616,
+          0.032051287
+        ],
+        "candidate": [
+          0.036609023,
+          0.036318081,
+          0.037041478,
+          0.037111858,
+          0.03651703
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "pair4",
+      "shape": "[1500 1280 5120]",
+      "baseline": 0.030655995,
+      "candidate": 0.030317568,
+      "change_percent": -1.1039504671109146,
+      "samples": {
+        "baseline": [
+          0.030655995,
+          0.030824491,
+          0.030556238,
+          0.030521348,
+          0.031764717
+        ],
+        "candidate": [
+          0.030778491,
+          0.030317568,
+          0.029912415,
+          0.029952995,
+          0.031139508
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED",
+      "variant": "pair4",
+      "shape": "[1500 5120 1280]",
+      "baseline": 0.033638547,
+      "candidate": 0.03217967,
+      "change_percent": -4.336920378873666,
+      "samples": {
+        "baseline": [
+          0.032731609,
+          0.032853546,
+          0.034397493,
+          0.036650237,
+          0.033638547
+        ],
+        "candidate": [
+          0.032162603,
+          0.032056951,
+          0.032562154,
+          0.032645427,
+          0.03217967
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREP_COST",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.001368279,
+      "candidate": 0.017561582,
+      "change_percent": 1183.4796119797204,
+      "samples": {
+        "baseline": [
+          0.001368279,
+          0.001351614,
+          0.002409799,
+          0.002242891,
+          0.001038701
+        ],
+        "candidate": [
+          0.019298892,
+          0.017414666,
+          0.019460686,
+          0.017378947,
+          0.017561582
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.031731,
+      "candidate": 0.036152096,
+      "change_percent": 13.933049699032484,
+      "samples": {
+        "baseline": [
+          0.031821242,
+          0.031716232,
+          0.031760798,
+          0.031731,
+          0.031713954
+        ],
+        "candidate": [
+          0.035426003,
+          0.036152096,
+          0.036196898,
+          0.035072382,
+          0.036411765
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREP_COST",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.002057652,
+      "candidate": 0.018029404,
+      "change_percent": 776.2124985177278,
+      "samples": {
+        "baseline": [
+          0.002057652,
+          0.00139138,
+          0.00133071,
+          0.002252149,
+          0.002287998
+        ],
+        "candidate": [
+          0.018029404,
+          0.017165005,
+          0.017168897,
+          0.018947031,
+          0.018763348
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "signed4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.032792465,
+      "candidate": 0.036529069,
+      "change_percent": 11.394703020953134,
+      "samples": {
+        "baseline": [
+          0.033097223,
+          0.032792465,
+          0.033011697,
+          0.032593877,
+          0.0325685
+        ],
+        "candidate": [
+          0.036804147,
+          0.036529069,
+          0.036572764,
+          0.036366124,
+          0.036432914
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREP_COST",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.001764511,
+      "candidate": 0.021271173,
+      "change_percent": 1105.4995973388661,
+      "samples": {
+        "baseline": [
+          0.002092908,
+          0.001354394,
+          0.002096484,
+          0.001764511,
+          0.001336998
+        ],
+        "candidate": [
+          0.023378639,
+          0.021271173,
+          0.022816796,
+          0.021216438,
+          0.021083552
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.0.weight",
+      "baseline": 0.031719496,
+      "candidate": 0.031149477,
+      "change_percent": -1.797061970972058,
+      "samples": {
+        "baseline": [
+          0.031860494,
+          0.031810175,
+          0.031667379,
+          0.031576638,
+          0.031719496
+        ],
+        "candidate": [
+          0.031005632,
+          0.03117245,
+          0.031246931,
+          0.031149477,
+          0.03102848
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREP_COST",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.000982793,
+      "candidate": 0.02184681,
+      "change_percent": 2122.9309732568304,
+      "samples": {
+        "baseline": [
+          0.000970548,
+          0.000972658,
+          0.000982793,
+          0.002322975,
+          0.00189471
+        ],
+        "candidate": [
+          0.02184681,
+          0.021049457,
+          0.021353383,
+          0.021885008,
+          0.023044238
+        ]
+      }
+    },
+    {
+      "run": "whisper-q5-predecode-final",
+      "kind": "Q5_PREPARED_TRAINED",
+      "variant": "pair4",
+      "shape": "encoder.blocks.0.mlp.2.weight",
+      "baseline": 0.033460843,
+      "candidate": 0.032800121,
+      "change_percent": -1.9746125344182075,
+      "samples": {
+        "baseline": [
+          0.032912192,
+          0.035506532,
+          0.034020284,
+          0.033460843,
+          0.032753451
+        ],
+        "candidate": [
+          0.032216837,
+          0.033963252,
+          0.033687318,
+          0.032800121,
+          0.03204142
+        ]
+      }
+    }
+  ]
+}

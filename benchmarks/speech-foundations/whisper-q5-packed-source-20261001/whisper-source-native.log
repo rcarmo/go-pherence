@@ -1,0 +1,5 @@
+=== RUN   TestVulkanOriginalQ5SourceNative
+    legacy_ggml_source_test.go:38: LEGACY_LOAD seconds=5.192569526 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    vulkan_packed_source_native_test.go:142: PACKED_SOURCE exact_hidden=1920000 checkpoints=1304 baseline_weights=2548039680 packed_weights=1184890880
+--- PASS: TestVulkanOriginalQ5SourceNative (53.69s)
+PASS

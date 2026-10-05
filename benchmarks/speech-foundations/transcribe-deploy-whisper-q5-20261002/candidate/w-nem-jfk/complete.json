@@ -1,0 +1,40 @@
+{
+ "id": "725bb3ad0eb8833c15ff4d04ae5a3bdc",
+ "name": "jfk-wnem.wav",
+ "title": "JFK Wnem",
+ "language": "en",
+ "speaker_labels": true,
+ "profile": "nem-en-wav",
+ "profile_available": true,
+ "status": "complete",
+ "attempts": 1,
+ "input_bytes": 352078,
+ "created": "2026-10-02T14:54:34.988971508Z",
+ "updated": "2026-10-02T14:54:40.201459399Z",
+ "artifacts": [
+  {
+   "name": "transcript",
+   "filename": "jfk-wnem.en.transcript.json",
+   "bytes": 1951,
+   "sha256": "4085c4194ce5abab905f41d8218401a41cb9bf8a7257e3daeb36d92e5ea5b417"
+  },
+  {
+   "name": "vtt",
+   "filename": "jfk-wnem.en.transcript.vtt",
+   "bytes": 150,
+   "sha256": "f1cb7d34e3b4bc4eb1dabb80c5d9e00604bbad23dac4ad3a696c0ebf8fd3c7c3"
+  },
+  {
+   "name": "speaker-transcript",
+   "filename": "jfk-wnem.en.speakers.json",
+   "bytes": 2291,
+   "sha256": "e77e7e5ea383507539585cbd1bbbc4c108ca6764707bf32c2bfca3b04027b8be"
+  },
+  {
+   "name": "speaker-vtt",
+   "filename": "jfk-wnem.en.speakers.vtt",
+   "bytes": 1371,
+   "sha256": "7c019c0ae2417f40d0964253a3317d9b1bcaae26078f6b3cd0b28a7568c1ffed"
+  }
+ ]
+}

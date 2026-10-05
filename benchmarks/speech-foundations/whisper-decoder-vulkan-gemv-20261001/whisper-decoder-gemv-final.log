@@ -1,0 +1,315 @@
+=== RUN   TestVulkanDecoderGEMVDiagnostic
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K16N7
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=cpu4 repeat=0 seconds=0.000048340 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-resident repeat=0 seconds=0.000973121 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-transfer repeat=0 seconds=0.001560966 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-transfer repeat=1 seconds=0.001505076 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-resident repeat=1 seconds=0.001389855 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=cpu4 repeat=1 seconds=0.000021885 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=cpu4 repeat=2 seconds=0.000016025 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-resident repeat=2 seconds=0.001271770 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-transfer repeat=2 seconds=0.001202955 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-transfer repeat=3 seconds=0.001441446 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-resident repeat=3 seconds=0.001620311 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=cpu4 repeat=3 seconds=0.000024169 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=cpu4 repeat=4 seconds=0.000040664 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-resident repeat=4 seconds=0.000864633 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=16 N=7 arm=gpu-transfer repeat=4 seconds=0.001070399 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K32N519
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=cpu4 repeat=0 seconds=0.000063205 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-resident repeat=0 seconds=0.000872583 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-transfer repeat=0 seconds=0.000939146 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-transfer repeat=1 seconds=0.000877188 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-resident repeat=1 seconds=0.000891906 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=cpu4 repeat=1 seconds=0.000112775 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=cpu4 repeat=2 seconds=0.000124773 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-resident repeat=2 seconds=0.000876701 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-transfer repeat=2 seconds=0.000859759 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-transfer repeat=3 seconds=0.000879145 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-resident repeat=3 seconds=0.000891517 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=cpu4 repeat=3 seconds=0.000188242 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=cpu4 repeat=4 seconds=0.000089401 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-resident repeat=4 seconds=0.001032710 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=32 N=519 arm=gpu-transfer repeat=4 seconds=0.000990747 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K1280N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=cpu4 repeat=0 seconds=0.001427156 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-resident repeat=0 seconds=0.002454469 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-transfer repeat=0 seconds=0.002251230 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-transfer repeat=1 seconds=0.002170109 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-resident repeat=1 seconds=0.002180063 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=cpu4 repeat=1 seconds=0.001160846 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=cpu4 repeat=2 seconds=0.001043572 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-resident repeat=2 seconds=0.002452265 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-transfer repeat=2 seconds=0.002308335 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-transfer repeat=3 seconds=0.002311814 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-resident repeat=3 seconds=0.002332665 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=cpu4 repeat=3 seconds=0.001287087 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=cpu4 repeat=4 seconds=0.001017719 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-resident repeat=4 seconds=0.002442486 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=1280 arm=gpu-transfer repeat=4 seconds=0.002372661 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K1280N5120
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=cpu4 repeat=0 seconds=0.005873266 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-resident repeat=0 seconds=0.010086134 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-transfer repeat=0 seconds=0.010480853 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-transfer repeat=1 seconds=0.010397319 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-resident repeat=1 seconds=0.010968677 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=cpu4 repeat=1 seconds=0.008707813 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=cpu4 repeat=2 seconds=0.005732486 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-resident repeat=2 seconds=0.010040750 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-transfer repeat=2 seconds=0.009246240 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-transfer repeat=3 seconds=0.009782632 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-resident repeat=3 seconds=0.009954056 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=cpu4 repeat=3 seconds=0.016266912 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=cpu4 repeat=4 seconds=0.008122641 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-resident repeat=4 seconds=0.010493704 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=5120 arm=gpu-transfer repeat=4 seconds=0.010733781 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K5120N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=cpu4 repeat=0 seconds=0.006166157 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-resident repeat=0 seconds=0.011354999 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-transfer repeat=0 seconds=0.011559622 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-transfer repeat=1 seconds=0.012364319 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-resident repeat=1 seconds=0.012667525 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=cpu4 repeat=1 seconds=0.008221064 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=cpu4 repeat=2 seconds=0.006136997 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-resident repeat=2 seconds=0.011485937 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-transfer repeat=2 seconds=0.012365644 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-transfer repeat=3 seconds=0.012636952 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-resident repeat=3 seconds=0.013376239 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=cpu4 repeat=3 seconds=0.012210927 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=cpu4 repeat=4 seconds=0.006953034 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-resident repeat=4 seconds=0.012303908 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=5120 N=1280 arm=gpu-transfer repeat=4 seconds=0.012919778 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows8/K1280N51866
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=cpu4 repeat=0 seconds=0.059539425 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-resident repeat=0 seconds=0.080829984 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-transfer repeat=0 seconds=0.067021673 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-transfer repeat=1 seconds=0.053378864 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-resident repeat=1 seconds=0.050548953 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=cpu4 repeat=1 seconds=0.063396840 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=cpu4 repeat=2 seconds=0.059154466 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-resident repeat=2 seconds=0.048761526 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-transfer repeat=2 seconds=0.050860146 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-transfer repeat=3 seconds=0.053294235 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-resident repeat=3 seconds=0.049764577 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=cpu4 repeat=3 seconds=0.063454393 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=cpu4 repeat=4 seconds=0.058768232 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-resident repeat=4 seconds=0.050195407 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=8 K=1280 N=51866 arm=gpu-transfer repeat=4 seconds=0.053487596 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K16N7
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=cpu4 repeat=0 seconds=0.000031166 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-resident repeat=0 seconds=0.002885106 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-transfer repeat=0 seconds=0.001235143 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-transfer repeat=1 seconds=0.001126475 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-resident repeat=1 seconds=0.001419630 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=cpu4 repeat=1 seconds=0.000047681 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=cpu4 repeat=2 seconds=0.000065460 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-resident repeat=2 seconds=0.001431771 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-transfer repeat=2 seconds=0.001424773 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-transfer repeat=3 seconds=0.001430779 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-resident repeat=3 seconds=0.001323210 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=cpu4 repeat=3 seconds=0.000048199 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=cpu4 repeat=4 seconds=0.000037965 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-resident repeat=4 seconds=0.000939885 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=16 N=7 arm=gpu-transfer repeat=4 seconds=0.000930200 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K32N519
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=cpu4 repeat=0 seconds=0.000198295 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-resident repeat=0 seconds=0.001092638 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-transfer repeat=0 seconds=0.001022224 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-transfer repeat=1 seconds=0.001113875 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-resident repeat=1 seconds=0.001097998 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=cpu4 repeat=1 seconds=0.000246059 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=cpu4 repeat=2 seconds=0.000226673 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-resident repeat=2 seconds=0.001197941 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-transfer repeat=2 seconds=0.001221662 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-transfer repeat=3 seconds=0.001200969 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-resident repeat=3 seconds=0.001098592 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=cpu4 repeat=3 seconds=0.000304796 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=cpu4 repeat=4 seconds=0.000232831 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-resident repeat=4 seconds=0.001193774 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=32 N=519 arm=gpu-transfer repeat=4 seconds=0.001038879 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K1280N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=cpu4 repeat=0 seconds=0.001749649 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-resident repeat=0 seconds=0.003020329 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-transfer repeat=0 seconds=0.003480142 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-transfer repeat=1 seconds=0.001680632 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-resident repeat=1 seconds=0.001677147 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=cpu4 repeat=1 seconds=0.001305851 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=cpu4 repeat=2 seconds=0.001138913 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-resident repeat=2 seconds=0.001867407 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-transfer repeat=2 seconds=0.001721099 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-transfer repeat=3 seconds=0.001662354 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-resident repeat=3 seconds=0.001645494 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=cpu4 repeat=3 seconds=0.001317547 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=cpu4 repeat=4 seconds=0.001099780 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-resident repeat=4 seconds=0.001874209 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=1280 arm=gpu-transfer repeat=4 seconds=0.001765098 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K1280N5120
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=cpu4 repeat=0 seconds=0.006988349 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-resident repeat=0 seconds=0.008033650 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-transfer repeat=0 seconds=0.007851658 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-transfer repeat=1 seconds=0.007847387 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-resident repeat=1 seconds=0.008006570 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=cpu4 repeat=1 seconds=0.007091730 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=cpu4 repeat=2 seconds=0.005455551 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-resident repeat=2 seconds=0.007566156 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-transfer repeat=2 seconds=0.007663405 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-transfer repeat=3 seconds=0.007427266 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-resident repeat=3 seconds=0.007114379 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=cpu4 repeat=3 seconds=0.007862106 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=cpu4 repeat=4 seconds=0.006418641 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-resident repeat=4 seconds=0.007826870 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=5120 arm=gpu-transfer repeat=4 seconds=0.007602271 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K5120N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=cpu4 repeat=0 seconds=0.007273564 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-resident repeat=0 seconds=0.008317741 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-transfer repeat=0 seconds=0.007674139 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-transfer repeat=1 seconds=0.008177931 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-resident repeat=1 seconds=0.006742067 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=cpu4 repeat=1 seconds=0.007941646 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=cpu4 repeat=2 seconds=0.006824077 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-resident repeat=2 seconds=0.009005379 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-transfer repeat=2 seconds=0.009264443 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-transfer repeat=3 seconds=0.009917460 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-resident repeat=3 seconds=0.010483894 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=cpu4 repeat=3 seconds=0.011373679 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=cpu4 repeat=4 seconds=0.005561670 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-resident repeat=4 seconds=0.009082261 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=5120 N=1280 arm=gpu-transfer repeat=4 seconds=0.009493477 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows16/K1280N51866
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=cpu4 repeat=0 seconds=0.059920560 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-resident repeat=0 seconds=0.052896624 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-transfer repeat=0 seconds=0.054788482 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-transfer repeat=1 seconds=0.055498845 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-resident repeat=1 seconds=0.053903015 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=cpu4 repeat=1 seconds=0.063856863 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=cpu4 repeat=2 seconds=0.059822193 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-resident repeat=2 seconds=0.053136172 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-transfer repeat=2 seconds=0.057331246 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-transfer repeat=3 seconds=0.057321038 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-resident repeat=3 seconds=0.056139909 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=cpu4 repeat=3 seconds=0.070643925 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=cpu4 repeat=4 seconds=0.059481269 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-resident repeat=4 seconds=0.053989714 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=16 K=1280 N=51866 arm=gpu-transfer repeat=4 seconds=0.058330834 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K16N7
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=cpu4 repeat=0 seconds=0.000043849 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-resident repeat=0 seconds=0.001871420 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-transfer repeat=0 seconds=0.001318956 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-transfer repeat=1 seconds=0.001347161 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-resident repeat=1 seconds=0.001362155 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=cpu4 repeat=1 seconds=0.000052143 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=cpu4 repeat=2 seconds=0.000035170 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-resident repeat=2 seconds=0.001511446 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-transfer repeat=2 seconds=0.001421083 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-transfer repeat=3 seconds=0.001479111 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-resident repeat=3 seconds=0.001600601 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=cpu4 repeat=3 seconds=0.000061057 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=cpu4 repeat=4 seconds=0.000102791 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-resident repeat=4 seconds=0.001947028 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=16 N=7 arm=gpu-transfer repeat=4 seconds=0.002284580 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K32N519
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=cpu4 repeat=0 seconds=0.000320471 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-resident repeat=0 seconds=0.003386950 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-transfer repeat=0 seconds=0.001709193 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-transfer repeat=1 seconds=0.001712340 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-resident repeat=1 seconds=0.001580068 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=cpu4 repeat=1 seconds=0.000211955 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=cpu4 repeat=2 seconds=0.000219164 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-resident repeat=2 seconds=0.002876778 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-transfer repeat=2 seconds=0.001722313 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-transfer repeat=3 seconds=0.001756854 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-resident repeat=3 seconds=0.001777699 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=cpu4 repeat=3 seconds=0.000383207 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=cpu4 repeat=4 seconds=0.000277019 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-resident repeat=4 seconds=0.001825417 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=32 N=519 arm=gpu-transfer repeat=4 seconds=0.001927444 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K1280N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=cpu4 repeat=0 seconds=0.001714102 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-resident repeat=0 seconds=0.002641886 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-transfer repeat=0 seconds=0.001993017 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-transfer repeat=1 seconds=0.002166579 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-resident repeat=1 seconds=0.002428691 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=cpu4 repeat=1 seconds=0.001945235 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=cpu4 repeat=2 seconds=0.001184486 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-resident repeat=2 seconds=0.002583903 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-transfer repeat=2 seconds=0.002442870 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-transfer repeat=3 seconds=0.002473463 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-resident repeat=3 seconds=0.002484790 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=cpu4 repeat=3 seconds=0.002468297 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=cpu4 repeat=4 seconds=0.001797952 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-resident repeat=4 seconds=0.002731556 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=1280 arm=gpu-transfer repeat=4 seconds=0.002671493 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K1280N5120
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=cpu4 repeat=0 seconds=0.005811283 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-resident repeat=0 seconds=0.009557854 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-transfer repeat=0 seconds=0.009211617 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-transfer repeat=1 seconds=0.009838822 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-resident repeat=1 seconds=0.010002074 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=cpu4 repeat=1 seconds=0.010195477 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=cpu4 repeat=2 seconds=0.006863263 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-resident repeat=2 seconds=0.008256576 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-transfer repeat=2 seconds=0.008740425 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-transfer repeat=3 seconds=0.008407062 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-resident repeat=3 seconds=0.008816606 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=cpu4 repeat=3 seconds=0.014048945 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=cpu4 repeat=4 seconds=0.006893787 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-resident repeat=4 seconds=0.008951666 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=5120 arm=gpu-transfer repeat=4 seconds=0.008698024 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K5120N1280
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=cpu4 repeat=0 seconds=0.006352770 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-resident repeat=0 seconds=0.010754799 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-transfer repeat=0 seconds=0.011238740 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-transfer repeat=1 seconds=0.011880358 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-resident repeat=1 seconds=0.012683637 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=cpu4 repeat=1 seconds=0.009781617 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=cpu4 repeat=2 seconds=0.005253961 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-resident repeat=2 seconds=0.010920957 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-transfer repeat=2 seconds=0.012213877 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-transfer repeat=3 seconds=0.012721800 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-resident repeat=3 seconds=0.012747907 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=cpu4 repeat=3 seconds=0.011067041 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=cpu4 repeat=4 seconds=0.005340727 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-resident repeat=4 seconds=0.011020295 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=5120 N=1280 arm=gpu-transfer repeat=4 seconds=0.010309079 calls=10
+=== RUN   TestVulkanDecoderGEMVDiagnostic/rows32/K1280N51866
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=cpu4 repeat=0 seconds=0.060154856 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-resident repeat=0 seconds=0.060197160 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-transfer repeat=0 seconds=0.063150342 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-transfer repeat=1 seconds=0.063167536 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-resident repeat=1 seconds=0.061383799 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=cpu4 repeat=1 seconds=0.068377393 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=cpu4 repeat=2 seconds=0.061706157 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-resident repeat=2 seconds=0.058373366 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-transfer repeat=2 seconds=0.059186833 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-transfer repeat=3 seconds=0.058015797 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-resident repeat=3 seconds=0.059091857 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=cpu4 repeat=3 seconds=0.063586946 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=cpu4 repeat=4 seconds=0.059481036 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-resident repeat=4 seconds=0.056212474 calls=10
+    vulkan_decoder_gemv_diagnostic_test.go:138: DECODER_GEMV rows=32 K=1280 N=51866 arm=gpu-transfer repeat=4 seconds=0.053527516 calls=10
+--- PASS: TestVulkanDecoderGEMVDiagnostic (6.60s)
+    --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8 (2.23s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K16N7 (0.02s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K32N519 (0.01s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K1280N1280 (0.06s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K1280N5120 (0.23s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K5120N1280 (0.24s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows8/K1280N51866 (1.69s)
+    --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16 (2.15s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K16N7 (0.02s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K32N519 (0.01s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K1280N1280 (0.05s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K1280N5120 (0.17s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K5120N1280 (0.20s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows16/K1280N51866 (1.68s)
+    --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32 (2.20s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K16N7 (0.02s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K32N519 (0.03s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K1280N1280 (0.06s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K1280N5120 (0.20s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K5120N1280 (0.23s)
+        --- PASS: TestVulkanDecoderGEMVDiagnostic/rows32/K1280N51866 (1.64s)
+PASS

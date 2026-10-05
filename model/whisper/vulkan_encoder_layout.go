@@ -32,6 +32,9 @@ type vkEncoderLayout struct {
 // encoder must not be concurrently mutated during construction. No source slice
 // is retained by the completed Vulkan encoder.
 func describeVulkanEncoder(ctx context.Context, enc *Encoder, frames int) (*vkEncoderLayout, error) {
+	return describeVulkanEncoderMode(ctx, enc, frames, false)
+}
+func describeVulkanEncoderMode(ctx context.Context, enc *Encoder, frames int, packedFFN bool) (*vkEncoderLayout, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("whisper Vulkan: nil context")
 	}
@@ -53,6 +56,12 @@ func describeVulkanEncoder(ctx context.Context, enc *Encoder, frames int) (*vkEn
 		for _, x := range shape {
 			n *= x
 		} // Fixed envelope above bounds all products.
+		if packedFFN && isVulkanMLPWeight(name) {
+			if len(data) != 0 {
+				bad = fmt.Errorf("whisper Vulkan: packed-only tensor %s has widened data", name)
+			}
+			return vkEncoderTensor{name: name, shape: shape}
+		}
 		if zero && len(data) == 0 {
 			return vkEncoderTensor{name, shape, nil, true}
 		}

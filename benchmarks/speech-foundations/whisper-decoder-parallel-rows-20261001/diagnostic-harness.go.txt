@@ -1,0 +1,89 @@
+package whisper
+
+import (
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"math"
+	"os"
+	"runtime"
+	"sync"
+	"testing"
+	"time"
+)
+
+func decoderRowsDiagnostic(out, x, w, b []float32, k, n, workers int) {
+	compute := func(start, end int) {
+		for o := start; o < end; o++ {
+			v := simdrt.Sdot(x[:k], w[o*k:(o+1)*k])
+			if o < len(b) {
+				v += b[o]
+			}
+			out[o] = v
+		}
+	}
+	if workers <= 1 {
+		compute(0, n)
+		return
+	}
+	chunk := (n + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < n; start += chunk {
+		end := min(n, start+chunk)
+		wg.Add(1)
+		go func(a, b int) { defer wg.Done(); compute(a, b) }(start, end)
+	}
+	wg.Wait()
+}
+func TestDecoderRowsDiagnostic(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_DECODER_ROWS") == "" {
+		t.Skip("explicit decoder rows diagnostic")
+	}
+	if runtime.GOMAXPROCS(0) != 4 {
+		t.Fatal("4CPU")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	for _, shape := range [][2]int{{1280, 1280}, {1280, 5120}, {5120, 1280}, {1280, 51866}} {
+		k, n := shape[0], shape[1]
+		t.Run(fmtShape(shape), func(t *testing.T) {
+			x := make([]float32, k)
+			w := make([]float32, k*n)
+			bias := make([]float32, n)
+			for i := range x {
+				x[i] = float32((i*17)%101-50) * .0137
+			}
+			for i := range w {
+				w[i] = float32((i*13)%127-63) * .0031
+			}
+			for i := range bias {
+				bias[i] = float32(i%9-4) * .017
+			}
+			ref := make([]float32, n)
+			decoderRowsDiagnostic(ref, x, w, bias, k, n, 1)
+			out := make([]float32, n)
+			for _, workers := range []int{2, 4} {
+				for repeat := 0; repeat < 5; repeat++ {
+					for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+						nw := 1
+						if candidate {
+							nw = workers
+						}
+						start := time.Now()
+						for call := 0; call < 30; call++ {
+							decoderRowsDiagnostic(out, x, w, bias, k, n, nw)
+						}
+						wall := time.Since(start)
+						for i, v := range out {
+							if math.Float32bits(v) != math.Float32bits(ref[i]) {
+								t.Fatal("bits", i)
+							}
+						}
+						t.Logf("DECODER_ROWS K=%d N=%d workers=%d candidate=%t repeat=%d seconds=%.9f calls=30", k, n, workers, candidate, repeat, wall.Seconds())
+					}
+				}
+			}
+		})
+	}
+}
+func fmtShape(s [2]int) string { return string(rune('A'+s[0]%26)) + string(rune('A'+s[1]%26)) }

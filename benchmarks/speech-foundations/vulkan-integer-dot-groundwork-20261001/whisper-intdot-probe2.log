@@ -1,0 +1,5 @@
+=== RUN   TestVulkanNativeIntegerDotProbe
+vulkan: integer-dot refused: feature=1 packed signed/unsigned/mixed acceleration=[0 0 0]
+    vulkan_integer_dot_test.go:135: accelerated physical mixed-dot init
+--- FAIL: TestVulkanNativeIntegerDotProbe (0.01s)
+FAIL

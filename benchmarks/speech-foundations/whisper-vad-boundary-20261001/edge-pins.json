@@ -1,0 +1,23 @@
+[
+  {
+    "mode": "leading",
+    "start": 0,
+    "end": 169952,
+    "samples": 169952,
+    "sha256": "7c61c42c8859aeeff4c44cc07538e2be2188d0322851d60fe59340332c763908"
+  },
+  {
+    "mode": "trailing",
+    "start": 5152,
+    "end": 176000,
+    "samples": 170848,
+    "sha256": "714b18ee14a93772251e654dedb724d188cc78bb53dee83d44033a2114d2ec8d"
+  },
+  {
+    "mode": "full",
+    "start": 0,
+    "end": 176000,
+    "samples": 176000,
+    "sha256": "ebd52851100536db02d12c49fddd010372dcdc70243562e057553d476b706ae0"
+  }
+]

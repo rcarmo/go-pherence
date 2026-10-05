@@ -1,0 +1,102 @@
+package whisper
+
+import (
+	"fmt"
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+	"math"
+	"os"
+	"runtime"
+	"sync"
+	"testing"
+	"time"
+)
+
+func decoderX4Diagnostic(out, x, w, b []float32, k, n, workers int, candidate bool) {
+	compute := func(start, end int) {
+		o := start
+		if candidate {
+			for ; o+3 < end; o += 4 {
+				a, c, d, e, ok := simdrt.Sdotx4(x[:k], w[o*k:(o+4)*k], k)
+				if !ok {
+					panic("x4 admission")
+				}
+				values := [4]float32{a, c, d, e}
+				for j, v := range values {
+					if o+j < len(b) {
+						v += b[o+j]
+					}
+					out[o+j] = v
+				}
+			}
+		}
+		for ; o < end; o++ {
+			v := simdrt.Sdot(x[:k], w[o*k:(o+1)*k])
+			if o < len(b) {
+				v += b[o]
+			}
+			out[o] = v
+		}
+	}
+	if workers <= 1 {
+		compute(0, n)
+		return
+	}
+	chunk := (n + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < n; start += chunk {
+		end := min(n, start+chunk)
+		wg.Add(1)
+		go func(a, b int) { defer wg.Done(); compute(a, b) }(start, end)
+	}
+	wg.Wait()
+}
+func TestDecoderX4Diagnostic(t *testing.T) {
+	if os.Getenv("GO_PHERENCE_TEST_DECODER_X4") == "" {
+		t.Skip("explicit exactx4diagnostic")
+	}
+	if runtime.GOARCH != "amd64" || !simdrt.HasDotAsm {
+		t.Fatal("qualifiedISArequired")
+	}
+	if runtime.GOMAXPROCS(0) != 4 {
+		t.Fatal("CPU4")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("120s")
+	}
+	for _, shape := range [][2]int{{16, 7}, {32, 519}, {1280, 1280}, {1280, 5120}, {5120, 1280}, {1280, 51866}} {
+		k, n := shape[0], shape[1]
+		t.Run(fmt.Sprintf("K%dN%d", k, n), func(t *testing.T) {
+			x := make([]float32, k)
+			w := make([]float32, n*k)
+			b := make([]float32, n)
+			for i := range x {
+				x[i] = float32(math.Sin(float64(i*17+7))) * .337
+			}
+			for i := range w {
+				w[i] = float32(math.Cos(float64(i*13+11))) * .017
+			}
+			for i := range b {
+				b[i] = float32(i%13-6) * .0027
+			}
+			ref := make([]float32, n)
+			decoderX4Diagnostic(ref, x, w, b, k, n, 4, false)
+			out := make([]float32, n)
+			for repeat := 0; repeat < 5; repeat++ {
+				for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+					start := time.Now()
+					for call := 0; call < 30; call++ {
+						decoderX4Diagnostic(out, x, w, b, k, n, 4, candidate)
+					}
+					wall := time.Since(start)
+					for i, v := range out {
+						if math.Float32bits(v) != math.Float32bits(ref[i]) {
+							t.Fatal("bitcontract", i, v, ref[i])
+						}
+					}
+					t.Logf("DECODER_X4 K=%d N=%d candidate=%t repeat=%d seconds=%.9f calls=30", k, n, candidate, repeat, wall.Seconds())
+				}
+			}
+		})
+	}
+}

@@ -1,0 +1,7 @@
+2026-10-01T12:23:17Z
+38db449b966c3d72d849feeabcff9d5c8bb2b691
+c44b60b8053bbf2a5c1e014f11323fb3f2485177
+d7bf231717d25ea996c9e4733de97a1f7eeab78c3a973ca48ac94a67f62ac96f  projects/whisper-stt/benchmarks/minds-pt.json
+8a7f5ea6b05a686ef1a6455d2a1683ed6cd1497a524efcb2cbfe10e810df6601  projects/go-pherence-transcribe-web/testdata/podcast.wav
+c62ff25b56b46d99183d77500aa09c33db7fcdd72a9c992b7f71a61f744e54bd  tmp/whisper-vad-parity-20261001/whisper-fc1-quality.test
+dcef563bcac6d0a306fb689e275cfdbb846811fbc83cec60ae227716268f6c18  projects/whisper-stt/runtime/build-vulkan/bin/whisper-cli

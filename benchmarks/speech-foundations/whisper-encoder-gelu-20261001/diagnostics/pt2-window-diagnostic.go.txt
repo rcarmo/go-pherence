@@ -1,0 +1,142 @@
+package whisper
+
+import (
+	"context"
+	"encoding/binary"
+	"fmt"
+	vk "github.com/rcarmo/go-pherence/backends/vulkan"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func pt2DiagRead(t *testing.T, path string) []float32 {
+	b, err := os.ReadFile(path)
+	if err != nil || len(b)%4 != 0 {
+		t.Fatal(path, err)
+	}
+	v := make([]float32, len(b)/4)
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
+	}
+	return v
+}
+
+// Test-only: PT2 second 30 s window, Go per-window mel/encoder vs original
+// whole-clip hidden, decoded by the Go decoder with original compatibility.
+func TestWhisperPT2WindowDiagnostic(t *testing.T) {
+	pcmPath := os.Getenv("PT2DIAG_PCM")
+	if pcmPath == "" {
+		t.Skip("explicit diagnostic")
+	}
+	d, _ := t.Deadline()
+	ctx, cancel := context.WithDeadline(context.Background(), d.Add(-time.Second))
+	defer cancel()
+	model, tok, policy, file := pinnedLegacyWhisperModelMode(t, ctx, true)
+	defer file.Close()
+	if !vk.VulkanInitIntegerDot() || !strings.Contains(vk.VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("device")
+	}
+	pcm := pt2DiagRead(t, pcmPath)
+	start := 480000
+	if v := os.Getenv("PT2DIAG_START"); v != "" {
+		fmt.Sscan(v, &start)
+	}
+	window := make([]float32, 480000)
+	copy(window, pcm[start:])
+	t.Logf("PT2DIAG start_samples=%d valid=%d", start, len(pcm)-start)
+	mel, _, err := MelFlatFromSamplesCheckedContext(ctx, window, model.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("PT2DIAG_GLOBAL_FLOOR") == "1" {
+		// Emulate whisper.cpp's whole-clip clamp floor: normalised y=(max(x,M-8)+4)/4,
+		// so a higher clip max M lifts the floor to (Mclip-4)/4 = ymaxClip-2.
+		clipMax := float32(math.Inf(-1))
+		for off := 0; off < len(pcm); off += 480000 {
+			w := make([]float32, 480000)
+			copy(w, pcm[off:])
+			m, _, e := MelFlatFromSamplesCheckedContext(ctx, w, model.Config)
+			if e != nil {
+				t.Fatal(e)
+			}
+			for _, v := range m {
+				clipMax = float32(math.Max(float64(clipMax), float64(v)))
+			}
+		}
+		floor, lifted := clipMax-2, 0
+		for i, v := range mel {
+			if v < floor {
+				mel[i] = floor
+				lifted++
+			}
+		}
+		t.Logf("PT2DIAG global floor=%.6g lifted=%d of %d", floor, lifted, len(mel))
+	}
+	enc, err := newVulkanEncoderPackedOnlyMode(ctx, model.Encoder, model.Config.MaxLength, vk.NewVkF32Plan, vulkanLinearOriginalQ5PaddedIntegerDotMMQTanh, file, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	goHidden, err := enc.Forward(ctx, mel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.Close(); err != nil {
+		t.Fatal(err)
+	}
+	hiddens := map[string][]float32{"go-window": goHidden}
+	for _, name := range strings.Split(os.Getenv("PT2DIAG_HIDDENS"), ",") {
+		if name != "" {
+			parts := strings.SplitN(name, "=", 2)
+			hiddens[parts[0]] = pt2DiagRead(t, parts[1])
+		}
+	}
+	for name, h := range hiddens {
+		var mx, se float64
+		for i := range h {
+			dd := float64(h[i] - goHidden[i])
+			se += dd * dd
+			mx = math.Max(mx, math.Abs(dd))
+		}
+		v, e := checkedTimestampVocabulary(model.Config, tok, "pt")
+		if e != nil {
+			t.Fatal(e)
+		}
+		opts, suppress, begin, e := resolvePCMGeneration(model.Config, v, PCMTranscribeOptions{Language: "pt", Generation: policy}, model.Decoder.SuppressTokens, model.Decoder.BeginSuppressTokens)
+		if e != nil {
+			t.Fatal(e)
+		}
+		state, e := NewDecoderStateContext(ctx, model.Config, h, 1500, model.Decoder)
+		if e != nil {
+			t.Fatal(e)
+		}
+		state.applyOriginalDecoderCompatibility(1500)
+		var trace []string
+		if prev := os.Getenv("PT2DIAG_PREV"); prev != "" {
+			prompt := []int{v.transcribe + 2} // <|startofprev|>
+			for _, f := range strings.Split(prev, ",") {
+				var id int
+				fmt.Sscan(f, &id)
+				prompt = append(prompt, id)
+			}
+			for _, id := range prompt {
+				model.Decoder.ForwardToken(id, state)
+			}
+			trace = append(trace, fmt.Sprintf("prev%d(%q)", len(prompt), tok.Decode([]int{v.transcribe + 2})))
+		}
+		segs, e := decodeCheckedTimestamps(ctx, model.Config, tok, v, opts, suppress, begin, func(token int) ([]float32, error) {
+			trace = append(trace, fmt.Sprint(token))
+			return model.Decoder.ForwardToken(token, state), ctx.Err()
+		})
+		if e != nil {
+			t.Fatal(e)
+		}
+		var b strings.Builder
+		for _, s := range segs {
+			fmt.Fprintf(&b, "[%.2f-%.2f %q]", s.Start, s.End, s.Text)
+		}
+		t.Logf("PT2DIAG hidden=%s vsGo max=%.4g rmse=%.6g segs=%s fed=%s", name, mx, math.Sqrt(se/float64(len(h))), b.String(), strings.Join(trace, ","))
+	}
+}

@@ -1,0 +1,4 @@
+set -e
+cd /var/home/agent/workspace/tmp/whisper-vad-parity-20261001/intdiag
+c++ -O2 -std=c++17 -DWHISPER_VERSION=\"1.9.3\" -I. -I/var/home/agent/workspace/projects/whisper-stt/vendor/whisper.cpp/include -I/var/home/agent/workspace/projects/whisper-stt/vendor/whisper.cpp/src -I/var/home/agent/workspace/projects/whisper-stt/vendor/whisper.cpp/ggml/include swap-full.cpp -o /var/home/agent/workspace/tmp/whisper-vad-parity-20261001/intdiag/swap-full -L/var/home/agent/workspace/projects/whisper-stt/runtime/build-vulkan/bin -lggml -lggml-base -lggml-cpu -lggml-vulkan -Wl,-rpath,/var/home/agent/workspace/projects/whisper-stt/runtime/build-vulkan/bin
+echo SWAP_BUILD_PASS

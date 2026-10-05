@@ -1,0 +1,5 @@
+=== RUN   TestWhisperPerformanceGoalArm
+    performance_goal_test.go:128: LEGACY_LOAD seconds=2.865744261 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    performance_goal_test.go:233: Q5 integer-dot tensor rank: out=&{0x34c3b7162f00 62976000 30720000 [1500 5120 0 0 0 0 0 0] 2} x=&{0x34c3b7162f00 24576000 7680000 [1500 1280 0 0 0 0 0 0] 2} bias=&{0x34c3b7162a20 26255360 20480 [5120 0 0 0 0 0 0 0] 1} scratch=&{0x34c3b7162f00 93696000 2160000 [540000 0 0 0 0 0 0 0] 1}
+--- FAIL: TestWhisperPerformanceGoalArm (3.79s)
+FAIL

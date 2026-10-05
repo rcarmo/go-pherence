@@ -1,0 +1,4 @@
+=== RUN   TestVulkanNativeQ5IntegerDotMMQExact
+    vulkan_q5_integer_mmq_native_test.go:71: unsupported or malformed Vulkan shader contract: opcode/word framing
+--- FAIL: TestVulkanNativeQ5IntegerDotMMQExact (0.06s)
+FAIL

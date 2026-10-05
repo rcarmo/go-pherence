@@ -14,14 +14,36 @@ import (
 // No mask, GQA, F16, quantisation or model/default selection is provided.
 // Caller contents must have finite representable dot products and weighted
 // sums; no data scan. Device accuracy/performance still need qualification.
-type VkAttentionF32 struct{ kernel *VkComputeKernel }
+type VkAttentionF32 struct {
+	kernel          *VkComputeKernel
+	requiredHeadDim int
+	queryTile       int // queries per workgroup; 0 means 16
+}
 
 func NewVkAttentionF32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32)
+}
+
+// NewVkAttentionKey32F32 explicitly selects 32-key online softmax with parallel
+// exponent evaluation and F32 FMA. It changes reduction/rounding relative to
+// the baseline and must be separately numerically/task-qualified. No fallback.
+func NewVkAttentionKey32F32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32_key32)
+}
+
+// NewVkAttentionKey32ScoreILPF32 explicitly interleaves two independent score
+// accumulators while preserving increasing-channel FMA order for each key.
+// The key32 online-softmax and output-reduction orders remain unchanged.
+// This is an opt-in kernel, with no fallback or serving default selection.
+func NewVkAttentionKey32ScoreILPF32(ctx context.Context) (*VkAttentionF32, error) {
+	return newVkAttentionF32Code(ctx, spirv_attention_f32_key32_scoreilp)
+}
+func newVkAttentionF32Code(ctx context.Context, code []byte) (*VkAttentionF32, error) {
 	if err := vkAcquire(ctx); err != nil {
 		return nil, err
 	}
 	defer vkRelease()
-	k, err := vkKernelCreateLocked(spirv_attention_f32, 4, 20)
+	k, err := vkKernelCreateLocked(code, 4, 20)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +91,9 @@ func (op *VkAttentionF32) stageLocked(out, q, k, v *VkTensorF32, heads int) (VkF
 		return fail("sequence/head/width envelope")
 	}
 	dim := width / heads
+	if err := vkAttentionHeadDim(op.requiredHeadDim, dim); err != nil {
+		return VkF32Stage{}, err
+	}
 	if dim < 1 || dim > 64 {
 		return fail("head dimension must be1..64")
 	}
@@ -84,7 +109,11 @@ func (op *VkAttentionF32) stageLocked(out, q, k, v *VkTensorF32, heads int) (VkF
 			return fail("output overlaps input")
 		}
 	}
-	groups := [3]uint32{uint32((seqQ + 15) / 16), uint32(heads), 1}
+	tile := op.queryTile
+	if tile == 0 {
+		tile = 16
+	}
+	groups := [3]uint32{uint32((seqQ + tile - 1) / tile), uint32(heads), 1}
 	push := []uint32{uint32(seqQ), uint32(seqKV), uint32(heads), uint32(dim), math.Float32bits(float32(1 / math.Sqrt(float64(dim))))}
 	if err := op.kernel.validateBindingsLocked(groups[0], groups[1], groups[2], bindings, unsafePushWords(push)); err != nil {
 		return VkF32Stage{}, err

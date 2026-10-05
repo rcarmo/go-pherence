@@ -1,0 +1,10 @@
+=== RUN   TestWhisperDecoderEmulationDiagnostic
+    zz_decoder_emu_diag_test.go:232: LEGACY_LOAD seconds=2.843172433 storage=2008 tensors=587 pin=394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2 explicit_widened_values=true
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=base 0.00-10.40 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=all 0.00-10.40 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=orig-nof16 arm=padtanh 0.00-10.40 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=go-padded-intdot-all arm=base 0.00-11.00 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=go-padded-intdot-all arm=all 0.00-11.00 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+    zz_decoder_emu_diag_test.go:300: DECEMU hidden=go-padded-intdot-all arm=padtanh 0.00-11.00 "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country."
+--- PASS: TestWhisperDecoderEmulationDiagnostic (17.10s)
+PASS

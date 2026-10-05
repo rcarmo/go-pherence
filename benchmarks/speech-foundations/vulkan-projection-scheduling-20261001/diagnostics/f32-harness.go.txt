@@ -1,0 +1,98 @@
+package vulkan
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestVulkanNativeF32KTileDiagnostic(t *testing.T) {
+	dir := os.Getenv("GO_PHERENCE_TEST_F32_KTILE_DIR")
+	if dir == "" {
+		t.Skip("explicit exact signed Q5 diagnostic")
+	}
+	d, ok := t.Deadline()
+	if !ok || time.Until(d) > 120*time.Second {
+		t.Fatal("bounded120s")
+	}
+	if !VulkanInit() || os.Getenv("GO_PHERENCE_VULKAN_DEVICE") == "" || !strings.Contains(VulkanDeviceName(), os.Getenv("GO_PHERENCE_VULKAN_DEVICE")) {
+		t.Fatal("physical")
+	}
+	before := VulkanMemoryStats()
+	t.Cleanup(func() { nativeEncoderMemoryCheck(t, before) })
+	variants := strings.Split(os.Getenv("GO_PHERENCE_TEST_F32_KTILE_VARIANTS"), ",")
+	if len(variants) == 1 && variants[0] == "" {
+		variants = []string{"f32k16", "f32k8", "f32k16ping", "f32k8ping"}
+	}
+	for _, variant := range variants {
+		t.Run(variant, func(t *testing.T) {
+			code, e := os.ReadFile(fmt.Sprintf("%s/%s.spv", dir, variant))
+			if e != nil {
+				t.Fatal(e)
+			}
+			kernel, e := VkKernelCreate(code, 4, 12)
+			if e != nil {
+				t.Fatal(e)
+			}
+			nativeClose(t, kernel)
+			for _, shape := range [][3]int{{1, 1, 1}, {17, 17, 65}, {33, 97, 63}, {33, 96, 63}, {1500, 1280, 1280}} {
+				t.Run(fmt.Sprint(shape), func(t *testing.T) {
+					m, k, n := shape[0], shape[1], shape[2]
+					wf := nativeData(n*k, 19, .1)
+					a, e := NewVkTensorArena(context.Background(), 180<<20)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, a)
+					left := nativeGuard(t, a)
+					tx := nativeTensor(t, a, nativeData(m*k, 11, .5), m, k)
+					tw := nativeTensor(t, a, wf, n, k)
+					bias := nativeTensor(t, a, nativeData(n, 13, .1), n)
+					out := nativeTensor(t, a, nil, m, n)
+					right := nativeGuard(t, a)
+					bk, e := VkKernelCreate(spirv_linear_f32_regtile64, 4, 12)
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bk)
+					bp, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: bk, Groups: [3]uint32{uint32((n + 63) / 64), uint32((m + 63) / 64), 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, bp)
+					cp, e := NewVkF32Plan(context.Background(), []VkF32Stage{{Kernel: kernel, Groups: [3]uint32{uint32((n + 63) / 64), uint32((m + 63) / 64), 1}, Tensors: []*VkTensorF32{tx, tw, bias, out}, PushWords: []uint32{uint32(m), uint32(k), uint32(n)}}})
+					if e != nil {
+						t.Fatal(e)
+					}
+					nativeClose(t, cp)
+					nativeRun(t, bp.Run)
+					ref := nativeDownload(t, out)
+					for repeat := 0; repeat < 5; repeat++ {
+						for _, candidate := range []bool{repeat%2 == 1, repeat%2 == 0} {
+							plan := bp
+							if candidate {
+								plan = cp
+							}
+							wall := nativeRun(t, plan.Run)
+							got := nativeDownload(t, out)
+							for i, v := range got {
+								if math.Float32bits(v) != math.Float32bits(ref[i]) {
+									t.Fatal("bits", i, v, ref[i])
+								}
+							}
+							left()
+							right()
+							if m == 1500 {
+								t.Logf("F32_KTILE variant=%s shape=%v candidate=%t repeat=%d seconds=%.9f values=%d", variant, shape, candidate, repeat, wall.Seconds(), len(got))
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}

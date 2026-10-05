@@ -1,0 +1,17 @@
+generated=2026-10-01T20:55:39Z
+repo_base=464464c8d9cae77bdbceb61c9936b3300242f824
+original_whisper_cpp=c44b60b8053bbf2a5c1e014f11323fb3f2485177
+9e156f9723223153b3208d0745490a0f78df0862d19e989306b4016f83afc7b8  tmp/whisper-vad-parity-20261001/refresh-original-final
+76b66af4acd411365fbc3af02dd59c82b0e2e9530e2f38c650f38a8e5758fbfe  tmp/whisper-vad-parity-20261001/state-original-corrected
+f1ee2d9704def64e34d580ee0ed416486a48f66646424e36b8a232c5e7ca1cf9  tmp/whisper-vad-parity-20261001/intdiag/swap-full
+c7c8610a8b6bb1c8af710a027b500b322b8471bd2890728f9b68bda85f65a031  tmp/whisper-vad-parity-20261001/intdiag.test
+61195d98f10d625ae072f4bdb69bf37c3766f123aea0b342037f48c98c811a62  tmp/whisper-vad-parity-20261001/intdiag/whisper-diagnostic.cpp
+c21ff590f8718096aaaa08d1fb29d16c07d83af466920645beaf6cb73cc96ed7  tmp/whisper-vad-parity-20261001/refresh-pt.f32
+ebd52851100536db02d12c49fddd010372dcdc70243562e057553d476b706ae0  tmp/whisper-vad-parity-20261001/refresh-jfk.f32
+b233f4d1f72b92266102e561bc3fe51bedc880255925e4e237e5670127b27873  tmp/whisper-vad-parity-20261001/intdiag/pt-go-padded-exact-hidden.f32
+eaf248c6e7a9dca80f31980ae8b86a2501f55281a2e5f988d262b7ca09f59c32  tmp/whisper-vad-parity-20261001/intdiag/pt-go-padded-intdot-all-hidden.f32
+a2e65816c8888fba448a008fbf197d04c82a5b03424d0703d3d8836538d64080  tmp/whisper-vad-parity-20261001/intdiag/pt-go-padded-intdot-ffn-hidden.f32
+3575ef2147c4b8cbc208d25c20a9ccd4acf94fe03ce93d9c84c4f2b17811f53e  tmp/whisper-vad-parity-20261001/intdiag/pt-orig-default-hidden.f32
+a7baad80fd5a312c4b0ea5fc5f0c7d89cf9b7a74092fc7665443bd1655061b04  tmp/whisper-vad-parity-20261001/intdiag/pt-orig-nof16-hidden.f32
+ac322f5df4b143a25d64ccea40e9dc0e012ecba40233cafef64d0ee5a47b3b24  tmp/whisper-vad-parity-20261001/intdiag/pt-orig-default-mel.f32
+binaries, PCM, mel and hidden arrays recorded by hash only

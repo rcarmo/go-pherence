@@ -1,0 +1,7 @@
+2026-10-01T17:25:03Z
+8e4f7cd60064f8d474b251998837b85337e509fe
+eed8f6d970fc059d6a9252b6628a7a4bd6ff9ca0c3e559c5015a6d5101b3666c  tmp/whisper-vad-parity-20261001/decoder-vulkan.test
+2f430c14937f2cc8e1dc5619cbcd2913f0889f89f9bece09e72085532fea36af  tmp/whisper-vad-parity-20261001/decoder-vulkan-final.test
+68d1d09e4963a2ea0a64c34c7358c0818294d092d542df51238e5611f66a5d99  tmp/whisper-vad-parity-20261001/decoder-vulkan-head.test
+cf71ac44d16516e311ccfb9796757d6d11d7a59d4a733aa27214bef4cef381ad  tools/vulkan-offline/usr/bin/glslangValidator
+49044b2fffb78a93ab7016d46a50d156088598162de8b8a523f3308ea5b3f2f8  tools/vulkan-offline/usr/bin/spirv-val

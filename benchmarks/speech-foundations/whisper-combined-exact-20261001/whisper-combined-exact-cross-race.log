@@ -1,0 +1,5 @@
+COMBINED_ARM64_PASS
+COMBINED_RISCV64_PASS
+ok  	github.com/rcarmo/go-pherence/backends/vulkan	3.079s
+ok  	github.com/rcarmo/go-pherence/model/whisper	36.347s
+COMBINED_AFFECTED_RACE_PASS

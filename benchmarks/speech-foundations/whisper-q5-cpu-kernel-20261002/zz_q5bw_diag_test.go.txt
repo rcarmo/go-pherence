@@ -1,0 +1,64 @@
+package whisper
+
+import (
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
+	simdrt "github.com/rcarmo/go-pherence/backends/simd/runtime"
+)
+
+func TestZZQ5Bandwidth(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	mk := func(out, in int) []byte {
+		raw := make([]byte, out*in/32*simdrt.Q5_0BlockBytes)
+		r.Read(raw)
+		for b := 0; b < len(raw)/simdrt.Q5_0BlockBytes; b++ {
+			raw[b*simdrt.Q5_0BlockBytes+1] = 0x20
+		}
+		return raw
+	}
+	for _, s := range [][2]int{{5120, 1280}, {1280, 5120}, {51865, 1280}} {
+		out, in := s[0], s[1]
+		raw := mk(out, in)
+		x := make([]float32, in)
+		for i := range x {
+			x[i] = float32(r.NormFloat64())
+		}
+		o := make([]float32, out)
+		for _, w := range []int{1, 4} {
+			old := linearWorkers
+			linearWorkers = w
+			linearQ5Into(o, x, raw, nil, in, out)
+			st := time.Now()
+			n := 50
+			for i := 0; i < n; i++ {
+				linearQ5Into(o, x, raw, nil, in, out)
+			}
+			d := time.Since(st).Seconds() / float64(n)
+			linearWorkers = old
+			t.Logf("Q5 %dx%d workers=%d %.3f ms %.1f GB/s %.2f Gelem/s", out, in, w, d*1e3, float64(len(raw))/d/1e9, float64(out*in)/d/1e9)
+		}
+	}
+	// plain streaming read bandwidth, 4 goroutines over 64 MB
+	buf := make([]float32, 16<<20)
+	for i := range buf {
+		buf[i] = 1
+	}
+	for _, w := range []int{1, 4} {
+		st := time.Now()
+		n := 20
+		for k := 0; k < n; k++ {
+			var wg sync.WaitGroup
+			chunk := len(buf) / w
+			for j := 0; j < w; j++ {
+				wg.Add(1)
+				go func(s []float32) { defer wg.Done(); _ = simdrt.Sdot(s, s) }(buf[j*chunk : (j+1)*chunk])
+			}
+			wg.Wait()
+		}
+		d := time.Since(st).Seconds() / float64(n)
+		t.Logf("stream read workers=%d %.1f GB/s", w, float64(len(buf)*4)/d/1e9)
+	}
+}

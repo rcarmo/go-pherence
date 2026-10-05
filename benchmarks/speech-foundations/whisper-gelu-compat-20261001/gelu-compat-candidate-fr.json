@@ -1,0 +1,235 @@
+{
+  "schema": 1,
+  "EncoderStats": {
+    "Frames": 3000,
+    "Rows": 1500,
+    "Width": 1280,
+    "Layers": 32,
+    "Plans": 34,
+    "Stages": 390,
+    "WeightBytes": 1184890880,
+    "ScratchBytes": 93696000
+  },
+  "ModelLoadAllocatedBytes": 5001048200,
+  "PreparationAllocatedBytes": 289372856,
+  "Backend": "vulkan-original-q5-padded-keyextent",
+  "Language": "fr",
+  "VAD": false,
+  "WordTimestamps": false,
+  "VADPreserveWindowGaps": false,
+  "EncoderGELUDiagnosticSHA256": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+  "DecoderParallelRows": true,
+  "DecoderProjectionWorkers": 4,
+  "ModelPin": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+  "InputPin": "c020385c63e11800616da78f282796b343852009e3d6c583c9f22bd0a1cf938a",
+  "ModelLoadSeconds": 2.8653429580000003,
+  "PreparationSeconds": 0.892213392,
+  "CleanupSeconds": 0.005464639,
+  "FullArmSeconds": 32.308441837,
+  "InputSamples": 60074,
+  "CPUThreads": 4,
+  "Precision": "Diagnostic original GGML Vulkan encoder GELU expression + padded256keys/decode4; decoder and KV storage unchanged",
+  "GoMemoryLimit": "4GiB",
+  "Samples": [
+    {
+      "index": 0,
+      "request_seconds": 5.76138219,
+      "AllocatedBytes": 162682888,
+      "Allocations": 27886,
+      "DecoderSelfSeconds": 0.04499268,
+      "DecoderCrossSeconds": 0.085631719,
+      "DecoderMLPSeconds": 0.087448192,
+      "DecoderHeadSeconds": 0.080187218,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "request_seconds": 5.719990317,
+      "AllocatedBytes": 160980720,
+      "Allocations": 27717,
+      "DecoderSelfSeconds": 0.04618839,
+      "DecoderCrossSeconds": 0.088623574,
+      "DecoderMLPSeconds": 0.087366222,
+      "DecoderHeadSeconds": 0.07614658,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "request_seconds": 5.686001506,
+      "AllocatedBytes": 160991960,
+      "Allocations": 27710,
+      "DecoderSelfSeconds": 0.045142262,
+      "DecoderCrossSeconds": 0.085931978,
+      "DecoderMLPSeconds": 0.084636427,
+      "DecoderHeadSeconds": 0.075729159,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "request_seconds": 5.680707156,
+      "AllocatedBytes": 160976808,
+      "Allocations": 27672,
+      "DecoderSelfSeconds": 0.046360282,
+      "DecoderCrossSeconds": 0.087256961,
+      "DecoderMLPSeconds": 0.086590005,
+      "DecoderHeadSeconds": 0.077424739,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "request_seconds": 5.696488541,
+      "AllocatedBytes": 160979288,
+      "Allocations": 27678,
+      "DecoderSelfSeconds": 0.046004514,
+      "DecoderCrossSeconds": 0.087516231,
+      "DecoderMLPSeconds": 0.087536287,
+      "DecoderHeadSeconds": 0.079180856,
+      "windows": [
+        {
+          "Window": {
+            "Index": 0,
+            "Start": 0,
+            "End": 60074,
+            "EmitStart": 0,
+            "EmitEnd": 60074,
+            "InputSamples": 480000,
+            "PadSamples": 419926
+          },
+          "Segments": [
+            {
+              "Start": 0,
+              "End": 2.42,
+              "Text": "Je souhaite changer mon adresse.",
+              "Tokens": [
+                2588,
+                45214,
+                642,
+                22822,
+                1108,
+                614,
+                22603,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

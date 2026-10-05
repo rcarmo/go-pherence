@@ -1,0 +1,121 @@
+{
+  "pairs": {
+    "jfk": {
+      "baselineBackend": "vulkan-original-q5-padded-keyextent",
+      "candidateGELU": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "baselineGELU": "",
+      "baselineMedian": 6.133209706,
+      "candidateMedian": 6.123405575,
+      "changePct": -0.16,
+      "baselineStable": true,
+      "candidateStable": true,
+      "candidateEqualsBaseline": true,
+      "candidateEqualsPaddedRef": true,
+      "stats": true,
+      "n": [
+        5,
+        5
+      ]
+    },
+    "pt": {
+      "baselineBackend": "vulkan-original-q5-padded-keyextent",
+      "candidateGELU": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "baselineGELU": "",
+      "baselineMedian": 6.102532257,
+      "candidateMedian": 6.096187281,
+      "changePct": -0.104,
+      "baselineStable": true,
+      "candidateStable": true,
+      "candidateEqualsBaseline": true,
+      "candidateEqualsPaddedRef": true,
+      "stats": true,
+      "n": [
+        5,
+        5
+      ]
+    },
+    "fr": {
+      "baselineBackend": "vulkan-original-q5-padded-keyextent",
+      "candidateGELU": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "baselineGELU": "",
+      "baselineMedian": 5.691125169,
+      "candidateMedian": 5.696488541,
+      "changePct": 0.094,
+      "baselineStable": true,
+      "candidateStable": true,
+      "candidateEqualsBaseline": true,
+      "candidateEqualsPaddedRef": true,
+      "stats": true,
+      "n": [
+        5,
+        5
+      ]
+    },
+    "jfk-vadwords": {
+      "baselineBackend": "vulkan-original-q5-padded-keyextent",
+      "candidateGELU": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "baselineGELU": "",
+      "baselineMedian": 6.872970003,
+      "candidateMedian": 6.84841511,
+      "changePct": -0.357,
+      "baselineStable": true,
+      "candidateStable": true,
+      "candidateEqualsBaseline": true,
+      "candidateEqualsPaddedRef": true,
+      "stats": true,
+      "n": [
+        5,
+        5
+      ]
+    },
+    "groups": {
+      "baselineBackend": "vulkan-original-q5-padded-keyextent",
+      "candidateGELU": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "baselineGELU": "",
+      "baselineMedian": 13.856337131,
+      "candidateMedian": 13.836571592,
+      "changePct": -0.143,
+      "baselineStable": true,
+      "candidateStable": true,
+      "candidateEqualsBaseline": true,
+      "candidateEqualsPaddedRef": true,
+      "stats": true,
+      "n": [
+        5,
+        5
+      ]
+    }
+  },
+  "expanded": {
+    "pt1": {
+      "gelu": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "n": 5,
+      "stable": true,
+      "equalsPaddedErf": true
+    },
+    "pt2": {
+      "gelu": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "n": 5,
+      "stable": true,
+      "equalsPaddedErf": true
+    },
+    "podcast": {
+      "gelu": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "n": 5,
+      "stable": true,
+      "equalsPaddedErf": true
+    },
+    "podcast-vadwords": {
+      "gelu": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "n": 5,
+      "stable": true,
+      "equalsPaddedErf": true
+    },
+    "silence": {
+      "gelu": "08021761b53dcabe0a786adfb6c375787dcf895101d87c57d75d418aa074e340",
+      "n": 5,
+      "stable": true,
+      "equalsPaddedErf": true
+    }
+  }
+}
