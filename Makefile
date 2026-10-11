@@ -21,6 +21,10 @@ GO_PHERENCE_RUN_PURPOSE ?= make
 GO_PHERENCE_RUN_ID := $(if $(GO_PHERENCE_RUN_ID),$(GO_PHERENCE_RUN_ID),$(shell /bin/date -u +%Y%m%dT%H%M%S)-$(shell echo $$$$))
 export GO_PHERENCE_RUN_PURPOSE GO_PHERENCE_RUN_ID
 # Every recipe and its subprocesses inherit checked project cache/run paths.
+# PROFILE_TESTS=1 enables CPU/heap capture for pre-release tests. Ordinary
+# tests run normally. Analyse/tune, then immediately dispose of raw captures.
+PROFILE_TESTS ?= 0
+export PROFILE_TESTS
 .SHELLFLAGS := -eu -o pipefail -c 'source "$(CURDIR)/scripts/project-env.sh"; eval "$$1"' --
 TMPDIR := $(PROJECT_RUN_ROOT)/$(GO_PHERENCE_RUN_PURPOSE)/$(GO_PHERENCE_RUN_ID)/tmp
 GOTMPDIR := $(PROJECT_RUN_ROOT)/$(GO_PHERENCE_RUN_PURPOSE)/$(GO_PHERENCE_RUN_ID)/go-tmp
@@ -527,6 +531,7 @@ host-vet:
 host-test:
 	GO_PHERENCE_DISABLE_NVIDIA=1 GO_PHERENCE_VULKAN_ALLOW_CPU=0 bash scripts/test-profile.sh -count=1 -timeout=120s ./...
 
+host-check: export PROFILE_TESTS=1
 host-check:
 	$(MAKE) model-layout-check
 	$(MAKE) host-build

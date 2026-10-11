@@ -1,3 +1,17 @@
+<!-- RUI-PROFILE-LIFECYCLE-20261005 -->
+## Current profiling and cleanup rule — supersedes older text below
+
+Rui's explicit rule: **profile and tune during pre-release tests; remove profiling data immediately after analysis/use.** Ordinary development tests do not require profiling on every run. Targeted diagnostic profiling is optional when useful and follows the same disposal rule.
+
+- During pre-release verification, capture CPU and heap/allocation behaviour, analyse hotspots and tune avoidable allocations/repeated work. Compare equivalent workloads without weakening correctness/security/numerical contracts. For Go, inspect CPU, alloc_space and alloc_objects; coverage alone is not profiling.
+- Keep captures and matching artifacts only while the current analysis needs them. Once used, immediately delete raw profiles, traces, matching test binaries, temporary fixtures and disposable logs, including failed/probe artifacts after diagnosis. Retain only concise conclusions and important measurements/limitations. Do not keep indefinite raw archives or copy them into exports/reports/evidence to evade cleanup.
+- Remove all completed disposable cache/build/test/run data promptly. Never delete files still in use: finish or safely pause the owning job and clean at a safe boundary. Preserve source, installed toolchains, durable datasets/checkpoints and intentional release assets. Minimise disk usage; no random exports or redundant snapshots.
+- This rule overrides **every conflicting older paragraph in this file and linked local guidance**, including “profile every test”, “unprofiled tests prohibited”, “retain all raw evidence”, “never delete profiles” and cleanup exclusions based only on an evidence/profiles directory name. Update helper/CI cleanup behaviour accordingly; do not weaken pre-release analysis.
+- Existing no-agent-contact and execution-pause rules remain unchanged. This policy grants no unsolicited coordination or automatic job restart.
+<!-- /RUI-PROFILE-LIFECYCLE-20261005 -->
+
+
+
 # AGENTS.md — go-pherence
 
 Ground rules and conventions for AI agents working on this repository.
@@ -80,7 +94,7 @@ Tests must be repeatable from a clean checkout. A passing local run is evidence 
 - Run determinism-sensitive tests repeatedly (`-count=10` or more) and under `-race` where shared state is involved. Tests must not depend on map iteration, goroutine completion order, host locale, time zone, current working directory outside the package, or ambient environment variables.
 - Scope hardware tests behind explicit environment variables. Record the exact device, driver/runtime, backend, model hash and numerical threshold. A skipped hardware gate is not a pass.
 - For foreign architectures, use `go test -c` with an explicit output path or `go build`; plain `go test` tries to execute the foreign binary and is an invalid cross-build check.
-- Keep benchmark and correctness fixtures separate. Strip or normalise nondeterministic timings from golden files, but preserve raw timing samples in validation evidence when performance is under review.
+- Keep benchmark and correctness fixtures separate. Use raw timing samples only for the current performance analysis, then delete them and keep concise measurements/conclusions. Preserve canonical correctness fixtures.
 
 ### Project caches, builds and isolated scratch
 
@@ -102,14 +116,17 @@ explicit disposable test/log scratch; `runs/<purpose>/<run-id>/` holds isolated
 command/test scratch. Do not use unnamespaced `/tmp`, HOME build caches,
 repository `bin/` or ad-hoc top-level workspace paths.
 
-Every Make recipe sources `scripts/project-env.sh`; Go test recipes use
-`scripts/test-profile.sh` to retain per-package CPU/heap profiles and matching
-binaries under `/workspace/exports/go-pherence-test-profiles/` on this host.
-CI uses `PROFILE_EVIDENCE_ROOT` or its retained `artifacts/` directory, outside
-the disposable project root. No-test packages
-and missing captures are reported, not called a profiling pass. Analyse the
-cumulative CPU/alloc_space/alloc_objects outputs after each invocation; profiles
-alone are not performance acceptance. Cross-compiled `-c` binaries are build-only,
+Every Make recipe sources `scripts/project-env.sh`. Ordinary development tests
+run without mandatory profiling. Pre-release `make host-check` enables
+`PROFILE_TESTS=1`; other pre-release test targets/direct helpers must set it
+explicitly. Go test recipes use `scripts/test-profile.sh` to capture per-package
+CPU/heap profiles and matching binaries under `$PROJECT_RUN_DIR/profiles/`. `PROFILE_EVIDENCE_ROOT` remains a
+compatibility override, restricted to the validated project scratch root.
+Bun preload and Pocket helpers use the same resolver on local and CI hosts.
+No new raw-profile export directories are permitted. No-test packages
+and missing captures are reported, not called a profiling pass. During pre-release work, analyse cumulative CPU/alloc_space/alloc_objects
+outputs after each captured invocation and tune measured costs before acceptance.
+Profiles alone are not performance acceptance. Cross-compiled `-c` binaries are build-only,
 not test evidence. Fuzz/subprocess activity requires separate representative
 profiles. For direct commands and helpers, source `scripts/project-env.sh` first,
 setting `GO_PHERENCE_RUN_PURPOSE` and a unique
@@ -119,10 +136,22 @@ applicable tool caches. Go `t.TempDir`/subprocesses inherit the isolated run
 root; keep their ownership/symlink checks. `make project-paths` prints the
 resolved layout; `make project-tmp-init` initialises owned directories.
 
-Retained profiles, matching test binaries, logs, receipts, datasets and trained
-checkpoints belong under `/workspace/exports/` or durable checkpoint roots,
-not disposable scratch. `clean` must affect only this project's build output;
-cache/run cleanup is manual after checking active users and retaining evidence.
+Rui's final directive on 2026-10-05 requires profiling and tuning during
+pre-release tests, followed by immediate disposal. It does not require
+profiling every development test. Delete raw profiles, matching binaries,
+traces, logs and generated experiment snapshots immediately after analysis/use,
+checking active readers and mappings first. Keep a concise
+useful conclusion in validation notes; do not retain raw captures as permanent
+evidence. Explicit durable trained checkpoints, required datasets, source and
+release artifacts keep their own retention policy. Historical Pocket exports now contain concise conclusions and tiny unresolved
+rounding inputs only. All generated Pocket experiment `.bin` snapshots and
+completed synthetic model exports have been removed. Do not create replacement
+copies of deleted snapshots or replay completed qualification to rebuild an
+archive. Generate only the minimum intermediates strictly needed for a new,
+authorised task under project scratch, and dispose of them after each use.
+Existing training/runtime execution holds remain unchanged.
+`clean` must affect only this project's build output; cache/run cleanup is
+manual and must never delete active or durable data.
 Never delete toolchains, installed dependencies, another project's files or
 model assets as incidental scratch. Existing active paths stay untouched until
 the job completes. Legacy read-only fixture/data paths require explicit
@@ -183,7 +212,7 @@ When working on the Milk-V/K3 board via SSH:
 
 ## Performance and allocation policy
 
-Numerical parity is necessary, but it is not evidence that an implementation is efficient. Treat allocation reduction, peak/retained memory, CPU time and native execution as separate acceptance dimensions. One profiling pass does not close performance work: profile again after each material change, since removing one cost exposes the next.
+During pre-release optimisation, assess numerical parity, allocation/peak memory, CPU time and native execution separately. Re-profile material tuning changes while analysing comparable workloads; ordinary development tests do not require profiling. Delete captures immediately after analysis and retain concise conclusions.
 
 Keep model weights immutable, I/O in loaders, and reusable kernels in backends. Optimize measured costs rather than pursuing a blanket rewrite. Do not trade away ownership, bounded memory, cancellation, transactional failure, numerical fidelity or supported fallbacks to improve a benchmark.
 
@@ -198,7 +227,8 @@ Before editing a hot path, record a reproducible baseline: Git revision and work
 * Use `-memprofilerate=1` for a bounded allocation-attribution run when sampling would miss small churn. Run timing benchmarks and CPU profiles separately at normal profiling settings: exhaustive allocation profiling can dominate execution time. Never use those distorted times as speed evidence.
 * Use escape analysis (`go test -gcflags='-m=2'` on selected packages), execution traces, GC statistics, mutex/block profiles or platform counters when profiles suggest escapes, scheduler delays, synchronization, bandwidth or GC pressure. These diagnostics have overhead; enable them selectively and label the run. Avoid dumping unbounded compiler/profile output into reports.
 * After changes, repeat the same profiles and inspect the new dominant callers. Account for allocations displaced into caches, initialization, model copies, retained capacity or another package. An improved `allocs/op` with larger memory retention or worse latency needs an explicit tradeoff, not a success claim.
-* Preserve commands, benchmark samples and profiles under a bounded workspace evidence directory; summarize results and unresolved costs in `docs/validation/`. Attach requested reports/profile bundles for review. Do not commit huge profile binaries or temporary benchmark/debug code. Missing independent review is a limitation, not implied approval.
+* Keep commands/raw samples/profiles only for the current comparison, then delete them immediately. Retain concise conclusions and important measurements in docs/validation. No raw bundles unless explicitly requested.
+
 
 Typical commands (replace the package, benchmark and output paths with the actual workload):
 

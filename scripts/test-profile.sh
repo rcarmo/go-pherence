@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Per-package profiles and matching binaries; never treat tables as analysis.
+# Ordinary tests run normally; PROFILE_TESTS=1 enables pre-release capture.
+# Analyse and immediately dispose of raw captures, keeping concise conclusions.
 set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 args=() packages=() list_args=()
@@ -17,21 +18,20 @@ while [ "$#" -gt 0 ]; do
  esac
 done
 [ "${#packages[@]}" -gt 0 ] || packages=(.)
-# Portable retained artifacts: workspace exports, or explicit CI artifact root.
-# Evidence never belongs to disposable project cache/build/runs cleanup.
-if [ -n "${PROFILE_EVIDENCE_ROOT:-}" ];then
- root="$PROFILE_EVIDENCE_ROOT"
-elif [ -d /workspace/exports ] && [ -w /workspace/exports ];then
- root="/workspace/exports/go-pherence-test-profiles/$GO_PHERENCE_RUN_ID"
-elif [ -n "${GITHUB_WORKSPACE:-}" ];then
- root="$GITHUB_WORKSPACE/artifacts/go-pherence-test-profiles/$GO_PHERENCE_RUN_ID"
-else
- root="$PWD/artifacts/go-pherence-test-profiles/$GO_PHERENCE_RUN_ID"
-fi
-case "$root" in /*) ;; *) echo 'Profiles require absolute retained artifact path' >&2;exit 2;; esac
-case "$root" in "$PROJECT_TMP_ROOT"|"$PROJECT_TMP_ROOT"/*) echo 'Retained profiles cannot be under disposable root' >&2;exit 2;; esac
+# Raw capture lives only in project-owned scratch until engineering analysis.
+# Afterwards dispose of profiles/binaries/traces/logs, keeping a concise result.
+# PROFILE_EVIDENCE_ROOT remains a compatibility override within this root.
+root="${PROFILE_EVIDENCE_ROOT:-$PROJECT_RUN_DIR/profiles}"
+case "$root" in "$PROJECT_TMP_ROOT"/*) ;; *) echo 'Profile scratch must be inside PROJECT_TMP_ROOT' >&2;exit 2;; esac
 [ ! -L "$root" ] || { echo 'Symlink profile root rejected' >&2;exit 2; }
 mkdir -p "$root"
+root=$(cd -- "$root" && pwd -P)
+project_root=$(cd -- "$PROJECT_TMP_ROOT" && pwd -P)
+case "$root" in "$project_root"/*) ;; *) echo 'Profile scratch escapes project root' >&2;exit 2;; esac
+export PROFILE_EVIDENCE_ROOT="$root"
+if [ "${PROFILE_TESTS:-0}" != 1 ];then
+ exec go test "${args[@]}" "${packages[@]}"
+fi
 # Unique invocation subdirectory permits several Make recipes/packages safely.
 invocation=$(mktemp -d "$root/invocation-XXXXXXXX")
 {
@@ -50,7 +50,7 @@ while read -r package kind; do
  code=$?
  set -e
  printf '%s\n' "$code" > "$dir/status.txt"
- # Execution has finished; retain the matching binary once, rather than
+ # Execution has finished; keep the matching binary until analysis, rather than
  # leaving a second disposable copy in every per-package run directory.
  [ ! -f "$binary" ] || mv "$binary" "$dir/package-test"
  cat "$dir/run.log"
@@ -63,5 +63,5 @@ while read -r package kind; do
  fi
  [ "$code" = 0 ] || status="$code"
 done < "$invocation/packages.txt"
-printf 'Retained test evidence: %s\n' "$invocation"
+printf 'Test profile scratch (dispose after analysis): %s\n' "$invocation"
 exit "$status"

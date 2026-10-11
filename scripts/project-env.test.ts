@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, symlinkSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -54,6 +54,30 @@ test("Make command-line override is checked and root propagates to recipes",()=>
  expect(baseCall(`PROJECT_TMP_BASE=${dir}`,`PROJECT_TMP_ROOT=${root}`).exitCode).toBe(0);
  expect(baseCall(`PROJECT_TMP_BASE=${dir}`,`PROJECT_TMP_ROOT=${dir}/different/go-pherence`).exitCode).not.toBe(0);
  expect(baseCall("PROJECT_TMP_BASE=relative").exitCode).not.toBe(0);
+}));
+
+test("test wrapper uses project scratch, profiling is a pre-release opt-in",()=>fixture(dir=>{
+ const root=join(dir,"go-pherence");mkdirSync(root);
+ const bin=join(dir,"bin");mkdirSync(bin);
+ // Mock the Go CLI: this test checks routing/flags, not generated profiles.
+ writeFileSync(join(bin,"go"),`#!/bin/bash
+ case "$1" in
+ version) echo 'go mock';;
+ list) echo 'example.test/package tests';;
+ tool) echo 'mock cumulative profile table';;
+ test)
+  printf 'go arguments:';printf ' %s' "$@";printf '\\n'
+  for arg in "$@";do case "$arg" in -cpuprofile=*|-memprofile=*) touch "\${arg#*=}";; esac;done
+  while [ "$#" -gt 0 ];do if [ "$1" = -o ];then touch "$2";break;fi;shift;done;;
+ esac
+ `,{mode:0o700});
+ const wrapper=join(repo,"scripts/test-profile.sh");
+ const call=(profile:string,output:string)=>invoke(`bash '${wrapper}' ./fixture`,{PROJECT_TMP_ROOT:root,GO_PHERENCE_RUN_PURPOSE:"profile-fixture",GO_PHERENCE_RUN_ID:"one",PROFILE_TESTS:profile,PROFILE_EVIDENCE_ROOT:output,PATH:bin+":"+process.env.PATH});
+ const raw=join(root,"runs/profile-fixture/one/profiles");
+ const ordinary=call("0",raw);expect(ordinary.exitCode,ordinary.stderr.toString()).toBe(0);expect(ordinary.stdout.toString()).not.toContain("-cpuprofile=");expect(readdirSync(raw)).toEqual([]);
+ const profiled=call("1",raw);expect(profiled.exitCode,profiled.stderr.toString()).toBe(0);expect(profiled.stdout.toString()).toContain("-cpuprofile=");expect(readdirSync(raw).some(x=>x.startsWith("invocation-"))).toBe(true);
+ expect(call("1",join(dir,"outside")).exitCode).not.toBe(0);
+ const link=join(root,"escape");symlinkSync(dir,link);expect(call("1",link+"/profiles").exitCode).not.toBe(0);
 }));
 
 test("explicit BASE/ROOT agreement, original temp snapshot never nests",()=>fixture(dir=>{

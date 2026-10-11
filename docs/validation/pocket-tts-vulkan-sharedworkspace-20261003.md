@@ -1,5 +1,13 @@
 # Vulkan sharedworkspace integration
 
+## Profiling lifecycle and disposal — 5 October 2026
+
+Rui's current rule requires profiling and tuning during pre-release checks, followed by immediate removal of raw captures. Ordinary development tests do not require profiling. `make host-check` enables `PROFILE_TESTS=1`; other pre-release test commands must set it explicitly. CPU/heap profiles, matching binaries, traces, logs and experimental snapshots belong under the validated project run directory until analysis. Keep concise conclusions afterwards.
+
+Completed Pocket snapshots, synthetic exports and raw captures cited below have been disposed of, including all generated `.model.bin` files. Historical measurements remain; those paths are no longer reusable checkpoints or evidence archives. Do not recreate deleted snapshots as replacement copies. A new authorised task may generate only its strictly necessary intermediates in project scratch, then dispose of them after use; existing execution holds remain unchanged. Source, downloaded model assets and unrelated durable data were preserved. Five tiny unresolved GELU/MPFR inputs and reference files remain alongside concise notes.
+
+Lifecycle verification: ordinary and profiled portable-environment tests each pass six cases / 39 assertions. Ordinary RSS tests and ten profiled repetitions pass. The short RSS run yields no CPU samples; allocations are profiling/test overhead and establish no timing result. Bun captures 306 CPU samples and JSC live-heap snapshots, which do not measure cumulative allocations. A representative OmniVoice child captures 250ms CPU and about 3.4MiB allocation; its parent suite and host build pass. Raw verification captures are removed immediately after analysis.
+
 The released shared-workspace runner now passes independent CPU parameter and EMA comparison, checkpoint, fresh resume, EMA export and recurrent inference gates for the 14-frame synthetic row. Grouped later gradients also pass an actual 32-frame update below the unchanged 2GiB native and 6GiB RSS limits. The earlier 1,293-outlier result below is superseded by corrected arithmetic. CLI host admission, joint-maximum numerical acceptance, efficiency against CPU, listening and Samantha adaptation are unfinished. Current staged joint-maximum native execution completes within resource caps but rejects two parameters at the unchanged 4e-6 gate; see the current-source status below.
 
 ## Allocation and grouped execution — 5 October 2026

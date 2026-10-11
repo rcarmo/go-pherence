@@ -3,12 +3,20 @@
 // as cumulative allocation evidence. Spawned children need separate capture.
 import { afterAll } from "bun:test";
 import { Session } from "node:inspector";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { heapStats } from "bun:jsc";
 
-const root = process.env.PROFILE_EVIDENCE_ROOT || (process.env.GITHUB_WORKSPACE ? join(process.env.GITHUB_WORKSPACE,"artifacts/go-pherence-bun-profiles") : "/workspace/exports/go-pherence-bun-profiles");
-if (!root.startsWith("/") || (process.env.PROJECT_TMP_ROOT && (root === process.env.PROJECT_TMP_ROOT || root.startsWith(process.env.PROJECT_TMP_ROOT+"/")))) throw new Error("Bun profiles need an absolute retained artifact directory outside disposable root");
+// Use the same portable resolver even when invoked directly by bun test.
+const env = spawnSync("bash", ["-c", 'source "$1"; printf "%s\\n%s\\n" "$PROJECT_TMP_ROOT" "$PROJECT_RUN_DIR"', "profile-env", join(import.meta.dir,"project-env.sh")], { env: process.env, encoding:"utf8" });
+if (env.status !== 0) throw new Error(`Project profile environment: ${env.stderr}`);
+const [projectRoot,runDir] = env.stdout.trim().split("\n");
+const root = resolve(process.env.PROFILE_EVIDENCE_ROOT || join(runDir,"profiles"));
+if (!root.startsWith(projectRoot+"/")) throw new Error("Bun profile scratch must be inside PROJECT_TMP_ROOT");
+mkdirSync(root,{recursive:true});
+if (!realpathSync(root).startsWith(realpathSync(projectRoot)+"/")) throw new Error("Bun profile scratch escapes project root");
+if (process.env.PROFILE_TESTS === "1") {
 const dir=join(root,`bun-${Date.now()}-${process.pid}`);
 mkdirSync(dir,{recursive:true});
 const session=new Session();session.connect();
@@ -21,5 +29,6 @@ afterAll(async()=>{
  writeFileSync(join(dir,"heap-after.json"),JSON.stringify(heapStats()));
  writeFileSync(join(dir,"heap.heapsnapshot"),JSON.stringify(Bun.generateHeapSnapshot()));
  writeFileSync(join(dir,"capture.txt"),`Bun ${Bun.version}; cwd=${resolve(".")}; argv=${JSON.stringify(process.argv)}\nCPU samples + JSC live heap. Not cumulative allocations; subprocess activity unprofiled. Engineering analysis required.\n`);
- console.log(`Retained Bun test evidence: ${dir}`);
+ console.log(`Bun profile scratch (dispose after analysis): ${dir}`);
 });
+}

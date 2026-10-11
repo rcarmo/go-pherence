@@ -2,16 +2,25 @@
 set -eu
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/project-env.sh"
 # Never replay the preserved completed series implicitly.
-root="${1:?Provide a new retained timing evidence directory under /workspace/exports}"
-case "$root" in /workspace/exports/*) ;; *) echo 'Invalid retained evidence path' >&2; exit 1;; esac
+root="${1:-$PROJECT_RUN_DIR/timing}"
+case "$root" in "$PROJECT_RUN_DIR"/*) ;; *) echo 'Timing scratch must be under PROJECT_RUN_DIR' >&2; exit 1;; esac
+: "${POCKET_TIMING_BEFORE_BINARY:?Build/provide the original binary; completed raw exports have been disposed}"
+: "${POCKET_TIMING_AFTER_BINARY:?Build/provide the changed binary}"
+for binary in "$POCKET_TIMING_BEFORE_BINARY" "$POCKET_TIMING_AFTER_BINARY";do
+ case "$binary" in "$PROJECT_TMP_ROOT"/*) ;; *) echo 'Timing binaries must be inside PROJECT_TMP_ROOT' >&2;exit 1;;esac
+ test -x "$binary"
+done
 mkdir "$root"
+root=$(cd -- "$root" && pwd -P)
+run_root=$(cd -- "$PROJECT_RUN_DIR" && pwd -P)
+case "$root" in "$run_root"/*) ;; *) echo 'Timing scratch escapes run directory' >&2; exit 1;; esac
 export GOENV=off GOFLAGS= GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOMAXPROCS=2 GO_PHERENCE_DISABLE_NVIDIA=1
 export VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json GO_PHERENCE_POCKETTTS_VOICE_MODEL=/workspace/checkpoints/pocket-tts/languages/english/model.safetensors GO_PHERENCE_POCKET_SHARED_CORPUS=/workspace/exports/pocket-native-qualification-20261003/cpu-command/prepared.json GO_PHERENCE_POCKET_SHARED_CPU_RUN=/workspace/exports/pocket-native-qualification-20261003/cpu-command/run/step-1-634d03efd7bb7df3.run.json GO_PHERENCE_POCKET_SHARED_FULL_CPU=/workspace/exports/pocket-native-qualification-20261003/cpu-command/run/step-1-634d03efd7bb7df3.model.bin GO_PHERENCE_POCKET_RELEASED_INTEGRATED_NATIVE=1
-cd /workspace/projects/go-pherence/model/pockettts
+cd "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/model/pockettts"
 for index in 1 2 3 4 5;do
  for version in before after;do
   dir="$root/$version-$index";mkdir "$dir"
-  if [ "$version" = before ];then binary=/workspace/exports/pocket-allocation-fix-20261004/integrated-native-peaks/pocket-test;else binary=/workspace/exports/pocket-allocation-fix-20261004/integrated-finite-scan/pocket-test;fi
+  if [ "$version" = before ];then binary="$POCKET_TIMING_BEFORE_BINARY";else binary="$POCKET_TIMING_AFTER_BINARY";fi
   export GO_PHERENCE_POCKET_RELEASED_INTEGRATED_OUTPUT="$dir"
   nvidia-smi > "$dir/idle.txt";nvidia-smi --query-gpu=uuid,driver_version,memory.used,utilization.gpu --format=csv > "$dir/idle.csv"
   grep -q 'No running processes found' "$dir/idle.txt";grep -q 'GPU-cb9db783-7465-139d-900c-bc8d6b6ced7c, 610.57.04, 33 MiB, 0 %' "$dir/idle.csv"
